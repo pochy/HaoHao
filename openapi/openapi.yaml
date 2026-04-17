@@ -124,6 +124,7 @@ components:
       type: object
   securitySchemes:
     cookieAuth:
+      description: Browser session cookie authentication
       in: cookie
       name: SESSION_ID
       type: apiKey
@@ -219,6 +220,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - cookieAuth: []
       summary: Get browser session bootstrap state
       tags:
         - session

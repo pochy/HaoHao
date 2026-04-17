@@ -26,4 +26,12 @@ export const getHealth = <ThrowOnError extends boolean = false>(options?: Option
 /**
  * Get browser session bootstrap state
  */
-export const getSession = <ThrowOnError extends boolean = false>(options?: Options<GetSessionData, ThrowOnError>) => (options?.client ?? client).get<GetSessionResponses, GetSessionErrors, ThrowOnError>({ url: '/api/v1/session', ...options });
+export const getSession = <ThrowOnError extends boolean = false>(options?: Options<GetSessionData, ThrowOnError>) => (options?.client ?? client).get<GetSessionResponses, GetSessionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/session',
+    ...options
+});

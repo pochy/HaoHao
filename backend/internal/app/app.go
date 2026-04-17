@@ -39,9 +39,10 @@ func New(cfg config.Config) (*Application, error) {
 	}
 	humaConfig.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
 		"cookieAuth": {
-			Type: "apiKey",
-			In:   "cookie",
-			Name: cfg.SessionCookieName,
+			Type:        "apiKey",
+			Description: "Browser session cookie authentication",
+			In:          "cookie",
+			Name:        cfg.SessionCookieName,
 		},
 		"csrfHeader": {
 			Type: "apiKey",

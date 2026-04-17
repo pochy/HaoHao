@@ -29,6 +29,9 @@ func RegisterSession(api huma.API, cfg config.Config, sessions *service.SessionS
 		Path:        "/api/v1/session",
 		Summary:     "Get browser session bootstrap state",
 		Tags:        []string{"session"},
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
 	}, func(ctx context.Context, input *struct{}) (*SessionOutput, error) {
 		_ = input
 
