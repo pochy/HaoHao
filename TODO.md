@@ -2,6 +2,18 @@
 
 このファイルは、現在の最小骨格から次に進める作業を整理するためのメモです。
 
+## GitHub 運用整備（実施済み）
+
+- `Issue 1-1` から `Issue 5-6` までを GitHub Issue `#1`-`#24` として起票済み
+- label を運用用に整理済み（`priority:*`, `area:*`, `track:phase-*`, `dependencies`）
+- milestone を整備済み
+  - フェーズ管理: `M1`-`M5`
+  - リリース管理: `v0.1 Foundation`, `v0.2 Auth`, `v0.3 First Feature`
+- GitHub Project `HaoHao Roadmap TODO 1-5` を作成し、`#1`-`#24` を追加済み
+- Project custom field `Priority`, `Area`, `Risk`, `Target Release` を作成済み
+- `.github/ISSUE_TEMPLATE/`, `.github/pull_request_template.md`, `.github/CODEOWNERS`, `.github/SECURITY.md` を追加済み
+- `main` の branch protection を設定済み（PR 必須、Code Owner review 必須、force push 禁止、`ci-codeql` 必須）
+
 ## 次に進む場所
 
 今の skeleton から着手するなら、まずは次を優先します。

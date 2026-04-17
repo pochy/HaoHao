@@ -353,6 +353,31 @@ make compose-down
 
 `make build-frontend` は `frontend` の build を `backend/web/dist/` に出力します。backend はこの成果物を embed して配信できる前提です。
 
+## GitHub 運用
+
+この repo では、設計ドキュメントと実装差分だけでなく、Issue/PR 運用も同じ粒度で管理します。
+
+- Issue は `TODO.md` の起票テンプレートを基準に作成する
+- フェーズ進行は milestone `M1`-`M5` で管理する
+- リリース進行は milestone `v0.1 Foundation`, `v0.2 Auth`, `v0.3 First Feature` で管理する
+- GitHub Project `HaoHao Roadmap TODO 1-5` で横断管理する
+- Project のカスタムフィールド `Priority`, `Area`, `Risk`, `Target Release` を使う
+- PR は `.github/pull_request_template.md` を必須テンプレートとして使う
+- Issue は `.github/ISSUE_TEMPLATE/` の form から起票する
+- レビュー責務は `.github/CODEOWNERS` に従う
+
+## ブランチ保護ルール
+
+`main` には次を適用する前提です。
+
+- Pull Request 経由でのみマージする
+- Code Owner review を必須にする
+- 1 件以上の Approve を必須にする
+- stale review を自動 dismiss する
+- 会話解決（conversation resolution）を必須にする
+- force push と branch 削除を禁止する
+- required status check として `ci-codeql` を通す
+
 ## 実装メモ
 
 ### backend
