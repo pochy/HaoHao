@@ -23,6 +23,12 @@ jobs:
     env:
       PROJECTS_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # actions/labeler may call git; ensure .git exists in workspace.
+          fetch-depth: 1
+
       - name: Apply labels from changed paths
         uses: actions/labeler@v5
         with:
