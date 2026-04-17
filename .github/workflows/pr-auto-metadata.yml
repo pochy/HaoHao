@@ -37,6 +37,7 @@ jobs:
       - name: Configure assignee and milestone
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           DEFAULT_ASSIGNEE: pochy
           DEFAULT_MILESTONE: v0.1 Foundation
@@ -44,16 +45,17 @@ jobs:
           set -euo pipefail
 
           if [ -n "${DEFAULT_ASSIGNEE}" ]; then
-            gh pr edit "${PR_NUMBER}" --add-assignee "${DEFAULT_ASSIGNEE}"
+            gh pr edit "${PR_NUMBER}" --repo "${GH_REPO}" --add-assignee "${DEFAULT_ASSIGNEE}"
           fi
 
           if [ -n "${DEFAULT_MILESTONE}" ]; then
-            gh pr edit "${PR_NUMBER}" --milestone "${DEFAULT_MILESTONE}"
+            gh pr edit "${PR_NUMBER}" --repo "${GH_REPO}" --milestone "${DEFAULT_MILESTONE}"
           fi
 
       - name: Add priority and track labels from metadata
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
@@ -86,18 +88,18 @@ jobs:
             TRACK_LABEL="track:phase-5"
           fi
 
-          EXISTING_LABELS="$(gh pr view "${PR_NUMBER}" --json labels --jq '.labels[].name')"
+          EXISTING_LABELS="$(gh pr view "${PR_NUMBER}" --repo "${GH_REPO}" --json labels --jq '.labels[].name')"
 
           # Keep labels idempotent by removing previous class labels first.
           while IFS= read -r label; do
             if [[ "${label}" == priority:* ]] || [[ "${label}" == track:phase-* ]]; then
-              gh pr edit "${PR_NUMBER}" --remove-label "${label}"
+              gh pr edit "${PR_NUMBER}" --repo "${GH_REPO}" --remove-label "${label}"
             fi
           done <<< "${EXISTING_LABELS}"
 
-          gh pr edit "${PR_NUMBER}" --add-label "${PRIORITY_LABEL}"
+          gh pr edit "${PR_NUMBER}" --repo "${GH_REPO}" --add-label "${PRIORITY_LABEL}"
           if [ -n "${TRACK_LABEL}" ]; then
-            gh pr edit "${PR_NUMBER}" --add-label "${TRACK_LABEL}"
+            gh pr edit "${PR_NUMBER}" --repo "${GH_REPO}" --add-label "${TRACK_LABEL}"
           fi
 
       - name: Add PR to project
