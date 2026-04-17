@@ -1,0 +1,47 @@
+# Auto labels based on changed paths.
+area:api-backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "backend/**"
+          - "api/**"
+
+area:frontend:
+  - changed-files:
+      - any-glob-to-any-file: "frontend/**"
+
+area:openapi-contract:
+  - changed-files:
+      - any-glob-to-any-file: "openapi/**"
+
+area:database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "backend/db/**"
+          - "db/**"
+          - "**/*.sql"
+          - "**/migrations/**"
+
+area:ci-tooling:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - "Makefile"
+          - "**/Dockerfile"
+          - "**/*.mk"
+
+area:documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/package-lock.json"
+          - "**/yarn.lock"
+          - "**/pnpm-lock.yaml"
+          - "**/go.mod"
+          - "**/go.sum"
+          - "**/requirements*.txt"
+          - "**/poetry.lock"

@@ -22,6 +22,21 @@
 - `sqlc` 設定と生成済み Go コードを追加
 - PostgreSQL / Redis の compose 起動定義を追加
 - backend の最小テストを追加
+- GitHub Issues の起票基盤として `TODO.md` のテンプレートから `#1`-`#24` を作成
+- Issue 管理用の label を追加（`priority:*`, `area:*`, `track:phase-*`, `dependencies`）
+- 5 フェーズ管理の milestone を追加（`M1`-`M5`）
+- リリース軸の milestone を追加（`v0.1 Foundation`, `v0.2 Auth`, `v0.3 First Feature`）
+- GitHub Project `HaoHao Roadmap TODO 1-5` を作成し、`#1`-`#24` を追加
+- Project に `Priority`, `Area`, `Risk`, `Target Release` の custom field を追加
+- Issue 作成品質統一のため `.github/ISSUE_TEMPLATE/` に Issue Forms を追加
+- PR 品質統一のため `.github/pull_request_template.md` を追加
+- レビュー責務明確化のため `.github/CODEOWNERS` を追加
+- 脆弱性報告方針として `.github/SECURITY.md` を追加
+- 依存更新自動化のため `.github/dependabot.yml` を追加
+- セキュリティ解析のため `.github/workflows/codeql.yml` を追加
+- `main` ブランチ保護を有効化（PR 必須、Code Owner review 必須、会話解決必須、force push 禁止）
+- GitHub Discussions を有効化
+- Dependabot security updates を有効化
 
 ### Notes
 
@@ -29,4 +44,4 @@
 - session は bootstrap 用の最小応答のみで、Redis 連携は未実装
 - external client 向け API は予約のみ
 - frontend の UI は本番品質ではなく接続確認用
-
+- Project の saved views は GitHub UI での手動作成が必要（CLI からは作成不可）

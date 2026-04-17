@@ -659,6 +659,20 @@ security:
 
 この文書では、生成した OpenAPI artifact と frontend client をコミット対象とする。したがって、**CI で差分検知する**ことは必須。
 
+## GitHub プロジェクト運用方針
+
+設計・実装・運用を同じ単位で追跡するため、GitHub の管理面も明示的に定義する。
+
+- 実装タスクは Issue 化し、`TODO.md` のテンプレートに沿って起票する
+- 実装フェーズは milestone `M1`-`M5` で管理する
+- リリース進行は milestone `v0.1 Foundation`, `v0.2 Auth`, `v0.3 First Feature` を使う
+- 横断管理は GitHub Project で行い、`Priority`, `Area`, `Risk`, `Target Release` を必須フィールドとして扱う
+- ラベルは `priority:*`, `area:*`, `track:phase-*` を基本セットとする
+- PR はテンプレートベースでレビュー観点（契約差分、`make gen`、DB 変更、テスト）を固定する
+- レビュー責務は `CODEOWNERS` で明示し、`main` は branch protection で保護する
+
+この運用により、コード差分だけでなく「どのフェーズの、どの領域を、どのリスクで進めているか」を常に可視化できる。
+
 ## この構成の利点
 
 - OpenAPI 3.1 を現実的に運用しやすい
