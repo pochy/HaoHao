@@ -1,0 +1,60 @@
+name: Bug
+description: 不具合報告
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景
+      description: 不具合が起きた状況を記載してください。
+      placeholder: いつ、どこで、何をしたときに起きたか
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: 現在の挙動
+      description: 実際に起きている挙動を記載してください。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する挙動
+      description: 本来どう動くべきかを記載してください。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 再現手順
+      description: 再現に必要な手順・条件を記載してください。
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: 影響範囲
+      options:
+        - label: backend
+        - label: frontend
+        - label: openapi
+        - label: database
+        - label: ci/tooling
+        - label: docs
+  - type: textarea
+    id: test-plan
+    attributes:
+      label: テスト観点
+      description: 修正後の確認観点を記載してください。
+      placeholder: |
+        - 再現手順で再発しないこと
+        - 関連機能への副作用がないこと
+    validations:
+      required: true

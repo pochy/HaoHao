@@ -1,0 +1,20 @@
+# Global fallback
+* @pochy
+
+# Backend
+/backend/ @pochy
+
+# Frontend
+/frontend/ @pochy
+
+# API contract and generated artifacts
+/openapi/ @pochy
+
+# CI and repository automation
+/.github/workflows/ @pochy
+/.github/dependabot.yml @pochy
+
+# Project documentation
+/README.md @pochy
+/CONCEPT.md @pochy
+/TODO.md @pochy

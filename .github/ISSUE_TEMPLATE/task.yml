@@ -1,0 +1,48 @@
+name: Task
+description: 実装・整備タスク
+title: "[Task] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景
+      description: なぜこのタスクが必要かを記載してください。
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 作業内容
+      description: 具体的な作業項目を記載してください。
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 完了条件
+      description: 完了判定条件を記載してください。
+    validations:
+      required: true
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: 影響範囲
+      options:
+        - label: backend
+        - label: frontend
+        - label: openapi
+        - label: database
+        - label: ci/tooling
+        - label: docs
+  - type: textarea
+    id: test-plan
+    attributes:
+      label: テスト観点
+      description: チェック内容、確認手順を記載してください。
+    validations:
+      required: true

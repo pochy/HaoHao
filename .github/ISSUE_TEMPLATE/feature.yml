@@ -1,0 +1,54 @@
+name: Feature
+description: 新機能・拡張の提案
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景
+      description: 何が課題か、なぜ必要かを記載してください。
+      placeholder: 現状の課題と目的
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 作業内容
+      description: 実装・変更内容を箇条書きで記載してください。
+      placeholder: |
+        - backend ...
+        - frontend ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 完了条件
+      description: 完了と判断する基準を書いてください。
+      placeholder: |
+        - ...
+    validations:
+      required: true
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: 影響範囲
+      options:
+        - label: backend
+        - label: frontend
+        - label: openapi
+        - label: database
+        - label: ci/tooling
+        - label: docs
+  - type: textarea
+    id: test-plan
+    attributes:
+      label: テスト観点
+      description: 確認方法、必要なテスト、smoke check を記載してください。
+      placeholder: |
+        - 自動テスト:
+        - 手動確認:
+    validations:
+      required: true
