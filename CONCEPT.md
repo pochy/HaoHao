@@ -81,21 +81,29 @@ my-enterprise-app/
 │   ├── openapi.yaml
 ├── go.work
 ├── frontend/
+│   ├── public/
 │   ├── src/
-│   │   ├── components/
-│   │   ├── views/
-│   │   ├── composables/
-│   │   ├── stores/
-│   │   └── api/
+│   │   ├── api/
+│   │   │   └── generated/
+│   │   ├── shared/
+│   │   ├── features/
+│   │   └── pages/
 │   ├── vite.config.ts
+│   ├── openapi-ts.config.ts
 │   └── package.json
 ├── backend/
-│   ├── cmd/main.go
+│   ├── cmd/
+│   │   ├── openapi/
+│   │   │   └── main.go
+│   │   └── server/
+│   │       └── main.go
 │   ├── internal/
 │   │   ├── api/
+│   │   │   ├── browser/
+│   │   │   └── external/
+│   │   ├── app/
 │   │   ├── service/
 │   │   ├── db/
-│   │   ├── auth/
 │   │   ├── config/
 │   │   └── middleware/
 │   ├── go.mod
@@ -108,11 +116,6 @@ my-enterprise-app/
 │   ├── queries/
 │   └── schema.sql
 ├── compose.yaml
-├── docker/
-│   └── Dockerfile
-├── scripts/
-│   └── gen.sh
-├── .github/workflows/
 └── Makefile
 ```
 
@@ -121,6 +124,14 @@ my-enterprise-app/
 - `openapi/`: Huma から export した OpenAPI artifact
 - `go.work`: repo root から `./backend` を扱うための Go workspace 定義
 - `frontend/`: Vue アプリ本体
+- `frontend/public/`: favicon など build に乗せる静的アセットの正本
+- `frontend/src/api/`: generated client と runtime config の置き場
+- `frontend/src/shared/`, `features/`, `pages/`: 初期構成の責務分離
+- `backend/cmd/openapi/`: OpenAPI artifact を export する entrypoint
+- `backend/cmd/server/`: backend を起動する entrypoint
+- `backend/internal/api/browser/`: browser 向け BFF API
+- `backend/internal/api/external/`: external client 向け API の予約領域
+- `backend/internal/app/`: router, Huma, docs, static 配信の組み立て
 - `backend/internal/api/`: Huma operation 登録、request / response model、OpenAPI metadata
 - `backend/internal/service/`: 業務ロジック
 - `backend/internal/db/`: `sqlc` 生成コード
@@ -130,7 +141,6 @@ my-enterprise-app/
 - `db/migrations/`: スキーマ変更履歴。DB 変更の正本
 - `db/schema.sql`: migration から再生成した現在スキーマのスナップショット。`sqlc` とレビュー用で、直接編集しない
 - `compose.yaml`: 開発用の依存サービス定義。少なくとも PostgreSQL、必要なら Redis や管理 UI を含める
-- `docker/Dockerfile`: 本番配信用イメージのビルド定義
 
 ### Go workspace 方針
 
