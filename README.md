@@ -17,6 +17,7 @@
 - browser 向け API の最小 BFF 骨格
 - `GET /api/v1/health`
 - `GET /api/v1/session`
+- `GET /external/v1/health`
 - Huma からの OpenAPI 3.1 export
 - raw OpenAPI endpoint (`/openapi.json`, `/openapi.yaml`) と docs placeholder (`/docs`)
 - OpenAPI artifact の commit
@@ -340,6 +341,7 @@ commit 前には少なくとも次を確認します。
 - backend: `http://localhost:8080`
 - health: `http://localhost:8080/api/v1/health`
 - session: `http://localhost:8080/api/v1/session`
+- external health: `http://localhost:8080/external/v1/health`
 - docs built-in route: `http://localhost:8080/docs`
 - OpenAPI Documents: `http://localhost:8080/openapi`
 - OpenAPI JSON: `http://localhost:8080/openapi.json`
@@ -395,6 +397,7 @@ make compose-down
 - OpenAPI docs の目標パス構成は `/docs` built-in route + `/openapi` custom route + `/openapi.json` / `/openapi.yaml`
 - browser API は `/api/v1`
 - external client 向け API は `backend/internal/api/external/` に予約しています
+- external client 向け API は `/external/v1` 配下とし、OpenAPI 上も bearer token 前提で browser API と分離します
 
 ### frontend
 

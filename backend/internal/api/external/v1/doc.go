@@ -1,5 +1,6 @@
+// Package v1 contains external-client API endpoints.
+//
+// These handlers are separated from the browser BFF routes and use bearer-token
+// authentication contracts in OpenAPI. Keep cookie and CSRF concerns out of
+// this package.
 package v1
-
-// Package v1 is reserved for non-browser clients.
-// The external API surface will be added separately from the browser BFF routes.
-

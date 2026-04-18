@@ -59,6 +59,37 @@ components:
           format: uri
           type: string
       type: object
+    ExternalHealthBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - //schemas/ExternalHealthBody.json
+          format: uri
+          readOnly: true
+          type: string
+        service:
+          examples:
+            - haohao-external-api
+          type: string
+        status:
+          examples:
+            - ok
+          type: string
+        time:
+          format: date-time
+          type: string
+        version:
+          examples:
+            - 0.1.0
+          type: string
+      required:
+        - status
+        - service
+        - version
+        - time
+      type: object
     HealthBody:
       additionalProperties: false
       properties:
@@ -123,6 +154,11 @@ components:
         - csrfCookie
       type: object
   securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      description: External client bearer token authentication
+      scheme: bearer
+      type: http
     cookieAuth:
       description: Browser session cookie authentication
       in: cookie
@@ -225,6 +261,27 @@ paths:
       summary: Get browser session bootstrap state
       tags:
         - session
+  /external/v1/health:
+    get:
+      operationId: getExternalHealth
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalHealthBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: Get external API health
+      tags:
+        - external-system
 servers:
   - description: same-origin browser entrypoint
     url: /

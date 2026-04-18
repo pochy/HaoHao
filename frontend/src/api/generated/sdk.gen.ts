@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetHealthData, GetHealthErrors, GetHealthResponses, GetSessionData, GetSessionErrors, GetSessionResponses } from './types.gen';
+import type { GetExternalHealthData, GetExternalHealthErrors, GetExternalHealthResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetSessionData, GetSessionErrors, GetSessionResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -33,5 +33,14 @@ export const getSession = <ThrowOnError extends boolean = false>(options?: Optio
             type: 'apiKey'
         }],
     url: '/api/v1/session',
+    ...options
+});
+
+/**
+ * Get external API health
+ */
+export const getExternalHealth = <ThrowOnError extends boolean = false>(options?: Options<GetExternalHealthData, ThrowOnError>) => (options?.client ?? client).get<GetExternalHealthResponses, GetExternalHealthErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/external/v1/health',
     ...options
 });

@@ -50,6 +50,17 @@ export type ErrorModel = {
     type?: string;
 };
 
+export type ExternalHealthBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    service: string;
+    status: string;
+    time: string;
+    version: string;
+};
+
 export type HealthBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -97,6 +108,13 @@ export type ErrorModelWritable = {
      * A URI reference to human-readable documentation for the error.
      */
     type?: string;
+};
+
+export type ExternalHealthBodyWritable = {
+    service: string;
+    status: string;
+    time: string;
+    version: string;
 };
 
 export type HealthBodyWritable = {
@@ -162,3 +180,28 @@ export type GetSessionResponses = {
 };
 
 export type GetSessionResponse = GetSessionResponses[keyof GetSessionResponses];
+
+export type GetExternalHealthData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/external/v1/health';
+};
+
+export type GetExternalHealthErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetExternalHealthError = GetExternalHealthErrors[keyof GetExternalHealthErrors];
+
+export type GetExternalHealthResponses = {
+    /**
+     * OK
+     */
+    200: ExternalHealthBody;
+};
+
+export type GetExternalHealthResponse = GetExternalHealthResponses[keyof GetExternalHealthResponses];
