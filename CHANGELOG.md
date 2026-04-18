@@ -1,47 +1,65 @@
 # Changelog
 
-このファイルは、repo の主要な構成変更を簡潔に追うための記録です。
+このファイルは repo の主要な変更を時系列で追うための記録です。
+形式は `Keep a Changelog` に寄せ、バージョン運用が始まるまでは日付単位でまとめます。
 
-## Unreleased
+## [Unreleased]
+
+### Changed
+
+- changelog を過去の git 履歴ベースで再構成し、日付ごとに整理
+
+## [2026-04-18]
 
 ### Added
 
-- monorepo の最小骨格を追加
-- root に `go.work`, `Makefile`, `compose.yaml`, `README.md` を追加
-- backend に Go + Gin + Huma の最小構成を追加
-- browser API として `GET /api/v1/health`, `GET /api/v1/session` を追加
-- OpenAPI 3.1 export コマンドを追加
-- `openapi/openapi.yaml` を追加して artifact commit 前提を整備
-- docs / OpenAPI 公開の認可差し込み点として stub middleware を追加
-- frontend に Vue 3 + Vite + TypeScript + Pinia の最小構成を追加
-- generated client の生成設定と生成済み artifact を追加
-- transport wrapper を追加
-- `credentials: 'include'` の既定化と CSRF header 付与 placeholder を追加
-- `shared / features / pages` 構成の最小例を追加
-- db に migration, schema snapshot, queries を追加
-- `sqlc` 設定と生成済み Go コードを追加
-- PostgreSQL / Redis の compose 起動定義を追加
-- backend の最小テストを追加
-- GitHub Issues の起票基盤として `TODO.md` のテンプレートから `#1`-`#24` を作成
-- Issue 管理用の label を追加（`priority:*`, `area:*`, `track:phase-*`, `dependencies`）
-- 5 フェーズ管理の milestone を追加（`M1`-`M5`）
-- リリース軸の milestone を追加（`v0.1 Foundation`, `v0.2 Auth`, `v0.3 First Feature`）
-- GitHub Project `HaoHao Roadmap TODO 1-5` を作成し、`#1`-`#24` を追加
-- Project に `Priority`, `Area`, `Risk`, `Target Release` の custom field を追加
-- Issue 作成品質統一のため `.github/ISSUE_TEMPLATE/` に Issue Forms を追加
-- PR 品質統一のため `.github/pull_request_template.md` を追加
-- レビュー責務明確化のため `.github/CODEOWNERS` を追加
-- 脆弱性報告方針として `.github/SECURITY.md` を追加
-- 依存更新自動化のため `.github/dependabot.yml` を追加
-- セキュリティ解析のため `.github/workflows/codeql.yml` を追加
-- `main` ブランチ保護を有効化（PR 必須、Code Owner review 必須、会話解決必須、force push 禁止）
-- GitHub Discussions を有効化
-- Dependabot security updates を有効化
+- monorepo の最小骨格として `backend`, `frontend`, `openapi`, `db`, `compose.yaml`, `Makefile`, `README.md`, `TODO.md`, `CHANGELOG.md` を追加
+- backend の最小構成として Gin + Huma ベースの server / OpenAPI export / docs auth stub / embed 配信を追加
+- browser API の最小構成として `GET /api/v1/health`, `GET /api/v1/session` と対応する generated client / `sqlc` 生成物を追加
+- frontend の最小構成として Vue 3 + Vite + TypeScript + Pinia、`shared / features / pages`、transport wrapper を追加
+- PostgreSQL / Redis の compose 起動定義、`db/migrations`, `db/schema.sql`, `db/queries`, `backend/sqlc.yaml` を追加
+- GitHub governance / security 基盤として Issue Forms, PR template, CODEOWNERS, SECURITY.md, Dependabot, CodeQL を追加
+- browser / external API の境界ルールを `docs/api-surface-boundary.md` と package comment で明文化
+- browser API の `cookieAuth` 契約と external API の `bearerAuth` 契約を OpenAPI に追加
+- external API の最小 endpoint として `GET /external/v1/health` を追加
+- Zitadel 導入フェーズ、BFF 経由 OIDC 方針、ローカル起動順に関する設計メモを `CONCEPT.md` / `TODO.md` に追加
+- `go.work.sum`, `.cursor/rules/issue-kickoff-workflow.mdc`, `.codex/config.toml`, root の `AGENTS.md` を追加
+- generated artifact guard 用の GitHub Actions workflow、`sqlc vet` 用 CI 設定、schema snapshot guard script を追加
+- OpenAPI lint 用に `@redocly/cli` と `frontend` の `lint:openapi` スクリプトを追加
+
+### Changed
+
+- `CONCEPT.md` にアーキテクチャ図、request flow、開発フロー図を追加
+- OpenAPI docs の配信面に関する記述を `/docs`, `/openapi`, `/openapi.json`, `/openapi.yaml` 前提で整理
+- CodeQL workflow を `workflow_dispatch`, `concurrency`, timeout, Node.js setup, frontend `npm ci/build` を含む構成に更新
+- GitHub project 運用ドキュメントと TODO の issue 参照を整理
+- `actions/setup-go` を v6 に更新
+- `actions/checkout` を v6 に更新
+- `github/codeql-action` を v4 に更新
+- `github.com/jackc/pgx/v5` を `v5.9.1` に更新
+- `vite` を `8.0.8` に更新
+- `Makefile` に `check-generated`, `openapi-lint`, `sqlc-vet` を追加し、生成物と契約の検証入口を統一
+- `README.md` と `CONCEPT.md` に、`sqlc Cloud` を使わずローカル / GitHub Actions のみで artifact drift を検知する方針を追記
+- `compose.yaml` の PostgreSQL volume mount を PostgreSQL 18 向けの `/var/lib/postgresql` に変更
+
+### Removed
+
+- 旧 PR metadata 自動化 workflow `.github/workflows/pr-auto-metadata.yml` を削除
+
+### Security
+
+- 認証付き開発を見据えた CodeQL / governance 基盤を追加し、browser / external API の認証境界を OpenAPI 契約で分離
 
 ### Notes
 
-- 認証は stub であり、Zitadel 本接続は未実装
+- 認証は stub のままで、Zitadel 本接続は未実装
 - session は bootstrap 用の最小応答のみで、Redis 連携は未実装
-- external client 向け API は予約のみ
+- external client 向け API は最小の health endpoint のみ実装済みで、本体機能は未実装
 - frontend の UI は本番品質ではなく接続確認用
-- Project の saved views は GitHub UI での手動作成が必要（CLI からは作成不可）
+- `sqlc Cloud` と `SQLC_AUTH_TOKEN` は標準フローでは使わず、`make check-generated` / `make openapi-lint` / `make sqlc-vet` を基準に運用する
+
+## [2026-04-17]
+
+### Added
+
+- システム全体の設計方針をまとめた `CONCEPT.md` を追加

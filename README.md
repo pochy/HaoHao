@@ -94,6 +94,8 @@ npm --prefix frontend install
 make compose-up
 ```
 
+この PostgreSQL は、`db/schema.sql` を流し込めば後段の `make sqlc-vet` に使えます。`sqlc Cloud` や `SQLC_AUTH_TOKEN` は不要です（方針の詳細は「[CI ガード](#ci-ガード)」）。
+
 ### 3. artifact を生成する
 
 ```bash
@@ -313,6 +315,21 @@ cd backend && go test ./...
 make build-frontend
 ```
 
+9. OpenAPI artifact を lint する
+
+```bash
+make openapi-lint
+```
+
+10. sqlc の query lint を確認する
+
+```bash
+PGPASSWORD=haohao psql -h localhost -p 5432 -U haohao -d haohao -f db/schema.sql
+POSTGRESQL_SERVER_URI=postgresql://haohao:haohao@localhost:5432/haohao?sslmode=disable make sqlc-vet
+```
+
+`make compose-up` 済みなら、上の接続先をそのまま使えます。fresh な DB では先に `db/schema.sql` を流し込んでから `make sqlc-vet` を実行します。ローカルは compose の PostgreSQL、CI は GitHub Actions の service container を使います。
+
 ### commit 前チェック
 
 commit 前には少なくとも次を確認します。
@@ -321,6 +338,9 @@ commit 前には少なくとも次を確認します。
 - `openapi/openapi.yaml` が API 変更を反映している
 - `frontend/src/api/generated/` が更新されている
 - `backend/internal/db/` が query / schema 変更を反映している
+- `make check-generated` が通る
+- `make openapi-lint` が通る
+- `make sqlc-vet` が通る
 - backend のテストが通る
 - frontend が build できる
 
@@ -355,6 +375,9 @@ commit 前には少なくとも次を確認します。
 
 ```bash
 make gen
+make check-generated
+make openapi-lint
+POSTGRESQL_SERVER_URI=postgresql://haohao:haohao@localhost:5432/haohao?sslmode=disable make sqlc-vet
 make backend
 make frontend
 make build-frontend
@@ -363,6 +386,58 @@ make compose-down
 ```
 
 `make build-frontend` は `frontend` の build を `backend/web/dist/` に出力します。backend はこの成果物を embed して配信できる前提です。
+
+`make check-generated` は `make gen` を実行した上で、`openapi/openapi.yaml`, `frontend/src/api/generated/`, `backend/internal/db/` に差分が残っていないことを確認します。
+
+`make sqlc-vet` は `backend/sqlc.ci.yaml` を使って `sqlc/db-prepare` を実行します。`POSTGRESQL_SERVER_URI` には、`db/schema.sql` を流し込み済みの PostgreSQL を渡してください。
+
+## CI ガード
+
+**生成物・契約のドリフト防止**（Issue #4 では external のスモークより、OpenAPI / client / sqlc の整合を CI で落とすことを優先した）。
+
+### Issue #4 での主眼
+
+Issue #4 のうち、ここで優先したのは **external API の存在確認そのものではなく、生成物と契約の更新漏れを CI で落とすこと**です。external 向け endpoint はすでに `main` に入っているため、このターンで追加の価値が大きいのは **OpenAPI / frontend generated client / sqlc 生成物のドリフト防止**だと判断したためです。
+
+### 背景と目的
+
+Huma から OpenAPI を出し、そこから frontend client を生成し、DB 側は `sqlc` でコード生成する構成では、正本と生成物がずれるとレビューでも実行時でも壊れやすくなります。
+
+`sqlc verify` は sqlc Cloud 前提であり、この repo の初期方針としては重いので採用しません。**sqlc Cloud と `SQLC_AUTH_TOKEN` は使わず、ローカル環境と GitHub Actions だけで再現できるチェック**に寄せています。
+
+### 構成（何が追加されたか）
+
+- **Makefile**: `make check-generated`, `make openapi-lint`, `make sqlc-vet` を追加済み（生成物検証・OpenAPI lint・PostgreSQL 18 向け `sqlc vet` の入口）
+- **`.github/workflows/generated-artifacts.yml`**: PR / push で次を実行する
+  - `make check-generated`
+  - OpenAPI lint（`make openapi-lint` と同等の目的）
+  - `db/migrations/` 変更がある場合、`scripts/check-schema-snapshot.sh` により `db/schema.sql` の更新漏れを検知
+  - PostgreSQL 18 の service に `db/schema.sql` を流し込んだうえで `make sqlc-vet`
+- **`backend/sqlc.ci.yaml`**: `POSTGRESQL_SERVER_URI` を受け取る CI 用の `sqlc vet` 設定（ローカル用 `backend/sqlc.yaml` と役割を分離）
+- **`scripts/check-schema-snapshot.sh`**: migration と `db/schema.sql` の整合を検知
+
+### 期待する結果
+
+- API / query / schema を変えたのに `make gen` や `db/schema.sql` を更新し忘れた PR が CI で落ちる
+- OpenAPI artifact が壊れていれば CI で落ちる
+- SQL が PostgreSQL 18 上で成立しなければ CI で落ちる
+- ローカルでも Actions でも、ほぼ同じ Makefile 経由で確認できる
+
+### この変更を確認したコマンド（例）
+
+次まで通過することを確認しています。
+
+- `make check-generated`
+- `make openapi-lint`
+- `POSTGRESQL_SERVER_URI=... make sqlc-vet`（または README 記載の接続先）
+- `cd backend && go test ./...`
+- `make build-frontend`
+
+commit 前の一覧は「[commit 前チェック](#commit-前チェック)」と合わせて使ってください。
+
+### 備考（今回の公式な変更範囲に含めないもの）
+
+`compose.yaml` の PostgreSQL 18 向けボリュームパス修正は、手元では見えていても **今回の「生成物ガード」変更としては正式には含めていません**。ドキュメント上は参考情報としてのみ区別してください。
 
 ## GitHub 運用
 

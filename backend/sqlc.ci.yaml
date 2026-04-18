@@ -1,0 +1,16 @@
+version: "2"
+sql:
+  - engine: postgresql
+    schema: ../db/schema.sql
+    queries: ../db/queries
+    database:
+      uri: ${POSTGRESQL_SERVER_URI}
+    gen:
+      go:
+        package: db
+        out: internal/db
+        sql_package: pgx/v5
+        emit_json_tags: true
+        emit_empty_slices: true
+    rules:
+      - sqlc/db-prepare

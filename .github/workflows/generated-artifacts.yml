@@ -1,0 +1,108 @@
+name: ci-generated-artifacts
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: generated-artifacts-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  generated-artifacts:
+    name: Generated Artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.work
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Regenerate committed artifacts
+        run: make check-generated
+
+      - name: Lint OpenAPI artifact
+        run: make openapi-lint
+
+      - name: Resolve comparison range
+        id: range
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check db/schema.sql snapshot updates
+        run: scripts/check-schema-snapshot.sh "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"
+
+  sqlc-vet:
+    name: sqlc vet
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: haohao
+          POSTGRES_USER: haohao
+          POSTGRES_PASSWORD: haohao
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U haohao -d haohao"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.work
+          cache: true
+
+      - name: Install PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+
+      - name: Load schema snapshot
+        env:
+          PGPASSWORD: haohao
+        run: psql -h localhost -U haohao -d haohao -f db/schema.sql
+
+      - name: Vet SQL queries
+        env:
+          POSTGRESQL_SERVER_URI: postgresql://haohao:haohao@localhost:5432/haohao?sslmode=disable
+        run: make sqlc-vet
