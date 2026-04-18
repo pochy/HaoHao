@@ -14,6 +14,7 @@ import (
 
 	backend "github.com/pochy/haohao/backend"
 	browserv1 "github.com/pochy/haohao/backend/internal/api/browser/v1"
+	externalv1 "github.com/pochy/haohao/backend/internal/api/external/v1"
 	"github.com/pochy/haohao/backend/internal/config"
 	"github.com/pochy/haohao/backend/internal/middleware"
 	"github.com/pochy/haohao/backend/internal/service"
@@ -44,6 +45,12 @@ func New(cfg config.Config) (*Application, error) {
 			In:          "cookie",
 			Name:        cfg.SessionCookieName,
 		},
+		"bearerAuth": {
+			Type:         "http",
+			Description:  "External client bearer token authentication",
+			Scheme:       "bearer",
+			BearerFormat: "JWT",
+		},
 		"csrfHeader": {
 			Type: "apiKey",
 			In:   "header",
@@ -53,6 +60,7 @@ func New(cfg config.Config) (*Application, error) {
 
 	api := humagin.New(router, humaConfig)
 	registerBrowserAPI(api, cfg)
+	registerExternalAPI(api, cfg)
 	registerDocsRoutes(router, api, cfg)
 	registerFrontendRoutes(router)
 
@@ -67,6 +75,10 @@ func registerBrowserAPI(api huma.API, cfg config.Config) {
 
 	browserv1.RegisterHealth(api, cfg)
 	browserv1.RegisterSession(api, cfg, sessions)
+}
+
+func registerExternalAPI(api huma.API, cfg config.Config) {
+	externalv1.RegisterHealth(api, cfg)
 }
 
 func registerDocsRoutes(router *gin.Engine, api huma.API, cfg config.Config) {
@@ -196,4 +208,3 @@ func detectContentType(name string, body []byte) string {
 
 	return http.DetectContentType(bytes.TrimSpace(body))
 }
-
