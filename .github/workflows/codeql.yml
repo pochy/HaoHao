@@ -5,8 +5,13 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
   schedule:
     - cron: "23 2 * * 1"
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   actions: read
@@ -17,6 +22,7 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -30,30 +36,15 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.work
+          cache: true
 
-      - name: Setup Go
-        if: matrix.language == 'go'
-        uses: actions/setup-go@v6
+      - name: Setup Node.js
+        if: matrix.language == 'javascript-typescript'
+        uses: actions/setup-node@v4
         with:
-          go-version-file: go.work
-
-      - name: Setup Go
-        if: matrix.language == 'go'
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.work
-
-      - name: Setup Go
-        if: matrix.language == 'go'
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.work
-
-      - name: Setup Go
-        if: matrix.language == 'go'
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.work
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -64,5 +55,12 @@ jobs:
         if: matrix.language == 'go'
         run: go build ./backend/...
 
+      - name: Install and build frontend
+        if: matrix.language == 'javascript-typescript'
+        working-directory: frontend
+        run: npm ci && npm run build
+
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
