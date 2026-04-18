@@ -31,6 +31,25 @@
 - `/docs`, `/openapi`, `/openapi.json`, `/openapi.yaml` に同じ auth policy を適用する
 - local verification と smoke test に `/openapi` を追加する
 
+## 先に決める: Zitadel 導入フェーズと開発環境
+
+`CONCEPT.md` では認証基盤に Zitadel を採用する前提だが、skeleton の段階ではまだ本接続しない。
+この repo では、導入タイミングとローカル構成を次のように固定する。
+
+- Foundation フェーズでは auth / session / docs auth は stub のまま進める
+- `v0.2 Auth` に着手する直前に、Zitadel を含む開発環境と env var を先に整える
+- auth 本実装の開始条件は「backend が local か共有 dev の Zitadel issuer に接続できること」とする
+- browser 向け login は BFF 経由で Zitadel に redirect し、callback で code exchange して Redis session を発行する
+- browser に access token / refresh token を直接保持させない
+
+開発環境の標準構成も分けて扱う。
+
+- 通常の skeleton 開発: `compose.yaml` は PostgreSQL と Redis のみを起動する
+- auth 実装フェーズ: 上記に加えて local Zitadel か共有 dev Zitadel を使う
+- Zitadel を local で持つ場合は、常時起動ではなく compose profile または別 compose file で opt-in にする
+- auth 実装前に、issuer URL、project、application、redirect URI、logout URI、初期ユーザー / role の投入方法を README か専用メモにまとめる
+- `make compose-up` だけで foundation 作業が詰まらない構成を維持する
+
 ## 次に進む場所
 
 今の skeleton から着手するなら、まずは次を優先します。
@@ -117,12 +136,18 @@
 
 何を決めるか:
 
+- Zitadel を local compose で持つか、共有 dev tenant を使うか決める
+- login を username/password 直受けにしないで、OIDC Authorization Code Flow を BFF 経由で使う方針を固定する
 - login 完了後に何を session に保存するか決める
 - session TTL、refresh 方針、logout 時の失効方針を決める
 - CSRF token をいつ発行し、いつ更新するか決める
 
 何をやるか:
 
+- auth 開発用の Zitadel 起動手順、もしくは接続手順を文書化する
+- issuer URL、client ID、client secret、redirect URI などの設定を `backend/internal/config/` に通す
+- login start / callback / logout callback の導線を追加する
+- Zitadel の `sub` と `db.app_users.zitadel_subject` を対応付ける
 - session store を Redis に接続する
 - `SESSION_ID` cookie の発行・再発行・削除を実装する
 - `XSRF-TOKEN` cookie の発行と `X-CSRF-Token` header の検証を実装する
@@ -137,12 +162,14 @@
 - `backend/internal/middleware/`
 - `backend/internal/api/browser/`
 - `backend/internal/config/`
+- `compose.yaml` または auth 用 compose 定義
 - `frontend/src/shared/lib/http/transport.ts`
 - `frontend/src/features/session/`
 
 完了条件:
 
 - browser から Cookie session で認証状態を維持できる
+- ローカルで Zitadel を使った login から session 発行まで確認できる
 - `POST`, `PUT`, `PATCH`, `DELETE` で CSRF 検証が通る
 - logout で session と cookie が失効する
 
@@ -241,6 +268,7 @@
 
 ## High Priority
 
+- auth フェーズに入る前に、Zitadel の導入タイミングとローカル構成を明文化する
 - Zitadel を使う前提で browser 向け認証フローの境界を決める
 - browser API と external client API の責務と認証方式を分離する
 - Redis を使った session store を実装する
@@ -349,6 +377,8 @@
 
 ## Documentation
 
+- ローカル開発環境のセットアップ手順を foundation 用と auth 用で分けて書く
+- Zitadel 導入手順と必要な env var を追加する
 - `README.md` に環境変数一覧を追加する
 - API versioning と breaking change ルールを明文化する
 - auth / session / CSRF の設計メモを追加する

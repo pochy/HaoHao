@@ -399,11 +399,39 @@ flowchart TD
 
 これにより、HMR を維持しつつ CORS 設定を単純化できる。
 
+開発環境は、foundation 段階と auth 実装段階で分けて考える。
+
+- Foundation 段階: PostgreSQL、Redis、backend、frontend だけで起動できる状態を標準にする
+- Auth 実装段階: 上記に加えて Zitadel を接続し、stub の login / session / docs auth を本実装へ置き換える
+- つまり、Zitadel は repo 初期化直後の必須依存にはしない。`v0.2 Auth` に入る前に導入する
+- auth 実装前の作業が多いので、`make compose-up` だけで詰まらない構成を維持する
+
+標準のローカル起動順は次の通り。
+
+1. `make compose-up` で PostgreSQL と Redis を起動する
+2. `make gen` で OpenAPI / client / sqlc を再生成する
+3. `make backend` で backend を起動する
+4. `make frontend` で frontend を起動する
+
+auth 実装フェーズに入ったら、これに Zitadel の起動または接続設定を追加する。
+
+- local で閉じるなら、Zitadel は compose profile または auth 用の compose 定義で opt-in 起動にする
+- 共有 dev 環境を使うなら、local compose に無理に含めず、issuer URL と client 情報だけを切り替える
+- どちらを選ぶ場合でも、issuer URL、project、application、redirect URI、logout URI、初期ユーザー / role の投入手順を文書化する
+- foundation 段階の contributor に auth 基盤の常時起動を要求しない
+
 `compose.yaml` では、少なくとも次を起動できるようにする。
 
 - PostgreSQL 18
 - Redis: 初期推奨構成では含める。署名付き Cookie のみで始める場合は省略可
 - 管理 UI: 必要なら PGAdmin など
+
+auth 実装フェーズでは、追加で次を満たす。
+
+- Zitadel への接続先が local か共有 dev かを明示する
+- backend の env var で issuer URL と OIDC client 情報を渡せるようにする
+- login callback と logout callback の URL を frontend / backend のローカル URL に合わせて登録する
+- docs / OpenAPI 閲覧権限に使う role / scope の seed 方法を決める
 
 ### 本番環境
 
@@ -494,6 +522,17 @@ sequenceDiagram
 3. セッション ID を Cookie に設定する
 4. 以後の API リクエストでは Cookie を検証する
 
+この「認証基盤」は、初期構成では Zitadel を指す。
+実装方式は、BFF が OIDC Relying Party になり、ブラウザは BFF 経由で Zitadel Hosted Login に遷移する形を基本とする。
+
+- browser は `GET /auth/login` のような backend endpoint を叩き、BFF が Zitadel の authorize endpoint へ redirect する
+- callback は backend が受け、authorization code を token に交換する
+- backend は Zitadel の `sub` を自前の user record と対応付け、必要な最小情報だけを Redis session に保存する
+- access token / refresh token は browser の JavaScript に渡さず、必要なら backend 側で保持または破棄する
+- frontend は「Zitadel と直接会話する SPA」ではなく、「BFF が発行した session を使う SPA」として扱う
+
+この形にしておくと、browser 向け Cookie session と external client 向け bearer token を同じ認証基盤の上で分離しやすい。
+
 ### CSRF 方針
 
 CSRF 防御は `SameSite=Lax` に加えて、cookie-to-header 方式の CSRF トークンを既定にする。
@@ -553,6 +592,46 @@ CSRF 防御は `SameSite=Lax` に加えて、cookie-to-header 方式の CSRF ト
 - 認証基盤の制御性を確保しやすい
 - browser 向け Cookie セッションと external client 向け token 発行を整理しやすい
 - 代わりに、可用性、アップグレード、監視、バックアップは自前で運用する前提になる
+
+### Zitadel の導入タイミング
+
+Zitadel は「最初から常駐させる基盤」ではなく、「auth フェーズに入る時点で導入する基盤」として扱う。
+
+- M1 / `v0.1 Foundation`: stub auth のまま、API surface、OpenAPI、DB、生成導線、frontend 接続を固める
+- M2 / `v0.2 Auth`: Zitadel を接続し、login / logout / callback / session refresh / docs auth を本実装へ置き換える
+- M3 以降: role / scope、docs 閲覧権限、external client 向け token 発行などを段階的に広げる
+
+この順番にする理由は次の通り。
+
+- foundation の作業は Zitadel がなくても進められる
+- auth の前に browser API と external API の境界を固定した方が手戻りが少ない
+- local 開発環境の複雑化を auth 実装に必要な時点まで遅らせられる
+
+### 開発環境での Zitadel 導入方法
+
+開発環境では、local self-hosted を第一候補とするが、常時必須にはしない。
+
+- 第一候補: auth 用 compose profile か別 compose file で Zitadel を追加し、ローカルで閉じて再現できるようにする
+- 第二候補: 共有 dev の Zitadel tenant を使い、local backend / frontend から接続する
+- どちらを選んでも、backend は issuer URL と OIDC client 設定を env var から読む
+
+最低限そろえる項目は次の通り。
+
+- issuer URL
+- browser 用 OIDC application の client ID / secret
+- redirect URI
+- post-logout redirect URI
+- docs 閲覧権限や app role に使う role / scope
+- 初期ユーザーまたは test user の投入手順
+
+backend の設定としては、少なくとも次を受けられるようにする。
+
+- `ZITADEL_ISSUER_URL`
+- browser login 用 client ID / secret
+- callback URL と logout callback URL
+- 必要なら audience, organization / project ID, docs 権限判定に使う claim 名
+
+これらの設定は `backend/internal/config/` に集約し、起動時に不足を検知する。
 
 ### エラーハンドリング
 
