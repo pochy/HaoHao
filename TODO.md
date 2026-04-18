@@ -14,6 +14,23 @@
 - `.github/ISSUE_TEMPLATE/`, `.github/pull_request_template.md`, `.github/CODEOWNERS`, `.github/SECURITY.md` を追加済み
 - `main` の branch protection を設定済み（PR 必須、Code Owner review 必須、force push 禁止、`ci-codeql` 必須）
 
+## 先に差し込む: OpenAPI docs 導線
+
+`CONCEPT.md` に合わせて、OpenAPI docs のパスと役割を早めに固定する。
+
+- `/docs`: Huma built-in docs route
+- `/openapi`: OpenAPI Documents (`Stoplight Elements` / `Scalar` / `Swagger UI`)
+- `/openapi.json`: raw JSON
+- `/openapi.yaml`: raw YAML
+
+最初にやること:
+
+- `backend/internal/app/app.go`, `README.md`, `TODO.md` の表記をこの 4 本にそろえる
+- `/openapi` の既定 renderer を `Stoplight Elements` として実装する
+- `Scalar`, `Swagger UI`, `none` を config で切り替えられるようにする
+- `/docs`, `/openapi`, `/openapi.json`, `/openapi.yaml` に同じ auth policy を適用する
+- local verification と smoke test に `/openapi` を追加する
+
 ## 次に進む場所
 
 今の skeleton から着手するなら、まずは次を優先します。
@@ -21,7 +38,7 @@
 1. browser API と external API の境界、および認証方式の分離を明確にする
 2. `make gen` を前提に OpenAPI / client / sqlc の CI 差分検知を入れる
 3. auth / session / CSRF の stub を本実装へ置き換える
-4. docs / OpenAPI endpoint の認証を stub から実装に切り替える
+4. `/docs`, `/openapi`, raw spec の導線と認証を stub から実装に切り替える
 5. DB query と service を増やして業務機能を 1 本通す
 
 ### 1. browser API と external API の境界、および認証方式の分離を明確にする
@@ -138,10 +155,12 @@
 - [#13 login / logout / session refresh の最小 endpoint を追加する](https://github.com/pochy/HaoHao/issues/13)
 - [#14 frontend の transport wrapper と session store を auth 本実装に合わせて更新する](https://github.com/pochy/HaoHao/issues/14)
 
-### 4. docs / OpenAPI endpoint の認証を stub から実装に切り替える
+### 4. `/docs`, `/openapi`, raw spec の導線と認証を stub から実装に切り替える
 
 何を決めるか:
 
+- `/docs` と `/openapi` の役割分担を決める
+- `/openapi` の既定 renderer を `Stoplight Elements` にする前提で、`Scalar` / `Swagger UI` の切り替え方法を決める
 - docs / OpenAPI を誰に見せるか決める
 - browser の session で見せるか、専用 role / scope で見せるか決める
 - 本番と開発で公開条件を分けるか決める
@@ -149,9 +168,10 @@
 何をやるか:
 
 - `DOCS_BEARER_TOKEN` の暫定ロジックを外す
+- `/openapi` route を追加し、`Stoplight Elements` / `Scalar` / `Swagger UI` を切り替えられるようにする
 - docs / openapi へのアクセス制御を実際の auth context に接続する
 - docs 閲覧権限の判定を middleware に実装する
-- `/docs`, `/openapi.yaml`, `/openapi.json` で共通の認可判定を使う
+- `/docs`, `/openapi`, `/openapi.yaml`, `/openapi.json` で共通の認可判定を使う
 - unauthorized / forbidden のレスポンスを揃える
 - `README.md` に開発時と本番時の docs 公開条件を書く
 
@@ -164,7 +184,8 @@
 
 完了条件:
 
-- docs / OpenAPI が本番で無条件公開されない
+- `/docs`, `/openapi`, raw spec が本番で無条件公開されない
+- `/openapi` で `Stoplight Elements` を既定に docs UI が見える
 - 開発時の確認方法と本番時の公開条件が文書で揃う
 
 対応 Issue:
@@ -224,7 +245,7 @@
 - browser API と external client API の責務と認証方式を分離する
 - Redis を使った session store を実装する
 - CSRF token の発行・検証・更新を placeholder から本実装に置き換える
-- docs / OpenAPI endpoint の認証を stub から実装に切り替える
+- `/docs`, `/openapi`, raw spec の導線と認証を stub から実装に切り替える
 - backend に config validation を追加する
 - `make gen` の生成結果を CI で差分検知できるようにする
 
@@ -259,7 +280,7 @@
 - OpenAPI artifact の lint / validate を追加する
 - generated client の差分検知を CI に追加する
 - browser 向け契約と external client 向け契約の分離方針を固める
-- docs / OpenAPI endpoint の公開条件と配布ルートを整理する
+- `/docs`, `/openapi`, raw spec の公開条件と配布ルートを整理する
 - GitHub Release / release asset での固定版配布を整備する
 
 ## Database
@@ -291,7 +312,7 @@
 - 静的 asset の正本を `frontend/public/` に寄せる運用を固定する
 - `backend/embed.go` 経由の単一バイナリ配信を smoke test で検証する
 - SPA fallback と存在しない asset の 404 を検証する
-- docs / OpenAPI を認証付きで配信する本番導線を固める
+- `/docs`, `/openapi`, raw spec を認証付きで配信する本番導線を固める
 - Dockerfile を追加する
 - frontend build と Go build の多段ビルドを追加する
 - `backend/web/dist/` の placeholder と build 生成物の扱いを整理する
@@ -304,7 +325,7 @@
 - OpenAPI export の契約テストを追加する
 - generated client の差分テストを追加する
 - migration を適用した実 PostgreSQL に対する sqlc query テストを追加する
-- Cookie auth / CSRF / docs auth の smoke test を追加する
+- Cookie auth / CSRF / docs auth (`/docs`, `/openapi`) の smoke test を追加する
 - SPA fallback / embed 配信の smoke test を追加する
 - ローカルと CI で再現しやすい DB テスト実行方式を決める
 
@@ -332,5 +353,6 @@
 - API versioning と breaking change ルールを明文化する
 - auth / session / CSRF の設計メモを追加する
 - OpenAPI artifact 更新ルールを明文化する
+- `/docs`, `/openapi`, raw spec の使い分けを明文化する
 - ID 戦略の判断基準を文章化する
 - browser API と external API の使い分けを明文化する
