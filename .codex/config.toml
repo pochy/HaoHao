@@ -1,0 +1,7 @@
+[agents]
+max_threads = 8          # 並列実行するサブエージェントの最大数
+max_depth = 2            # スレッドのネスト（子から孫を呼ぶ）深さ制限
+
+[default]
+model = "gpt-5.4"        # メインエージェント用
+worker_model = "gpt-5.4-mini" # サブエージェント用の軽量モデル
