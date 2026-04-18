@@ -18,6 +18,11 @@ type SessionSnapshot struct {
 	APISurface    string
 }
 
+type SessionRecord struct {
+	SessionID string
+	Session   StoredSession
+}
+
 type SessionPrincipal struct {
 	UserID         int64
 	ZitadelSubject string
@@ -119,6 +124,23 @@ func (s *SessionService) Save(ctx context.Context, sessionID string, principal S
 	return session, nil
 }
 
+func (s *SessionService) Create(ctx context.Context, principal SessionPrincipal) (SessionRecord, error) {
+	sessionID := s.NewSessionID()
+	if sessionID == "" {
+		return SessionRecord{}, errors.New("generate session id")
+	}
+
+	session, err := s.Save(ctx, sessionID, principal)
+	if err != nil {
+		return SessionRecord{}, err
+	}
+
+	return SessionRecord{
+		SessionID: sessionID,
+		Session:   session,
+	}, nil
+}
+
 func (s *SessionService) Get(ctx context.Context, sessionID string) (StoredSession, error) {
 	if s.store == nil {
 		return StoredSession{}, ErrSessionStoreUnavailable
@@ -133,6 +155,45 @@ func (s *SessionService) Delete(ctx context.Context, sessionID string) error {
 	}
 
 	return s.store.Delete(ctx, sessionID)
+}
+
+func (s *SessionService) Rotate(ctx context.Context, sessionID string) (SessionRecord, error) {
+	if s.store == nil {
+		return SessionRecord{}, ErrSessionStoreUnavailable
+	}
+	if sessionID == "" {
+		return SessionRecord{}, errors.New("session id is required")
+	}
+
+	current, err := s.store.Get(ctx, sessionID)
+	if err != nil {
+		return SessionRecord{}, err
+	}
+
+	now := s.now().UTC()
+	remaining := current.ExpiresAt.Sub(now)
+	if remaining <= 0 {
+		_ = s.store.Delete(ctx, sessionID)
+		return SessionRecord{}, ErrSessionNotFound
+	}
+
+	newSessionID := s.NewSessionID()
+	if newSessionID == "" {
+		return SessionRecord{}, errors.New("generate session id")
+	}
+
+	if err := s.store.Save(ctx, newSessionID, current, remaining); err != nil {
+		return SessionRecord{}, err
+	}
+	if err := s.store.Delete(ctx, sessionID); err != nil {
+		_ = s.store.Delete(ctx, newSessionID)
+		return SessionRecord{}, err
+	}
+
+	return SessionRecord{
+		SessionID: newSessionID,
+		Session:   current,
+	}, nil
 }
 
 func (s *RedisSessionStore) Save(ctx context.Context, sessionID string, session StoredSession, ttl time.Duration) error {
@@ -186,9 +247,21 @@ func (s *SessionService) Snapshot(_ context.Context) SessionSnapshot {
 }
 
 func (s *SessionService) NewCSRFCookieValue() string {
-	buf := make([]byte, 16)
+	return newRandomHex(16, "csrf-placeholder")
+}
+
+func (s *SessionService) NewSessionID() string {
+	return newRandomHex(32, "")
+}
+
+func newRandomHex(size int, fallback string) string {
+	if size <= 0 {
+		return fallback
+	}
+
+	buf := make([]byte, size)
 	if _, err := rand.Read(buf); err != nil {
-		return "csrf-placeholder"
+		return fallback
 	}
 
 	return hex.EncodeToString(buf)

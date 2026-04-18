@@ -123,6 +123,13 @@ make compose-auth-seed
 
 詳細は [docs/auth-local-zitadel.md](/docs/auth-local-zitadel.md) を参照してください。
 
+`SESSION_ID` cookie の既定値は local 開発と本番想定で次のように分かれます。
+
+- local (`APP_ENV=development`): `HttpOnly=true`, `Secure=false`, `SameSite=Lax`, `Path=/`
+- production 系 env: `HttpOnly=true`, `Secure=true`, `SameSite=Lax`, `Path=/`
+
+必要なら `SESSION_COOKIE_NAME`, `SESSION_COOKIE_PATH`, `SESSION_COOKIE_SAME_SITE`, `SESSION_COOKIE_SECURE` で上書きできます。local Zitadel の redirect は `http://localhost:8080` のため、local では `Secure=false` を既定にしています。
+
 ### 5. backend を起動する
 
 ```bash

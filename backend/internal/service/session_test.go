@@ -100,6 +100,74 @@ func TestSessionServiceSaveGetDelete(t *testing.T) {
 	}
 }
 
+func TestSessionServiceCreateAndRotate(t *testing.T) {
+	store := newMemorySessionStore()
+	svc := NewSessionService(store, 8*time.Hour)
+	fixedNow := time.Date(2026, time.April, 18, 10, 0, 0, 0, time.UTC)
+	svc.now = func() time.Time { return fixedNow }
+
+	created, err := svc.Create(context.Background(), SessionPrincipal{
+		UserID:         42,
+		ZitadelSubject: "zitadel-user-42",
+		Roles:          []string{"app:user"},
+		CSRFSecret:     "csrf-fixed",
+	})
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	if created.SessionID == "" {
+		t.Fatal("session id = empty, want opaque id")
+	}
+	if len(created.SessionID) != 64 {
+		t.Fatalf("session id length = %d, want 64", len(created.SessionID))
+	}
+
+	svc.now = func() time.Time { return fixedNow.Add(2 * time.Hour) }
+	rotated, err := svc.Rotate(context.Background(), created.SessionID)
+	if err != nil {
+		t.Fatalf("rotate session: %v", err)
+	}
+	if rotated.SessionID == created.SessionID {
+		t.Fatal("rotate session id = old id, want new id")
+	}
+	if rotated.Session.CreatedAt != created.Session.CreatedAt {
+		t.Fatalf("created_at = %v, want %v", rotated.Session.CreatedAt, created.Session.CreatedAt)
+	}
+	if rotated.Session.ExpiresAt != created.Session.ExpiresAt {
+		t.Fatalf("expires_at = %v, want %v", rotated.Session.ExpiresAt, created.Session.ExpiresAt)
+	}
+	if store.ttls[rotated.SessionID] != 6*time.Hour {
+		t.Fatalf("ttl = %v, want %v", store.ttls[rotated.SessionID], 6*time.Hour)
+	}
+	if _, ok := store.sessions[created.SessionID]; ok {
+		t.Fatalf("old session %q still exists after rotate", created.SessionID)
+	}
+}
+
+func TestSessionServiceRotateExpiredSession(t *testing.T) {
+	store := newMemorySessionStore()
+	svc := NewSessionService(store, 8*time.Hour)
+	fixedNow := time.Date(2026, time.April, 18, 18, 0, 0, 0, time.UTC)
+	svc.now = func() time.Time { return fixedNow }
+
+	store.sessions["expired"] = StoredSession{
+		UserID:         7,
+		ZitadelSubject: "zitadel-expired",
+		Roles:          []string{"app:user"},
+		CreatedAt:      fixedNow.Add(-9 * time.Hour),
+		ExpiresAt:      fixedNow.Add(-time.Minute),
+		CSRFSecret:     "csrf-expired",
+	}
+
+	_, err := svc.Rotate(context.Background(), "expired")
+	if !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("rotate expired error = %v, want %v", err, ErrSessionNotFound)
+	}
+	if _, ok := store.sessions["expired"]; ok {
+		t.Fatal("expired session still exists after rotate attempt")
+	}
+}
+
 func TestRedisSessionStoreRoundTrip(t *testing.T) {
 	server, err := miniredis.Run()
 	if err != nil {

@@ -9,6 +9,8 @@
 
 - `compose.auth.yaml`, `compose.auth.env.example`, `.env.auth.example`, `scripts/zitadel/seed-local.sh`, `docs/auth-local-zitadel.md` を追加し、local Zitadel を repo-managed な開発依存として固定
 - Redis ベースの session store interface / 実装 / test を `backend/internal/service/` に追加し、`haohao:session:{session_id}` と absolute `8h` TTL の契約をコード化
+- `backend/internal/middleware/browser_session.go` を追加し、`SESSION_ID` cookie から Redis session を request context に解決する browser session middleware を追加
+- `backend/internal/api/browser/v1/session_cookie.go` と関連 test を追加し、`SESSION_ID` cookie の発行・削除 helper と属性検証を追加
 
 ### Changed
 
@@ -16,6 +18,10 @@
 - `README.md`, `CONCEPT.md`, `TODO.md`, GitHub milestone description の `v0.1 Foundation` / `v0.2 Auth` / `v0.3 First Feature` 定義をそろえ、範囲・完了条件・次へ進む条件を明文化
 - `Makefile` に `compose-auth-up`, `compose-auth-down`, `compose-auth-logs`, `compose-auth-seed` を追加し、`.env.auth` を読んで backend を起動する導線に更新
 - backend config に Zitadel issuer / client / redirect / scope / `SESSION_TTL` を追加し、server 起動時の auth 前提を検証するように更新
+- backend config に `SESSION_COOKIE_PATH`, `SESSION_COOKIE_SAME_SITE`, `SESSION_COOKIE_SECURE` を追加し、local 開発では `Secure=false`、production 系 env では `Secure=true` を既定に更新
+- `backend/internal/service/session.go` に session lifecycle primitive を追加し、opaque な session ID 生成、create、absolute TTL を維持した rotate を service 層に集約
+- `backend/internal/app/app.go` で browser session middleware を共通適用する構成に更新
+- `README.md` に local HTTP と production HTTPS における `SESSION_ID` cookie 既定値の差を追記
 
 ## [2026-04-18]
 
