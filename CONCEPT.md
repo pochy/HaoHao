@@ -611,9 +611,20 @@ CSRF 防御は `SameSite=Lax` に加えて、cookie-to-header 方式の CSRF ト
 
 Zitadel は「最初から常駐させる基盤」ではなく、「auth フェーズに入る時点で導入する基盤」として扱う。
 
-- M1 / `v0.1 Foundation`: stub auth のまま、API surface、OpenAPI、DB、生成導線、frontend 接続を固める
-- M2 / `v0.2 Auth`: Zitadel を接続し、login / logout / callback / session refresh / docs auth を本実装へ置き換える
-- M3 以降: role / scope、docs 閲覧権限、external client 向け token 発行などを段階的に広げる
+リリース milestone の定義は次の通り。
+
+- `v0.1 Foundation` = `M1` + `M2`
+  - 範囲: stub auth のまま、API surface、OpenAPI、DB、生成導線、frontend 接続、CI のドリフト検知を固める
+  - 完了条件: backend / frontend / PostgreSQL / Redis が Zitadel なしで起動できる。browser / external API の境界が固定されている。`make gen`, `make check-generated`, `make openapi-lint`, `make sqlc-check` が local と GitHub Actions で再現できる
+  - 次へ進む条件: Zitadel 接続先、OIDC application、test user、redirect URI、logout URI、必要な env var が文書化されている
+- `v0.2 Auth` = `M3` + `M4`
+  - 範囲: Zitadel を接続し、browser auth / session / CSRF と docs / OpenAPI の閲覧制御を stub から実装へ置き換える
+  - 完了条件: browser が BFF 経由で Zitadel Hosted Login に遷移し、callback 後に Redis-backed session を持てる。`GET /api/v1/session` が実認証状態を返す。state-changing request で CSRF 検証が有効。`/docs`, `/openapi`, `/openapi.json`, `/openapi.yaml` が同じ non-stub auth policy で保護される
+  - 次へ進む条件: auth / session / CSRF / docs auth の前提作業が残っていない
+- `v0.3 First Feature` = `M5`
+  - 範囲: 最初の業務機能を 1 つ選び、DB -> service -> API -> generated client -> UI まで縦通しする
+  - 完了条件: 対象機能の migration、`db/schema.sql`、query、sqlc generated code、service、Huma operation、frontend feature、page、最低限の test / smoke check がそろい、auth ありの通常フローで動く
+  - 次へ進む条件: `v0.4` 以降の release milestone を別途定義する
 
 この順番にする理由は次の通り。
 
@@ -795,6 +806,7 @@ security:
 - 実装タスクは Issue 化し、`TODO.md` のテンプレートに沿って起票する
 - 実装フェーズは milestone `M1`-`M5` で管理する
 - リリース進行は milestone `v0.1 Foundation`, `v0.2 Auth`, `v0.3 First Feature` を使う
+- 各 release milestone は「範囲」「完了条件」「次へ進む条件」を `README.md` と `TODO.md` で同じ内容に保つ
 - 横断管理は GitHub Project で行い、`Priority`, `Area`, `Risk`, `Target Release` を必須フィールドとして扱う
 - ラベルは `priority:*`, `area:*`, `track:phase-*` を基本セットとする
 - PR はテンプレートベースでレビュー観点（契約差分、`make gen`、DB 変更、テスト）を固定する

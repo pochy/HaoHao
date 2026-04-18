@@ -456,6 +456,26 @@ commit 前の一覧は「[commit 前チェック](#commit-前チェック)」と
 - Issue は `.github/ISSUE_TEMPLATE/` の form から起票する
 - レビュー責務は `.github/CODEOWNERS` に従う
 
+### Release Milestones
+
+`v0.1 Foundation`
+
+- 範囲: `M1` と `M2`。stub auth のまま、browser / external API の境界、OpenAPI artifact、generated client、sqlc 生成導線、frontend 接続、CI のドリフト検知を固める
+- 完了条件: backend / frontend / PostgreSQL / Redis が Zitadel なしで起動できる。browser / external API の境界が固定されている。`make gen`, `make check-generated`, `make openapi-lint`, `make sqlc-check` が local と GitHub Actions で再現できる
+- 次へ進む条件: Zitadel 接続先が `local` か `shared dev` か決まっている。issuer URL、OIDC application、test user、redirect URI、logout URI、必要な env var が文書化されている
+
+`v0.2 Auth`
+
+- 範囲: `M3` と `M4`。Zitadel を接続し、browser auth / session / CSRF と docs / OpenAPI の閲覧制御を stub から実装へ置き換える
+- 完了条件: browser が BFF 経由で Zitadel Hosted Login に遷移し、callback 後に Redis-backed session を持てる。`GET /api/v1/session` が実認証状態を返す。state-changing request で CSRF 検証が有効。`/docs`, `/openapi`, `/openapi.json`, `/openapi.yaml` が同じ non-stub auth policy で保護される
+- 次へ進む条件: auth / session / CSRF / docs auth の前提作業が残っていない。以後の機能開発で auth stub を前提にしなくてよい状態になっている
+
+`v0.3 First Feature`
+
+- 範囲: `M5`。最初の業務機能を 1 つ選び、DB -> service -> API -> generated client -> UI まで縦通しする
+- 完了条件: 対象機能の migration、`db/schema.sql`、query、sqlc generated code、service、Huma operation、frontend feature、page、最低限の test / smoke check がそろい、auth ありの通常フローで動く
+- 次へ進む条件: `v0.3` 完了時点で、次の release milestone を別途定義する。現時点では `v0.4` 以降は未定義とする
+
 ## ブランチ保護ルール
 
 `main` には次を適用する前提です。
