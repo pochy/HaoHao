@@ -8,6 +8,7 @@
 ### Changed
 
 - changelog を過去の git 履歴ベースで再構成し、日付ごとに整理
+- `README.md`, `CONCEPT.md`, `TODO.md`, GitHub milestone description の `v0.1 Foundation` / `v0.2 Auth` / `v0.3 First Feature` 定義をそろえ、範囲・完了条件・次へ進む条件を明文化
 
 ## [2026-04-18]
 
@@ -38,8 +39,8 @@
 - `github/codeql-action` を v4 に更新
 - `github.com/jackc/pgx/v5` を `v5.9.1` に更新
 - `vite` を `8.0.8` に更新
-- `Makefile` に `check-generated`, `openapi-lint`, `sqlc-vet` を追加し、生成物と契約の検証入口を統一
-- `Makefile` と GitHub Actions を `make sqlc-load-schema` / `make sqlc-check` に揃え、`sqlc generate`, `sqlc compile`, `sqlc vet` を local / GitHub Actions-only で再現できるようにした
+- `Makefile` に `check-generated`, `openapi-lint`, `sqlc-load-schema`, `sqlc-check` を追加し、生成物・OpenAPI・sqlc の検証入口を統一
+- GitHub Actions の sqlc job を `make sqlc-load-schema` / `make sqlc-check` ベースに整理し、`sqlc generate`, `sqlc compile --no-remote`, `sqlc vet --no-remote` を local / GitHub Actions-only で再現できるようにした
 - `README.md` と `CONCEPT.md` に、`sqlc Cloud` を使わずローカル / GitHub Actions のみで artifact drift を検知する方針を追記
 - `compose.yaml` の PostgreSQL volume mount を PostgreSQL 18 向けの `/var/lib/postgresql` に変更
 
@@ -57,6 +58,7 @@
 - session は bootstrap 用の最小応答のみで、Redis 連携は未実装
 - external client 向け API は最小の health endpoint のみ実装済みで、本体機能は未実装
 - frontend の UI は本番品質ではなく接続確認用
+- `sqlc verify` は project ID を要求するため標準フローには載せず、`sqlc compile` と `sqlc vet` を Makefile 経由で使う
 - `sqlc Cloud` と `SQLC_AUTH_TOKEN` は標準フローでは使わず、`make check-generated` / `make openapi-lint` / `make sqlc-load-schema` / `make sqlc-check` を基準に運用する
 
 ## [2026-04-17]
