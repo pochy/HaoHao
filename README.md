@@ -18,6 +18,7 @@
 - `GET /api/v1/health`
 - `GET /api/v1/session`
 - Huma からの OpenAPI 3.1 export
+- raw OpenAPI endpoint (`/openapi.json`, `/openapi.yaml`) と docs placeholder (`/docs`)
 - OpenAPI artifact の commit
 - generated TypeScript client の commit
 - Vue から generated client を呼ぶ最小経路
@@ -28,6 +29,7 @@
 
 - Zitadel 本接続
 - Redis を使った本物のセッション管理
+- `Stoplight Elements` / `Scalar` / `Swagger UI` を切り替え可能な `/openapi`
 - external client 向け API 本体
 - 業務ロジック
 - 本番レベルの認証・認可
@@ -282,18 +284,21 @@ make backend
 make frontend
 ```
 
-5. API を確認する
+5. API と spec を確認する
 
 ```bash
 curl http://localhost:8080/api/v1/health
 curl -i http://localhost:8080/api/v1/session
-curl http://localhost:8080/openapi.yaml
+curl -I http://localhost:8080/openapi.json
+curl -I http://localhost:8080/openapi.yaml
 ```
 
 6. 画面を確認する
 
 - `http://localhost:5173` を開く
 - Vite proxy 経由で `/api/v1/health` と `/api/v1/session` が呼べることを確認する
+- `http://localhost:8080/docs` で built-in docs route が見えることを確認する
+- `/openapi` は `Stoplight Elements` / `Scalar` / `Swagger UI` を切り替え可能な docs route として後続実装する
 
 7. backend のテストを実行する
 
@@ -335,10 +340,14 @@ commit 前には少なくとも次を確認します。
 - backend: `http://localhost:8080`
 - health: `http://localhost:8080/api/v1/health`
 - session: `http://localhost:8080/api/v1/session`
+- docs built-in route: `http://localhost:8080/docs`
+- OpenAPI Documents: `http://localhost:8080/openapi`
+- OpenAPI JSON: `http://localhost:8080/openapi.json`
 - OpenAPI YAML: `http://localhost:8080/openapi.yaml`
-- docs placeholder: `http://localhost:8080/docs`
 
-開発時は Vite の proxy で `/api`, `/docs`, `/openapi.*` を backend に流します。
+`/openapi` は設計上の目標パスです。現状の skeleton では `/docs`, `/openapi.json`, `/openapi.yaml` を先に持っています。
+
+開発時は Vite の proxy で `/api`, `/docs`, `/openapi`, `/openapi.json`, `/openapi.yaml` を backend に流す想定です。
 
 ## Make ターゲット
 
@@ -383,6 +392,7 @@ make compose-down
 ### backend
 
 - Huma の docs / spec 公開は [docs auth stub](backend/internal/middleware/docs_auth.go) で保護差し込み点だけ作っています
+- OpenAPI docs の目標パス構成は `/docs` built-in route + `/openapi` custom route + `/openapi.json` / `/openapi.yaml`
 - browser API は `/api/v1`
 - external client 向け API は `backend/internal/api/external/` に予約しています
 
@@ -404,7 +414,17 @@ make compose-down
 
 ## docs / auth の扱い
 
-`/docs`, `/openapi.yaml`, `/openapi.json` は最終的に認証付き公開を想定しています。今は stub です。
+OpenAPI docs の目標パス構成は次です。
+
+- `/docs`: Huma built-in docs route
+- `/openapi`: OpenAPI Documents (`Stoplight Elements` / `Scalar` / `Swagger UI`)
+- `/openapi.json`: raw JSON
+- `/openapi.yaml`: raw YAML
+
+`/docs`, `/openapi`, `/openapi.yaml`, `/openapi.json` は最終的に認証付き公開を想定しています。今は stub / placeholder 段階です。
+
+- 現状の skeleton で先にあるのは `/docs`, `/openapi.json`, `/openapi.yaml`
+- `/openapi` は docs renderer を切り替え可能な custom route として追加予定
 
 - `DOCS_BEARER_TOKEN` 未設定: 開発用に通す
 - `DOCS_BEARER_TOKEN` 設定: `Authorization: Bearer <token>` を要求

@@ -267,6 +267,40 @@ gen:
 
 Huma の spec export は、サーバー起動中の `/openapi.yaml` を取得する形でもよいが、CI では起動不要な custom command を持つほうが扱いやすい。
 
+## OpenAPI ドキュメント表示
+
+OpenAPI artifact は YAML / JSON を配るだけで終わらせず、ブラウザで閲覧できる対話型ドキュメントを同時に提供する。Huma の Generated API Docs や Elysia の OpenAPI plugin のように、1 つの OpenAPI spec をソースにして docs UI を描画し、docs と raw spec の内容を分離しない。
+
+- Huma の built-in docs route は `/docs` で提供する
+- renderer を切り替え可能な OpenAPI Documents は `/openapi` で提供する
+- 機械向けの raw spec は `/openapi.json` と `/openapi.yaml` で提供する
+- `/openapi` で使える renderer は `Stoplight Elements`, `Scalar`, `Swagger UI` とする
+- 初期構成では `Stoplight Elements` を既定にし、`Scalar` と `Swagger UI` は用途に応じて切り替えられるようにする
+- `/openapi` を無効化して raw spec のみ公開するモードも持つ
+
+初期構成では、Huma の built-in docs route を `/docs` に残しつつ、認証付きの主導線は別に `/openapi` として持つ方針にする。
+
+- docs への認証、CSP、ヘッダー制御をアプリ側で一元化しやすい
+- `Stoplight Elements`, `Scalar`, `Swagger UI` の切り替えや self-hosted asset への差し替えを行いやすい
+- Go 単一バイナリ配信でも docs UI と spec 配信を同じ router で完結できる
+- `/docs` を fallback / 比較用として残しながら `/openapi` を主導線として育てられる
+
+docs 画面には最低限次を含める。
+
+- API title / version
+- 認証方式の説明
+- operation 一覧と request / response schema
+- raw spec へのリンク (`/openapi.json`, `/openapi.yaml`)
+- built-in docs へのリンク (`/docs`)
+
+対話実行については、Cookie 認証 + CSRF を崩さないことを優先する。
+
+- `GET` / `HEAD` の確認は docs UI からそのまま実行できるようにする
+- `POST`, `PUT`, `PATCH`, `DELETE` を docs UI から叩く場合は、`XSRF-TOKEN` Cookie を `X-CSRF-Token` に写す導線を custom JS か renderer 拡張で補う
+- その導線を整える前の初期構成では、state-changing operation の対話実行は無効でもよい
+
+開発環境ではローカルからそのまま参照できるようにし、本番環境では docs / spec の両方を認証付きで公開する。
+
 ## API バージョニング
 
 既定の方針は URL path versioning とし、`/api/v1` を使う。
@@ -361,7 +395,7 @@ flowchart TD
 - `cd frontend && npm run dev`
 - `cd backend && go run ./cmd`
 - `vite.config.ts` の proxy で `/api` を Go に流す
-- Huma の docs と spec は `/docs`、`/openapi.json`、`/openapi.yaml` で確認する
+- Huma の docs と spec は `/docs`、`/openapi`、`/openapi.json`、`/openapi.yaml` で確認する
 
 これにより、HMR を維持しつつ CORS 設定を単純化できる。
 
@@ -406,6 +440,7 @@ Docker では多段階ビルドを採用し、Node で frontend を build した
 - CORS の許可 Origin
 - 外部認証基盤の接続情報
 - Huma の docs / OpenAPI endpoint の公開設定
+- docs renderer (`stoplight-elements` / `scalar` / `swagger-ui` / `none`) と asset 配信方法
 - 各種 secret と feature flag
 
 設定の読み込み元は環境変数を基本とし、起動時にバリデーションして不足を早期に検知する。
@@ -717,6 +752,7 @@ security:
 - バックエンド: Go + Gin + Huma
 - フロント client 生成: `@hey-api/openapi-ts`
 - OpenAPI 配布: repo commit + 認証付き docs + GitHub Release asset
+- OpenAPI docs UI: `/docs` (built-in) + `/openapi` (`Stoplight Elements` / `Scalar` / `Swagger UI`) + `/openapi.json` + `/openapi.yaml`
 - DB: PostgreSQL 18 + `pgx` + `sqlc`
 - ID 戦略: 集約ごとに `bigint` と `uuidv7` を使い分ける
 - 認証: BFF + HttpOnly Cookie
@@ -733,9 +769,11 @@ security:
 
 ## 参照した公式情報:
 - Huma OpenAPI generation: https://huma.rocks/features/openapi-generation/
+- Huma Generated API Docs: https://huma.rocks/features/api-docs/
 - Huma router adapter / `humagin`: https://huma.rocks/features/bring-your-own-router/
 - Huma validation: https://huma.rocks/features/request-validation/
 - Huma errors / RFC 9457: https://huma.rocks/features/response-errors/
 - Huma CLI / spec export: https://huma.rocks/features/cli/
+- Elysia OpenAPI plugin: https://elysiajs.com/plugins/openapi
 - `oapi-codegen` の 3.1 未対応: https://github.com/oapi-codegen/oapi-codegen
 - `@hey-api/openapi-ts` の 3.1 対応: https://github.com/hey-api/openapi-ts / https://www.npmjs.com/package/%40hey-api/openapi-ts
