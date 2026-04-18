@@ -29,6 +29,13 @@ func New(cfg config.Config) (*Application, error) {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
 
+	store, err := service.NewRedisSessionStore(cfg.RedisURL)
+	if err != nil {
+		return nil, err
+	}
+	sessions := service.NewSessionService(store, cfg.SessionTTL)
+	router.Use(middleware.LoadBrowserSession(cfg, sessions))
+
 	humaConfig := huma.DefaultConfig("HaoHao Browser API", cfg.Version)
 	humaConfig.OpenAPIPath = ""
 	humaConfig.DocsPath = ""
@@ -59,9 +66,7 @@ func New(cfg config.Config) (*Application, error) {
 	}
 
 	api := humagin.New(router, humaConfig)
-	if err := registerBrowserAPI(api, cfg); err != nil {
-		return nil, err
-	}
+	registerBrowserAPI(api, cfg, sessions)
 	registerExternalAPI(api, cfg)
 	registerDocsRoutes(router, api, cfg)
 	registerFrontendRoutes(router)
@@ -72,17 +77,9 @@ func New(cfg config.Config) (*Application, error) {
 	}, nil
 }
 
-func registerBrowserAPI(api huma.API, cfg config.Config) error {
-	store, err := service.NewRedisSessionStore(cfg.RedisURL)
-	if err != nil {
-		return err
-	}
-	sessions := service.NewSessionService(store, cfg.SessionTTL)
-
+func registerBrowserAPI(api huma.API, cfg config.Config, sessions *service.SessionService) {
 	browserv1.RegisterHealth(api, cfg)
 	browserv1.RegisterSession(api, cfg, sessions)
-
-	return nil
 }
 
 func registerExternalAPI(api huma.API, cfg config.Config) {
