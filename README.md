@@ -24,12 +24,13 @@
 - generated TypeScript client の commit
 - Vue から generated client を呼ぶ最小経路
 - PostgreSQL / Redis の compose 起動
+- local Zitadel の compose 起動と seed 導線
 - sqlc の最小生成
 
 まだ本実装していないもの:
 
-- Zitadel 本接続
-- Redis を使った本物のセッション管理
+- Zitadel callback / login / logout の本実装
+- `GET /api/v1/session` の本実装差し替え
 - `Stoplight Elements` / `Scalar` / `Swagger UI` を切り替え可能な `/openapi`
 - external client 向け API 本体
 - 業務ロジック
@@ -67,6 +68,7 @@
 │   └── vite.config.ts
 ├── openapi/
 │   └── openapi.yaml
+├── compose.auth.yaml
 ├── compose.yaml
 ├── go.work
 └── Makefile
@@ -79,6 +81,8 @@
 - npm
 - Docker + Docker Compose
 - GNU Make
+- `curl`
+- `jq`
 
 ## 起動手順
 
@@ -108,13 +112,24 @@ make gen
 - `frontend/src/api/generated/` の再生成
 - `backend/internal/db/` の sqlc 再生成
 
-### 4. backend を起動する
+### 4. auth 開発用の local Zitadel を起動する
+
+```bash
+make compose-auth-up
+make compose-auth-seed
+```
+
+`make compose-auth-seed` は `.env.auth` を生成し、backend が読む `ZITADEL_CLIENT_ID` / `ZITADEL_CLIENT_SECRET` を含む auth env を固定します。
+
+詳細は [docs/auth-local-zitadel.md](/docs/auth-local-zitadel.md) を参照してください。
+
+### 5. backend を起動する
 
 ```bash
 make backend
 ```
 
-### 5. frontend を起動する
+### 6. frontend を起動する
 
 ```bash
 make frontend

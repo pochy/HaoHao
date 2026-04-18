@@ -10,6 +10,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.ValidateAuthRuntime(); err != nil {
+		log.Fatalf("invalid auth config: %v", err)
+	}
 
 	application, err := app.New(cfg)
 	if err != nil {
@@ -21,4 +24,3 @@ func main() {
 		log.Fatalf("serve: %v", err)
 	}
 }
-
