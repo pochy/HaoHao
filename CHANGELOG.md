@@ -39,6 +39,7 @@
 - `github.com/jackc/pgx/v5` を `v5.9.1` に更新
 - `vite` を `8.0.8` に更新
 - `Makefile` に `check-generated`, `openapi-lint`, `sqlc-vet` を追加し、生成物と契約の検証入口を統一
+- `Makefile` と GitHub Actions を `make sqlc-load-schema` / `make sqlc-check` に揃え、`sqlc generate`, `sqlc compile`, `sqlc vet` を local / GitHub Actions-only で再現できるようにした
 - `README.md` と `CONCEPT.md` に、`sqlc Cloud` を使わずローカル / GitHub Actions のみで artifact drift を検知する方針を追記
 - `compose.yaml` の PostgreSQL volume mount を PostgreSQL 18 向けの `/var/lib/postgresql` に変更
 
@@ -56,7 +57,7 @@
 - session は bootstrap 用の最小応答のみで、Redis 連携は未実装
 - external client 向け API は最小の health endpoint のみ実装済みで、本体機能は未実装
 - frontend の UI は本番品質ではなく接続確認用
-- `sqlc Cloud` と `SQLC_AUTH_TOKEN` は標準フローでは使わず、`make check-generated` / `make openapi-lint` / `make sqlc-vet` を基準に運用する
+- `sqlc Cloud` と `SQLC_AUTH_TOKEN` は標準フローでは使わず、`make check-generated` / `make openapi-lint` / `make sqlc-load-schema` / `make sqlc-check` を基準に運用する
 
 ## [2026-04-17]
 

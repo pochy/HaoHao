@@ -61,9 +61,12 @@ jobs:
       - name: Check db/schema.sql snapshot updates
         run: scripts/check-schema-snapshot.sh "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"
 
-  sqlc-vet:
-    name: sqlc vet
+  sqlc-check:
+    name: sqlc checks
     runs-on: ubuntu-latest
+
+    env:
+      POSTGRESQL_SERVER_URI: postgresql://haohao:haohao@localhost:5432/haohao?sslmode=disable
 
     services:
       postgres:
@@ -98,11 +101,7 @@ jobs:
           fi
 
       - name: Load schema snapshot
-        env:
-          PGPASSWORD: haohao
-        run: psql -h localhost -U haohao -d haohao -f db/schema.sql
+        run: make sqlc-load-schema
 
-      - name: Vet SQL queries
-        env:
-          POSTGRESQL_SERVER_URI: postgresql://haohao:haohao@localhost:5432/haohao?sslmode=disable
-        run: make sqlc-vet
+      - name: Run sqlc checks
+        run: make sqlc-check
