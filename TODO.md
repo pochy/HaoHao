@@ -21,6 +21,36 @@
   - `backend/internal/db/`
 - generated file は直接編集せず、正本を更新して `make gen` を実行する
 
+## #9 開始前提（固定済み）
+
+`v0.2 Auth` の開始条件として、local Zitadel 前提を次で固定した。
+
+- 接続先: `local`
+- 起動方式: standalone の `compose.auth.yaml`
+- canonical 文書: `docs/auth-local-zitadel.md`
+- seed 方式: repo-managed script `scripts/zitadel/seed-local.sh`
+- issuer URL: `http://localhost:8081`
+- OIDC application: `haohao-browser-local`
+- test user: `haohao.dev@zitadel.localhost`
+- redirect URI: `http://localhost:8080/auth/callback`
+- post-logout redirect URI: `http://localhost:8080/auth/logout/callback`
+- backend auth env: `.env.auth`
+- session contract:
+  - lookup unit: `SESSION_ID`
+  - Redis key: `haohao:session:{session_id}`
+  - payload: `user_id`, `zitadel_subject`, `roles`, `created_at`, `expires_at`, `csrf_secret`
+  - TTL: absolute `8h`
+  - idle timeout: なし
+  - logout: server-side invalidation で `delete(session_id)`
+
+`#9` 着手前の受け入れ基準は次で固定した。
+
+- `make compose-auth-up` で local Zitadel が `http://localhost:8081` に上がる
+- `make compose-auth-seed` で `haohao-browser-local` と test user が再現でき、`.env.auth` が生成される
+- `curl http://localhost:8081/.well-known/openid-configuration` が成功する
+- Redis session store の責務が `backend/internal/service/` に閉じている
+- `#10`-`#12` に残す責務と `#9` に入れる責務が混ざっていない
+
 ## 完了済み
 
 ### GitHub 運用整備
@@ -90,6 +120,7 @@
 - 中身: stub auth のまま、browser / external API の境界、OpenAPI artifact、generated client、sqlc 生成導線、frontend 接続、CI のドリフト検知を固める
 - 完了条件: backend / frontend / PostgreSQL / Redis が Zitadel なしで起動できる。browser / external API の境界が固定されている。`make gen`, `make check-generated`, `make openapi-lint`, `make sqlc-check` が local と GitHub Actions で再現できる
 - 次へ進む条件: Zitadel 接続先が `local` か `shared dev` か決まっている。issuer URL、OIDC application、test user、redirect URI、logout URI、必要な env var が文書化されている
+  この前提は `local` / `compose.auth.yaml` / `docs/auth-local-zitadel.md` / `.env.auth` で固定済み
 
 `v0.2 Auth`
 
@@ -109,7 +140,7 @@
 
 ### auth 実装前に決めること
 
-以下は「いつか決める」ではなく、対応する Issue の Plan を開始する前に決めて文書へ固定する。
+以下は「いつか決める」ではなく、対応する Issue の Plan を開始する前に決めて文書へ固定する。`#9` については local Zitadel 前提で固定済み。
 
 #### `#9` の Plan を始める前に固定する事項
 

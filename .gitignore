@@ -6,3 +6,7 @@ backend/web/dist/assets/
 
 .cache/
 .cursor/plans/
+
+compose.auth.env
+.env.auth
+.cache/zitadel/

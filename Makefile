@@ -3,10 +3,11 @@ PSQL ?= psql
 SQLC ?= go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 SQLC_CONFIG ?= backend/sqlc.yaml
 SQLC_CI_CONFIG ?= backend/sqlc.ci.yaml
+AUTH_ENV_FILE ?= .env.auth
 
 GENERATED_ARTIFACTS := openapi/openapi.yaml frontend/src/api/generated backend/internal/db
 
-.PHONY: gen openapi client sqlc check-generated openapi-lint sqlc-load-schema sqlc-compile sqlc-vet sqlc-check backend frontend build-frontend compose-up compose-down
+.PHONY: gen openapi client sqlc check-generated openapi-lint sqlc-load-schema sqlc-compile sqlc-vet sqlc-check backend frontend build-frontend compose-up compose-down compose-auth-up compose-auth-down compose-auth-logs compose-auth-seed
 
 gen: openapi client sqlc
 
@@ -42,7 +43,7 @@ sqlc-check:
 	$(MAKE) sqlc-vet
 
 backend:
-	go run ./backend/cmd/server
+	@if [ -f $(AUTH_ENV_FILE) ]; then set -a; . ./$(AUTH_ENV_FILE); set +a; fi; go run ./backend/cmd/server
 
 frontend:
 	npm --prefix frontend run dev
@@ -55,3 +56,19 @@ compose-up:
 
 compose-down:
 	$(COMPOSE) down
+
+compose-auth-up:
+	@if [ ! -f compose.auth.env ]; then cp compose.auth.env.example compose.auth.env; fi
+	@mkdir -p .cache/zitadel/bootstrap
+	$(COMPOSE) --env-file compose.auth.env -f compose.auth.yaml up -d --wait
+
+compose-auth-down:
+	@if [ ! -f compose.auth.env ]; then cp compose.auth.env.example compose.auth.env; fi
+	$(COMPOSE) --env-file compose.auth.env -f compose.auth.yaml down --remove-orphans
+
+compose-auth-logs:
+	@if [ ! -f compose.auth.env ]; then cp compose.auth.env.example compose.auth.env; fi
+	$(COMPOSE) --env-file compose.auth.env -f compose.auth.yaml logs -f
+
+compose-auth-seed:
+	./scripts/zitadel/seed-local.sh

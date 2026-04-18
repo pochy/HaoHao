@@ -59,7 +59,9 @@ func New(cfg config.Config) (*Application, error) {
 	}
 
 	api := humagin.New(router, humaConfig)
-	registerBrowserAPI(api, cfg)
+	if err := registerBrowserAPI(api, cfg); err != nil {
+		return nil, err
+	}
 	registerExternalAPI(api, cfg)
 	registerDocsRoutes(router, api, cfg)
 	registerFrontendRoutes(router)
@@ -70,11 +72,17 @@ func New(cfg config.Config) (*Application, error) {
 	}, nil
 }
 
-func registerBrowserAPI(api huma.API, cfg config.Config) {
-	sessions := service.NewSessionService()
+func registerBrowserAPI(api huma.API, cfg config.Config) error {
+	store, err := service.NewRedisSessionStore(cfg.RedisURL)
+	if err != nil {
+		return err
+	}
+	sessions := service.NewSessionService(store, cfg.SessionTTL)
 
 	browserv1.RegisterHealth(api, cfg)
 	browserv1.RegisterSession(api, cfg, sessions)
+
+	return nil
 }
 
 func registerExternalAPI(api huma.API, cfg config.Config) {
