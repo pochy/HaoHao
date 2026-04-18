@@ -207,6 +207,20 @@ my-enterprise-app/
 
 ORM 中心ではなく、**SQL を設計資産として管理する**方針を取る。
 
+### sqlc の運用補足
+
+Huma 由来の OpenAPI、そこから生成する TypeScript client、さらに `sqlc` の Go 生成物まで含めると、**正本と artifact のずれがそのまま本番事故やレビュー漏れにつながる**。そのため、生成フロー全体を前提に「ずれを早く検知する」ことを運用要件に含める。
+
+初期構成では **`sqlc Cloud` は使わない**。ローカルと GitHub Actions のみで同じチェックが再現でき、`SQLC_AUTH_TOKEN` に依存しない運用にする。
+
+- **`sqlc generate`**: `db/schema.sql` と `db/queries/` から `backend/internal/db/` を更新する
+- **`sqlc vet`**: `db/schema.sql` を載せた PostgreSQL（本 repo では 18）に対して query が成立するか検証する。CI 用には `backend/sqlc.ci.yaml` と `POSTGRESQL_SERVER_URI` で接続先を渡す
+- **`sqlc verify`**: sqlc Cloud 前提のため、標準フローには入れない（`sqlc vet` と `make check-generated`、migration 変更時の `db/schema.sql` 整合チェックで代替する）
+
+CI（`.github/workflows/generated-artifacts.yml`）では、PR 上で **`make check-generated`**、OpenAPI lint、**`db/migrations/` 変更時の `db/schema.sql` 更新漏れ検知**（`scripts/check-schema-snapshot.sh`）、PostgreSQL 18 に対する **`make sqlc-vet`** を走らせ、API 契約・SQL・schema snapshot・各生成物の更新漏れをまとめて落とす。
+
+Issue #4 の議論のうち、external API のスモークより優先したのはこの **artifact / 契約ドリフトのガード**である。external 向け endpoint はすでに主ラインに入っている前提で、差分として価値が大きいのは OpenAPI / frontend client / sqlc の整合を機械的に守ること、という整理に寄せている。
+
 ## PostgreSQL 18 の活用方針
 
 PostgreSQL 18 の新機能は活用するが、流行りで採用するのではなく用途を限定する。
@@ -762,7 +776,6 @@ security:
 - 生成 client の更新漏れチェック
 - migration 実行確認
 - `sqlc -f backend/sqlc.yaml generate`
-- `sqlc -f backend/sqlc.yaml verify`
 - `sqlc -f backend/sqlc.yaml vet`
 - `golangci-lint`
 - Go test
@@ -772,6 +785,8 @@ security:
 - 埋め込み済み SPA のルーティング smoke test
 
 この文書では、生成した OpenAPI artifact と frontend client をコミット対象とする。したがって、**CI で差分検知する**ことは必須。
+
+初期構成の CI は sqlc Cloud には依存しない。したがって、`sqlc verify` は最低限の必須項目には含めず、`make gen` による生成物差分検知、`db/schema.sql` の更新漏れ検知、schema を流し込んだ PostgreSQL に対する `sqlc vet` を優先する。
 
 ## GitHub プロジェクト運用方針
 
