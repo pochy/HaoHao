@@ -1,0 +1,8 @@
+.PHONY: api gen
+
+api:
+	go run ./backend/cmd
+
+gen:
+	go run ./backend/cmd openapi > openapi/openapi.yaml
+	npm --prefix frontend exec openapi-ts -- -i ../openapi/openapi.yaml -o src/api/generated

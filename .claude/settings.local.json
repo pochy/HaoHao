@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.sqlc.dev)",
+      "WebFetch(domain:huma.rocks)",
+      "WebSearch"
+    ]
+  }
+}
