@@ -400,7 +400,7 @@ use ./backend
 #### ファイル: `.env.example`
 
 ```dotenv
-APP_NAME=HaoHao API
+APP_NAME="HaoHao API"
 APP_VERSION=0.1.0
 HTTP_PORT=8080
 
@@ -432,6 +432,8 @@ cp .env.example .env
 
 PostgreSQL 18 と Redis をローカルで起動できるようにします。
 
+`5432` がすでに埋まっている環境では、host 側 port と `.env.example` の `DATABASE_URL` を同じ値へ揃えて変更してください。たとえば `5433:5432` にするなら、`DATABASE_URL` も `127.0.0.1:5433` に合わせます。
+
 #### ファイル: `compose.yaml`
 
 ```yaml
@@ -446,7 +448,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U haohao -d haohao"]
       interval: 5s
@@ -535,12 +537,13 @@ chmod +x scripts/gen.sh
 SHELL := /bin/bash
 
 export-env = set -a && source .env && set +a
+DOCKER_COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; else echo "docker compose"; fi)
 
 up:
-	docker compose up -d
+	$(DOCKER_COMPOSE) up -d
 
 down:
-	docker compose down
+	$(DOCKER_COMPOSE) down
 
 db-up:
 	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" up
@@ -549,10 +552,10 @@ db-down:
 	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" down 1
 
 db-schema:
-	$(export-env) && docker compose exec -T postgres pg_dump --schema-only --no-owner --no-privileges "$$DATABASE_URL" > db/schema.sql
+	$(DOCKER_COMPOSE) exec -T postgres pg_dump --schema-only --no-owner --no-privileges -U haohao -d haohao > db/schema.sql
 
 seed-demo-user:
-	$(export-env) && docker compose exec -T postgres psql "$$DATABASE_URL" < scripts/seed-demo-user.sql
+	$(DOCKER_COMPOSE) exec -T postgres psql -U haohao -d haohao < scripts/seed-demo-user.sql
 
 sqlc:
 	cd backend && sqlc generate
@@ -575,6 +578,8 @@ frontend-dev:
 この `Makefile` は「便利コマンド集」ではありません。チームの標準手順です。
 
 `make openapi` だけは `.env` なしでも動く形にしておきます。OpenAPI export は DB や Redis の接続を必要としないので、CI でもそのまま実行できたほうが扱いやすいからです。
+
+`db-schema` と `seed-demo-user` は、container 内から `DATABASE_URL` をそのまま使わず、container 内で確実に解決できる `-U haohao -d haohao` で実行しています。host 側 port を変えてもここは影響を受けません。
 
 特に重要なのは次の 4 つです。
 
@@ -753,7 +758,7 @@ sed -n '1,220p' db/schema.sql
 `users` テーブルと `pgcrypto` extension が見えていれば大丈夫です。demo ユーザーは次で確認できます。
 
 ```bash
-set -a && source .env && set +a && docker compose exec -T postgres psql "$DATABASE_URL" -c "SELECT email, display_name FROM users;"
+set -a && source .env && set +a && psql "$DATABASE_URL" -c "SELECT email, display_name FROM users;"
 ```
 
 ---
@@ -1282,7 +1287,7 @@ func NewSessionService(queries *db.Queries, store *auth.SessionStore) *SessionSe
 }
 
 func (s *SessionService) Login(ctx context.Context, email, password string) (User, string, string, error) {
-	authResult, err := s.queries.AuthenticateUser(ctx, db.AuthenticateUserParams{
+	userID, err := s.queries.AuthenticateUser(ctx, db.AuthenticateUserParams{
 		Email:    email,
 		Password: password,
 	})
@@ -1293,12 +1298,12 @@ func (s *SessionService) Login(ctx context.Context, email, password string) (Use
 		return User{}, "", "", fmt.Errorf("authenticate user: %w", err)
 	}
 
-	user, err := s.loadUserByID(ctx, authResult.ID)
+	user, err := s.loadUserByID(ctx, userID)
 	if err != nil {
 		return User{}, "", "", err
 	}
 
-	sessionID, csrfToken, err := s.store.Create(ctx, authResult.ID)
+	sessionID, csrfToken, err := s.store.Create(ctx, userID)
 	if err != nil {
 		return User{}, "", "", err
 	}
@@ -1751,9 +1756,12 @@ import (
 
 	"example.com/haohao/backend/internal/app"
 	"example.com/haohao/backend/internal/config"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	gin.SetMode(gin.ReleaseMode)
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatal(err)
@@ -1773,6 +1781,8 @@ func main() {
 #### 解説
 
 ここで `sessionService` に `nil` を渡しているのは意図的です。OpenAPI export では handler は実行されず、operation 登録だけ必要だからです。
+
+`gin.SetMode(gin.ReleaseMode)` を入れているのは、標準出力へ debug log が混ざると `openapi/openapi.yaml` が壊れるためです。artifact として保存する経路では、YAML 以外を stdout に出さないことが重要です。
 
 ---
 
@@ -2112,11 +2122,11 @@ Vue の各画面は、この先ここを意識しません。
 #### ファイル: `frontend/src/api/session.ts`
 
 ```ts
-import './client';
+import { readCookie } from './client';
 import { getSession, login, logout } from './generated/sdk.gen';
 
 export async function fetchCurrentSession() {
-  return getSession();
+  return getSession({});
 }
 
 export async function loginWithPassword(email: string, password: string) {
@@ -2129,13 +2139,19 @@ export async function loginWithPassword(email: string, password: string) {
 }
 
 export async function logoutCurrentSession() {
-  return logout();
+  return logout({
+    headers: {
+      'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
+    },
+  });
 }
 ```
 
 #### 解説
 
 画面から generated SDK を直接呼ばず、一段薄い adapter を挟みます。
+
+`@hey-api/openapi-ts` の生成結果は version によって細部が変わることがあります。今回の構成では `getSession({})` のように空 options が必要で、`logout` は header を明示で渡す形でした。Step 14 で実際の `sdk.gen.ts` を見てから wrapper を合わせる、という順番の意味はここにあります。
 
 このファイルの役割は 2 つです。
 
@@ -2631,6 +2647,7 @@ package backend
 
 import "embed"
 
+//go:embed web/dist
 //go:embed web/dist/*
 var Frontend embed.FS
 ```
@@ -2643,6 +2660,53 @@ var Frontend embed.FS
 
 この部分は API と認証が動いてから手を付けたほうが楽です。
 
+### 実際に build して確認するには
+
+まず frontend の production bundle を作り、その出力を含んだ状態で Go バイナリを build します。
+
+#### 実行コマンド
+
+```bash
+cd frontend
+npm run build
+cd ..
+
+mkdir -p bin
+go build -o ./bin/haohao ./backend/cmd/main
+```
+
+#### 実行コマンド
+
+DB と Redis が起動している前提で、`.env` を読み込んでバイナリを起動します。`8080` が埋まっている環境では、一時的に別 port を使って構いません。
+
+```bash
+make up
+
+set -a && source .env && set +a
+HTTP_PORT=18080 ./bin/haohao
+```
+
+#### 確認
+
+別ターミナルで、次を確認します。
+
+```bash
+curl -i http://127.0.0.1:18080/
+curl -i http://127.0.0.1:18080/login
+curl -i \
+  -X POST http://127.0.0.1:18080/api/v1/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@example.com","password":"changeme123"}'
+```
+
+ここで見たいのは次です。
+
+- `/` が `index.html` を返す
+- `/login` も SPA fallback として `index.html` を返す
+- `/api/v1/login` は API として JSON を返し、`Set-Cookie` が付く
+
+つまり、「1 本の Go バイナリが SPA と API を両方返せているか」を確認します。
+
 ---
 
 ## 発展 2. Dockerfile を作る
@@ -2653,27 +2717,90 @@ var Frontend embed.FS
 
 ```dockerfile
 FROM node:22 AS frontend-builder
-WORKDIR /app
-COPY frontend/package*.json ./frontend/
 WORKDIR /app/frontend
-RUN npm install
-COPY frontend .
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend ./
 RUN npm run build
 
 FROM golang:1.26 AS backend-builder
 WORKDIR /app
+ENV CGO_ENABLED=0 GOFLAGS="-p=1 -tags=nomsgpack"
 COPY go.work .
 COPY backend ./backend
 COPY db ./db
 COPY openapi ./openapi
+COPY scripts ./scripts
+COPY .env.example ./.env.example
 COPY --from=frontend-builder /app/frontend/../backend/web/dist ./backend/web/dist
 WORKDIR /app/backend
 RUN go build -o /tmp/haohao ./cmd/main
 
 FROM debian:bookworm-slim
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 COPY --from=backend-builder /tmp/haohao /usr/local/bin/haohao
 EXPOSE 8080
 CMD ["haohao"]
+```
+
+### 実際に image を build するには
+
+```bash
+docker build -t haohao:dev -f docker/Dockerfile .
+```
+
+### どうやってコンテナを起動するか
+
+backend コンテナ単体では PostgreSQL / Redis に接続できないので、先に `compose.yaml` の依存サービスを起動します。
+
+```bash
+make up
+```
+
+その上で、backend コンテナを compose の network に参加させて起動します。既定の compose project 名なら network は `haohao_default` です。別名になっている場合は `docker network ls` で確認してください。
+
+```bash
+docker run --rm \
+  --name haohao-app \
+  --network haohao_default \
+  -p 18081:8080 \
+  -e APP_NAME='HaoHao API' \
+  -e APP_VERSION='0.1.0' \
+  -e HTTP_PORT='8080' \
+  -e DATABASE_URL='postgres://haohao:haohao@postgres:5432/haohao?sslmode=disable' \
+  -e REDIS_ADDR='redis:6379' \
+  -e REDIS_PASSWORD='' \
+  -e REDIS_DB='0' \
+  -e SESSION_TTL='24h' \
+  -e COOKIE_SECURE='false' \
+  haohao:dev
+```
+
+### 確認
+
+別ターミナルで次を叩きます。
+
+```bash
+curl -i http://127.0.0.1:18081/
+curl -i \
+  -X POST http://127.0.0.1:18081/api/v1/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@example.com","password":"changeme123"}'
+```
+
+ここで見たいのは次です。
+
+- `/` が `index.html` を返す
+- `POST /api/v1/login` が JSON と `Set-Cookie` を返す
+- つまり Docker image 化した backend でも、SPA 配信と API の両方が成立する
+
+もし container 名や network 名が分からなくなったら、次で確認できます。
+
+```bash
+docker network ls
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}'
 ```
 
 ---
@@ -2693,6 +2820,610 @@ CI では、少なくとも次を固定してください。
 この構成では、**生成漏れを CI で止めること**が一番大事です。
 
 `CONCEPT.md` では frontend の lint / format check に `Biome` を想定していますが、このチュートリアルでは login 導線の完成を優先して設定手順を省略しています。導入する場合は、この CI 一覧へそのコマンドを追加してください。
+
+---
+
+## 発展 4. セッション導線の自動テストを入れる
+
+foundation が一通り動いたら、次は壊れやすい導線を 1 本だけでも自動テストにしてください。
+
+このチュートリアルでは、`backend/session_flow_test.go` で次の流れをまとめて検証します。
+
+- login
+- todo 作成
+- 現在の session 取得
+- todo 一覧取得
+- todo 削除
+- logout
+- logout 後に `401 Unauthorized` を返すこと
+
+このテストは mock を使わず、`httptest.NewServer` と実 Postgres / 実 Redis を使います。`go test ./backend/...` を repo root から実行したときに `DATABASE_URL` が未設定なら `../.env` を読み込み、Redis は通常利用と衝突しにくいように `DB 15` を使います。
+
+### `backend/session_flow_test.go`
+
+最低限の骨格は次です。
+
+```go
+func TestSessionFlow(t *testing.T) {
+	cfg := loadIntegrationConfig(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	pool, err := platform.NewPostgresPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		t.Fatalf("connect postgres: %v", err)
+	}
+	defer pool.Close()
+
+	redisClient, err := platform.NewRedisClient(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+	if err != nil {
+		t.Fatalf("connect redis: %v", err)
+	}
+	defer redisClient.Close()
+
+	queries := db.New(pool)
+	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
+	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode)
+	todoService := service.NewTodoService(queries)
+
+	application := app.New(cfg, sessionService, todoService)
+	server := httptest.NewServer(application.Router)
+	defer server.Close()
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatalf("create cookie jar: %v", err)
+	}
+	client := &http.Client{Jar: jar}
+
+	email := fmt.Sprintf("session-flow-%d@example.com", time.Now().UnixNano())
+	password := "changeme123"
+
+	loginBody, _ := json.Marshal(map[string]string{
+		"email":    email,
+		"password": password,
+	})
+	loginResponse, err := client.Post(server.URL+"/api/v1/login", "application/json", bytes.NewReader(loginBody))
+	if err != nil {
+		t.Fatalf("login request: %v", err)
+	}
+
+	createTodoBody, _ := json.Marshal(map[string]string{
+		"title": "Write integration coverage",
+	})
+	createTodoResponse, err := client.Post(server.URL+"/api/v1/todos", "application/json", bytes.NewReader(createTodoBody))
+	if err != nil {
+		t.Fatalf("create todo request: %v", err)
+	}
+
+	var createdTodo struct {
+		PublicID string `json:"publicId"`
+	}
+	_ = json.NewDecoder(createTodoResponse.Body).Decode(&createdTodo)
+
+	cookieURL, _ := url.Parse(server.URL)
+	var csrfToken string
+	for _, cookie := range jar.Cookies(cookieURL) {
+		if cookie.Name == auth.XSRFCookieName {
+			csrfToken = cookie.Value
+			break
+		}
+	}
+
+	currentResponse, err := client.Get(server.URL + "/api/v1/session")
+	if err != nil {
+		t.Fatalf("current session request: %v", err)
+	}
+
+	todoListResponse, err := client.Get(server.URL + "/api/v1/todos")
+	if err != nil {
+		t.Fatalf("list todos request: %v", err)
+	}
+
+	deleteTodoRequest, _ := http.NewRequest(http.MethodDelete, server.URL+"/api/v1/todos/"+createdTodo.PublicID, nil)
+	deleteTodoRequest.Header.Set("X-CSRF-Token", csrfToken)
+	deleteTodoResponse, err := client.Do(deleteTodoRequest)
+	if err != nil {
+		t.Fatalf("delete todo request: %v", err)
+	}
+
+	logoutRequest, _ := http.NewRequest(http.MethodPost, server.URL+"/api/v1/logout", nil)
+	logoutRequest.Header.Set("X-CSRF-Token", csrfToken)
+	logoutResponse, err := client.Do(logoutRequest)
+	if err != nil {
+		t.Fatalf("logout request: %v", err)
+	}
+
+	expiredResponse, err := client.Get(server.URL + "/api/v1/session")
+	if err != nil {
+		t.Fatalf("expired session request: %v", err)
+	}
+
+	_ = loginResponse
+	_ = createTodoResponse
+	_ = currentResponse
+	_ = todoListResponse
+	_ = deleteTodoResponse
+	_ = logoutResponse
+	_ = expiredResponse
+}
+```
+
+### 実際にどう実行するか
+
+まず依存 service を起動し、migration を最新まで当てます。
+
+```bash
+make up
+make db-up
+```
+
+その上で、session 導線の統合テストだけを明示的に流すなら次です。
+
+```bash
+go test ./backend/... -run TestSessionFlow -count=1
+```
+
+backend パッケージ全体をまとめて流すなら次でも構いません。
+
+```bash
+go test ./backend/...
+```
+
+### 何が通ればよいか
+
+成功時は `ok  	example.com/haohao/backend` のような出力になります。
+
+このテストが通っていれば、少なくとも「Cookie を受け取る」「CSRF を付ける」「session を Redis で引く」「認証済み API を叩く」という最小導線は自動で守られます。
+
+`POST /api/v1/login` だけの単発テストより、このように 1 本の縦切りを最後まで通す方が後戻りを減らせます。
+
+---
+
+## 発展 5. 次の縦切り機能として TODO を追加する
+
+session の foundation ができたら、次は小さな業務機能を 1 本追加します。ここでは TODO を例にします。
+
+追加の流れは次です。
+
+1. migration を足す
+2. `db/queries/` に SQL を書く
+3. `make db-schema` と `make gen` を回す
+4. service を足す
+5. API endpoint を足す
+6. frontend store / view まで繋ぐ
+
+今回の構成では、主に次のファイルが増えます。
+
+- `db/migrations/0002_todos.up.sql`
+- `db/migrations/0002_todos.down.sql`
+- `db/queries/todos.sql`
+- `backend/internal/service/todo_service.go`
+- `backend/internal/api/todos.go`
+- `frontend/src/api/todos.ts`
+- `frontend/src/stores/todos.ts`
+- `frontend/src/views/HomeView.vue`
+
+`db/queries/todos.sql` では、少なくとも次の 3 操作があれば十分です。
+
+- `ListTodosByUserID`
+- `CreateTodo`
+- `DeleteTodoByPublicID`
+
+API は次の 3 endpoint で構いません。
+
+- `GET /api/v1/todos`
+- `POST /api/v1/todos`
+- `DELETE /api/v1/todos/{todoPublicId}`
+
+### `db/migrations/0002_todos.up.sql`
+
+```sql
+CREATE TABLE todos (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id UUID NOT NULL DEFAULT uuidv7(),
+    user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX todos_user_id_created_at_idx
+    ON todos (user_id, created_at DESC, id DESC);
+```
+
+### `db/queries/todos.sql`
+
+```sql
+-- name: ListTodosByUserID :many
+SELECT
+    id,
+    public_id,
+    title,
+    completed,
+    created_at,
+    updated_at
+FROM todos
+WHERE user_id = $1
+ORDER BY created_at DESC, id DESC;
+
+-- name: CreateTodo :one
+INSERT INTO todos (
+    user_id,
+    title
+) VALUES (
+    $1,
+    $2
+)
+RETURNING
+    id,
+    public_id,
+    title,
+    completed,
+    created_at,
+    updated_at;
+
+-- name: DeleteTodoByPublicID :execrows
+DELETE FROM todos
+WHERE public_id = $1
+  AND user_id = $2;
+```
+
+### `backend/internal/api/todos.go`
+
+```go
+func registerTodoRoutes(api huma.API, deps Dependencies) {
+	huma.Register(api, huma.Operation{
+		OperationID: "listTodos",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/todos",
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *ListTodosInput) (*ListTodosOutput, error) {
+		user, err := deps.SessionService.CurrentUser(ctx, input.SessionCookie.Value)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+
+		items, err := deps.TodoService.ListByUser(ctx, user.ID)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+
+		responseItems := make([]TodoResponse, 0, len(items))
+		for _, item := range items {
+			responseItems = append(responseItems, toTodoResponse(item))
+		}
+
+		return &ListTodosOutput{
+			Body: TodoListBody{Items: responseItems},
+		}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "createTodo",
+		Method:        http.MethodPost,
+		Path:          "/api/v1/todos",
+		DefaultStatus: http.StatusCreated,
+		Security:      []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *CreateTodoInput) (*CreateTodoOutput, error) {
+		user, err := deps.SessionService.CurrentUser(ctx, input.SessionCookie.Value)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+
+		item, err := deps.TodoService.Create(ctx, user.ID, input.Body.Title)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+
+		return &CreateTodoOutput{Body: toTodoResponse(item)}, nil
+	})
+}
+```
+
+### `frontend/src/api/todos.ts`
+
+```ts
+import './client';
+import { createTodo, deleteTodo, listTodos } from './generated/sdk.gen';
+
+export async function fetchTodos() {
+  return listTodos({});
+}
+
+export async function createTodoItem(title: string) {
+  return createTodo({
+    body: {
+      title,
+    },
+  });
+}
+
+export async function deleteTodoItem(todoPublicId: string) {
+  return deleteTodo({
+    path: {
+      todoPublicId,
+    },
+  });
+}
+```
+
+### 実装後に流すコマンド
+
+```bash
+make db-up
+make db-schema
+make gen
+go test ./backend/...
+```
+
+frontend も確認するなら、別 terminal で次を実行します。
+
+```bash
+cd frontend
+npm run build
+```
+
+開発中に画面で確認するなら、backend と frontend dev server をそれぞれ起動します。
+
+terminal 1:
+
+```bash
+make backend-dev
+```
+
+terminal 2:
+
+```bash
+cd frontend
+npm run dev
+```
+
+### どう確認するか
+
+まず demo user を入れていない場合は seed します。
+
+```bash
+make seed-demo-user
+```
+
+その後、browser で `http://localhost:5173/login` を開き、`demo@example.com / changeme123` で login します。
+
+確認ポイントは次です。
+
+- login 後に Home 画面へ遷移する
+- 現在の session 情報が表示される
+- TODO を追加すると一覧の先頭に増える
+- TODO を削除すると一覧から消える
+
+API を `curl` で確認したい場合は、次のように cookie jar と CSRF token を使います。
+
+```bash
+BASE_URL=http://localhost:8080
+
+curl -sS -c /tmp/haohao.cookies \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@example.com","password":"changeme123"}' \
+  "$BASE_URL/api/v1/login"
+
+XSRF_TOKEN=$(awk '$6=="XSRF-TOKEN"{print $7}' /tmp/haohao.cookies)
+
+curl -sS -b /tmp/haohao.cookies \
+  "$BASE_URL/api/v1/todos"
+
+curl -sS -b /tmp/haohao.cookies \
+  -H "X-CSRF-Token: $XSRF_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Review generated OpenAPI diff"}' \
+  "$BASE_URL/api/v1/todos"
+```
+
+`POST /api/v1/todos` の応答には `publicId` が入るので、削除確認はそれを使います。
+
+```bash
+curl -i -b /tmp/haohao.cookies \
+  -H "X-CSRF-Token: $XSRF_TOKEN" \
+  -X DELETE \
+  "$BASE_URL/api/v1/todos/<todoPublicId>"
+```
+
+この 1 本が通ると、migration -> sqlc -> service -> Huma -> OpenAPI -> generated SDK -> frontend store までの経路をもう一度実地で確認できます。
+
+---
+
+## 発展 6. Zitadel へ寄せる前の足場を入れる
+
+`CONCEPT.md` の最終形は、local password login を恒久運用することではありません。ただし、いきなり browser redirect / callback / token exchange まで入れると切り分けが難しくなるので、その前に「切替可能な足場」を先に入れておきます。
+
+まず `.env.example` に次を足します。
+
+```dotenv
+AUTH_MODE=local
+ZITADEL_ISSUER=
+ZITADEL_CLIENT_ID=
+```
+
+backend 側では `backend/internal/config/config.go` にこの設定を読み込ませ、`backend/internal/api/auth_settings.go` で公開用 endpoint を追加します。
+
+```text
+GET /api/v1/auth/settings
+```
+
+### `backend/internal/config/config.go`
+
+```go
+type Config struct {
+	AppName         string
+	AppVersion      string
+	HTTPPort        int
+	DatabaseURL     string
+	AuthMode        string
+	ZitadelIssuer   string
+	ZitadelClientID string
+	RedisAddr       string
+	RedisPassword   string
+	RedisDB         int
+	SessionTTL      time.Duration
+	CookieSecure    bool
+}
+
+func Load() (Config, error) {
+	sessionTTL, err := time.ParseDuration(getEnv("SESSION_TTL", "24h"))
+	if err != nil {
+		return Config{}, err
+	}
+
+	return Config{
+		AppName:         getEnv("APP_NAME", "HaoHao API"),
+		AppVersion:      getEnv("APP_VERSION", "0.1.0"),
+		HTTPPort:        getEnvInt("HTTP_PORT", 8080),
+		DatabaseURL:     getEnv("DATABASE_URL", ""),
+		AuthMode:        getEnv("AUTH_MODE", "local"),
+		ZitadelIssuer:   getEnv("ZITADEL_ISSUER", ""),
+		ZitadelClientID: getEnv("ZITADEL_CLIENT_ID", ""),
+		RedisAddr:       getEnv("REDIS_ADDR", "127.0.0.1:6379"),
+		RedisPassword:   getEnv("REDIS_PASSWORD", ""),
+		RedisDB:         getEnvInt("REDIS_DB", 0),
+		SessionTTL:      sessionTTL,
+		CookieSecure:    getEnvBool("COOKIE_SECURE", false),
+	}, nil
+}
+```
+
+### `backend/internal/api/auth_settings.go`
+
+```go
+type AuthSettingsBody struct {
+	Mode    string               `json:"mode" example:"local"`
+	Zitadel *ZitadelSettingsBody `json:"zitadel,omitempty"`
+}
+
+type ZitadelSettingsBody struct {
+	Issuer   string `json:"issuer" format:"uri" example:"https://auth.example.com"`
+	ClientID string `json:"clientId" example:"312345678901234567"`
+}
+
+func registerAuthSettingsRoute(api huma.API, deps Dependencies) {
+	huma.Register(api, huma.Operation{
+		OperationID: "getAuthSettings",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/auth/settings",
+		Tags:        []string{"auth"},
+	}, func(ctx context.Context, input *struct{}) (*GetAuthSettingsOutput, error) {
+		body := AuthSettingsBody{
+			Mode: deps.AuthMode,
+		}
+
+		if deps.AuthMode == "zitadel" {
+			body.Zitadel = &ZitadelSettingsBody{
+				Issuer:   deps.ZitadelIssuer,
+				ClientID: deps.ZitadelClientID,
+			}
+		}
+
+		return &GetAuthSettingsOutput{
+			Body: body,
+		}, nil
+	})
+}
+```
+
+この endpoint は、frontend が login 画面をどの mode で描画するべきか判断するために使います。応答例は次です。
+
+```json
+{
+  "mode": "zitadel",
+  "zitadel": {
+    "issuer": "https://auth.example.com",
+    "clientId": "312345678901234567"
+  }
+}
+```
+
+frontend 側では `frontend/src/api/auth.ts` で generated SDK を包み、`frontend/src/views/LoginView.vue` で起動時に `GET /api/v1/auth/settings` を読んで画面を切り替えます。
+
+```ts
+import './client';
+import { getAuthSettings } from './generated/sdk.gen';
+
+export async function fetchAuthSettings() {
+  return getAuthSettings({});
+}
+```
+
+`LoginView.vue` では、例えば次のように mode を読んで描画を切り替えます。
+
+```ts
+onMounted(async () => {
+  try {
+    const settings = await fetchAuthSettings();
+    authMode.value = settings.mode as 'local' | 'zitadel';
+    zitadelIssuer.value = settings.zitadel?.issuer ?? '';
+  } catch {
+    authMode.value = 'local';
+  }
+});
+```
+
+- `AUTH_MODE=local` なら今まで通り email / password form を表示する
+- `AUTH_MODE=zitadel` なら local form を出さず、Zitadel 用の案内を表示する
+
+### 実装後に流すコマンド
+
+新しい endpoint を足したので、この段階でも `make gen` は必須です。
+
+```bash
+make gen
+go test ./backend/...
+
+cd frontend
+npm run build
+```
+
+### どう確認するか
+
+`.env` を次のように変えます。
+
+```dotenv
+AUTH_MODE=zitadel
+ZITADEL_ISSUER=https://<your-zitadel-domain>
+ZITADEL_CLIENT_ID=<your-client-id>
+```
+
+その上で backend と frontend を起動します。
+
+```bash
+make backend-dev
+```
+
+別 terminal:
+
+```bash
+cd frontend
+npm run dev
+```
+
+まず backend の公開設定が返ることを確認します。
+
+```bash
+curl -sS http://localhost:8080/api/v1/auth/settings
+```
+
+その後、browser で `http://localhost:5173/login` を開きます。ここで login form が消え、`AUTH_MODE=zitadel` が有効であることと issuer 情報が表示されれば、mode 切替の足場はできています。
+
+### この段階ではまだ未実装のもの
+
+この節で入れるのは足場だけです。次は別タスクとして、少なくとも次が必要になります。
+
+- Zitadel 側の application 作成
+- redirect URI の登録
+- frontend からの browser redirect
+- callback での code 受け取り
+- backend での token 検証または exchange
+- local session への橋渡し
+
+つまり、この段階で `AUTH_MODE=zitadel` を有効にしても、まだ本番 login は完成していません。local login を誤って通してしまわないよう、未実装 mode は `501 Not Implemented` にして止める方が安全です。
 
 ---
 
