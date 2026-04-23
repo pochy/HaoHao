@@ -12,6 +12,63 @@
 - 各ファイルの役割が明確であること
 - 生成物と手書きファイルの境界がはっきりしていること
 
+## 動作環境
+
+このチュートリアルは、次の環境で動かす前提で書いています。
+
+### 必要環境
+
+- Go `1.26.0`
+- Node.js `22`
+- npm
+- Docker Engine / Docker Compose `v2`
+- GNU Make
+- `sqlc`
+- `golang-migrate`
+- `curl`
+- `awk`
+- macOS
+
+### このチュートリアルで使うローカル構成
+
+- backend: Go + Gin + Huma
+- frontend: Vue 3 + Vite + TypeScript + Pinia
+- database: PostgreSQL `18`
+- session store: Redis `7.4`
+- OpenAPI artifact: `openapi/openapi.yaml`
+- generated SDK: `frontend/src/api/generated/`
+
+### ローカルで使う URL / port
+
+| 対象 | URL / 接続先 | 用途 |
+| --- | --- | --- |
+| frontend dev server | `http://127.0.0.1:5173` | Vite の開発画面 |
+| backend HTTP | `http://127.0.0.1:8080` | API / docs / OpenAPI |
+| PostgreSQL | `127.0.0.1:5432` | `DATABASE_URL` の接続先 |
+| Redis | `127.0.0.1:6379` | セッションストア |
+
+### この文書が前提にしている段階
+
+このチュートリアルは foundation 段階に相当します。ここでいう foundation は、PostgreSQL、Redis、backend、frontend だけで最初の縦切り機能を完成させる段階です。
+
+- 認証基盤はまだ Zitadel に寄せません
+- login は PostgreSQL の `pgcrypto` を使う簡易実装で確認します
+- Zitadel への移行は、この 1 周目が完成した後の段階として扱います
+
+### 最初に確認しておくとよいコマンド
+
+```bash
+go version
+node --version
+npm --version
+docker compose version
+command -v make
+command -v sqlc
+command -v migrate
+command -v curl
+command -v awk
+```
+
 ## このチュートリアルで作るもの
 
 この文書は、`CONCEPT.md` の方針を「実際に手を動かせる順番」に並べ直した手順書です。
@@ -188,17 +245,22 @@ my-enterprise-app/
 
 ## 前提ツール
 
-このチュートリアルは macOS を想定して書いています。ほかの環境でも進められますが、インストール方法は読み替えてください。
+上の動作環境で挙げたもののうち、ローカルへ入れておく対象をここで再掲します。macOS を想定して書いていますが、ほかの環境でもインストール方法を読み替えれば進められます。
 
 最低限必要なのは次です。
 
-- Go 1.24 以上
-- Node.js 22 以上
-- Docker / Docker Compose
+- Go 1.26.0
+- Node.js 22 以上 (`npm` を含む)
+- Docker Engine / Docker Compose v2
+- GNU Make
 - `sqlc`
 - `golang-migrate`
+- `curl`
+- `awk`
 
-macOS なら、たとえば次のように入れられます。
+macOS では `make`, `curl`, `awk` は通常プリインストールです。Docker Engine / Docker Compose v2 は Docker Desktop などで別途入れてください。
+
+そのほかのツールは、たとえば次のように入れられます。
 
 ```bash
 brew install go node sqlc golang-migrate
@@ -208,7 +270,7 @@ brew install go node sqlc golang-migrate
 
 ## 進め方
 
-各ステップで、次の 4 点を必ず書きます。
+各ステップで、次の 5 点を必ず書きます。
 
 - 何を作るか
 - なぜその順番でやるのか
@@ -318,7 +380,7 @@ repo root から `backend/` module を扱えるようにします。
 #### ファイル: `go.work`
 
 ```go
-go 1.24.0
+go 1.26.0
 
 use ./backend
 ```
@@ -360,7 +422,7 @@ cp .env.example .env
 
 #### 解説
 
-この段階では `dotenv` ライブラリは使いません。`Makefile` と `scripts/gen.sh` の両方が `.env` を読み込む前提にして、生成手順と起動手順で設定源がずれないようにします。
+この段階では `dotenv` ライブラリは使いません。DB 操作系と backend 起動系の `Makefile` ターゲット、および `scripts/gen.sh` が `.env` を読む前提にして、生成手順と起動手順で設定源がずれないようにします。`make openapi` だけは `.env` なしで動かします。
 
 ---
 
@@ -457,7 +519,7 @@ chmod +x scripts/gen.sh
 2. Go + Huma から OpenAPI を出す
 3. OpenAPI から TypeScript SDK を作る
 
-`cmd/openapi` は最終的に `service` や `internal/db` を含む backend 全体をコンパイルするので、`sqlc` を先に回しておかないと、手順どおりに進めた読者が途中で詰まります。加えて `.env` もここで読み込んで、`make openapi` と `make gen` の設定源を揃えます。
+`cmd/openapi` は最終的に `service` や `internal/db` を含む backend 全体をコンパイルするので、`sqlc` を先に回しておかないと、手順どおりに進めた読者が途中で詰まります。`.env` はあってもなくても進められるようにしつつ、ローカルで export 手順に設定を足したくなったときにもスクリプト側だけで吸収できる形にしています。
 
 ---
 
@@ -496,7 +558,7 @@ sqlc:
 	cd backend && sqlc generate
 
 openapi:
-	$(export-env) && go run ./backend/cmd/openapi > openapi/openapi.yaml
+	go run ./backend/cmd/openapi > openapi/openapi.yaml
 
 gen:
 	./scripts/gen.sh
@@ -511,6 +573,8 @@ frontend-dev:
 #### 解説
 
 この `Makefile` は「便利コマンド集」ではありません。チームの標準手順です。
+
+`make openapi` だけは `.env` なしでも動く形にしておきます。OpenAPI export は DB や Redis の接続を必要としないので、CI でもそのまま実行できたほうが扱いやすいからです。
 
 特に重要なのは次の 4 つです。
 
@@ -743,14 +807,18 @@ sql:
 
 ```sql
 -- name: AuthenticateUser :one
-SELECT *
+SELECT id
 FROM users
 WHERE email = @email
   AND password_hash = crypt(@password, password_hash)
 LIMIT 1;
 
 -- name: GetUserByID :one
-SELECT *
+SELECT
+    id,
+    public_id,
+    email,
+    display_name
 FROM users
 WHERE id = $1
 LIMIT 1;
@@ -764,6 +832,8 @@ LIMIT 1;
 - session 復元時に user ID からユーザーを読む
 
 `sqlc.arg` の短縮である `@email`, `@password` を使うことで、生成される Go の `Params` struct 名が読みやすくなります。
+
+ここで `SELECT *` を避けているのも重要です。認証に不要な `password_hash` まで service 層へ持ち上げないように、返す列を明示しています。
 
 ---
 
@@ -1212,7 +1282,7 @@ func NewSessionService(queries *db.Queries, store *auth.SessionStore) *SessionSe
 }
 
 func (s *SessionService) Login(ctx context.Context, email, password string) (User, string, string, error) {
-	record, err := s.queries.AuthenticateUser(ctx, db.AuthenticateUserParams{
+	authResult, err := s.queries.AuthenticateUser(ctx, db.AuthenticateUserParams{
 		Email:    email,
 		Password: password,
 	})
@@ -1223,12 +1293,17 @@ func (s *SessionService) Login(ctx context.Context, email, password string) (Use
 		return User{}, "", "", fmt.Errorf("authenticate user: %w", err)
 	}
 
-	sessionID, csrfToken, err := s.store.Create(ctx, record.ID)
+	user, err := s.loadUserByID(ctx, authResult.ID)
 	if err != nil {
 		return User{}, "", "", err
 	}
 
-	return toUser(record), sessionID, csrfToken, nil
+	sessionID, csrfToken, err := s.store.Create(ctx, authResult.ID)
+	if err != nil {
+		return User{}, "", "", err
+	}
+
+	return user, sessionID, csrfToken, nil
 }
 
 func (s *SessionService) CurrentUser(ctx context.Context, sessionID string) (User, error) {
@@ -1240,7 +1315,11 @@ func (s *SessionService) CurrentUser(ctx context.Context, sessionID string) (Use
 		return User{}, err
 	}
 
-	record, err := s.queries.GetUserByID(ctx, session.UserID)
+	return s.loadUserByID(ctx, session.UserID)
+}
+
+func (s *SessionService) loadUserByID(ctx context.Context, userID int64) (User, error) {
+	record, err := s.queries.GetUserByID(ctx, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrUnauthorized
 	}
@@ -1248,7 +1327,12 @@ func (s *SessionService) CurrentUser(ctx context.Context, sessionID string) (Use
 		return User{}, fmt.Errorf("load user by session: %w", err)
 	}
 
-	return toUser(record), nil
+	return User{
+		ID:          record.ID,
+		PublicID:    record.PublicID.String(),
+		Email:       record.Email,
+		DisplayName: record.DisplayName,
+	}, nil
 }
 
 func (s *SessionService) Logout(ctx context.Context, sessionID, csrfHeader string) error {
@@ -1265,15 +1349,6 @@ func (s *SessionService) Logout(ctx context.Context, sessionID, csrfHeader strin
 	}
 
 	return s.store.Delete(ctx, sessionID)
-}
-
-func toUser(record db.User) User {
-	return User{
-		ID:          record.ID,
-		PublicID:    record.PublicID.String(),
-		Email:       record.Email,
-		DisplayName: record.DisplayName,
-	}
 }
 ```
 
@@ -1839,6 +1914,8 @@ cd ..
 ここでは `package.json` を手書きしません。Vite の初期 scaffold を使い、その上に必要な依存だけ足します。
 
 こうすると TypeScript / Vue / Vite の最低限の配線を自分で書かずに済みます。
+
+`CONCEPT.md` では frontend を `shared/`, `features/`, `pages/` のハイブリッドで切る方針でしたが、最初の 1 周目は Vite scaffold に寄せて `views/`, `stores/`, `api/` で始めます。login 導線が一周したあとで、必要に応じて feature-based な構成へ寄せていくほうが移行理由を説明しやすいからです。
 
 ---
 
@@ -2583,7 +2660,7 @@ RUN npm install
 COPY frontend .
 RUN npm run build
 
-FROM golang:1.24 AS backend-builder
+FROM golang:1.26 AS backend-builder
 WORKDIR /app
 COPY go.work .
 COPY backend ./backend
@@ -2614,6 +2691,8 @@ CI では、少なくとも次を固定してください。
 - `frontend` の `npm run build` が通る
 
 この構成では、**生成漏れを CI で止めること**が一番大事です。
+
+`CONCEPT.md` では frontend の lint / format check に `Biome` を想定していますが、このチュートリアルでは login 導線の完成を優先して設定手順を省略しています。導入する場合は、この CI 一覧へそのコマンドを追加してください。
 
 ---
 
