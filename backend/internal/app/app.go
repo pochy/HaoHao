@@ -4,6 +4,7 @@ import (
 	backendapi "example.com/haohao/backend/internal/api"
 	"example.com/haohao/backend/internal/auth"
 	"example.com/haohao/backend/internal/config"
+	"example.com/haohao/backend/internal/middleware"
 	"example.com/haohao/backend/internal/service"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -16,9 +17,14 @@ type App struct {
 	API    huma.API
 }
 
-func New(cfg config.Config, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService) *App {
+func New(cfg config.Config, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, authzService *service.AuthzService, bearerVerifier *auth.BearerVerifier) *App {
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
+	router.Use(
+		gin.Logger(),
+		gin.Recovery(),
+		middleware.ExternalCORS("/api/external/", cfg.ExternalAllowedOrigins),
+		middleware.ExternalAuth("/api/external/", bearerVerifier, authzService, "zitadel", cfg.ExternalExpectedAudience, cfg.ExternalRequiredScopePrefix, cfg.ExternalRequiredRole),
+	)
 
 	humaConfig := huma.DefaultConfig(cfg.AppName, cfg.AppVersion)
 	humaConfig.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
@@ -26,6 +32,11 @@ func New(cfg config.Config, sessionService *service.SessionService, oidcLoginSer
 			Type: "apiKey",
 			In:   "cookie",
 			Name: auth.SessionCookieName,
+		},
+		"bearerAuth": {
+			Type:         "http",
+			Scheme:       "bearer",
+			BearerFormat: "JWT",
 		},
 	}
 

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetSessionData, GetSessionErrors, GetSessionResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses } from './types.gen';
+import type { FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetSessionData, GetSessionErrors, GetSessionResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,15 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: Record<string, unknown>;
 };
+
+/**
+ * 現在の external bearer principal を返す
+ */
+export const getExternalMe = <ThrowOnError extends boolean = false>(options?: Options<GetExternalMeData, ThrowOnError>) => (options?.client ?? client).get<GetExternalMeResponses, GetExternalMeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/external/v1/me',
+    ...options
+});
 
 /**
  * OIDC callback を完了する

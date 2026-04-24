@@ -1881,6 +1881,355 @@ frontend-dev:
 	cd frontend && npm run dev
 ```
 
+#### `dev/zitadel/.env.example`
+
+```dotenv
+# ⚠️  INSECURE DEFAULTS — for local development only.
+# Before exposing this stack to a network, change ZITADEL_MASTERKEY,
+# POSTGRES_ADMIN_PASSWORD, and POSTGRES_ZITADEL_PASSWORD.
+# See: https://zitadel.com/docs/self-hosting/deploy/compose#homelab
+
+# -----------------------------
+# Domain and external URL
+# -----------------------------
+ZITADEL_DOMAIN=localhost
+# Used by the base (non-TLS) compose; TLS overlays also publish 80/443 and may still expose
+# this port unless their ports are adjusted.
+PROXY_HTTP_PUBLISHED_PORT=8081
+ZITADEL_EXTERNALPORT=8081
+ZITADEL_EXTERNALSECURE=false
+# Overridden by TLS overlays (they hardcode X-Forwarded-Proto: https).
+ZITADEL_PUBLIC_SCHEME=http
+
+# -----------------------------
+# Security/bootstrap
+# -----------------------------
+# Must be exactly 32 chars for new deployments.
+ZITADEL_MASTERKEY=MasterkeyNeedsToHave32Characters
+LOGIN_CLIENT_PAT_EXPIRATION=2099-01-01T00:00:00Z
+
+# -----------------------------
+# Pinned image tags
+# To upgrade ZITADEL, bump ZITADEL_VERSION and run:
+#   docker compose --env-file .env -f docker-compose.yml pull
+#   docker compose --env-file .env -f docker-compose.yml up -d --wait
+# -----------------------------
+ZITADEL_VERSION=v4.13.0
+TRAEFIK_IMAGE=traefik:v3.6.8
+POSTGRES_IMAGE=postgres:17.2-alpine
+REDIS_IMAGE=redis:7.4.2-alpine
+OTEL_COLLECTOR_IMAGE=otel/opentelemetry-collector-contrib:0.114.0
+
+# -----------------------------
+# Proxy settings
+# -----------------------------
+TRAEFIK_DASHBOARD_ENABLED=false
+TRAEFIK_LOG_LEVEL=INFO
+TRAEFIK_ACCESSLOG_ENABLED=true
+# Trusted proxy IPs for X-Forwarded-* headers (external-tls mode).
+# Comma-separated CIDR ranges of your upstream load balancer / reverse proxy.
+TRAEFIK_TRUSTED_IPS=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+
+# Let's Encrypt mode
+LETSENCRYPT_EMAIL=ops@example.com
+
+# -----------------------------
+# Postgres settings
+# -----------------------------
+POSTGRES_DB=zitadel
+POSTGRES_ADMIN_USER=postgres
+POSTGRES_ADMIN_PASSWORD=postgres
+# DSN used by ZITADEL to connect to PostgreSQL.
+# The start-from-init command uses this DSN to create the database schema and for
+# normal operation. When a DSN is configured, ZITADEL does not create or switch
+# to a separate unprivileged database user; the user in this DSN is used directly
+# and must already exist. For production, configure this DSN to use a non-superuser
+# role with only the permissions ZITADEL needs.
+# See https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING
+ZITADEL_DATABASE_POSTGRES_DSN=postgresql://postgres:postgres@postgres:5432/zitadel?sslmode=disable
+
+# -----------------------------
+# Access logs
+# -----------------------------
+ZITADEL_ACCESS_LOG_STDOUT_ENABLED=true
+
+# -----------------------------
+# Optional Redis cache settings
+# Default is disabled.
+# Enable with --profile cache and switch connectors to redis.
+# -----------------------------
+ZITADEL_CACHES_CONNECTORS_REDIS_ENABLED=false
+# DSN used by ZITADEL to connect to Redis.
+# See https://redis.io/docs/latest/develop/tools/cli/#host-port-password-and-database
+ZITADEL_CACHES_CONNECTORS_REDIS_URL=redis://redis:6379/0
+ZITADEL_CACHES_INSTANCE_CONNECTOR=
+ZITADEL_CACHES_MILESTONES_CONNECTOR=
+ZITADEL_CACHES_ORGANIZATION_CONNECTOR=
+
+# -----------------------------
+# Optional API tracing (OTEL)
+# Default is disabled. Enable with --profile observability.
+# The collector receives traces from ZITADEL on port 4317 (gRPC) and 4318 (HTTP)
+# and logs them to stdout by default.
+# To forward traces to your own backend (Grafana Tempo, Jaeger, OpenObserve, etc.),
+# uncomment the otlp exporter in otel-collector-config.yaml and set:
+# OTEL_BACKEND_ENDPOINT=http://your-backend:4317
+# -----------------------------
+ZITADEL_INSTRUMENTATION_SERVICENAME=zitadel-api
+ZITADEL_INSTRUMENTATION_TRACE_EXPORTER_TYPE=none
+ZITADEL_INSTRUMENTATION_TRACE_EXPORTER_ENDPOINT=otel-collector:4317
+ZITADEL_INSTRUMENTATION_TRACE_EXPORTER_INSECURE=true
+
+# -----------------------------
+# Future Login OTEL placeholders
+# Current login image may ignore these.
+# -----------------------------
+LOGIN_OTEL_SERVICE_NAME=zitadel-login
+LOGIN_OTEL_EXPORTER_OTLP_ENDPOINT=
+LOGIN_OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+```
+
+#### `dev/zitadel/docker-compose.yml`
+
+```yaml
+name: zitadel
+
+services:
+  proxy:
+    image: ${TRAEFIK_IMAGE}
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=zitadel
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --api.dashboard=${TRAEFIK_DASHBOARD_ENABLED}
+      - --api.insecure=false
+      - --ping=true
+      - --ping.entrypoint=web
+      - --log.level=${TRAEFIK_LOG_LEVEL}
+      - --accesslog=${TRAEFIK_ACCESSLOG_ENABLED}
+    ports:
+      - ${PROXY_HTTP_PUBLISHED_PORT}:80
+    networks:
+      - zitadel
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      zitadel-api:
+        condition: service_healthy
+      zitadel-login:
+        condition: service_healthy
+
+  zitadel-api:
+    image: ghcr.io/zitadel/zitadel:${ZITADEL_VERSION}
+    restart: unless-stopped
+    user: "0"
+    command: start-from-init --masterkey "${ZITADEL_MASTERKEY}"
+    environment:
+      ZITADEL_PORT: 8080
+      ZITADEL_EXTERNALDOMAIN: ${ZITADEL_DOMAIN}
+      ZITADEL_EXTERNALPORT: ${ZITADEL_EXTERNALPORT}
+      ZITADEL_EXTERNALSECURE: ${ZITADEL_EXTERNALSECURE}
+      ZITADEL_TLS_ENABLED: false
+
+      ZITADEL_DATABASE_POSTGRES_DSN: ${ZITADEL_DATABASE_POSTGRES_DSN}
+
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: false
+      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /zitadel/bootstrap/login-client.pat
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: Automatically Initialized IAM_LOGIN_CLIENT
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: ${LOGIN_CLIENT_PAT_EXPIRATION}
+
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: true
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: ${ZITADEL_PUBLIC_SCHEME}://${ZITADEL_DOMAIN}:${ZITADEL_EXTERNALPORT}/ui/v2/login/
+      ZITADEL_OIDC_DEFAULTLOGINURLV2: ${ZITADEL_PUBLIC_SCHEME}://${ZITADEL_DOMAIN}:${ZITADEL_EXTERNALPORT}/ui/v2/login/login?authRequest=
+      ZITADEL_OIDC_DEFAULTLOGOUTURLV2: ${ZITADEL_PUBLIC_SCHEME}://${ZITADEL_DOMAIN}:${ZITADEL_EXTERNALPORT}/ui/v2/login/logout?post_logout_redirect=
+      ZITADEL_SAML_DEFAULTLOGINURLV2: ${ZITADEL_PUBLIC_SCHEME}://${ZITADEL_DOMAIN}:${ZITADEL_EXTERNALPORT}/ui/v2/login/login?samlRequest=
+
+      ZITADEL_LOGSTORE_ACCESS_STDOUT_ENABLED: ${ZITADEL_ACCESS_LOG_STDOUT_ENABLED}
+
+      ZITADEL_INSTRUMENTATION_TRACE_EXPORTER_TYPE: ${ZITADEL_INSTRUMENTATION_TRACE_EXPORTER_TYPE}
+      ZITADEL_INSTRUMENTATION_TRACE_EXPORTER_ENDPOINT: ${ZITADEL_INSTRUMENTATION_TRACE_EXPORTER_ENDPOINT}
+      ZITADEL_INSTRUMENTATION_TRACE_EXPORTER_INSECURE: ${ZITADEL_INSTRUMENTATION_TRACE_EXPORTER_INSECURE}
+      ZITADEL_INSTRUMENTATION_SERVICENAME: ${ZITADEL_INSTRUMENTATION_SERVICENAME}
+
+      ZITADEL_CACHES_CONNECTORS_REDIS_ENABLED: ${ZITADEL_CACHES_CONNECTORS_REDIS_ENABLED}
+      ZITADEL_CACHES_CONNECTORS_REDIS_URL: ${ZITADEL_CACHES_CONNECTORS_REDIS_URL}
+      ZITADEL_CACHES_INSTANCE_CONNECTOR: ${ZITADEL_CACHES_INSTANCE_CONNECTOR}
+      ZITADEL_CACHES_MILESTONES_CONNECTOR: ${ZITADEL_CACHES_MILESTONES_CONNECTOR}
+      ZITADEL_CACHES_ORGANIZATION_CONNECTOR: ${ZITADEL_CACHES_ORGANIZATION_CONNECTOR}
+
+    healthcheck:
+      test:
+        - CMD
+        - /app/zitadel
+        - ready
+      interval: 10s
+      timeout: 30s
+      retries: 12
+      start_period: 20s
+    volumes:
+      - zitadel-bootstrap:/zitadel/bootstrap:rw
+    networks:
+      - zitadel
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=zitadel
+
+      - traefik.http.services.zitadel-api.loadbalancer.server.port=8080
+      - traefik.http.services.zitadel-api.loadbalancer.server.scheme=h2c
+
+      - traefik.http.middlewares.zitadel-strip-api.stripprefix.prefixes=/api
+      - traefik.http.middlewares.zitadel-strip-api.stripprefix.forceSlash=false
+
+      # Note: no dedicated gRPC router needed. All gRPC and Connect-RPC traffic
+      # is handled by the catch-all router below since the backend already uses h2c.
+
+      - traefik.http.routers.zitadel-api-alias-web.rule=Host(`${ZITADEL_DOMAIN}`) && PathPrefix(`/api`)
+      - traefik.http.routers.zitadel-api-alias-web.entrypoints=web
+      - traefik.http.routers.zitadel-api-alias-web.middlewares=zitadel-strip-api
+      - traefik.http.routers.zitadel-api-alias-web.service=zitadel-api
+      - traefik.http.routers.zitadel-api-alias-web.priority=200
+
+      - traefik.http.routers.zitadel-api-alias-websecure.rule=Host(`${ZITADEL_DOMAIN}`) && PathPrefix(`/api`)
+      - traefik.http.routers.zitadel-api-alias-websecure.entrypoints=websecure
+      - traefik.http.routers.zitadel-api-alias-websecure.tls=true
+      - traefik.http.routers.zitadel-api-alias-websecure.middlewares=zitadel-strip-api
+      - traefik.http.routers.zitadel-api-alias-websecure.service=zitadel-api
+      - traefik.http.routers.zitadel-api-alias-websecure.priority=200
+
+      - traefik.http.routers.zitadel-canonical-web.rule=Host(`${ZITADEL_DOMAIN}`) && !PathPrefix(`/ui/v2/login`) && !PathPrefix(`/api`) && !Path(`/`)
+      - traefik.http.routers.zitadel-canonical-web.entrypoints=web
+      - traefik.http.routers.zitadel-canonical-web.service=zitadel-api
+      - traefik.http.routers.zitadel-canonical-web.priority=100
+
+      - traefik.http.routers.zitadel-canonical-websecure.rule=Host(`${ZITADEL_DOMAIN}`) && !PathPrefix(`/ui/v2/login`) && !PathPrefix(`/api`) && !Path(`/`)
+      - traefik.http.routers.zitadel-canonical-websecure.entrypoints=websecure
+      - traefik.http.routers.zitadel-canonical-websecure.tls=true
+      - traefik.http.routers.zitadel-canonical-websecure.service=zitadel-api
+      - traefik.http.routers.zitadel-canonical-websecure.priority=100
+
+  zitadel-login:
+    image: ghcr.io/zitadel/zitadel-login:${ZITADEL_VERSION}
+    restart: unless-stopped
+    user: "0"
+    environment:
+      ZITADEL_API_URL: http://zitadel-api:8080
+      NEXT_PUBLIC_BASE_PATH: /ui/v2/login
+      ZITADEL_SERVICE_USER_TOKEN_FILE: /zitadel/bootstrap/login-client.pat
+      CUSTOM_REQUEST_HEADERS: Host:${ZITADEL_DOMAIN},X-Forwarded-Proto:${ZITADEL_PUBLIC_SCHEME}
+
+      # Future-ready placeholders for upcoming Login OTEL support.
+      OTEL_SERVICE_NAME: ${LOGIN_OTEL_SERVICE_NAME}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${LOGIN_OTEL_EXPORTER_OTLP_ENDPOINT}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${LOGIN_OTEL_EXPORTER_OTLP_PROTOCOL}
+    healthcheck:
+      test:
+        - CMD
+        - /bin/sh
+        - -c
+        - node /app/healthcheck.mjs http://localhost:3000/ui/v2/login/healthy
+      interval: 10s
+      timeout: 30s
+      retries: 12
+      start_period: 20s
+    volumes:
+      - zitadel-bootstrap:/zitadel/bootstrap:ro
+    networks:
+      - zitadel
+    depends_on:
+      zitadel-api:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=zitadel
+      - traefik.http.services.zitadel-login.loadbalancer.server.port=3000
+
+      - traefik.http.middlewares.zitadel-root-rewrite.replacepath.path=/ui/v2/login/
+
+      - traefik.http.routers.zitadel-root-web.rule=Host(`${ZITADEL_DOMAIN}`) && Path(`/`)
+      - traefik.http.routers.zitadel-root-web.entrypoints=web
+      - traefik.http.routers.zitadel-root-web.middlewares=zitadel-root-rewrite
+      - traefik.http.routers.zitadel-root-web.service=zitadel-login
+      - traefik.http.routers.zitadel-root-web.priority=400
+
+      - traefik.http.routers.zitadel-root-websecure.rule=Host(`${ZITADEL_DOMAIN}`) && Path(`/`)
+      - traefik.http.routers.zitadel-root-websecure.entrypoints=websecure
+      - traefik.http.routers.zitadel-root-websecure.tls=true
+      - traefik.http.routers.zitadel-root-websecure.middlewares=zitadel-root-rewrite
+      - traefik.http.routers.zitadel-root-websecure.service=zitadel-login
+      - traefik.http.routers.zitadel-root-websecure.priority=400
+
+      - traefik.http.routers.zitadel-login-web.rule=Host(`${ZITADEL_DOMAIN}`) && PathPrefix(`/ui/v2/login`)
+      - traefik.http.routers.zitadel-login-web.entrypoints=web
+      - traefik.http.routers.zitadel-login-web.service=zitadel-login
+      - traefik.http.routers.zitadel-login-web.priority=250
+
+      - traefik.http.routers.zitadel-login-websecure.rule=Host(`${ZITADEL_DOMAIN}`) && PathPrefix(`/ui/v2/login`)
+      - traefik.http.routers.zitadel-login-websecure.entrypoints=websecure
+      - traefik.http.routers.zitadel-login-websecure.tls=true
+      - traefik.http.routers.zitadel-login-websecure.service=zitadel-login
+      - traefik.http.routers.zitadel-login-websecure.priority=250
+
+  postgres:
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_ADMIN_USER}
+      interval: 10s
+      timeout: 30s
+      retries: 10
+      start_period: 20s
+    volumes:
+      - postgres-data:/var/lib/postgresql/data:rw
+    networks:
+      - zitadel
+
+  redis:
+    image: ${REDIS_IMAGE}
+    restart: unless-stopped
+    profiles:
+      - cache
+    command:
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    networks:
+      - zitadel
+
+  otel-collector:
+    image: ${OTEL_COLLECTOR_IMAGE}
+    restart: unless-stopped
+    profiles:
+      - observability
+    command:
+      - --config=/etc/otelcol/config.yaml
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    networks:
+      - zitadel
+
+networks:
+  zitadel:
+    name: zitadel
+
+volumes:
+  postgres-data:
+  zitadel-bootstrap:
+```
+
 #### `.env.example`
 
 ```dotenv
@@ -4586,13 +4935,142 @@ JWT の Zitadel roles claim に `EXTERNAL_REQUIRED_ROLE` がありません。Co
 
 access token が JWT ではない、token が期限切れ、issuer / JWKS が一致していない、または `id_token` を送っています。`/tmp/zitadel-token.json` から `access_token` を使っていることを確認してください。
 
+#### Phase 3 final negative checks
+
+positive path と role なし negative test が通ったあと、最後に次の軽い境界確認を流します。backend は通常設定で起動しておきます。
+
+Token なしは `401` になります。
+
+```bash
+curl -i http://127.0.0.1:8080/api/external/v1/me
+```
+
+期待値は次です。
+
+```text
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="haohao-external"
+{"detail":"missing bearer token","status":401,"title":"Unauthorized"}
+```
+
+browser session route に bearer token を送っても、Cookie session としては扱われません。
+
+```bash
+ACCESS_TOKEN=$(python3 -c 'import json; print(json.load(open("/tmp/zitadel-token.json"))["access_token"])')
+curl -i -H "Authorization: Bearer $ACCESS_TOKEN" http://127.0.0.1:8080/api/v1/session
+```
+
+期待値は `401` で、detail は `missing or expired session` です。
+
+`EXTERNAL_ALLOWED_ORIGINS=` のままなら、external API の preflight は拒否されます。
+
+```bash
+curl -i -X OPTIONS \
+  -H "Origin: http://127.0.0.1:5173" \
+  -H "Access-Control-Request-Method: GET" \
+  -H "Access-Control-Request-Headers: Authorization" \
+  http://127.0.0.1:8080/api/external/v1/me
+```
+
+期待値は `403 Forbidden` と `origin is not allowed` です。
+
+audience mismatch は `.env` を編集せずに確認できます。ただし `EXTERNAL_EXPECTED_AUDIENCE=wrong-audience make backend-dev` は、Makefile が後から `.env` を source するため override になりません。一時 override は次の形で起動します。
+
+```bash
+bash -lc 'set -a; source .env; export EXTERNAL_EXPECTED_AUDIENCE=wrong-audience; set +a; go run ./backend/cmd/main'
+```
+
+別 terminal で叩きます。
+
+```bash
+ACCESS_TOKEN=$(python3 -c 'import json; print(json.load(open("/tmp/zitadel-token.json"))["access_token"])')
+curl -i -H "Authorization: Bearer $ACCESS_TOKEN" http://127.0.0.1:8080/api/external/v1/me
+```
+
+期待値は `401 Unauthorized` と `invalid bearer audience` です。
+
+CORS allow 側も確認するなら、同じく `.env` を編集せずに一時 override で起動します。
+
+```bash
+bash -lc 'set -a; source .env; export EXTERNAL_ALLOWED_ORIGINS=http://127.0.0.1:5173; set +a; go run ./backend/cmd/main'
+```
+
+同じ OPTIONS request の期待値は `204 No Content` と次の header です。
+
+```text
+Access-Control-Allow-Origin: http://127.0.0.1:5173
+Access-Control-Allow-Headers: Authorization, Content-Type
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+```
+
 ## Phase 3 Exact Snapshot
 
 Phase 0-2 の exact snapshot はそのまま使い、Phase 3 で変わった file だけをここに追加します。
 
 - この節の block は、現在の Phase 3 実装に合わせた **exact delta** です
-- `backend/internal/db/*.go`, `db/schema.sql`, `openapi/openapi.yaml`, `frontend/src/api/generated/*` は `make db-schema` と `make gen` の生成物です
+- `backend/internal/db/*.go`, `openapi/openapi.yaml`, `frontend/src/api/generated/*` は `make gen` の生成物です
+- `db/schema.sql` は `make db-schema` の生成物ですが、`sqlc generate` の入力でもあるため、この snapshot には Phase 3 時点の内容を載せます
 - `go.work.sum` は tool 実行で再生成されることがありますが、この repo の正本には含めません
+
+#### Clean worktree replay checklist
+
+`../phase3-test` のような clean worktree で **この `TUTORIAL_ZITADEL.md` だけから同じ file / directory 構成へ戻す** 場合は、次の順に進めてください。ここでは手作業で snippet を copy せず、Markdown 内の exact file block を展開します。
+
+この script は `Phase 0-2 Exact Snapshot` の `Project Exact Files` と、この `Phase 3 Exact Snapshot` の file block を読み取り、同じ path に書き出します。親 directory は自動作成されるため、`dev/zitadel` もこの手順で作られます。Phase 3 の block は Phase 0-2 の同名 file を上書きするため、最終状態が現在の Phase 3 実装になります。
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+import re
+
+doc = Path("TUTORIAL_ZITADEL.md")
+text = doc.read_text()
+
+sections = [
+    ("### Project Exact Files", "## Phase 3. External User Bearer API"),
+    ("## Phase 3 Exact Snapshot", "## Phase 4."),
+]
+
+files = {}
+for start, end in sections:
+    start_match = re.search(rf"^{re.escape(start)}", text, re.M)
+    if not start_match:
+        raise SystemExit(f"section not found: {start}")
+    start_index = start_match.start()
+    end_match = re.search(rf"^{re.escape(end)}", text[start_index:], re.M)
+    end_index = -1 if not end_match else start_index + end_match.start()
+    section = text[start_index:] if end_index == -1 else text[start_index:end_index]
+    for path, body in re.findall(r'^#### `([^`]+)`\n\n```[^\n]*\n(.*?)\n```', section, re.M | re.S):
+        files[path] = body.rstrip("\n") + "\n"
+
+for path, body in files.items():
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(body)
+    print(f"wrote {target}")
+PY
+```
+
+その後、生成物を現在の実装と同じ状態に戻します。`go test` は `make gen` の後に実行してください。`make gen` の前に test すると、`backend/internal/db/roles.sql.go` などが無くて build が失敗します。
+
+```bash
+npm --prefix frontend install
+make gen
+go test ./backend/...
+docker-compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet
+git diff --check
+```
+
+Zitadel compose の Git 管理対象は次の 2 file だけです。実ファイルの `dev/zitadel/.env` は `make zitadel-env` / `make zitadel-up` が `.env.example` から作りますが、Git には入れません。
+
+```text
+dev/zitadel/.env.example
+dev/zitadel/docker-compose.yml
+```
+
+repo root の `.env` も Git には入れません。`.env.example` から作り、Zitadel Console で作った値と JWT decode 結果に合わせます。
+
+Zitadel Console 内の project / application / role assignment は Git に入らない外部状態です。そこは本文の Step 0.3, Step 1.3, Step 3.2.5 の手順で作り直します。
 
 #### `.env.example`
 
@@ -4789,6 +5267,259 @@ ON CONFLICT (code) DO NOTHING;
 ```sql
 DROP TABLE IF EXISTS user_roles;
 DROP TABLE IF EXISTS roles;
+```
+
+#### `db/schema.sql`
+
+```sql
+--
+-- PostgreSQL database dump
+--
+
+
+-- Dumped from database version 18.3 (Debian 18.3-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Debian 18.3-1.pgdg13+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.roles (
+    id bigint NOT NULL,
+    code text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: roles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.roles ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.roles_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schema_migrations (
+    version bigint NOT NULL,
+    dirty boolean NOT NULL
+);
+
+
+--
+-- Name: user_identities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_identities (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    provider text NOT NULL,
+    subject text NOT NULL,
+    email text NOT NULL,
+    email_verified boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: user_identities_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.user_identities ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.user_identities_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: user_roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_roles (
+    user_id bigint NOT NULL,
+    role_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.users (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    email text NOT NULL,
+    display_name text NOT NULL,
+    password_hash text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.users_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: roles roles_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roles
+    ADD CONSTRAINT roles_code_key UNIQUE (code);
+
+
+--
+-- Name: roles roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roles
+    ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: user_identities user_identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_identities user_identities_provider_subject_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_provider_subject_key UNIQUE (provider, subject);
+
+
+--
+-- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id);
+
+
+--
+-- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_email_key UNIQUE (email);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_identities_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_identities_user_id_idx ON public.user_identities USING btree (user_id);
+
+
+--
+-- Name: user_roles_role_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_roles_role_id_idx ON public.user_roles USING btree (role_id);
+
+
+--
+-- Name: user_identities user_identities_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_roles user_roles_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_roles user_roles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- PostgreSQL database dump complete
+--
 ```
 
 #### `db/queries/roles.sql`

@@ -20,15 +20,17 @@ type OIDCLoginService struct {
 	oidcClient     *auth.OIDCClient
 	loginState     *auth.LoginStateStore
 	identity       *IdentityService
+	authzService   *AuthzService
 	sessionService *SessionService
 }
 
-func NewOIDCLoginService(providerName string, oidcClient *auth.OIDCClient, loginState *auth.LoginStateStore, identity *IdentityService, sessionService *SessionService) *OIDCLoginService {
+func NewOIDCLoginService(providerName string, oidcClient *auth.OIDCClient, loginState *auth.LoginStateStore, identity *IdentityService, authzService *AuthzService, sessionService *SessionService) *OIDCLoginService {
 	return &OIDCLoginService{
 		providerName:   providerName,
 		oidcClient:     oidcClient,
 		loginState:     loginState,
 		identity:       identity,
+		authzService:   authzService,
 		sessionService: sessionService,
 	}
 }
@@ -70,6 +72,12 @@ func (s *OIDCLoginService) FinishLogin(ctx context.Context, code, state string) 
 	})
 	if err != nil {
 		return OIDCLoginResult{}, fmt.Errorf("resolve local user for oidc identity: %w", err)
+	}
+
+	if s.authzService != nil {
+		if _, err := s.authzService.SyncGlobalRoles(ctx, user.ID, identity.Claims.Groups); err != nil {
+			return OIDCLoginResult{}, fmt.Errorf("sync local roles for oidc login: %w", err)
+		}
 	}
 
 	sessionID, csrfToken, err := s.sessionService.IssueSessionWithProviderHint(ctx, user.ID, identity.RawIDToken)
