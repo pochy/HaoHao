@@ -56,9 +56,10 @@ export const useSessionStore = defineStore('session', {
       this.errorMessage = ''
 
       try {
-        await logoutCurrentSession()
+        const data = await logoutCurrentSession()
         this.user = null
         this.status = 'anonymous'
+        return data.postLogoutURL ?? ''
       } catch (error) {
         this.errorMessage = toApiErrorMessage(error)
         throw error
@@ -66,4 +67,3 @@ export const useSessionStore = defineStore('session', {
     },
   },
 })
-

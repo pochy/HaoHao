@@ -19,7 +19,18 @@ type User struct {
 	PublicID     uuid.UUID          `json:"public_id"`
 	Email        string             `json:"email"`
 	DisplayName  string             `json:"display_name"`
-	PasswordHash string             `json:"password_hash"`
+	PasswordHash pgtype.Text        `json:"password_hash"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserIdentity struct {
+	ID            int64              `json:"id"`
+	UserID        int64              `json:"user_id"`
+	Provider      string             `json:"provider"`
+	Subject       string             `json:"subject"`
+	Email         string             `json:"email"`
+	EmailVerified bool               `json:"email_verified"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }

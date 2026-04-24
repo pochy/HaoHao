@@ -597,9 +597,9 @@ Phase 5 では provider claim から tenant membership を同期します。こ�
 
 ### Step 1.2. 設定を増やす
 
-#### `.env.example`
+#### `.env`
 
-Phase 1 で必要な値は次です。
+ここは **tracked の `.env.example` ではなく、実際に Zitadel login を試すときの `.env`** に入れる値です。repo に置く `.env.example` の正本は後半の `Phase 0-2 Exact Snapshot` を優先してください。
 
 ```dotenv
 APP_BASE_URL=http://127.0.0.1:8080
@@ -952,7 +952,7 @@ state を保存できても、authorize URL 生成と token exchange がなけ�
 Go 側では次が扱いやすいです。
 
 ```bash
-go get github.com/coreos/go-oidc/v3/oidc golang.org/x/oauth2
+go get github.com/coreos/go-oidc/v3/oidc@v3.18.0 golang.org/x/oauth2@v0.36.0
 go mod tidy
 ```
 
@@ -1827,10 +1827,297 @@ make frontend-dev
 
 - この節の block は、現在の Phase 0-2 実装に合わせた **exact snapshot** です
 - 上の本文にある簡略 snippet と食い違う場合は、この節を優先してください
+- tracked の `.env.example` は local mode を default にしています。実際に Zitadel login を検証するときだけ、repo root の `.env` を `AUTH_MODE=zitadel` に切り替えてください
+- `db/schema.sql` は `make db-schema` の生成物です
+- `backend/go.sum` は `cd backend && go mod tidy` の生成物です
 - `backend/internal/db/*.go`, `openapi/openapi.yaml`, `frontend/src/api/generated/*` は `make gen` の生成物なので、ここでは再掲しません
-- Zitadel quickstart を repo 配下の `.local/zitadel-compose` に置くなら、`.gitignore` に `.local/` を追加してください
+
+### Project Exact Files
+
+#### `Makefile`
+
+```make
+SHELL := /bin/bash
+
+export-env = set -a && source .env && set +a
+DOCKER_COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; else echo "docker compose"; fi)
+
+up:
+	$(DOCKER_COMPOSE) up -d
+
+down:
+	$(DOCKER_COMPOSE) down
+
+db-wait:
+	@until $(DOCKER_COMPOSE) exec -T postgres pg_isready -U haohao -d haohao >/dev/null 2>&1; do sleep 1; done
+
+db-up: db-wait
+	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" up
+
+db-down:
+	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" down 1
+
+db-schema: db-wait
+	$(DOCKER_COMPOSE) exec -T postgres pg_dump --schema-only --no-owner --no-privileges -U haohao -d haohao | sed '/^\\restrict /d; /^\\unrestrict /d' > db/schema.sql
+
+seed-demo-user: db-wait
+	$(DOCKER_COMPOSE) exec -T postgres psql -U haohao -d haohao < scripts/seed-demo-user.sql
+
+sqlc:
+	cd backend && sqlc generate
+
+openapi:
+	go run ./backend/cmd/openapi > openapi/openapi.yaml
+
+gen:
+	./scripts/gen.sh
+
+backend-dev:
+	$(export-env) && go run ./backend/cmd/main
+
+frontend-dev:
+	cd frontend && npm run dev
+```
+
+#### `.env.example`
+
+```dotenv
+APP_NAME="HaoHao API"
+APP_VERSION=0.1.0
+HTTP_PORT=8080
+
+APP_BASE_URL=http://127.0.0.1:8080
+FRONTEND_BASE_URL=http://127.0.0.1:5173
+
+DATABASE_URL=postgres://haohao:haohao@127.0.0.1:5432/haohao?sslmode=disable
+
+AUTH_MODE=local
+ZITADEL_ISSUER=
+ZITADEL_CLIENT_ID=
+ZITADEL_CLIENT_SECRET=
+ZITADEL_REDIRECT_URI=http://127.0.0.1:8080/api/v1/auth/callback
+ZITADEL_POST_LOGOUT_REDIRECT_URI=http://127.0.0.1:5173/login
+ZITADEL_SCOPES="openid profile email"
+
+REDIS_ADDR=127.0.0.1:6379
+REDIS_PASSWORD=
+REDIS_DB=0
+
+SESSION_TTL=24h
+LOGIN_STATE_TTL=10m
+COOKIE_SECURE=false
+```
+
+#### `.gitignore`
+
+```gitignore
+.DS_Store
+.env
+.local/
+
+frontend/node_modules
+frontend/dist
+
+backend/web/dist
+
+*.log
+cookies.txt
+bin
+```
+
+### Database Exact Files
+
+#### `db/migrations/0002_user_identities.up.sql`
+
+```sql
+ALTER TABLE users
+    ALTER COLUMN password_hash DROP NOT NULL;
+
+CREATE TABLE user_identities (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    email TEXT NOT NULL,
+    email_verified BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (provider, subject)
+);
+
+CREATE INDEX user_identities_user_id_idx ON user_identities(user_id);
+```
+
+#### `db/migrations/0002_user_identities.down.sql`
+
+```sql
+DROP TABLE IF EXISTS user_identities;
+
+DELETE FROM users
+WHERE password_hash IS NULL;
+
+ALTER TABLE users
+    ALTER COLUMN password_hash SET NOT NULL;
+```
+
+#### `db/queries/users.sql`
+
+```sql
+-- name: AuthenticateUser :one
+SELECT id
+FROM users
+WHERE email = @email
+  AND password_hash IS NOT NULL
+  AND password_hash = crypt(@password, password_hash)
+LIMIT 1;
+
+-- name: GetUserByEmail :one
+SELECT
+    id,
+    public_id,
+    email,
+    display_name
+FROM users
+WHERE email = $1
+LIMIT 1;
+
+-- name: GetUserByID :one
+SELECT
+    id,
+    public_id,
+    email,
+    display_name
+FROM users
+WHERE id = $1
+LIMIT 1;
+
+-- name: CreateOIDCUser :one
+INSERT INTO users (
+    email,
+    display_name,
+    password_hash
+) VALUES (
+    $1,
+    $2,
+    NULL
+)
+RETURNING
+    id,
+    public_id,
+    email,
+    display_name;
+
+-- name: UpdateUserProfile :one
+UPDATE users
+SET email = $2,
+    display_name = $3,
+    updated_at = now()
+WHERE id = $1
+RETURNING
+    id,
+    public_id,
+    email,
+    display_name;
+```
+
+#### `db/queries/identities.sql`
+
+```sql
+-- name: GetUserByProviderSubject :one
+SELECT
+    u.id,
+    u.public_id,
+    u.email,
+    u.display_name
+FROM user_identities ui
+JOIN users u ON u.id = ui.user_id
+WHERE ui.provider = $1
+  AND ui.subject = $2
+LIMIT 1;
+
+-- name: CreateUserIdentity :exec
+INSERT INTO user_identities (
+    user_id,
+    provider,
+    subject,
+    email,
+    email_verified
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5
+);
+
+-- name: UpdateUserIdentityProfile :exec
+UPDATE user_identities
+SET email = $3,
+    email_verified = $4,
+    updated_at = now()
+WHERE provider = $1
+  AND subject = $2;
+```
 
 ### Backend Exact Files
+
+#### `backend/go.mod`
+
+```go
+module example.com/haohao/backend
+
+go 1.25.0
+
+require (
+	github.com/coreos/go-oidc/v3 v3.18.0
+	github.com/danielgtaylor/huma/v2 v2.37.3
+	github.com/gin-gonic/gin v1.12.0
+	github.com/google/uuid v1.6.0
+	github.com/jackc/pgx/v5 v5.9.2
+	github.com/redis/go-redis/v9 v9.18.0
+	golang.org/x/oauth2 v0.36.0
+)
+
+require (
+	github.com/bytedance/gopkg v0.1.3 // indirect
+	github.com/bytedance/sonic v1.15.0 // indirect
+	github.com/bytedance/sonic/loader v0.5.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/cloudwego/base64x v0.1.6 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
+	github.com/gin-contrib/sse v1.1.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/go-playground/locales v0.14.1 // indirect
+	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/go-playground/validator/v10 v10.30.1 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/goccy/go-yaml v1.19.2 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/quic-go/qpack v0.6.0 // indirect
+	github.com/quic-go/quic-go v0.59.0 // indirect
+	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
+	github.com/ugorji/go/codec v1.3.1 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
+	golang.org/x/arch v0.24.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
+	golang.org/x/net v0.51.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
+)
+```
 
 #### `backend/internal/config/config.go`
 
@@ -2107,6 +2394,213 @@ func randomToken(numBytes int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(buf), nil
+}
+```
+
+#### `backend/internal/auth/login_state_store.go`
+
+```go
+package auth
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+var ErrLoginStateNotFound = errors.New("login state not found")
+
+type LoginStateRecord struct {
+	CodeVerifier string `json:"codeVerifier"`
+	Nonce        string `json:"nonce"`
+	ReturnTo     string `json:"returnTo"`
+}
+
+type LoginStateStore struct {
+	client *redis.Client
+	prefix string
+	ttl    time.Duration
+}
+
+func NewLoginStateStore(client *redis.Client, ttl time.Duration) *LoginStateStore {
+	return &LoginStateStore{
+		client: client,
+		prefix: "oidc-state:",
+		ttl:    ttl,
+	}
+}
+
+func (s *LoginStateStore) Create(ctx context.Context, returnTo string) (string, LoginStateRecord, error) {
+	state, err := randomToken(32)
+	if err != nil {
+		return "", LoginStateRecord{}, err
+	}
+
+	codeVerifier, err := randomToken(32)
+	if err != nil {
+		return "", LoginStateRecord{}, err
+	}
+
+	nonce, err := randomToken(32)
+	if err != nil {
+		return "", LoginStateRecord{}, err
+	}
+
+	record := LoginStateRecord{
+		CodeVerifier: codeVerifier,
+		Nonce:        nonce,
+		ReturnTo:     returnTo,
+	}
+
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return "", LoginStateRecord{}, err
+	}
+
+	if err := s.client.Set(ctx, s.prefix+state, payload, s.ttl).Err(); err != nil {
+		return "", LoginStateRecord{}, fmt.Errorf("save login state: %w", err)
+	}
+
+	return state, record, nil
+}
+
+func (s *LoginStateStore) Consume(ctx context.Context, state string) (LoginStateRecord, error) {
+	raw, err := s.client.GetDel(ctx, s.prefix+state).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return LoginStateRecord{}, ErrLoginStateNotFound
+	}
+	if err != nil {
+		return LoginStateRecord{}, fmt.Errorf("consume login state: %w", err)
+	}
+
+	var record LoginStateRecord
+	if err := json.Unmarshal(raw, &record); err != nil {
+		return LoginStateRecord{}, fmt.Errorf("decode login state: %w", err)
+	}
+
+	return record, nil
+}
+```
+
+#### `backend/internal/auth/oidc_client.go`
+
+```go
+package auth
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
+	"strings"
+
+	"github.com/coreos/go-oidc/v3/oidc"
+	"golang.org/x/oauth2"
+)
+
+type IdentityClaims struct {
+	Subject       string   `json:"sub"`
+	Email         string   `json:"email"`
+	EmailVerified bool     `json:"email_verified"`
+	Name          string   `json:"name"`
+	Groups        []string `json:"groups,omitempty"`
+}
+
+type OIDCIdentity struct {
+	Claims     IdentityClaims
+	RawIDToken string
+}
+
+type OIDCClient struct {
+	provider *oidc.Provider
+	verifier *oidc.IDTokenVerifier
+	config   *oauth2.Config
+}
+
+func NewOIDCClient(ctx context.Context, issuer, clientID, clientSecret, redirectURI, scopes string) (*OIDCClient, error) {
+	provider, err := oidc.NewProvider(ctx, issuer)
+	if err != nil {
+		return nil, fmt.Errorf("discover oidc provider: %w", err)
+	}
+
+	oauthScopes := strings.Fields(scopes)
+	if len(oauthScopes) == 0 {
+		oauthScopes = []string{oidc.ScopeOpenID, "profile", "email"}
+	}
+
+	return &OIDCClient{
+		provider: provider,
+		verifier: provider.Verifier(&oidc.Config{ClientID: clientID}),
+		config: &oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint:     provider.Endpoint(),
+			RedirectURL:  redirectURI,
+			Scopes:       oauthScopes,
+		},
+	}, nil
+}
+
+func (c *OIDCClient) AuthorizeURL(state, nonce, codeVerifier string) string {
+	return c.config.AuthCodeURL(
+		state,
+		oidc.Nonce(nonce),
+		oauth2.SetAuthURLParam("code_challenge", pkceS256(codeVerifier)),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+	)
+}
+
+func (c *OIDCClient) ExchangeCode(ctx context.Context, code, codeVerifier, expectedNonce string) (OIDCIdentity, error) {
+	token, err := c.config.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
+	if err != nil {
+		return OIDCIdentity{}, fmt.Errorf("exchange authorization code: %w", err)
+	}
+
+	rawIDToken, ok := token.Extra("id_token").(string)
+	if !ok || rawIDToken == "" {
+		return OIDCIdentity{}, fmt.Errorf("id_token missing from token response")
+	}
+
+	idToken, err := c.verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return OIDCIdentity{}, fmt.Errorf("verify id token: %w", err)
+	}
+
+	var verified struct {
+		Subject string `json:"sub"`
+		Nonce   string `json:"nonce"`
+	}
+	if err := idToken.Claims(&verified); err != nil {
+		return OIDCIdentity{}, fmt.Errorf("decode id token claims: %w", err)
+	}
+	if verified.Nonce != expectedNonce {
+		return OIDCIdentity{}, fmt.Errorf("oidc nonce mismatch")
+	}
+
+	userInfo, err := c.provider.UserInfo(ctx, oauth2.StaticTokenSource(token))
+	if err != nil {
+		return OIDCIdentity{}, fmt.Errorf("fetch userinfo: %w", err)
+	}
+
+	var claims IdentityClaims
+	if err := userInfo.Claims(&claims); err != nil {
+		return OIDCIdentity{}, fmt.Errorf("decode userinfo claims: %w", err)
+	}
+
+	claims.Subject = verified.Subject
+	return OIDCIdentity{
+		Claims:     claims,
+		RawIDToken: rawIDToken,
+	}, nil
+}
+
+func pkceS256(codeVerifier string) string {
+	hash := sha256.Sum256([]byte(codeVerifier))
+	return base64.RawURLEncoding.EncodeToString(hash[:])
 }
 ```
 
@@ -3188,7 +3682,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-fmt.Print(string(spec))
+	fmt.Print(string(spec))
 }
 ```
 
@@ -4488,22 +4982,21 @@ ENABLE_LOCAL_PASSWORD_LOGIN=true
 
 ---
 
-## 付録. 最終形の `.env.example`
+## 付録. 現在の repo の `.env.example`
 
-途中 Phase から合流した読者が詰まらないよう、最後に最終形の全量を載せます。
+Phase 0-2 実装まで反映済みの **tracked file** は次です。Zitadel login を試すときは、この内容を `.env` へコピーしたあとで `AUTH_MODE=zitadel` と `ZITADEL_*` を埋めてください。
 
 ```dotenv
 APP_NAME="HaoHao API"
 APP_VERSION=0.1.0
 HTTP_PORT=8080
 
-DATABASE_URL=postgres://haohao:haohao@127.0.0.1:5433/haohao?sslmode=disable
+DATABASE_URL=postgres://haohao:haohao@127.0.0.1:5432/haohao?sslmode=disable
 
 APP_BASE_URL=http://127.0.0.1:8080
 FRONTEND_BASE_URL=http://127.0.0.1:5173
 
-AUTH_MODE=zitadel
-ENABLE_LOCAL_PASSWORD_LOGIN=true
+AUTH_MODE=local
 
 ZITADEL_ISSUER=
 ZITADEL_CLIENT_ID=
@@ -4512,33 +5005,13 @@ ZITADEL_REDIRECT_URI=http://127.0.0.1:8080/api/v1/auth/callback
 ZITADEL_POST_LOGOUT_REDIRECT_URI=http://127.0.0.1:5173/login
 ZITADEL_SCOPES="openid profile email"
 
-LOGIN_STATE_TTL=10m
-
-EXTERNAL_EXPECTED_AUDIENCE=haohao-external
-EXTERNAL_REQUIRED_SCOPE_PREFIX=external:
-
-DOWNSTREAM_TOKEN_ENCRYPTION_KEY=
-DOWNSTREAM_TOKEN_KEY_VERSION=1
-DOWNSTREAM_REFRESH_TOKEN_TTL=2160h
-DOWNSTREAM_ACCESS_TOKEN_SKEW=30s
-DOWNSTREAM_DEFAULT_SCOPES=offline_access
-
-SCIM_BASE_PATH=/api/scim/v2
-SCIM_BEARER_AUDIENCE=scim-provisioning
-SCIM_REQUIRED_SCOPE=scim:provision
-SCIM_RECONCILE_CRON=0 3 * * *
-
-M2M_EXPECTED_AUDIENCE=haohao-m2m
-M2M_REQUIRED_SCOPE_PREFIX=m2m:
-
-DOCS_AUTH_REQUIRED=false
-
 REDIS_ADDR=127.0.0.1:6379
 REDIS_PASSWORD=
 REDIS_DB=0
 
 SESSION_TTL=24h
+LOGIN_STATE_TTL=10m
 COOKIE_SECURE=false
 ```
 
-`.env.example` の最終形はこの付録に合わせ、本文中の各 Phase では「その時点で必要な差分だけ」を説明してください。
+将来の Phase で増える環境変数は、**その Phase を実装した時点で** この付録へ追記してください。現時点で未実装の値を先回りで混ぜないでください。

@@ -1,5 +1,24 @@
 components:
   schemas:
+    AuthSettingsBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/AuthSettingsBody.json
+          format: uri
+          readOnly: true
+          type: string
+        mode:
+          examples:
+            - local
+          type: string
+        zitadel:
+          $ref: "#/components/schemas/ZitadelSettingsBody"
+      required:
+        - mode
+      type: object
     Cookie:
       additionalProperties: false
       properties:
@@ -137,6 +156,22 @@ components:
         - email
         - password
       type: object
+    LogoutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/LogoutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        postLogoutURL:
+          examples:
+            - http://localhost:8081/oidc/v1/end_session?id_token_hint=...
+          format: uri
+          type: string
+      type: object
     SessionBody:
       additionalProperties: false
       properties:
@@ -174,6 +209,22 @@ components:
         - email
         - displayName
       type: object
+    ZitadelSettingsBody:
+      additionalProperties: false
+      properties:
+        clientId:
+          examples:
+            - "312345678901234567"
+          type: string
+        issuer:
+          examples:
+            - http://localhost:8081
+          format: uri
+          type: string
+      required:
+        - issuer
+        - clientId
+      type: object
   securitySchemes:
     cookieAuth:
       in: cookie
@@ -184,6 +235,119 @@ info:
   version: 0.1.0
 openapi: 3.1.0
 paths:
+  /api/v1/auth/callback:
+    get:
+      operationId: finishOIDCLogin
+      parameters:
+        - explode: false
+          in: query
+          name: code
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: state
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: error
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: error_description
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Found
+          headers:
+            Location:
+              schema:
+                type: string
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: OIDC callback を完了する
+      tags:
+        - auth
+  /api/v1/auth/login:
+    get:
+      operationId: startOIDCLogin
+      parameters:
+        - explode: false
+          in: query
+          name: returnTo
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Found
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: OIDC login を開始する
+      tags:
+        - auth
+  /api/v1/auth/settings:
+    get:
+      operationId: getAuthSettings
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSettingsBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 現在の認証モード設定を返す
+      tags:
+        - auth
+  /api/v1/csrf:
+    get:
+      operationId: getCSRF
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "204":
+          description: No Content
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: CSRF token を再発行する
+      tags:
+        - session
   /api/v1/login:
     post:
       operationId: login
@@ -219,7 +383,67 @@ paths:
       parameters:
         - in: cookie
           name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
           required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutBody"
+          description: OK
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: セッションを破棄する
+      tags:
+        - session
+  /api/v1/session:
+    get:
+      operationId: getSession
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: 現在のセッションを返す
+      tags:
+        - session
+  /api/v1/session/refresh:
+    post:
+      operationId: refreshSession
+      parameters:
+        - in: cookie
+          name: SESSION_ID
           schema:
             $ref: "#/components/schemas/Cookie"
         - in: header
@@ -242,33 +466,6 @@ paths:
           description: Error
       security:
         - cookieAuth: []
-      summary: セッションを破棄する
-      tags:
-        - session
-  /api/v1/session:
-    get:
-      operationId: getSession
-      parameters:
-        - in: cookie
-          name: SESSION_ID
-          required: true
-          schema:
-            $ref: "#/components/schemas/Cookie"
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SessionBody"
-          description: OK
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Error
-      security:
-        - cookieAuth: []
-      summary: 現在のセッションを返す
+      summary: セッションを再発行する
       tags:
         - session

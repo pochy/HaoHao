@@ -1,6 +1,6 @@
-import type { SessionBody } from './generated/types.gen'
+import type { LogoutBody, SessionBody } from './generated/types.gen'
 import { readCookie } from './client'
-import { getSession, login, logout } from './generated/sdk.gen'
+import { getSession, login, logout, refreshSession } from './generated/sdk.gen'
 
 export async function fetchCurrentSession(): Promise<SessionBody> {
   return getSession({
@@ -20,8 +20,18 @@ export async function loginWithPassword(email: string, password: string): Promis
   }) as unknown as Promise<SessionBody>
 }
 
-export async function logoutCurrentSession(): Promise<void> {
-  await logout({
+export async function logoutCurrentSession(): Promise<LogoutBody> {
+  return logout({
+    headers: {
+      'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
+    },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<LogoutBody>
+}
+
+export async function refreshCurrentSession(): Promise<void> {
+  await refreshSession({
     headers: {
       'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
     },
