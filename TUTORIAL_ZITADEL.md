@@ -4299,11 +4299,13 @@ provider から来る group / role claim をそのまま業務権限に使い切
 
 ```dotenv
 EXTERNAL_EXPECTED_AUDIENCE=haohao-external
-EXTERNAL_REQUIRED_SCOPE_PREFIX=external:
+EXTERNAL_REQUIRED_SCOPE_PREFIX=
+EXTERNAL_REQUIRED_ROLE=external_api_user
 EXTERNAL_ALLOWED_ORIGINS=
 ```
 
 `EXTERNAL_ALLOWED_ORIGINS` は comma-separated string として扱い、external API の CORS allowlist にだけ使います。空のままなら browser からの cross-origin call は通しません。
+`EXTERNAL_REQUIRED_SCOPE_PREFIX` は optional な scope gate です。Zitadel の human-user JWT access token では `scope` claim が出ないことがあるため、Phase 3 の strict gate は `EXTERNAL_REQUIRED_ROLE` と Zitadel project roles claim で行います。
 
 #### 追加するファイル
 
@@ -4314,8 +4316,8 @@ EXTERNAL_ALLOWED_ORIGINS=
 
 - Zitadel の JWKS を取得・キャッシュする
 - JWT access token の署名を local verify する
-- issuer, audience, expiry, scope を検証する
-- `sub`, `azp`, `scope`, `groups` など必要な claim を struct に落とす
+- issuer, audience, expiry, optional scope を検証する
+- `sub`, `azp` / `client_id`, `scope`, `groups`, Zitadel project roles claim など必要な claim を struct に落とす
 
 #### OpenAPI / Huma の security scheme
 
@@ -4351,12 +4353,143 @@ external user bearer API 用の token は、browser login 用 app と別 applica
 - browser login 用 app とは **別 application**
 - human-user token を取得する用途の application にする
 - token type は **JWT access token**
-- expected audience は `haohao-external`
+- expected audience は最初は `haohao-external` を方針値にする。ただし local quickstart では、実際の JWT の `aud` に project ID / client ID が入ることがあるため、動作確認時は decode した `aud` を `EXTERNAL_EXPECTED_AUDIENCE` に合わせる
 
 #### `.env` との対応
 
 - expected audience の運用値 → `EXTERNAL_EXPECTED_AUDIENCE`
-- required scope prefix の運用方針 → `EXTERNAL_REQUIRED_SCOPE_PREFIX`
+- optional scope prefix の運用値 → `EXTERNAL_REQUIRED_SCOPE_PREFIX`
+- required role の運用値 → `EXTERNAL_REQUIRED_ROLE`
+
+#### Console で作る external app の具体例
+
+Phase 3 の最初の疎通確認では、human user が browser で login して JWT access token を取得できれば十分です。Console では browser login 用 app とは別に、例えば次で作ります。
+
+```text
+Projects -> haohao -> Applications -> New
+Name: haohao-external-dev
+Type: User Agent
+Auth method: PKCE / Code
+Redirect URI: http://127.0.0.1:18080/callback
+Development Mode: enabled
+Access Token Type: JWT
+Add user roles to the access token: enabled
+```
+
+`Access Token Type` が opaque / bearer のままだと、HaoHao backend は local JWT 検証できません。設定を保存したあと、必ず新しく token を取り直してください。
+
+Application の Token Settings は次で固定します。
+
+```text
+Auth Token Type: JWT
+Add user roles to the access token: ON
+User roles inside ID Token: OFF
+Include user's profile info in the ID Token: OFF
+```
+
+Project settings 側は次で固定します。
+
+```text
+Return user roles during authentication: ON
+Only authorized users can authenticate: OFF
+Authentication is restricted to users from organizations that have been granted access to this project: OFF
+```
+
+`Only authorized users can authenticate` は strict な login 制御なので、最初の検証では OFF のままで構いません。後で enterprise 向けに login 自体を project role で閉じたいときに検討してください。
+
+#### JWT access token を手動取得する
+
+external app の `Client ID` と、`haohao` project の `Project ID` を控えてから実行します。`CODE_VERIFIER` は token exchange まで同じ shell で保持してください。
+
+```bash
+CLIENT_ID='<haohao-external-dev client id>'
+PROJECT_ID='<haohao project id>'
+REDIRECT_URI='http://127.0.0.1:18080/callback'
+SCOPE="openid profile email urn:zitadel:iam:org:project:id:${PROJECT_ID}:aud urn:zitadel:iam:org:projects:roles"
+
+CODE_VERIFIER=$(openssl rand -base64 96 | tr '+/' '-_' | tr -d '=' | cut -c 1-128)
+CODE_CHALLENGE=$(printf '%s' "$CODE_VERIFIER" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+STATE=$(openssl rand -hex 16)
+
+ENC_REDIRECT=$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$REDIRECT_URI")
+ENC_SCOPE=$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$SCOPE")
+
+AUTH_URL="http://localhost:8081/oauth/v2/authorize?client_id=${CLIENT_ID}&redirect_uri=${ENC_REDIRECT}&response_type=code&scope=${ENC_SCOPE}&code_challenge=${CODE_CHALLENGE}&code_challenge_method=S256&state=${STATE}"
+
+echo "$AUTH_URL"
+open "$AUTH_URL"
+```
+
+browser login 後、`http://127.0.0.1:18080/callback?code=...` へ戻ります。callback server は不要です。接続エラー画面になっても、address bar の `code` をコピーしてください。
+
+```bash
+CODE='<address bar の code>'
+
+curl -sS -X POST http://localhost:8081/oauth/v2/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode grant_type=authorization_code \
+  --data-urlencode client_id="$CLIENT_ID" \
+  --data-urlencode code="$CODE" \
+  --data-urlencode redirect_uri="$REDIRECT_URI" \
+  --data-urlencode code_verifier="$CODE_VERIFIER" \
+  | tee /tmp/zitadel-token.json
+```
+
+成功すると `access_token` が返ります。使うのは `id_token` ではなく `access_token` です。JWT access token なら `.` が 2 つ入った 3 segment の文字列になります。
+
+```bash
+ACCESS_TOKEN=$(python3 -c 'import json; print(json.load(open("/tmp/zitadel-token.json"))["access_token"])')
+echo "$ACCESS_TOKEN" | awk -F. '{print NF}'
+```
+
+`3` 以外なら external app の `Access Token Type` が JWT になっていないか、古い token を見ています。
+
+#### JWT の `aud` と roles claim を `.env` に合わせる
+
+まず payload を decode します。
+
+```bash
+python3 - "$ACCESS_TOKEN" <<'PY'
+import base64, json, sys
+token = sys.argv[1]
+payload = token.split(".")[1]
+payload += "=" * (-len(payload) % 4)
+print(json.dumps(json.loads(base64.urlsafe_b64decode(payload)), indent=2, ensure_ascii=False))
+PY
+```
+
+local quickstart では、`aud` が `haohao-external` ではなく project ID / client ID の配列になることがあります。その場合は、JWT の `aud` に実際に含まれている値を repo root の `.env` に設定してください。
+
+```dotenv
+EXTERNAL_EXPECTED_AUDIENCE=<JWT の aud に入っている値>
+```
+
+Zitadel project roles が有効なら、JWT に次のような claim が出ます。
+
+```json
+"urn:zitadel:iam:org:project:<PROJECT_ID>:roles": {
+  "external_api_user": {
+    "<ORG_ID>": "zitadel.localhost"
+  }
+}
+```
+
+HaoHao はこの role claim から role code を抽出し、`EXTERNAL_REQUIRED_ROLE` を満たすか確認します。
+
+```dotenv
+EXTERNAL_REQUIRED_SCOPE_PREFIX=
+EXTERNAL_REQUIRED_ROLE=external_api_user
+```
+
+`EXTERNAL_REQUIRED_SCOPE_PREFIX` は空のままで構いません。将来 Zitadel 以外の provider や M2M で scope claim を使う場合だけ設定します。
+
+`.env` を変えたら、起動中の backend は必ず再起動します。起動済みプロセスは古い環境変数を保持したままです。
+
+```bash
+make backend-dev
+```
+
+既に `:8080` を別の backend が使っている場合は、古い `make backend-dev` を停止してから起動し直してください。
 
 ### Step 3.3. external client 向け API を別 surface で追加する
 
@@ -4374,7 +4507,8 @@ external API: /api/external/v1/*
 #### bearer token 検証でやること
 
 - generic JWT bearer verifier を使う
-- `EXTERNAL_EXPECTED_AUDIENCE` と `EXTERNAL_REQUIRED_SCOPE_PREFIX` を確認する
+- `EXTERNAL_EXPECTED_AUDIENCE` と optional `EXTERNAL_REQUIRED_SCOPE_PREFIX` を確認する
+- Zitadel project roles claim から `EXTERNAL_REQUIRED_ROLE` を確認する
 - token claims から external client 用 `AuthContext` を組み立てる
 - local user が既に provision 済みなら `(provider, subject)` で引いて local role も載せる
 
@@ -4397,11 +4531,60 @@ current repo の `/api/external/v1/me` は、最低でも `provider`, `subject`,
 
 #### この Phase の手動確認
 
-1. Zitadel から external API 用 JWT access token を取得する
-2. `GET /api/external/v1/me` を呼ぶ
-3. issuer / audience / scope mismatch を個別に拒否できることを確認する
-4. browser API に bearer token を送っても Cookie 前提の route とは混ざらないことを確認する
-5. browser から呼ぶなら、`Origin` を `EXTERNAL_ALLOWED_ORIGINS` に足したときだけ preflight が通ることを確認する
+1. Zitadel から external API 用 JWT access token を取得し、payload を decode して `iss`, `sub`, `aud`, Zitadel roles claim を見る
+2. `.env` の `EXTERNAL_EXPECTED_AUDIENCE` を JWT の `aud` に含まれる値へ合わせ、backend を再起動する
+3. `.env` の `EXTERNAL_REQUIRED_ROLE=external_api_user` を確認し、`GET /api/external/v1/me` が `200` になることを確認する
+4. `external_api_user` role が無い token は `403 invalid bearer role` になることを確認する
+5. issuer / audience / optional scope mismatch を個別に拒否できることを確認する
+6. browser API に bearer token を送っても Cookie 前提の route とは混ざらないことを確認する
+7. browser から呼ぶなら、`Origin` を `EXTERNAL_ALLOWED_ORIGINS` に足したときだけ preflight が通ることを確認する
+
+`external_api_user` role の有無を切り替えたら、**必ず新しい authorization code から access token を取り直してください**。既存の JWT は発行時点の role claim を持ち続けます。
+
+最小 positive test は次です。
+
+```bash
+curl -i \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  http://127.0.0.1:8080/api/external/v1/me
+```
+
+期待値は `200 OK` で、`groups` と `roles` に `external_api_user` が含まれることです。
+
+role なし negative test では、まず Zitadel Console で対象 user から `external_api_user` role を外し、新しい token を取得します。decode した JWT に `urn:zitadel:iam:org:project:*:roles` claim が無い、または `external_api_user` が無いことを確認してから同じ endpoint を叩きます。期待値は次です。
+
+```text
+HTTP/1.1 403 Forbidden
+{"detail":"invalid bearer role","status":403,"title":"Forbidden"}
+```
+
+もし role claim が無い token で `200 OK` になるなら、local DB に残った `user_roles` だけで external bearer を許可してしまっています。external bearer の required role check は、local DB の cached role ではなく **その JWT に含まれる provider role claim** を見る必要があります。
+
+よくある失敗は次です。
+
+```text
+401 invalid bearer audience
+```
+
+backend が読んでいる `EXTERNAL_EXPECTED_AUDIENCE` と JWT の `aud` が一致していません。`.env` を直しただけでは反映されないので、backend を再起動してください。
+
+```text
+403 invalid bearer scope
+```
+
+JWT の `scope` claim に `EXTERNAL_REQUIRED_SCOPE_PREFIX` で始まる scope が入っていません。Zitadel human-user bearer の Phase 3 では `EXTERNAL_REQUIRED_SCOPE_PREFIX=` のままにし、role gate を使います。
+
+```text
+403 invalid bearer role
+```
+
+JWT の Zitadel roles claim に `EXTERNAL_REQUIRED_ROLE` がありません。Console で user role assignment, project の `Return user roles during authentication`, application の `Add user roles to the access token` を確認し、新しい token を取り直してください。
+
+```text
+401 invalid bearer token
+```
+
+access token が JWT ではない、token が期限切れ、issuer / JWKS が一致していない、または `id_token` を送っています。`/tmp/zitadel-token.json` から `access_token` を使っていることを確認してください。
 
 ## Phase 3 Exact Snapshot
 
@@ -4439,7 +4622,8 @@ SESSION_TTL=24h
 LOGIN_STATE_TTL=10m
 
 EXTERNAL_EXPECTED_AUDIENCE=haohao-external
-EXTERNAL_REQUIRED_SCOPE_PREFIX=external:
+EXTERNAL_REQUIRED_SCOPE_PREFIX=
+EXTERNAL_REQUIRED_ROLE=external_api_user
 EXTERNAL_ALLOWED_ORIGINS=
 
 COOKIE_SECURE=false
@@ -4473,6 +4657,7 @@ type Config struct {
 	ZitadelScopes                string
 	ExternalExpectedAudience     string
 	ExternalRequiredScopePrefix  string
+	ExternalRequiredRole         string
 	ExternalAllowedOrigins       []string
 	RedisAddr                    string
 	RedisPassword                string
@@ -4507,7 +4692,8 @@ func Load() (Config, error) {
 		ZitadelPostLogoutRedirectURI: getEnv("ZITADEL_POST_LOGOUT_REDIRECT_URI", "http://127.0.0.1:5173/login"),
 		ZitadelScopes:                getEnv("ZITADEL_SCOPES", "openid profile email"),
 		ExternalExpectedAudience:     getEnv("EXTERNAL_EXPECTED_AUDIENCE", "haohao-external"),
-		ExternalRequiredScopePrefix:  getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", "external:"),
+		ExternalRequiredScopePrefix:  getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", ""),
+		ExternalRequiredRole:         getEnv("EXTERNAL_REQUIRED_ROLE", "external_api_user"),
 		ExternalAllowedOrigins:       getEnvCSV("EXTERNAL_ALLOWED_ORIGINS"),
 		RedisAddr:                    getEnv("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword:                getEnv("REDIS_PASSWORD", ""),
@@ -4653,6 +4839,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -4666,6 +4853,7 @@ var (
 	ErrInvalidBearerIssuer   = errors.New("invalid bearer issuer")
 	ErrInvalidBearerAudience = errors.New("invalid bearer audience")
 	ErrInvalidBearerScope    = errors.New("invalid bearer scope")
+	ErrInvalidBearerRole     = errors.New("invalid bearer role")
 )
 
 type BearerVerifier struct {
@@ -4676,11 +4864,51 @@ type BearerVerifier struct {
 type BearerTokenClaims struct {
 	jwt.Claims
 	AuthorizedParty   string             `json:"azp,omitempty"`
+	ClientID          string             `json:"client_id,omitempty"`
+	Scope             spaceSeparatedList `json:"scope,omitempty"`
+	Groups            claimStringList    `json:"groups,omitempty"`
+	Roles             []string           `json:"-"`
+	Email             string             `json:"email,omitempty"`
+	Name              string             `json:"name,omitempty"`
+	PreferredUsername string             `json:"preferred_username,omitempty"`
+}
+
+type bearerTokenClaimsJSON struct {
+	jwt.Claims
+	AuthorizedParty   string             `json:"azp,omitempty"`
+	ClientID          string             `json:"client_id,omitempty"`
 	Scope             spaceSeparatedList `json:"scope,omitempty"`
 	Groups            claimStringList    `json:"groups,omitempty"`
 	Email             string             `json:"email,omitempty"`
 	Name              string             `json:"name,omitempty"`
 	PreferredUsername string             `json:"preferred_username,omitempty"`
+}
+
+func (c *BearerTokenClaims) UnmarshalJSON(data []byte) error {
+	var decoded bearerTokenClaimsJSON
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+
+	var rawClaims map[string]json.RawMessage
+	if err := json.Unmarshal(data, &rawClaims); err != nil {
+		return err
+	}
+
+	c.Claims = decoded.Claims
+	c.AuthorizedParty = strings.TrimSpace(decoded.AuthorizedParty)
+	c.ClientID = strings.TrimSpace(decoded.ClientID)
+	if c.AuthorizedParty == "" {
+		c.AuthorizedParty = c.ClientID
+	}
+	c.Scope = decoded.Scope
+	c.Groups = decoded.Groups
+	c.Roles = extractZitadelRoleClaims(rawClaims)
+	c.Email = decoded.Email
+	c.Name = decoded.Name
+	c.PreferredUsername = decoded.PreferredUsername
+
+	return nil
 }
 
 func NewBearerVerifier(ctx context.Context, issuer string) (*BearerVerifier, error) {
@@ -4765,6 +4993,10 @@ func (c BearerTokenClaims) GroupValues() []string {
 	return append([]string(nil), c.Groups...)
 }
 
+func (c BearerTokenClaims) RoleValues() []string {
+	return append([]string(nil), c.Roles...)
+}
+
 func (c BearerTokenClaims) HasScopePrefix(prefix string) bool {
 	trimmedPrefix := strings.TrimSpace(prefix)
 	if trimmedPrefix == "" {
@@ -4778,6 +5010,64 @@ func (c BearerTokenClaims) HasScopePrefix(prefix string) bool {
 	}
 
 	return false
+}
+
+func extractZitadelRoleClaims(rawClaims map[string]json.RawMessage) []string {
+	roleSet := make(map[string]struct{})
+	for name, raw := range rawClaims {
+		if !isZitadelRoleClaim(name) {
+			continue
+		}
+
+		for _, role := range roleNamesFromClaim(raw) {
+			roleSet[role] = struct{}{}
+		}
+	}
+
+	roles := make([]string, 0, len(roleSet))
+	for role := range roleSet {
+		roles = append(roles, role)
+	}
+	sort.Strings(roles)
+	return roles
+}
+
+func isZitadelRoleClaim(name string) bool {
+	return name == "urn:zitadel:iam:org:project:roles" ||
+		(strings.HasPrefix(name, "urn:zitadel:iam:org:project:") && strings.HasSuffix(name, ":roles"))
+}
+
+func roleNamesFromClaim(raw json.RawMessage) []string {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err == nil {
+		roles := make([]string, 0, len(object))
+		for role := range object {
+			if trimmed := strings.TrimSpace(role); trimmed != "" {
+				roles = append(roles, trimmed)
+			}
+		}
+		return roles
+	}
+
+	var many []string
+	if err := json.Unmarshal(raw, &many); err == nil {
+		roles := make([]string, 0, len(many))
+		for _, role := range many {
+			if trimmed := strings.TrimSpace(role); trimmed != "" {
+				roles = append(roles, trimmed)
+			}
+		}
+		return roles
+	}
+
+	var single string
+	if err := json.Unmarshal(raw, &single); err == nil {
+		if trimmed := strings.TrimSpace(single); trimmed != "" {
+			return []string{trimmed}
+		}
+	}
+
+	return nil
 }
 
 type spaceSeparatedList []string
@@ -4889,6 +5179,36 @@ func AuthContextFromContext(ctx context.Context) (AuthContext, bool) {
 	return authCtx, ok
 }
 
+func (a AuthContext) HasRole(role string) bool {
+	needle := strings.ToLower(strings.TrimSpace(role))
+	if needle == "" {
+		return true
+	}
+
+	for _, item := range append(append([]string{}, a.Roles...), a.Groups...) {
+		if strings.ToLower(strings.TrimSpace(item)) == needle {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (a AuthContext) HasProviderRole(role string) bool {
+	needle := strings.ToLower(strings.TrimSpace(role))
+	if needle == "" {
+		return true
+	}
+
+	for _, item := range a.Groups {
+		if strings.ToLower(strings.TrimSpace(item)) == needle {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (s *AuthzService) SyncGlobalRoles(ctx context.Context, userID int64, providerGroups []string) ([]string, error) {
 	if s == nil || s.pool == nil || s.queries == nil {
 		return nil, fmt.Errorf("authz service is not configured")
@@ -4957,7 +5277,7 @@ func (s *AuthzService) AuthContextFromBearer(ctx context.Context, provider strin
 		Subject:         strings.TrimSpace(claims.Subject),
 		AuthorizedParty: strings.TrimSpace(claims.AuthorizedParty),
 		Scopes:          claims.ScopeValues(),
-		Groups:          claims.GroupValues(),
+		Groups:          mergeClaimValues(claims.GroupValues(), claims.RoleValues()),
 	}
 
 	if s == nil || s.queries == nil || authCtx.Provider == "" || authCtx.Subject == "" {
@@ -5018,6 +5338,26 @@ func normalizeGlobalRoleCodes(providerGroups []string) []string {
 	sort.Strings(roleCodes)
 
 	return roleCodes
+}
+
+func mergeClaimValues(values ...[]string) []string {
+	set := make(map[string]struct{})
+	for _, group := range values {
+		for _, value := range group {
+			trimmed := strings.TrimSpace(value)
+			if trimmed != "" {
+				set[trimmed] = struct{}{}
+			}
+		}
+	}
+
+	merged := make([]string, 0, len(set))
+	for value := range set {
+		merged = append(merged, value)
+	}
+	sort.Strings(merged)
+
+	return merged
 }
 ```
 
@@ -5190,7 +5530,7 @@ func ExternalCORS(pathPrefix string, allowedOrigins []string) gin.HandlerFunc {
 	}
 }
 
-func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService *service.AuthzService, providerName, expectedAudience, requiredScopePrefix string) gin.HandlerFunc {
+func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService *service.AuthzService, providerName, expectedAudience, requiredScopePrefix, requiredRole string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !strings.HasPrefix(c.Request.URL.Path, pathPrefix) || c.Request.Method == http.MethodOptions {
 			c.Next()
@@ -5224,6 +5564,10 @@ func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService
 		authCtx, err := authzService.AuthContextFromBearer(c.Request.Context(), providerName, claims)
 		if err != nil {
 			writeProblem(c, http.StatusInternalServerError, "failed to build auth context")
+			return
+		}
+		if !authCtx.HasProviderRole(requiredRole) {
+			writeBearerProblem(c, http.StatusForbidden, auth.ErrInvalidBearerRole.Error())
 			return
 		}
 
@@ -5400,7 +5744,7 @@ func New(cfg config.Config, sessionService *service.SessionService, oidcLoginSer
 		gin.Logger(),
 		gin.Recovery(),
 		middleware.ExternalCORS("/api/external/", cfg.ExternalAllowedOrigins),
-		middleware.ExternalAuth("/api/external/", bearerVerifier, authzService, "zitadel", cfg.ExternalExpectedAudience, cfg.ExternalRequiredScopePrefix),
+		middleware.ExternalAuth("/api/external/", bearerVerifier, authzService, "zitadel", cfg.ExternalExpectedAudience, cfg.ExternalRequiredScopePrefix, cfg.ExternalRequiredRole),
 	)
 
 	humaConfig := huma.DefaultConfig(cfg.AppName, cfg.AppVersion)
