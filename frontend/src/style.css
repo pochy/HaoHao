@@ -1,0 +1,234 @@
+:root {
+  --bg: #f4ede0;
+  --bg-strong: #e6dac6;
+  --panel: rgba(255, 250, 243, 0.82);
+  --panel-strong: #fffaf2;
+  --text: #43362c;
+  --text-strong: #1f1712;
+  --muted: #7c6658;
+  --accent: #0b5d5b;
+  --accent-strong: #083f3e;
+  --border: rgba(92, 68, 49, 0.16);
+  --border-strong: rgba(92, 68, 49, 0.28);
+  --danger: #ae2d2a;
+  --shadow: 0 24px 70px rgba(71, 48, 31, 0.12);
+  --font-sans:
+    "Avenir Next", "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    sans-serif;
+  --font-display:
+    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Times New Roman",
+    serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(11, 93, 91, 0.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(209, 116, 67, 0.14), transparent 24%),
+    linear-gradient(180deg, var(--bg) 0%, #efe4d2 100%);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.22) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.12), transparent 72%);
+}
+
+#app {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+button {
+  font-family: var(--font-display);
+}
+
+h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2vw, 2rem);
+  color: var(--text-strong);
+}
+
+p {
+  line-height: 1.6;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+code {
+  padding: 0.16rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(11, 93, 91, 0.08);
+  color: var(--accent-strong);
+}
+
+.panel {
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.stack {
+  display: grid;
+  gap: 20px;
+}
+
+.split-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--text-strong);
+  transition:
+    border-color 140ms ease,
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: rgba(11, 93, 91, 0.48);
+  box-shadow: 0 0 0 4px rgba(11, 93, 91, 0.12);
+  transform: translateY(-1px);
+}
+
+.primary-button,
+.secondary-button {
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 999px;
+  transition:
+    transform 140ms ease,
+    opacity 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.primary-button {
+  color: #fff8ee;
+  background: linear-gradient(135deg, var(--accent) 0%, #0f7470 100%);
+  box-shadow: 0 16px 28px rgba(11, 93, 91, 0.22);
+}
+
+.secondary-button {
+  color: var(--text-strong);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border-strong);
+}
+
+.primary-button:hover,
+.secondary-button:hover {
+  transform: translateY(-1px);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+.action-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(11, 93, 91, 0.08);
+  color: var(--accent-strong);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.error-message {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.94rem;
+}
+
+.json-card {
+  margin: 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(19, 19, 19, 0.9);
+  color: #f6f1eb;
+  overflow: auto;
+  font-family:
+    "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Code", "Source Code Pro",
+    monospace;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 720px) {
+  .panel {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .split-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

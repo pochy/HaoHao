@@ -1,0 +1,40 @@
+SHELL := /bin/bash
+
+export-env = set -a && source .env && set +a
+DOCKER_COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; else echo "docker compose"; fi)
+
+up:
+	$(DOCKER_COMPOSE) up -d
+
+down:
+	$(DOCKER_COMPOSE) down
+
+db-wait:
+	@until $(DOCKER_COMPOSE) exec -T postgres pg_isready -U haohao -d haohao >/dev/null 2>&1; do sleep 1; done
+
+db-up: db-wait
+	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" up
+
+db-down:
+	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" down 1
+
+db-schema: db-wait
+	$(DOCKER_COMPOSE) exec -T postgres pg_dump --schema-only --no-owner --no-privileges -U haohao -d haohao > db/schema.sql
+
+seed-demo-user: db-wait
+	$(DOCKER_COMPOSE) exec -T postgres psql -U haohao -d haohao < scripts/seed-demo-user.sql
+
+sqlc:
+	cd backend && sqlc generate
+
+openapi:
+	go run ./backend/cmd/openapi > openapi/openapi.yaml
+
+gen:
+	./scripts/gen.sh
+
+backend-dev:
+	$(export-env) && go run ./backend/cmd/main
+
+frontend-dev:
+	cd frontend && npm run dev

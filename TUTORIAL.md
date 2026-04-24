@@ -21,7 +21,8 @@
 - Go `1.26.0`
 - Node.js `22`
 - npm
-- Docker Engine / Docker Compose `v2`
+- Docker Engine + Docker Compose
+  - `docker compose` でも `docker-compose` でも進められます
 - GNU Make
 - `sqlc`
 - `golang-migrate`
@@ -62,6 +63,7 @@ go version
 node --version
 npm --version
 docker compose version
+docker-compose version
 command -v make
 command -v sqlc
 command -v migrate
@@ -251,14 +253,15 @@ my-enterprise-app/
 
 - Go 1.26.0
 - Node.js 22 以上 (`npm` を含む)
-- Docker Engine / Docker Compose v2
+- Docker Engine + Docker Compose
+  - `docker compose` でも `docker-compose` でも進められます
 - GNU Make
 - `sqlc`
 - `golang-migrate`
 - `curl`
 - `awk`
 
-macOS では `make`, `curl`, `awk` は通常プリインストールです。Docker Engine / Docker Compose v2 は Docker Desktop などで別途入れてください。
+macOS では `make`, `curl`, `awk` は通常プリインストールです。Docker Engine と Compose は Docker Desktop などで別途入れてください。`docker compose` が使えない環境でも、`docker-compose` が入っていればこのチュートリアルの `Makefile` はそのまま動きます。
 
 そのほかのツールは、たとえば次のように入れられます。
 
@@ -547,16 +550,19 @@ up:
 down:
 	$(DOCKER_COMPOSE) down
 
-db-up:
+db-wait:
+	@until $(DOCKER_COMPOSE) exec -T postgres pg_isready -U haohao -d haohao >/dev/null 2>&1; do sleep 1; done
+
+db-up: db-wait
 	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" up
 
 db-down:
 	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" down 1
 
-db-schema:
+db-schema: db-wait
 	$(DOCKER_COMPOSE) exec -T postgres pg_dump --schema-only --no-owner --no-privileges -U haohao -d haohao > db/schema.sql
 
-seed-demo-user:
+seed-demo-user: db-wait
 	$(DOCKER_COMPOSE) exec -T postgres psql -U haohao -d haohao < scripts/seed-demo-user.sql
 
 sqlc:
@@ -582,6 +588,8 @@ frontend-dev:
 `make openapi` だけは `.env` なしでも動く形にしておきます。OpenAPI export は DB や Redis の接続を必要としないので、CI でもそのまま実行できたほうが扱いやすいからです。
 
 `db-schema` と `seed-demo-user` は、container 内から `DATABASE_URL` をそのまま使わず、container 内で確実に解決できる `-U haohao -d haohao` で実行しています。host 側 port を変えてもここは影響を受けません。
+
+`make up` の直後は PostgreSQL がまだ起動途中のことがあります。`db-wait` を `db-up`, `db-schema`, `seed-demo-user` の前提に入れておくと、初回セットアップで `connection refused` になりにくくなります。
 
 特に重要なのは次の 4 つです。
 
@@ -750,6 +758,8 @@ make seed-demo-user
 #### 解説
 
 ここで `db/schema.sql` が作られ、動作確認用のユーザーも投入されます。このときも正本は migration です。`schema.sql` は **手で編集しません**。seed は schema ではなく開発用データなので、別ファイルに分けたままにします。
+
+上の `Makefile` どおりなら、`make db-up` / `make db-schema` / `make seed-demo-user` の前に PostgreSQL の応答を待ちます。もしまだその前の `Makefile` を使っていて `connection refused` が出たら、数秒待ってからもう一度叩いてください。
 
 ### 確認
 
@@ -1868,6 +1878,8 @@ curl -i \
 - CSRF ヘッダーの照合
 - Huma の OpenAPI 生成
 
+補足として、`curl -c cookies.txt` で logout まで流したあとに同じ `cookies.txt` で `GET /api/v1/session` を叩くと、`SESSION_ID` cookie 自体が消えているので `401` ではなく `422 Unprocessable Entity` になります。これは Huma が「required cookie parameter is missing」を validation error として返すためです。削除済みの cookie 値を明示で送った場合は、handler に到達して `401 Unauthorized` になります。
+
 ---
 
 ## Step 12. OpenAPI artifact を出力する
@@ -1916,6 +1928,7 @@ frontend をここで始めるのは、backend の契約が `openapi/openapi.yam
 ```bash
 npm create vite@latest frontend -- --template vue-ts
 cd frontend
+npm install
 npm install pinia vue-router
 npm install -D @hey-api/openapi-ts
 cd ..
@@ -1928,6 +1941,8 @@ cd ..
 こうすると TypeScript / Vue / Vite の最低限の配線を自分で書かずに済みます。
 
 `CONCEPT.md` では frontend を `shared/`, `features/`, `pages/` のハイブリッドで切る方針でしたが、最初の 1 周目は Vite scaffold に寄せて `views/`, `stores/`, `api/` で始めます。login 導線が一周したあとで、必要に応じて feature-based な構成へ寄せていくほうが移行理由を説明しやすいからです。
+
+この時点では scaffold 由来の `src/App.vue`, `src/components/HelloWorld.vue`, `public/favicon.svg` などが入ります。`HelloWorld.vue` のようなデモ用ファイルは Step 17 で差し替えるので、この段階では気にしなくて構いません。
 
 ---
 
@@ -1964,7 +1979,7 @@ export default defineConfig({
 {
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "openapi-ts": "openapi-ts"
   }
@@ -2030,7 +2045,7 @@ wrapper は generated SDK の形に合わせて書くべきです。逆ではあ
 
 ```bash
 make gen
-find frontend/src/api/generated -maxdepth 2 -type f | sort
+find frontend/src/api/generated -maxdepth 3 -type f | sort
 ```
 
 ### ここで確認すること
@@ -2040,6 +2055,8 @@ find frontend/src/api/generated -maxdepth 2 -type f | sort
 - `client.gen.ts`
 - `sdk.gen.ts`
 - `types.gen.ts`
+- `client/`
+- `core/`
 
 今回の確認では、`operationId` がそのまま SDK 名になっていることも見てください。
 
@@ -2048,6 +2065,8 @@ sed -n '1,220p' frontend/src/api/generated/sdk.gen.ts
 ```
 
 `getSession`, `login`, `logout` が export されていれば成功です。
+
+`@hey-api/openapi-ts` の現行版は、top-level の `*.gen.ts` だけでなく `client/` と `core/` の補助ファイル群も生成します。つまり「3 ファイルしか出ない」のではなく、**SDK entry と内部実装が複数ファイルに分かれて出る**のが正常です。
 
 ---
 
@@ -2068,7 +2087,12 @@ generated SDK を画面から直接呼ばないのは、認証や CSRF の共通
 #### ファイル: `frontend/src/api/client.ts`
 
 ```ts
+import type { ErrorModel } from './generated/types.gen';
 import { client } from './generated/client.gen';
+
+type ProblemLike = Partial<Pick<ErrorModel, 'detail' | 'title'>> & {
+  message?: string;
+};
 
 export function readCookie(name: string): string | undefined {
   const prefix = `${name}=`;
@@ -2077,6 +2101,27 @@ export function readCookie(name: string): string | undefined {
     .map((part) => part.trim())
     .find((part) => part.startsWith(prefix))
     ?.slice(prefix.length);
+}
+
+export function toApiErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object') {
+    const problem = error as ProblemLike;
+    if (problem.detail) {
+      return problem.detail;
+    }
+    if (problem.title) {
+      return problem.title;
+    }
+    if (problem.message) {
+      return problem.message;
+    }
+  }
+
+  return '認証処理に失敗しました';
 }
 
 client.setConfig({
@@ -2122,6 +2167,8 @@ Vue の各画面は、この先ここを意識しません。
 
 実際にこの取りこぼしがあると、Cookie から `XSRF-TOKEN` を読めていても `POST /api/v1/logout` は `422 Unprocessable Entity` になり、レスポンス本文に `required header parameter is missing` と `header.X-CSRF-Token` が出ます。認証系の transport wrapper は、**既存 `Request` の header と method を必ず引き継ぐ**のが重要です。
 
+もう 1 点、`throwOnError: true` を使うと `@hey-api/openapi-ts` の現行版は `Error` ではなく problem details 相当のオブジェクトを throw することがあります。そのため、画面へ出すエラーメッセージは `Error.message` だけでなく `detail` や `title` も拾える helper にしておくと扱いやすいです。
+
 ---
 
 ### 15-2. `frontend/src/api/session.ts`
@@ -2129,27 +2176,38 @@ Vue の各画面は、この先ここを意識しません。
 #### ファイル: `frontend/src/api/session.ts`
 
 ```ts
+import type { SessionBody } from './generated/types.gen';
 import { readCookie } from './client';
 import { getSession, login, logout } from './generated/sdk.gen';
 
-export async function fetchCurrentSession() {
-  return getSession({});
+export async function fetchCurrentSession(): Promise<SessionBody> {
+  return getSession({
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<SessionBody>;
 }
 
-export async function loginWithPassword(email: string, password: string) {
+export async function loginWithPassword(
+  email: string,
+  password: string,
+): Promise<SessionBody> {
   return login({
     body: {
       email,
       password,
     },
-  });
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<SessionBody>;
 }
 
-export async function logoutCurrentSession() {
-  return logout({
+export async function logoutCurrentSession(): Promise<void> {
+  await logout({
     headers: {
       'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
     },
+    responseStyle: 'data',
+    throwOnError: true,
   });
 }
 ```
@@ -2161,6 +2219,8 @@ export async function logoutCurrentSession() {
 `@hey-api/openapi-ts` の生成結果は version によって細部が変わることがあります。今回の構成では `getSession({})` のように空 options が必要で、`logout` は header を明示で渡す形でした。Step 14 で実際の `sdk.gen.ts` を見てから wrapper を合わせる、という順番の意味はここにあります。
 
 ここで `logout` に `X-CSRF-Token` を明示しているのは、generated type がそれを必須として表現しているからです。transport wrapper は「あとで足せばよい」と考えるのではなく、**呼び出し側が渡した header を落とさず運ぶ**責務を持つ、と理解してください。
+
+`responseStyle: 'data'` と `throwOnError: true` もここで明示しています。`client.setConfig()` 側だけに寄せても、現行の generated SDK helper は戻り値型へその情報を反映しないことがあるためです。wrapper で `Promise<SessionBody>` へ吸収しておくと、store 側では `data.user` ではなく `user` を素直に扱えます。
 
 このファイルの役割は 2 つです。
 
@@ -2186,32 +2246,20 @@ export async function logoutCurrentSession() {
 ```ts
 import { defineStore } from 'pinia';
 
+import { toApiErrorMessage } from '../api/client';
+import type { UserResponse } from '../api/generated/types.gen';
 import {
   fetchCurrentSession,
   loginWithPassword,
   logoutCurrentSession,
 } from '../api/session';
 
-type User = {
-  publicId: string;
-  email: string;
-  displayName: string;
-};
-
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'anonymous';
-
-function toErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return '認証処理に失敗しました';
-}
 
 export const useSessionStore = defineStore('session', {
   state: () => ({
     status: 'idle' as AuthStatus,
-    user: null as User | null,
+    user: null as UserResponse | null,
     errorMessage: '',
   }),
 
@@ -2245,7 +2293,7 @@ export const useSessionStore = defineStore('session', {
       } catch (error) {
         this.user = null;
         this.status = 'anonymous';
-        this.errorMessage = toErrorMessage(error);
+        this.errorMessage = toApiErrorMessage(error);
         throw error;
       }
     },
@@ -2258,7 +2306,7 @@ export const useSessionStore = defineStore('session', {
         this.user = null;
         this.status = 'anonymous';
       } catch (error) {
-        this.errorMessage = toErrorMessage(error);
+        this.errorMessage = toApiErrorMessage(error);
         throw error;
       }
     },
@@ -2279,6 +2327,8 @@ export const useSessionStore = defineStore('session', {
 もう 1 つ重要なのは、認証状態の変更を `finally` に置かないことです。`logout` が失敗したのに `finally` で `anonymous` へ落とすと、ユーザー視点では「ログアウトできたように見える」のに、サーバー側セッションは残ります。そのままリロードすると `GET /api/v1/session` で復元され、再ログインしたように見えます。
 
 認証系の state は、**サーバー成功レスポンスを確認してから確定**させてください。`logout` 失敗時は `authenticated` を維持し、error を UI 側へ返すほうが挙動の整合が取れます。
+
+`throwOnError: true` を使う構成では、thrown value が `Error` とは限りません。problem details の `detail` を拾える helper を別にしておくと、login 失敗時のメッセージが崩れにくくなります。
 
 ---
 
@@ -2356,11 +2406,7 @@ import App from './App.vue';
 import router from './router';
 import './style.css';
 
-const app = createApp(App);
-
-app.use(createPinia());
-app.use(router);
-app.mount('#app');
+createApp(App).use(createPinia()).use(router).mount('#app');
 ```
 
 ---
@@ -2377,6 +2423,18 @@ import { useSessionStore } from './stores/session';
 
 const sessionStore = useSessionStore();
 const displayName = computed(() => sessionStore.user?.displayName ?? 'Guest');
+const statusLabel = computed(() => {
+  switch (sessionStore.status) {
+    case 'authenticated':
+      return 'Authenticated';
+    case 'anonymous':
+      return 'Anonymous';
+    case 'loading':
+      return 'Checking';
+    default:
+      return 'Idle';
+  }
+});
 </script>
 
 <template>
@@ -2390,6 +2448,7 @@ const displayName = computed(() => sessionStore.user?.displayName ?? 'Guest');
       <div class="identity-card">
         <span class="identity-label">Current identity</span>
         <strong>{{ displayName }}</strong>
+        <span class="identity-status">{{ statusLabel }}</span>
       </div>
     </header>
 
@@ -2443,13 +2502,21 @@ h1 {
   font-size: 1.05rem;
 }
 
-.identity-label {
+.identity-label,
+.identity-status {
   display: block;
-  margin-bottom: 6px;
   font-size: 0.76rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.identity-label {
+  margin-bottom: 6px;
+}
+
+.identity-status {
+  margin-top: 8px;
 }
 
 @media (max-width: 720px) {
@@ -2541,6 +2608,12 @@ button {
   font-family: var(--font-display);
 }
 
+h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2vw, 2rem);
+  color: var(--text-strong);
+}
+
 p {
   line-height: 1.6;
 }
@@ -2572,6 +2645,18 @@ code {
   background: var(--panel);
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
+}
+
+.stack {
+  display: grid;
+  gap: 20px;
+}
+
+.split-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 24px;
+  align-items: start;
 }
 
 .field {
@@ -2642,6 +2727,26 @@ code {
   transform: none;
 }
 
+.action-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(11, 93, 91, 0.08);
+  color: var(--accent-strong);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .error-message {
   margin: 0;
   color: var(--danger);
@@ -2667,8 +2772,16 @@ code {
     padding: 22px;
     border-radius: 22px;
   }
+
+  .split-grid {
+    grid-template-columns: 1fr;
+  }
 }
 ```
+
+#### 解説
+
+`style.css` は単なる色指定ではなく、login 画面と home 画面の両方で使う shared utility を持たせています。`stack`, `split-grid`, `status-pill`, `action-row` のようなクラスをここへ寄せておくと、各 View 側の `<style scoped>` は局所的な差分だけにできます。
 
 ---
 
@@ -2696,6 +2809,8 @@ async function submit() {
   try {
     await sessionStore.login(email.value, password.value);
     await router.push({ name: 'home' });
+  } catch {
+    // store が errorMessage を保持するので、ここでは何もしない。
   } finally {
     submitting.value = false;
   }
@@ -2703,60 +2818,92 @@ async function submit() {
 </script>
 
 <template>
-  <section class="panel">
-    <h2>Login</h2>
-    <p>最初の動作確認用ユーザーは `demo@example.com / changeme123` です。</p>
+  <section class="split-grid">
+    <div class="panel stack">
+      <div class="stack intro">
+        <span class="status-pill">Cookie Session</span>
+        <h2>Login</h2>
+        <p>
+          foundation 段階の動作確認として、
+          <code>demo@example.com / changeme123</code>
+          でログインできます。
+        </p>
+      </div>
 
-    <form class="form" @submit.prevent="submit">
-      <label>
-        Email
-        <input v-model="email" type="email" required />
-      </label>
+      <form class="stack" @submit.prevent="submit">
+        <label class="field">
+          <span class="field-label">Email</span>
+          <input
+            v-model="email"
+            class="field-input"
+            type="email"
+            required
+            autocomplete="username"
+          />
+        </label>
 
-      <label>
-        Password
-        <input v-model="password" type="password" required minlength="8" />
-      </label>
+        <label class="field">
+          <span class="field-label">Password</span>
+          <input
+            v-model="password"
+            class="field-input"
+            type="password"
+            required
+            minlength="8"
+            autocomplete="current-password"
+          />
+        </label>
 
-      <button :disabled="submitting" type="submit">
-        {{ submitting ? 'Signing in...' : 'Sign in' }}
-      </button>
-    </form>
+        <button class="primary-button" :disabled="submitting" type="submit">
+          {{ submitting ? 'Signing in...' : 'Sign in' }}
+        </button>
+      </form>
 
-    <p v-if="sessionStore.errorMessage" class="error">
-      {{ sessionStore.errorMessage }}
-    </p>
+      <p v-if="sessionStore.errorMessage" class="error-message">
+        {{ sessionStore.errorMessage }}
+      </p>
+    </div>
+
+    <aside class="panel stack">
+      <h2>Routes</h2>
+      <p>backend は Huma から OpenAPI 3.1 を生成し、frontend は generated SDK を使います。</p>
+      <div class="stack detail-list">
+        <div>
+          <strong>API</strong>
+          <p><code>POST /api/v1/login</code></p>
+        </div>
+        <div>
+          <strong>Session</strong>
+          <p><code>GET /api/v1/session</code></p>
+        </div>
+        <div>
+          <strong>Logout</strong>
+          <p><code>POST /api/v1/logout</code></p>
+        </div>
+      </div>
+    </aside>
   </section>
 </template>
 
 <style scoped>
-.panel {
-  border: 1px solid #d0d7de;
-  border-radius: 12px;
-  padding: 24px;
+.intro {
+  gap: 10px;
 }
 
-.form {
-  display: grid;
-  gap: 16px;
-  margin-top: 20px;
+.detail-list {
+  gap: 14px;
 }
 
-label {
-  display: grid;
-  gap: 8px;
-}
-
-input {
-  padding: 10px 12px;
-}
-
-.error {
-  color: #b42318;
-  margin-top: 16px;
+.detail-list p,
+.detail-list strong {
+  margin: 0;
 }
 </style>
 ```
+
+#### 解説
+
+login 画面を単なるフォームだけにせず、右カラムへ確認対象の route を並べておくと、この画面自体がチュートリアルの進行表になります。見た目のためだけでなく、**いま何を一周させているのかを UI から読める**ようにしているのがポイントです。
 
 ---
 
@@ -2766,47 +2913,79 @@ input {
 
 ```vue
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useSessionStore } from '../stores/session';
 
 const router = useRouter();
 const sessionStore = useSessionStore();
+const userJson = computed(() => JSON.stringify(sessionStore.user, null, 2));
 
 async function signOut() {
-  await sessionStore.logout();
-  await router.push({ name: 'login' });
+  try {
+    await sessionStore.logout();
+    await router.push({ name: 'login' });
+  } catch {
+    // store が errorMessage を保持するので、ここでは何もしない。
+  }
 }
 </script>
 
 <template>
-  <section class="panel">
-    <h2>Current Session</h2>
+  <section class="stack">
+    <div class="split-grid">
+      <section class="panel stack">
+        <span class="status-pill">Authenticated</span>
+        <h2>Current Session</h2>
+        <p>Cookie セッションが復元できていれば、現在ユーザーがここに表示されます。</p>
+        <pre class="json-card">{{ userJson }}</pre>
 
-    <pre>{{ sessionStore.user }}</pre>
+        <div class="action-row">
+          <button class="secondary-button" type="button" @click="signOut">
+            Logout
+          </button>
+          <a class="secondary-button docs-link" href="/docs" target="_blank" rel="noreferrer">
+            Open Docs
+          </a>
+        </div>
 
-    <button type="button" @click="signOut">
-      Logout
-    </button>
+        <p v-if="sessionStore.errorMessage" class="error-message">
+          {{ sessionStore.errorMessage }}
+        </p>
+      </section>
+
+      <aside class="panel stack">
+        <h2>Verification</h2>
+        <p>この画面が出ていれば、frontend は generated SDK 経由で session を読めています。</p>
+        <ul class="check-list">
+          <li>Cookie が browser に保存される</li>
+          <li><code>/api/v1/session</code> が 200 を返す</li>
+          <li><code>/docs</code> で OpenAPI 由来の docs を確認できる</li>
+        </ul>
+      </aside>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.panel {
-  border: 1px solid #d0d7de;
-  border-radius: 12px;
-  padding: 24px;
+.docs-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
-pre {
-  background: #f6f8fa;
-  padding: 16px;
-  border-radius: 8px;
-  overflow: auto;
-  margin: 16px 0 24px;
+.check-list {
+  margin: 0;
+  padding-left: 1.2rem;
 }
 </style>
 ```
+
+#### 解説
+
+home 画面では、単に `user` を表示するだけでなく「この画面が見えていると何が確認できたのか」を右カラムで明文化しています。また、`/docs` への導線も置いておくと、OpenAPI artifact と browser 上の動作確認を往復しやすくなります。
 
 ---
 
@@ -2844,12 +3023,12 @@ make frontend-dev
 1. 画面が表示される
 2. 既定値の `demo@example.com / changeme123` で login できる
 3. home 画面へ遷移する
-4. user 情報が見える
+4. user 情報が整形表示され、`Open Docs` から `/docs` を開ける
 5. logout で `POST /api/v1/logout` が `204 No Content` を返す
 6. logout 後に login 画面へ戻る
 7. その状態でブラウザをリロードしても home に戻らない
 
-DevTools の Network で見られるなら、logout 後に `GET /api/v1/session` が `401 Unauthorized` になることまで確認してください。ここまで見えると、「見た目だけ anonymous になった」のではなく、backend 側セッションも消えていることが分かります。
+DevTools の Network で見られるなら、logout 後に login 画面の再読込で発生する `GET /api/v1/session` も確認してください。browser から cookie が完全に消えていれば `422 Unprocessable Entity` で `required cookie parameter is missing` が返ります。古い cookie 値を明示で送った場合は `401 Unauthorized` になります。どちらでも「有効な session が復元できていない」ことが確認できれば十分です。
 
 ### 解説
 
@@ -2878,7 +3057,7 @@ DevTools の Network で見られるなら、logout 後に `GET /api/v1/session`
 この場合、backend は validation どおりに拒否しているだけです。主因はフロントの HTTP wrapper か state 遷移です。修正後の期待値は次です。
 
 - `POST /api/v1/logout` が `204`
-- リロード後の `GET /api/v1/session` が `401`
+- リロード後の `GET /api/v1/session` が、cookie 不在なら `422`、無効 cookie を送れば `401`
 
 ---
 
