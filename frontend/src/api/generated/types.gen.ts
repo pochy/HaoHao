@@ -90,6 +90,25 @@ export type ExternalMeBody = {
     user?: UserResponse;
 };
 
+export type IntegrationStatusBody = {
+    connected: boolean;
+    grantedAt?: string;
+    lastErrorCode?: string;
+    lastRefreshedAt?: string;
+    provider: string;
+    resourceServer: string;
+    revokedAt?: string;
+    scopes?: Array<string> | null;
+};
+
+export type ListIntegrationsBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<IntegrationStatusBody> | null;
+};
+
 export type LoginInputBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -119,6 +138,18 @@ export type UserResponse = {
     displayName: string;
     email: string;
     publicId: string;
+};
+
+export type VerifyIntegrationBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    accessExpiresAt?: string;
+    connected: boolean;
+    refreshedAt?: string;
+    resourceServer: string;
+    scopes?: Array<string> | null;
 };
 
 export type ZitadelSettingsBody = {
@@ -168,6 +199,10 @@ export type ExternalMeBodyWritable = {
     user?: UserResponse;
 };
 
+export type ListIntegrationsBodyWritable = {
+    items: Array<IntegrationStatusBody> | null;
+};
+
 export type LoginInputBodyWritable = {
     email: string;
     password: string;
@@ -179,6 +214,14 @@ export type LogoutBodyWritable = {
 
 export type SessionBodyWritable = {
     user: UserResponse;
+};
+
+export type VerifyIntegrationBodyWritable = {
+    accessExpiresAt?: string;
+    connected: boolean;
+    refreshedAt?: string;
+    resourceServer: string;
+    scopes?: Array<string> | null;
 };
 
 export type GetExternalMeData = {
@@ -312,6 +355,150 @@ export type GetCsrfResponses = {
 };
 
 export type GetCsrfResponse = GetCsrfResponses[keyof GetCsrfResponses];
+
+export type ListIntegrationsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/integrations';
+};
+
+export type ListIntegrationsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListIntegrationsError = ListIntegrationsErrors[keyof ListIntegrationsErrors];
+
+export type ListIntegrationsResponses = {
+    /**
+     * OK
+     */
+    200: ListIntegrationsBody;
+};
+
+export type ListIntegrationsResponse = ListIntegrationsResponses[keyof ListIntegrationsResponses];
+
+export type FinishIntegrationConnectData = {
+    body?: never;
+    path: {
+        resourceServer: string;
+    };
+    query?: {
+        code?: string;
+        state?: string;
+        error?: string;
+        error_description?: string;
+    };
+    url: '/api/v1/integrations/{resourceServer}/callback';
+};
+
+export type FinishIntegrationConnectErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type FinishIntegrationConnectError = FinishIntegrationConnectErrors[keyof FinishIntegrationConnectErrors];
+
+export type FinishIntegrationConnectResponses = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type FinishIntegrationConnectResponse = FinishIntegrationConnectResponses[keyof FinishIntegrationConnectResponses];
+
+export type ConnectIntegrationData = {
+    body?: never;
+    path: {
+        resourceServer: string;
+    };
+    query?: never;
+    url: '/api/v1/integrations/{resourceServer}/connect';
+};
+
+export type ConnectIntegrationErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ConnectIntegrationError = ConnectIntegrationErrors[keyof ConnectIntegrationErrors];
+
+export type ConnectIntegrationResponses = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
+
+export type DeleteIntegrationGrantData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        resourceServer: string;
+    };
+    query?: never;
+    url: '/api/v1/integrations/{resourceServer}/grant';
+};
+
+export type DeleteIntegrationGrantErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeleteIntegrationGrantError = DeleteIntegrationGrantErrors[keyof DeleteIntegrationGrantErrors];
+
+export type DeleteIntegrationGrantResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteIntegrationGrantResponse = DeleteIntegrationGrantResponses[keyof DeleteIntegrationGrantResponses];
+
+export type VerifyIntegrationAccessData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        resourceServer: string;
+    };
+    query?: never;
+    url: '/api/v1/integrations/{resourceServer}/verify';
+};
+
+export type VerifyIntegrationAccessErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type VerifyIntegrationAccessError = VerifyIntegrationAccessErrors[keyof VerifyIntegrationAccessErrors];
+
+export type VerifyIntegrationAccessResponses = {
+    /**
+     * OK
+     */
+    200: VerifyIntegrationBody;
+};
+
+export type VerifyIntegrationAccessResponse = VerifyIntegrationAccessResponses[keyof VerifyIntegrationAccessResponses];
 
 export type LoginData = {
     body: LoginInputBodyWritable;

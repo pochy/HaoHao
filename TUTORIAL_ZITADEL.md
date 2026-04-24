@@ -6774,7 +6774,3255 @@ browser login の scope は引き続き `openid profile email` のままです�
 4. `invalid_grant` を返したとき grant が revoke 状態になる
 5. `DELETE /grant` で local revoke と upstream revoke が走る
 
+### Step 4.4. この repo での Phase 4 実装形
+
+この Phase では downstream resource をまず `zitadel` に固定します。`resourceServer` path parameter は allowlist で検証し、`zitadel` 以外は unsupported resource として扱います。
+
+backend が追加する browser session 向け API は次です。どれも Cookie session 前提で、refresh token / access token は response に含めません。
+
+```text
+GET    /api/v1/integrations
+GET    /api/v1/integrations/{resourceServer}/connect
+GET    /api/v1/integrations/{resourceServer}/callback
+POST   /api/v1/integrations/{resourceServer}/verify
+DELETE /api/v1/integrations/{resourceServer}/grant
+```
+
+`POST /verify` は backend 内で refresh token から access token を取得できるかだけを確認します。返すのは `resourceServer`, `connected`, `scopes`, `accessExpiresAt`, `refreshedAt` だけです。
+
+frontend は `/integrations` を追加します。画面からできることは次です。
+
+```text
+connect  -> /api/v1/integrations/zitadel/connect へ遷移
+verify   -> POST /api/v1/integrations/zitadel/verify
+revoke   -> DELETE /api/v1/integrations/zitadel/grant
+status   -> GET /api/v1/integrations
+```
+
+### Step 4.5. Zitadel Console の追加設定
+
+browser login 用に使っている application、つまり `.env` の `ZITADEL_CLIENT_ID` に対応する application を開きます。この Phase では同じ OAuth client を delegated consent にも使います。
+
+まず redirect URI を 1 つ追加します。
+
+```text
+http://127.0.0.1:8080/api/v1/integrations/zitadel/callback
+```
+
+browser login callback は引き続き次のまま残します。
+
+```text
+http://127.0.0.1:8080/api/v1/auth/callback
+```
+
+次に application settings で **Refresh Token を有効化**します。これを有効にしないと、`offline_access` を要求しても token endpoint の response に `refresh_token` が入らず、backend は grant を保存できません。その場合、frontend は次のように戻ります。
+
+```text
+http://127.0.0.1:5173/integrations?error=delegated_callback_failed
+```
+
+`ZITADEL_SCOPES` は引き続き `openid profile email` のままです。`offline_access` は integrations の delegated consent でだけ要求します。
+
+### Step 4.6. local env の追加
+
+repo root の `.env` に次を追加します。`.env` は Git に入れません。
+
+```dotenv
+DOWNSTREAM_TOKEN_ENCRYPTION_KEY=<32 byte key encoded as base64>
+DOWNSTREAM_TOKEN_KEY_VERSION=1
+DOWNSTREAM_REFRESH_TOKEN_TTL=2160h
+DOWNSTREAM_ACCESS_TOKEN_SKEW=30s
+DOWNSTREAM_DEFAULT_SCOPES=offline_access
+```
+
+key は例えば次で作れます。
+
+```bash
+openssl rand -base64 32
+```
+
+`DOWNSTREAM_TOKEN_ENCRYPTION_KEY` が空のままだと integrations API は configured にならず、接続状態 API は 503 を返します。
+
+### Step 4.7. Phase 4 exact delta
+
+Phase 3 replay 後に Phase 4 で増える主な source delta は次です。generated files はこのあと `make gen` で揃えます。
+
+```text
+.env.example
+backend/cmd/main/main.go
+backend/cmd/openapi/main.go
+backend/internal/api/integrations.go
+backend/internal/api/register.go
+backend/internal/app/app.go
+backend/internal/auth/delegated_oauth_client.go
+backend/internal/auth/delegation_state_store.go
+backend/internal/auth/refresh_token_store.go
+backend/internal/config/config.go
+backend/internal/service/delegation_service.go
+backend/internal/service/session_service.go
+db/migrations/0004_downstream_grants.up.sql
+db/migrations/0004_downstream_grants.down.sql
+db/queries/downstream_grants.sql
+db/queries/identities.sql
+frontend/src/api/integrations.ts
+frontend/src/router/index.ts
+frontend/src/views/IntegrationsView.vue
+frontend/src/App.vue
+```
+
+generated / snapshot delta は次です。
+
+```text
+backend/internal/db/downstream_grants.sql.go
+backend/internal/db/identities.sql.go
+backend/internal/db/models.go
+db/schema.sql
+openapi/openapi.yaml
+frontend/src/api/generated/index.ts
+frontend/src/api/generated/sdk.gen.ts
+frontend/src/api/generated/types.gen.ts
+```
+
+Phase 4 の生成は次で揃えます。
+
+```bash
+make gen
+go test ./backend/...
+npm --prefix frontend run build
+git diff --check
+if docker compose version >/dev/null 2>&1; then
+  docker compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet
+else
+  docker-compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet
+fi
+```
+
+手元で DB を見るときも `docker compose` plugin と `docker-compose` binary の差があります。`unknown shorthand flag: 'T' in -T` が出る環境では `docker compose` plugin が無く、`-T` が Docker 本体の option として解釈されています。その場合は hyphen 付きの `docker-compose exec -T ...` を使ってください。
+
+この tutorial の確認コマンドは、必要なら先に次で compose command を固定してから実行します。
+
+```bash
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE="docker compose"
+else
+  COMPOSE="docker-compose"
+fi
+```
+
+manual smoke は次の順で見ます。ここでは Connect / Verify / Revoke を必須確認にします。`invalid_grant` は provider 側で refresh token を失効させる必要があるため、通常 smoke とは分けて任意の負テストとして扱います。
+
+```text
+1. backend / frontend を起動する前に :8080 が空いていることを確認する
+2. /integrations を開き、zitadel integration が Disconnected で表示される
+3. Connect で consent へ遷移し、callback 後に Connected へ戻る
+4. 画面で zitadel integration が Connected になり、Scopes に offline_access が表示される
+5. Connect 直後は Last refresh が Never であることを見る
+6. oauth_user_grants.refresh_token_ciphertext が平文 token ではないことを DB で見る
+7. Verify で access check が成功し、browser response に token が出ないことを DevTools で見る
+8. Verify 後に Last refresh が更新されることを見る
+9. Revoke で local grant が削除され、可能なら upstream revocation も成功することを見る
+```
+
+成功時の `/integrations` 画面は、`zitadel` card が `CONNECTED` になり、`Scopes` に `offline_access` が表示されます。Connect 直後はまだ backend が access token refresh を試していないため、`Last refresh` は `Never` のままで正常です。Verify 後に `Last refresh` が時刻表示へ変われば、backend-only の refresh token から access token を取得できています。
+
+UI は browser の local timezone で表示し、PostgreSQL は `timestamptz` を UTC で返すことがあります。例えば DB の `2026-04-24 15:39:01+00` が、Asia/Tokyo の browser では `2026/04/25 0:39` と表示されても正常です。
+
+Connect 後の DB 確認は次です。`ciphertext_hex` は長い hex 文字列になり、refresh token の平文には見えないことを確認します。
+
+```bash
+$COMPOSE exec -T postgres psql -U haohao -d haohao -c "
+select
+  user_id,
+  provider,
+  resource_server,
+  provider_subject,
+  refresh_token_key_version,
+  encode(refresh_token_ciphertext, 'hex') as ciphertext_hex,
+  scope_text,
+  granted_at,
+  revoked_at,
+  last_error_code
+from oauth_user_grants;
+"
+```
+
+期待値は次です。
+
+```text
+provider = zitadel
+resource_server = zitadel
+scope_text = offline_access
+refresh_token_key_version = 1
+revoked_at is null
+last_error_code is null
+```
+
+Verify 後は refresh が成功したことだけを確認します。token 本体は API response に出しません。
+
+```bash
+$COMPOSE exec -T postgres psql -U haohao -d haohao -c "
+select
+  resource_server,
+  scope_text,
+  last_refreshed_at,
+  revoked_at,
+  last_error_code
+from oauth_user_grants;
+"
+```
+
+期待値は `last_refreshed_at` に時刻が入り、`revoked_at` と `last_error_code` が空のままです。
+
+Revoke 後は row が削除されることを確認します。
+
+```bash
+$COMPOSE exec -T postgres psql -U haohao -d haohao -c "
+select count(*) from oauth_user_grants;
+"
+```
+
+期待値は `0` です。
+
+`invalid_grant` handling まで確認する場合は、Connect 後に Zitadel 側で該当 user / application の grant か refresh token を失効させてから Verify します。期待値は Verify が失敗し、local row は残ったまま `revoked_at` と `last_error_code = invalid_grant` が入ることです。DB の ciphertext を壊すテストは復号エラーの確認になり、provider からの `invalid_grant` 確認にはなりません。
+
+`delegated_callback_failed` で戻った場合は、まず次を確認してください。
+
+```text
+1. Zitadel application settings で Refresh Token が有効化されている
+2. delegated callback URI が application に登録されている
+3. .env の DOWNSTREAM_TOKEN_ENCRYPTION_KEY が 32 byte base64 になっている
+4. .env の DOWNSTREAM_DEFAULT_SCOPES が offline_access になっている
+5. DB migration 0004 が適用され、oauth_user_grants table が存在する
+```
+
+DevTools の Network で `/api/v1/integrations/zitadel/callback` の URL を見たとき、`code=` と `state=` が付いているのに `delegated_callback_failed` になる場合は、backend の code exchange 後に失敗しています。Phase 4 では特に Refresh Token 未有効化による `refresh_token` 欠落を疑ってください。
+
 ---
+
+## Phase 4 Exact Snapshot
+Phase 0-2 の exact snapshot と Phase 3 の exact snapshot を先に使い、Phase 4 で変わった非生成 file だけをここで上書き / 追加します。
+- この節の block は、現在の Phase 4 実装に合わせた **exact delta** です
+- `backend/internal/db/*.go`, `openapi/openapi.yaml`, `frontend/src/api/generated/*` は `make gen` の生成物なので、この snapshot には再掲しません
+- `db/schema.sql` は `make db-schema` の生成物ですが、`sqlc generate` の入力でもあるため、この snapshot には Phase 4 時点の内容を載せます
+- `backend/web/dist/*` は frontend build artifact なので、この snapshot には含めません
+- `go.work.sum` は tool 実行で再生成されることがありますが、この repo の正本には含めません
+
+#### Clean worktree replay checklist
+
+`../phase4-test` のような clean worktree で **この `TUTORIAL_ZITADEL.md` だけから Phase 4 の file / directory 構成へ戻す** 場合は、次の順に進めてください。Phase 4 の block は Phase 0-2 / Phase 3 の同名 file を上書きするため、最終状態が現在の Phase 4 実装になります。
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+import re
+
+doc = Path("TUTORIAL_ZITADEL.md")
+text = doc.read_text()
+
+sections = [
+    ("### Project Exact Files", "## Phase 3. External User Bearer API"),
+    ("## Phase 3 Exact Snapshot", "## Phase 4."),
+    ("## Phase 4 Exact Snapshot", "## Phase 5."),
+]
+
+files = {}
+for start, end in sections:
+    start_match = re.search(rf"^{re.escape(start)}", text, re.M)
+    if not start_match:
+        raise SystemExit(f"section not found: {start}")
+    start_index = start_match.start()
+    end_match = re.search(rf"^{re.escape(end)}", text[start_index:], re.M)
+    end_index = -1 if not end_match else start_index + end_match.start()
+    section = text[start_index:] if end_index == -1 else text[start_index:end_index]
+    for path, body in re.findall(r'^#### `([^`]+)`\n\n```[^\n]*\n(.*?)\n```', section, re.M | re.S):
+        files[path] = body.rstrip("\n") + "\n"
+
+for path, body in files.items():
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(body)
+    print(f"wrote {target}")
+PY
+```
+
+その後、生成物と build artifact を現在の実装と同じ状態に戻します。`make gen` の前に `go test` すると、`backend/internal/db/downstream_grants.sql.go` などが無くて build が失敗します。
+
+```bash
+npm --prefix frontend install
+make gen
+go test ./backend/...
+npm --prefix frontend run build
+if docker compose version >/dev/null 2>&1; then
+  docker compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet
+else
+  docker-compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet
+fi
+git diff --check
+```
+
+manual smoke の前には DB migration を Phase 4 まで適用してください。repo root の `.env` と `dev/zitadel/.env` は Git に入れません。
+
+```bash
+make db-up
+```
+
+Zitadel Console 内の redirect URI / application 設定 / role assignment は Git に入らない外部状態です。Phase 4 では Step 4.5 の delegated callback URI も追加してください。
+
+#### `.env.example`
+
+```dotenv
+APP_NAME="HaoHao API"
+APP_VERSION=0.1.0
+HTTP_PORT=8080
+
+APP_BASE_URL=http://127.0.0.1:8080
+FRONTEND_BASE_URL=http://127.0.0.1:5173
+
+DATABASE_URL=postgres://haohao:haohao@127.0.0.1:5432/haohao?sslmode=disable
+
+AUTH_MODE=local
+ZITADEL_ISSUER=
+ZITADEL_CLIENT_ID=
+ZITADEL_CLIENT_SECRET=
+ZITADEL_REDIRECT_URI=http://127.0.0.1:8080/api/v1/auth/callback
+ZITADEL_POST_LOGOUT_REDIRECT_URI=http://127.0.0.1:5173/login
+ZITADEL_SCOPES="openid profile email"
+
+REDIS_ADDR=127.0.0.1:6379
+REDIS_PASSWORD=
+REDIS_DB=0
+
+SESSION_TTL=24h
+LOGIN_STATE_TTL=10m
+
+EXTERNAL_EXPECTED_AUDIENCE=haohao-external
+EXTERNAL_REQUIRED_SCOPE_PREFIX=
+EXTERNAL_REQUIRED_ROLE=external_api_user
+EXTERNAL_ALLOWED_ORIGINS=
+
+DOWNSTREAM_TOKEN_ENCRYPTION_KEY=
+DOWNSTREAM_TOKEN_KEY_VERSION=1
+DOWNSTREAM_REFRESH_TOKEN_TTL=2160h
+DOWNSTREAM_ACCESS_TOKEN_SKEW=30s
+DOWNSTREAM_DEFAULT_SCOPES=offline_access
+
+COOKIE_SECURE=false
+```
+
+#### `backend/cmd/main/main.go`
+
+```go
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"example.com/haohao/backend/internal/app"
+	"example.com/haohao/backend/internal/auth"
+	"example.com/haohao/backend/internal/config"
+	db "example.com/haohao/backend/internal/db"
+	"example.com/haohao/backend/internal/platform"
+	"example.com/haohao/backend/internal/service"
+)
+
+func main() {
+	ctx := context.Background()
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pool, err := platform.NewPostgresPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer pool.Close()
+
+	redisClient, err := platform.NewRedisClient(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer redisClient.Close()
+
+	queries := db.New(pool)
+	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
+	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode)
+	authzService := service.NewAuthzService(pool, queries)
+
+	var oidcLoginService *service.OIDCLoginService
+	var delegationService *service.DelegationService
+	var bearerVerifier *auth.BearerVerifier
+	if cfg.AuthMode == "zitadel" {
+		if cfg.ZitadelIssuer == "" || cfg.ZitadelClientID == "" || cfg.ZitadelClientSecret == "" {
+			log.Fatal("ZITADEL_ISSUER, ZITADEL_CLIENT_ID, and ZITADEL_CLIENT_SECRET are required when AUTH_MODE=zitadel")
+		}
+
+		oidcClient, err := auth.NewOIDCClient(
+			ctx,
+			cfg.ZitadelIssuer,
+			cfg.ZitadelClientID,
+			cfg.ZitadelClientSecret,
+			cfg.ZitadelRedirectURI,
+			cfg.ZitadelScopes,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		loginStateStore := auth.NewLoginStateStore(redisClient, cfg.LoginStateTTL)
+		identityService := service.NewIdentityService(pool, queries)
+		oidcLoginService = service.NewOIDCLoginService("zitadel", oidcClient, loginStateStore, identityService, authzService, sessionService)
+
+		if cfg.DownstreamTokenEncryptionKey != "" {
+			refreshTokenStore, err := auth.NewRefreshTokenStore(cfg.DownstreamTokenEncryptionKey, cfg.DownstreamTokenKeyVersion)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			delegatedOAuthClient, err := auth.NewDelegatedOAuthClient(ctx, cfg.ZitadelIssuer, cfg.ZitadelClientID, cfg.ZitadelClientSecret)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			delegationStateStore := auth.NewDelegationStateStore(redisClient, cfg.LoginStateTTL)
+			delegationService = service.NewDelegationService(
+				queries,
+				delegatedOAuthClient,
+				delegationStateStore,
+				refreshTokenStore,
+				cfg.AppBaseURL,
+				cfg.DownstreamDefaultScopes,
+				cfg.DownstreamRefreshTokenTTL,
+				cfg.DownstreamAccessTokenSkew,
+			)
+		}
+	}
+
+	if cfg.ZitadelIssuer != "" {
+		bearerVerifier, err = auth.NewBearerVerifier(ctx, cfg.ZitadelIssuer)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	application := app.New(cfg, sessionService, oidcLoginService, delegationService, authzService, bearerVerifier)
+
+	server := &http.Server{
+		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
+		Handler:           application.Router,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		log.Printf("listening on http://127.0.0.1:%d", cfg.HTTPPort)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	}()
+
+	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	<-shutdownCtx.Done()
+
+	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctxWithTimeout); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+#### `backend/cmd/openapi/main.go`
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"example.com/haohao/backend/internal/app"
+	"example.com/haohao/backend/internal/config"
+	"github.com/gin-gonic/gin"
+)
+
+func main() {
+	gin.SetMode(gin.ReleaseMode)
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	application := app.New(cfg, nil, nil, nil, nil, nil)
+
+	spec, err := application.API.OpenAPI().YAML()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Print(string(spec))
+}
+```
+
+#### `backend/internal/api/integrations.go`
+
+```go
+package api
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"example.com/haohao/backend/internal/service"
+
+	"github.com/danielgtaylor/huma/v2"
+)
+
+type IntegrationStatusBody struct {
+	ResourceServer  string     `json:"resourceServer" example:"zitadel"`
+	Provider        string     `json:"provider" example:"zitadel"`
+	Connected       bool       `json:"connected" example:"true"`
+	Scopes          []string   `json:"scopes,omitempty" example:"offline_access"`
+	GrantedAt       *time.Time `json:"grantedAt,omitempty" format:"date-time"`
+	LastRefreshedAt *time.Time `json:"lastRefreshedAt,omitempty" format:"date-time"`
+	RevokedAt       *time.Time `json:"revokedAt,omitempty" format:"date-time"`
+	LastErrorCode   string     `json:"lastErrorCode,omitempty" example:"invalid_grant"`
+}
+
+type ListIntegrationsInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+}
+
+type ListIntegrationsBody struct {
+	Items []IntegrationStatusBody `json:"items"`
+}
+
+type ListIntegrationsOutput struct {
+	Body ListIntegrationsBody
+}
+
+type ConnectIntegrationInput struct {
+	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
+	ResourceServer string      `path:"resourceServer" example:"zitadel"`
+}
+
+type ConnectIntegrationOutput struct {
+	Location string `header:"Location"`
+}
+
+type IntegrationCallbackInput struct {
+	SessionCookie    http.Cookie `cookie:"SESSION_ID"`
+	ResourceServer   string      `path:"resourceServer" example:"zitadel"`
+	Code             string      `query:"code"`
+	State            string      `query:"state"`
+	Error            string      `query:"error"`
+	ErrorDescription string      `query:"error_description"`
+}
+
+type IntegrationCallbackOutput struct {
+	Location string `header:"Location"`
+}
+
+type VerifyIntegrationInput struct {
+	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken      string      `header:"X-CSRF-Token" required:"true"`
+	ResourceServer string      `path:"resourceServer" example:"zitadel"`
+}
+
+type VerifyIntegrationBody struct {
+	ResourceServer  string     `json:"resourceServer" example:"zitadel"`
+	Connected       bool       `json:"connected" example:"true"`
+	Scopes          []string   `json:"scopes,omitempty" example:"offline_access"`
+	AccessExpiresAt *time.Time `json:"accessExpiresAt,omitempty" format:"date-time"`
+	RefreshedAt     *time.Time `json:"refreshedAt,omitempty" format:"date-time"`
+}
+
+type VerifyIntegrationOutput struct {
+	Body VerifyIntegrationBody
+}
+
+type DeleteIntegrationGrantInput struct {
+	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken      string      `header:"X-CSRF-Token" required:"true"`
+	ResourceServer string      `path:"resourceServer" example:"zitadel"`
+}
+
+type DeleteIntegrationGrantOutput struct{}
+
+func registerIntegrationRoutes(api huma.API, deps Dependencies) {
+	huma.Register(api, huma.Operation{
+		OperationID: "listIntegrations",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/integrations",
+		Summary:     "downstream integration の接続状態を返す",
+		Tags:        []string{"integrations"},
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *ListIntegrationsInput) (*ListIntegrationsOutput, error) {
+		if deps.DelegationService == nil {
+			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
+		}
+
+		user, err := deps.SessionService.CurrentUser(ctx, input.SessionCookie.Value)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+
+		statuses, err := deps.DelegationService.ListIntegrations(ctx, user)
+		if err != nil {
+			return nil, toDelegationHTTPError(err)
+		}
+
+		out := &ListIntegrationsOutput{}
+		out.Body.Items = make([]IntegrationStatusBody, 0, len(statuses))
+		for _, status := range statuses {
+			out.Body.Items = append(out.Body.Items, toIntegrationStatusBody(status))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "connectIntegration",
+		Method:        http.MethodGet,
+		Path:          "/api/v1/integrations/{resourceServer}/connect",
+		Summary:       "downstream integration consent を開始する",
+		Tags:          []string{"integrations"},
+		DefaultStatus: http.StatusFound,
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *ConnectIntegrationInput) (*ConnectIntegrationOutput, error) {
+		if deps.DelegationService == nil {
+			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
+		}
+
+		user, err := deps.SessionService.CurrentUser(ctx, input.SessionCookie.Value)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+
+		location, err := deps.DelegationService.StartConnect(ctx, user, input.SessionCookie.Value, input.ResourceServer)
+		if err != nil {
+			return nil, toDelegationHTTPError(err)
+		}
+
+		return &ConnectIntegrationOutput{Location: location}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "finishIntegrationConnect",
+		Method:        http.MethodGet,
+		Path:          "/api/v1/integrations/{resourceServer}/callback",
+		Summary:       "downstream integration consent callback を完了する",
+		Tags:          []string{"integrations"},
+		DefaultStatus: http.StatusFound,
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *IntegrationCallbackInput) (*IntegrationCallbackOutput, error) {
+		if input.Error != "" || deps.DelegationService == nil {
+			return &IntegrationCallbackOutput{
+				Location: integrationRedirect(deps.FrontendBaseURL, "error", "delegated_callback_failed"),
+			}, nil
+		}
+
+		user, err := deps.SessionService.CurrentUser(ctx, input.SessionCookie.Value)
+		if err != nil {
+			return &IntegrationCallbackOutput{
+				Location: integrationRedirect(deps.FrontendBaseURL, "error", "missing_session"),
+			}, nil
+		}
+
+		if _, err := deps.DelegationService.SaveGrantFromCallback(ctx, user, input.SessionCookie.Value, input.ResourceServer, input.Code, input.State); err != nil {
+			return &IntegrationCallbackOutput{
+				Location: integrationRedirect(deps.FrontendBaseURL, "error", "delegated_callback_failed"),
+			}, nil
+		}
+
+		return &IntegrationCallbackOutput{
+			Location: integrationRedirect(deps.FrontendBaseURL, "connected", normalizeIntegrationResource(input.ResourceServer)),
+		}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "verifyIntegrationAccess",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/integrations/{resourceServer}/verify",
+		Summary:     "downstream access token を backend 内で取得できるか検証する",
+		Tags:        []string{"integrations"},
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *VerifyIntegrationInput) (*VerifyIntegrationOutput, error) {
+		if deps.DelegationService == nil {
+			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
+		}
+
+		user, err := deps.SessionService.CurrentUserWithCSRF(ctx, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+
+		result, err := deps.DelegationService.VerifyAccessToken(ctx, user, input.ResourceServer)
+		if err != nil {
+			return nil, toDelegationHTTPError(err)
+		}
+
+		out := &VerifyIntegrationOutput{}
+		out.Body.ResourceServer = result.ResourceServer
+		out.Body.Connected = result.Connected
+		out.Body.Scopes = result.Scopes
+		out.Body.AccessExpiresAt = result.AccessExpiresAt
+		out.Body.RefreshedAt = result.RefreshedAt
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "deleteIntegrationGrant",
+		Method:        http.MethodDelete,
+		Path:          "/api/v1/integrations/{resourceServer}/grant",
+		Summary:       "downstream integration grant を削除する",
+		Tags:          []string{"integrations"},
+		DefaultStatus: http.StatusNoContent,
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *DeleteIntegrationGrantInput) (*DeleteIntegrationGrantOutput, error) {
+		if deps.DelegationService == nil {
+			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
+		}
+
+		user, err := deps.SessionService.CurrentUserWithCSRF(ctx, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+
+		if err := deps.DelegationService.DeleteGrant(ctx, user, input.ResourceServer); err != nil {
+			return nil, toDelegationHTTPError(err)
+		}
+
+		return &DeleteIntegrationGrantOutput{}, nil
+	})
+}
+
+func toIntegrationStatusBody(status service.DelegationStatus) IntegrationStatusBody {
+	return IntegrationStatusBody{
+		ResourceServer:  status.ResourceServer,
+		Provider:        status.Provider,
+		Connected:       status.Connected,
+		Scopes:          status.Scopes,
+		GrantedAt:       status.GrantedAt,
+		LastRefreshedAt: status.LastRefreshedAt,
+		RevokedAt:       status.RevokedAt,
+		LastErrorCode:   status.LastErrorCode,
+	}
+}
+
+func toDelegationHTTPError(err error) error {
+	switch {
+	case errors.Is(err, service.ErrDelegationNotConfigured):
+		return huma.Error503ServiceUnavailable("delegated auth is not configured")
+	case errors.Is(err, service.ErrDelegationUnsupportedResource):
+		return huma.Error404NotFound("unsupported downstream resource")
+	case errors.Is(err, service.ErrDelegationGrantNotFound):
+		return huma.Error404NotFound("delegated grant not found")
+	case errors.Is(err, service.ErrDelegationInvalidState):
+		return huma.Error400BadRequest("invalid delegated auth state")
+	case errors.Is(err, service.ErrDelegationIdentityNotFound):
+		return huma.Error409Conflict("zitadel identity is required before connecting the integration")
+	case errors.Is(err, service.ErrDelegationRefreshTokenMissing):
+		return huma.Error502BadGateway("provider did not return a refresh token")
+	default:
+		return huma.Error500InternalServerError("internal server error")
+	}
+}
+
+func integrationRedirect(frontendBaseURL, key, value string) string {
+	base := strings.TrimRight(frontendBaseURL, "/")
+	query := url.Values{}
+	query.Set(key, value)
+	return base + "/integrations?" + query.Encode()
+}
+
+func normalizeIntegrationResource(resourceServer string) string {
+	return strings.ToLower(strings.TrimSpace(resourceServer))
+}
+```
+
+#### `backend/internal/api/register.go`
+
+```go
+package api
+
+import (
+	"time"
+
+	"example.com/haohao/backend/internal/service"
+
+	"github.com/danielgtaylor/huma/v2"
+)
+
+type Dependencies struct {
+	SessionService               *service.SessionService
+	OIDCLoginService             *service.OIDCLoginService
+	DelegationService            *service.DelegationService
+	AuthMode                     string
+	FrontendBaseURL              string
+	ZitadelIssuer                string
+	ZitadelClientID              string
+	ZitadelPostLogoutRedirectURI string
+	CookieSecure                 bool
+	SessionTTL                   time.Duration
+}
+
+func Register(api huma.API, deps Dependencies) {
+	registerAuthSettingsRoute(api, deps)
+	registerOIDCRoutes(api, deps)
+	registerSessionRoutes(api, deps)
+	registerExternalRoutes(api, deps)
+	registerIntegrationRoutes(api, deps)
+}
+```
+
+#### `backend/internal/app/app.go`
+
+```go
+package app
+
+import (
+	backendapi "example.com/haohao/backend/internal/api"
+	"example.com/haohao/backend/internal/auth"
+	"example.com/haohao/backend/internal/config"
+	"example.com/haohao/backend/internal/middleware"
+	"example.com/haohao/backend/internal/service"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humagin"
+	"github.com/gin-gonic/gin"
+)
+
+type App struct {
+	Router *gin.Engine
+	API    huma.API
+}
+
+func New(cfg config.Config, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, authzService *service.AuthzService, bearerVerifier *auth.BearerVerifier) *App {
+	router := gin.New()
+	router.Use(
+		gin.Logger(),
+		gin.Recovery(),
+		middleware.ExternalCORS("/api/external/", cfg.ExternalAllowedOrigins),
+		middleware.ExternalAuth("/api/external/", bearerVerifier, authzService, "zitadel", cfg.ExternalExpectedAudience, cfg.ExternalRequiredScopePrefix, cfg.ExternalRequiredRole),
+	)
+
+	humaConfig := huma.DefaultConfig(cfg.AppName, cfg.AppVersion)
+	humaConfig.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		"cookieAuth": {
+			Type: "apiKey",
+			In:   "cookie",
+			Name: auth.SessionCookieName,
+		},
+		"bearerAuth": {
+			Type:         "http",
+			Scheme:       "bearer",
+			BearerFormat: "JWT",
+		},
+	}
+
+	api := humagin.New(router, humaConfig)
+
+	backendapi.Register(api, backendapi.Dependencies{
+		SessionService:               sessionService,
+		OIDCLoginService:             oidcLoginService,
+		DelegationService:            delegationService,
+		AuthMode:                     cfg.AuthMode,
+		FrontendBaseURL:              cfg.FrontendBaseURL,
+		ZitadelIssuer:                cfg.ZitadelIssuer,
+		ZitadelClientID:              cfg.ZitadelClientID,
+		ZitadelPostLogoutRedirectURI: cfg.ZitadelPostLogoutRedirectURI,
+		CookieSecure:                 cfg.CookieSecure,
+		SessionTTL:                   cfg.SessionTTL,
+	})
+
+	return &App{
+		Router: router,
+		API:    api,
+	}
+}
+```
+
+#### `backend/internal/auth/delegated_oauth_client.go`
+
+```go
+package auth
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/coreos/go-oidc/v3/oidc"
+	"golang.org/x/oauth2"
+)
+
+type DelegatedOAuthClient struct {
+	clientID           string
+	clientSecret       string
+	endpoint           oauth2.Endpoint
+	revocationEndpoint string
+}
+
+type DelegatedToken struct {
+	AccessToken  string
+	RefreshToken string
+	Expiry       time.Time
+	Scopes       []string
+}
+
+func NewDelegatedOAuthClient(ctx context.Context, issuer, clientID, clientSecret string) (*DelegatedOAuthClient, error) {
+	provider, err := oidc.NewProvider(ctx, issuer)
+	if err != nil {
+		return nil, fmt.Errorf("discover delegated oauth provider: %w", err)
+	}
+
+	var metadata struct {
+		RevocationEndpoint string `json:"revocation_endpoint"`
+	}
+	if err := provider.Claims(&metadata); err != nil {
+		return nil, fmt.Errorf("decode delegated oauth provider metadata: %w", err)
+	}
+
+	return &DelegatedOAuthClient{
+		clientID:           clientID,
+		clientSecret:       clientSecret,
+		endpoint:           provider.Endpoint(),
+		revocationEndpoint: metadata.RevocationEndpoint,
+	}, nil
+}
+
+func (c *DelegatedOAuthClient) AuthorizeURL(state, codeVerifier, redirectURI string, scopes []string) string {
+	return c.config(redirectURI, scopes).AuthCodeURL(
+		state,
+		oauth2.AccessTypeOffline,
+		oauth2.SetAuthURLParam("code_challenge", pkceS256(codeVerifier)),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+	)
+}
+
+func (c *DelegatedOAuthClient) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string, scopes []string) (DelegatedToken, error) {
+	token, err := c.config(redirectURI, scopes).Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
+	if err != nil {
+		return DelegatedToken{}, fmt.Errorf("exchange delegated authorization code: %w", err)
+	}
+
+	return delegatedTokenFromOAuth2(token, scopes), nil
+}
+
+func (c *DelegatedOAuthClient) Refresh(ctx context.Context, refreshToken, redirectURI string, scopes []string) (DelegatedToken, error) {
+	token, err := c.config(redirectURI, scopes).TokenSource(ctx, &oauth2.Token{
+		RefreshToken: refreshToken,
+	}).Token()
+	if err != nil {
+		return DelegatedToken{}, fmt.Errorf("refresh delegated access token: %w", err)
+	}
+
+	return delegatedTokenFromOAuth2(token, scopes), nil
+}
+
+func (c *DelegatedOAuthClient) RevokeRefreshToken(ctx context.Context, refreshToken string) error {
+	if c == nil || c.revocationEndpoint == "" || refreshToken == "" {
+		return nil
+	}
+
+	form := url.Values{}
+	form.Set("token", refreshToken)
+	form.Set("token_type_hint", "refresh_token")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.revocationEndpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return fmt.Errorf("build token revocation request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetBasicAuth(c.clientID, c.clientSecret)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("revoke delegated refresh token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return nil
+	}
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	return fmt.Errorf("revoke delegated refresh token: provider returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+}
+
+func IsInvalidGrantError(err error) bool {
+	var retrieveErr *oauth2.RetrieveError
+	if errors.As(err, &retrieveErr) && retrieveErr.ErrorCode == "invalid_grant" {
+		return true
+	}
+	return err != nil && strings.Contains(err.Error(), "invalid_grant")
+}
+
+func (c *DelegatedOAuthClient) config(redirectURI string, scopes []string) *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     c.clientID,
+		ClientSecret: c.clientSecret,
+		Endpoint:     c.endpoint,
+		RedirectURL:  redirectURI,
+		Scopes:       scopes,
+	}
+}
+
+func delegatedTokenFromOAuth2(token *oauth2.Token, fallbackScopes []string) DelegatedToken {
+	scopes := fallbackScopes
+	if rawScope, ok := token.Extra("scope").(string); ok && strings.TrimSpace(rawScope) != "" {
+		scopes = strings.Fields(rawScope)
+	}
+
+	return DelegatedToken{
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		Expiry:       token.Expiry,
+		Scopes:       scopes,
+	}
+}
+```
+
+#### `backend/internal/auth/delegation_state_store.go`
+
+```go
+package auth
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+var ErrDelegationStateNotFound = errors.New("delegation state not found")
+
+type DelegationStateRecord struct {
+	UserID         int64  `json:"userId"`
+	ResourceServer string `json:"resourceServer"`
+	CodeVerifier   string `json:"codeVerifier"`
+	SessionHash    string `json:"sessionHash"`
+}
+
+type DelegationStateStore struct {
+	client *redis.Client
+	prefix string
+	ttl    time.Duration
+}
+
+func NewDelegationStateStore(client *redis.Client, ttl time.Duration) *DelegationStateStore {
+	return &DelegationStateStore{
+		client: client,
+		prefix: "delegation-state:",
+		ttl:    ttl,
+	}
+}
+
+func (s *DelegationStateStore) Create(ctx context.Context, userID int64, resourceServer, sessionHash string) (string, DelegationStateRecord, error) {
+	state, err := randomToken(32)
+	if err != nil {
+		return "", DelegationStateRecord{}, err
+	}
+
+	codeVerifier, err := randomToken(32)
+	if err != nil {
+		return "", DelegationStateRecord{}, err
+	}
+
+	record := DelegationStateRecord{
+		UserID:         userID,
+		ResourceServer: resourceServer,
+		CodeVerifier:   codeVerifier,
+		SessionHash:    sessionHash,
+	}
+
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return "", DelegationStateRecord{}, err
+	}
+
+	if err := s.client.Set(ctx, s.prefix+state, payload, s.ttl).Err(); err != nil {
+		return "", DelegationStateRecord{}, fmt.Errorf("save delegation state: %w", err)
+	}
+
+	return state, record, nil
+}
+
+func (s *DelegationStateStore) Consume(ctx context.Context, state string) (DelegationStateRecord, error) {
+	raw, err := s.client.GetDel(ctx, s.prefix+state).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return DelegationStateRecord{}, ErrDelegationStateNotFound
+	}
+	if err != nil {
+		return DelegationStateRecord{}, fmt.Errorf("consume delegation state: %w", err)
+	}
+
+	var record DelegationStateRecord
+	if err := json.Unmarshal(raw, &record); err != nil {
+		return DelegationStateRecord{}, fmt.Errorf("decode delegation state: %w", err)
+	}
+
+	return record, nil
+}
+```
+
+#### `backend/internal/auth/refresh_token_store.go`
+
+```go
+package auth
+
+import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
+	"fmt"
+)
+
+var (
+	ErrTokenEncryptionKeyNotConfigured = errors.New("token encryption key is not configured")
+	ErrInvalidTokenEncryptionKey       = errors.New("invalid token encryption key")
+	ErrUnsupportedTokenKeyVersion      = errors.New("unsupported token key version")
+)
+
+type RefreshTokenStore struct {
+	aead       cipher.AEAD
+	keyVersion int32
+}
+
+func NewRefreshTokenStore(encodedKey string, keyVersion int) (*RefreshTokenStore, error) {
+	if encodedKey == "" {
+		return nil, ErrTokenEncryptionKeyNotConfigured
+	}
+	if keyVersion < 1 {
+		return nil, fmt.Errorf("%w: key version must be positive", ErrInvalidTokenEncryptionKey)
+	}
+
+	key, err := decodeTokenEncryptionKey(encodedKey)
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidTokenEncryptionKey, err)
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidTokenEncryptionKey, err)
+	}
+
+	return &RefreshTokenStore{
+		aead:       aead,
+		keyVersion: int32(keyVersion),
+	}, nil
+}
+
+func (s *RefreshTokenStore) KeyVersion() int32 {
+	return s.keyVersion
+}
+
+func (s *RefreshTokenStore) Encrypt(plaintext string) ([]byte, int32, error) {
+	if s == nil || s.aead == nil {
+		return nil, 0, ErrTokenEncryptionKeyNotConfigured
+	}
+	if plaintext == "" {
+		return nil, 0, errors.New("refresh token is empty")
+	}
+
+	nonce := make([]byte, s.aead.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, 0, fmt.Errorf("generate token nonce: %w", err)
+	}
+
+	ciphertext := s.aead.Seal(nil, nonce, []byte(plaintext), nil)
+	payload := make([]byte, 0, len(nonce)+len(ciphertext))
+	payload = append(payload, nonce...)
+	payload = append(payload, ciphertext...)
+
+	return payload, s.keyVersion, nil
+}
+
+func (s *RefreshTokenStore) Decrypt(ciphertext []byte, keyVersion int32) (string, error) {
+	if s == nil || s.aead == nil {
+		return "", ErrTokenEncryptionKeyNotConfigured
+	}
+	if keyVersion != s.keyVersion {
+		return "", ErrUnsupportedTokenKeyVersion
+	}
+	if len(ciphertext) <= s.aead.NonceSize() {
+		return "", errors.New("refresh token ciphertext is malformed")
+	}
+
+	nonce := ciphertext[:s.aead.NonceSize()]
+	payload := ciphertext[s.aead.NonceSize():]
+
+	plaintext, err := s.aead.Open(nil, nonce, payload, nil)
+	if err != nil {
+		return "", fmt.Errorf("decrypt refresh token: %w", err)
+	}
+
+	return string(plaintext), nil
+}
+
+func decodeTokenEncryptionKey(encoded string) ([]byte, error) {
+	encodings := []*base64.Encoding{
+		base64.StdEncoding,
+		base64.RawStdEncoding,
+		base64.URLEncoding,
+		base64.RawURLEncoding,
+	}
+
+	var decoded []byte
+	var err error
+	for _, encoding := range encodings {
+		decoded, err = encoding.DecodeString(encoded)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: expected base64", ErrInvalidTokenEncryptionKey)
+	}
+	if len(decoded) != 32 {
+		return nil, fmt.Errorf("%w: expected 32 bytes, got %d", ErrInvalidTokenEncryptionKey, len(decoded))
+	}
+
+	return decoded, nil
+}
+```
+
+#### `backend/internal/auth/refresh_token_store_test.go`
+
+```go
+package auth
+
+import (
+	"bytes"
+	"encoding/base64"
+	"errors"
+	"testing"
+)
+
+func TestRefreshTokenStoreEncryptDecrypt(t *testing.T) {
+	key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32))
+	store, err := NewRefreshTokenStore(key, 3)
+	if err != nil {
+		t.Fatalf("NewRefreshTokenStore() error = %v", err)
+	}
+
+	ciphertext, keyVersion, err := store.Encrypt("refresh-token")
+	if err != nil {
+		t.Fatalf("Encrypt() error = %v", err)
+	}
+	if keyVersion != 3 {
+		t.Fatalf("Encrypt() keyVersion = %d, want 3", keyVersion)
+	}
+	if bytes.Contains(ciphertext, []byte("refresh-token")) {
+		t.Fatal("ciphertext contains plaintext token")
+	}
+
+	plaintext, err := store.Decrypt(ciphertext, keyVersion)
+	if err != nil {
+		t.Fatalf("Decrypt() error = %v", err)
+	}
+	if plaintext != "refresh-token" {
+		t.Fatalf("Decrypt() = %q, want refresh-token", plaintext)
+	}
+}
+
+func TestRefreshTokenStoreRejectsWrongKeyVersion(t *testing.T) {
+	key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{9}, 32))
+	store, err := NewRefreshTokenStore(key, 1)
+	if err != nil {
+		t.Fatalf("NewRefreshTokenStore() error = %v", err)
+	}
+
+	ciphertext, _, err := store.Encrypt("refresh-token")
+	if err != nil {
+		t.Fatalf("Encrypt() error = %v", err)
+	}
+
+	_, err = store.Decrypt(ciphertext, 2)
+	if !errors.Is(err, ErrUnsupportedTokenKeyVersion) {
+		t.Fatalf("Decrypt() error = %v, want ErrUnsupportedTokenKeyVersion", err)
+	}
+}
+
+func TestRefreshTokenStoreRejectsInvalidKey(t *testing.T) {
+	_, err := NewRefreshTokenStore(base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 31)), 1)
+	if !errors.Is(err, ErrInvalidTokenEncryptionKey) {
+		t.Fatalf("NewRefreshTokenStore() error = %v, want ErrInvalidTokenEncryptionKey", err)
+	}
+}
+```
+
+#### `backend/internal/config/config.go`
+
+```go
+package config
+
+import (
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+type Config struct {
+	AppName                      string
+	AppVersion                   string
+	HTTPPort                     int
+	AppBaseURL                   string
+	FrontendBaseURL              string
+	DatabaseURL                  string
+	AuthMode                     string
+	ZitadelIssuer                string
+	ZitadelClientID              string
+	ZitadelClientSecret          string
+	ZitadelRedirectURI           string
+	ZitadelPostLogoutRedirectURI string
+	ZitadelScopes                string
+	ExternalExpectedAudience     string
+	ExternalRequiredScopePrefix  string
+	ExternalRequiredRole         string
+	ExternalAllowedOrigins       []string
+	DownstreamTokenEncryptionKey string
+	DownstreamTokenKeyVersion    int
+	DownstreamRefreshTokenTTL    time.Duration
+	DownstreamAccessTokenSkew    time.Duration
+	DownstreamDefaultScopes      string
+	RedisAddr                    string
+	RedisPassword                string
+	RedisDB                      int
+	LoginStateTTL                time.Duration
+	SessionTTL                   time.Duration
+	CookieSecure                 bool
+}
+
+func Load() (Config, error) {
+	sessionTTL, err := time.ParseDuration(getEnv("SESSION_TTL", "24h"))
+	if err != nil {
+		return Config{}, err
+	}
+	loginStateTTL, err := time.ParseDuration(getEnv("LOGIN_STATE_TTL", "10m"))
+	if err != nil {
+		return Config{}, err
+	}
+	downstreamRefreshTokenTTL, err := time.ParseDuration(getEnv("DOWNSTREAM_REFRESH_TOKEN_TTL", "2160h"))
+	if err != nil {
+		return Config{}, err
+	}
+	downstreamAccessTokenSkew, err := time.ParseDuration(getEnv("DOWNSTREAM_ACCESS_TOKEN_SKEW", "30s"))
+	if err != nil {
+		return Config{}, err
+	}
+
+	return Config{
+		AppName:                      getEnv("APP_NAME", "HaoHao API"),
+		AppVersion:                   getEnv("APP_VERSION", "0.1.0"),
+		HTTPPort:                     getEnvInt("HTTP_PORT", 8080),
+		AppBaseURL:                   strings.TrimRight(getEnv("APP_BASE_URL", "http://127.0.0.1:8080"), "/"),
+		FrontendBaseURL:              strings.TrimRight(getEnv("FRONTEND_BASE_URL", "http://127.0.0.1:5173"), "/"),
+		DatabaseURL:                  getEnv("DATABASE_URL", ""),
+		AuthMode:                     getEnv("AUTH_MODE", "local"),
+		ZitadelIssuer:                strings.TrimRight(getEnv("ZITADEL_ISSUER", ""), "/"),
+		ZitadelClientID:              getEnv("ZITADEL_CLIENT_ID", ""),
+		ZitadelClientSecret:          getEnv("ZITADEL_CLIENT_SECRET", ""),
+		ZitadelRedirectURI:           getEnv("ZITADEL_REDIRECT_URI", "http://127.0.0.1:8080/api/v1/auth/callback"),
+		ZitadelPostLogoutRedirectURI: getEnv("ZITADEL_POST_LOGOUT_REDIRECT_URI", "http://127.0.0.1:5173/login"),
+		ZitadelScopes:                getEnv("ZITADEL_SCOPES", "openid profile email"),
+		ExternalExpectedAudience:     getEnv("EXTERNAL_EXPECTED_AUDIENCE", "haohao-external"),
+		ExternalRequiredScopePrefix:  getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", ""),
+		ExternalRequiredRole:         getEnv("EXTERNAL_REQUIRED_ROLE", "external_api_user"),
+		ExternalAllowedOrigins:       getEnvCSV("EXTERNAL_ALLOWED_ORIGINS"),
+		DownstreamTokenEncryptionKey: getEnv("DOWNSTREAM_TOKEN_ENCRYPTION_KEY", ""),
+		DownstreamTokenKeyVersion:    getEnvInt("DOWNSTREAM_TOKEN_KEY_VERSION", 1),
+		DownstreamRefreshTokenTTL:    downstreamRefreshTokenTTL,
+		DownstreamAccessTokenSkew:    downstreamAccessTokenSkew,
+		DownstreamDefaultScopes:      getEnv("DOWNSTREAM_DEFAULT_SCOPES", "offline_access"),
+		RedisAddr:                    getEnv("REDIS_ADDR", "127.0.0.1:6379"),
+		RedisPassword:                getEnv("REDIS_PASSWORD", ""),
+		RedisDB:                      getEnvInt("REDIS_DB", 0),
+		LoginStateTTL:                loginStateTTL,
+		SessionTTL:                   sessionTTL,
+		CookieSecure:                 getEnvBool("COOKIE_SECURE", false),
+	}, nil
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	value := getEnv(key, "")
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+
+	return parsed
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	value := getEnv(key, "")
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback
+	}
+
+	return parsed
+}
+
+func getEnvCSV(key string) []string {
+	value := strings.TrimSpace(getEnv(key, ""))
+	if value == "" {
+		return nil
+	}
+
+	parts := strings.Split(value, ",")
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item != "" {
+			items = append(items, item)
+		}
+	}
+
+	return items
+}
+```
+
+#### `backend/internal/service/delegation_service.go`
+
+```go
+package service
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+
+	"example.com/haohao/backend/internal/auth"
+	db "example.com/haohao/backend/internal/db"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+var (
+	ErrDelegationNotConfigured       = errors.New("delegated auth is not configured")
+	ErrDelegationUnsupportedResource = errors.New("unsupported downstream resource")
+	ErrDelegationGrantNotFound       = errors.New("delegated grant not found")
+	ErrDelegationInvalidState        = errors.New("invalid delegated auth state")
+	ErrDelegationIdentityNotFound    = errors.New("delegated provider identity not found")
+	ErrDelegationRefreshTokenMissing = errors.New("delegated refresh token missing")
+)
+
+type DelegationStatus struct {
+	ResourceServer  string
+	Provider        string
+	Connected       bool
+	Scopes          []string
+	GrantedAt       *time.Time
+	LastRefreshedAt *time.Time
+	RevokedAt       *time.Time
+	LastErrorCode   string
+}
+
+type DelegatedAccessToken struct {
+	AccessToken string
+	ExpiresAt   *time.Time
+	Scopes      []string
+}
+
+type DelegationVerifyResult struct {
+	ResourceServer  string
+	Connected       bool
+	Scopes          []string
+	AccessExpiresAt *time.Time
+	RefreshedAt     *time.Time
+}
+
+type delegationResource struct {
+	resourceServer string
+	provider       string
+	redirectURI    string
+	scopes         []string
+}
+
+type DelegationService struct {
+	queries       *db.Queries
+	oauthClient   *auth.DelegatedOAuthClient
+	stateStore    *auth.DelegationStateStore
+	tokenStore    *auth.RefreshTokenStore
+	appBaseURL    string
+	defaultScopes []string
+	refreshTTL    time.Duration
+	accessSkew    time.Duration
+}
+
+func NewDelegationService(queries *db.Queries, oauthClient *auth.DelegatedOAuthClient, stateStore *auth.DelegationStateStore, tokenStore *auth.RefreshTokenStore, appBaseURL, defaultScopes string, refreshTTL, accessSkew time.Duration) *DelegationService {
+	return &DelegationService{
+		queries:       queries,
+		oauthClient:   oauthClient,
+		stateStore:    stateStore,
+		tokenStore:    tokenStore,
+		appBaseURL:    strings.TrimRight(appBaseURL, "/"),
+		defaultScopes: normalizeScopeList(strings.Fields(defaultScopes)),
+		refreshTTL:    refreshTTL,
+		accessSkew:    accessSkew,
+	}
+}
+
+func (s *DelegationService) ListIntegrations(ctx context.Context, user User) ([]DelegationStatus, error) {
+	if err := s.requireConfigured(); err != nil {
+		return nil, err
+	}
+
+	rows, err := s.queries.ListOAuthUserGrantsByUserID(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("list downstream grants: %w", err)
+	}
+
+	byResource := make(map[string]db.ListOAuthUserGrantsByUserIDRow, len(rows))
+	for _, row := range rows {
+		if row.Provider == "zitadel" {
+			byResource[row.ResourceServer] = row
+		}
+	}
+
+	statuses := make([]DelegationStatus, 0, 1)
+	for _, resourceServer := range []string{"zitadel"} {
+		resource, err := s.resource(resourceServer)
+		if err != nil {
+			return nil, err
+		}
+
+		status := DelegationStatus{
+			ResourceServer: resource.resourceServer,
+			Provider:       resource.provider,
+			Scopes:         resource.scopes,
+		}
+		if row, ok := byResource[resource.resourceServer]; ok {
+			status.Connected = !row.RevokedAt.Valid
+			status.Scopes = normalizeScopeText(row.ScopeText)
+			status.GrantedAt = timeFromPg(row.GrantedAt)
+			status.LastRefreshedAt = timeFromPg(row.LastRefreshedAt)
+			status.RevokedAt = timeFromPg(row.RevokedAt)
+			if row.LastErrorCode.Valid {
+				status.LastErrorCode = row.LastErrorCode.String
+			}
+		}
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
+}
+
+func (s *DelegationService) StartConnect(ctx context.Context, user User, sessionID, resourceServer string) (string, error) {
+	if err := s.requireConfigured(); err != nil {
+		return "", err
+	}
+
+	resource, err := s.resource(resourceServer)
+	if err != nil {
+		return "", err
+	}
+
+	state, record, err := s.stateStore.Create(ctx, user.ID, resource.resourceServer, hashSessionID(sessionID))
+	if err != nil {
+		return "", fmt.Errorf("create delegated auth state: %w", err)
+	}
+
+	return s.oauthClient.AuthorizeURL(state, record.CodeVerifier, resource.redirectURI, resource.scopes), nil
+}
+
+func (s *DelegationService) SaveGrantFromCallback(ctx context.Context, user User, sessionID, resourceServer, code, state string) (DelegationStatus, error) {
+	if err := s.requireConfigured(); err != nil {
+		return DelegationStatus{}, err
+	}
+
+	resource, err := s.resource(resourceServer)
+	if err != nil {
+		return DelegationStatus{}, err
+	}
+
+	record, err := s.stateStore.Consume(ctx, state)
+	if err != nil {
+		return DelegationStatus{}, fmt.Errorf("%w: %v", ErrDelegationInvalidState, err)
+	}
+	if record.UserID != user.ID || record.ResourceServer != resource.resourceServer || record.SessionHash != hashSessionID(sessionID) {
+		return DelegationStatus{}, ErrDelegationInvalidState
+	}
+
+	identity, err := s.queries.GetUserIdentityByUserIDProvider(ctx, db.GetUserIdentityByUserIDProviderParams{
+		UserID:   user.ID,
+		Provider: resource.provider,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DelegationStatus{}, ErrDelegationIdentityNotFound
+	}
+	if err != nil {
+		return DelegationStatus{}, fmt.Errorf("load delegated provider identity: %w", err)
+	}
+
+	token, err := s.oauthClient.ExchangeCode(ctx, code, record.CodeVerifier, resource.redirectURI, resource.scopes)
+	if err != nil {
+		return DelegationStatus{}, err
+	}
+	if token.RefreshToken == "" {
+		return DelegationStatus{}, ErrDelegationRefreshTokenMissing
+	}
+
+	ciphertext, keyVersion, err := s.tokenStore.Encrypt(token.RefreshToken)
+	if err != nil {
+		return DelegationStatus{}, fmt.Errorf("encrypt delegated refresh token: %w", err)
+	}
+
+	row, err := s.queries.UpsertOAuthUserGrant(ctx, db.UpsertOAuthUserGrantParams{
+		UserID:                 user.ID,
+		Provider:               resource.provider,
+		ResourceServer:         resource.resourceServer,
+		ProviderSubject:        identity.Subject,
+		RefreshTokenCiphertext: ciphertext,
+		RefreshTokenKeyVersion: keyVersion,
+		ScopeText:              scopeText(token.Scopes),
+		GrantedBySessionID:     hashSessionID(sessionID),
+	})
+	if err != nil {
+		return DelegationStatus{}, fmt.Errorf("save delegated grant: %w", err)
+	}
+
+	return grantStatusFromRow(row), nil
+}
+
+func (s *DelegationService) GetAccessToken(ctx context.Context, user User, resourceServer string) (DelegatedAccessToken, error) {
+	if err := s.requireConfigured(); err != nil {
+		return DelegatedAccessToken{}, err
+	}
+
+	resource, err := s.resource(resourceServer)
+	if err != nil {
+		return DelegatedAccessToken{}, err
+	}
+
+	grant, err := s.queries.GetActiveOAuthUserGrant(ctx, db.GetActiveOAuthUserGrantParams{
+		UserID:         user.ID,
+		Provider:       resource.provider,
+		ResourceServer: resource.resourceServer,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DelegatedAccessToken{}, ErrDelegationGrantNotFound
+	}
+	if err != nil {
+		return DelegatedAccessToken{}, fmt.Errorf("load delegated grant: %w", err)
+	}
+	if s.refreshTokenExpired(grant) {
+		_ = s.queries.MarkOAuthUserGrantRevoked(ctx, db.MarkOAuthUserGrantRevokedParams{
+			UserID:         user.ID,
+			Provider:       resource.provider,
+			ResourceServer: resource.resourceServer,
+			LastErrorCode:  pgtype.Text{String: "refresh_token_expired", Valid: true},
+		})
+		return DelegatedAccessToken{}, ErrDelegationGrantNotFound
+	}
+
+	refreshToken, err := s.tokenStore.Decrypt(grant.RefreshTokenCiphertext, grant.RefreshTokenKeyVersion)
+	if err != nil {
+		return DelegatedAccessToken{}, fmt.Errorf("decrypt delegated refresh token: %w", err)
+	}
+
+	token, err := s.oauthClient.Refresh(ctx, refreshToken, resource.redirectURI, normalizeScopeText(grant.ScopeText))
+	if err != nil {
+		if auth.IsInvalidGrantError(err) {
+			_ = s.queries.MarkOAuthUserGrantRevoked(ctx, db.MarkOAuthUserGrantRevokedParams{
+				UserID:         user.ID,
+				Provider:       resource.provider,
+				ResourceServer: resource.resourceServer,
+				LastErrorCode:  pgtype.Text{String: "invalid_grant", Valid: true},
+			})
+			return DelegatedAccessToken{}, ErrDelegationGrantNotFound
+		}
+		return DelegatedAccessToken{}, err
+	}
+
+	nextRefreshToken := token.RefreshToken
+	if nextRefreshToken == "" {
+		nextRefreshToken = refreshToken
+	}
+
+	ciphertext, keyVersion, err := s.tokenStore.Encrypt(nextRefreshToken)
+	if err != nil {
+		return DelegatedAccessToken{}, fmt.Errorf("encrypt rotated refresh token: %w", err)
+	}
+
+	scopes := token.Scopes
+	if len(scopes) == 0 {
+		scopes = normalizeScopeText(grant.ScopeText)
+	}
+
+	if _, err := s.queries.UpdateOAuthUserGrantAfterRefresh(ctx, db.UpdateOAuthUserGrantAfterRefreshParams{
+		UserID:                 user.ID,
+		Provider:               resource.provider,
+		ResourceServer:         resource.resourceServer,
+		RefreshTokenCiphertext: ciphertext,
+		RefreshTokenKeyVersion: keyVersion,
+		ScopeText:              scopeText(scopes),
+	}); err != nil {
+		return DelegatedAccessToken{}, fmt.Errorf("update delegated grant after refresh: %w", err)
+	}
+
+	return DelegatedAccessToken{
+		AccessToken: token.AccessToken,
+		ExpiresAt:   expiresWithSkew(token.Expiry, s.accessSkew),
+		Scopes:      scopes,
+	}, nil
+}
+
+func (s *DelegationService) VerifyAccessToken(ctx context.Context, user User, resourceServer string) (DelegationVerifyResult, error) {
+	token, err := s.GetAccessToken(ctx, user, resourceServer)
+	if err != nil {
+		return DelegationVerifyResult{}, err
+	}
+
+	now := time.Now().UTC()
+	return DelegationVerifyResult{
+		ResourceServer:  normalizeResourceServer(resourceServer),
+		Connected:       true,
+		Scopes:          token.Scopes,
+		AccessExpiresAt: token.ExpiresAt,
+		RefreshedAt:     &now,
+	}, nil
+}
+
+func (s *DelegationService) DeleteGrant(ctx context.Context, user User, resourceServer string) error {
+	if err := s.requireConfigured(); err != nil {
+		return err
+	}
+
+	resource, err := s.resource(resourceServer)
+	if err != nil {
+		return err
+	}
+
+	grant, err := s.queries.GetActiveOAuthUserGrant(ctx, db.GetActiveOAuthUserGrantParams{
+		UserID:         user.ID,
+		Provider:       resource.provider,
+		ResourceServer: resource.resourceServer,
+	})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("load delegated grant for revoke: %w", err)
+	}
+	if err == nil {
+		refreshToken, err := s.tokenStore.Decrypt(grant.RefreshTokenCiphertext, grant.RefreshTokenKeyVersion)
+		if err != nil {
+			return fmt.Errorf("decrypt delegated refresh token for revoke: %w", err)
+		}
+		if err := s.oauthClient.RevokeRefreshToken(ctx, refreshToken); err != nil {
+			return err
+		}
+	}
+
+	if err := s.queries.DeleteOAuthUserGrant(ctx, db.DeleteOAuthUserGrantParams{
+		UserID:         user.ID,
+		Provider:       resource.provider,
+		ResourceServer: resource.resourceServer,
+	}); err != nil {
+		return fmt.Errorf("delete delegated grant: %w", err)
+	}
+
+	return nil
+}
+
+func (s *DelegationService) requireConfigured() error {
+	if s == nil || s.queries == nil || s.oauthClient == nil || s.stateStore == nil || s.tokenStore == nil || s.appBaseURL == "" {
+		return ErrDelegationNotConfigured
+	}
+	return nil
+}
+
+func (s *DelegationService) resource(resourceServer string) (delegationResource, error) {
+	normalized := normalizeResourceServer(resourceServer)
+	if normalized != "zitadel" {
+		return delegationResource{}, ErrDelegationUnsupportedResource
+	}
+
+	scopes := s.defaultScopes
+	if len(scopes) == 0 {
+		scopes = []string{"offline_access"}
+	}
+
+	return delegationResource{
+		resourceServer: "zitadel",
+		provider:       "zitadel",
+		redirectURI:    s.appBaseURL + "/api/v1/integrations/zitadel/callback",
+		scopes:         scopes,
+	}, nil
+}
+
+func normalizeResourceServer(resourceServer string) string {
+	return strings.ToLower(strings.TrimSpace(resourceServer))
+}
+
+func hashSessionID(sessionID string) string {
+	sum := sha256.Sum256([]byte(sessionID))
+	return hex.EncodeToString(sum[:])
+}
+
+func scopeText(scopes []string) string {
+	return strings.Join(normalizeScopeList(scopes), " ")
+}
+
+func normalizeScopeText(value string) []string {
+	return normalizeScopeList(strings.Fields(value))
+}
+
+func normalizeScopeList(scopes []string) []string {
+	set := make(map[string]struct{}, len(scopes))
+	for _, scope := range scopes {
+		trimmed := strings.TrimSpace(scope)
+		if trimmed != "" {
+			set[trimmed] = struct{}{}
+		}
+	}
+
+	normalized := make([]string, 0, len(set))
+	for scope := range set {
+		normalized = append(normalized, scope)
+	}
+	sort.Strings(normalized)
+	return normalized
+}
+
+func timeFromPg(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time.UTC()
+	return &t
+}
+
+func expiresWithSkew(expiry time.Time, skew time.Duration) *time.Time {
+	if expiry.IsZero() {
+		return nil
+	}
+	expiresAt := expiry.Add(-skew).UTC()
+	return &expiresAt
+}
+
+func (s *DelegationService) refreshTokenExpired(grant db.OauthUserGrant) bool {
+	if s.refreshTTL <= 0 || !grant.GrantedAt.Valid {
+		return false
+	}
+
+	base := grant.GrantedAt.Time
+	if grant.LastRefreshedAt.Valid {
+		base = grant.LastRefreshedAt.Time
+	}
+
+	return time.Now().After(base.Add(s.refreshTTL))
+}
+
+func grantStatusFromRow(row db.OauthUserGrant) DelegationStatus {
+	return DelegationStatus{
+		ResourceServer:  row.ResourceServer,
+		Provider:        row.Provider,
+		Connected:       !row.RevokedAt.Valid,
+		Scopes:          normalizeScopeText(row.ScopeText),
+		GrantedAt:       timeFromPg(row.GrantedAt),
+		LastRefreshedAt: timeFromPg(row.LastRefreshedAt),
+		RevokedAt:       timeFromPg(row.RevokedAt),
+		LastErrorCode: func() string {
+			if row.LastErrorCode.Valid {
+				return row.LastErrorCode.String
+			}
+			return ""
+		}(),
+	}
+}
+```
+
+#### `backend/internal/service/session_service.go`
+
+```go
+package service
+
+import (
+	"context"
+	"crypto/subtle"
+	"errors"
+	"fmt"
+	"strings"
+
+	"example.com/haohao/backend/internal/auth"
+	db "example.com/haohao/backend/internal/db"
+
+	"github.com/jackc/pgx/v5"
+)
+
+var (
+	ErrInvalidCredentials  = errors.New("invalid credentials")
+	ErrUnauthorized        = errors.New("unauthorized")
+	ErrInvalidCSRFToken    = errors.New("invalid csrf token")
+	ErrAuthModeUnsupported = errors.New("auth mode unsupported")
+)
+
+type User struct {
+	ID          int64
+	PublicID    string
+	Email       string
+	DisplayName string
+}
+
+type SessionService struct {
+	queries  *db.Queries
+	store    *auth.SessionStore
+	authMode string
+}
+
+func NewSessionService(queries *db.Queries, store *auth.SessionStore, authMode string) *SessionService {
+	return &SessionService{
+		queries:  queries,
+		store:    store,
+		authMode: strings.ToLower(strings.TrimSpace(authMode)),
+	}
+}
+
+func (s *SessionService) Login(ctx context.Context, email, password string) (User, string, string, error) {
+	if s.authMode == "zitadel" {
+		return User{}, "", "", ErrAuthModeUnsupported
+	}
+
+	userID, err := s.queries.AuthenticateUser(ctx, db.AuthenticateUserParams{
+		Email:    email,
+		Password: password,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, "", "", ErrInvalidCredentials
+	}
+	if err != nil {
+		return User{}, "", "", fmt.Errorf("authenticate user: %w", err)
+	}
+
+	user, err := s.loadUserByID(ctx, userID)
+	if err != nil {
+		return User{}, "", "", err
+	}
+
+	sessionID, csrfToken, err := s.IssueSession(ctx, userID)
+	if err != nil {
+		return User{}, "", "", err
+	}
+
+	return user, sessionID, csrfToken, nil
+}
+
+func (s *SessionService) CurrentUser(ctx context.Context, sessionID string) (User, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return User{}, ErrUnauthorized
+	}
+	if err != nil {
+		return User{}, err
+	}
+
+	return s.loadUserByID(ctx, session.UserID)
+}
+
+func (s *SessionService) CurrentUserWithCSRF(ctx context.Context, sessionID, csrfHeader string) (User, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return User{}, ErrUnauthorized
+	}
+	if err != nil {
+		return User{}, err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(session.CSRFToken), []byte(csrfHeader)) != 1 {
+		return User{}, ErrInvalidCSRFToken
+	}
+
+	return s.loadUserByID(ctx, session.UserID)
+}
+
+func (s *SessionService) IssueSession(ctx context.Context, userID int64) (string, string, error) {
+	return s.IssueSessionWithProviderHint(ctx, userID, "")
+}
+
+func (s *SessionService) IssueSessionWithProviderHint(ctx context.Context, userID int64, providerIDTokenHint string) (string, string, error) {
+	sessionID, csrfToken, err := s.store.CreateWithProviderHint(ctx, userID, providerIDTokenHint)
+	if err != nil {
+		return "", "", fmt.Errorf("create session: %w", err)
+	}
+	return sessionID, csrfToken, nil
+}
+
+func (s *SessionService) Logout(ctx context.Context, sessionID, csrfHeader string) (string, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return "", ErrUnauthorized
+	}
+	if err != nil {
+		return "", err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(session.CSRFToken), []byte(csrfHeader)) != 1 {
+		return "", ErrInvalidCSRFToken
+	}
+
+	if err := s.store.Delete(ctx, sessionID); err != nil {
+		return "", err
+	}
+
+	return session.ProviderIDTokenHint, nil
+}
+
+func (s *SessionService) ReissueCSRF(ctx context.Context, sessionID string) (string, error) {
+	if _, err := s.CurrentUser(ctx, sessionID); err != nil {
+		return "", err
+	}
+
+	csrfToken, err := s.store.ReissueCSRF(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return "", ErrUnauthorized
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return csrfToken, nil
+}
+
+func (s *SessionService) RefreshSession(ctx context.Context, sessionID, csrfHeader string) (string, string, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return "", "", ErrUnauthorized
+	}
+	if err != nil {
+		return "", "", err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(session.CSRFToken), []byte(csrfHeader)) != 1 {
+		return "", "", ErrInvalidCSRFToken
+	}
+
+	newSessionID, newCSRFToken, err := s.store.Rotate(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return "", "", ErrUnauthorized
+	}
+	if err != nil {
+		return "", "", err
+	}
+
+	return newSessionID, newCSRFToken, nil
+}
+
+func (s *SessionService) loadUserByID(ctx context.Context, userID int64) (User, error) {
+	record, err := s.queries.GetUserByID(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, ErrUnauthorized
+	}
+	if err != nil {
+		return User{}, fmt.Errorf("load user by session: %w", err)
+	}
+
+	return User{
+		ID:          record.ID,
+		PublicID:    record.PublicID.String(),
+		Email:       record.Email,
+		DisplayName: record.DisplayName,
+	}, nil
+}
+```
+
+#### `db/migrations/0004_downstream_grants.up.sql`
+
+```sql
+CREATE TABLE oauth_user_grants (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    resource_server TEXT NOT NULL,
+    provider_subject TEXT NOT NULL,
+    refresh_token_ciphertext BYTEA NOT NULL,
+    refresh_token_key_version INTEGER NOT NULL,
+    scope_text TEXT NOT NULL,
+    granted_by_session_id TEXT NOT NULL,
+    granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_refreshed_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ,
+    last_error_code TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, provider, resource_server)
+);
+
+CREATE INDEX oauth_user_grants_provider_subject_idx
+    ON oauth_user_grants(provider, provider_subject);
+
+CREATE INDEX oauth_user_grants_resource_server_idx
+    ON oauth_user_grants(resource_server);
+```
+
+#### `db/migrations/0004_downstream_grants.down.sql`
+
+```sql
+DROP TABLE IF EXISTS oauth_user_grants;
+```
+
+#### `db/queries/downstream_grants.sql`
+
+```sql
+-- name: UpsertOAuthUserGrant :one
+INSERT INTO oauth_user_grants (
+    user_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8
+)
+ON CONFLICT (user_id, provider, resource_server) DO UPDATE
+SET provider_subject = EXCLUDED.provider_subject,
+    refresh_token_ciphertext = EXCLUDED.refresh_token_ciphertext,
+    refresh_token_key_version = EXCLUDED.refresh_token_key_version,
+    scope_text = EXCLUDED.scope_text,
+    granted_by_session_id = EXCLUDED.granted_by_session_id,
+    granted_at = now(),
+    last_refreshed_at = NULL,
+    revoked_at = NULL,
+    last_error_code = NULL,
+    updated_at = now()
+RETURNING
+    id,
+    user_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at;
+
+-- name: GetOAuthUserGrant :one
+SELECT
+    id,
+    user_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at
+FROM oauth_user_grants
+WHERE user_id = $1
+  AND provider = $2
+  AND resource_server = $3
+LIMIT 1;
+
+-- name: GetActiveOAuthUserGrant :one
+SELECT
+    id,
+    user_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at
+FROM oauth_user_grants
+WHERE user_id = $1
+  AND provider = $2
+  AND resource_server = $3
+  AND revoked_at IS NULL
+LIMIT 1;
+
+-- name: ListOAuthUserGrantsByUserID :many
+SELECT
+    id,
+    user_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at
+FROM oauth_user_grants
+WHERE user_id = $1
+ORDER BY resource_server, provider;
+
+-- name: UpdateOAuthUserGrantAfterRefresh :one
+UPDATE oauth_user_grants
+SET refresh_token_ciphertext = $4,
+    refresh_token_key_version = $5,
+    scope_text = $6,
+    last_refreshed_at = now(),
+    last_error_code = NULL,
+    updated_at = now()
+WHERE user_id = $1
+  AND provider = $2
+  AND resource_server = $3
+  AND revoked_at IS NULL
+RETURNING
+    id,
+    user_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at;
+
+-- name: MarkOAuthUserGrantRevoked :exec
+UPDATE oauth_user_grants
+SET revoked_at = now(),
+    last_error_code = $4,
+    updated_at = now()
+WHERE user_id = $1
+  AND provider = $2
+  AND resource_server = $3;
+
+-- name: DeleteOAuthUserGrant :exec
+DELETE FROM oauth_user_grants
+WHERE user_id = $1
+  AND provider = $2
+  AND resource_server = $3;
+```
+
+#### `db/queries/identities.sql`
+
+```sql
+-- name: GetUserByProviderSubject :one
+SELECT
+    u.id,
+    u.public_id,
+    u.email,
+    u.display_name
+FROM user_identities ui
+JOIN users u ON u.id = ui.user_id
+WHERE ui.provider = $1
+  AND ui.subject = $2
+LIMIT 1;
+
+-- name: GetUserIdentityByUserIDProvider :one
+SELECT
+    id,
+    user_id,
+    provider,
+    subject,
+    email,
+    email_verified,
+    created_at,
+    updated_at
+FROM user_identities
+WHERE user_id = $1
+  AND provider = $2
+LIMIT 1;
+
+-- name: CreateUserIdentity :exec
+INSERT INTO user_identities (
+    user_id,
+    provider,
+    subject,
+    email,
+    email_verified
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5
+);
+
+-- name: UpdateUserIdentityProfile :exec
+UPDATE user_identities
+SET email = $3,
+    email_verified = $4,
+    updated_at = now()
+WHERE provider = $1
+  AND subject = $2;
+```
+
+#### `db/schema.sql`
+
+```sql
+--
+-- PostgreSQL database dump
+--
+
+
+-- Dumped from database version 18.3 (Debian 18.3-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Debian 18.3-1.pgdg13+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: oauth_user_grants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.oauth_user_grants (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    provider text NOT NULL,
+    resource_server text NOT NULL,
+    provider_subject text NOT NULL,
+    refresh_token_ciphertext bytea NOT NULL,
+    refresh_token_key_version integer NOT NULL,
+    scope_text text NOT NULL,
+    granted_by_session_id text NOT NULL,
+    granted_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_refreshed_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    last_error_code text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: oauth_user_grants_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.oauth_user_grants ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.oauth_user_grants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.roles (
+    id bigint NOT NULL,
+    code text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: roles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.roles ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.roles_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schema_migrations (
+    version bigint NOT NULL,
+    dirty boolean NOT NULL
+);
+
+
+--
+-- Name: user_identities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_identities (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    provider text NOT NULL,
+    subject text NOT NULL,
+    email text NOT NULL,
+    email_verified boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: user_identities_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.user_identities ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.user_identities_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: user_roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_roles (
+    user_id bigint NOT NULL,
+    role_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.users (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    email text NOT NULL,
+    display_name text NOT NULL,
+    password_hash text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.users_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_user_id_provider_resource_server_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_user_id_provider_resource_server_key UNIQUE (user_id, provider, resource_server);
+
+
+--
+-- Name: roles roles_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roles
+    ADD CONSTRAINT roles_code_key UNIQUE (code);
+
+
+--
+-- Name: roles roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roles
+    ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: user_identities user_identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_identities user_identities_provider_subject_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_provider_subject_key UNIQUE (provider, subject);
+
+
+--
+-- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id);
+
+
+--
+-- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_email_key UNIQUE (email);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: oauth_user_grants_provider_subject_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_user_grants_provider_subject_idx ON public.oauth_user_grants USING btree (provider, provider_subject);
+
+
+--
+-- Name: oauth_user_grants_resource_server_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_user_grants_resource_server_idx ON public.oauth_user_grants USING btree (resource_server);
+
+
+--
+-- Name: user_identities_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_identities_user_id_idx ON public.user_identities USING btree (user_id);
+
+
+--
+-- Name: user_roles_role_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_roles_role_id_idx ON public.user_roles USING btree (role_id);
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_identities user_identities_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_roles user_roles_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_roles user_roles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- PostgreSQL database dump complete
+--
+```
+
+#### `frontend/src/App.vue`
+
+```vue
+<script setup lang="ts">
+import { computed } from 'vue'
+
+import { useSessionStore } from './stores/session'
+
+const sessionStore = useSessionStore()
+
+const displayName = computed(() => sessionStore.user?.displayName ?? 'Guest')
+const statusLabel = computed(() => {
+  switch (sessionStore.status) {
+    case 'authenticated':
+      return 'Authenticated'
+    case 'anonymous':
+      return 'Anonymous'
+    case 'loading':
+      return 'Checking'
+    default:
+      return 'Idle'
+  }
+})
+</script>
+
+<template>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Foundation Tutorial Build</p>
+        <h1>HaoHao</h1>
+        <nav class="app-nav" aria-label="Primary">
+          <RouterLink to="/">Session</RouterLink>
+          <RouterLink to="/integrations">Integrations</RouterLink>
+        </nav>
+      </div>
+
+      <div class="identity-card">
+        <span class="identity-label">Current identity</span>
+        <strong>{{ displayName }}</strong>
+        <span class="identity-status">{{ statusLabel }}</span>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <RouterView />
+    </main>
+  </div>
+</template>
+
+<style scoped>
+.app-shell {
+  width: min(960px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 40px 0 64px;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 0.96;
+}
+
+.app-nav {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.app-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.app-nav a.router-link-active {
+  color: var(--accent-strong);
+  background: rgba(11, 93, 91, 0.08);
+}
+
+.identity-card {
+  min-width: 210px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: rgba(248, 239, 227, 0.78);
+  backdrop-filter: blur(12px);
+}
+
+.identity-card strong {
+  display: block;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+}
+
+.identity-label,
+.identity-status {
+  display: block;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.identity-label {
+  margin-bottom: 6px;
+}
+
+.identity-status {
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    width: min(100vw - 24px, 960px);
+    padding-top: 24px;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .identity-card {
+    min-width: 0;
+  }
+}
+</style>
+```
+
+#### `frontend/src/api/integrations.ts`
+
+```ts
+import {
+  deleteIntegrationGrant,
+  listIntegrations,
+  verifyIntegrationAccess,
+} from './generated/sdk.gen'
+import { readCookie } from './client'
+import type { IntegrationStatusBody, VerifyIntegrationBody } from './generated/types.gen'
+
+export async function fetchIntegrations(): Promise<IntegrationStatusBody[]> {
+  const data = await listIntegrations({
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: IntegrationStatusBody[] | null }
+  return data.items ?? []
+}
+
+export function startIntegrationConnect(resourceServer: string) {
+  window.location.assign(`/api/v1/integrations/${encodeURIComponent(resourceServer)}/connect`)
+}
+
+export async function verifyIntegration(resourceServer: string): Promise<VerifyIntegrationBody> {
+  return verifyIntegrationAccess({
+    headers: {
+      'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
+    },
+    path: {
+      resourceServer,
+    },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<VerifyIntegrationBody>
+}
+
+export async function revokeIntegrationGrant(resourceServer: string): Promise<void> {
+  await deleteIntegrationGrant({
+    headers: {
+      'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
+    },
+    path: {
+      resourceServer,
+    },
+    responseStyle: 'data',
+    throwOnError: true,
+  })
+}
+```
+
+#### `frontend/src/router/index.ts`
+
+```ts
+import { createRouter, createWebHistory } from 'vue-router'
+
+import { useSessionStore } from '../stores/session'
+import HomeView from '../views/HomeView.vue'
+import IntegrationsView from '../views/IntegrationsView.vue'
+import LoginView from '../views/LoginView.vue'
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    {
+      path: '/',
+      name: 'home',
+      component: HomeView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginView,
+    },
+    {
+      path: '/integrations',
+      name: 'integrations',
+      component: IntegrationsView,
+      meta: { requiresAuth: true },
+    },
+  ],
+})
+
+router.beforeEach(async (to) => {
+  const sessionStore = useSessionStore()
+  await sessionStore.bootstrap()
+
+  if (to.meta.requiresAuth && sessionStore.status !== 'authenticated') {
+    return { name: 'login' }
+  }
+
+  if (to.name === 'login' && sessionStore.status === 'authenticated') {
+    return { name: 'home' }
+  }
+
+  return true
+})
+
+export default router
+```
+
+#### `frontend/src/views/IntegrationsView.vue`
+
+```vue
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+import {
+  fetchIntegrations,
+  revokeIntegrationGrant,
+  startIntegrationConnect,
+  verifyIntegration,
+} from '../api/integrations'
+import { toApiErrorMessage } from '../api/client'
+import type { IntegrationStatusBody, VerifyIntegrationBody } from '../api/generated/types.gen'
+
+const route = useRoute()
+const router = useRouter()
+
+const items = ref<IntegrationStatusBody[]>([])
+const loading = ref(false)
+const busyResource = ref('')
+const errorMessage = ref('')
+const verifyResult = ref<VerifyIntegrationBody | null>(null)
+
+const callbackMessage = computed(() => {
+  if (route.query.connected) {
+    return `${route.query.connected} integration connected.`
+  }
+  if (route.query.error) {
+    return 'Integration callback failed.'
+  }
+  return ''
+})
+
+async function loadIntegrations() {
+  loading.value = true
+  errorMessage.value = ''
+
+  try {
+    items.value = await fetchIntegrations()
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  } finally {
+    loading.value = false
+  }
+}
+
+function connect(resourceServer: string) {
+  startIntegrationConnect(resourceServer)
+}
+
+async function verify(resourceServer: string) {
+  busyResource.value = resourceServer
+  errorMessage.value = ''
+  verifyResult.value = null
+
+  try {
+    verifyResult.value = await verifyIntegration(resourceServer)
+    await loadIntegrations()
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+    await loadIntegrations()
+  } finally {
+    busyResource.value = ''
+  }
+}
+
+async function revoke(resourceServer: string) {
+  busyResource.value = resourceServer
+  errorMessage.value = ''
+  verifyResult.value = null
+
+  try {
+    await revokeIntegrationGrant(resourceServer)
+    await loadIntegrations()
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  } finally {
+    busyResource.value = ''
+  }
+}
+
+function formatDate(value?: string) {
+  if (!value) {
+    return 'Never'
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
+function clearCallbackQuery() {
+  if (route.query.connected || route.query.error) {
+    router.replace({ name: 'integrations' })
+  }
+}
+
+onMounted(async () => {
+  await loadIntegrations()
+  clearCallbackQuery()
+})
+</script>
+
+<template>
+  <section class="stack">
+    <section class="panel stack">
+      <div class="section-header">
+        <div>
+          <span class="status-pill">Delegated Auth</span>
+          <h2>Integrations</h2>
+        </div>
+        <button class="secondary-button" :disabled="loading" type="button" @click="loadIntegrations">
+          {{ loading ? 'Refreshing...' : 'Refresh' }}
+        </button>
+      </div>
+
+      <p v-if="callbackMessage" class="notice-message">
+        {{ callbackMessage }}
+      </p>
+      <p v-if="errorMessage" class="error-message">
+        {{ errorMessage }}
+      </p>
+
+      <div class="integration-list">
+        <article v-for="item in items" :key="item.resourceServer" class="integration-card">
+          <div class="integration-main">
+            <div>
+              <span class="field-label">{{ item.provider }}</span>
+              <h3>{{ item.resourceServer }}</h3>
+            </div>
+            <span :class="['connection-state', item.connected ? 'connected' : 'disconnected']">
+              {{ item.connected ? 'Connected' : 'Disconnected' }}
+            </span>
+          </div>
+
+          <dl class="metadata-grid">
+            <div>
+              <dt>Scopes</dt>
+              <dd>{{ item.scopes?.join(' ') || 'None' }}</dd>
+            </div>
+            <div>
+              <dt>Granted</dt>
+              <dd>{{ formatDate(item.grantedAt) }}</dd>
+            </div>
+            <div>
+              <dt>Last refresh</dt>
+              <dd>{{ formatDate(item.lastRefreshedAt) }}</dd>
+            </div>
+            <div>
+              <dt>Last error</dt>
+              <dd>{{ item.lastErrorCode || 'None' }}</dd>
+            </div>
+          </dl>
+
+          <div class="action-row">
+            <button class="primary-button" type="button" @click="connect(item.resourceServer)">
+              {{ item.connected ? 'Reconnect' : 'Connect' }}
+            </button>
+            <button
+              class="secondary-button"
+              :disabled="!item.connected || busyResource === item.resourceServer"
+              type="button"
+              @click="verify(item.resourceServer)"
+            >
+              {{ busyResource === item.resourceServer ? 'Verifying...' : 'Verify' }}
+            </button>
+            <button
+              class="secondary-button danger-button"
+              :disabled="!item.connected || busyResource === item.resourceServer"
+              type="button"
+              @click="revoke(item.resourceServer)"
+            >
+              Revoke
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section v-if="verifyResult" class="panel stack">
+      <span class="status-pill">Verified</span>
+      <h2>Access Check</h2>
+      <dl class="metadata-grid">
+        <div>
+          <dt>Resource</dt>
+          <dd>{{ verifyResult.resourceServer }}</dd>
+        </div>
+        <div>
+          <dt>Expires</dt>
+          <dd>{{ formatDate(verifyResult.accessExpiresAt) }}</dd>
+        </div>
+        <div>
+          <dt>Refreshed</dt>
+          <dd>{{ formatDate(verifyResult.refreshedAt) }}</dd>
+        </div>
+        <div>
+          <dt>Scopes</dt>
+          <dd>{{ verifyResult.scopes?.join(' ') || 'None' }}</dd>
+        </div>
+      </dl>
+    </section>
+  </section>
+</template>
+
+<style scoped>
+.section-header,
+.integration-main {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.integration-list {
+  display: grid;
+  gap: 16px;
+}
+
+.integration-card {
+  display: grid;
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: rgba(255, 250, 243, 0.72);
+}
+
+h3 {
+  margin: 4px 0 0;
+  color: var(--text-strong);
+  font-size: 1.3rem;
+}
+
+.connection-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connection-state.connected {
+  color: var(--accent-strong);
+  background: rgba(11, 93, 91, 0.1);
+}
+
+.connection-state.disconnected {
+  color: var(--muted);
+  background: rgba(124, 102, 88, 0.12);
+}
+
+.metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.metadata-grid div {
+  min-width: 0;
+}
+
+.metadata-grid dt {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metadata-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+}
+
+.notice-message {
+  margin: 0;
+  color: var(--accent-strong);
+}
+
+.danger-button {
+  color: var(--danger);
+}
+
+@media (max-width: 720px) {
+  .section-header,
+  .integration-main {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .metadata-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+```
 
 ## Phase 5. Provisioning と Tenant-Aware Auth Context
 

@@ -83,6 +83,43 @@ func (q *Queries) GetUserByProviderSubject(ctx context.Context, arg GetUserByPro
 	return i, err
 }
 
+const getUserIdentityByUserIDProvider = `-- name: GetUserIdentityByUserIDProvider :one
+SELECT
+    id,
+    user_id,
+    provider,
+    subject,
+    email,
+    email_verified,
+    created_at,
+    updated_at
+FROM user_identities
+WHERE user_id = $1
+  AND provider = $2
+LIMIT 1
+`
+
+type GetUserIdentityByUserIDProviderParams struct {
+	UserID   int64  `json:"user_id"`
+	Provider string `json:"provider"`
+}
+
+func (q *Queries) GetUserIdentityByUserIDProvider(ctx context.Context, arg GetUserIdentityByUserIDProviderParams) (UserIdentity, error) {
+	row := q.db.QueryRow(ctx, getUserIdentityByUserIDProvider, arg.UserID, arg.Provider)
+	var i UserIdentity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.Subject,
+		&i.Email,
+		&i.EmailVerified,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateUserIdentityProfile = `-- name: UpdateUserIdentityProfile :exec
 UPDATE user_identities
 SET email = $3,

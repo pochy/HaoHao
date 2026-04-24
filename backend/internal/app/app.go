@@ -17,7 +17,7 @@ type App struct {
 	API    huma.API
 }
 
-func New(cfg config.Config, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, authzService *service.AuthzService, bearerVerifier *auth.BearerVerifier) *App {
+func New(cfg config.Config, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, authzService *service.AuthzService, bearerVerifier *auth.BearerVerifier) *App {
 	router := gin.New()
 	router.Use(
 		gin.Logger(),
@@ -45,6 +45,7 @@ func New(cfg config.Config, sessionService *service.SessionService, oidcLoginSer
 	backendapi.Register(api, backendapi.Dependencies{
 		SessionService:               sessionService,
 		OIDCLoginService:             oidcLoginService,
+		DelegationService:            delegationService,
 		AuthMode:                     cfg.AuthMode,
 		FrontendBaseURL:              cfg.FrontendBaseURL,
 		ZitadelIssuer:                cfg.ZitadelIssuer,

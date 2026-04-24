@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import { useSessionStore } from '../stores/session'
 import HomeView from '../views/HomeView.vue'
+import IntegrationsView from '../views/IntegrationsView.vue'
 import LoginView from '../views/LoginView.vue'
 
 const router = createRouter({
@@ -17,6 +18,12 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+    },
+    {
+      path: '/integrations',
+      name: 'integrations',
+      component: IntegrationsView,
+      meta: { requiresAuth: true },
     },
   ],
 })
@@ -37,4 +44,3 @@ router.beforeEach(async (to) => {
 })
 
 export default router
-

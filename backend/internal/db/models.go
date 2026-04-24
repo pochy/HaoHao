@@ -9,6 +9,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type OauthUserGrant struct {
+	ID                     int64              `json:"id"`
+	UserID                 int64              `json:"user_id"`
+	Provider               string             `json:"provider"`
+	ResourceServer         string             `json:"resource_server"`
+	ProviderSubject        string             `json:"provider_subject"`
+	RefreshTokenCiphertext []byte             `json:"refresh_token_ciphertext"`
+	RefreshTokenKeyVersion int32              `json:"refresh_token_key_version"`
+	ScopeText              string             `json:"scope_text"`
+	GrantedBySessionID     string             `json:"granted_by_session_id"`
+	GrantedAt              pgtype.Timestamptz `json:"granted_at"`
+	LastRefreshedAt        pgtype.Timestamptz `json:"last_refreshed_at"`
+	RevokedAt              pgtype.Timestamptz `json:"revoked_at"`
+	LastErrorCode          pgtype.Text        `json:"last_error_code"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Role struct {
 	ID        int64              `json:"id"`
 	Code      string             `json:"code"`

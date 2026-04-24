@@ -45,6 +45,7 @@ func main() {
 	authzService := service.NewAuthzService(pool, queries)
 
 	var oidcLoginService *service.OIDCLoginService
+	var delegationService *service.DelegationService
 	var bearerVerifier *auth.BearerVerifier
 	if cfg.AuthMode == "zitadel" {
 		if cfg.ZitadelIssuer == "" || cfg.ZitadelClientID == "" || cfg.ZitadelClientSecret == "" {
@@ -66,6 +67,30 @@ func main() {
 		loginStateStore := auth.NewLoginStateStore(redisClient, cfg.LoginStateTTL)
 		identityService := service.NewIdentityService(pool, queries)
 		oidcLoginService = service.NewOIDCLoginService("zitadel", oidcClient, loginStateStore, identityService, authzService, sessionService)
+
+		if cfg.DownstreamTokenEncryptionKey != "" {
+			refreshTokenStore, err := auth.NewRefreshTokenStore(cfg.DownstreamTokenEncryptionKey, cfg.DownstreamTokenKeyVersion)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			delegatedOAuthClient, err := auth.NewDelegatedOAuthClient(ctx, cfg.ZitadelIssuer, cfg.ZitadelClientID, cfg.ZitadelClientSecret)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			delegationStateStore := auth.NewDelegationStateStore(redisClient, cfg.LoginStateTTL)
+			delegationService = service.NewDelegationService(
+				queries,
+				delegatedOAuthClient,
+				delegationStateStore,
+				refreshTokenStore,
+				cfg.AppBaseURL,
+				cfg.DownstreamDefaultScopes,
+				cfg.DownstreamRefreshTokenTTL,
+				cfg.DownstreamAccessTokenSkew,
+			)
+		}
 	}
 
 	if cfg.ZitadelIssuer != "" {
@@ -75,7 +100,7 @@ func main() {
 		}
 	}
 
-	application := app.New(cfg, sessionService, oidcLoginService, authzService, bearerVerifier)
+	application := app.New(cfg, sessionService, oidcLoginService, delegationService, authzService, bearerVerifier)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

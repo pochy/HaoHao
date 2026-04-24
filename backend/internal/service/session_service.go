@@ -82,6 +82,22 @@ func (s *SessionService) CurrentUser(ctx context.Context, sessionID string) (Use
 	return s.loadUserByID(ctx, session.UserID)
 }
 
+func (s *SessionService) CurrentUserWithCSRF(ctx context.Context, sessionID, csrfHeader string) (User, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return User{}, ErrUnauthorized
+	}
+	if err != nil {
+		return User{}, err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(session.CSRFToken), []byte(csrfHeader)) != 1 {
+		return User{}, ErrInvalidCSRFToken
+	}
+
+	return s.loadUserByID(ctx, session.UserID)
+}
+
 func (s *SessionService) IssueSession(ctx context.Context, userID int64) (string, string, error) {
 	return s.IssueSessionWithProviderHint(ctx, userID, "")
 }

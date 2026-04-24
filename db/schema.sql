@@ -37,6 +37,43 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: oauth_user_grants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.oauth_user_grants (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    provider text NOT NULL,
+    resource_server text NOT NULL,
+    provider_subject text NOT NULL,
+    refresh_token_ciphertext bytea NOT NULL,
+    refresh_token_key_version integer NOT NULL,
+    scope_text text NOT NULL,
+    granted_by_session_id text NOT NULL,
+    granted_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_refreshed_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    last_error_code text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: oauth_user_grants_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.oauth_user_grants ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.oauth_user_grants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: roles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -142,6 +179,22 @@ ALTER TABLE public.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: oauth_user_grants oauth_user_grants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_user_id_provider_resource_server_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_user_id_provider_resource_server_key UNIQUE (user_id, provider, resource_server);
+
+
+--
 -- Name: roles roles_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -206,6 +259,20 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: oauth_user_grants_provider_subject_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_user_grants_provider_subject_idx ON public.oauth_user_grants USING btree (provider, provider_subject);
+
+
+--
+-- Name: oauth_user_grants_resource_server_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_user_grants_resource_server_idx ON public.oauth_user_grants USING btree (resource_server);
+
+
+--
 -- Name: user_identities_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -217,6 +284,14 @@ CREATE INDEX user_identities_user_id_idx ON public.user_identities USING btree (
 --
 
 CREATE INDEX user_roles_role_id_idx ON public.user_roles USING btree (role_id);
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

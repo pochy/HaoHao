@@ -11,6 +11,7 @@ import (
 type Dependencies struct {
 	SessionService               *service.SessionService
 	OIDCLoginService             *service.OIDCLoginService
+	DelegationService            *service.DelegationService
 	AuthMode                     string
 	FrontendBaseURL              string
 	ZitadelIssuer                string
@@ -25,4 +26,5 @@ func Register(api huma.API, deps Dependencies) {
 	registerOIDCRoutes(api, deps)
 	registerSessionRoutes(api, deps)
 	registerExternalRoutes(api, deps)
+	registerIntegrationRoutes(api, deps)
 }

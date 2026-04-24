@@ -184,6 +184,66 @@ components:
         - provider
         - subject
       type: object
+    IntegrationStatusBody:
+      additionalProperties: false
+      properties:
+        connected:
+          examples:
+            - true
+          type: boolean
+        grantedAt:
+          format: date-time
+          type: string
+        lastErrorCode:
+          examples:
+            - invalid_grant
+          type: string
+        lastRefreshedAt:
+          format: date-time
+          type: string
+        provider:
+          examples:
+            - zitadel
+          type: string
+        resourceServer:
+          examples:
+            - zitadel
+          type: string
+        revokedAt:
+          format: date-time
+          type: string
+        scopes:
+          examples:
+            - - offline_access
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      required:
+        - resourceServer
+        - provider
+        - connected
+      type: object
+    ListIntegrationsBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ListIntegrationsBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/IntegrationStatusBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
     LoginInputBody:
       additionalProperties: false
       properties:
@@ -260,6 +320,42 @@ components:
         - publicId
         - email
         - displayName
+      type: object
+    VerifyIntegrationBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/VerifyIntegrationBody.json
+          format: uri
+          readOnly: true
+          type: string
+        accessExpiresAt:
+          format: date-time
+          type: string
+        connected:
+          examples:
+            - true
+          type: boolean
+        refreshedAt:
+          format: date-time
+          type: string
+        resourceServer:
+          examples:
+            - zitadel
+          type: string
+        scopes:
+          examples:
+            - - offline_access
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      required:
+        - resourceServer
+        - connected
       type: object
     ZitadelSettingsBody:
       additionalProperties: false
@@ -425,6 +521,190 @@ paths:
       summary: CSRF token を再発行する
       tags:
         - session
+  /api/v1/integrations:
+    get:
+      operationId: listIntegrations
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListIntegrationsBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: downstream integration の接続状態を返す
+      tags:
+        - integrations
+  /api/v1/integrations/{resourceServer}/callback:
+    get:
+      operationId: finishIntegrationConnect
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: resourceServer
+          required: true
+          schema:
+            examples:
+              - zitadel
+            type: string
+        - explode: false
+          in: query
+          name: code
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: state
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: error
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: error_description
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Found
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: downstream integration consent callback を完了する
+      tags:
+        - integrations
+  /api/v1/integrations/{resourceServer}/connect:
+    get:
+      operationId: connectIntegration
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: resourceServer
+          required: true
+          schema:
+            examples:
+              - zitadel
+            type: string
+      responses:
+        "302":
+          description: Found
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: downstream integration consent を開始する
+      tags:
+        - integrations
+  /api/v1/integrations/{resourceServer}/grant:
+    delete:
+      operationId: deleteIntegrationGrant
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: resourceServer
+          required: true
+          schema:
+            examples:
+              - zitadel
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: downstream integration grant を削除する
+      tags:
+        - integrations
+  /api/v1/integrations/{resourceServer}/verify:
+    post:
+      operationId: verifyIntegrationAccess
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: resourceServer
+          required: true
+          schema:
+            examples:
+              - zitadel
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyIntegrationBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: downstream access token を backend 内で取得できるか検証する
+      tags:
+        - integrations
   /api/v1/login:
     post:
       operationId: login

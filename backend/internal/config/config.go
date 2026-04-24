@@ -25,6 +25,11 @@ type Config struct {
 	ExternalRequiredScopePrefix  string
 	ExternalRequiredRole         string
 	ExternalAllowedOrigins       []string
+	DownstreamTokenEncryptionKey string
+	DownstreamTokenKeyVersion    int
+	DownstreamRefreshTokenTTL    time.Duration
+	DownstreamAccessTokenSkew    time.Duration
+	DownstreamDefaultScopes      string
 	RedisAddr                    string
 	RedisPassword                string
 	RedisDB                      int
@@ -39,6 +44,14 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	loginStateTTL, err := time.ParseDuration(getEnv("LOGIN_STATE_TTL", "10m"))
+	if err != nil {
+		return Config{}, err
+	}
+	downstreamRefreshTokenTTL, err := time.ParseDuration(getEnv("DOWNSTREAM_REFRESH_TOKEN_TTL", "2160h"))
+	if err != nil {
+		return Config{}, err
+	}
+	downstreamAccessTokenSkew, err := time.ParseDuration(getEnv("DOWNSTREAM_ACCESS_TOKEN_SKEW", "30s"))
 	if err != nil {
 		return Config{}, err
 	}
@@ -61,6 +74,11 @@ func Load() (Config, error) {
 		ExternalRequiredScopePrefix:  getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", ""),
 		ExternalRequiredRole:         getEnv("EXTERNAL_REQUIRED_ROLE", "external_api_user"),
 		ExternalAllowedOrigins:       getEnvCSV("EXTERNAL_ALLOWED_ORIGINS"),
+		DownstreamTokenEncryptionKey: getEnv("DOWNSTREAM_TOKEN_ENCRYPTION_KEY", ""),
+		DownstreamTokenKeyVersion:    getEnvInt("DOWNSTREAM_TOKEN_KEY_VERSION", 1),
+		DownstreamRefreshTokenTTL:    downstreamRefreshTokenTTL,
+		DownstreamAccessTokenSkew:    downstreamAccessTokenSkew,
+		DownstreamDefaultScopes:      getEnv("DOWNSTREAM_DEFAULT_SCOPES", "offline_access"),
 		RedisAddr:                    getEnv("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword:                getEnv("REDIS_PASSWORD", ""),
 		RedisDB:                      getEnvInt("REDIS_DB", 0),

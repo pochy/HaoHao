@@ -10,6 +10,21 @@ WHERE ui.provider = $1
   AND ui.subject = $2
 LIMIT 1;
 
+-- name: GetUserIdentityByUserIDProvider :one
+SELECT
+    id,
+    user_id,
+    provider,
+    subject,
+    email,
+    email_verified,
+    created_at,
+    updated_at
+FROM user_identities
+WHERE user_id = $1
+  AND provider = $2
+LIMIT 1;
+
 -- name: CreateUserIdentity :exec
 INSERT INTO user_identities (
     user_id,

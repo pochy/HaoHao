@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetSessionData, GetSessionErrors, GetSessionResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses } from './types.gen';
+import type { ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetSessionData, GetSessionErrors, GetSessionResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -52,6 +52,71 @@ export const getCsrf = <ThrowOnError extends boolean = false>(options?: Options<
             type: 'apiKey'
         }],
     url: '/api/v1/csrf',
+    ...options
+});
+
+/**
+ * downstream integration の接続状態を返す
+ */
+export const listIntegrations = <ThrowOnError extends boolean = false>(options?: Options<ListIntegrationsData, ThrowOnError>) => (options?.client ?? client).get<ListIntegrationsResponses, ListIntegrationsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/integrations',
+    ...options
+});
+
+/**
+ * downstream integration consent callback を完了する
+ */
+export const finishIntegrationConnect = <ThrowOnError extends boolean = false>(options: Options<FinishIntegrationConnectData, ThrowOnError>) => (options.client ?? client).get<FinishIntegrationConnectResponses, FinishIntegrationConnectErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/integrations/{resourceServer}/callback',
+    ...options
+});
+
+/**
+ * downstream integration consent を開始する
+ */
+export const connectIntegration = <ThrowOnError extends boolean = false>(options: Options<ConnectIntegrationData, ThrowOnError>) => (options.client ?? client).get<ConnectIntegrationResponses, ConnectIntegrationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/integrations/{resourceServer}/connect',
+    ...options
+});
+
+/**
+ * downstream integration grant を削除する
+ */
+export const deleteIntegrationGrant = <ThrowOnError extends boolean = false>(options: Options<DeleteIntegrationGrantData, ThrowOnError>) => (options.client ?? client).delete<DeleteIntegrationGrantResponses, DeleteIntegrationGrantErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/integrations/{resourceServer}/grant',
+    ...options
+});
+
+/**
+ * downstream access token を backend 内で取得できるか検証する
+ */
+export const verifyIntegrationAccess = <ThrowOnError extends boolean = false>(options: Options<VerifyIntegrationAccessData, ThrowOnError>) => (options.client ?? client).post<VerifyIntegrationAccessResponses, VerifyIntegrationAccessErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/integrations/{resourceServer}/verify',
     ...options
 });
 

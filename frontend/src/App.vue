@@ -26,6 +26,10 @@ const statusLabel = computed(() => {
       <div>
         <p class="eyebrow">Foundation Tutorial Build</p>
         <h1>HaoHao</h1>
+        <nav class="app-nav" aria-label="Primary">
+          <RouterLink to="/">Session</RouterLink>
+          <RouterLink to="/integrations">Integrations</RouterLink>
+        </nav>
       </div>
 
       <div class="identity-card">
@@ -68,6 +72,29 @@ h1 {
   margin: 0;
   font-size: clamp(2.5rem, 5vw, 4rem);
   line-height: 0.96;
+}
+
+.app-nav {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.app-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.app-nav a.router-link-active {
+  color: var(--accent-strong);
+  background: rgba(11, 93, 91, 0.08);
 }
 
 .identity-card {
@@ -118,4 +145,3 @@ h1 {
   }
 }
 </style>
-
