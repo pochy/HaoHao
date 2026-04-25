@@ -16,28 +16,53 @@ type RateLimitMetrics interface {
 	IncRateLimit(policy, result string)
 }
 
+type RateLimitDecision struct {
+	Policy         string
+	LimitPerMinute int
+	BucketKey      string
+}
+
+type RateLimitResolver func(ctx context.Context, c *gin.Context, policy string, defaultLimit int) (RateLimitDecision, error)
+
 type RateLimitConfig struct {
 	Enabled              bool
 	LoginPerMinute       int
 	BrowserAPIPerMinute  int
 	ExternalAPIPerMinute int
+	Resolver             RateLimitResolver
 }
 
 func RateLimit(client *redis.Client, cfg RateLimitConfig, metrics RateLimitMetrics) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		policy, limit := rateLimitPolicy(c, cfg)
-		if !cfg.Enabled || client == nil || policy == "" || limit <= 0 {
+		policy, defaultLimit := rateLimitPolicy(c, cfg)
+		if !cfg.Enabled || client == nil || policy == "" || defaultLimit <= 0 {
 			c.Next()
 			return
 		}
 
-		key := "rate_limit:" + policy + ":" + hashRateLimitKey(c.ClientIP())
+		decision := RateLimitDecision{
+			Policy:         policy,
+			LimitPerMinute: defaultLimit,
+			BucketKey:      RateLimitBucketKey("ip", c.ClientIP()),
+		}
+		if cfg.Resolver != nil {
+			resolved, err := cfg.Resolver(c.Request.Context(), c, policy, defaultLimit)
+			if err == nil && resolved.LimitPerMinute > 0 && resolved.BucketKey != "" {
+				if resolved.Policy == "" {
+					resolved.Policy = policy
+				}
+				decision = resolved
+			}
+		}
+
+		window := time.Now().UTC().Format("200601021504")
+		key := "rate_limit:" + decision.Policy + ":" + decision.BucketKey + ":" + window
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 500*time.Millisecond)
 		defer cancel()
 		count, err := client.Incr(ctx, key).Result()
 		if err != nil {
 			if metrics != nil {
-				metrics.IncRateLimit(policy, "error")
+				metrics.IncRateLimit(decision.Policy, "error")
 			}
 			c.Next()
 			return
@@ -45,16 +70,16 @@ func RateLimit(client *redis.Client, cfg RateLimitConfig, metrics RateLimitMetri
 		if count == 1 {
 			_ = client.Expire(ctx, key, time.Minute).Err()
 		}
-		if count > int64(limit) {
+		if count > int64(decision.LimitPerMinute) {
 			if metrics != nil {
-				metrics.IncRateLimit(policy, "blocked")
+				metrics.IncRateLimit(decision.Policy, "blocked")
 			}
 			c.Header("Retry-After", "60")
 			writeProblem(c, http.StatusTooManyRequests, "rate limit exceeded")
 			return
 		}
 		if metrics != nil {
-			metrics.IncRateLimit(policy, "allowed")
+			metrics.IncRateLimit(decision.Policy, "allowed")
 		}
 		c.Next()
 	}
@@ -74,7 +99,8 @@ func rateLimitPolicy(c *gin.Context, cfg RateLimitConfig) (string, int) {
 	}
 }
 
-func hashRateLimitKey(value string) string {
-	sum := sha256.Sum256([]byte(value))
-	return hex.EncodeToString(sum[:])
+func RateLimitBucketKey(scope string, values ...string) string {
+	joined := scope + "\x00" + strings.Join(values, "\x00")
+	sum := sha256.Sum256([]byte(joined))
+	return scope + ":" + hex.EncodeToString(sum[:])
 }

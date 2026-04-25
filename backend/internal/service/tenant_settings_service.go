@@ -36,6 +36,12 @@ type TenantSettingsInput struct {
 	Features                      map[string]any
 }
 
+type RateLimitDefaults struct {
+	LoginPerMinute       int
+	BrowserAPIPerMinute  int
+	ExternalAPIPerMinute int
+}
+
 type TenantSettingsService struct {
 	queries               *db.Queries
 	audit                 AuditRecorder
@@ -105,6 +111,33 @@ func (s *TenantSettingsService) Update(ctx context.Context, tenantID int64, inpu
 	return tenantSettingsFromDB(row), nil
 }
 
+func (s *TenantSettingsService) ResolveEffectiveRateLimit(ctx context.Context, tenantID int64, policy string, defaults RateLimitDefaults) (int, error) {
+	settings, err := s.Get(ctx, tenantID)
+	if err != nil {
+		return defaultRateLimitForPolicy(policy, defaults), err
+	}
+	return effectiveRateLimitForSettings(settings, policy, defaults), nil
+}
+
+func effectiveRateLimitForSettings(settings TenantSettings, policy string, defaults RateLimitDefaults) int {
+	switch policy {
+	case "login":
+		if settings.RateLimitLoginPerMinute != nil {
+			return int(*settings.RateLimitLoginPerMinute)
+		}
+	case "browser_api":
+		if settings.RateLimitBrowserAPIPerMinute != nil {
+			return int(*settings.RateLimitBrowserAPIPerMinute)
+		}
+	case "external_api":
+		if settings.RateLimitExternalAPIPerMinute != nil {
+			return int(*settings.RateLimitExternalAPIPerMinute)
+		}
+	}
+
+	return defaultRateLimitForPolicy(policy, defaults)
+}
+
 func (s *TenantSettingsService) CheckFileQuota(ctx context.Context, tenantID int64, incomingBytes int64) (bool, int64, int64, error) {
 	settings, err := s.Get(ctx, tenantID)
 	if err != nil {
@@ -145,6 +178,17 @@ func normalizeTenantSettingsInput(input TenantSettingsInput, defaultFileQuotaByt
 		input.Features = map[string]any{}
 	}
 	return input, nil
+}
+
+func defaultRateLimitForPolicy(policy string, defaults RateLimitDefaults) int {
+	switch policy {
+	case "login":
+		return defaults.LoginPerMinute
+	case "external_api":
+		return defaults.ExternalAPIPerMinute
+	default:
+		return defaults.BrowserAPIPerMinute
+	}
 }
 
 func tenantSettingsFromDB(row db.TenantSetting) TenantSettings {

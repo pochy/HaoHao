@@ -1,8 +1,12 @@
 package app
 
 import (
+	"context"
 	"io"
 	"log/slog"
+	"strconv"
+	"strings"
+	"time"
 
 	backendapi "example.com/haohao/backend/internal/api"
 	"example.com/haohao/backend/internal/auth"
@@ -72,12 +76,18 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		handlers = append(handlers, metrics.HTTPMiddleware(cfg.MetricsPath))
 		router.GET(cfg.MetricsPath, gin.WrapH(metrics.Handler()))
 	}
+	rateLimitDefaults := service.RateLimitDefaults{
+		LoginPerMinute:       cfg.RateLimitLoginPerMinute,
+		BrowserAPIPerMinute:  cfg.RateLimitBrowserAPIPerMinute,
+		ExternalAPIPerMinute: cfg.RateLimitExternalAPIPerMinute,
+	}
 	handlers = append(handlers,
 		middleware.RateLimit(redisClient, middleware.RateLimitConfig{
 			Enabled:              cfg.RateLimitEnabled,
 			LoginPerMinute:       cfg.RateLimitLoginPerMinute,
 			BrowserAPIPerMinute:  cfg.RateLimitBrowserAPIPerMinute,
 			ExternalAPIPerMinute: cfg.RateLimitExternalAPIPerMinute,
+			Resolver:             browserAPIRateLimitResolver(sessionService, tenantSettingsService, rateLimitDefaults),
 		}, metrics),
 		middleware.RequestLogger(logger),
 		gin.Recovery(),
@@ -129,4 +139,55 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		Router: router,
 		API:    api,
 	}
+}
+
+func browserAPIRateLimitResolver(sessionService *service.SessionService, tenantSettingsService *service.TenantSettingsService, defaults service.RateLimitDefaults) middleware.RateLimitResolver {
+	return func(ctx context.Context, c *gin.Context, policy string, defaultLimit int) (middleware.RateLimitDecision, error) {
+		if policy != "browser_api" || sessionService == nil || tenantSettingsService == nil {
+			return defaultRateLimitDecision(c, policy, defaultLimit), nil
+		}
+
+		sessionCookie, err := c.Request.Cookie(auth.SessionCookieName)
+		if err != nil || strings.TrimSpace(sessionCookie.Value) == "" {
+			return defaultRateLimitDecision(c, policy, defaultLimit), nil
+		}
+
+		current, err := sessionService.CurrentSession(ctx, sessionCookie.Value)
+		if err != nil || current.ActiveTenantID == nil {
+			return defaultRateLimitDecision(c, policy, defaultLimit), nil
+		}
+
+		lookupCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+		defer cancel()
+
+		limit, err := tenantSettingsService.ResolveEffectiveRateLimit(lookupCtx, *current.ActiveTenantID, policy, defaults)
+		if err != nil || limit <= 0 {
+			limit = defaultLimit
+		}
+
+		return middleware.RateLimitDecision{
+			Policy:         policy,
+			LimitPerMinute: limit,
+			BucketKey: middleware.RateLimitBucketKey(
+				"tenant_user",
+				strconv.FormatInt(*current.ActiveTenantID, 10),
+				strconv.FormatInt(rateLimitRequesterID(current), 10),
+			),
+		}, nil
+	}
+}
+
+func defaultRateLimitDecision(c *gin.Context, policy string, defaultLimit int) middleware.RateLimitDecision {
+	return middleware.RateLimitDecision{
+		Policy:         policy,
+		LimitPerMinute: defaultLimit,
+		BucketKey:      middleware.RateLimitBucketKey("ip", c.ClientIP()),
+	}
+}
+
+func rateLimitRequesterID(current service.CurrentSession) int64 {
+	if current.ActorUser != nil {
+		return current.ActorUser.ID
+	}
+	return current.User.ID
 }

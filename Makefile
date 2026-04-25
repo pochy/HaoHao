@@ -90,6 +90,9 @@ smoke-common-services:
 smoke-p10:
 	bash scripts/smoke-p10.sh
 
+smoke-rate-limit-runtime:
+	bash scripts/smoke-rate-limit-runtime.sh
+
 smoke-backup-restore:
 	bash scripts/smoke-backup-restore.sh
 
