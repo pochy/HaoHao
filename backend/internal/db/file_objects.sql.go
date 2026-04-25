@@ -12,6 +12,87 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimDeletedLocalFileObjectsForPurge = `-- name: ClaimDeletedLocalFileObjectsForPurge :many
+UPDATE file_objects
+SET
+    purge_locked_at = now(),
+    purge_locked_by = $1::text,
+    purge_attempts = purge_attempts + 1,
+    updated_at = now()
+WHERE id IN (
+    SELECT id
+    FROM file_objects
+    WHERE storage_driver = 'local'
+      AND status = 'deleted'
+      AND deleted_at IS NOT NULL
+      AND deleted_at < $2::timestamptz
+      AND purged_at IS NULL
+      AND (
+          purge_locked_at IS NULL
+          OR purge_locked_at < now() - $3::interval
+      )
+    ORDER BY deleted_at, id
+    LIMIT $4::int
+    FOR UPDATE SKIP LOCKED
+)
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error
+`
+
+type ClaimDeletedLocalFileObjectsForPurgeParams struct {
+	WorkerID    string             `json:"worker_id"`
+	Cutoff      pgtype.Timestamptz `json:"cutoff"`
+	LockTimeout pgtype.Interval    `json:"lock_timeout"`
+	BatchSize   int32              `json:"batch_size"`
+}
+
+func (q *Queries) ClaimDeletedLocalFileObjectsForPurge(ctx context.Context, arg ClaimDeletedLocalFileObjectsForPurgeParams) ([]FileObject, error) {
+	rows, err := q.db.Query(ctx, claimDeletedLocalFileObjectsForPurge,
+		arg.WorkerID,
+		arg.Cutoff,
+		arg.LockTimeout,
+		arg.BatchSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FileObject
+	for rows.Next() {
+		var i FileObject
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.UploadedByUserID,
+			&i.Purpose,
+			&i.AttachedToType,
+			&i.AttachedToID,
+			&i.OriginalFilename,
+			&i.ContentType,
+			&i.ByteSize,
+			&i.Sha256Hex,
+			&i.StorageDriver,
+			&i.StorageKey,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.PurgedAt,
+			&i.PurgeAttempts,
+			&i.PurgeLockedAt,
+			&i.PurgeLockedBy,
+			&i.LastPurgeError,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createFileObject = `-- name: CreateFileObject :one
 INSERT INTO file_objects (
     tenant_id,
@@ -28,7 +109,7 @@ INSERT INTO file_objects (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error
 `
 
 type CreateFileObjectParams struct {
@@ -78,12 +159,17 @@ func (q *Queries) CreateFileObject(ctx context.Context, arg CreateFileObjectPara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PurgedAt,
+		&i.PurgeAttempts,
+		&i.PurgeLockedAt,
+		&i.PurgeLockedBy,
+		&i.LastPurgeError,
 	)
 	return i, err
 }
 
 const getFileObjectByIDForTenant = `-- name: GetFileObjectByIDForTenant :one
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error
 FROM file_objects
 WHERE id = $1
   AND tenant_id = $2
@@ -116,12 +202,17 @@ func (q *Queries) GetFileObjectByIDForTenant(ctx context.Context, arg GetFileObj
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PurgedAt,
+		&i.PurgeAttempts,
+		&i.PurgeLockedAt,
+		&i.PurgeLockedBy,
+		&i.LastPurgeError,
 	)
 	return i, err
 }
 
 const getFileObjectForTenant = `-- name: GetFileObjectForTenant :one
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error
 FROM file_objects
 WHERE public_id = $1
   AND tenant_id = $2
@@ -154,12 +245,17 @@ func (q *Queries) GetFileObjectForTenant(ctx context.Context, arg GetFileObjectF
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PurgedAt,
+		&i.PurgeAttempts,
+		&i.PurgeLockedAt,
+		&i.PurgeLockedBy,
+		&i.LastPurgeError,
 	)
 	return i, err
 }
 
 const listActiveFileObjectsForTenant = `-- name: ListActiveFileObjectsForTenant :many
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error
 FROM file_objects
 WHERE tenant_id = $1
   AND deleted_at IS NULL
@@ -199,6 +295,11 @@ func (q *Queries) ListActiveFileObjectsForTenant(ctx context.Context, arg ListAc
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.PurgedAt,
+			&i.PurgeAttempts,
+			&i.PurgeLockedAt,
+			&i.PurgeLockedBy,
+			&i.LastPurgeError,
 		); err != nil {
 			return nil, err
 		}
@@ -211,7 +312,7 @@ func (q *Queries) ListActiveFileObjectsForTenant(ctx context.Context, arg ListAc
 }
 
 const listFileObjectsForAttachment = `-- name: ListFileObjectsForAttachment :many
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error
 FROM file_objects
 WHERE tenant_id = $1
   AND attached_to_type = $2
@@ -253,6 +354,11 @@ func (q *Queries) ListFileObjectsForAttachment(ctx context.Context, arg ListFile
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.PurgedAt,
+			&i.PurgeAttempts,
+			&i.PurgeLockedAt,
+			&i.PurgeLockedBy,
+			&i.LastPurgeError,
 		); err != nil {
 			return nil, err
 		}
@@ -264,19 +370,96 @@ func (q *Queries) ListFileObjectsForAttachment(ctx context.Context, arg ListFile
 	return items, nil
 }
 
-const softDeleteDeletedFileObjectsBefore = `-- name: SoftDeleteDeletedFileObjectsBefore :execrows
+const markFileObjectBodyPurged = `-- name: MarkFileObjectBodyPurged :one
 UPDATE file_objects
-SET updated_at = now()
-WHERE deleted_at IS NOT NULL
-  AND deleted_at < $1
+SET
+    purged_at = now(),
+    purge_locked_at = NULL,
+    purge_locked_by = NULL,
+    last_purge_error = NULL,
+    updated_at = now()
+WHERE id = $1
+  AND status = 'deleted'
+  AND deleted_at IS NOT NULL
+  AND purged_at IS NULL
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error
 `
 
-func (q *Queries) SoftDeleteDeletedFileObjectsBefore(ctx context.Context, deletedAt pgtype.Timestamptz) (int64, error) {
-	result, err := q.db.Exec(ctx, softDeleteDeletedFileObjectsBefore, deletedAt)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) MarkFileObjectBodyPurged(ctx context.Context, id int64) (FileObject, error) {
+	row := q.db.QueryRow(ctx, markFileObjectBodyPurged, id)
+	var i FileObject
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.UploadedByUserID,
+		&i.Purpose,
+		&i.AttachedToType,
+		&i.AttachedToID,
+		&i.OriginalFilename,
+		&i.ContentType,
+		&i.ByteSize,
+		&i.Sha256Hex,
+		&i.StorageDriver,
+		&i.StorageKey,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.PurgedAt,
+		&i.PurgeAttempts,
+		&i.PurgeLockedAt,
+		&i.PurgeLockedBy,
+		&i.LastPurgeError,
+	)
+	return i, err
+}
+
+const markFileObjectPurgeFailed = `-- name: MarkFileObjectPurgeFailed :one
+UPDATE file_objects
+SET
+    purge_locked_at = NULL,
+    purge_locked_by = NULL,
+    last_purge_error = left($1::text, 1000),
+    updated_at = now()
+WHERE id = $2
+  AND purged_at IS NULL
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error
+`
+
+type MarkFileObjectPurgeFailedParams struct {
+	LastError string `json:"last_error"`
+	ID        int64  `json:"id"`
+}
+
+func (q *Queries) MarkFileObjectPurgeFailed(ctx context.Context, arg MarkFileObjectPurgeFailedParams) (FileObject, error) {
+	row := q.db.QueryRow(ctx, markFileObjectPurgeFailed, arg.LastError, arg.ID)
+	var i FileObject
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.UploadedByUserID,
+		&i.Purpose,
+		&i.AttachedToType,
+		&i.AttachedToID,
+		&i.OriginalFilename,
+		&i.ContentType,
+		&i.ByteSize,
+		&i.Sha256Hex,
+		&i.StorageDriver,
+		&i.StorageKey,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.PurgedAt,
+		&i.PurgeAttempts,
+		&i.PurgeLockedAt,
+		&i.PurgeLockedBy,
+		&i.LastPurgeError,
+	)
+	return i, err
 }
 
 const softDeleteFileObjectForTenant = `-- name: SoftDeleteFileObjectForTenant :one
@@ -288,7 +471,7 @@ SET
 WHERE public_id = $1
   AND tenant_id = $2
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error
 `
 
 type SoftDeleteFileObjectForTenantParams struct {
@@ -317,6 +500,11 @@ func (q *Queries) SoftDeleteFileObjectForTenant(ctx context.Context, arg SoftDel
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PurgedAt,
+		&i.PurgeAttempts,
+		&i.PurgeLockedAt,
+		&i.PurgeLockedBy,
+		&i.LastPurgeError,
 	)
 	return i, err
 }

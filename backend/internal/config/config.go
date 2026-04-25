@@ -83,6 +83,8 @@ type Config struct {
 	OutboxRetention               time.Duration
 	NotificationRetention         time.Duration
 	FileDeletedRetention          time.Duration
+	FilePurgeBatchSize            int
+	FilePurgeLockTimeout          time.Duration
 	WebhookSecretEncryptionKey    string
 	WebhookSecretKeyVersion       int
 	WebhookHTTPTimeout            time.Duration
@@ -167,6 +169,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	fileDeletedRetention, err := getEnvPositiveDuration("FILE_DELETED_RETENTION", "720h")
+	if err != nil {
+		return Config{}, err
+	}
+	filePurgeLockTimeout, err := getEnvPositiveDuration("FILE_PURGE_LOCK_TIMEOUT", "15m")
 	if err != nil {
 		return Config{}, err
 	}
@@ -260,6 +266,8 @@ func Load() (Config, error) {
 		OutboxRetention:               outboxRetention,
 		NotificationRetention:         notificationRetention,
 		FileDeletedRetention:          fileDeletedRetention,
+		FilePurgeBatchSize:            positiveInt(getEnvInt("FILE_PURGE_BATCH_SIZE", 50), 50),
+		FilePurgeLockTimeout:          filePurgeLockTimeout,
 		WebhookSecretEncryptionKey:    getEnv("WEBHOOK_SECRET_ENCRYPTION_KEY", ""),
 		WebhookSecretKeyVersion:       positiveInt(getEnvInt("WEBHOOK_SECRET_KEY_VERSION", 1), 1),
 		WebhookHTTPTimeout:            webhookHTTPTimeout,

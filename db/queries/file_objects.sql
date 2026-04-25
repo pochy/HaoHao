@@ -58,8 +58,52 @@ WHERE public_id = $1
   AND deleted_at IS NULL
 RETURNING *;
 
--- name: SoftDeleteDeletedFileObjectsBefore :execrows
+-- name: ClaimDeletedLocalFileObjectsForPurge :many
 UPDATE file_objects
-SET updated_at = now()
-WHERE deleted_at IS NOT NULL
-  AND deleted_at < $1;
+SET
+    purge_locked_at = now(),
+    purge_locked_by = sqlc.arg(worker_id)::text,
+    purge_attempts = purge_attempts + 1,
+    updated_at = now()
+WHERE id IN (
+    SELECT id
+    FROM file_objects
+    WHERE storage_driver = 'local'
+      AND status = 'deleted'
+      AND deleted_at IS NOT NULL
+      AND deleted_at < sqlc.arg(cutoff)::timestamptz
+      AND purged_at IS NULL
+      AND (
+          purge_locked_at IS NULL
+          OR purge_locked_at < now() - sqlc.arg(lock_timeout)::interval
+      )
+    ORDER BY deleted_at, id
+    LIMIT sqlc.arg(batch_size)::int
+    FOR UPDATE SKIP LOCKED
+)
+RETURNING *;
+
+-- name: MarkFileObjectBodyPurged :one
+UPDATE file_objects
+SET
+    purged_at = now(),
+    purge_locked_at = NULL,
+    purge_locked_by = NULL,
+    last_purge_error = NULL,
+    updated_at = now()
+WHERE id = $1
+  AND status = 'deleted'
+  AND deleted_at IS NOT NULL
+  AND purged_at IS NULL
+RETURNING *;
+
+-- name: MarkFileObjectPurgeFailed :one
+UPDATE file_objects
+SET
+    purge_locked_at = NULL,
+    purge_locked_by = NULL,
+    last_purge_error = left(sqlc.arg(last_error)::text, 1000),
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+  AND purged_at IS NULL
+RETURNING *;

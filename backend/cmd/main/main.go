@@ -178,7 +178,7 @@ func main() {
 		Timeout:   cfg.OutboxWorkerTimeout,
 		BatchSize: cfg.OutboxWorkerBatchSize,
 	}, logger, metrics)
-	dataLifecycleJob := jobs.NewDataLifecycleJob(queries, jobs.DataLifecycleConfig{
+	dataLifecycleJob := jobs.NewDataLifecycleJob(queries, fileService, jobs.DataLifecycleConfig{
 		Enabled:               cfg.DataLifecycleEnabled,
 		Interval:              cfg.DataLifecycleInterval,
 		Timeout:               cfg.DataLifecycleTimeout,
@@ -186,6 +186,8 @@ func main() {
 		OutboxRetention:       cfg.OutboxRetention,
 		NotificationRetention: cfg.NotificationRetention,
 		FileDeletedRetention:  cfg.FileDeletedRetention,
+		FilePurgeBatchSize:    cfg.FilePurgeBatchSize,
+		FilePurgeLockTimeout:  cfg.FilePurgeLockTimeout,
 	}, logger, metrics)
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

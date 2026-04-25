@@ -93,6 +93,9 @@ smoke-p10:
 smoke-rate-limit-runtime:
 	bash scripts/smoke-rate-limit-runtime.sh
 
+smoke-file-purge: binary
+	bash scripts/smoke-file-purge.sh
+
 smoke-backup-restore:
 	bash scripts/smoke-backup-restore.sh
 

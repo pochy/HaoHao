@@ -17,13 +17,14 @@ P7 keeps the single binary / PostgreSQL / Redis shape.
 - `outbox_events`: purge `sent` / `dead` after `OUTBOX_RETENTION`.
 - `notifications`: purge read notifications after `NOTIFICATION_RETENTION`.
 - `idempotency_keys`: purge after `IDEMPOTENCY_TTL`.
-- `file_objects`: soft-deleted metadata is retained for `FILE_DELETED_RETENTION`; body deletion can be added after restore drills are stable.
+- `file_objects`: soft-deleted metadata is retained as a tombstone; local file bodies are purged after `FILE_DELETED_RETENTION` and marked with `purged_at`.
 - `tenant_data_exports`: expire by `DATA_EXPORT_TTL`.
 
 ## Backup
 
 - PostgreSQL: logical `pg_dump` or managed PITR.
 - Local file storage: archive the `FILE_LOCAL_DIR` volume with the same cadence as PostgreSQL backup.
+- Local file storage: once `purged_at` is set, the body is intentionally absent from `FILE_LOCAL_DIR`; restore drills should not expect purged bodies to reappear.
 - Redis: session and rate-limit state can be regenerated; persistent backup is not required for P7.
 
 ## Restore Drill

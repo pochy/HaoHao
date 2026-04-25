@@ -78,6 +78,84 @@ ALTER TABLE public.audit_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
+-- Name: customer_signal_import_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_signal_import_jobs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    requested_by_user_id bigint,
+    input_file_object_id bigint NOT NULL,
+    error_file_object_id bigint,
+    outbox_event_id bigint,
+    status text DEFAULT 'pending'::text NOT NULL,
+    validate_only boolean DEFAULT false NOT NULL,
+    total_rows integer DEFAULT 0 NOT NULL,
+    valid_rows integer DEFAULT 0 NOT NULL,
+    invalid_rows integer DEFAULT 0 NOT NULL,
+    inserted_rows integer DEFAULT 0 NOT NULL,
+    error_summary text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    deleted_at timestamp with time zone,
+    CONSTRAINT customer_signal_import_jobs_inserted_rows_check CHECK ((inserted_rows >= 0)),
+    CONSTRAINT customer_signal_import_jobs_invalid_rows_check CHECK ((invalid_rows >= 0)),
+    CONSTRAINT customer_signal_import_jobs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text]))),
+    CONSTRAINT customer_signal_import_jobs_total_rows_check CHECK ((total_rows >= 0)),
+    CONSTRAINT customer_signal_import_jobs_valid_rows_check CHECK ((valid_rows >= 0))
+);
+
+
+--
+-- Name: customer_signal_import_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.customer_signal_import_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.customer_signal_import_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: customer_signal_saved_filters; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_signal_saved_filters (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    owner_user_id bigint NOT NULL,
+    name text NOT NULL,
+    query text DEFAULT ''::text NOT NULL,
+    filters jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    CONSTRAINT customer_signal_saved_filters_name_check CHECK ((btrim(name) <> ''::text))
+);
+
+
+--
+-- Name: customer_signal_saved_filters_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.customer_signal_saved_filters ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.customer_signal_saved_filters_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: customer_signals; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -121,6 +199,23 @@ ALTER TABLE public.customer_signals ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
 
 
 --
+-- Name: feature_definitions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.feature_definitions (
+    code text NOT NULL,
+    display_name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    default_enabled boolean DEFAULT false NOT NULL,
+    default_limit jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT feature_definitions_code_check CHECK ((btrim(code) <> ''::text)),
+    CONSTRAINT feature_definitions_display_name_check CHECK ((btrim(display_name) <> ''::text))
+);
+
+
+--
 -- Name: file_objects; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -142,7 +237,13 @@ CREATE TABLE public.file_objects (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
+    purged_at timestamp with time zone,
+    purge_attempts integer DEFAULT 0 NOT NULL,
+    purge_locked_at timestamp with time zone,
+    purge_locked_by text,
+    last_purge_error text,
     CONSTRAINT file_objects_byte_size_check CHECK ((byte_size >= 0)),
+    CONSTRAINT file_objects_purge_attempts_check CHECK ((purge_attempts >= 0)),
     CONSTRAINT file_objects_purpose_check CHECK ((purpose = ANY (ARRAY['attachment'::text, 'avatar'::text, 'import'::text, 'export'::text]))),
     CONSTRAINT file_objects_status_check CHECK ((status = ANY (ARRAY['active'::text, 'deleted'::text])))
 );
@@ -405,6 +506,44 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: support_access_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.support_access_sessions (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    support_user_id bigint NOT NULL,
+    impersonated_user_id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    reason text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    ended_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT support_access_sessions_check CHECK ((support_user_id <> impersonated_user_id)),
+    CONSTRAINT support_access_sessions_check1 CHECK ((expires_at > started_at)),
+    CONSTRAINT support_access_sessions_reason_check CHECK ((btrim(reason) <> ''::text)),
+    CONSTRAINT support_access_sessions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'ended'::text, 'expired'::text])))
+);
+
+
+--
+-- Name: support_access_sessions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.support_access_sessions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.support_access_sessions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: tenant_data_exports; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -439,6 +578,22 @@ ALTER TABLE public.tenant_data_exports ALTER COLUMN id ADD GENERATED ALWAYS AS I
     NO MINVALUE
     NO MAXVALUE
     CACHE 1
+);
+
+
+--
+-- Name: tenant_entitlements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenant_entitlements (
+    tenant_id bigint NOT NULL,
+    feature_code text NOT NULL,
+    enabled boolean NOT NULL,
+    limit_value jsonb DEFAULT '{}'::jsonb NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT tenant_entitlements_source_check CHECK ((source = ANY (ARRAY['default'::text, 'manual'::text, 'billing'::text, 'migration'::text])))
 );
 
 
@@ -665,6 +820,88 @@ ALTER TABLE public.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: webhook_deliveries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.webhook_deliveries (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    webhook_endpoint_id bigint NOT NULL,
+    outbox_event_id bigint,
+    event_type text NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    max_attempts integer DEFAULT 8 NOT NULL,
+    next_attempt_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_http_status integer,
+    last_error text,
+    response_preview text,
+    delivered_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT webhook_deliveries_attempt_count_check CHECK ((attempt_count >= 0)),
+    CONSTRAINT webhook_deliveries_event_type_check CHECK ((btrim(event_type) <> ''::text)),
+    CONSTRAINT webhook_deliveries_max_attempts_check CHECK ((max_attempts > 0)),
+    CONSTRAINT webhook_deliveries_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'delivered'::text, 'failed'::text, 'dead'::text])))
+);
+
+
+--
+-- Name: webhook_deliveries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.webhook_deliveries ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.webhook_deliveries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: webhook_endpoints; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.webhook_endpoints (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    created_by_user_id bigint,
+    name text NOT NULL,
+    url text NOT NULL,
+    event_types text[] DEFAULT ARRAY[]::text[] NOT NULL,
+    secret_ciphertext text NOT NULL,
+    secret_key_version integer DEFAULT 1 NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    last_delivery_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    CONSTRAINT webhook_endpoints_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT webhook_endpoints_secret_key_version_check CHECK ((secret_key_version > 0)),
+    CONSTRAINT webhook_endpoints_url_check CHECK ((btrim(url) <> ''::text))
+);
+
+
+--
+-- Name: webhook_endpoints_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.webhook_endpoints ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.webhook_endpoints_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: audit_events audit_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -673,11 +910,35 @@ ALTER TABLE ONLY public.audit_events
 
 
 --
+-- Name: customer_signal_import_jobs customer_signal_import_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signal_import_jobs
+    ADD CONSTRAINT customer_signal_import_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: customer_signal_saved_filters customer_signal_saved_filters_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signal_saved_filters
+    ADD CONSTRAINT customer_signal_saved_filters_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: customer_signals customer_signals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.customer_signals
     ADD CONSTRAINT customer_signals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: feature_definitions feature_definitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feature_definitions
+    ADD CONSTRAINT feature_definitions_pkey PRIMARY KEY (code);
 
 
 --
@@ -777,11 +1038,27 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: support_access_sessions support_access_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_access_sessions
+    ADD CONSTRAINT support_access_sessions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: tenant_data_exports tenant_data_exports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tenant_data_exports
     ADD CONSTRAINT tenant_data_exports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tenant_entitlements tenant_entitlements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_entitlements
+    ADD CONSTRAINT tenant_entitlements_pkey PRIMARY KEY (tenant_id, feature_code);
 
 
 --
@@ -881,6 +1158,22 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: webhook_deliveries webhook_deliveries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT webhook_deliveries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: webhook_endpoints webhook_endpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_endpoints
+    ADD CONSTRAINT webhook_endpoints_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: audit_events_action_occurred_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -930,6 +1223,48 @@ CREATE INDEX audit_events_tenant_occurred_at_idx ON public.audit_events USING bt
 
 
 --
+-- Name: customer_signal_import_jobs_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_signal_import_jobs_pending_idx ON public.customer_signal_import_jobs USING btree (created_at, id) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]));
+
+
+--
+-- Name: customer_signal_import_jobs_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX customer_signal_import_jobs_public_id_key ON public.customer_signal_import_jobs USING btree (public_id);
+
+
+--
+-- Name: customer_signal_import_jobs_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_signal_import_jobs_tenant_created_idx ON public.customer_signal_import_jobs USING btree (tenant_id, created_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: customer_signal_saved_filters_owner_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_signal_saved_filters_owner_idx ON public.customer_signal_saved_filters USING btree (tenant_id, owner_user_id, created_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: customer_signal_saved_filters_owner_name_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX customer_signal_saved_filters_owner_name_key ON public.customer_signal_saved_filters USING btree (tenant_id, owner_user_id, lower(name)) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: customer_signal_saved_filters_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX customer_signal_saved_filters_public_id_key ON public.customer_signal_saved_filters USING btree (public_id);
+
+
+--
 -- Name: customer_signals_created_by_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -958,6 +1293,13 @@ CREATE INDEX customer_signals_tenant_open_priority_idx ON public.customer_signal
 
 
 --
+-- Name: customer_signals_tenant_search_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_signals_tenant_search_idx ON public.customer_signals USING gin (to_tsvector('simple'::regconfig, ((((customer_name || ' '::text) || title) || ' '::text) || body))) WHERE (deleted_at IS NULL);
+
+
+--
 -- Name: customer_signals_tenant_status_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -976,6 +1318,20 @@ CREATE INDEX file_objects_attachment_idx ON public.file_objects USING btree (ten
 --
 
 CREATE UNIQUE INDEX file_objects_public_id_key ON public.file_objects USING btree (public_id);
+
+
+--
+-- Name: file_objects_purge_candidates_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX file_objects_purge_candidates_idx ON public.file_objects USING btree (deleted_at, id) WHERE ((deleted_at IS NOT NULL) AND (purged_at IS NULL));
+
+
+--
+-- Name: file_objects_purge_lock_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX file_objects_purge_lock_idx ON public.file_objects USING btree (purge_locked_at) WHERE ((purge_locked_at IS NOT NULL) AND (purged_at IS NULL));
 
 
 --
@@ -1084,6 +1440,27 @@ CREATE INDEX outbox_events_tenant_created_idx ON public.outbox_events USING btre
 
 
 --
+-- Name: support_access_sessions_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX support_access_sessions_public_id_key ON public.support_access_sessions USING btree (public_id);
+
+
+--
+-- Name: support_access_sessions_support_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_access_sessions_support_active_idx ON public.support_access_sessions USING btree (support_user_id, expires_at DESC) WHERE (status = 'active'::text);
+
+
+--
+-- Name: support_access_sessions_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_access_sessions_tenant_created_idx ON public.support_access_sessions USING btree (tenant_id, created_at DESC);
+
+
+--
 -- Name: tenant_data_exports_pending_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1102,6 +1479,13 @@ CREATE UNIQUE INDEX tenant_data_exports_public_id_key ON public.tenant_data_expo
 --
 
 CREATE INDEX tenant_data_exports_tenant_created_idx ON public.tenant_data_exports USING btree (tenant_id, created_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: tenant_entitlements_feature_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_entitlements_feature_idx ON public.tenant_entitlements USING btree (feature_code, tenant_id);
 
 
 --
@@ -1196,6 +1580,41 @@ CREATE INDEX user_roles_role_id_idx ON public.user_roles USING btree (role_id);
 
 
 --
+-- Name: webhook_deliveries_endpoint_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX webhook_deliveries_endpoint_created_idx ON public.webhook_deliveries USING btree (webhook_endpoint_id, created_at DESC);
+
+
+--
+-- Name: webhook_deliveries_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX webhook_deliveries_pending_idx ON public.webhook_deliveries USING btree (next_attempt_at, id) WHERE (status = ANY (ARRAY['pending'::text, 'failed'::text]));
+
+
+--
+-- Name: webhook_deliveries_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX webhook_deliveries_public_id_key ON public.webhook_deliveries USING btree (public_id);
+
+
+--
+-- Name: webhook_endpoints_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX webhook_endpoints_public_id_key ON public.webhook_endpoints USING btree (public_id);
+
+
+--
+-- Name: webhook_endpoints_tenant_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX webhook_endpoints_tenant_active_idx ON public.webhook_endpoints USING btree (tenant_id, created_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
 -- Name: audit_events audit_events_actor_machine_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1217,6 +1636,62 @@ ALTER TABLE ONLY public.audit_events
 
 ALTER TABLE ONLY public.audit_events
     ADD CONSTRAINT audit_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE SET NULL;
+
+
+--
+-- Name: customer_signal_import_jobs customer_signal_import_jobs_error_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signal_import_jobs
+    ADD CONSTRAINT customer_signal_import_jobs_error_file_object_id_fkey FOREIGN KEY (error_file_object_id) REFERENCES public.file_objects(id) ON DELETE SET NULL;
+
+
+--
+-- Name: customer_signal_import_jobs customer_signal_import_jobs_input_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signal_import_jobs
+    ADD CONSTRAINT customer_signal_import_jobs_input_file_object_id_fkey FOREIGN KEY (input_file_object_id) REFERENCES public.file_objects(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: customer_signal_import_jobs customer_signal_import_jobs_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signal_import_jobs
+    ADD CONSTRAINT customer_signal_import_jobs_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: customer_signal_import_jobs customer_signal_import_jobs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signal_import_jobs
+    ADD CONSTRAINT customer_signal_import_jobs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: customer_signal_import_jobs customer_signal_import_jobs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signal_import_jobs
+    ADD CONSTRAINT customer_signal_import_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: customer_signal_saved_filters customer_signal_saved_filters_owner_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signal_saved_filters
+    ADD CONSTRAINT customer_signal_saved_filters_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: customer_signal_saved_filters customer_signal_saved_filters_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signal_saved_filters
+    ADD CONSTRAINT customer_signal_saved_filters_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -1324,6 +1799,30 @@ ALTER TABLE ONLY public.outbox_events
 
 
 --
+-- Name: support_access_sessions support_access_sessions_impersonated_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_access_sessions
+    ADD CONSTRAINT support_access_sessions_impersonated_user_id_fkey FOREIGN KEY (impersonated_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: support_access_sessions support_access_sessions_support_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_access_sessions
+    ADD CONSTRAINT support_access_sessions_support_user_id_fkey FOREIGN KEY (support_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: support_access_sessions support_access_sessions_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_access_sessions
+    ADD CONSTRAINT support_access_sessions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: tenant_data_exports tenant_data_exports_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1353,6 +1852,22 @@ ALTER TABLE ONLY public.tenant_data_exports
 
 ALTER TABLE ONLY public.tenant_data_exports
     ADD CONSTRAINT tenant_data_exports_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_entitlements tenant_entitlements_feature_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_entitlements
+    ADD CONSTRAINT tenant_entitlements_feature_code_fkey FOREIGN KEY (feature_code) REFERENCES public.feature_definitions(code) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_entitlements tenant_entitlements_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_entitlements
+    ADD CONSTRAINT tenant_entitlements_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -1484,157 +1999,44 @@ ALTER TABLE ONLY public.users
 
 
 --
--- P10 cross-cutting extension schema additions.
+-- Name: webhook_deliveries webhook_deliveries_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-CREATE TABLE public.feature_definitions (
-    code text PRIMARY KEY,
-    display_name text NOT NULL,
-    description text DEFAULT ''::text NOT NULL,
-    default_enabled boolean DEFAULT false NOT NULL,
-    default_limit jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT feature_definitions_code_check CHECK ((btrim(code) <> ''::text)),
-    CONSTRAINT feature_definitions_display_name_check CHECK ((btrim(display_name) <> ''::text))
-);
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT webhook_deliveries_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
 
-CREATE TABLE public.tenant_entitlements (
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    feature_code text NOT NULL REFERENCES public.feature_definitions(code) ON DELETE CASCADE,
-    enabled boolean NOT NULL,
-    limit_value jsonb DEFAULT '{}'::jsonb NOT NULL,
-    source text DEFAULT 'manual'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    PRIMARY KEY (tenant_id, feature_code),
-    CONSTRAINT tenant_entitlements_source_check CHECK ((source = ANY (ARRAY['default'::text, 'manual'::text, 'billing'::text, 'migration'::text])))
-);
 
-CREATE INDEX tenant_entitlements_feature_idx ON public.tenant_entitlements USING btree (feature_code, tenant_id);
+--
+-- Name: webhook_deliveries webhook_deliveries_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
 
-CREATE TABLE public.webhook_endpoints (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT uuidv7() NOT NULL,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    name text NOT NULL,
-    url text NOT NULL,
-    event_types text[] DEFAULT ARRAY[]::text[] NOT NULL,
-    secret_ciphertext text NOT NULL,
-    secret_key_version integer DEFAULT 1 NOT NULL,
-    active boolean DEFAULT true NOT NULL,
-    last_delivery_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    deleted_at timestamp with time zone,
-    CONSTRAINT webhook_endpoints_name_check CHECK ((btrim(name) <> ''::text)),
-    CONSTRAINT webhook_endpoints_url_check CHECK ((btrim(url) <> ''::text)),
-    CONSTRAINT webhook_endpoints_secret_key_version_check CHECK ((secret_key_version > 0))
-);
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT webhook_deliveries_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
-CREATE UNIQUE INDEX webhook_endpoints_public_id_key ON public.webhook_endpoints USING btree (public_id);
-CREATE INDEX webhook_endpoints_tenant_active_idx ON public.webhook_endpoints USING btree (tenant_id, created_at DESC) WHERE (deleted_at IS NULL);
 
-CREATE TABLE public.webhook_deliveries (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT uuidv7() NOT NULL,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    webhook_endpoint_id bigint NOT NULL REFERENCES public.webhook_endpoints(id) ON DELETE CASCADE,
-    outbox_event_id bigint REFERENCES public.outbox_events(id) ON DELETE SET NULL,
-    event_type text NOT NULL,
-    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    attempt_count integer DEFAULT 0 NOT NULL,
-    max_attempts integer DEFAULT 8 NOT NULL,
-    next_attempt_at timestamp with time zone DEFAULT now() NOT NULL,
-    last_http_status integer,
-    last_error text,
-    response_preview text,
-    delivered_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT webhook_deliveries_event_type_check CHECK ((btrim(event_type) <> ''::text)),
-    CONSTRAINT webhook_deliveries_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'delivered'::text, 'failed'::text, 'dead'::text]))),
-    CONSTRAINT webhook_deliveries_attempt_count_check CHECK ((attempt_count >= 0)),
-    CONSTRAINT webhook_deliveries_max_attempts_check CHECK ((max_attempts > 0))
-);
+--
+-- Name: webhook_deliveries webhook_deliveries_webhook_endpoint_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
 
-CREATE UNIQUE INDEX webhook_deliveries_public_id_key ON public.webhook_deliveries USING btree (public_id);
-CREATE INDEX webhook_deliveries_endpoint_created_idx ON public.webhook_deliveries USING btree (webhook_endpoint_id, created_at DESC);
-CREATE INDEX webhook_deliveries_pending_idx ON public.webhook_deliveries USING btree (next_attempt_at, id) WHERE (status = ANY (ARRAY['pending'::text, 'failed'::text]));
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT webhook_deliveries_webhook_endpoint_id_fkey FOREIGN KEY (webhook_endpoint_id) REFERENCES public.webhook_endpoints(id) ON DELETE CASCADE;
 
-CREATE TABLE public.customer_signal_import_jobs (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT uuidv7() NOT NULL,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    requested_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    input_file_object_id bigint NOT NULL REFERENCES public.file_objects(id) ON DELETE RESTRICT,
-    error_file_object_id bigint REFERENCES public.file_objects(id) ON DELETE SET NULL,
-    outbox_event_id bigint REFERENCES public.outbox_events(id) ON DELETE SET NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    validate_only boolean DEFAULT false NOT NULL,
-    total_rows integer DEFAULT 0 NOT NULL,
-    valid_rows integer DEFAULT 0 NOT NULL,
-    invalid_rows integer DEFAULT 0 NOT NULL,
-    inserted_rows integer DEFAULT 0 NOT NULL,
-    error_summary text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    completed_at timestamp with time zone,
-    deleted_at timestamp with time zone,
-    CONSTRAINT customer_signal_import_jobs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text]))),
-    CONSTRAINT customer_signal_import_jobs_total_rows_check CHECK ((total_rows >= 0)),
-    CONSTRAINT customer_signal_import_jobs_valid_rows_check CHECK ((valid_rows >= 0)),
-    CONSTRAINT customer_signal_import_jobs_invalid_rows_check CHECK ((invalid_rows >= 0)),
-    CONSTRAINT customer_signal_import_jobs_inserted_rows_check CHECK ((inserted_rows >= 0))
-);
 
-CREATE UNIQUE INDEX customer_signal_import_jobs_public_id_key ON public.customer_signal_import_jobs USING btree (public_id);
-CREATE INDEX customer_signal_import_jobs_tenant_created_idx ON public.customer_signal_import_jobs USING btree (tenant_id, created_at DESC) WHERE (deleted_at IS NULL);
-CREATE INDEX customer_signal_import_jobs_pending_idx ON public.customer_signal_import_jobs USING btree (created_at, id) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]));
+--
+-- Name: webhook_endpoints webhook_endpoints_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
 
-CREATE TABLE public.customer_signal_saved_filters (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT uuidv7() NOT NULL,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    owner_user_id bigint NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    name text NOT NULL,
-    query text DEFAULT ''::text NOT NULL,
-    filters jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    deleted_at timestamp with time zone,
-    CONSTRAINT customer_signal_saved_filters_name_check CHECK ((btrim(name) <> ''::text))
-);
+ALTER TABLE ONLY public.webhook_endpoints
+    ADD CONSTRAINT webhook_endpoints_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
-CREATE UNIQUE INDEX customer_signal_saved_filters_public_id_key ON public.customer_signal_saved_filters USING btree (public_id);
-CREATE INDEX customer_signal_saved_filters_owner_idx ON public.customer_signal_saved_filters USING btree (tenant_id, owner_user_id, created_at DESC) WHERE (deleted_at IS NULL);
-CREATE UNIQUE INDEX customer_signal_saved_filters_owner_name_key ON public.customer_signal_saved_filters USING btree (tenant_id, owner_user_id, lower(name)) WHERE (deleted_at IS NULL);
-CREATE INDEX customer_signals_tenant_search_idx ON public.customer_signals USING gin (to_tsvector('simple'::regconfig, (((customer_name || ' '::text) || title) || ' '::text) || body)) WHERE (deleted_at IS NULL);
 
-CREATE TABLE public.support_access_sessions (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT uuidv7() NOT NULL,
-    support_user_id bigint NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    impersonated_user_id bigint NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    reason text NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
-    started_at timestamp with time zone DEFAULT now() NOT NULL,
-    expires_at timestamp with time zone NOT NULL,
-    ended_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT support_access_sessions_reason_check CHECK ((btrim(reason) <> ''::text)),
-    CONSTRAINT support_access_sessions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'ended'::text, 'expired'::text]))),
-    CONSTRAINT support_access_sessions_users_check CHECK ((support_user_id <> impersonated_user_id)),
-    CONSTRAINT support_access_sessions_expires_check CHECK ((expires_at > started_at))
-);
+--
+-- Name: webhook_endpoints webhook_endpoints_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
 
-CREATE UNIQUE INDEX support_access_sessions_public_id_key ON public.support_access_sessions USING btree (public_id);
-CREATE INDEX support_access_sessions_support_active_idx ON public.support_access_sessions USING btree (support_user_id, expires_at DESC) WHERE (status = 'active'::text);
-CREATE INDEX support_access_sessions_tenant_created_idx ON public.support_access_sessions USING btree (tenant_id, created_at DESC);
+ALTER TABLE ONLY public.webhook_endpoints
+    ADD CONSTRAINT webhook_endpoints_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
 
 --
 -- PostgreSQL database dump complete

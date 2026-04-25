@@ -42,6 +42,8 @@ type FileObject struct {
 	Status           string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	DeletedAt        *time.Time
+	PurgedAt         *time.Time
 }
 
 type FileUploadInput struct {
@@ -58,6 +60,19 @@ type FileUploadInput struct {
 type FileDownload struct {
 	File FileObject
 	Body FileReadCloser
+}
+
+type FilePurgeInput struct {
+	Cutoff      time.Time
+	BatchSize   int32
+	WorkerID    string
+	LockTimeout time.Duration
+}
+
+type FilePurgeResult struct {
+	Claimed int64
+	Purged  int64
+	Failed  int64
 }
 
 type FileQuotaMetrics interface {
@@ -308,6 +323,86 @@ func (s *FileService) Delete(ctx context.Context, tenantID int64, publicID strin
 	return nil
 }
 
+func (s *FileService) PurgeDeletedBodies(ctx context.Context, input FilePurgeInput) (FilePurgeResult, error) {
+	if s == nil || s.queries == nil || s.storage == nil {
+		return FilePurgeResult{}, fmt.Errorf("file service is not configured")
+	}
+	if input.BatchSize <= 0 {
+		input.BatchSize = 50
+	}
+	if input.LockTimeout <= 0 {
+		input.LockTimeout = 15 * time.Minute
+	}
+	if input.Cutoff.IsZero() {
+		return FilePurgeResult{}, fmt.Errorf("%w: purge cutoff is required", ErrInvalidFileInput)
+	}
+
+	rows, err := s.queries.ClaimDeletedLocalFileObjectsForPurge(ctx, db.ClaimDeletedLocalFileObjectsForPurgeParams{
+		WorkerID:    strings.TrimSpace(input.WorkerID),
+		Cutoff:      pgTimestamp(input.Cutoff),
+		LockTimeout: pgtype.Interval{Microseconds: input.LockTimeout.Microseconds(), Valid: true},
+		BatchSize:   input.BatchSize,
+	})
+	if err != nil {
+		return FilePurgeResult{}, fmt.Errorf("claim deleted file objects: %w", err)
+	}
+
+	result := FilePurgeResult{Claimed: int64(len(rows))}
+	for _, row := range rows {
+		if err := s.purgeDeletedBody(ctx, row); err != nil {
+			result.Failed++
+			continue
+		}
+		result.Purged++
+	}
+	return result, nil
+}
+
+func (s *FileService) purgeDeletedBody(ctx context.Context, row db.FileObject) error {
+	if row.StorageDriver != "local" {
+		err := fmt.Errorf("unsupported storage driver for purge")
+		_, _ = s.queries.MarkFileObjectPurgeFailed(ctx, db.MarkFileObjectPurgeFailedParams{
+			ID:        row.ID,
+			LastError: err.Error(),
+		})
+		return err
+	}
+
+	if err := s.storage.Delete(ctx, row.StorageKey); err != nil {
+		_, _ = s.queries.MarkFileObjectPurgeFailed(ctx, db.MarkFileObjectPurgeFailedParams{
+			ID:        row.ID,
+			LastError: err.Error(),
+		})
+		return err
+	}
+
+	purged, err := s.queries.MarkFileObjectBodyPurged(ctx, row.ID)
+	if err != nil {
+		return fmt.Errorf("mark file body purged: %w", err)
+	}
+
+	if s.audit != nil {
+		tenantID := purged.TenantID
+		s.audit.RecordBestEffort(ctx, AuditEventInput{
+			AuditContext: AuditContext{
+				ActorType: AuditActorSystem,
+				TenantID:  &tenantID,
+			},
+			Action:     "file.purge",
+			TargetType: "file",
+			TargetID:   purged.PublicID.String(),
+			Metadata: map[string]any{
+				"purpose":       purged.Purpose,
+				"contentType":   purged.ContentType,
+				"byteSize":      purged.ByteSize,
+				"storageDriver": purged.StorageDriver,
+			},
+		})
+	}
+
+	return nil
+}
+
 func (s *FileService) normalizeUploadInput(input FileUploadInput) (FileUploadInput, error) {
 	input.Purpose = strings.ToLower(strings.TrimSpace(input.Purpose))
 	if input.Purpose == "" {
@@ -379,6 +474,8 @@ func fileObjectFromDB(row db.FileObject) FileObject {
 		Status:           row.Status,
 		CreatedAt:        row.CreatedAt.Time,
 		UpdatedAt:        row.UpdatedAt.Time,
+		DeletedAt:        optionalPgTime(row.DeletedAt),
+		PurgedAt:         optionalPgTime(row.PurgedAt),
 	}
 }
 
@@ -387,6 +484,14 @@ func optionalText(value pgtype.Text) string {
 		return ""
 	}
 	return value.String
+}
+
+func optionalPgTime(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time
+	return &t
 }
 
 func DetectContentType(sample []byte) string {

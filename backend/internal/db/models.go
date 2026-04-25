@@ -105,6 +105,11 @@ type FileObject struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
+	PurgedAt         pgtype.Timestamptz `json:"purged_at"`
+	PurgeAttempts    int32              `json:"purge_attempts"`
+	PurgeLockedAt    pgtype.Timestamptz `json:"purge_locked_at"`
+	PurgeLockedBy    pgtype.Text        `json:"purge_locked_by"`
+	LastPurgeError   pgtype.Text        `json:"last_purge_error"`
 }
 
 type IdempotencyKey struct {
