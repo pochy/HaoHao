@@ -101,6 +101,9 @@ client.setConfig({
         headers.set('X-CSRF-Token', token)
       }
     }
+    if (method === 'POST' && !headers.get('Idempotency-Key')) {
+      headers.set('Idempotency-Key', crypto.randomUUID())
+    }
 
     return fetch(input, {
       ...init,

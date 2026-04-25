@@ -18,14 +18,21 @@ import (
 type Metrics struct {
 	registry *prometheus.Registry
 
-	httpRequestsTotal      *prometheus.CounterVec
-	httpRequestDuration    *prometheus.HistogramVec
-	dependencyPingDuration *prometheus.HistogramVec
-	readinessFailuresTotal *prometheus.CounterVec
-	reconcileRunsTotal     *prometheus.CounterVec
-	reconcileDuration      *prometheus.HistogramVec
-	reconcileSkippedTotal  *prometheus.CounterVec
-	authFailuresTotal      *prometheus.CounterVec
+	httpRequestsTotal       *prometheus.CounterVec
+	httpRequestDuration     *prometheus.HistogramVec
+	dependencyPingDuration  *prometheus.HistogramVec
+	readinessFailuresTotal  *prometheus.CounterVec
+	reconcileRunsTotal      *prometheus.CounterVec
+	reconcileDuration       *prometheus.HistogramVec
+	reconcileSkippedTotal   *prometheus.CounterVec
+	authFailuresTotal       *prometheus.CounterVec
+	outboxRunsTotal         *prometheus.CounterVec
+	outboxDuration          *prometheus.HistogramVec
+	outboxEventsTotal       *prometheus.CounterVec
+	rateLimitTotal          *prometheus.CounterVec
+	dataLifecycleRunsTotal  *prometheus.CounterVec
+	dataLifecycleItemsTotal *prometheus.CounterVec
+	fileQuotaExceededTotal  *prometheus.CounterVec
 }
 
 func NewMetrics(appVersion string) *Metrics {
@@ -91,6 +98,49 @@ func NewMetrics(appVersion string) *Metrics {
 			Help:        "Total number of bearer authentication failures.",
 			ConstLabels: constLabels,
 		}, []string{"kind", "reason"}),
+		outboxRunsTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "outbox_runs_total",
+			Help:        "Total number of outbox worker runs.",
+			ConstLabels: constLabels,
+		}, []string{"trigger", "status"}),
+		outboxDuration: factory.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace:   "haohao",
+			Name:        "outbox_duration_seconds",
+			Help:        "Outbox worker run duration in seconds.",
+			Buckets:     []float64{0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+			ConstLabels: constLabels,
+		}, []string{"trigger", "status"}),
+		outboxEventsTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "outbox_events_total",
+			Help:        "Total number of handled outbox events.",
+			ConstLabels: constLabels,
+		}, []string{"event_type", "status"}),
+		rateLimitTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "rate_limit_total",
+			Help:        "Total number of rate limit decisions.",
+			ConstLabels: constLabels,
+		}, []string{"policy", "result"}),
+		dataLifecycleRunsTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "data_lifecycle_runs_total",
+			Help:        "Total number of data lifecycle job runs.",
+			ConstLabels: constLabels,
+		}, []string{"trigger", "status"}),
+		dataLifecycleItemsTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "data_lifecycle_items_total",
+			Help:        "Total number of data lifecycle affected rows.",
+			ConstLabels: constLabels,
+		}, []string{"kind"}),
+		fileQuotaExceededTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "file_quota_exceeded_total",
+			Help:        "Total number of file uploads blocked by tenant quota.",
+			ConstLabels: constLabels,
+		}, []string{"purpose"}),
 	}
 }
 
@@ -183,4 +233,56 @@ func (m *Metrics) IncAuthFailure(kind, reason string) {
 		return
 	}
 	m.authFailuresTotal.WithLabelValues(kind, reason).Inc()
+}
+
+func (m *Metrics) ObserveOutboxRun(trigger string, duration time.Duration, err error) {
+	if m == nil {
+		return
+	}
+
+	status := "ok"
+	if err != nil {
+		status = "error"
+	}
+	m.outboxRunsTotal.WithLabelValues(trigger, status).Inc()
+	m.outboxDuration.WithLabelValues(trigger, status).Observe(duration.Seconds())
+}
+
+func (m *Metrics) IncOutboxEvent(eventType, status string) {
+	if m == nil {
+		return
+	}
+	m.outboxEventsTotal.WithLabelValues(eventType, status).Inc()
+}
+
+func (m *Metrics) IncRateLimit(policy, result string) {
+	if m == nil {
+		return
+	}
+	m.rateLimitTotal.WithLabelValues(policy, result).Inc()
+}
+
+func (m *Metrics) IncDataLifecycleRun(trigger string, err error) {
+	if m == nil {
+		return
+	}
+	status := "ok"
+	if err != nil {
+		status = "error"
+	}
+	m.dataLifecycleRunsTotal.WithLabelValues(trigger, status).Inc()
+}
+
+func (m *Metrics) IncDataLifecycleItems(kind string, count int64) {
+	if m == nil || count <= 0 {
+		return
+	}
+	m.dataLifecycleItemsTotal.WithLabelValues(kind).Add(float64(count))
+}
+
+func (m *Metrics) IncFileQuotaExceeded(purpose string) {
+	if m == nil {
+		return
+	}
+	m.fileQuotaExceededTotal.WithLabelValues(purpose).Inc()
 }

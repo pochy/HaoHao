@@ -43,6 +43,45 @@ type CustomerSignal struct {
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type FileObject struct {
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	TenantID         int64              `json:"tenant_id"`
+	UploadedByUserID pgtype.Int8        `json:"uploaded_by_user_id"`
+	Purpose          string             `json:"purpose"`
+	AttachedToType   pgtype.Text        `json:"attached_to_type"`
+	AttachedToID     pgtype.Text        `json:"attached_to_id"`
+	OriginalFilename string             `json:"original_filename"`
+	ContentType      string             `json:"content_type"`
+	ByteSize         int64              `json:"byte_size"`
+	Sha256Hex        string             `json:"sha256_hex"`
+	StorageDriver    string             `json:"storage_driver"`
+	StorageKey       string             `json:"storage_key"`
+	Status           string             `json:"status"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type IdempotencyKey struct {
+	ID                 int64              `json:"id"`
+	PublicID           uuid.UUID          `json:"public_id"`
+	TenantID           pgtype.Int8        `json:"tenant_id"`
+	ActorUserID        pgtype.Int8        `json:"actor_user_id"`
+	Scope              string             `json:"scope"`
+	IdempotencyKeyHash string             `json:"idempotency_key_hash"`
+	Method             string             `json:"method"`
+	Path               string             `json:"path"`
+	RequestHash        string             `json:"request_hash"`
+	Status             string             `json:"status"`
+	ResponseStatus     pgtype.Int4        `json:"response_status"`
+	ResponseSummary    []byte             `json:"response_summary"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	CompletedAt        pgtype.Timestamptz `json:"completed_at"`
+}
+
 type MachineClient struct {
 	ID               int64              `json:"id"`
 	Provider         string             `json:"provider"`
@@ -53,6 +92,23 @@ type MachineClient struct {
 	Active           bool               `json:"active"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Notification struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	TenantID        pgtype.Int8        `json:"tenant_id"`
+	RecipientUserID int64              `json:"recipient_user_id"`
+	Channel         string             `json:"channel"`
+	Template        string             `json:"template"`
+	Subject         string             `json:"subject"`
+	Body            string             `json:"body"`
+	Metadata        []byte             `json:"metadata"`
+	Status          string             `json:"status"`
+	OutboxEventID   pgtype.Int8        `json:"outbox_event_id"`
+	ReadAt          pgtype.Timestamptz `json:"read_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type OauthUserGrant struct {
@@ -72,6 +128,26 @@ type OauthUserGrant struct {
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 	TenantID               int64              `json:"tenant_id"`
+}
+
+type OutboxEvent struct {
+	ID            int64              `json:"id"`
+	PublicID      uuid.UUID          `json:"public_id"`
+	TenantID      pgtype.Int8        `json:"tenant_id"`
+	AggregateType string             `json:"aggregate_type"`
+	AggregateID   string             `json:"aggregate_id"`
+	EventType     string             `json:"event_type"`
+	Payload       []byte             `json:"payload"`
+	Status        string             `json:"status"`
+	Attempts      int32              `json:"attempts"`
+	MaxAttempts   int32              `json:"max_attempts"`
+	AvailableAt   pgtype.Timestamptz `json:"available_at"`
+	LockedAt      pgtype.Timestamptz `json:"locked_at"`
+	LockedBy      pgtype.Text        `json:"locked_by"`
+	LastError     pgtype.Text        `json:"last_error"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ProcessedAt   pgtype.Timestamptz `json:"processed_at"`
 }
 
 type ProvisioningSyncState struct {
@@ -105,6 +181,40 @@ type Tenant struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type TenantDataExport struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
+	OutboxEventID     pgtype.Int8        `json:"outbox_event_id"`
+	FileObjectID      pgtype.Int8        `json:"file_object_id"`
+	Format            string             `json:"format"`
+	Status            string             `json:"status"`
+	ErrorSummary      pgtype.Text        `json:"error_summary"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type TenantInvitation struct {
+	ID                     int64              `json:"id"`
+	PublicID               uuid.UUID          `json:"public_id"`
+	TenantID               int64              `json:"tenant_id"`
+	InvitedByUserID        pgtype.Int8        `json:"invited_by_user_id"`
+	AcceptedByUserID       pgtype.Int8        `json:"accepted_by_user_id"`
+	InviteeEmailNormalized string             `json:"invitee_email_normalized"`
+	RoleCodes              []byte             `json:"role_codes"`
+	TokenHash              string             `json:"token_hash"`
+	Status                 string             `json:"status"`
+	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
+	AcceptedAt             pgtype.Timestamptz `json:"accepted_at"`
+	RevokedAt              pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
 type TenantMembership struct {
 	UserID    int64              `json:"user_id"`
 	TenantID  int64              `json:"tenant_id"`
@@ -122,6 +232,18 @@ type TenantRoleOverride struct {
 	Effect    string             `json:"effect"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TenantSetting struct {
+	TenantID                      int64              `json:"tenant_id"`
+	FileQuotaBytes                int64              `json:"file_quota_bytes"`
+	RateLimitLoginPerMinute       pgtype.Int4        `json:"rate_limit_login_per_minute"`
+	RateLimitBrowserApiPerMinute  pgtype.Int4        `json:"rate_limit_browser_api_per_minute"`
+	RateLimitExternalApiPerMinute pgtype.Int4        `json:"rate_limit_external_api_per_minute"`
+	NotificationsEnabled          bool               `json:"notifications_enabled"`
+	Features                      []byte             `json:"features"`
+	CreatedAt                     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Todo struct {

@@ -45,9 +45,10 @@ type CreateCustomerSignalBody struct {
 }
 
 type CreateCustomerSignalInput struct {
-	SessionCookie http.Cookie `cookie:"SESSION_ID"`
-	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
-	Body          CreateCustomerSignalBody
+	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken      string      `header:"X-CSRF-Token" required:"true"`
+	IdempotencyKey string      `header:"Idempotency-Key"`
+	Body           CreateCustomerSignalBody
 }
 
 type CustomerSignalOutput struct {
@@ -127,11 +128,30 @@ func registerCustomerSignalRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 
+		attempt, err := beginIdempotency(ctx, deps, input.IdempotencyKey, http.MethodPost, "/api/v1/customer-signals", current.User.ID, &tenant.ID, input.Body)
+		if err != nil {
+			return nil, toIdempotencyHTTPError(err)
+		}
+		if attempt.Replay {
+			body, err := replayIdempotencyBody[CustomerSignalBody](attempt)
+			if err != nil {
+				return nil, err
+			}
+			return &CustomerSignalOutput{Body: body}, nil
+		}
+
 		item, err := deps.CustomerSignalService.Create(ctx, tenant.ID, current.User.ID, customerSignalCreateInputFromBody(input.Body), userAuditContext(ctx, current.User.ID, &tenant.ID))
 		if err != nil {
+			if deps.IdempotencyService != nil {
+				deps.IdempotencyService.Fail(ctx, attempt, http.StatusInternalServerError, err.Error())
+			}
 			return nil, toCustomerSignalHTTPError(err)
 		}
-		return &CustomerSignalOutput{Body: toCustomerSignalBody(item)}, nil
+		body := toCustomerSignalBody(item)
+		if err := completeIdempotency(ctx, deps, attempt, http.StatusOK, body); err != nil {
+			return nil, err
+		}
+		return &CustomerSignalOutput{Body: body}, nil
 	})
 
 	huma.Register(api, huma.Operation{

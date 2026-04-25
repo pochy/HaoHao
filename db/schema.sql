@@ -121,6 +121,87 @@ ALTER TABLE public.customer_signals ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
 
 
 --
+-- Name: file_objects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.file_objects (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    uploaded_by_user_id bigint,
+    purpose text DEFAULT 'attachment'::text NOT NULL,
+    attached_to_type text,
+    attached_to_id text,
+    original_filename text NOT NULL,
+    content_type text NOT NULL,
+    byte_size bigint NOT NULL,
+    sha256_hex text NOT NULL,
+    storage_driver text NOT NULL,
+    storage_key text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    CONSTRAINT file_objects_byte_size_check CHECK ((byte_size >= 0)),
+    CONSTRAINT file_objects_purpose_check CHECK ((purpose = ANY (ARRAY['attachment'::text, 'avatar'::text, 'import'::text, 'export'::text]))),
+    CONSTRAINT file_objects_status_check CHECK ((status = ANY (ARRAY['active'::text, 'deleted'::text])))
+);
+
+
+--
+-- Name: file_objects_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.file_objects ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.file_objects_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: idempotency_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.idempotency_keys (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint,
+    actor_user_id bigint,
+    scope text NOT NULL,
+    idempotency_key_hash text NOT NULL,
+    method text NOT NULL,
+    path text NOT NULL,
+    request_hash text NOT NULL,
+    status text DEFAULT 'processing'::text NOT NULL,
+    response_status integer,
+    response_summary jsonb DEFAULT '{}'::jsonb NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    CONSTRAINT idempotency_keys_status_check CHECK ((status = ANY (ARRAY['processing'::text, 'completed'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: idempotency_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.idempotency_keys ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.idempotency_keys_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: machine_clients; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -146,6 +227,44 @@ CREATE TABLE public.machine_clients (
 
 ALTER TABLE public.machine_clients ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.machine_clients_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: notifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notifications (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint,
+    recipient_user_id bigint NOT NULL,
+    channel text DEFAULT 'in_app'::text NOT NULL,
+    template text NOT NULL,
+    subject text DEFAULT ''::text NOT NULL,
+    body text DEFAULT ''::text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    status text DEFAULT 'queued'::text NOT NULL,
+    outbox_event_id bigint,
+    read_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT notifications_channel_check CHECK ((channel = ANY (ARRAY['in_app'::text, 'email'::text]))),
+    CONSTRAINT notifications_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'sent'::text, 'failed'::text, 'read'::text, 'suppressed'::text])))
+);
+
+
+--
+-- Name: notifications_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.notifications ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.notifications_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -184,6 +303,48 @@ CREATE TABLE public.oauth_user_grants (
 
 ALTER TABLE public.oauth_user_grants ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.oauth_user_grants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: outbox_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.outbox_events (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint,
+    aggregate_type text NOT NULL,
+    aggregate_id text NOT NULL,
+    event_type text NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    max_attempts integer DEFAULT 8 NOT NULL,
+    available_at timestamp with time zone DEFAULT now() NOT NULL,
+    locked_at timestamp with time zone,
+    locked_by text,
+    last_error text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    processed_at timestamp with time zone,
+    CONSTRAINT outbox_events_attempts_check CHECK ((attempts >= 0)),
+    CONSTRAINT outbox_events_max_attempts_check CHECK ((max_attempts > 0)),
+    CONSTRAINT outbox_events_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'sent'::text, 'failed'::text, 'dead'::text])))
+);
+
+
+--
+-- Name: outbox_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.outbox_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.outbox_events_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -244,6 +405,81 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: tenant_data_exports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenant_data_exports (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    requested_by_user_id bigint,
+    outbox_event_id bigint,
+    file_object_id bigint,
+    format text DEFAULT 'json'::text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    error_summary text,
+    expires_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    deleted_at timestamp with time zone,
+    CONSTRAINT tenant_data_exports_format_check CHECK ((format = ANY (ARRAY['json'::text, 'csv'::text]))),
+    CONSTRAINT tenant_data_exports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'ready'::text, 'failed'::text, 'deleted'::text])))
+);
+
+
+--
+-- Name: tenant_data_exports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.tenant_data_exports ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.tenant_data_exports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: tenant_invitations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenant_invitations (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    invited_by_user_id bigint,
+    accepted_by_user_id bigint,
+    invitee_email_normalized text NOT NULL,
+    role_codes jsonb DEFAULT '[]'::jsonb NOT NULL,
+    token_hash text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    accepted_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT tenant_invitations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'revoked'::text, 'expired'::text])))
+);
+
+
+--
+-- Name: tenant_invitations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.tenant_invitations ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.tenant_invitations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: tenant_memberships; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -271,6 +507,27 @@ CREATE TABLE public.tenant_role_overrides (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT tenant_role_overrides_effect_check CHECK ((effect = ANY (ARRAY['allow'::text, 'deny'::text])))
+);
+
+
+--
+-- Name: tenant_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenant_settings (
+    tenant_id bigint NOT NULL,
+    file_quota_bytes bigint NOT NULL,
+    rate_limit_login_per_minute integer,
+    rate_limit_browser_api_per_minute integer,
+    rate_limit_external_api_per_minute integer,
+    notifications_enabled boolean DEFAULT true NOT NULL,
+    features jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT tenant_settings_file_quota_bytes_check CHECK ((file_quota_bytes >= 0)),
+    CONSTRAINT tenant_settings_rate_limit_browser_api_per_minute_check CHECK (((rate_limit_browser_api_per_minute IS NULL) OR (rate_limit_browser_api_per_minute > 0))),
+    CONSTRAINT tenant_settings_rate_limit_external_api_per_minute_check CHECK (((rate_limit_external_api_per_minute IS NULL) OR (rate_limit_external_api_per_minute > 0))),
+    CONSTRAINT tenant_settings_rate_limit_login_per_minute_check CHECK (((rate_limit_login_per_minute IS NULL) OR (rate_limit_login_per_minute > 0)))
 );
 
 
@@ -424,6 +681,22 @@ ALTER TABLE ONLY public.customer_signals
 
 
 --
+-- Name: file_objects file_objects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.file_objects
+    ADD CONSTRAINT file_objects_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idempotency_keys idempotency_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.idempotency_keys
+    ADD CONSTRAINT idempotency_keys_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: machine_clients machine_clients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -440,6 +713,14 @@ ALTER TABLE ONLY public.machine_clients
 
 
 --
+-- Name: notifications notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: oauth_user_grants oauth_user_grants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -453,6 +734,14 @@ ALTER TABLE ONLY public.oauth_user_grants
 
 ALTER TABLE ONLY public.oauth_user_grants
     ADD CONSTRAINT oauth_user_grants_user_id_provider_resource_server_tenant_id_ke UNIQUE (user_id, provider, resource_server, tenant_id);
+
+
+--
+-- Name: outbox_events outbox_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.outbox_events
+    ADD CONSTRAINT outbox_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -488,6 +777,22 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: tenant_data_exports tenant_data_exports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_data_exports
+    ADD CONSTRAINT tenant_data_exports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tenant_invitations tenant_invitations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_invitations
+    ADD CONSTRAINT tenant_invitations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: tenant_memberships tenant_memberships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -501,6 +806,14 @@ ALTER TABLE ONLY public.tenant_memberships
 
 ALTER TABLE ONLY public.tenant_role_overrides
     ADD CONSTRAINT tenant_role_overrides_pkey PRIMARY KEY (user_id, tenant_id, role_id, effect);
+
+
+--
+-- Name: tenant_settings tenant_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_settings
+    ADD CONSTRAINT tenant_settings_pkey PRIMARY KEY (tenant_id);
 
 
 --
@@ -652,10 +965,80 @@ CREATE INDEX customer_signals_tenant_status_created_at_idx ON public.customer_si
 
 
 --
+-- Name: file_objects_attachment_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX file_objects_attachment_idx ON public.file_objects USING btree (tenant_id, attached_to_type, attached_to_id, created_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: file_objects_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX file_objects_public_id_key ON public.file_objects USING btree (public_id);
+
+
+--
+-- Name: file_objects_storage_key_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX file_objects_storage_key_key ON public.file_objects USING btree (storage_key);
+
+
+--
+-- Name: file_objects_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX file_objects_tenant_created_idx ON public.file_objects USING btree (tenant_id, created_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idempotency_keys_expires_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idempotency_keys_expires_idx ON public.idempotency_keys USING btree (expires_at) WHERE (status = ANY (ARRAY['completed'::text, 'failed'::text]));
+
+
+--
+-- Name: idempotency_keys_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idempotency_keys_public_id_key ON public.idempotency_keys USING btree (public_id);
+
+
+--
+-- Name: idempotency_keys_scope_key_hash_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idempotency_keys_scope_key_hash_key ON public.idempotency_keys USING btree (scope, idempotency_key_hash);
+
+
+--
 -- Name: machine_clients_default_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX machine_clients_default_tenant_id_idx ON public.machine_clients USING btree (default_tenant_id);
+
+
+--
+-- Name: notifications_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX notifications_public_id_key ON public.notifications USING btree (public_id);
+
+
+--
+-- Name: notifications_recipient_unread_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notifications_recipient_unread_idx ON public.notifications USING btree (recipient_user_id, created_at DESC) WHERE (read_at IS NULL);
+
+
+--
+-- Name: notifications_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notifications_tenant_created_idx ON public.notifications USING btree (tenant_id, created_at DESC) WHERE (tenant_id IS NOT NULL);
 
 
 --
@@ -677,6 +1060,76 @@ CREATE INDEX oauth_user_grants_resource_server_idx ON public.oauth_user_grants U
 --
 
 CREATE INDEX oauth_user_grants_tenant_id_idx ON public.oauth_user_grants USING btree (tenant_id);
+
+
+--
+-- Name: outbox_events_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX outbox_events_pending_idx ON public.outbox_events USING btree (available_at, id) WHERE (status = ANY (ARRAY['pending'::text, 'failed'::text]));
+
+
+--
+-- Name: outbox_events_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX outbox_events_public_id_key ON public.outbox_events USING btree (public_id);
+
+
+--
+-- Name: outbox_events_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX outbox_events_tenant_created_idx ON public.outbox_events USING btree (tenant_id, created_at DESC) WHERE (tenant_id IS NOT NULL);
+
+
+--
+-- Name: tenant_data_exports_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_data_exports_pending_idx ON public.tenant_data_exports USING btree (created_at, id) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]));
+
+
+--
+-- Name: tenant_data_exports_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX tenant_data_exports_public_id_key ON public.tenant_data_exports USING btree (public_id);
+
+
+--
+-- Name: tenant_data_exports_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_data_exports_tenant_created_idx ON public.tenant_data_exports USING btree (tenant_id, created_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: tenant_invitations_expires_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_invitations_expires_idx ON public.tenant_invitations USING btree (expires_at) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: tenant_invitations_pending_tenant_email_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_invitations_pending_tenant_email_idx ON public.tenant_invitations USING btree (tenant_id, invitee_email_normalized) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: tenant_invitations_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX tenant_invitations_public_id_key ON public.tenant_invitations USING btree (public_id);
+
+
+--
+-- Name: tenant_invitations_token_hash_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX tenant_invitations_token_hash_key ON public.tenant_invitations USING btree (token_hash);
 
 
 --
@@ -783,11 +1236,67 @@ ALTER TABLE ONLY public.customer_signals
 
 
 --
+-- Name: file_objects file_objects_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.file_objects
+    ADD CONSTRAINT file_objects_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: file_objects file_objects_uploaded_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.file_objects
+    ADD CONSTRAINT file_objects_uploaded_by_user_id_fkey FOREIGN KEY (uploaded_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: idempotency_keys idempotency_keys_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.idempotency_keys
+    ADD CONSTRAINT idempotency_keys_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: idempotency_keys idempotency_keys_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.idempotency_keys
+    ADD CONSTRAINT idempotency_keys_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: machine_clients machine_clients_default_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.machine_clients
     ADD CONSTRAINT machine_clients_default_tenant_id_fkey FOREIGN KEY (default_tenant_id) REFERENCES public.tenants(id) ON DELETE SET NULL;
+
+
+--
+-- Name: notifications notifications_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: notifications notifications_recipient_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_recipient_user_id_fkey FOREIGN KEY (recipient_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notifications notifications_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -804,6 +1313,70 @@ ALTER TABLE ONLY public.oauth_user_grants
 
 ALTER TABLE ONLY public.oauth_user_grants
     ADD CONSTRAINT oauth_user_grants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: outbox_events outbox_events_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.outbox_events
+    ADD CONSTRAINT outbox_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE SET NULL;
+
+
+--
+-- Name: tenant_data_exports tenant_data_exports_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_data_exports
+    ADD CONSTRAINT tenant_data_exports_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE SET NULL;
+
+
+--
+-- Name: tenant_data_exports tenant_data_exports_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_data_exports
+    ADD CONSTRAINT tenant_data_exports_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: tenant_data_exports tenant_data_exports_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_data_exports
+    ADD CONSTRAINT tenant_data_exports_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: tenant_data_exports tenant_data_exports_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_data_exports
+    ADD CONSTRAINT tenant_data_exports_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_invitations tenant_invitations_accepted_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_invitations
+    ADD CONSTRAINT tenant_invitations_accepted_by_user_id_fkey FOREIGN KEY (accepted_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: tenant_invitations tenant_invitations_invited_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_invitations
+    ADD CONSTRAINT tenant_invitations_invited_by_user_id_fkey FOREIGN KEY (invited_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: tenant_invitations tenant_invitations_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_invitations
+    ADD CONSTRAINT tenant_invitations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -852,6 +1425,14 @@ ALTER TABLE ONLY public.tenant_role_overrides
 
 ALTER TABLE ONLY public.tenant_role_overrides
     ADD CONSTRAINT tenant_role_overrides_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_settings tenant_settings_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_settings
+    ADD CONSTRAINT tenant_settings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --

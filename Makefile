@@ -80,3 +80,9 @@ smoke-tenant-admin:
 
 smoke-customer-signals:
 	bash scripts/smoke-customer-signals.sh
+
+smoke-common-services:
+	bash scripts/smoke-common-services.sh
+
+smoke-backup-restore:
+	bash scripts/smoke-backup-restore.sh

@@ -75,6 +75,8 @@ func main() {
 
 	queries := db.New(pool)
 	auditService := service.NewAuditService(queries)
+	outboxService := service.NewOutboxService(pool, queries, cfg.OutboxWorkerMaxAttempts)
+	idempotencyService := service.NewIdempotencyService(queries, cfg.IdempotencyTTL)
 	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
 	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode, cfg.EnableLocalPasswordLogin, auditService)
 	authzService := service.NewAuthzService(pool, queries)
@@ -82,6 +84,14 @@ func main() {
 	customerSignalService := service.NewCustomerSignalService(pool, queries, auditService)
 	todoService := service.NewTodoService(pool, queries, auditService)
 	machineClientService := service.NewMachineClientService(pool, queries, cfg.M2MRequiredScopePrefix, auditService)
+	notificationService := service.NewNotificationService(queries, auditService)
+	tenantSettingsService := service.NewTenantSettingsService(queries, auditService, cfg.TenantDefaultFileQuotaBytes)
+	fileStorage := service.NewLocalFileStorage(cfg.FileLocalDir)
+	fileService := service.NewFileService(pool, queries, fileStorage, tenantSettingsService, auditService, cfg.FileMaxBytes, cfg.FileAllowedMIMETypes, metrics)
+	tenantInvitationService := service.NewTenantInvitationService(pool, queries, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)
+	tenantDataExportService := service.NewTenantDataExportService(pool, queries, outboxService, fileService, auditService, cfg.DataExportTTL)
+	emailSender := service.NewLogEmailSender(logger, cfg.EmailFrom)
+	outboxHandler := service.NewOutboxHandler(emailSender, notificationService, tenantInvitationService, tenantDataExportService)
 
 	var oidcLoginService *service.OIDCLoginService
 	var delegationService *service.DelegationService
@@ -150,11 +160,26 @@ func main() {
 		Timeout:      cfg.SCIMReconcileTimeout,
 		RunOnStartup: cfg.SCIMReconcileRunOnStartup,
 	}, logger, metrics)
+	outboxWorker := jobs.NewOutboxWorker(outboxService, outboxHandler, jobs.OutboxWorkerConfig{
+		Enabled:   cfg.OutboxWorkerEnabled,
+		Interval:  cfg.OutboxWorkerInterval,
+		Timeout:   cfg.OutboxWorkerTimeout,
+		BatchSize: cfg.OutboxWorkerBatchSize,
+	}, logger, metrics)
+	dataLifecycleJob := jobs.NewDataLifecycleJob(queries, jobs.DataLifecycleConfig{
+		Enabled:               cfg.DataLifecycleEnabled,
+		Interval:              cfg.DataLifecycleInterval,
+		Timeout:               cfg.DataLifecycleTimeout,
+		RunOnStartup:          cfg.DataLifecycleRunOnStartup,
+		OutboxRetention:       cfg.OutboxRetention,
+		NotificationRetention: cfg.NotificationRetention,
+		FileDeletedRetention:  cfg.FileDeletedRetention,
+	}, logger, metrics)
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, bearerVerifier, m2mVerifier, metrics)
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics)
 	app.RegisterHealthRoutes(application.Router, platform.ReadinessChecker{
 		PostgresPing:  pool.Ping,
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },
@@ -174,6 +199,8 @@ func main() {
 	}
 
 	go reconcileScheduler.Start(shutdownCtx)
+	go outboxWorker.Start(shutdownCtx)
+	go dataLifecycleJob.Start(shutdownCtx)
 
 	go func() {
 		logger.Info("listening", "url", fmt.Sprintf("http://127.0.0.1:%d", cfg.HTTPPort))

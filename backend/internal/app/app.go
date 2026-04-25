@@ -14,6 +14,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humagin"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 type App struct {
@@ -21,14 +22,29 @@ type App struct {
 	API    huma.API
 }
 
-func New(cfg config.Config, logger *slog.Logger, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, auditService *service.AuditService, tenantAdminService *service.TenantAdminService, customerSignalService *service.CustomerSignalService, todoService *service.TodoService, machineClientService *service.MachineClientService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier, metrics *platform.Metrics) *App {
+func New(cfg config.Config, logger *slog.Logger, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, auditService *service.AuditService, tenantAdminService *service.TenantAdminService, customerSignalService *service.CustomerSignalService, todoService *service.TodoService, machineClientService *service.MachineClientService, outboxService *service.OutboxService, idempotencyService *service.IdempotencyService, notificationService *service.NotificationService, tenantInvitationService *service.TenantInvitationService, fileService *service.FileService, tenantSettingsService *service.TenantSettingsService, tenantDataExportService *service.TenantDataExportService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier, redisClient *redis.Client, metrics *platform.Metrics) *App {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
 
 	router := gin.New()
+	trustedProxies := cfg.TrustedProxyCIDRs
+	if len(trustedProxies) == 0 {
+		trustedProxies = []string{"127.0.0.1", "::1"}
+	}
+	if err := router.SetTrustedProxies(trustedProxies); err != nil {
+		logger.Warn("failed to set trusted proxies", "error", err)
+	}
 	handlers := []gin.HandlerFunc{
 		middleware.RequestID(),
+		middleware.SecurityHeaders(middleware.SecurityHeadersConfig{
+			Enabled:     cfg.SecurityHeadersEnabled,
+			CSP:         cfg.SecurityCSP,
+			HSTSEnabled: cfg.SecurityHSTSEnabled,
+			HSTSMaxAge:  cfg.SecurityHSTSMaxAge,
+		}),
+		middleware.BodyLimit(cfg.MaxRequestBodyBytes),
+		middleware.BrowserCORS(cfg.CORSAllowedOrigins),
 	}
 	if cfg.OTELTracingEnabled {
 		handlers = append(handlers, middleware.Trace(cfg.OTELServiceName))
@@ -38,6 +54,12 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		router.GET(cfg.MetricsPath, gin.WrapH(metrics.Handler()))
 	}
 	handlers = append(handlers,
+		middleware.RateLimit(redisClient, middleware.RateLimitConfig{
+			Enabled:              cfg.RateLimitEnabled,
+			LoginPerMinute:       cfg.RateLimitLoginPerMinute,
+			BrowserAPIPerMinute:  cfg.RateLimitBrowserAPIPerMinute,
+			ExternalAPIPerMinute: cfg.RateLimitExternalAPIPerMinute,
+		}, metrics),
 		middleware.RequestLogger(logger),
 		gin.Recovery(),
 		middleware.DocsAuth(cfg.DocsAuthRequired, sessionService, authzService),
@@ -80,6 +102,13 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		CustomerSignalService:        customerSignalService,
 		TodoService:                  todoService,
 		MachineClientService:         machineClientService,
+		OutboxService:                outboxService,
+		IdempotencyService:           idempotencyService,
+		NotificationService:          notificationService,
+		TenantInvitationService:      tenantInvitationService,
+		FileService:                  fileService,
+		TenantSettingsService:        tenantSettingsService,
+		TenantDataExportService:      tenantDataExportService,
 		AuthMode:                     cfg.AuthMode,
 		EnableLocalPasswordLogin:     cfg.EnableLocalPasswordLogin,
 		SCIMBasePath:                 cfg.SCIMBasePath,
@@ -90,6 +119,14 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		CookieSecure:                 cfg.CookieSecure,
 		SessionTTL:                   cfg.SessionTTL,
 	})
+	backendapi.RegisterRawFileRoutes(router, backendapi.Dependencies{
+		SessionService:        sessionService,
+		AuthzService:          authzService,
+		FileService:           fileService,
+		TenantAdminService:    tenantAdminService,
+		CustomerSignalService: customerSignalService,
+		TodoService:           todoService,
+	}, cfg.FileMaxBytes)
 
 	return &App{
 		Router: router,

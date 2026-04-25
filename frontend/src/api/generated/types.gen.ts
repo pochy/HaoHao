@@ -4,6 +4,14 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type AcceptTenantInvitationRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    token: string;
+};
+
 export type AuthSettingsBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -42,6 +50,23 @@ export type CreateCustomerSignalBody = {
     source?: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
     status?: 'new' | 'triaged' | 'planned' | 'closed';
     title: string;
+};
+
+export type CreateTenantDataExportRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    format?: 'json';
+};
+
+export type CreateTenantInvitationRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    email: string;
+    roleCodes?: Array<string> | null;
 };
 
 export type CreateTodoBody = {
@@ -137,6 +162,29 @@ export type ExternalMeBody = {
     subject: string;
     tenants?: Array<TenantBody> | null;
     user?: UserResponse;
+};
+
+export type FileListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<FileObjectBody> | null;
+};
+
+export type FileObjectBody = {
+    attachedToId?: string;
+    attachedToType?: string;
+    byteSize: number;
+    contentType: string;
+    createdAt: string;
+    originalFilename: string;
+    publicId: string;
+    purpose: string;
+    sha256Hex: string;
+    status: string;
+    tenantId: number;
+    updatedAt: string;
 };
 
 export type IntegrationStatusBody = {
@@ -240,6 +288,31 @@ export type MachineClientRequestBody = {
     displayName: string;
     provider?: string;
     providerClientId: string;
+};
+
+export type NotificationBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    body: string;
+    channel: string;
+    createdAt: string;
+    publicId: string;
+    readAt?: string;
+    status: string;
+    subject: string;
+    template: string;
+    tenantId?: number;
+    updatedAt: string;
+};
+
+export type NotificationListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<NotificationBody> | null;
 };
 
 export type ScimGroupBody = {
@@ -376,6 +449,89 @@ export type TenantBody = {
     slug: string;
 };
 
+export type TenantDataExportBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    completedAt?: string;
+    createdAt: string;
+    errorSummary?: string;
+    expiresAt: string;
+    fileObjectId?: number;
+    format: string;
+    publicId: string;
+    status: string;
+    tenantId: number;
+    updatedAt: string;
+};
+
+export type TenantDataExportListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<TenantDataExportBody> | null;
+};
+
+export type TenantInvitationBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    acceptUrl?: string;
+    createdAt: string;
+    expiresAt: string;
+    inviteeEmailNormalized: string;
+    publicId: string;
+    roleCodes: Array<string> | null;
+    status: string;
+    tenantId: number;
+    token?: string;
+    updatedAt: string;
+};
+
+export type TenantInvitationListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<TenantInvitationBody> | null;
+};
+
+export type TenantSettingsBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    features: {
+        [key: string]: unknown;
+    };
+    fileQuotaBytes: number;
+    notificationsEnabled: boolean;
+    rateLimitBrowserApiPerMinute?: number;
+    rateLimitExternalApiPerMinute?: number;
+    rateLimitLoginPerMinute?: number;
+    tenantId: number;
+    updatedAt: string;
+};
+
+export type TenantSettingsRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    features?: {
+        [key: string]: unknown;
+    };
+    fileQuotaBytes: number;
+    notificationsEnabled: boolean;
+    rateLimitBrowserApiPerMinute?: number;
+    rateLimitExternalApiPerMinute?: number;
+    rateLimitLoginPerMinute?: number;
+};
+
 export type TodoBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -441,6 +597,10 @@ export type ZitadelSettingsBody = {
     issuer: string;
 };
 
+export type AcceptTenantInvitationRequestBodyWritable = {
+    token: string;
+};
+
 export type AuthSettingsBodyWritable = {
     localPasswordLoginEnabled: boolean;
     mode: string;
@@ -454,6 +614,15 @@ export type CreateCustomerSignalBodyWritable = {
     source?: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
     status?: 'new' | 'triaged' | 'planned' | 'closed';
     title: string;
+};
+
+export type CreateTenantDataExportRequestBodyWritable = {
+    format?: 'json';
+};
+
+export type CreateTenantInvitationRequestBodyWritable = {
+    email: string;
+    roleCodes?: Array<string> | null;
 };
 
 export type CreateTodoBodyWritable = {
@@ -516,6 +685,10 @@ export type ExternalMeBodyWritable = {
     user?: UserResponse;
 };
 
+export type FileListOutputBodyWritable = {
+    items: Array<FileObjectBody> | null;
+};
+
 export type ListIntegrationsBodyWritable = {
     items: Array<IntegrationStatusBody> | null;
 };
@@ -570,6 +743,23 @@ export type MachineClientRequestBodyWritable = {
     displayName: string;
     provider?: string;
     providerClientId: string;
+};
+
+export type NotificationBodyWritable = {
+    body: string;
+    channel: string;
+    createdAt: string;
+    publicId: string;
+    readAt?: string;
+    status: string;
+    subject: string;
+    template: string;
+    tenantId?: number;
+    updatedAt: string;
+};
+
+export type NotificationListOutputBodyWritable = {
+    items: Array<NotificationBodyWritable> | null;
 };
 
 export type ScimListResponseBodyWritable = {
@@ -631,6 +821,65 @@ export type TenantAdminTenantRequestBodyWritable = {
     active?: boolean;
     displayName: string;
     slug?: string;
+};
+
+export type TenantDataExportBodyWritable = {
+    completedAt?: string;
+    createdAt: string;
+    errorSummary?: string;
+    expiresAt: string;
+    fileObjectId?: number;
+    format: string;
+    publicId: string;
+    status: string;
+    tenantId: number;
+    updatedAt: string;
+};
+
+export type TenantDataExportListOutputBodyWritable = {
+    items: Array<TenantDataExportBodyWritable> | null;
+};
+
+export type TenantInvitationBodyWritable = {
+    acceptUrl?: string;
+    createdAt: string;
+    expiresAt: string;
+    inviteeEmailNormalized: string;
+    publicId: string;
+    roleCodes: Array<string> | null;
+    status: string;
+    tenantId: number;
+    token?: string;
+    updatedAt: string;
+};
+
+export type TenantInvitationListOutputBodyWritable = {
+    items: Array<TenantInvitationBodyWritable> | null;
+};
+
+export type TenantSettingsBodyWritable = {
+    createdAt: string;
+    features: {
+        [key: string]: unknown;
+    };
+    fileQuotaBytes: number;
+    notificationsEnabled: boolean;
+    rateLimitBrowserApiPerMinute?: number;
+    rateLimitExternalApiPerMinute?: number;
+    rateLimitLoginPerMinute?: number;
+    tenantId: number;
+    updatedAt: string;
+};
+
+export type TenantSettingsRequestBodyWritable = {
+    features?: {
+        [key: string]: unknown;
+    };
+    fileQuotaBytes: number;
+    notificationsEnabled: boolean;
+    rateLimitBrowserApiPerMinute?: number;
+    rateLimitExternalApiPerMinute?: number;
+    rateLimitLoginPerMinute?: number;
 };
 
 export type TodoBodyWritable = {
@@ -1025,6 +1274,209 @@ export type UpdateTenantAdminTenantResponses = {
 
 export type UpdateTenantAdminTenantResponse = UpdateTenantAdminTenantResponses[keyof UpdateTenantAdminTenantResponses];
 
+export type ListTenantDataExportsData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/exports';
+};
+
+export type ListTenantDataExportsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantDataExportsError = ListTenantDataExportsErrors[keyof ListTenantDataExportsErrors];
+
+export type ListTenantDataExportsResponses = {
+    /**
+     * OK
+     */
+    200: TenantDataExportListOutputBody;
+};
+
+export type ListTenantDataExportsResponse = ListTenantDataExportsResponses[keyof ListTenantDataExportsResponses];
+
+export type CreateTenantDataExportData = {
+    body: CreateTenantDataExportRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+        'Idempotency-Key'?: string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/exports';
+};
+
+export type CreateTenantDataExportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateTenantDataExportError = CreateTenantDataExportErrors[keyof CreateTenantDataExportErrors];
+
+export type CreateTenantDataExportResponses = {
+    /**
+     * OK
+     */
+    200: TenantDataExportBody;
+};
+
+export type CreateTenantDataExportResponse = CreateTenantDataExportResponses[keyof CreateTenantDataExportResponses];
+
+export type GetTenantDataExportData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+        exportPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/exports/{exportPublicId}';
+};
+
+export type GetTenantDataExportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetTenantDataExportError = GetTenantDataExportErrors[keyof GetTenantDataExportErrors];
+
+export type GetTenantDataExportResponses = {
+    /**
+     * OK
+     */
+    200: TenantDataExportBody;
+};
+
+export type GetTenantDataExportResponse = GetTenantDataExportResponses[keyof GetTenantDataExportResponses];
+
+export type DownloadTenantDataExportData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+        exportPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/exports/{exportPublicId}/download';
+};
+
+export type DownloadTenantDataExportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DownloadTenantDataExportError = DownloadTenantDataExportErrors[keyof DownloadTenantDataExportErrors];
+
+export type DownloadTenantDataExportResponses = {
+    /**
+     * OK
+     */
+    200: string;
+};
+
+export type DownloadTenantDataExportResponse = DownloadTenantDataExportResponses[keyof DownloadTenantDataExportResponses];
+
+export type ListTenantInvitationsData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/invitations';
+};
+
+export type ListTenantInvitationsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantInvitationsError = ListTenantInvitationsErrors[keyof ListTenantInvitationsErrors];
+
+export type ListTenantInvitationsResponses = {
+    /**
+     * OK
+     */
+    200: TenantInvitationListOutputBody;
+};
+
+export type ListTenantInvitationsResponse = ListTenantInvitationsResponses[keyof ListTenantInvitationsResponses];
+
+export type CreateTenantInvitationData = {
+    body: CreateTenantInvitationRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+        'Idempotency-Key'?: string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/invitations';
+};
+
+export type CreateTenantInvitationErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateTenantInvitationError = CreateTenantInvitationErrors[keyof CreateTenantInvitationErrors];
+
+export type CreateTenantInvitationResponses = {
+    /**
+     * OK
+     */
+    200: TenantInvitationBody;
+};
+
+export type CreateTenantInvitationResponse = CreateTenantInvitationResponses[keyof CreateTenantInvitationResponses];
+
+export type RevokeTenantInvitationData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        invitationPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/invitations/{invitationPublicId}';
+};
+
+export type RevokeTenantInvitationErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RevokeTenantInvitationError = RevokeTenantInvitationErrors[keyof RevokeTenantInvitationErrors];
+
+export type RevokeTenantInvitationResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RevokeTenantInvitationResponse = RevokeTenantInvitationResponses[keyof RevokeTenantInvitationResponses];
+
 export type GrantTenantAdminRoleData = {
     body: TenantAdminMembershipRequestBodyWritable;
     headers: {
@@ -1086,6 +1538,63 @@ export type RevokeTenantAdminRoleResponses = {
 };
 
 export type RevokeTenantAdminRoleResponse = RevokeTenantAdminRoleResponses[keyof RevokeTenantAdminRoleResponses];
+
+export type GetTenantSettingsData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/settings';
+};
+
+export type GetTenantSettingsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetTenantSettingsError = GetTenantSettingsErrors[keyof GetTenantSettingsErrors];
+
+export type GetTenantSettingsResponses = {
+    /**
+     * OK
+     */
+    200: TenantSettingsBody;
+};
+
+export type GetTenantSettingsResponse = GetTenantSettingsResponses[keyof GetTenantSettingsResponses];
+
+export type UpdateTenantSettingsData = {
+    body: TenantSettingsRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/settings';
+};
+
+export type UpdateTenantSettingsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateTenantSettingsError = UpdateTenantSettingsErrors[keyof UpdateTenantSettingsErrors];
+
+export type UpdateTenantSettingsResponses = {
+    /**
+     * OK
+     */
+    200: TenantSettingsBody;
+};
+
+export type UpdateTenantSettingsResponse = UpdateTenantSettingsResponses[keyof UpdateTenantSettingsResponses];
 
 export type FinishOidcLoginData = {
     body?: never;
@@ -1223,6 +1732,7 @@ export type CreateCustomerSignalData = {
     body: CreateCustomerSignalBodyWritable;
     headers: {
         'X-CSRF-Token': string;
+        'Idempotency-Key'?: string;
     };
     path?: never;
     query?: never;
@@ -1333,6 +1843,64 @@ export type UpdateCustomerSignalResponses = {
 };
 
 export type UpdateCustomerSignalResponse = UpdateCustomerSignalResponses[keyof UpdateCustomerSignalResponses];
+
+export type ListFilesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        attachedToType?: string;
+        attachedToId?: string;
+    };
+    url: '/api/v1/files';
+};
+
+export type ListFilesErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListFilesError = ListFilesErrors[keyof ListFilesErrors];
+
+export type ListFilesResponses = {
+    /**
+     * OK
+     */
+    200: FileListOutputBody;
+};
+
+export type ListFilesResponse = ListFilesResponses[keyof ListFilesResponses];
+
+export type DeleteFileData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{filePublicId}';
+};
+
+export type DeleteFileErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeleteFileError = DeleteFileErrors[keyof DeleteFileErrors];
+
+export type DeleteFileResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteFileResponse = DeleteFileResponses[keyof DeleteFileResponses];
 
 export type ListIntegrationsData = {
     body?: never;
@@ -1477,6 +2045,35 @@ export type VerifyIntegrationAccessResponses = {
 };
 
 export type VerifyIntegrationAccessResponse = VerifyIntegrationAccessResponses[keyof VerifyIntegrationAccessResponses];
+
+export type AcceptTenantInvitationData = {
+    body: AcceptTenantInvitationRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+        'Idempotency-Key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/invitations/accept';
+};
+
+export type AcceptTenantInvitationErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type AcceptTenantInvitationError = AcceptTenantInvitationErrors[keyof AcceptTenantInvitationErrors];
+
+export type AcceptTenantInvitationResponses = {
+    /**
+     * OK
+     */
+    200: TenantInvitationBody;
+};
+
+export type AcceptTenantInvitationResponse = AcceptTenantInvitationResponses[keyof AcceptTenantInvitationResponses];
 
 export type LoginData = {
     body: LoginInputBodyWritable;
@@ -1670,6 +2267,63 @@ export type UpdateMachineClientResponses = {
 };
 
 export type UpdateMachineClientResponse = UpdateMachineClientResponses[keyof UpdateMachineClientResponses];
+
+export type ListNotificationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/notifications';
+};
+
+export type ListNotificationsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListNotificationsError = ListNotificationsErrors[keyof ListNotificationsErrors];
+
+export type ListNotificationsResponses = {
+    /**
+     * OK
+     */
+    200: NotificationListOutputBody;
+};
+
+export type ListNotificationsResponse = ListNotificationsResponses[keyof ListNotificationsResponses];
+
+export type MarkNotificationReadData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        notificationPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/notifications/{notificationPublicId}/read';
+};
+
+export type MarkNotificationReadErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type MarkNotificationReadError = MarkNotificationReadErrors[keyof MarkNotificationReadErrors];
+
+export type MarkNotificationReadResponses = {
+    /**
+     * OK
+     */
+    200: NotificationBody;
+};
+
+export type MarkNotificationReadResponse = MarkNotificationReadResponses[keyof MarkNotificationReadResponses];
 
 export type GetSessionData = {
     body?: never;

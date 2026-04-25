@@ -19,6 +19,13 @@ func main() {
 	}
 
 	auditService := service.NewAuditService(nil)
+	outboxService := service.NewOutboxService(nil, nil, cfg.OutboxWorkerMaxAttempts)
+	idempotencyService := service.NewIdempotencyService(nil, cfg.IdempotencyTTL)
+	notificationService := service.NewNotificationService(nil, auditService)
+	tenantSettingsService := service.NewTenantSettingsService(nil, auditService, cfg.TenantDefaultFileQuotaBytes)
+	fileService := service.NewFileService(nil, nil, nil, tenantSettingsService, auditService, cfg.FileMaxBytes, cfg.FileAllowedMIMETypes, nil)
+	tenantInvitationService := service.NewTenantInvitationService(nil, nil, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)
+	tenantDataExportService := service.NewTenantDataExportService(nil, nil, outboxService, fileService, auditService, cfg.DataExportTTL)
 	application := app.New(
 		cfg,
 		nil,
@@ -32,6 +39,14 @@ func main() {
 		service.NewCustomerSignalService(nil, nil, auditService),
 		service.NewTodoService(nil, nil, auditService),
 		service.NewMachineClientService(nil, nil, "", auditService),
+		outboxService,
+		idempotencyService,
+		notificationService,
+		tenantInvitationService,
+		fileService,
+		tenantSettingsService,
+		tenantDataExportService,
+		nil,
 		nil,
 		nil,
 		nil,

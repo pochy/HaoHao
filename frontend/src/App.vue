@@ -30,6 +30,7 @@ const statusLabel = computed(() => {
         <nav class="app-nav" aria-label="Primary">
           <RouterLink to="/">Session</RouterLink>
           <RouterLink to="/integrations">Integrations</RouterLink>
+          <RouterLink to="/notifications">Notifications</RouterLink>
           <RouterLink to="/todos">TODO</RouterLink>
           <RouterLink to="/customer-signals">Signals</RouterLink>
           <RouterLink to="/tenant-admin">Tenants</RouterLink>

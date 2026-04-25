@@ -7,6 +7,7 @@ import type { TenantAdminMembershipBody, TenantAdminRoleBindingBody } from '../a
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
 import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
 import { useTenantAdminStore } from '../stores/tenant-admin'
+import { useTenantCommonStore } from '../stores/tenant-common'
 
 type PendingAction =
   | { kind: 'deactivate' }
@@ -14,11 +15,17 @@ type PendingAction =
 
 const route = useRoute()
 const store = useTenantAdminStore()
+const commonStore = useTenantCommonStore()
 
 const displayName = ref('')
 const active = ref(true)
 const grantUserEmail = ref('')
 const grantRoleCode = ref('customer_signal_user')
+const invitationEmail = ref('')
+const invitationRoleCode = ref('todo_user')
+const fileQuotaBytes = ref(104857600)
+const browserRateLimit = ref<number | null>(null)
+const notificationsEnabled = ref(true)
 const message = ref('')
 const errorMessage = ref('')
 const pendingAction = ref<PendingAction | null>(null)
@@ -45,6 +52,19 @@ const canGrantRole = computed(() => (
   grantUserEmail.value.trim() !== '' &&
   grantRoleCode.value.trim() !== '' &&
   !store.saving
+))
+
+const canInvite = computed(() => (
+  Boolean(tenant.value) &&
+  invitationEmail.value.trim() !== '' &&
+  invitationRoleCode.value.trim() !== '' &&
+  !commonStore.saving
+))
+
+const canSaveCommonSettings = computed(() => (
+  Boolean(tenant.value) &&
+  fileQuotaBytes.value >= 0 &&
+  !commonStore.saving
 ))
 
 const confirmTitle = computed(() => {
@@ -81,6 +101,11 @@ watch(
   () => syncForm(),
 )
 
+watch(
+  () => commonStore.settings,
+  () => syncCommonForm(),
+)
+
 async function loadCurrent() {
   message.value = ''
   errorMessage.value = ''
@@ -89,7 +114,9 @@ async function loadCurrent() {
     return
   }
   await store.loadOne(tenantSlug.value)
+  await commonStore.load(tenantSlug.value)
   syncForm()
+  syncCommonForm()
 }
 
 function syncForm() {
@@ -101,6 +128,18 @@ function syncForm() {
 
   displayName.value = store.current.tenant.displayName
   active.value = store.current.tenant.active
+}
+
+function syncCommonForm() {
+  if (!commonStore.settings) {
+    fileQuotaBytes.value = 104857600
+    browserRateLimit.value = null
+    notificationsEnabled.value = true
+    return
+  }
+  fileQuotaBytes.value = commonStore.settings.fileQuotaBytes
+  browserRateLimit.value = commonStore.settings.rateLimitBrowserApiPerMinute ?? null
+  notificationsEnabled.value = commonStore.settings.notificationsEnabled
 }
 
 function formatDate(value?: string) {
@@ -156,6 +195,81 @@ async function grantRole() {
     })
     grantUserEmail.value = ''
     message.value = 'Tenant role を付与しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function createInvitation() {
+  if (!tenant.value || !canInvite.value) {
+    return
+  }
+
+  message.value = ''
+  errorMessage.value = ''
+
+  try {
+    const created = await commonStore.createInvitation(tenant.value.slug, {
+      email: invitationEmail.value.trim(),
+      roleCodes: [invitationRoleCode.value],
+    })
+    invitationEmail.value = ''
+    message.value = created.acceptUrl
+      ? `Invitation を作成しました: ${created.acceptUrl}`
+      : 'Invitation を作成しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function revokeInvitation(publicId: string) {
+  if (!tenant.value) {
+    return
+  }
+
+  message.value = ''
+  errorMessage.value = ''
+
+  try {
+    await commonStore.revokeInvitation(tenant.value.slug, publicId)
+    message.value = 'Invitation を revoke しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function saveCommonSettings() {
+  if (!tenant.value || !canSaveCommonSettings.value) {
+    return
+  }
+
+  message.value = ''
+  errorMessage.value = ''
+
+  try {
+    await commonStore.updateSettings(tenant.value.slug, {
+      fileQuotaBytes: fileQuotaBytes.value,
+      rateLimitBrowserApiPerMinute: browserRateLimit.value ?? undefined,
+      notificationsEnabled: notificationsEnabled.value,
+      features: commonStore.settings?.features ?? {},
+    })
+    message.value = 'Tenant common settings を更新しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function requestExport() {
+  if (!tenant.value) {
+    return
+  }
+
+  message.value = ''
+  errorMessage.value = ''
+
+  try {
+    await commonStore.requestExport(tenant.value.slug)
+    message.value = 'Tenant data export を request しました。'
   } catch (error) {
     errorMessage.value = toApiErrorMessage(error)
   }
@@ -226,8 +340,8 @@ async function confirmPendingAction() {
     <p v-if="store.status === 'loading'">
       Loading tenant...
     </p>
-    <p v-if="errorMessage || store.errorMessage" class="error-message">
-      {{ errorMessage || store.errorMessage }}
+    <p v-if="errorMessage || store.errorMessage || commonStore.errorMessage" class="error-message">
+      {{ errorMessage || store.errorMessage || commonStore.errorMessage }}
     </p>
     <p v-if="message" class="notice-message">
       {{ message }}
@@ -362,6 +476,125 @@ async function confirmPendingAction() {
 
         <div v-else class="empty-state">
           <p>この tenant には membership がありません。</p>
+        </div>
+      </div>
+
+      <form class="admin-form" @submit.prevent="createInvitation">
+        <div class="form-span">
+          <span class="status-pill">Invitation</span>
+          <h2>Invite User</h2>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Email</span>
+          <input v-model="invitationEmail" class="field-input" autocomplete="email" type="email" required>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Role</span>
+          <select v-model="invitationRoleCode" class="field-input">
+            <option v-for="role in tenantRoleOptions" :key="role" :value="role">
+              {{ role }}
+            </option>
+          </select>
+        </label>
+
+        <div class="action-row form-span">
+          <button class="primary-button" :disabled="!canInvite" type="submit">
+            {{ commonStore.saving ? 'Saving...' : 'Invite' }}
+          </button>
+        </div>
+      </form>
+
+      <div class="stack">
+        <div class="section-header">
+          <div>
+            <span class="status-pill">Invitations</span>
+            <h2>Pending Invites</h2>
+          </div>
+        </div>
+
+        <div v-if="commonStore.invitations.length > 0" class="list-stack">
+          <article v-for="invitation in commonStore.invitations" :key="invitation.publicId" class="list-item">
+            <div>
+              <strong>{{ invitation.inviteeEmailNormalized }}</strong>
+              <span class="cell-subtle">{{ invitation.roleCodes?.join(', ') }} / {{ invitation.status }}</span>
+              <span class="cell-subtle">Expires {{ formatDate(invitation.expiresAt) }}</span>
+            </div>
+            <button
+              class="secondary-button danger-button compact-button"
+              type="button"
+              :disabled="invitation.status !== 'pending' || commonStore.saving"
+              @click="revokeInvitation(invitation.publicId)"
+            >
+              Revoke
+            </button>
+          </article>
+        </div>
+
+        <div v-else class="empty-state">
+          <p>Invitation はありません。</p>
+        </div>
+      </div>
+
+      <form class="admin-form" @submit.prevent="saveCommonSettings">
+        <div class="form-span">
+          <span class="status-pill">Common</span>
+          <h2>Settings and Quota</h2>
+        </div>
+
+        <label class="field">
+          <span class="field-label">File quota bytes</span>
+          <input v-model.number="fileQuotaBytes" class="field-input" min="0" type="number">
+        </label>
+
+        <label class="field">
+          <span class="field-label">Browser API limit / minute</span>
+          <input v-model.number="browserRateLimit" class="field-input" min="1" type="number">
+        </label>
+
+        <label class="checkbox-field form-span">
+          <input v-model="notificationsEnabled" type="checkbox">
+          <span>Notifications enabled</span>
+        </label>
+
+        <div class="action-row form-span">
+          <button class="primary-button" :disabled="!canSaveCommonSettings" type="submit">
+            {{ commonStore.saving ? 'Saving...' : 'Save common settings' }}
+          </button>
+        </div>
+      </form>
+
+      <div class="stack">
+        <div class="section-header">
+          <div>
+            <span class="status-pill">Export</span>
+            <h2>Tenant Data Exports</h2>
+          </div>
+          <button class="primary-button compact-button" type="button" :disabled="commonStore.saving" @click="requestExport">
+            Request export
+          </button>
+        </div>
+
+        <div v-if="commonStore.exports.length > 0" class="list-stack">
+          <article v-for="item in commonStore.exports" :key="item.publicId" class="list-item">
+            <div>
+              <strong>{{ item.format }} / {{ item.status }}</strong>
+              <span class="cell-subtle">{{ item.publicId }}</span>
+              <span class="cell-subtle">Expires {{ formatDate(item.expiresAt) }}</span>
+            </div>
+            <a
+              v-if="item.status === 'ready'"
+              class="secondary-button compact-button link-button"
+              :href="`/api/v1/admin/tenants/${tenant.slug}/exports/${item.publicId}/download`"
+            >
+              Download
+            </a>
+          </article>
+        </div>
+
+        <div v-else class="empty-state">
+          <p>Export request はありません。</p>
         </div>
       </div>
     </template>

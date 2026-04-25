@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateCustomerSignalData, CreateCustomerSignalErrors, CreateCustomerSignalResponses, CreateMachineClientData, CreateMachineClientErrors, CreateMachineClientResponses, CreateTenantAdminTenantData, CreateTenantAdminTenantErrors, CreateTenantAdminTenantResponses, CreateTodoData, CreateTodoErrors, CreateTodoResponses, DeactivateTenantAdminTenantData, DeactivateTenantAdminTenantErrors, DeactivateTenantAdminTenantResponses, DeleteCustomerSignalData, DeleteCustomerSignalErrors, DeleteCustomerSignalResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, DeleteMachineClientData, DeleteMachineClientErrors, DeleteMachineClientResponses, DeleteTodoData, DeleteTodoErrors, DeleteTodoResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetCustomerSignalData, GetCustomerSignalErrors, GetCustomerSignalResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetM2mSelfData, GetM2mSelfErrors, GetM2mSelfResponses, GetMachineClientData, GetMachineClientErrors, GetMachineClientResponses, GetSessionData, GetSessionErrors, GetSessionResponses, GetTenantAdminTenantData, GetTenantAdminTenantErrors, GetTenantAdminTenantResponses, GrantTenantAdminRoleData, GrantTenantAdminRoleErrors, GrantTenantAdminRoleResponses, ListCustomerSignalsData, ListCustomerSignalsErrors, ListCustomerSignalsResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListMachineClientsData, ListMachineClientsErrors, ListMachineClientsResponses, ListTenantAdminTenantsData, ListTenantAdminTenantsErrors, ListTenantAdminTenantsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, ListTodosData, ListTodosErrors, ListTodosResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, RevokeTenantAdminRoleData, RevokeTenantAdminRoleErrors, RevokeTenantAdminRoleResponses, ScimCreateUserData, ScimCreateUserErrors, ScimCreateUserResponses, ScimDeleteUserData, ScimDeleteUserErrors, ScimDeleteUserResponses, ScimGetUserData, ScimGetUserErrors, ScimGetUserResponses, ScimListUsersData, ScimListUsersErrors, ScimListUsersResponses, ScimPatchUserData, ScimPatchUserErrors, ScimPatchUserResponses, ScimReplaceUserData, ScimReplaceUserErrors, ScimReplaceUserResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, UpdateCustomerSignalData, UpdateCustomerSignalErrors, UpdateCustomerSignalResponses, UpdateMachineClientData, UpdateMachineClientErrors, UpdateMachineClientResponses, UpdateTenantAdminTenantData, UpdateTenantAdminTenantErrors, UpdateTenantAdminTenantResponses, UpdateTodoData, UpdateTodoErrors, UpdateTodoResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
+import type { AcceptTenantInvitationData, AcceptTenantInvitationErrors, AcceptTenantInvitationResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateCustomerSignalData, CreateCustomerSignalErrors, CreateCustomerSignalResponses, CreateMachineClientData, CreateMachineClientErrors, CreateMachineClientResponses, CreateTenantAdminTenantData, CreateTenantAdminTenantErrors, CreateTenantAdminTenantResponses, CreateTenantDataExportData, CreateTenantDataExportErrors, CreateTenantDataExportResponses, CreateTenantInvitationData, CreateTenantInvitationErrors, CreateTenantInvitationResponses, CreateTodoData, CreateTodoErrors, CreateTodoResponses, DeactivateTenantAdminTenantData, DeactivateTenantAdminTenantErrors, DeactivateTenantAdminTenantResponses, DeleteCustomerSignalData, DeleteCustomerSignalErrors, DeleteCustomerSignalResponses, DeleteFileData, DeleteFileErrors, DeleteFileResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, DeleteMachineClientData, DeleteMachineClientErrors, DeleteMachineClientResponses, DeleteTodoData, DeleteTodoErrors, DeleteTodoResponses, DownloadTenantDataExportData, DownloadTenantDataExportErrors, DownloadTenantDataExportResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetCustomerSignalData, GetCustomerSignalErrors, GetCustomerSignalResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetM2mSelfData, GetM2mSelfErrors, GetM2mSelfResponses, GetMachineClientData, GetMachineClientErrors, GetMachineClientResponses, GetSessionData, GetSessionErrors, GetSessionResponses, GetTenantAdminTenantData, GetTenantAdminTenantErrors, GetTenantAdminTenantResponses, GetTenantDataExportData, GetTenantDataExportErrors, GetTenantDataExportResponses, GetTenantSettingsData, GetTenantSettingsErrors, GetTenantSettingsResponses, GrantTenantAdminRoleData, GrantTenantAdminRoleErrors, GrantTenantAdminRoleResponses, ListCustomerSignalsData, ListCustomerSignalsErrors, ListCustomerSignalsResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListMachineClientsData, ListMachineClientsErrors, ListMachineClientsResponses, ListNotificationsData, ListNotificationsErrors, ListNotificationsResponses, ListTenantAdminTenantsData, ListTenantAdminTenantsErrors, ListTenantAdminTenantsResponses, ListTenantDataExportsData, ListTenantDataExportsErrors, ListTenantDataExportsResponses, ListTenantInvitationsData, ListTenantInvitationsErrors, ListTenantInvitationsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, ListTodosData, ListTodosErrors, ListTodosResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, RevokeTenantAdminRoleData, RevokeTenantAdminRoleErrors, RevokeTenantAdminRoleResponses, RevokeTenantInvitationData, RevokeTenantInvitationErrors, RevokeTenantInvitationResponses, ScimCreateUserData, ScimCreateUserErrors, ScimCreateUserResponses, ScimDeleteUserData, ScimDeleteUserErrors, ScimDeleteUserResponses, ScimGetUserData, ScimGetUserErrors, ScimGetUserResponses, ScimListUsersData, ScimListUsersErrors, ScimListUsersResponses, ScimPatchUserData, ScimPatchUserErrors, ScimPatchUserResponses, ScimReplaceUserData, ScimReplaceUserErrors, ScimReplaceUserResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, UpdateCustomerSignalData, UpdateCustomerSignalErrors, UpdateCustomerSignalResponses, UpdateMachineClientData, UpdateMachineClientErrors, UpdateMachineClientResponses, UpdateTenantAdminTenantData, UpdateTenantAdminTenantErrors, UpdateTenantAdminTenantResponses, UpdateTenantSettingsData, UpdateTenantSettingsErrors, UpdateTenantSettingsResponses, UpdateTodoData, UpdateTodoErrors, UpdateTodoResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -176,6 +176,105 @@ export const updateTenantAdminTenant = <ThrowOnError extends boolean = false>(op
 });
 
 /**
+ * tenant data export 一覧を返す
+ */
+export const listTenantDataExports = <ThrowOnError extends boolean = false>(options: Options<ListTenantDataExportsData, ThrowOnError>) => (options.client ?? client).get<ListTenantDataExportsResponses, ListTenantDataExportsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/admin/tenants/{tenantSlug}/exports',
+    ...options
+});
+
+/**
+ * tenant data export を request する
+ */
+export const createTenantDataExport = <ThrowOnError extends boolean = false>(options: Options<CreateTenantDataExportData, ThrowOnError>) => (options.client ?? client).post<CreateTenantDataExportResponses, CreateTenantDataExportErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/admin/tenants/{tenantSlug}/exports',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * tenant data export detail を返す
+ */
+export const getTenantDataExport = <ThrowOnError extends boolean = false>(options: Options<GetTenantDataExportData, ThrowOnError>) => (options.client ?? client).get<GetTenantDataExportResponses, GetTenantDataExportErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/admin/tenants/{tenantSlug}/exports/{exportPublicId}',
+    ...options
+});
+
+/**
+ * ready tenant data export を download する
+ */
+export const downloadTenantDataExport = <ThrowOnError extends boolean = false>(options: Options<DownloadTenantDataExportData, ThrowOnError>) => (options.client ?? client).get<DownloadTenantDataExportResponses, DownloadTenantDataExportErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/admin/tenants/{tenantSlug}/exports/{exportPublicId}/download',
+    ...options
+});
+
+/**
+ * tenant invitation 一覧を返す
+ */
+export const listTenantInvitations = <ThrowOnError extends boolean = false>(options: Options<ListTenantInvitationsData, ThrowOnError>) => (options.client ?? client).get<ListTenantInvitationsResponses, ListTenantInvitationsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/admin/tenants/{tenantSlug}/invitations',
+    ...options
+});
+
+/**
+ * tenant invitation を作成する
+ */
+export const createTenantInvitation = <ThrowOnError extends boolean = false>(options: Options<CreateTenantInvitationData, ThrowOnError>) => (options.client ?? client).post<CreateTenantInvitationResponses, CreateTenantInvitationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/admin/tenants/{tenantSlug}/invitations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * tenant invitation を revoke する
+ */
+export const revokeTenantInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeTenantInvitationData, ThrowOnError>) => (options.client ?? client).delete<RevokeTenantInvitationResponses, RevokeTenantInvitationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/admin/tenants/{tenantSlug}/invitations/{invitationPublicId}',
+    ...options
+});
+
+/**
  * tenant local role を付与する
  */
 export const grantTenantAdminRole = <ThrowOnError extends boolean = false>(options: Options<GrantTenantAdminRoleData, ThrowOnError>) => (options.client ?? client).post<GrantTenantAdminRoleResponses, GrantTenantAdminRoleErrors, ThrowOnError>({
@@ -203,6 +302,36 @@ export const revokeTenantAdminRole = <ThrowOnError extends boolean = false>(opti
         }],
     url: '/api/v1/admin/tenants/{tenantSlug}/memberships/{userPublicId}/roles/{roleCode}',
     ...options
+});
+
+/**
+ * tenant settings を返す
+ */
+export const getTenantSettings = <ThrowOnError extends boolean = false>(options: Options<GetTenantSettingsData, ThrowOnError>) => (options.client ?? client).get<GetTenantSettingsResponses, GetTenantSettingsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/admin/tenants/{tenantSlug}/settings',
+    ...options
+});
+
+/**
+ * tenant settings を更新する
+ */
+export const updateTenantSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateTenantSettingsData, ThrowOnError>) => (options.client ?? client).put<UpdateTenantSettingsResponses, UpdateTenantSettingsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/admin/tenants/{tenantSlug}/settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -307,6 +436,32 @@ export const updateCustomerSignal = <ThrowOnError extends boolean = false>(optio
 });
 
 /**
+ * active tenant の file metadata を返す
+ */
+export const listFiles = <ThrowOnError extends boolean = false>(options?: Options<ListFilesData, ThrowOnError>) => (options?.client ?? client).get<ListFilesResponses, ListFilesErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/files',
+    ...options
+});
+
+/**
+ * active tenant の file を soft delete する
+ */
+export const deleteFile = <ThrowOnError extends boolean = false>(options: Options<DeleteFileData, ThrowOnError>) => (options.client ?? client).delete<DeleteFileResponses, DeleteFileErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/files/{filePublicId}',
+    ...options
+});
+
+/**
  * downstream integration の接続状態を返す
  */
 export const listIntegrations = <ThrowOnError extends boolean = false>(options?: Options<ListIntegrationsData, ThrowOnError>) => (options?.client ?? client).get<ListIntegrationsResponses, ListIntegrationsErrors, ThrowOnError>({
@@ -369,6 +524,23 @@ export const verifyIntegrationAccess = <ThrowOnError extends boolean = false>(op
         }],
     url: '/api/v1/integrations/{resourceServer}/verify',
     ...options
+});
+
+/**
+ * tenant invitation を accept する
+ */
+export const acceptTenantInvitation = <ThrowOnError extends boolean = false>(options: Options<AcceptTenantInvitationData, ThrowOnError>) => (options.client ?? client).post<AcceptTenantInvitationResponses, AcceptTenantInvitationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/invitations/accept',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -467,6 +639,32 @@ export const updateMachineClient = <ThrowOnError extends boolean = false>(option
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * 現在の user 宛の notifications を返す
+ */
+export const listNotifications = <ThrowOnError extends boolean = false>(options?: Options<ListNotificationsData, ThrowOnError>) => (options?.client ?? client).get<ListNotificationsResponses, ListNotificationsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/notifications',
+    ...options
+});
+
+/**
+ * notification を既読にする
+ */
+export const markNotificationRead = <ThrowOnError extends boolean = false>(options: Options<MarkNotificationReadData, ThrowOnError>) => (options.client ?? client).post<MarkNotificationReadResponses, MarkNotificationReadErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/notifications/{notificationPublicId}/read',
+    ...options
 });
 
 /**

@@ -19,6 +19,13 @@ type Dependencies struct {
 	CustomerSignalService        *service.CustomerSignalService
 	TodoService                  *service.TodoService
 	MachineClientService         *service.MachineClientService
+	OutboxService                *service.OutboxService
+	IdempotencyService           *service.IdempotencyService
+	NotificationService          *service.NotificationService
+	TenantInvitationService      *service.TenantInvitationService
+	FileService                  *service.FileService
+	TenantSettingsService        *service.TenantSettingsService
+	TenantDataExportService      *service.TenantDataExportService
 	AuthMode                     string
 	EnableLocalPasswordLogin     bool
 	SCIMBasePath                 string
@@ -40,6 +47,11 @@ func Register(api huma.API, deps Dependencies) {
 	registerTenantAdminRoutes(api, deps)
 	registerCustomerSignalRoutes(api, deps)
 	registerTodoRoutes(api, deps)
+	registerNotificationRoutes(api, deps)
+	registerTenantInvitationRoutes(api, deps)
+	registerFileRoutes(api, deps)
+	registerTenantSettingsRoutes(api, deps)
+	registerTenantDataExportRoutes(api, deps)
 	registerMachineClientRoutes(api, deps)
 	registerM2MRoutes(api, deps)
 	registerSCIMRoutes(api, deps)

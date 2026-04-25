@@ -6,6 +6,7 @@ import { toApiErrorMessage } from '../api/client'
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
 import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
 import { useCustomerSignalStore } from '../stores/customer-signals'
+import { useFileStore } from '../stores/files'
 import { useTenantStore } from '../stores/tenants'
 
 const sourceOptions = ['support', 'sales', 'customer_success', 'research', 'internal', 'other'] as const
@@ -16,6 +17,7 @@ const route = useRoute()
 const router = useRouter()
 const tenantStore = useTenantStore()
 const signalStore = useCustomerSignalStore()
+const fileStore = useFileStore()
 
 const customerName = ref('')
 const title = ref('')
@@ -26,6 +28,7 @@ const status = ref<typeof statusOptions[number]>('new')
 const message = ref('')
 const errorMessage = ref('')
 const confirmingDelete = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 const signalPublicId = computed(() => {
   const raw = Array.isArray(route.params.signalPublicId)
@@ -67,6 +70,7 @@ watch(
 
     if (slug && signalPublicId.value) {
       await signalStore.loadOne(signalPublicId.value)
+      await loadFiles()
       syncForm()
     }
   },
@@ -130,6 +134,50 @@ async function saveSignal() {
       status: status.value,
     })
     message.value = 'Customer Signal を更新しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function loadFiles() {
+  if (!signalPublicId.value) {
+    return
+  }
+  await fileStore.load('customer_signal', signalPublicId.value)
+}
+
+async function uploadAttachment() {
+  const selected = fileInput.value?.files?.[0]
+  if (!signal.value || !selected) {
+    return
+  }
+
+  message.value = ''
+  errorMessage.value = ''
+
+  const form = new FormData()
+  form.set('file', selected)
+  form.set('purpose', 'attachment')
+  form.set('attachedToType', 'customer_signal')
+  form.set('attachedToId', signal.value.publicId)
+
+  try {
+    await fileStore.upload(form)
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+    message.value = 'File を upload しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function removeAttachment(publicId: string) {
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    await fileStore.remove(publicId)
+    message.value = 'File を削除しました。'
   } catch (error) {
     errorMessage.value = toApiErrorMessage(error)
   }
@@ -269,6 +317,62 @@ async function confirmDelete() {
           </button>
         </div>
       </form>
+
+      <div class="stack">
+        <div class="section-header">
+          <div>
+            <span class="status-pill">Files</span>
+            <h2>Attachments</h2>
+          </div>
+          <button class="secondary-button compact-button" type="button" @click="loadFiles">
+            Refresh
+          </button>
+        </div>
+
+        <form class="admin-form" @submit.prevent="uploadAttachment">
+          <label class="field form-span">
+            <span class="field-label">File</span>
+            <input ref="fileInput" class="field-input" type="file">
+          </label>
+
+          <div class="action-row form-span">
+            <button class="primary-button" :disabled="fileStore.uploading" type="submit">
+              {{ fileStore.uploading ? 'Uploading...' : 'Upload' }}
+            </button>
+          </div>
+        </form>
+
+        <p v-if="fileStore.errorMessage" class="error-message">
+          {{ fileStore.errorMessage }}
+        </p>
+
+        <div v-if="fileStore.items.length > 0" class="list-stack">
+          <article v-for="file in fileStore.items" :key="file.publicId" class="list-item">
+            <div>
+              <strong>{{ file.originalFilename }}</strong>
+              <span class="cell-subtle">{{ file.contentType }} / {{ file.byteSize }} bytes</span>
+              <span class="cell-subtle monospace-cell">{{ file.publicId }}</span>
+            </div>
+            <div class="action-row">
+              <a class="secondary-button compact-button link-button" :href="`/api/v1/files/${file.publicId}`">
+                Download
+              </a>
+              <button
+                class="secondary-button danger-button compact-button"
+                :disabled="fileStore.deletingPublicId === file.publicId"
+                type="button"
+                @click="removeAttachment(file.publicId)"
+              >
+                Delete
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <div v-else class="empty-state">
+          <p>添付 file はありません。</p>
+        </div>
+      </div>
     </template>
 
     <div v-else-if="signalStore.status === 'error'" class="empty-state">

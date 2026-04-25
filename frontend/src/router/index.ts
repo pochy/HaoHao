@@ -7,6 +7,8 @@ import LoginView from '../views/LoginView.vue'
 import MachineClientDetailView from '../views/MachineClientDetailView.vue'
 import MachineClientFormView from '../views/MachineClientFormView.vue'
 import MachineClientsView from '../views/MachineClientsView.vue'
+import InvitationAcceptView from '../views/InvitationAcceptView.vue'
+import NotificationsView from '../views/NotificationsView.vue'
 import CustomerSignalDetailView from '../views/CustomerSignalDetailView.vue'
 import CustomerSignalsView from '../views/CustomerSignalsView.vue'
 import TenantAdminTenantDetailView from '../views/TenantAdminTenantDetailView.vue'
@@ -32,6 +34,18 @@ const router = createRouter({
       path: '/integrations',
       name: 'integrations',
       component: IntegrationsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/notifications',
+      name: 'notifications',
+      component: NotificationsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/invitations/accept',
+      name: 'invitation-accept',
+      component: InvitationAcceptView,
       meta: { requiresAuth: true },
     },
     {

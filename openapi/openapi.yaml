@@ -1,5 +1,20 @@
 components:
   schemas:
+    AcceptTenantInvitationRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/AcceptTenantInvitationRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        token:
+          type: string
+      required:
+        - token
+      type: object
     AuthSettingsBody:
       additionalProperties: false
       properties:
@@ -137,6 +152,45 @@ components:
       required:
         - customerName
         - title
+      type: object
+    CreateTenantDataExportRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateTenantDataExportRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        format:
+          enum:
+            - json
+          examples:
+            - json
+          type: string
+      type: object
+    CreateTenantInvitationRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateTenantInvitationRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        email:
+          format: email
+          type: string
+        roleCodes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      required:
+        - email
       type: object
     CreateTodoBody:
       additionalProperties: false
@@ -373,6 +427,78 @@ components:
       required:
         - provider
         - subject
+      type: object
+    FileListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/FileListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/FileObjectBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    FileObjectBody:
+      additionalProperties: false
+      properties:
+        attachedToId:
+          format: uuid
+          type: string
+        attachedToType:
+          examples:
+            - customer_signal
+          type: string
+        byteSize:
+          format: int64
+          type: integer
+        contentType:
+          examples:
+            - text/plain
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        originalFilename:
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        purpose:
+          examples:
+            - attachment
+          type: string
+        sha256Hex:
+          type: string
+        status:
+          examples:
+            - active
+          type: string
+        tenantId:
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - tenantId
+        - purpose
+        - originalFilename
+        - contentType
+        - byteSize
+        - sha256Hex
+        - status
+        - createdAt
+        - updatedAt
       type: object
     IntegrationStatusBody:
       additionalProperties: false
@@ -671,6 +797,80 @@ components:
       required:
         - providerClientId
         - displayName
+      type: object
+    NotificationBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/NotificationBody.json
+          format: uri
+          readOnly: true
+          type: string
+        body:
+          examples:
+            - You have a new notification.
+          type: string
+        channel:
+          examples:
+            - in_app
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        readAt:
+          format: date-time
+          type: string
+        status:
+          examples:
+            - queued
+          type: string
+        subject:
+          examples:
+            - Invitation
+          type: string
+        template:
+          examples:
+            - tenant_invitation
+          type: string
+        tenantId:
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - channel
+        - template
+        - subject
+        - body
+        - status
+        - createdAt
+        - updatedAt
+      type: object
+    NotificationListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/NotificationListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/NotificationBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
       type: object
     SCIMGroupBody:
       additionalProperties: false
@@ -1045,6 +1245,222 @@ components:
         - displayName
         - default
         - selected
+      type: object
+    TenantDataExportBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantDataExportBody.json
+          format: uri
+          readOnly: true
+          type: string
+        completedAt:
+          format: date-time
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        errorSummary:
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        fileObjectId:
+          format: int64
+          type: integer
+        format:
+          examples:
+            - json
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        status:
+          examples:
+            - processing
+          type: string
+        tenantId:
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - tenantId
+        - format
+        - status
+        - expiresAt
+        - createdAt
+        - updatedAt
+      type: object
+    TenantDataExportListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantDataExportListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/TenantDataExportBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    TenantInvitationBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantInvitationBody.json
+          format: uri
+          readOnly: true
+          type: string
+        acceptUrl:
+          format: uri
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        inviteeEmailNormalized:
+          format: email
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        roleCodes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        status:
+          examples:
+            - pending
+          type: string
+        tenantId:
+          format: int64
+          type: integer
+        token:
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - tenantId
+        - inviteeEmailNormalized
+        - roleCodes
+        - status
+        - expiresAt
+        - createdAt
+        - updatedAt
+      type: object
+    TenantInvitationListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantInvitationListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/TenantInvitationBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    TenantSettingsBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantSettingsBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        features:
+          additionalProperties: {}
+          type: object
+        fileQuotaBytes:
+          format: int64
+          type: integer
+        notificationsEnabled:
+          type: boolean
+        rateLimitBrowserApiPerMinute:
+          format: int32
+          type: integer
+        rateLimitExternalApiPerMinute:
+          format: int32
+          type: integer
+        rateLimitLoginPerMinute:
+          format: int32
+          type: integer
+        tenantId:
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - tenantId
+        - fileQuotaBytes
+        - notificationsEnabled
+        - features
+        - createdAt
+        - updatedAt
+      type: object
+    TenantSettingsRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantSettingsRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        features:
+          additionalProperties: {}
+          type: object
+        fileQuotaBytes:
+          format: int64
+          type: integer
+        notificationsEnabled:
+          type: boolean
+        rateLimitBrowserApiPerMinute:
+          format: int32
+          type: integer
+        rateLimitExternalApiPerMinute:
+          format: int32
+          type: integer
+        rateLimitLoginPerMinute:
+          format: int32
+          type: integer
+      required:
+        - fileQuotaBytes
+        - notificationsEnabled
       type: object
     TodoBody:
       additionalProperties: false
@@ -1679,6 +2095,292 @@ paths:
       summary: tenant を更新する
       tags:
         - tenant-admin
+  /api/v1/admin/tenants/{tenantSlug}/exports:
+    get:
+      operationId: listTenantDataExports
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantDataExportListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant data export 一覧を返す
+      tags:
+        - tenant-data-exports
+    post:
+      operationId: createTenantDataExport
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantDataExportRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantDataExportBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant data export を request する
+      tags:
+        - tenant-data-exports
+  /api/v1/admin/tenants/{tenantSlug}/exports/{exportPublicId}:
+    get:
+      operationId: getTenantDataExport
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: exportPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantDataExportBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant data export detail を返す
+      tags:
+        - tenant-data-exports
+  /api/v1/admin/tenants/{tenantSlug}/exports/{exportPublicId}/download:
+    get:
+      operationId: downloadTenantDataExport
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: exportPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                contentEncoding: base64
+                type: string
+          description: OK
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+            Content-Type:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: ready tenant data export を download する
+      tags:
+        - tenant-data-exports
+  /api/v1/admin/tenants/{tenantSlug}/invitations:
+    get:
+      operationId: listTenantInvitations
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantInvitationListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant invitation 一覧を返す
+      tags:
+        - tenant-invitations
+    post:
+      operationId: createTenantInvitation
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantInvitationRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantInvitationBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant invitation を作成する
+      tags:
+        - tenant-invitations
+  /api/v1/admin/tenants/{tenantSlug}/invitations/{invitationPublicId}:
+    delete:
+      operationId: revokeTenantInvitation
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: invitationPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant invitation を revoke する
+      tags:
+        - tenant-invitations
   /api/v1/admin/tenants/{tenantSlug}/memberships:
     post:
       operationId: grantTenantAdminRole
@@ -1764,6 +2466,82 @@ paths:
       summary: tenant local role を無効化する
       tags:
         - tenant-admin
+  /api/v1/admin/tenants/{tenantSlug}/settings:
+    get:
+      operationId: getTenantSettings
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantSettingsBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant settings を返す
+      tags:
+        - tenant-settings
+    put:
+      operationId: updateTenantSettings
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantSettingsRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantSettingsBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant settings を更新する
+      tags:
+        - tenant-settings
   /api/v1/auth/callback:
     get:
       operationId: finishOIDCLogin
@@ -1915,6 +2693,10 @@ paths:
           required: true
           schema:
             type: string
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
@@ -2045,6 +2827,75 @@ paths:
       summary: active tenant の Customer Signal を更新する
       tags:
         - customer-signals
+  /api/v1/files:
+    get:
+      operationId: listFiles
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: attachedToType
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: attachedToId
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の file metadata を返す
+      tags:
+        - files
+  /api/v1/files/{filePublicId}:
+    delete:
+      operationId: deleteFile
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の file を soft delete する
+      tags:
+        - files
   /api/v1/integrations:
     get:
       operationId: listIntegrations
@@ -2229,6 +3080,47 @@ paths:
       summary: downstream access token を backend 内で取得できるか検証する
       tags:
         - integrations
+  /api/v1/invitations/accept:
+    post:
+      operationId: acceptTenantInvitation
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptTenantInvitationRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantInvitationBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant invitation を accept する
+      tags:
+        - tenant-invitations
   /api/v1/login:
     post:
       operationId: login
@@ -2464,6 +3356,77 @@ paths:
       summary: machine client を更新する
       tags:
         - machine-clients
+  /api/v1/notifications:
+    get:
+      operationId: listNotifications
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            format: int64
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: 現在の user 宛の notifications を返す
+      tags:
+        - notifications
+  /api/v1/notifications/{notificationPublicId}/read:
+    post:
+      operationId: markNotificationRead
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: notificationPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: notification を既読にする
+      tags:
+        - notifications
   /api/v1/session:
     get:
       operationId: getSession

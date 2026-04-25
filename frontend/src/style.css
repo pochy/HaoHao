@@ -438,6 +438,29 @@ code {
   gap: 12px;
 }
 
+.list-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.list-item:last-child {
+  border-bottom: 0;
+}
+
+.list-item p {
+  margin: 6px 0;
+  color: var(--muted);
+}
+
 .signal-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
