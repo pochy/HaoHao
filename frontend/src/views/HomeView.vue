@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 
 import { toApiErrorMessage } from '../api/client'
 import { refreshCurrentSession } from '../api/session'
+import DocsLink from '../components/DocsLink.vue'
 import { useSessionStore } from '../stores/session'
 
 const router = useRouter()
@@ -59,9 +60,7 @@ async function rotateSession() {
           <button class="secondary-button" type="button" @click="signOut">
             Logout
           </button>
-          <a class="secondary-button docs-link" href="/docs" target="_blank" rel="noreferrer">
-            Open Docs
-          </a>
+          <DocsLink />
         </div>
 
         <p v-if="refreshMessage">{{ refreshMessage }}</p>
@@ -88,13 +87,6 @@ async function rotateSession() {
 </template>
 
 <style scoped>
-.docs-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-}
-
 .check-list {
   margin: 0;
   padding-left: 1.2rem;

@@ -1,36 +1,63 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { toApiErrorMessage } from '../api/client'
+import type { IntegrationStatusBody, VerifyIntegrationBody } from '../api/generated/types.gen'
 import {
   fetchIntegrations,
   revokeIntegrationGrant,
   startIntegrationConnect,
   verifyIntegration,
 } from '../api/integrations'
-import { toApiErrorMessage } from '../api/client'
-import type { IntegrationStatusBody, VerifyIntegrationBody } from '../api/generated/types.gen'
+import { useTenantStore } from '../stores/tenants'
 
 const route = useRoute()
 const router = useRouter()
+const tenantStore = useTenantStore()
 
 const items = ref<IntegrationStatusBody[]>([])
 const loading = ref(false)
 const busyResource = ref('')
 const errorMessage = ref('')
 const verifyResult = ref<VerifyIntegrationBody | null>(null)
+const callbackNotice = ref('')
+const callbackNoticeKind = ref<'success' | 'error' | ''>('')
 
-const callbackMessage = computed(() => {
+const activeTenantLabel = computed(() => (
+  tenantStore.activeTenant
+    ? `${tenantStore.activeTenant.displayName} / ${tenantStore.activeTenant.slug}`
+    : ''
+))
+const verifyExpired = computed(() => (
+  Boolean(verifyResult.value?.accessExpiresAt) &&
+  new Date(verifyResult.value?.accessExpiresAt ?? '').getTime() <= Date.now()
+))
+
+function readCallbackMessage() {
   if (route.query.connected) {
+    callbackNoticeKind.value = 'success'
     return `${route.query.connected} integration connected.`
   }
-  if (route.query.error) {
-    return 'Integration callback failed.'
+  if (route.query.error === 'missing_session') {
+    callbackNoticeKind.value = 'error'
+    return 'Integration callback failed because the browser session was missing.'
   }
+  if (route.query.error) {
+    callbackNoticeKind.value = 'error'
+    return `Integration callback failed: ${route.query.error}`
+  }
+  callbackNoticeKind.value = ''
   return ''
-})
+}
 
 async function loadIntegrations() {
+  if (!tenantStore.activeTenant) {
+    items.value = []
+    errorMessage.value = 'Integration を操作するには active tenant が必要です。'
+    return
+  }
+
   loading.value = true
   errorMessage.value = ''
 
@@ -44,6 +71,11 @@ async function loadIntegrations() {
 }
 
 function connect(resourceServer: string) {
+  if (!tenantStore.activeTenant) {
+    errorMessage.value = 'Integration を操作するには active tenant が必要です。'
+    return
+  }
+
   startIntegrationConnect(resourceServer)
 }
 
@@ -95,9 +127,23 @@ function clearCallbackQuery() {
 }
 
 onMounted(async () => {
+  callbackNotice.value = readCallbackMessage()
+  if (tenantStore.status === 'idle' || tenantStore.status === 'loading') {
+    await tenantStore.load()
+  }
   await loadIntegrations()
   clearCallbackQuery()
 })
+
+watch(
+  () => tenantStore.activeTenant?.slug,
+  async (slug, previous) => {
+    if (slug && slug !== previous) {
+      verifyResult.value = null
+      await loadIntegrations()
+    }
+  },
+)
 </script>
 
 <template>
@@ -113,8 +159,18 @@ onMounted(async () => {
         </button>
       </div>
 
-      <p v-if="callbackMessage" class="notice-message">
-        {{ callbackMessage }}
+      <p v-if="activeTenantLabel" class="notice-message">
+        Active tenant: <strong>{{ activeTenantLabel }}</strong>
+      </p>
+      <p v-else class="error-message">
+        Integration を操作するには active tenant が必要です。
+      </p>
+
+      <p
+        v-if="callbackNotice"
+        :class="callbackNoticeKind === 'error' ? 'error-message' : 'notice-message'"
+      >
+        {{ callbackNotice }}
       </p>
       <p v-if="errorMessage" class="error-message">
         {{ errorMessage }}
@@ -127,8 +183,8 @@ onMounted(async () => {
               <span class="field-label">{{ item.provider }}</span>
               <h3>{{ item.resourceServer }}</h3>
             </div>
-            <span :class="['connection-state', item.connected ? 'connected' : 'disconnected']">
-              {{ item.connected ? 'Connected' : 'Disconnected' }}
+            <span :class="['connection-state', item.revokedAt ? 'revoked' : item.connected ? 'connected' : 'disconnected']">
+              {{ item.revokedAt ? 'Revoked' : item.connected ? 'Connected' : 'Disconnected' }}
             </span>
           </div>
 
@@ -149,15 +205,24 @@ onMounted(async () => {
               <dt>Last error</dt>
               <dd>{{ item.lastErrorCode || 'None' }}</dd>
             </div>
+            <div>
+              <dt>Revoked</dt>
+              <dd>{{ formatDate(item.revokedAt) }}</dd>
+            </div>
           </dl>
 
           <div class="action-row">
-            <button class="primary-button" type="button" @click="connect(item.resourceServer)">
+            <button
+              class="primary-button"
+              :disabled="!tenantStore.activeTenant || busyResource === item.resourceServer"
+              type="button"
+              @click="connect(item.resourceServer)"
+            >
               {{ item.connected ? 'Reconnect' : 'Connect' }}
             </button>
             <button
               class="secondary-button"
-              :disabled="!item.connected || busyResource === item.resourceServer"
+              :disabled="!tenantStore.activeTenant || !item.connected || busyResource === item.resourceServer"
               type="button"
               @click="verify(item.resourceServer)"
             >
@@ -165,7 +230,7 @@ onMounted(async () => {
             </button>
             <button
               class="secondary-button danger-button"
-              :disabled="!item.connected || busyResource === item.resourceServer"
+              :disabled="!tenantStore.activeTenant || !item.connected || busyResource === item.resourceServer"
               type="button"
               @click="revoke(item.resourceServer)"
             >
@@ -177,8 +242,16 @@ onMounted(async () => {
     </section>
 
     <section v-if="verifyResult" class="panel stack">
-      <span class="status-pill">Verified</span>
+      <span :class="['status-pill', verifyResult.connected && !verifyExpired ? '' : 'danger']">
+        {{ verifyResult.connected && !verifyExpired ? 'Verified' : 'Attention' }}
+      </span>
       <h2>Access Check</h2>
+      <p v-if="!verifyResult.connected" class="error-message">
+        Access token を取得できませんでした。
+      </p>
+      <p v-else-if="verifyExpired" class="error-message">
+        Access token は期限切れです。
+      </p>
       <dl class="metadata-grid">
         <div>
           <dt>Resource</dt>
@@ -249,6 +322,11 @@ h3 {
 .connection-state.disconnected {
   color: var(--muted);
   background: rgba(124, 102, 88, 0.12);
+}
+
+.connection-state.revoked {
+  color: var(--danger);
+  background: rgba(174, 45, 42, 0.1);
 }
 
 .metadata-grid {

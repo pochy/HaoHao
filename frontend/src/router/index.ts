@@ -4,6 +4,9 @@ import { useSessionStore } from '../stores/session'
 import HomeView from '../views/HomeView.vue'
 import IntegrationsView from '../views/IntegrationsView.vue'
 import LoginView from '../views/LoginView.vue'
+import MachineClientDetailView from '../views/MachineClientDetailView.vue'
+import MachineClientFormView from '../views/MachineClientFormView.vue'
+import MachineClientsView from '../views/MachineClientsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -23,6 +26,24 @@ const router = createRouter({
       path: '/integrations',
       name: 'integrations',
       component: IntegrationsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/machine-clients',
+      name: 'machine-clients',
+      component: MachineClientsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/machine-clients/new',
+      name: 'machine-client-new',
+      component: MachineClientFormView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/machine-clients/:id',
+      name: 'machine-client-detail',
+      component: MachineClientDetailView,
       meta: { requiresAuth: true },
     },
   ],

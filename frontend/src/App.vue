@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import TenantSelector from './components/TenantSelector.vue'
 import { useSessionStore } from './stores/session'
 
 const sessionStore = useSessionStore()
@@ -29,13 +30,18 @@ const statusLabel = computed(() => {
         <nav class="app-nav" aria-label="Primary">
           <RouterLink to="/">Session</RouterLink>
           <RouterLink to="/integrations">Integrations</RouterLink>
+          <RouterLink to="/machine-clients">Machine Clients</RouterLink>
         </nav>
       </div>
 
-      <div class="identity-card">
-        <span class="identity-label">Current identity</span>
-        <strong>{{ displayName }}</strong>
-        <span class="identity-status">{{ statusLabel }}</span>
+      <div class="header-tools">
+        <TenantSelector v-if="sessionStore.status === 'authenticated'" />
+
+        <div class="identity-card">
+          <span class="identity-label">Current identity</span>
+          <strong>{{ displayName }}</strong>
+          <span class="identity-status">{{ statusLabel }}</span>
+        </div>
       </div>
     </header>
 
@@ -47,7 +53,7 @@ const statusLabel = computed(() => {
 
 <style scoped>
 .app-shell {
-  width: min(960px, calc(100vw - 32px));
+  width: min(1120px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 40px 0 64px;
 }
@@ -97,6 +103,12 @@ h1 {
   background: rgba(11, 93, 91, 0.08);
 }
 
+.header-tools {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+}
+
 .identity-card {
   min-width: 210px;
   padding: 14px 16px;
@@ -138,6 +150,11 @@ h1 {
   .app-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .header-tools {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .identity-card {

@@ -3,6 +3,7 @@ import { client } from './generated/client.gen'
 
 type ProblemLike = Partial<Pick<ErrorModel, 'detail' | 'title'>> & {
   message?: string
+  status?: number
 }
 
 export function readCookie(name: string): string | undefined {
@@ -33,6 +34,24 @@ export function toApiErrorMessage(error: unknown): string {
   }
 
   return '認証処理に失敗しました'
+}
+
+export function toApiErrorStatus(error: unknown): number | undefined {
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = (error as ProblemLike).status
+    return typeof status === 'number' ? status : undefined
+  }
+
+  return undefined
+}
+
+export function isApiForbidden(error: unknown): boolean {
+  if (toApiErrorStatus(error) === 403) {
+    return true
+  }
+
+  const message = toApiErrorMessage(error)
+  return /forbidden|machine_client_admin|docs_reader/i.test(message)
 }
 
 let csrfBootstrapPromise: Promise<void> | null = null

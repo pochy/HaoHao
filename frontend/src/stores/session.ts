@@ -7,6 +7,7 @@ import {
   loginWithPassword,
   logoutCurrentSession,
 } from '../api/session'
+import { useTenantStore } from './tenants'
 
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'anonymous'
 
@@ -57,6 +58,8 @@ export const useSessionStore = defineStore('session', {
 
       try {
         const data = await logoutCurrentSession()
+        const tenantStore = useTenantStore()
+        tenantStore.reset()
         this.user = null
         this.status = 'anonymous'
         return data.postLogoutURL ?? ''
