@@ -1,0 +1,8 @@
+# 手順
+
+1. [基礎](TUTORIAL.md)
+2. [Zitadel認証](TUTORIAL_ZITADEL.md)
+3. [単一バイナリ配信](TUTORIAL_SINGLE_BINARY.md)
+4. [運用可能性](TUTORIAL_P0_OPERABILITY.md)
+5. [管理 UI](TUTORIAL_P1_ADMIN_UI.md)
+6. [シンプルTODO機能](TUTORIAL_P2_TODO.md)
