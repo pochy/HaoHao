@@ -11,6 +11,11 @@ type ReconcileRunner interface {
 	RunOnce(context.Context) error
 }
 
+type ReconcileMetrics interface {
+	ObserveReconcileRun(trigger string, duration time.Duration, err error)
+	IncReconcileSkipped(trigger string)
+}
+
 type ReconcileSchedulerConfig struct {
 	Enabled      bool
 	Interval     time.Duration
@@ -22,18 +27,20 @@ type ReconcileScheduler struct {
 	job     ReconcileRunner
 	config  ReconcileSchedulerConfig
 	logger  *slog.Logger
+	metrics ReconcileMetrics
 	running atomic.Bool
 }
 
-func NewReconcileScheduler(job ReconcileRunner, config ReconcileSchedulerConfig, logger *slog.Logger) *ReconcileScheduler {
+func NewReconcileScheduler(job ReconcileRunner, config ReconcileSchedulerConfig, logger *slog.Logger, metrics ReconcileMetrics) *ReconcileScheduler {
 	if logger == nil {
 		logger = slog.Default()
 	}
 
 	return &ReconcileScheduler{
-		job:    job,
-		config: config,
-		logger: logger,
+		job:     job,
+		config:  config,
+		logger:  logger,
+		metrics: metrics,
 	}
 }
 
@@ -69,6 +76,9 @@ func (s *ReconcileScheduler) Start(ctx context.Context) {
 
 func (s *ReconcileScheduler) runOnce(parent context.Context, trigger string) {
 	if !s.running.CompareAndSwap(false, true) {
+		if s.metrics != nil {
+			s.metrics.IncReconcileSkipped(trigger)
+		}
 		s.logger.WarnContext(parent, "provisioning reconcile skipped because previous run is still active", "trigger", trigger)
 		return
 	}
@@ -80,6 +90,9 @@ func (s *ReconcileScheduler) runOnce(parent context.Context, trigger string) {
 	startedAt := time.Now()
 	err := s.job.RunOnce(ctx)
 	duration := time.Since(startedAt)
+	if s.metrics != nil {
+		s.metrics.ObserveReconcileRun(trigger, duration, err)
+	}
 	attrs := []any{
 		"trigger", trigger,
 		"duration_ms", float64(duration.Microseconds()) / 1000,

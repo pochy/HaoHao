@@ -71,3 +71,6 @@ docker-build:
 
 smoke-operability:
 	bash scripts/smoke-operability.sh
+
+smoke-observability:
+	bash scripts/smoke-observability.sh

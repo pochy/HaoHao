@@ -74,6 +74,31 @@ func TestLoadRejectsInvalidOperationalDuration(t *testing.T) {
 	}
 }
 
+func TestLoadObservabilityConfig(t *testing.T) {
+	restoreEnv(t, "METRICS_PATH", "OTEL_TRACING_ENABLED", "OTEL_TRACES_SAMPLER_RATIO")
+	t.Setenv("METRICS_PATH", "custom-metrics")
+	t.Setenv("OTEL_TRACING_ENABLED", "true")
+	t.Setenv("OTEL_TRACES_SAMPLER_RATIO", "2")
+
+	dir := t.TempDir()
+	chdir(t, dir)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if cfg.MetricsPath != "/custom-metrics" {
+		t.Fatalf("MetricsPath = %q", cfg.MetricsPath)
+	}
+	if !cfg.OTELTracingEnabled {
+		t.Fatal("OTELTracingEnabled = false")
+	}
+	if cfg.OTELTraceSampleRatio != 1 {
+		t.Fatalf("OTELTraceSampleRatio = %f", cfg.OTELTraceSampleRatio)
+	}
+}
+
 func TestParseDotEnvLine(t *testing.T) {
 	tests := []struct {
 		name      string

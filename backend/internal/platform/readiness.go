@@ -17,6 +17,7 @@ type ReadinessChecker struct {
 	ZitadelIssuer string
 	CheckZitadel  bool
 	HTTPClient    *http.Client
+	Metrics       *Metrics
 }
 
 type ReadinessResult struct {
@@ -39,10 +40,17 @@ func (c ReadinessChecker) Check(ctx context.Context) ReadinessResult {
 	c.checkPing(ctx, &result, "redis", c.RedisPing)
 
 	if c.CheckZitadel {
+		startedAt := time.Now()
 		if err := c.checkZitadel(ctx); err != nil {
+			if c.Metrics != nil {
+				c.Metrics.ObserveDependencyPing("zitadel", time.Since(startedAt), err)
+			}
 			result.Status = "error"
 			result.Checks["zitadel"] = ReadinessCheck{Status: "error", Error: err.Error()}
 		} else {
+			if c.Metrics != nil {
+				c.Metrics.ObserveDependencyPing("zitadel", time.Since(startedAt), nil)
+			}
 			result.Checks["zitadel"] = ReadinessCheck{Status: "ok"}
 		}
 	}
@@ -51,18 +59,29 @@ func (c ReadinessChecker) Check(ctx context.Context) ReadinessResult {
 }
 
 func (c ReadinessChecker) checkPing(ctx context.Context, result *ReadinessResult, name string, ping PingFunc) {
+	startedAt := time.Now()
 	if ping == nil {
-		result.Status = "error"
-		result.Checks[name] = ReadinessCheck{Status: "error", Error: "ping function is not configured"}
-		return
-	}
-
-	if err := ping(ctx); err != nil {
+		err := fmt.Errorf("ping function is not configured")
+		if c.Metrics != nil {
+			c.Metrics.ObserveDependencyPing(name, time.Since(startedAt), err)
+		}
 		result.Status = "error"
 		result.Checks[name] = ReadinessCheck{Status: "error", Error: err.Error()}
 		return
 	}
 
+	if err := ping(ctx); err != nil {
+		if c.Metrics != nil {
+			c.Metrics.ObserveDependencyPing(name, time.Since(startedAt), err)
+		}
+		result.Status = "error"
+		result.Checks[name] = ReadinessCheck{Status: "error", Error: err.Error()}
+		return
+	}
+
+	if c.Metrics != nil {
+		c.Metrics.ObserveDependencyPing(name, time.Since(startedAt), nil)
+	}
 	result.Checks[name] = ReadinessCheck{Status: "ok"}
 }
 

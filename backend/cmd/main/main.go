@@ -37,6 +37,30 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	shutdownTracing, err := platform.InitTracing(ctx, platform.TracingConfig{
+		Enabled:     cfg.OTELTracingEnabled,
+		ServiceName: cfg.OTELServiceName,
+		AppVersion:  cfg.AppVersion,
+		Endpoint:    cfg.OTELExporterOTLPEndpoint,
+		Insecure:    cfg.OTELExporterOTLPInsecure,
+		SampleRatio: cfg.OTELTraceSampleRatio,
+	}, logger)
+	if err != nil {
+		fatal(logger, "initialize tracing", err)
+	}
+	defer func() {
+		ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTracing(ctxWithTimeout); err != nil {
+			logger.Warn("shutdown tracing", "error", err)
+		}
+	}()
+
+	var metrics *platform.Metrics
+	if cfg.MetricsEnabled {
+		metrics = platform.NewMetrics(cfg.AppVersion)
+	}
+
 	pool, err := platform.NewPostgresPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		fatal(logger, "connect postgres", err)
@@ -123,18 +147,19 @@ func main() {
 		Interval:     cfg.SCIMReconcileInterval,
 		Timeout:      cfg.SCIMReconcileTimeout,
 		RunOnStartup: cfg.SCIMReconcileRunOnStartup,
-	}, logger)
+	}, logger, metrics)
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, todoService, machineClientService, bearerVerifier, m2mVerifier)
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, todoService, machineClientService, bearerVerifier, m2mVerifier, metrics)
 	app.RegisterHealthRoutes(application.Router, platform.ReadinessChecker{
 		PostgresPing:  pool.Ping,
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },
 		ZitadelIssuer: cfg.ZitadelIssuer,
 		CheckZitadel:  cfg.ReadinessCheckZitadel,
 		HTTPClient:    platform.ReadinessTimeoutClient(cfg.ReadinessTimeout),
+		Metrics:       metrics,
 	}, cfg.ReadinessTimeout)
 	if err := backendroot.RegisterFrontendRoutes(application.Router); err != nil {
 		logger.Warn("frontend routes unavailable", "error", err)

@@ -12,6 +12,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type AuthFailureMetrics interface {
+	IncAuthFailure(kind, reason string)
+}
+
+const (
+	authFailureMissingToken   = "missing_token"
+	authFailureInvalidToken   = "invalid_token"
+	authFailureInvalidScope   = "invalid_scope"
+	authFailureInvalidRole    = "invalid_role"
+	authFailureTenantDenied   = "tenant_denied"
+	authFailureClientNotFound = "client_not_found"
+	authFailureInactiveClient = "inactive_client"
+	authFailureNotConfigured  = "not_configured"
+	authFailureInternal       = "internal"
+)
+
 func ExternalCORS(pathPrefix string, allowedOrigins []string) gin.HandlerFunc {
 	allowed := make(map[string]struct{}, len(allowedOrigins))
 	for _, origin := range allowedOrigins {
@@ -52,7 +68,7 @@ func ExternalCORS(pathPrefix string, allowedOrigins []string) gin.HandlerFunc {
 	}
 }
 
-func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService *service.AuthzService, providerName, expectedAudience, requiredScopePrefix, requiredRole string) gin.HandlerFunc {
+func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService *service.AuthzService, providerName, expectedAudience, requiredScopePrefix, requiredRole string, metrics AuthFailureMetrics) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !strings.HasPrefix(c.Request.URL.Path, pathPrefix) || c.Request.Method == http.MethodOptions {
 			c.Next()
@@ -60,12 +76,14 @@ func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService
 		}
 
 		if verifier == nil || authzService == nil {
+			incAuthFailure(metrics, "external_bearer", authFailureNotConfigured)
 			writeProblem(c, http.StatusServiceUnavailable, "external bearer auth is not configured")
 			return
 		}
 
 		rawToken, err := bearerTokenFromHeader(c.GetHeader("Authorization"))
 		if err != nil {
+			incAuthFailure(metrics, "external_bearer", authFailureReason(err))
 			writeBearerProblem(c, http.StatusUnauthorized, err.Error())
 			return
 		}
@@ -74,25 +92,29 @@ func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService
 		if err != nil {
 			status := http.StatusUnauthorized
 			switch {
-			case err == auth.ErrInvalidBearerScope:
+			case errors.Is(err, auth.ErrInvalidBearerScope):
 				status = http.StatusForbidden
-			case err == auth.ErrInvalidBearerAudience, err == auth.ErrInvalidBearerIssuer, err == auth.ErrMissingBearerToken:
+			case errors.Is(err, auth.ErrInvalidBearerAudience), errors.Is(err, auth.ErrInvalidBearerIssuer), errors.Is(err, auth.ErrMissingBearerToken):
 				status = http.StatusUnauthorized
 			}
+			incAuthFailure(metrics, "external_bearer", authFailureReason(err))
 			writeBearerProblem(c, status, err.Error())
 			return
 		}
 
 		authCtx, err := authzService.AuthContextFromBearerWithTenant(c.Request.Context(), providerName, claims, c.GetHeader("X-Tenant-ID"))
 		if err != nil {
-			if err == service.ErrUnauthorized {
+			if errors.Is(err, service.ErrUnauthorized) {
+				incAuthFailure(metrics, "external_bearer", authFailureTenantDenied)
 				writeBearerProblem(c, http.StatusForbidden, "tenant access denied")
 				return
 			}
+			incAuthFailure(metrics, "external_bearer", authFailureInternal)
 			writeProblem(c, http.StatusInternalServerError, "failed to build auth context")
 			return
 		}
 		if !authCtx.HasProviderRole(requiredRole) {
+			incAuthFailure(metrics, "external_bearer", authFailureInvalidRole)
 			writeBearerProblem(c, http.StatusForbidden, auth.ErrInvalidBearerRole.Error())
 			return
 		}
@@ -102,7 +124,7 @@ func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService
 	}
 }
 
-func SCIMAuth(pathPrefix string, verifier *auth.BearerVerifier, expectedAudience, requiredScope string) gin.HandlerFunc {
+func SCIMAuth(pathPrefix string, verifier *auth.BearerVerifier, expectedAudience, requiredScope string, metrics AuthFailureMetrics) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !strings.HasPrefix(c.Request.URL.Path, pathPrefix) || c.Request.Method == http.MethodOptions {
 			c.Next()
@@ -110,22 +132,26 @@ func SCIMAuth(pathPrefix string, verifier *auth.BearerVerifier, expectedAudience
 		}
 
 		if verifier == nil {
+			incAuthFailure(metrics, "scim", authFailureNotConfigured)
 			writeProblem(c, http.StatusServiceUnavailable, "scim bearer auth is not configured")
 			return
 		}
 
 		rawToken, err := bearerTokenFromHeader(c.GetHeader("Authorization"))
 		if err != nil {
+			incAuthFailure(metrics, "scim", authFailureReason(err))
 			writeBearerProblem(c, http.StatusUnauthorized, err.Error())
 			return
 		}
 
 		claims, err := verifier.Verify(c.Request.Context(), rawToken, expectedAudience, "")
 		if err != nil {
+			incAuthFailure(metrics, "scim", authFailureReason(err))
 			writeBearerProblem(c, http.StatusUnauthorized, err.Error())
 			return
 		}
 		if !claims.HasScope(requiredScope) {
+			incAuthFailure(metrics, "scim", authFailureInvalidScope)
 			writeBearerProblem(c, http.StatusForbidden, auth.ErrInvalidBearerScope.Error())
 			return
 		}
@@ -134,7 +160,7 @@ func SCIMAuth(pathPrefix string, verifier *auth.BearerVerifier, expectedAudience
 	}
 }
 
-func M2MAuth(pathPrefix string, verifier *auth.M2MVerifier, machineClientService *service.MachineClientService, providerName string) gin.HandlerFunc {
+func M2MAuth(pathPrefix string, verifier *auth.M2MVerifier, machineClientService *service.MachineClientService, providerName string, metrics AuthFailureMetrics) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !strings.HasPrefix(c.Request.URL.Path, pathPrefix) || c.Request.Method == http.MethodOptions {
 			c.Next()
@@ -142,12 +168,14 @@ func M2MAuth(pathPrefix string, verifier *auth.M2MVerifier, machineClientService
 		}
 
 		if verifier == nil || machineClientService == nil {
+			incAuthFailure(metrics, "m2m", authFailureNotConfigured)
 			writeProblem(c, http.StatusServiceUnavailable, "m2m bearer auth is not configured")
 			return
 		}
 
 		rawToken, err := bearerTokenFromHeader(c.GetHeader("Authorization"))
 		if err != nil {
+			incAuthFailure(metrics, "m2m", authFailureReason(err))
 			writeBearerProblemForRealm(c, "haohao-m2m", http.StatusUnauthorized, err.Error())
 			return
 		}
@@ -158,6 +186,7 @@ func M2MAuth(pathPrefix string, verifier *auth.M2MVerifier, machineClientService
 			if errors.Is(err, auth.ErrInvalidBearerScope) || errors.Is(err, auth.ErrHumanBearerToken) {
 				status = http.StatusForbidden
 			}
+			incAuthFailure(metrics, "m2m", authFailureReason(err))
 			writeBearerProblemForRealm(c, "haohao-m2m", status, err.Error())
 			return
 		}
@@ -170,6 +199,7 @@ func M2MAuth(pathPrefix string, verifier *auth.M2MVerifier, machineClientService
 				errors.Is(err, service.ErrMachineClientScopeDenied) {
 				status = http.StatusForbidden
 			}
+			incAuthFailure(metrics, "m2m", machineClientAuthFailureReason(err))
 			writeBearerProblemForRealm(c, "haohao-m2m", status, err.Error())
 			return
 		}
@@ -236,6 +266,41 @@ func bearerTokenFromHeader(header string) (string, error) {
 	}
 
 	return token, nil
+}
+
+func incAuthFailure(metrics AuthFailureMetrics, kind, reason string) {
+	if metrics == nil {
+		return
+	}
+	metrics.IncAuthFailure(kind, reason)
+}
+
+func authFailureReason(err error) string {
+	switch {
+	case errors.Is(err, auth.ErrMissingBearerToken):
+		return authFailureMissingToken
+	case errors.Is(err, auth.ErrInvalidBearerScope):
+		return authFailureInvalidScope
+	case errors.Is(err, auth.ErrInvalidBearerRole):
+		return authFailureInvalidRole
+	case errors.Is(err, auth.ErrHumanBearerToken):
+		return authFailureInvalidRole
+	default:
+		return authFailureInvalidToken
+	}
+}
+
+func machineClientAuthFailureReason(err error) string {
+	switch {
+	case errors.Is(err, service.ErrMachineClientInactive):
+		return authFailureInactiveClient
+	case errors.Is(err, service.ErrMachineClientScopeDenied):
+		return authFailureInvalidScope
+	case errors.Is(err, service.ErrMachineClientNotFound):
+		return authFailureClientNotFound
+	default:
+		return authFailureInternal
+	}
 }
 
 func originAllowed(origin string, allowed map[string]struct{}) bool {

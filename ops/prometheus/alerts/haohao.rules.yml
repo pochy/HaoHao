@@ -1,0 +1,77 @@
+groups:
+  - name: haohao
+    rules:
+      - alert: HaoHaoScrapeDown
+        expr: up{job="haohao"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HaoHao metrics scrape is down"
+          runbook: "RUNBOOK_OBSERVABILITY.md#haohaoscrapedown"
+
+      - alert: HaoHaoHigh5xxRate
+        expr: |
+          sum(rate(haohao_http_requests_total{status_class="5xx"}[5m]))
+          /
+          clamp_min(sum(rate(haohao_http_requests_total[5m])), 1)
+          > 0.02
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HaoHao 5xx rate is high"
+          runbook: "RUNBOOK_OBSERVABILITY.md#haohaohigh5xxrate"
+
+      - alert: HaoHaoHighLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(haohao_http_request_duration_seconds_bucket[5m]))
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HaoHao p95 latency is high"
+          runbook: "RUNBOOK_OBSERVABILITY.md#haohaohighlatency"
+
+      - alert: HaoHaoReadinessFailure
+        expr: increase(haohao_readiness_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HaoHao readiness dependency is failing"
+          runbook: "RUNBOOK_OBSERVABILITY.md#haohaoreadinessfailure"
+
+      - alert: HaoHaoDependencyPingSlow
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, dependency) (rate(haohao_dependency_ping_duration_seconds_bucket[5m]))
+          ) > 0.25
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HaoHao dependency ping latency is high"
+          runbook: "RUNBOOK_OBSERVABILITY.md#haohaodependencypingslow"
+
+      - alert: HaoHaoSCIMReconcileFailure
+        expr: increase(haohao_scim_reconcile_runs_total{status="error"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HaoHao SCIM reconcile is failing"
+          runbook: "RUNBOOK_OBSERVABILITY.md#haohaoscimreconcilefailure"
+
+      - alert: HaoHaoAuthFailureSpike
+        expr: sum by (kind) (increase(haohao_auth_failures_total[5m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HaoHao bearer auth failures spiked"
+          runbook: "RUNBOOK_OBSERVABILITY.md#haohaoauthfailurespike"

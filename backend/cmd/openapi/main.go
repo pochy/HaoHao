@@ -32,6 +32,7 @@ func main() {
 		service.NewMachineClientService(nil, nil, "", auditService),
 		nil,
 		nil,
+		nil,
 	)
 
 	spec, err := application.API.OpenAPI().YAML()

@@ -16,6 +16,13 @@ type Config struct {
 	FrontendBaseURL              string
 	LogLevel                     string
 	LogFormat                    string
+	MetricsEnabled               bool
+	MetricsPath                  string
+	OTELTracingEnabled           bool
+	OTELServiceName              string
+	OTELExporterOTLPEndpoint     string
+	OTELExporterOTLPInsecure     bool
+	OTELTraceSampleRatio         float64
 	DatabaseURL                  string
 	AuthMode                     string
 	ZitadelIssuer                string
@@ -91,6 +98,8 @@ func Load() (Config, error) {
 	appBaseURL := strings.TrimRight(getEnv("APP_BASE_URL", "http://127.0.0.1:8080"), "/")
 	frontendBaseURL := resolveFrontendBaseURL(appBaseURL, getEnv("FRONTEND_BASE_URL", defaultFrontendBaseURL(appBaseURL, frontendEmbedded)), frontendEmbedded)
 	zitadelPostLogoutRedirectURI := resolveZitadelPostLogoutRedirectURI(frontendBaseURL, getEnv("ZITADEL_POST_LOGOUT_REDIRECT_URI", defaultZitadelPostLogoutRedirectURI(frontendBaseURL)), frontendEmbedded)
+	metricsPath := normalizePath(getEnv("METRICS_PATH", "/metrics"), "/metrics")
+	otelTraceSampleRatio := clampFloat64(getEnvFloat64("OTEL_TRACES_SAMPLER_RATIO", 0.1), 0, 1)
 
 	return Config{
 		AppName:                      getEnv("APP_NAME", "HaoHao API"),
@@ -100,6 +109,13 @@ func Load() (Config, error) {
 		FrontendBaseURL:              frontendBaseURL,
 		LogLevel:                     getEnv("LOG_LEVEL", "info"),
 		LogFormat:                    getEnv("LOG_FORMAT", "json"),
+		MetricsEnabled:               getEnvBool("METRICS_ENABLED", true),
+		MetricsPath:                  metricsPath,
+		OTELTracingEnabled:           getEnvBool("OTEL_TRACING_ENABLED", false),
+		OTELServiceName:              getEnv("OTEL_SERVICE_NAME", "haohao"),
+		OTELExporterOTLPEndpoint:     getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
+		OTELExporterOTLPInsecure:     getEnvBool("OTEL_EXPORTER_OTLP_INSECURE", true),
+		OTELTraceSampleRatio:         otelTraceSampleRatio,
 		DatabaseURL:                  getEnv("DATABASE_URL", ""),
 		AuthMode:                     getEnv("AUTH_MODE", "local"),
 		ZitadelIssuer:                strings.TrimRight(getEnv("ZITADEL_ISSUER", ""), "/"),
@@ -160,6 +176,31 @@ func getEnvInt(key string, fallback int) int {
 	return parsed
 }
 
+func getEnvFloat64(key string, fallback float64) float64 {
+	value := getEnv(key, "")
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return fallback
+	}
+
+	return parsed
+}
+
+func clampFloat64(value, minValue, maxValue float64) float64 {
+	if value < minValue {
+		return minValue
+	}
+	if value > maxValue {
+		return maxValue
+	}
+
+	return value
+}
+
 func getEnvPositiveDuration(key, fallback string) (time.Duration, error) {
 	value := getEnv(key, fallback)
 	parsed, err := time.ParseDuration(value)
@@ -203,4 +244,16 @@ func getEnvCSV(key string) []string {
 	}
 
 	return items
+}
+
+func normalizePath(value, fallback string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return fallback
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		return "/" + trimmed
+	}
+
+	return trimmed
 }
