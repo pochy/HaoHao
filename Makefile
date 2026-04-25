@@ -6,6 +6,7 @@ ZITADEL_ENV_FILE := dev/zitadel/.env
 ZITADEL_ENV_EXAMPLE := dev/zitadel/.env.example
 ZITADEL_COMPOSE_FILE := dev/zitadel/docker-compose.yml
 ZITADEL_COMPOSE := $(DOCKER_COMPOSE) --env-file $(ZITADEL_ENV_FILE) -f $(ZITADEL_COMPOSE_FILE)
+GO_BINARY_BUILD_FLAGS := -buildvcs=false -trimpath -tags "embed_frontend nomsgpack" -ldflags "-s -w -buildid="
 
 up:
 	$(DOCKER_COMPOSE) up -d
@@ -57,3 +58,13 @@ backend-dev:
 
 frontend-dev:
 	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run build
+
+binary: frontend-build
+	mkdir -p bin
+	CGO_ENABLED=0 go build $(GO_BINARY_BUILD_FLAGS) -o ./bin/haohao ./backend/cmd/main
+
+docker-build:
+	docker build -t haohao:dev -f docker/Dockerfile .

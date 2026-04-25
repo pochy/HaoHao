@@ -31,7 +31,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.25.0"
+          go-version: "1.26.0"
 
       - uses: actions/setup-node@v4
         with:
@@ -55,6 +55,9 @@ jobs:
       - name: Frontend build
         run: npm --prefix frontend run build
 
+      - name: Embedded binary build
+        run: CGO_ENABLED=0 go build -buildvcs=false -trimpath -tags "embed_frontend nomsgpack" -ldflags "-s -w -buildid=" -o ./bin/haohao ./backend/cmd/main
+
       - name: Generated drift
         run: |
           make gen
@@ -75,6 +78,9 @@ jobs:
 
       - name: Zitadel compose config
         run: docker compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet
+
+      - name: Docker build
+        run: docker build -t haohao:ci -f docker/Dockerfile .
 
       - name: Whitespace check
         run: git diff --check

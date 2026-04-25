@@ -47,6 +47,10 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	if err := loadDotEnvFiles(); err != nil {
+		return Config{}, err
+	}
+
 	sessionTTL, err := time.ParseDuration(getEnv("SESSION_TTL", "24h"))
 	if err != nil {
 		return Config{}, err
@@ -64,19 +68,23 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	appBaseURL := strings.TrimRight(getEnv("APP_BASE_URL", "http://127.0.0.1:8080"), "/")
+	frontendBaseURL := resolveFrontendBaseURL(appBaseURL, getEnv("FRONTEND_BASE_URL", defaultFrontendBaseURL(appBaseURL, frontendEmbedded)), frontendEmbedded)
+	zitadelPostLogoutRedirectURI := resolveZitadelPostLogoutRedirectURI(frontendBaseURL, getEnv("ZITADEL_POST_LOGOUT_REDIRECT_URI", defaultZitadelPostLogoutRedirectURI(frontendBaseURL)), frontendEmbedded)
+
 	return Config{
 		AppName:                      getEnv("APP_NAME", "HaoHao API"),
 		AppVersion:                   getEnv("APP_VERSION", "0.1.0"),
 		HTTPPort:                     getEnvInt("HTTP_PORT", 8080),
-		AppBaseURL:                   strings.TrimRight(getEnv("APP_BASE_URL", "http://127.0.0.1:8080"), "/"),
-		FrontendBaseURL:              strings.TrimRight(getEnv("FRONTEND_BASE_URL", "http://127.0.0.1:5173"), "/"),
+		AppBaseURL:                   appBaseURL,
+		FrontendBaseURL:              frontendBaseURL,
 		DatabaseURL:                  getEnv("DATABASE_URL", ""),
 		AuthMode:                     getEnv("AUTH_MODE", "local"),
 		ZitadelIssuer:                strings.TrimRight(getEnv("ZITADEL_ISSUER", ""), "/"),
 		ZitadelClientID:              getEnv("ZITADEL_CLIENT_ID", ""),
 		ZitadelClientSecret:          getEnv("ZITADEL_CLIENT_SECRET", ""),
 		ZitadelRedirectURI:           getEnv("ZITADEL_REDIRECT_URI", "http://127.0.0.1:8080/api/v1/auth/callback"),
-		ZitadelPostLogoutRedirectURI: getEnv("ZITADEL_POST_LOGOUT_REDIRECT_URI", "http://127.0.0.1:5173/login"),
+		ZitadelPostLogoutRedirectURI: zitadelPostLogoutRedirectURI,
 		ZitadelScopes:                getEnv("ZITADEL_SCOPES", "openid profile email"),
 		ExternalExpectedAudience:     getEnv("EXTERNAL_EXPECTED_AUDIENCE", "haohao-external"),
 		ExternalRequiredScopePrefix:  getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", ""),

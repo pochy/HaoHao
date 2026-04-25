@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	backendroot "example.com/haohao/backend"
 	"example.com/haohao/backend/internal/app"
 	"example.com/haohao/backend/internal/auth"
 	"example.com/haohao/backend/internal/config"
@@ -106,6 +107,9 @@ func main() {
 	provisioningService := service.NewProvisioningService(pool, queries, sessionService, delegationService, authzService)
 
 	application := app.New(cfg, sessionService, oidcLoginService, delegationService, provisioningService, authzService, machineClientService, bearerVerifier, m2mVerifier)
+	if err := backendroot.RegisterFrontendRoutes(application.Router); err != nil {
+		log.Printf("frontend routes unavailable: %v", err)
+	}
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
