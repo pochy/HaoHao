@@ -60,6 +60,9 @@ async function rotateSession() {
           <button class="secondary-button" type="button" @click="signOut">
             Logout
           </button>
+          <RouterLink class="secondary-button link-button" to="/todos">
+            Open TODO
+          </RouterLink>
           <DocsLink />
         </div>
 

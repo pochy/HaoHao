@@ -14,6 +14,7 @@ type Dependencies struct {
 	DelegationService            *service.DelegationService
 	ProvisioningService          *service.ProvisioningService
 	AuthzService                 *service.AuthzService
+	TodoService                  *service.TodoService
 	MachineClientService         *service.MachineClientService
 	AuthMode                     string
 	EnableLocalPasswordLogin     bool
@@ -33,6 +34,7 @@ func Register(api huma.API, deps Dependencies) {
 	registerExternalRoutes(api, deps)
 	registerIntegrationRoutes(api, deps)
 	registerTenantRoutes(api, deps)
+	registerTodoRoutes(api, deps)
 	registerMachineClientRoutes(api, deps)
 	registerM2MRoutes(api, deps)
 	registerSCIMRoutes(api, deps)

@@ -35,6 +35,13 @@ func TestRegisterFrontendRoutes(t *testing.T) {
 			wantContent: "text/html; charset=utf-8",
 		},
 		{
+			name:        "todo spa route falls back to index",
+			method:      http.MethodGet,
+			path:        "/todos",
+			wantStatus:  http.StatusOK,
+			wantContent: "text/html; charset=utf-8",
+		},
+		{
 			name:        "static asset is served",
 			method:      http.MethodGet,
 			path:        "/assets/app.js",

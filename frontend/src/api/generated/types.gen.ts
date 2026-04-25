@@ -31,6 +31,14 @@ export type Cookie = {
     Value: string;
 };
 
+export type CreateTodoBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    title: string;
+};
+
 export type ErrorDetail = {
     /**
      * Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
@@ -267,6 +275,35 @@ export type TenantBody = {
     slug: string;
 };
 
+export type TodoBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    completed: boolean;
+    createdAt: string;
+    publicId: string;
+    title: string;
+    updatedAt: string;
+};
+
+export type TodoListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<TodoBody> | null;
+};
+
+export type UpdateTodoBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    completed?: boolean;
+    title?: string;
+};
+
 export type UserResponse = {
     displayName: string;
     email: string;
@@ -294,6 +331,10 @@ export type AuthSettingsBodyWritable = {
     localPasswordLoginEnabled: boolean;
     mode: string;
     zitadel?: ZitadelSettingsBody;
+};
+
+export type CreateTodoBodyWritable = {
+    title: string;
 };
 
 export type ErrorModelWritable = {
@@ -421,6 +462,23 @@ export type SelectTenantOutputBodyWritable = {
 
 export type SessionBodyWritable = {
     user: UserResponse;
+};
+
+export type TodoBodyWritable = {
+    completed: boolean;
+    createdAt: string;
+    publicId: string;
+    title: string;
+    updatedAt: string;
+};
+
+export type TodoListBodyWritable = {
+    items: Array<TodoBodyWritable> | null;
+};
+
+export type UpdateTodoBodyWritable = {
+    completed?: boolean;
+    title?: string;
 };
 
 export type VerifyIntegrationBodyWritable = {
@@ -1198,3 +1256,116 @@ export type ListTenantsResponses = {
 };
 
 export type ListTenantsResponse = ListTenantsResponses[keyof ListTenantsResponses];
+
+export type ListTodosData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/todos';
+};
+
+export type ListTodosErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTodosError = ListTodosErrors[keyof ListTodosErrors];
+
+export type ListTodosResponses = {
+    /**
+     * OK
+     */
+    200: TodoListBody;
+};
+
+export type ListTodosResponse = ListTodosResponses[keyof ListTodosResponses];
+
+export type CreateTodoData = {
+    body: CreateTodoBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/todos';
+};
+
+export type CreateTodoErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateTodoError = CreateTodoErrors[keyof CreateTodoErrors];
+
+export type CreateTodoResponses = {
+    /**
+     * OK
+     */
+    200: TodoBody;
+};
+
+export type CreateTodoResponse = CreateTodoResponses[keyof CreateTodoResponses];
+
+export type DeleteTodoData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        todoPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/todos/{todoPublicId}';
+};
+
+export type DeleteTodoErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeleteTodoError = DeleteTodoErrors[keyof DeleteTodoErrors];
+
+export type DeleteTodoResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteTodoResponse = DeleteTodoResponses[keyof DeleteTodoResponses];
+
+export type UpdateTodoData = {
+    body: UpdateTodoBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        todoPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/todos/{todoPublicId}';
+};
+
+export type UpdateTodoErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateTodoError = UpdateTodoErrors[keyof UpdateTodoErrors];
+
+export type UpdateTodoResponses = {
+    /**
+     * OK
+     */
+    200: TodoBody;
+};
+
+export type UpdateTodoResponse = UpdateTodoResponses[keyof UpdateTodoResponses];

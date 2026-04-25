@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateMachineClientData, CreateMachineClientErrors, CreateMachineClientResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, DeleteMachineClientData, DeleteMachineClientErrors, DeleteMachineClientResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetM2mSelfData, GetM2mSelfErrors, GetM2mSelfResponses, GetMachineClientData, GetMachineClientErrors, GetMachineClientResponses, GetSessionData, GetSessionErrors, GetSessionResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListMachineClientsData, ListMachineClientsErrors, ListMachineClientsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, ScimCreateUserData, ScimCreateUserErrors, ScimCreateUserResponses, ScimDeleteUserData, ScimDeleteUserErrors, ScimDeleteUserResponses, ScimGetUserData, ScimGetUserErrors, ScimGetUserResponses, ScimListUsersData, ScimListUsersErrors, ScimListUsersResponses, ScimPatchUserData, ScimPatchUserErrors, ScimPatchUserResponses, ScimReplaceUserData, ScimReplaceUserErrors, ScimReplaceUserResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, UpdateMachineClientData, UpdateMachineClientErrors, UpdateMachineClientResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
+import type { ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateMachineClientData, CreateMachineClientErrors, CreateMachineClientResponses, CreateTodoData, CreateTodoErrors, CreateTodoResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, DeleteMachineClientData, DeleteMachineClientErrors, DeleteMachineClientResponses, DeleteTodoData, DeleteTodoErrors, DeleteTodoResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetM2mSelfData, GetM2mSelfErrors, GetM2mSelfResponses, GetMachineClientData, GetMachineClientErrors, GetMachineClientResponses, GetSessionData, GetSessionErrors, GetSessionResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListMachineClientsData, ListMachineClientsErrors, ListMachineClientsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, ListTodosData, ListTodosErrors, ListTodosResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, ScimCreateUserData, ScimCreateUserErrors, ScimCreateUserResponses, ScimDeleteUserData, ScimDeleteUserErrors, ScimDeleteUserResponses, ScimGetUserData, ScimGetUserErrors, ScimGetUserResponses, ScimListUsersData, ScimListUsersErrors, ScimListUsersResponses, ScimPatchUserData, ScimPatchUserErrors, ScimPatchUserResponses, ScimReplaceUserData, ScimReplaceUserErrors, ScimReplaceUserResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, UpdateMachineClientData, UpdateMachineClientErrors, UpdateMachineClientResponses, UpdateTodoData, UpdateTodoErrors, UpdateTodoResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -347,4 +347,64 @@ export const listTenants = <ThrowOnError extends boolean = false>(options?: Opti
         }],
     url: '/api/v1/tenants',
     ...options
+});
+
+/**
+ * active tenant の TODO 一覧を返す
+ */
+export const listTodos = <ThrowOnError extends boolean = false>(options?: Options<ListTodosData, ThrowOnError>) => (options?.client ?? client).get<ListTodosResponses, ListTodosErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/todos',
+    ...options
+});
+
+/**
+ * active tenant に TODO を作成する
+ */
+export const createTodo = <ThrowOnError extends boolean = false>(options: Options<CreateTodoData, ThrowOnError>) => (options.client ?? client).post<CreateTodoResponses, CreateTodoErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/todos',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * active tenant の TODO を削除する
+ */
+export const deleteTodo = <ThrowOnError extends boolean = false>(options: Options<DeleteTodoData, ThrowOnError>) => (options.client ?? client).delete<DeleteTodoResponses, DeleteTodoErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/todos/{todoPublicId}',
+    ...options
+});
+
+/**
+ * active tenant の TODO を更新する
+ */
+export const updateTodo = <ThrowOnError extends boolean = false>(options: Options<UpdateTodoData, ThrowOnError>) => (options.client ?? client).patch<UpdateTodoResponses, UpdateTodoErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/todos/{todoPublicId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });

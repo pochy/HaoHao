@@ -346,6 +346,63 @@ code {
   color: var(--danger);
 }
 
+.todo-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.todo-title-field {
+  min-width: 0;
+}
+
+.todo-loading {
+  min-height: 120px;
+}
+
+.todo-list {
+  display: grid;
+  gap: 12px;
+}
+
+.todo-item {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.2fr) minmax(220px, 1fr) minmax(160px, 0.38fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.todo-item:last-child {
+  border-bottom: 0;
+}
+
+.todo-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-strong);
+}
+
+.todo-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.inline-edit-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  min-width: 0;
+}
+
+.inline-edit-form .field-input.completed {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
 .json-card {
   margin: 0;
   padding: 18px;
@@ -377,6 +434,12 @@ code {
 
   .admin-form,
   .metadata-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .todo-form,
+  .todo-item,
+  .inline-edit-form {
     grid-template-columns: 1fr;
   }
 }

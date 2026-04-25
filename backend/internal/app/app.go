@@ -20,7 +20,7 @@ type App struct {
 	API    huma.API
 }
 
-func New(cfg config.Config, logger *slog.Logger, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, machineClientService *service.MachineClientService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier) *App {
+func New(cfg config.Config, logger *slog.Logger, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, todoService *service.TodoService, machineClientService *service.MachineClientService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier) *App {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
@@ -64,6 +64,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		DelegationService:            delegationService,
 		ProvisioningService:          provisioningService,
 		AuthzService:                 authzService,
+		TodoService:                  todoService,
 		MachineClientService:         machineClientService,
 		AuthMode:                     cfg.AuthMode,
 		EnableLocalPasswordLogin:     cfg.EnableLocalPasswordLogin,

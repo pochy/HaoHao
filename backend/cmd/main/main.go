@@ -53,6 +53,7 @@ func main() {
 	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
 	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode, cfg.EnableLocalPasswordLogin)
 	authzService := service.NewAuthzService(pool, queries)
+	todoService := service.NewTodoService(queries)
 	machineClientService := service.NewMachineClientService(queries, cfg.M2MRequiredScopePrefix)
 
 	var oidcLoginService *service.OIDCLoginService
@@ -125,7 +126,7 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, machineClientService, bearerVerifier, m2mVerifier)
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, todoService, machineClientService, bearerVerifier, m2mVerifier)
 	app.RegisterHealthRoutes(application.Router, platform.ReadinessChecker{
 		PostgresPing:  pool.Ping,
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },

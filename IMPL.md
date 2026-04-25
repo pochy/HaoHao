@@ -10,6 +10,7 @@
 - `TUTORIAL_SINGLE_BINARY.md`
 - `TUTORIAL_P0_OPERABILITY.md`
 - `TUTORIAL_P1_ADMIN_UI.md`
+- `TUTORIAL_P2_TODO.md`
 - `RUNBOOK_OPERABILITY.md`
 - 現在の repository 実装
 
@@ -17,9 +18,9 @@
 
 現在の実装は、`CONCEPT.md` の基本方針である **OpenAPI 3.1 優先 + Monorepo + Go/Huma + Vue + PostgreSQL/sqlc + BFF Cookie 認証** をかなり広い範囲まで反映している。
 
-`TUTORIAL.md` の foundation は、local password login / Cookie session / OpenAPI 生成 / frontend generated SDK 連携まで実装済み。さらに `TUTORIAL_ZITADEL.md` の Phase 1-6、`TUTORIAL_SINGLE_BINARY.md`、`TUTORIAL_P0_OPERABILITY.md`、`TUTORIAL_P1_ADMIN_UI.md` まで進んでおり、Zitadel browser login、bearer API、delegated auth、SCIM、tenant-aware auth、M2M、単一バイナリ配信、運用確認、管理 UI が存在する。
+`TUTORIAL.md` の foundation は、local password login / Cookie session / OpenAPI 生成 / frontend generated SDK 連携まで実装済み。さらに `TUTORIAL_ZITADEL.md` の Phase 1-6、`TUTORIAL_SINGLE_BINARY.md`、`TUTORIAL_P0_OPERABILITY.md`、`TUTORIAL_P1_ADMIN_UI.md`、`TUTORIAL_P2_TODO.md` まで進んでおり、Zitadel browser login、bearer API、delegated auth、SCIM、tenant-aware auth、M2M、単一バイナリ配信、運用確認、管理 UI、tenant 共有 TODO が存在する。
 
-単一バイナリで SPA を配信する部分、Dockerfile、CI、release asset、P0 operability、P1 admin UI も追加済み。現時点で大きく残るのは、P2 の業務ドメイン縦切り、tenant 自体の CRUD 管理 UI、metrics / tracing などの本番 observability の拡張。
+単一バイナリで SPA を配信する部分、Dockerfile、CI、release asset、P0 operability、P1 admin UI、P2 TODO 縦切りも追加済み。現時点で大きく残るのは、tenant 自体の CRUD 管理 UI、TODO より具体的な業務ドメインの拡張、metrics / tracing などの本番 observability の拡張。
 
 ## 方針との対応
 
@@ -36,6 +37,7 @@
 | Single binary | 実装済み。frontend build output を `backend/web/dist/` に出し、`embed_frontend` build tag で Go binary に embed する |
 | Operability | 実装済み。structured request logging、request id、health/readiness、SCIM reconcile scheduler、smoke script、runbook がある |
 | Admin UI | 実装済み。tenant selector、integrations UX、machine client admin UI、docs access check がある |
+| Business domain | 実装済み。tenant-aware TODO の schema / API / frontend があり、active tenant と tenant role `todo_user` で認可する |
 | Docker / CI / release | 実装済み。`docker/Dockerfile`、`.dockerignore`、CI の embedded binary / Docker build、release asset upload がある |
 
 ## 開発基盤
@@ -54,6 +56,7 @@
 - `.github/workflows/release.yml` は OpenAPI artifact と embedded Linux amd64 binary tarball を GitHub Release に upload する。
 - `scripts/smoke-operability.sh` と `make smoke-operability` があり、既存 server に対して `/healthz`, `/readyz`, `/api/v1/session`, `/openapi.yaml`, forced OIDC callback redirect を確認する。
 - `RUNBOOK_OPERABILITY.md` に binary deploy、Docker deploy、rollback、Zitadel redirect URI、smoke test の手順がある。
+- `scripts/seed-demo-user.sql` は `demo@example.com` に加え、Acme / Beta tenant、tenant role `docs_reader` / `todo_user`、global role `machine_client_admin` を idempotent に準備する。
 
 注意点:
 
@@ -65,7 +68,7 @@
 
 ## Database / sqlc
 
-migration は `0001` から `0007` まである。
+migration は `0001` から `0008` まである。
 
 | migration | 内容 |
 | --- | --- |
@@ -76,18 +79,19 @@ migration は `0001` から `0007` まである。
 | `0005_provisioning` | `deactivated_at`、SCIM/provisioning 用 identity columns、`provisioning_sync_state` |
 | `0006_org_tenants` | `tenants`, `tenant_memberships`, `tenant_role_overrides`、user default tenant、grant tenant 化 |
 | `0007_machine_clients` | `machine_clients` と `machine_client_admin` role |
+| `0008_todos` | tenant 共有 TODO。`todos.public_id`, `tenant_id`, `created_by_user_id`, `title`, `completed`, timestamps と tenant scoped index |
 
 sqlc:
 
 - `backend/sqlc.yaml` は `db/schema.sql` と `db/queries/` を入力にする。
 - 生成先は `backend/internal/db/`。
 - `uuid` は `github.com/google/uuid.UUID` に override されている。
-- `db/queries/` は users, identities, roles, tenants, downstream grants, provisioning, machine clients を持つ。
+- `db/queries/` は users, identities, roles, tenants, downstream grants, provisioning, machine clients, todos を持つ。
 
 注意点:
 
 - `db/schema.sql` は migration 由来の snapshot として扱う前提。
-- TODO 機能用の schema / API は現在存在しない。
+- TODO は tenant 共有の最初の業務 table。list / get / update / delete は必ず `tenant_id` で絞り、tenant 外 TODO の存在を `404` として隠す。
 
 ## Backend
 
@@ -99,7 +103,7 @@ sqlc:
 - `backend/cmd/openapi/main.go`: Huma API から OpenAPI YAML を出力。
 - `backend/internal/app/app.go`: Gin engine、middleware、Huma config、security schemes、route registration。
 - `backend/internal/api/`: Huma operation と request / response model。
-- `backend/internal/service/`: session, OIDC login, identity, authz, delegation, provisioning, machine client。
+- `backend/internal/service/`: session, OIDC login, identity, authz, delegation, provisioning, machine client, TODO。
 - `backend/internal/auth/`: Cookie、Redis stores、OIDC/OAuth client、JWT bearer verifier、M2M verifier、refresh token encryption。
 - `backend/internal/middleware/`: docs auth、external CORS/auth、SCIM auth、M2M auth。
 - `backend/internal/config/dotenv.go`: `.env` の任意読み込み。カレントディレクトリと実行ファイル横の `.env` を読み、既存環境変数は上書きしない。
@@ -110,6 +114,8 @@ sqlc:
 - `backend/internal/middleware/request_logger.go`: request id 付き structured request logging。
 - `backend/internal/app/health.go`: Gin route として `/healthz` / `/readyz` を登録する。
 - `backend/internal/jobs/scheduler.go`: `ProvisioningReconcileJob.RunOnce(ctx)` を `time.Ticker` で interval 実行する scheduler。
+- `backend/internal/service/todo_service.go`: tenant-aware TODO の list/create/update/delete と validation。
+- `backend/internal/api/todos.go`: browser session + CSRF + active tenant role `todo_user` 前提の TODO Huma operation。
 - `backend/frontend.go`: embedded frontend の static serving と SPA fallback。
 - `backend/frontend_embed.go`: `embed_frontend` build tag 付きで `backend/web/dist` を `embed.FS` に埋め込む。
 - `backend/frontend_stub.go`: build tag なしでは frontend 未埋め込みとして扱う。
@@ -169,6 +175,11 @@ sqlc:
   - `GET /api/v1/machine-clients/{id}`
   - `PUT /api/v1/machine-clients/{id}`
   - `DELETE /api/v1/machine-clients/{id}`
+- TODO:
+  - `GET /api/v1/todos`
+  - `POST /api/v1/todos`
+  - `PATCH /api/v1/todos/{todoPublicId}`
+  - `DELETE /api/v1/todos/{todoPublicId}`
 - M2M:
   - `GET /api/m2m/v1/self`
 
@@ -274,6 +285,31 @@ OpenAPI には出ないが runtime に存在する endpoint:
 - Zitadel 側の machine client/application 作成は別途 Console または手順に従う必要がある。
 - machine client admin は tenant role ではなく global role `machine_client_admin` を見る。
 
+### P2 TODO
+
+実装済み:
+
+- `todos` table と sqlc query がある。
+- TODO は tenant 共有の業務データとして `tenant_id` を必須にする。
+- 作成者追跡用に `created_by_user_id` を保持する。
+- `TodoService` は HTTP / Cookie を知らず、API 層から認証済み user ID と active tenant ID を受け取る。
+- `GET /api/v1/todos` は active tenant の TODO だけを返す。
+- `POST /api/v1/todos` は active tenant に TODO を作成する。
+- `PATCH /api/v1/todos/{todoPublicId}` は title / completed を更新する。
+- `DELETE /api/v1/todos/{todoPublicId}` は active tenant の TODO を削除する。
+- 未ログインは `401 application/problem+json`。
+- active tenant が無い場合は `409 active tenant is required`。
+- active tenant に tenant role `todo_user` が無い場合は `403 todo_user tenant role is required`。
+- 空 title / whitespace-only title / 200 文字超過 title は `400 invalid todo title`。
+- title と completed が両方未指定の patch は `400 invalid todo update`。
+- tenant 外または存在しない TODO は `404 todo not found` として扱う。
+
+注意点:
+
+- `todo_user` は TODO API では global role としては見ない。active tenant の tenant role だけを見る。
+- TODO API は browser session + Cookie + CSRF の縦切りに限定している。M2M / external bearer 用 TODO API は未実装。
+- tenant 自体の CRUD 管理 UI は P2 には含めていない。
+
 ### Docs / OpenAPI
 
 実装済み:
@@ -293,6 +329,7 @@ OpenAPI には出ないが runtime に存在する endpoint:
 - `cmd/main` は router 作成後に `backend.RegisterFrontendRoutes(application.Router)` を呼ぶ。
 - `/`, `/login`, `/integrations` は SPA fallback として `index.html` を返す。
 - `/machine-clients`, `/machine-clients/new`, `/machine-clients/:id` も SPA fallback として `index.html` を返す。
+- `/todos` も SPA fallback として `index.html` を返す。
 - `/assets/*`, `/favicon.svg`, `/icons.svg` は frontend build artifact として返す。
 - `/api/*`, `/docs`, `/schemas/*`, `/openapi.yaml`, `/openapi.json`, `/openapi-3.0.yaml`, `/openapi-3.0.json` は SPA fallback しない。
 - 存在しない `/assets/*` や拡張子付き path は `index.html` ではなく `404` を返す。
@@ -319,12 +356,12 @@ Docker:
 実装済み:
 
 - Vue 3 + Vite + TypeScript。
-- Pinia store は session state、tenant state、machine client state を管理する。
-- Vue Router で `/`, `/login`, `/integrations`, `/machine-clients`, `/machine-clients/new`, `/machine-clients/:id` を持つ。
+- Pinia store は session state、tenant state、machine client state、TODO state を管理する。
+- Vue Router で `/`, `/login`, `/integrations`, `/todos`, `/machine-clients`, `/machine-clients/new`, `/machine-clients/:id` を持つ。
 - generated SDK は `frontend/src/api/generated/`。
 - `frontend/src/api/client.ts` が generated client の共通 transport 設定を持つ。
 - `frontend/src/api/client.ts` は Problem JSON の status を読み、403 を UI state として扱う helper も持つ。
-- `frontend/src/api/tenants.ts`, `frontend/src/api/machine-clients.ts`, `frontend/src/api/docs.ts` が generated SDK の薄い wrapper を持つ。
+- `frontend/src/api/tenants.ts`, `frontend/src/api/machine-clients.ts`, `frontend/src/api/docs.ts`, `frontend/src/api/todos.ts` が generated SDK の薄い wrapper を持つ。
 - fetch は `credentials: 'include'` で Cookie を送る。
 - mutation 前に `XSRF-TOKEN` Cookie を読み、`X-CSRF-Token` header を付ける。
 - `XSRF-TOKEN` が無い場合は `GET /api/v1/csrf` を先に呼ぶ。
@@ -332,8 +369,10 @@ Docker:
 - App header は authenticated user に tenant selector を表示する。
 - Home 画面は current session 表示、session refresh、logout、docs access check 付き link を持つ。
 - Integrations 画面は active tenant を表示し、tenant 切り替えに追従して delegated auth の list/connect/verify/revoke を呼ぶ。
+- TODO 画面は active tenant を表示し、tenant 切り替えに追従して list/create/update/delete を呼ぶ。
+- TODO 画面は active tenant に `todo_user` tenant role が無い場合、blank ではなく `TODO role required` の 403 UI を表示する。
 - Machine client admin 画面は list/create/detail/update/disable を扱う。
-- `AdminAccessDenied` は `machine_client_admin` 不足時の 403 を画面内で表示する。
+- `AdminAccessDenied` は machine client admin と TODO の role 不足時の 403 を画面内で表示する。
 - logout 時に tenant store を reset し、次 user に古い tenant state が残らないようにしている。
 - Vite dev server は `/api`, `/openapi`, `/docs` を backend `127.0.0.1:8080` に proxy する。
 - `npm --prefix frontend run build` の出力先は `backend/web/dist`。
@@ -370,8 +409,9 @@ Docker:
 
 `CONCEPT.md` / tutorial の最終形に対して残っている主な項目:
 
-- P2: 業務ドメインの縦切り機能。現時点では TODO 機能用の schema / API / frontend は存在しない。
 - tenant 自体の CRUD 管理 UI。
+- TODO より具体的な業務ドメイン機能。P2 では tenant-aware CRUD の実証として TODO を追加済みだが、Customer Signals / Product Decisions のような本来の業務モデルは未実装。
+- M2M / external bearer 経由の TODO API。P2 は browser session + Cookie + CSRF に限定している。
 - 本番用 metrics / tracing / alerting。structured logging と readiness はあるが、metrics exporter や distributed tracing は未実装。
 - SCIM / Zitadel provisioning の本番運用では、provider 側 claim / group / SCIM 設定の runbook と staging smoke の拡充が必要。
 
@@ -389,6 +429,8 @@ docker build -t haohao:dev -f docker/Dockerfile .
 go run ./backend/cmd/openapi > /tmp/haohao-openapi.yaml && /usr/bin/diff -u openapi/openapi.yaml /tmp/haohao-openapi.yaml
 cd backend && sqlc generate
 cd frontend && npm run openapi-ts
+make gen
+make seed-demo-user
 ```
 
 結果:
@@ -403,9 +445,14 @@ cd frontend && npm run openapi-ts
 - sqlc 再生成後の差分なし。
 - frontend SDK 再生成後の差分なし。
 - binary smoke test では `/`, `/login`, `/integrations` が HTML、`/api/v1/session` が `401 application/problem+json`、`/openapi.yaml` が OpenAPI YAML、`/assets/missing.js` が `404`。
+- `/todos` は single binary の SPA fallback として `200 text/html` で `index.html` を返すことを確認済み。
+- 未ログインの `/api/v1/todos` は `401 application/problem+json` と `missing or expired session` を返すことを確認済み。
 - operability smoke test では `/healthz`, `/readyz`, `/api/v1/session`, `/openapi.yaml`, forced OIDC callback redirect を確認済み。
 - P1 browser smoke では tenant selector の Acme / Beta 切り替え、Integrations の tenant 追従、machine client の作成 / detail / update / disable、role 不足時の 403 UI、docs link access check を確認済み。
+- P2 API smoke では local mode で `demo@example.com` / `changeme123` に login し、TODO create / patch / delete と Acme / Beta の tenant 分離を確認済み。
+- P2 browser smoke では `/todos` 画面で TODO 作成、完了 toggle、tenant selector による Acme / Beta 切り替え、削除を確認済み。
 - `AUTH_MODE=local` / `ENABLE_LOCAL_PASSWORD_LOGIN=true` で起動した local password login smoke test は `200 OK` と `Set-Cookie` を返した。
+- root `.env` が `AUTH_MODE=zitadel` の場合、demo password login は `501` になるため、P2 local demo smoke では `AUTH_MODE=local ENABLE_LOCAL_PASSWORD_LOGIN=true` を起動時に上書きして確認した。
 - Docker image smoke test では `/`, `/login`, `/api/v1/session`, `/openapi.yaml`, `/openapi-3.0.yaml`, `/assets/missing.js` を確認済み。
 - `bin/haohao` と同じ directory に `.env` を置き、`cd <dir> && ./haohao` で `DATABASE_URL` などが読み込まれることを確認済み。
 - dev 用 `FRONTEND_BASE_URL=http://127.0.0.1:5173` が残った `.env` でも、embedded binary の `/api/v1/auth/callback?error=forced` は `APP_BASE_URL` 側の `/login?error=oidc_callback_failed` へ redirect することを確認済み。
@@ -414,6 +461,6 @@ cd frontend && npm run openapi-ts
 
 ## 現在地の要約
 
-HaoHao は、foundation の login/session 縦切りを超えて、Zitadel を中心にした browser login、external bearer API、delegated auth、SCIM provisioning、tenant-aware auth、M2M まで backend 実装が入っている。さらに、frontend SPA を Go binary に埋め込む単一バイナリ配信、`scratch` runtime Docker image、CI / release artifact 生成、P0 operability、P1 admin UI まで到達している。
+HaoHao は、foundation の login/session 縦切りを超えて、Zitadel を中心にした browser login、external bearer API、delegated auth、SCIM provisioning、tenant-aware auth、M2M まで backend 実装が入っている。さらに、frontend SPA を Go binary に埋め込む単一バイナリ配信、`scratch` runtime Docker image、CI / release artifact 生成、P0 operability、P1 admin UI、P2 tenant-aware TODO まで到達している。
 
-次に優先すべきなのは、P2 の業務ドメイン縦切りである。現時点では TODO などの業務 schema / API / frontend はまだ無く、認証・認可・tenant・operability・admin UI の土台の上に、実際の業務データを tenant-aware に扱う最初の縦切りを追加する段階にいる。
+次に優先すべきなのは、P2 TODO で確認した browser session + CSRF + active tenant role の縦切りを、より実際の業務ドメインへ広げること、または tenant 自体の CRUD 管理 UI と metrics / tracing を補うこと。認証・認可・tenant・operability・admin UI の土台の上で、最初の tenant-aware 業務 CRUD は動作確認済みの段階にいる。

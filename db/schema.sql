@@ -219,6 +219,37 @@ ALTER TABLE public.tenants ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: todos; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.todos (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    created_by_user_id bigint NOT NULL,
+    title text NOT NULL,
+    completed boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT todos_title_check CHECK ((btrim(title) <> ''::text))
+);
+
+
+--
+-- Name: todos_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.todos ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.todos_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: user_identities; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -389,6 +420,14 @@ ALTER TABLE ONLY public.tenants
 
 
 --
+-- Name: todos todos_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.todos
+    ADD CONSTRAINT todos_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: user_identities user_identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -475,6 +514,27 @@ CREATE INDEX tenant_memberships_tenant_id_idx ON public.tenant_memberships USING
 --
 
 CREATE INDEX tenant_role_overrides_tenant_id_idx ON public.tenant_role_overrides USING btree (tenant_id);
+
+
+--
+-- Name: todos_created_by_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX todos_created_by_user_id_idx ON public.todos USING btree (created_by_user_id);
+
+
+--
+-- Name: todos_public_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX todos_public_id_idx ON public.todos USING btree (public_id);
+
+
+--
+-- Name: todos_tenant_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX todos_tenant_id_created_at_idx ON public.todos USING btree (tenant_id, created_at DESC, id DESC);
 
 
 --
@@ -568,6 +628,22 @@ ALTER TABLE ONLY public.tenant_role_overrides
 
 ALTER TABLE ONLY public.tenant_role_overrides
     ADD CONSTRAINT tenant_role_overrides_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: todos todos_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.todos
+    ADD CONSTRAINT todos_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: todos todos_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.todos
+    ADD CONSTRAINT todos_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --

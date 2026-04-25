@@ -90,6 +90,17 @@ type TenantRoleOverride struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Todo struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	TenantID        int64              `json:"tenant_id"`
+	CreatedByUserID int64              `json:"created_by_user_id"`
+	Title           string             `json:"title"`
+	Completed       bool               `json:"completed"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
 	ID              int64              `json:"id"`
 	PublicID        uuid.UUID          `json:"public_id"`

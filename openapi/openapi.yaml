@@ -78,6 +78,24 @@ components:
         - Raw
         - Unparsed
       type: object
+    CreateTodoBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateTodoBody.json
+          format: uri
+          readOnly: true
+          type: string
+        title:
+          examples:
+            - Follow up with customer
+          maxLength: 200
+          type: string
+      required:
+        - title
+      type: object
     ErrorDetail:
       additionalProperties: false
       properties:
@@ -680,6 +698,81 @@ components:
         - displayName
         - default
         - selected
+      type: object
+    TodoBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TodoBody.json
+          format: uri
+          readOnly: true
+          type: string
+        completed:
+          examples:
+            - false
+          type: boolean
+        createdAt:
+          format: date-time
+          type: string
+        publicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        title:
+          examples:
+            - Follow up with customer
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - title
+        - completed
+        - createdAt
+        - updatedAt
+      type: object
+    TodoListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TodoListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/TodoBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    UpdateTodoBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/UpdateTodoBody.json
+          format: uri
+          readOnly: true
+          type: string
+        completed:
+          examples:
+            - true
+          type: boolean
+        title:
+          examples:
+            - Follow up with customer
+          maxLength: 200
+          type: string
       type: object
     UserResponse:
       additionalProperties: false
@@ -1663,3 +1756,138 @@ paths:
       summary: 現在の user が利用できる tenants を返す
       tags:
         - tenants
+  /api/v1/todos:
+    get:
+      operationId: listTodos
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodoListBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の TODO 一覧を返す
+      tags:
+        - todos
+    post:
+      operationId: createTodo
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTodoBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodoBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant に TODO を作成する
+      tags:
+        - todos
+  /api/v1/todos/{todoPublicId}:
+    delete:
+      operationId: deleteTodo
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: todoPublicId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の TODO を削除する
+      tags:
+        - todos
+    patch:
+      operationId: updateTodo
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: todoPublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTodoBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodoBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の TODO を更新する
+      tags:
+        - todos

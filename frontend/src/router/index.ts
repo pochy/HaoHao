@@ -7,6 +7,7 @@ import LoginView from '../views/LoginView.vue'
 import MachineClientDetailView from '../views/MachineClientDetailView.vue'
 import MachineClientFormView from '../views/MachineClientFormView.vue'
 import MachineClientsView from '../views/MachineClientsView.vue'
+import TodosView from '../views/TodosView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -26,6 +27,12 @@ const router = createRouter({
       path: '/integrations',
       name: 'integrations',
       component: IntegrationsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/todos',
+      name: 'todos',
+      component: TodosView,
       meta: { requiresAuth: true },
     },
     {
