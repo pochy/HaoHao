@@ -78,6 +78,9 @@ func (s *OIDCLoginService) FinishLogin(ctx context.Context, code, state string) 
 		if _, err := s.authzService.SyncGlobalRoles(ctx, user.ID, identity.Claims.Groups); err != nil {
 			return OIDCLoginResult{}, fmt.Errorf("sync local roles for oidc login: %w", err)
 		}
+		if _, err := s.authzService.SyncTenantMemberships(ctx, user.ID, "provider_claim", identity.Claims.Groups); err != nil {
+			return OIDCLoginResult{}, fmt.Errorf("sync tenant memberships for oidc login: %w", err)
+		}
 	}
 
 	sessionID, csrfToken, err := s.sessionService.IssueSessionWithProviderHint(ctx, user.ID, identity.RawIDToken)

@@ -81,12 +81,15 @@ export type ExternalMeBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    activeTenant?: TenantBody;
     authorizedParty?: string;
+    defaultTenant?: TenantBody;
     groups?: Array<string> | null;
     provider: string;
     roles?: Array<string> | null;
     scopes?: Array<string> | null;
     subject: string;
+    tenants?: Array<TenantBody> | null;
     user?: UserResponse;
 };
 
@@ -109,6 +112,16 @@ export type ListIntegrationsBody = {
     items: Array<IntegrationStatusBody> | null;
 };
 
+export type ListTenantsBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    activeTenant?: TenantBody;
+    defaultTenant?: TenantBody;
+    items: Array<TenantBody> | null;
+};
+
 export type LoginInputBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -126,12 +139,82 @@ export type LogoutBody = {
     postLogoutURL?: string;
 };
 
+export type ScimGroupBody = {
+    value: string;
+};
+
+export type ScimListResponseBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    Resources: Array<ScimUserBody> | null;
+    itemsPerPage: number;
+    schemas: Array<string> | null;
+    startIndex: number;
+    totalResults: number;
+};
+
+export type ScimPatchInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    Operations: Array<ScimPatchOperation> | null;
+    schemas?: Array<string> | null;
+};
+
+export type ScimPatchOperation = {
+    op: string;
+    path?: string;
+    value?: unknown;
+};
+
+export type ScimUserBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    active?: boolean;
+    displayName?: string;
+    externalId?: string;
+    groups?: Array<ScimGroupBody> | null;
+    id?: string;
+    schemas?: Array<string> | null;
+    userName?: string;
+};
+
+export type SelectTenantInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    tenantSlug: string;
+};
+
+export type SelectTenantOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    activeTenant: TenantBody;
+};
+
 export type SessionBody = {
     /**
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
     user: UserResponse;
+};
+
+export type TenantBody = {
+    default: boolean;
+    displayName: string;
+    id: number;
+    roles?: Array<string> | null;
+    selected: boolean;
+    slug: string;
 };
 
 export type UserResponse = {
@@ -190,17 +273,26 @@ export type ErrorModelWritable = {
 };
 
 export type ExternalMeBodyWritable = {
+    activeTenant?: TenantBody;
     authorizedParty?: string;
+    defaultTenant?: TenantBody;
     groups?: Array<string> | null;
     provider: string;
     roles?: Array<string> | null;
     scopes?: Array<string> | null;
     subject: string;
+    tenants?: Array<TenantBody> | null;
     user?: UserResponse;
 };
 
 export type ListIntegrationsBodyWritable = {
     items: Array<IntegrationStatusBody> | null;
+};
+
+export type ListTenantsBodyWritable = {
+    activeTenant?: TenantBody;
+    defaultTenant?: TenantBody;
+    items: Array<TenantBody> | null;
 };
 
 export type LoginInputBodyWritable = {
@@ -210,6 +302,37 @@ export type LoginInputBodyWritable = {
 
 export type LogoutBodyWritable = {
     postLogoutURL?: string;
+};
+
+export type ScimListResponseBodyWritable = {
+    Resources: Array<ScimUserBodyWritable> | null;
+    itemsPerPage: number;
+    schemas: Array<string> | null;
+    startIndex: number;
+    totalResults: number;
+};
+
+export type ScimPatchInputBodyWritable = {
+    Operations: Array<ScimPatchOperation> | null;
+    schemas?: Array<string> | null;
+};
+
+export type ScimUserBodyWritable = {
+    active?: boolean;
+    displayName?: string;
+    externalId?: string;
+    groups?: Array<ScimGroupBody> | null;
+    id?: string;
+    schemas?: Array<string> | null;
+    userName?: string;
+};
+
+export type SelectTenantInputBodyWritable = {
+    tenantSlug: string;
+};
+
+export type SelectTenantOutputBodyWritable = {
+    activeTenant: TenantBody;
 };
 
 export type SessionBodyWritable = {
@@ -226,6 +349,12 @@ export type VerifyIntegrationBodyWritable = {
 
 export type GetExternalMeData = {
     body?: never;
+    headers?: {
+        /**
+         * tenant slug for tenant-aware bearer context
+         */
+        'X-Tenant-ID'?: string;
+    };
     path?: never;
     query?: never;
     url: '/api/external/v1/me';
@@ -248,6 +377,168 @@ export type GetExternalMeResponses = {
 };
 
 export type GetExternalMeResponse = GetExternalMeResponses[keyof GetExternalMeResponses];
+
+export type ScimListUsersData = {
+    body?: never;
+    path?: never;
+    query?: {
+        filter?: string;
+        startIndex?: number;
+        count?: number;
+    };
+    url: '/api/scim/v2/Users';
+};
+
+export type ScimListUsersErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ScimListUsersError = ScimListUsersErrors[keyof ScimListUsersErrors];
+
+export type ScimListUsersResponses = {
+    /**
+     * OK
+     */
+    200: ScimListResponseBody;
+};
+
+export type ScimListUsersResponse = ScimListUsersResponses[keyof ScimListUsersResponses];
+
+export type ScimCreateUserData = {
+    body: ScimUserBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/scim/v2/Users';
+};
+
+export type ScimCreateUserErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ScimCreateUserError = ScimCreateUserErrors[keyof ScimCreateUserErrors];
+
+export type ScimCreateUserResponses = {
+    /**
+     * OK
+     */
+    200: ScimUserBody;
+};
+
+export type ScimCreateUserResponse = ScimCreateUserResponses[keyof ScimCreateUserResponses];
+
+export type ScimDeleteUserData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/scim/v2/Users/{id}';
+};
+
+export type ScimDeleteUserErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ScimDeleteUserError = ScimDeleteUserErrors[keyof ScimDeleteUserErrors];
+
+export type ScimDeleteUserResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type ScimDeleteUserResponse = ScimDeleteUserResponses[keyof ScimDeleteUserResponses];
+
+export type ScimGetUserData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/scim/v2/Users/{id}';
+};
+
+export type ScimGetUserErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ScimGetUserError = ScimGetUserErrors[keyof ScimGetUserErrors];
+
+export type ScimGetUserResponses = {
+    /**
+     * OK
+     */
+    200: ScimUserBody;
+};
+
+export type ScimGetUserResponse = ScimGetUserResponses[keyof ScimGetUserResponses];
+
+export type ScimPatchUserData = {
+    body: ScimPatchInputBodyWritable;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/scim/v2/Users/{id}';
+};
+
+export type ScimPatchUserErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ScimPatchUserError = ScimPatchUserErrors[keyof ScimPatchUserErrors];
+
+export type ScimPatchUserResponses = {
+    /**
+     * OK
+     */
+    200: ScimUserBody;
+};
+
+export type ScimPatchUserResponse = ScimPatchUserResponses[keyof ScimPatchUserResponses];
+
+export type ScimReplaceUserData = {
+    body: ScimUserBodyWritable;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/scim/v2/Users/{id}';
+};
+
+export type ScimReplaceUserErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ScimReplaceUserError = ScimReplaceUserErrors[keyof ScimReplaceUserErrors];
+
+export type ScimReplaceUserResponses = {
+    /**
+     * OK
+     */
+    200: ScimUserBody;
+};
+
+export type ScimReplaceUserResponse = ScimReplaceUserResponses[keyof ScimReplaceUserResponses];
 
 export type FinishOidcLoginData = {
     body?: never;
@@ -605,3 +896,56 @@ export type RefreshSessionResponses = {
 };
 
 export type RefreshSessionResponse = RefreshSessionResponses[keyof RefreshSessionResponses];
+
+export type SelectTenantData = {
+    body: SelectTenantInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/session/tenant';
+};
+
+export type SelectTenantErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type SelectTenantError = SelectTenantErrors[keyof SelectTenantErrors];
+
+export type SelectTenantResponses = {
+    /**
+     * OK
+     */
+    200: SelectTenantOutputBody;
+};
+
+export type SelectTenantResponse = SelectTenantResponses[keyof SelectTenantResponses];
+
+export type ListTenantsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tenants';
+};
+
+export type ListTenantsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantsError = ListTenantsErrors[keyof ListTenantsErrors];
+
+export type ListTenantsResponses = {
+    /**
+     * OK
+     */
+    200: ListTenantsBody;
+};
+
+export type ListTenantsResponse = ListTenantsResponses[keyof ListTenantsResponses];

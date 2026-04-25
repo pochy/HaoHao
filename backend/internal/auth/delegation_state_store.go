@@ -14,6 +14,7 @@ var ErrDelegationStateNotFound = errors.New("delegation state not found")
 
 type DelegationStateRecord struct {
 	UserID         int64  `json:"userId"`
+	TenantID       int64  `json:"tenantId"`
 	ResourceServer string `json:"resourceServer"`
 	CodeVerifier   string `json:"codeVerifier"`
 	SessionHash    string `json:"sessionHash"`
@@ -33,7 +34,7 @@ func NewDelegationStateStore(client *redis.Client, ttl time.Duration) *Delegatio
 	}
 }
 
-func (s *DelegationStateStore) Create(ctx context.Context, userID int64, resourceServer, sessionHash string) (string, DelegationStateRecord, error) {
+func (s *DelegationStateStore) Create(ctx context.Context, userID, tenantID int64, resourceServer, sessionHash string) (string, DelegationStateRecord, error) {
 	state, err := randomToken(32)
 	if err != nil {
 		return "", DelegationStateRecord{}, err
@@ -46,6 +47,7 @@ func (s *DelegationStateStore) Create(ctx context.Context, userID int64, resourc
 
 	record := DelegationStateRecord{
 		UserID:         userID,
+		TenantID:       tenantID,
 		ResourceServer: resourceServer,
 		CodeVerifier:   codeVerifier,
 		SessionHash:    sessionHash,

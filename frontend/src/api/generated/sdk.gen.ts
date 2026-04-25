@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetSessionData, GetSessionErrors, GetSessionResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
+import type { ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetSessionData, GetSessionErrors, GetSessionResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, ScimCreateUserData, ScimCreateUserErrors, ScimCreateUserResponses, ScimDeleteUserData, ScimDeleteUserErrors, ScimDeleteUserResponses, ScimGetUserData, ScimGetUserErrors, ScimGetUserResponses, ScimListUsersData, ScimListUsersErrors, ScimListUsersResponses, ScimPatchUserData, ScimPatchUserErrors, ScimPatchUserResponses, ScimReplaceUserData, ScimReplaceUserErrors, ScimReplaceUserResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -25,6 +25,72 @@ export const getExternalMe = <ThrowOnError extends boolean = false>(options?: Op
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/external/v1/me',
     ...options
+});
+
+/**
+ * SCIM user を list する
+ */
+export const scimListUsers = <ThrowOnError extends boolean = false>(options?: Options<ScimListUsersData, ThrowOnError>) => (options?.client ?? client).get<ScimListUsersResponses, ScimListUsersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/scim/v2/Users',
+    ...options
+});
+
+/**
+ * SCIM user を作成または upsert する
+ */
+export const scimCreateUser = <ThrowOnError extends boolean = false>(options: Options<ScimCreateUserData, ThrowOnError>) => (options.client ?? client).post<ScimCreateUserResponses, ScimCreateUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/scim/v2/Users',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * SCIM user を deactivate する
+ */
+export const scimDeleteUser = <ThrowOnError extends boolean = false>(options: Options<ScimDeleteUserData, ThrowOnError>) => (options.client ?? client).delete<ScimDeleteUserResponses, ScimDeleteUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/scim/v2/Users/{id}',
+    ...options
+});
+
+/**
+ * SCIM user を取得する
+ */
+export const scimGetUser = <ThrowOnError extends boolean = false>(options: Options<ScimGetUserData, ThrowOnError>) => (options.client ?? client).get<ScimGetUserResponses, ScimGetUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/scim/v2/Users/{id}',
+    ...options
+});
+
+/**
+ * SCIM user を patch する
+ */
+export const scimPatchUser = <ThrowOnError extends boolean = false>(options: Options<ScimPatchUserData, ThrowOnError>) => (options.client ?? client).patch<ScimPatchUserResponses, ScimPatchUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/scim/v2/Users/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * SCIM user を置換する
+ */
+export const scimReplaceUser = <ThrowOnError extends boolean = false>(options: Options<ScimReplaceUserData, ThrowOnError>) => (options.client ?? client).put<ScimReplaceUserResponses, ScimReplaceUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/scim/v2/Users/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -168,5 +234,35 @@ export const refreshSession = <ThrowOnError extends boolean = false>(options: Op
             type: 'apiKey'
         }],
     url: '/api/v1/session/refresh',
+    ...options
+});
+
+/**
+ * 現在の session の active tenant を切り替える
+ */
+export const selectTenant = <ThrowOnError extends boolean = false>(options: Options<SelectTenantData, ThrowOnError>) => (options.client ?? client).post<SelectTenantResponses, SelectTenantErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/session/tenant',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 現在の user が利用できる tenants を返す
+ */
+export const listTenants = <ThrowOnError extends boolean = false>(options?: Options<ListTenantsData, ThrowOnError>) => (options?.client ?? client).get<ListTenantsResponses, ListTenantsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/tenants',
     ...options
 });

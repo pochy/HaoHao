@@ -178,6 +178,20 @@ func (c BearerTokenClaims) HasScopePrefix(prefix string) bool {
 	return false
 }
 
+func (c BearerTokenClaims) HasScope(scope string) bool {
+	needle := strings.TrimSpace(scope)
+	if needle == "" {
+		return true
+	}
+
+	for _, item := range c.Scope {
+		if item == needle {
+			return true
+		}
+	}
+	return false
+}
+
 func extractZitadelRoleClaims(rawClaims map[string]json.RawMessage) []string {
 	roleSet := make(map[string]struct{})
 	for name, raw := range rawClaims {

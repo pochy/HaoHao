@@ -5311,6 +5311,60 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: oauth_user_grants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.oauth_user_grants (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    provider text NOT NULL,
+    resource_server text NOT NULL,
+    provider_subject text NOT NULL,
+    refresh_token_ciphertext bytea NOT NULL,
+    refresh_token_key_version integer NOT NULL,
+    scope_text text NOT NULL,
+    granted_by_session_id text NOT NULL,
+    granted_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_refreshed_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    last_error_code text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    tenant_id bigint NOT NULL
+);
+
+
+--
+-- Name: oauth_user_grants_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.oauth_user_grants ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.oauth_user_grants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: provisioning_sync_state; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.provisioning_sync_state (
+    source text NOT NULL,
+    cursor_text text,
+    last_synced_at timestamp with time zone,
+    last_error_code text,
+    last_error_message text,
+    failed_count integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: roles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5346,6 +5400,65 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: tenant_memberships; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenant_memberships (
+    user_id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    role_id bigint NOT NULL,
+    source text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT tenant_memberships_source_check CHECK ((source = ANY (ARRAY['provider_claim'::text, 'scim'::text, 'local_override'::text])))
+);
+
+
+--
+-- Name: tenant_role_overrides; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenant_role_overrides (
+    user_id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    role_id bigint NOT NULL,
+    effect text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT tenant_role_overrides_effect_check CHECK ((effect = ANY (ARRAY['allow'::text, 'deny'::text])))
+);
+
+
+--
+-- Name: tenants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenants (
+    id bigint NOT NULL,
+    slug text NOT NULL,
+    display_name text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: tenants_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.tenants ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.tenants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: user_identities; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5357,7 +5470,9 @@ CREATE TABLE public.user_identities (
     email text NOT NULL,
     email_verified boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    external_id text,
+    provisioning_source text
 );
 
 
@@ -5397,7 +5512,9 @@ CREATE TABLE public.users (
     display_name text NOT NULL,
     password_hash text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deactivated_at timestamp with time zone,
+    default_tenant_id bigint
 );
 
 
@@ -5413,6 +5530,30 @@ ALTER TABLE public.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_user_id_provider_resource_server_tenant_id_ke; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_user_id_provider_resource_server_tenant_id_ke UNIQUE (user_id, provider, resource_server, tenant_id);
+
+
+--
+-- Name: provisioning_sync_state provisioning_sync_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.provisioning_sync_state
+    ADD CONSTRAINT provisioning_sync_state_pkey PRIMARY KEY (source);
 
 
 --
@@ -5437,6 +5578,38 @@ ALTER TABLE ONLY public.roles
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: tenant_memberships tenant_memberships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_memberships
+    ADD CONSTRAINT tenant_memberships_pkey PRIMARY KEY (user_id, tenant_id, role_id, source);
+
+
+--
+-- Name: tenant_role_overrides tenant_role_overrides_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_role_overrides
+    ADD CONSTRAINT tenant_role_overrides_pkey PRIMARY KEY (user_id, tenant_id, role_id, effect);
+
+
+--
+-- Name: tenants tenants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenants
+    ADD CONSTRAINT tenants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tenants tenants_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenants
+    ADD CONSTRAINT tenants_slug_key UNIQUE (slug);
 
 
 --
@@ -5480,6 +5653,55 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: oauth_user_grants_provider_subject_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_user_grants_provider_subject_idx ON public.oauth_user_grants USING btree (provider, provider_subject);
+
+
+--
+-- Name: oauth_user_grants_resource_server_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_user_grants_resource_server_idx ON public.oauth_user_grants USING btree (resource_server);
+
+
+--
+-- Name: oauth_user_grants_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_user_grants_tenant_id_idx ON public.oauth_user_grants USING btree (tenant_id);
+
+
+--
+-- Name: tenant_memberships_role_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_memberships_role_id_idx ON public.tenant_memberships USING btree (role_id);
+
+
+--
+-- Name: tenant_memberships_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_memberships_tenant_id_idx ON public.tenant_memberships USING btree (tenant_id);
+
+
+--
+-- Name: tenant_role_overrides_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_role_overrides_tenant_id_idx ON public.tenant_role_overrides USING btree (tenant_id);
+
+
+--
+-- Name: user_identities_provider_external_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_identities_provider_external_id_key ON public.user_identities USING btree (provider, external_id) WHERE (external_id IS NOT NULL);
+
+
+--
 -- Name: user_identities_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5491,6 +5713,70 @@ CREATE INDEX user_identities_user_id_idx ON public.user_identities USING btree (
 --
 
 CREATE INDEX user_roles_role_id_idx ON public.user_roles USING btree (role_id);
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_memberships tenant_memberships_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_memberships
+    ADD CONSTRAINT tenant_memberships_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_memberships tenant_memberships_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_memberships
+    ADD CONSTRAINT tenant_memberships_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_memberships tenant_memberships_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_memberships
+    ADD CONSTRAINT tenant_memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_role_overrides tenant_role_overrides_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_role_overrides
+    ADD CONSTRAINT tenant_role_overrides_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_role_overrides tenant_role_overrides_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_role_overrides
+    ADD CONSTRAINT tenant_role_overrides_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_role_overrides tenant_role_overrides_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_role_overrides
+    ADD CONSTRAINT tenant_role_overrides_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -5515,6 +5801,14 @@ ALTER TABLE ONLY public.user_roles
 
 ALTER TABLE ONLY public.user_roles
     ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: users users_default_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_default_tenant_id_fkey FOREIGN KEY (default_tenant_id) REFERENCES public.tenants(id) ON DELETE SET NULL;
 
 
 --
@@ -10028,63 +10322,145 @@ h3 {
 
 ### 目的
 
-just-in-time login だけに依存せず、enterprise provisioning と org / tenant-aware な auth context を成立させます。
+just-in-time login だけに依存せず、enterprise provisioning と org / tenant-aware な auth context を成立させます。この Phase は大きいので、実装上は **5A: SCIM / provisioning / deactivation** と **5B: tenant-aware auth context / delegated grant tenant migration** に分けます。
 
 ### この Phase の前提
 
 - browser auth, external bearer API, delegated auth がある
-- tenant sync 用 claim contract が `groups` に固定されている
-- generic JWT bearer verifier がある
+- Phase 3 の generic JWT bearer verifier がある
+- Phase 4 の `oauth_user_grants` は tenant 非依存で作られている
+- tenant membership claim contract は `groups` に固定されている
 
 ### この Phase の完了条件
 
-- SCIM / provisioning が generic bearer verifier を使って保護されている
-- create / update / deactivate / reconcile がある
-- deprovisioning が session / delegated grant とつながっている
-- browser と bearer token の両方で tenant-aware auth context を構築できる
-- delegated grant schema が tenant-aware に昇格している
+- SCIM / provisioning endpoint が generic bearer verifier で保護されている
+- SCIM create / update / patch / deactivate が local user lifecycle に反映される
+- deactivation で local session と delegated grant が失効方向へ動く
+- browser session と external bearer token の両方で tenant-aware auth context を構築できる
+- `oauth_user_grants` が tenant-aware schema に移行済みである
+- この Phase の差分を `TUTORIAL_ZITADEL.md` だけから clean worktree に replay できる
 
-### Step 5.1. SCIM / enterprise provisioning を入れる
+### Step 5.1. tenant membership claim grammar を固定する
 
-ここでは Phase 6 の M2M verifier を待ちません。Phase 3 で作った generic JWT bearer verifier を `audience / scope` 違いで再利用します。
+Phase 5 では provider から見える tenant membership を **top-level の `groups` claim** だけから読みます。application code は `organization_id`, `organization_ids`, provider 固有 claim 名を見ません。
 
-#### Zitadel Actions と SCIM 用 client の設定
+`groups` の tenant membership 文字列は次に固定します。
 
-Phase 5 に入ったら、Zitadel Console 側でも次を用意してください。
+```text
+tenant:<tenant-slug>:<role-code>
+```
 
-- `groups` claim を出すための Action
-- SCIM bearer 用の dedicated client
+例:
 
-#### `groups` claim を出す理由
+```text
+tenant:acme:todo_user
+tenant:acme:docs_reader
+```
 
-このチュートリアルでは app code が `organization_id` / `organization_ids` を見ません。tenant membership claim contract は **top-level の `groups`** に固定しています。
+Phase 5 で tenant role として扱う role は次だけです。
 
-そのため、provider 側では Zitadel Actions などを使って、必要な membership 情報を `groups` claim に寄せてから backend へ渡してください。
+```text
+docs_reader
+todo_user
+```
 
-#### 公式参照
+`external_api_user` は external bearer API に入るための global / provider role のまま残します。tenant role にはしません。
 
-- Actions overview  
-  https://zitadel.com/docs/apis/actions/introduction  
-  用途: Action の概念と flow を確認する
+malformed な group、unsupported role、`tenant:` prefix でない group は tenant membership としては無視します。global role sync は Phase 3 までと同じく `docs_reader`, `external_api_user`, `todo_user` を local global role に写像します。
 
-- Claims in ZITADEL  
-  https://zitadel.com/docs/apis/openidoauth/claims  
-  用途: custom claims と reserved claims の挙動を確認する
+#### Zitadel Action 側の考え方
 
-#### SCIM 用 client の設定
+Zitadel Action では、Zitadel 側の org / project / grant 情報を app code が読む claim 名に寄せます。この tutorial では `groups` に寄せます。
 
-- browser app / external user bearer app とは **別 client**
-- audience は `scim-provisioning`
-- required scope は `scim:provision`
+local smoke では、まず次のような groups が ID token / userinfo / JWT access token で見えることだけを確認できれば十分です。
 
-#### `.env` との対応
+```json
+{
+  "groups": ["tenant:acme:todo_user", "external_api_user"]
+}
+```
 
-- SCIM audience → `SCIM_BEARER_AUDIENCE`
-- SCIM required scope → `SCIM_REQUIRED_SCOPE`
+local smoke 用の固定 Action は次のようにします。
 
-#### 追加する設定
+```js
+function haohaoGroups(ctx, api) {
+  api.v1.claims.setClaim("groups", [
+    "tenant:acme:todo_user",
+    "external_api_user"
+  ]);
+}
+```
 
-`.env.example` に少なくとも次を足します。
+Zitadel Console の `Actions` で作る action 名と JavaScript function 名は一致させます。この例なら両方 `haohaoGroups` です。
+
+作成した Action は `Complement Token` flow に接続します。
+
+```text
+Flow Type: Complement Token
+
+Trigger: Pre Userinfo creation
+Action:  haohaoGroups
+
+Trigger: Pre access token creation
+Action:  haohaoGroups
+```
+
+`Pre Userinfo creation` は browser login 後の userinfo / session tenant sync 用です。`Pre access token creation` は external bearer API に渡す JWT access token 用です。片方だけだと browser session と external bearer のどちらかだけが tenant-aware になります。
+
+Zitadel Console の Flow 画面には、trigger card が一時的に見えても保存されていないことがあります。リロード後に消える場合は保存されていません。ブラウザ DevTools の Network で次の request が `200` になっていることを確認してください。
+
+```text
+POST /management/v1/flows/2/trigger/4
+POST /management/v1/flows/2/trigger/5
+```
+
+Management API 上の番号は次です。
+
+```text
+2 = Complement Token
+4 = Pre Userinfo Creation
+5 = Pre Access Token Creation
+```
+
+UI で不安定な場合は Management API で確認します。
+
+```bash
+MGMT_TOKEN='<zitadel management api token>'
+
+curl -fsS -X POST http://localhost:8081/management/v1/actions/_search \
+  -H "Authorization: Bearer $MGMT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{}' \
+  | python3 -m json.tool
+```
+
+`name = haohaoGroups` の `id` を控えて、trigger action を設定します。
+
+```bash
+ACTION_ID='<haohaoGroups action id>'
+
+curl -fsS -X POST http://localhost:8081/management/v1/flows/2/trigger/4 \
+  -H "Authorization: Bearer $MGMT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"actionIds\":[\"$ACTION_ID\"]}" \
+  | python3 -m json.tool
+
+curl -fsS -X POST http://localhost:8081/management/v1/flows/2/trigger/5 \
+  -H "Authorization: Bearer $MGMT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"actionIds\":[\"$ACTION_ID\"]}" \
+  | python3 -m json.tool
+
+curl -fsS http://localhost:8081/management/v1/flows/2 \
+  -H "Authorization: Bearer $MGMT_TOKEN" \
+  | python3 -m json.tool
+```
+
+`triggerActions` に `Pre Userinfo Creation` と `Pre Access Token Creation` が残っていれば保存済みです。Zitadel 側を変えたら、既存の browser session / JWT は使い回さず、必ず login と token 取得をやり直してください。JWT は発行時点の claim を持ち続けます。
+
+### Step 5.2. SCIM / provisioning 用設定を追加する
+
+`.env.example` に次を追加します。repo root `.env` は Git 管理しません。
 
 ```dotenv
 SCIM_BASE_PATH=/api/scim/v2
@@ -10093,144 +10469,6732 @@ SCIM_REQUIRED_SCOPE=scim:provision
 SCIM_RECONCILE_CRON=0 3 * * *
 ```
 
-#### 追加するファイル
+SCIM 用 bearer は browser app / external user bearer app とは分けます。
 
-- `backend/internal/api/scim.go`
-- `backend/internal/service/provisioning_service.go`
-- `backend/internal/jobs/provisioning_reconcile.go`
+- audience: `scim-provisioning`
+- required scope: `scim:provision`
+- path: `/api/scim/v2/*`
 
-#### まず実装する endpoint
+Phase 6 の M2M verifier はまだ使いません。Phase 3 の generic JWT bearer verifier を SCIM 用 audience / scope で再利用します。
 
-完全な SCIM 全面実装ではなく、最初は次で十分です。
+`SCIM_TOKEN` は HaoHao の `/api/scim/v2/*` を叩くための Zitadel-signed JWT access token です。browser の `SESSION_ID` ではありません。HaoHao backend は token を次の順で検証します。
 
-```text
-POST   /api/scim/v2/Users
-PUT    /api/scim/v2/Users/{id}
-PATCH  /api/scim/v2/Users/{id}
-GET    /api/scim/v2/Users/{id}
-DELETE /api/scim/v2/Users/{id}
+1. `Authorization: Bearer <token>` がある
+2. Zitadel JWKS で JWT signature を検証できる
+3. `iss` が `ZITADEL_ISSUER` と一致する
+4. `aud` に `SCIM_BEARER_AUDIENCE` が含まれる
+5. `scope` に `SCIM_REQUIRED_SCOPE` が含まれる
+
+local smoke では、既存の JWT access token 用 app を使って token を取り、JWT payload の `aud` に実際に入っている値へ repo root `.env` の `SCIM_BEARER_AUDIENCE` を合わせても構いません。repo root `.env` は Git 管理しません。`.env.example` の `scim-provisioning` は contract の既定値であり、local Zitadel の token が別の `aud` を出す場合は local `.env` だけを合わせます。
+
+Zitadel が `scope: scim:provision` を access token に出さない場合は、local smoke 用に Action で scope claim を足します。
+
+```js
+function haohaoScimScope(ctx, api) {
+  api.v1.claims.setClaim("scope", "scim:provision");
+}
 ```
 
-`DELETE` は physical delete にせず、**deactivate と同義**にしてください。user lifecycle を audit 可能に保つためです。
+この Action は `Complement Token` flow の `Pre access token creation` に接続します。既に `haohaoGroups` も同じ trigger に接続している場合、両方が active で残ることを確認してください。
 
-#### 認証の固定
+```text
+Flow Type: Complement Token
+Trigger:   Pre access token creation
+Actions:   haohaoGroups, haohaoScimScope
+```
 
-- SCIM endpoint は generic JWT bearer verifier を使う
-- `SCIM_BEARER_AUDIENCE` と `SCIM_REQUIRED_SCOPE` を検証する
-- SCIM 用 bearer と external user bearer は path も audience も分ける
+Management API の `SetTriggerActions` は trigger の action list を置き換えます。API で設定する場合は、既存の `haohaoGroups` action id を落とさず、両方の id を渡してください。
 
-### Step 5.2. provisioning schema と deactivation 連携を入れる
+```bash
+curl -fsS -X POST http://localhost:8081/management/v1/flows/2/trigger/5 \
+  -H "Authorization: Bearer $MGMT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"actionIds\":[\"$HAOHAO_GROUPS_ACTION_ID\",\"$HAOHAO_SCIM_SCOPE_ACTION_ID\"]}" \
+  | python3 -m json.tool
+```
 
-#### 追加するテーブルと列
+### Step 5.3. provisioning schema を追加する
 
-次の情報を保持できるようにしてください。
+`0005_provisioning` では user lifecycle と provisioning state を追加します。
 
+- `users.deactivated_at`
 - `user_identities.external_id`
 - `user_identities.provisioning_source`
-- `users.deactivated_at`
 - `provisioning_sync_state`
 
-`db/queries/provisioning.sql` では少なくとも次が必要です。
+SCIM identity は `provider = scim` として保存します。Zitadel OIDC login の `provider = zitadel` identity とは分けます。これにより、SCIM の `externalId` と OIDC の `sub` が衝突せず、delegated auth が `zitadel` identity を引くときにも SCIM identity を誤って拾いません。
 
-- external ID で user / identity を引く
-- external ID で upsert する
-- deactivate / reactivate を切り替える
-- 最終同期カーソルや同期時刻を保存する
+SCIM user id は `users.public_id` を使います。SCIM `externalId` は `user_identities.external_id` に保存します。
 
-#### failure handling
+### Step 5.4. tenant schema と delegated grant tenant migration を追加する
 
-- SCIM payload の validation error は 400
-- unknown external ID の update / patch は 404
-- email collision など operator 対応が必要な問題は 409
-- reconcile job は 1 user 失敗で全体を止めず、`provisioning_sync_state` に失敗件数を残す
-
-#### deprovisioning と downstream grant revoke のつなぎ方
-
-deactivation 後の downstream grant revoke は **`backend/internal/jobs/provisioning_reconcile.go` にまとめて持たせる**と構成が単純です。
-
-- missed SCIM update の補修
-- deactivated user の local session 無効化
-- deactivated user の downstream grant revoke / cleanup
-
-この 3 つを同じ job に寄せると、「deprovisioning 後にどこで revoke するか」が曖昧になりません。
-
-### Step 5.3. organization / tenant-aware auth context を入れる
-
-role だけでは「どの tenant のどの権限か」が表現しきれません。ここで browser でも bearer token client でも同じ `AuthContext` を組み立てられるようにします。
-
-#### 追加するテーブル
-
-最小構成なら次を追加してください。
+`0006_org_tenants` では次を追加します。
 
 - `tenants`
 - `tenant_memberships`
 - `tenant_role_overrides`
+- `users.default_tenant_id`
+- `oauth_user_grants.tenant_id`
 
-`tenant_memberships` には source を持たせます。
+`oauth_user_grants` の unique key は次に変えます。
 
-- `provider_claim`
-- `scim`
-- `local_override`
+```text
+(user_id, provider, resource_server, tenant_id)
+```
 
-#### provider claim の前提
+Phase 4 の historical grant は consent tenant を保持していません。そのため migration では次の順にします。
 
-このチュートリアルでは、provider から見える tenant membership claim を **`groups` のみ**に固定します。
-
-- claim 名は `groups`
-- 値の整形は Zitadel Action など provider 側で済ませる
-- app code は複数候補の claim 名を見ない
-
-#### precedence の固定
-
-effective membership は必ず次の順で決めます。
-
-1. 直近の login または provisioning sync で得た provider membership を土台にする
-2. `local deny override` を適用して membership / role を削る
-3. `local allow override` を適用して role を足す
-4. active tenant が未選択なら `users.default_tenant_id` を使う
-5. provider 側から membership が消えたら、その sync 成功時点で `provider_claim` source を inactive にする
-6. ただし `local allow override` がある role だけは残せる
-
-この順序を文書内で固定してください。実装者が独自に precedence を決めないようにするためです。
-
-#### browser と bearer の auth context
-
-- browser: session middleware が `user_id` を取り、`authzService.BuildBrowserContext(userID, activeTenantID)` を呼ぶ
-- external user bearer: token から `subject` を取り、identity 解決後に `authzService.BuildBearerContext(userID, requestedTenantID)` を呼ぶ
-- requested tenant は `X-Tenant-ID` header で受け、無ければ default tenant を使う
-- tenant が無効なら 403 を返し、operation ではなく service で最終判断する
-
-#### delegated grant schema を tenant-aware 化する migration
-
-Phase 4 では `oauth_user_grants` を tenant 非依存で作りました。ここで tenant-aware に昇格させます。
-
-##### migration 手順
-
-1. `oauth_user_grants` に nullable な `tenant_id` を追加する
-2. 既存 row を backfill する
-3. unresolved row を revoke する
-4. `tenant_id` を `NOT NULL` に上げる
+1. `oauth_user_grants.tenant_id` を nullable で追加する
+2. `users.default_tenant_id` がある row だけ backfill する
+3. `tenant_id` を解決できない row は削除し、再 consent 必須にする
+4. `tenant_id` を `NOT NULL` にする
 5. unique key を `(user_id, provider, resource_server, tenant_id)` に置き換える
 
-##### backfill のルール
+ここで tenant を推測しません。tenant 導入前の historical grant を誤った tenant に紐づける事故を避けるためです。
 
-- まず grant 作成時に保持していた consent tenant を使う
-- 無ければ `users.default_tenant_id` を使う
-- それでも解決できない row は **推測しない**
-- 解決不能 row は `revoked_at` を入れて再 consent 必須にする
+### Step 5.5. SCIM endpoint を最小 subset で実装する
 
-こうすると tenant 導入前の historical grant を危険に推測して別 tenant へ紐づける事故を防げます。
+完全な SCIM 2.0 全面実装ではなく、Zitadel / local smoke に必要な subset に絞ります。
 
-#### この Phase の手動確認
+```text
+POST   /api/scim/v2/Users
+GET    /api/scim/v2/Users
+GET    /api/scim/v2/Users/{id}
+PUT    /api/scim/v2/Users/{id}
+PATCH  /api/scim/v2/Users/{id}
+DELETE /api/scim/v2/Users/{id}
+```
 
-1. SCIM create が idempotent に upsert される
-2. PATCH で display name / email / active が反映される
-3. deactivate で local session と downstream grant が失効方向へ動く
-4. provider claim 追加で tenant membership が増える
-5. provider claim 削除で access が即時に落ちる
-6. local allow / deny override の precedence が守られる
-7. browser と bearer token client が同じ effective membership を得る
-8. unresolved historical grant が revoke され、再 consent が必要になる
+`DELETE` と `active=false` は physical delete ではなく `users.deactivated_at` を設定します。
+
+SCIM create / update は idempotent にします。
+
+- `externalId` が既存なら同じ user を更新する
+- `externalId` が無く、同じ verified email の local user がいれば SCIM identity を attach する
+- どちらも無ければ OIDC user と同じく passwordless local user を作る
+
+SCIM `groups[].value` に `tenant:<slug>:<role>` が入っていれば、source `scim` の tenant membership として同期します。
+
+### Step 5.6. deactivation と session / grant cleanup をつなぐ
+
+Redis session は user_id 逆引き index を持つ必要があります。そうしないと deprovisioning 時に「この user の active session」を確実に消せません。
+
+session store は次を持ちます。
+
+- `session:<session_id>`: session 本体
+- `session-user:<user_id>`: user の session id set
+
+deactivation 時は次を行います。
+
+1. `users.deactivated_at` を設定する
+2. Redis の user session index から local session を削除する
+3. active delegated grant があれば refresh token を upstream revoke する
+4. local `oauth_user_grants` を削除する
+
+`backend/internal/jobs/provisioning_reconcile.go` は、取りこぼし補修用に deactivated user の active grant cleanup を再実行できる形にします。
+
+### Step 5.7. tenant-aware AuthContext を入れる
+
+`AuthContext` に次を追加します。
+
+- `DefaultTenant`
+- `ActiveTenant`
+- `Tenants`
+
+browser session は session record の `activeTenantId` を優先します。未選択なら `users.default_tenant_id` を使い、それも無ければ最初に見つかった effective tenant を default として扱います。
+
+external bearer は `X-Tenant-ID` header で tenant slug を受けます。無ければ default tenant を使います。
+
+```text
+X-Tenant-ID: acme
+```
+
+service は tenant access を次の順で構築します。
+
+1. `provider_claim` / `scim` の active membership を土台にする
+2. `tenant_role_overrides.effect = deny` を適用して role を削る
+3. `tenant_role_overrides.effect = allow` を適用して role を足す
+4. requested tenant が user の effective tenant に無ければ拒否する
+
+### Step 5.8. browser tenant API を追加する
+
+Phase 5 では tenant 管理 UI は作りません。ただし session の active tenant を確認 / 切替できる browser API は追加します。
+
+```text
+GET  /api/v1/tenants
+POST /api/v1/session/tenant
+```
+
+`POST /api/v1/session/tenant` は Cookie session + CSRF 必須です。body は tenant slug を受けます。
+
+```json
+{
+  "tenantSlug": "acme"
+}
+```
+
+### Step 5.9. external bearer API を tenant-aware にする
+
+`/api/external/v1/me` は `X-Tenant-ID` を受け、response に `activeTenant`, `defaultTenant`, `tenants` を含めます。
+
+manual smoke では、同じ user に対して browser session と external bearer token が同じ effective tenant role を得られることを確認してください。
+
+### Step 5.10. manual smoke
+
+manual smoke は次の順で進めます。
+
+1. Zitadel Action / Flow が `groups` claim を出していることを確認する
+2. external bearer API が `X-Tenant-ID` で tenant-aware context を返すことを確認する
+3. browser login session が同じ tenant role を返すことを確認する
+4. `/integrations` が tenant-aware `oauth_user_grants` で Connect / Verify / Revoke できることを確認する
+5. SCIM create / patch / deactivate と deactivation side effect を確認する
+
+#### external token を authorization code flow で取り直す
+
+ここでいう authorization code flow は、browser で Zitadel に login し、callback URL の `code` を `/oauth/v2/token` に交換して新しい `access_token` を得る手順です。
+
+Zitadel Action / Flow / role を変えても、既に発行済みの JWT access token の中身は変わりません。`groups` claim の確認前に必ず新しい token を取り直してください。
+
+```bash
+CLIENT_ID='<haohao-external-dev client id>'
+PROJECT_ID='<haohao project id>'
+REDIRECT_URI='http://127.0.0.1:18080/callback'
+SCOPE="openid profile email urn:zitadel:iam:org:project:id:${PROJECT_ID}:aud urn:zitadel:iam:org:projects:roles"
+
+CODE_VERIFIER=$(openssl rand -base64 96 | tr '+/' '-_' | tr -d '=' | cut -c 1-128)
+CODE_CHALLENGE=$(printf '%s' "$CODE_VERIFIER" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+STATE=$(openssl rand -hex 16)
+
+ENC_REDIRECT=$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$REDIRECT_URI")
+ENC_SCOPE=$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$SCOPE")
+
+AUTH_URL="http://localhost:8081/oauth/v2/authorize?client_id=${CLIENT_ID}&redirect_uri=${ENC_REDIRECT}&response_type=code&scope=${ENC_SCOPE}&code_challenge=${CODE_CHALLENGE}&code_challenge_method=S256&state=${STATE}"
+
+echo "$AUTH_URL"
+open "$AUTH_URL"
+```
+
+browser login 後、`http://127.0.0.1:18080/callback?code=...&state=...` に戻ります。callback server は不要です。接続エラー画面になっても address bar の `code` をコピーします。
+
+```bash
+CODE='<address bar の code>'
+
+curl -sS -X POST http://localhost:8081/oauth/v2/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode grant_type=authorization_code \
+  --data-urlencode client_id="$CLIENT_ID" \
+  --data-urlencode code="$CODE" \
+  --data-urlencode redirect_uri="$REDIRECT_URI" \
+  --data-urlencode code_verifier="$CODE_VERIFIER" \
+  | tee /tmp/zitadel-external-token.json
+
+EXTERNAL_TOKEN=$(python3 -c 'import json; print(json.load(open("/tmp/zitadel-external-token.json"))["access_token"])')
+echo "$EXTERNAL_TOKEN" | awk -F. '{print NF}'
+```
+
+`3` が出れば JWT access token です。payload を decode します。
+
+```bash
+python3 - "$EXTERNAL_TOKEN" <<'PY'
+import base64, json, sys
+payload = sys.argv[1].split(".")[1]
+payload += "=" * (-len(payload) % 4)
+print(json.dumps(json.loads(base64.urlsafe_b64decode(payload)), indent=2, ensure_ascii=False))
+PY
+```
+
+期待値は次です。
+
+```json
+{
+  "iss": "http://localhost:8081",
+  "groups": [
+    "tenant:acme:todo_user",
+    "external_api_user"
+  ]
+}
+```
+
+`aud` は local Zitadel の project ID / client ID の配列になることがあります。`401 invalid bearer audience` になる場合は、JWT payload の `aud` に含まれる値を repo root `.env` の `EXTERNAL_EXPECTED_AUDIENCE` に合わせ、backend を再起動してください。
+
+#### external bearer tenant context を確認する
+
+```bash
+curl -fsS http://127.0.0.1:8080/api/external/v1/me \
+  -H "Authorization: Bearer $EXTERNAL_TOKEN" \
+  -H "X-Tenant-ID: acme" \
+  | python3 -m json.tool
+```
+
+期待値は次です。
+
+```json
+{
+  "provider": "zitadel",
+  "groups": [
+    "external_api_user",
+    "tenant:acme:todo_user"
+  ],
+  "roles": [
+    "external_api_user"
+  ],
+  "activeTenant": {
+    "slug": "acme",
+    "roles": [
+      "todo_user"
+    ],
+    "default": true,
+    "selected": true
+  },
+  "defaultTenant": {
+    "slug": "acme"
+  },
+  "tenants": [
+    {
+      "slug": "acme",
+      "roles": [
+        "todo_user"
+      ]
+    }
+  ]
+}
+```
+
+未知 tenant は拒否されます。
+
+```bash
+curl -i http://127.0.0.1:8080/api/external/v1/me \
+  -H "Authorization: Bearer $EXTERNAL_TOKEN" \
+  -H "X-Tenant-ID: unknown"
+```
+
+期待値は `403` です。
+
+#### browser session tenant context を確認する
+
+browser で logout / login し直してから、DevTools などで `SESSION_ID` cookie を控えます。
+
+```bash
+SESSION_ID='<browser SESSION_ID cookie>'
+
+curl -fsS http://127.0.0.1:8080/api/v1/tenants \
+  -H "Cookie: SESSION_ID=$SESSION_ID" \
+  | python3 -m json.tool
+```
+
+期待値は次です。
+
+```json
+{
+  "items": [
+    {
+      "slug": "acme",
+      "roles": [
+        "todo_user"
+      ],
+      "default": true,
+      "selected": true
+    }
+  ],
+  "activeTenant": {
+    "slug": "acme",
+    "roles": [
+      "todo_user"
+    ]
+  },
+  "defaultTenant": {
+    "slug": "acme"
+  }
+}
+```
+
+active tenant を明示的に選ぶ場合は `XSRF-TOKEN` cookie も使います。
+
+```bash
+XSRF_TOKEN='<browser XSRF-TOKEN cookie>'
+
+curl -i -X POST http://127.0.0.1:8080/api/v1/session/tenant \
+  -H "Cookie: SESSION_ID=$SESSION_ID; XSRF-TOKEN=$XSRF_TOKEN" \
+  -H "X-CSRF-Token: $XSRF_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"tenantSlug":"acme"}'
+```
+
+#### integrations の tenant-aware grant を確認する
+
+browser で `/integrations` を開きます。
+
+```text
+http://127.0.0.1:5173/integrations
+```
+
+確認順は次です。
+
+1. `Connect` で Zitadel consent に進む
+2. callback 後に `Connected` になる
+3. `Verify` で backend が access token を取得できる
+4. token 本体が UI / browser response / frontend state に出ない
+5. `Revoke` で local grant が消える
+
+DB では grant が tenant に紐づいていることを確認します。
+
+```bash
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE="docker compose"
+else
+  COMPOSE="docker-compose"
+fi
+
+$COMPOSE exec -T postgres psql -U haohao -d haohao -c "
+select
+  g.user_id,
+  g.provider,
+  g.resource_server,
+  t.slug as tenant_slug,
+  g.scope_text,
+  g.last_refreshed_at,
+  g.revoked_at,
+  g.last_error_code
+from oauth_user_grants g
+join tenants t on t.id = g.tenant_id
+order by g.id desc;
+"
+```
+
+期待値は次です。
+
+```text
+ provider | resource_server | tenant_slug |   scope_text   | last_refreshed_at | revoked_at | last_error_code
+----------+-----------------+-------------+----------------+-------------------+------------+-----------------
+ zitadel  | zitadel         | acme        | offline_access | <verify timestamp>|            |
+```
+
+`Revoke` 後は次が `0` になることを確認します。
+
+```bash
+$COMPOSE exec -T postgres psql -U haohao -d haohao -c "
+select count(*) from oauth_user_grants;
+"
+```
+
+#### SCIM create / list / patch / deactivate を確認する
+
+SCIM token を取得したら、まず payload を確認します。SCIM token は `aud` が `SCIM_BEARER_AUDIENCE`、`scope` が `SCIM_REQUIRED_SCOPE` を満たす JWT にします。
+
+```bash
+SCIM_TOKEN='<zitadel jwt access token for scim>'
+
+python3 - "$SCIM_TOKEN" <<'PY'
+import base64, json, sys
+payload = sys.argv[1].split(".")[1]
+payload += "=" * (-len(payload) % 4)
+print(json.dumps(json.loads(base64.urlsafe_b64decode(payload)), indent=2, ensure_ascii=False))
+PY
+```
+
+期待値は次です。
+
+```json
+{
+  "iss": "http://localhost:8081",
+  "scope": "scim:provision"
+}
+```
+
+`aud` は local Zitadel の project ID / client ID の配列になることがあります。例:
+
+```json
+{
+  "aud": [
+    "369925947568160771",
+    "370001282871656451",
+    "369925841318051843"
+  ],
+  "client_id": "370001282871656451"
+}
+```
+
+この場合は、`aud` に含まれる値のうち 1 つを repo root `.env` に設定し、backend を再起動します。local smoke では `client_id` と同じ値を使うと追いやすいです。
+
+```dotenv
+SCIM_BEARER_AUDIENCE=370001282871656451
+SCIM_REQUIRED_SCOPE=scim:provision
+```
+
+token が middleware を通ることを確認します。
+
+```bash
+curl -i http://127.0.0.1:8080/api/scim/v2/Users \
+  -H "Authorization: Bearer $SCIM_TOKEN"
+```
+
+期待値は `200 OK` です。
+
+よくある失敗は次です。
+
+```text
+401 invalid bearer audience
+```
+
+`SCIM_BEARER_AUDIENCE` が JWT payload の `aud` に含まれていません。
+
+```text
+403 invalid bearer scope
+```
+
+JWT payload に `scope: scim:provision` がありません。`haohaoScimScope` Action が動いていないか、古い token を使っています。
+
+```text
+401 invalid bearer token
+```
+
+opaque token か、Zitadel app の `Access Token Type` が JWT ではありません。設定を直して token を取り直してください。
+
+middleware を通ったら create を確認します。
+
+```bash
+curl -fsS -X POST http://127.0.0.1:8080/api/scim/v2/Users \
+  -H "Authorization: Bearer $SCIM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "externalId": "phase5-user-1",
+    "userName": "phase5-user@example.com",
+    "displayName": "Phase 5 User",
+    "active": true,
+    "groups": [
+      {"value": "tenant:acme:todo_user"}
+    ]
+  }' | tee /tmp/scim-create.json | python3 -m json.tool
+
+SCIM_USER_ID=$(python3 -c 'import json; print(json.load(open("/tmp/scim-create.json"))["id"])')
+```
+
+DB では次を確認します。
+
+```bash
+$COMPOSE exec -T postgres psql -U haohao -d haohao -c "
+select
+  u.email,
+  u.deactivated_at,
+  ui.provider,
+  ui.external_id,
+  ui.provisioning_source,
+  t.slug,
+  r.code,
+  tm.source
+from users u
+join user_identities ui on ui.user_id = u.id
+join tenant_memberships tm on tm.user_id = u.id
+join tenants t on t.id = tm.tenant_id
+join roles r on r.id = tm.role_id
+where u.email = 'phase5-user@example.com';
+"
+```
+
+期待値は次です。
+
+```text
+provider = scim
+external_id = phase5-user-1
+provisioning_source = scim
+slug = acme
+code = todo_user
+source = scim
+deactivated_at = NULL
+```
+
+list / filter / get も確認します。
+
+```bash
+curl -fsS 'http://127.0.0.1:8080/api/scim/v2/Users?filter=externalId%20eq%20%22phase5-user-1%22' \
+  -H "Authorization: Bearer $SCIM_TOKEN" \
+  | python3 -m json.tool
+
+curl -fsS "http://127.0.0.1:8080/api/scim/v2/Users/$SCIM_USER_ID" \
+  -H "Authorization: Bearer $SCIM_TOKEN" \
+  | python3 -m json.tool
+```
+
+PATCH で profile と groups を更新します。malformed group と unsupported tenant role は tenant membership として無視されることも確認します。
+
+```bash
+curl -fsS -X PATCH "http://127.0.0.1:8080/api/scim/v2/Users/$SCIM_USER_ID" \
+  -H "Authorization: Bearer $SCIM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "Operations": [
+      {"op": "Replace", "path": "displayName", "value": "Phase 5 User Updated"},
+      {"op": "Replace", "path": "groups", "value": [
+        {"value": "tenant:acme:todo_user"},
+        {"value": "tenant:acme:docs_reader"},
+        {"value": "tenant:bad"},
+        {"value": "tenant:acme:external_api_user"}
+      ]}
+    ]
+  }' | python3 -m json.tool
+```
+
+SCIM deactivate は次です。
+
+```bash
+curl -fsS -X PATCH http://127.0.0.1:8080/api/scim/v2/Users/$SCIM_USER_ID \
+  -H "Authorization: Bearer $SCIM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "Operations": [
+      {"op": "Replace", "path": "active", "value": false}
+    ]
+  }'
+```
+
+期待値は次です。
+
+- `users.deactivated_at` が入る
+- 既存 local session が使えなくなる
+- `oauth_user_grants` の該当 user row が削除される
+- 以後の password login / OIDC login / session lookup / mapped external bearer context が拒否される
+
+isolated SCIM user は login session を持たないため、session invalidation まで見る場合は disposable login user で確認します。管理者 user では実行しないでください。
+
+まず Zitadel Console で disposable human user を作り、その user で HaoHao に browser login します。例:
+
+```bash
+TEST_EMAIL='phase5-deactivate@example.com'
+TEST_NAME='Phase 5 Deactivate User'
+```
+
+login 後に DevTools などで `SESSION_ID` を控えます。
+
+```bash
+TEST_SESSION_ID='<disposable user SESSION_ID>'
+
+curl -i http://127.0.0.1:8080/api/v1/tenants \
+  -H "Cookie: SESSION_ID=$TEST_SESSION_ID"
+```
+
+期待値は deactivate 前なので `200 OK` です。
+
+次に同じ email で SCIM create します。これにより既存 local user に `provider = scim` identity が attach されます。
+
+```bash
+SCIM_EXTERNAL_ID="scim-$TEST_EMAIL"
+
+curl -fsS -X POST http://127.0.0.1:8080/api/scim/v2/Users \
+  -H "Authorization: Bearer $SCIM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{
+    \"externalId\": \"$SCIM_EXTERNAL_ID\",
+    \"userName\": \"$TEST_EMAIL\",
+    \"displayName\": \"$TEST_NAME\",
+    \"active\": true,
+    \"groups\": [
+      {\"value\": \"tenant:acme:todo_user\"}
+    ]
+  }" | tee /tmp/scim-session-user.json | python3 -m json.tool
+
+SCIM_SESSION_USER_ID=$(python3 -c 'import json; print(json.load(open("/tmp/scim-session-user.json"))["id"])')
+```
+
+DB では同じ user に `zitadel` と `scim` の 2 identity が付いたことを確認します。
+
+```bash
+$COMPOSE exec -T postgres psql -U haohao -d haohao -c "
+select
+  u.id,
+  u.public_id,
+  u.email,
+  u.deactivated_at,
+  ui.provider,
+  ui.external_id,
+  ui.provisioning_source
+from users u
+join user_identities ui on ui.user_id = u.id
+where u.email = '$TEST_EMAIL'
+order by ui.provider;
+"
+```
+
+期待値は `provider = zitadel` と `provider = scim` の 2 rows で、`deactivated_at` が空であることです。
+
+その user を SCIM deactivate します。
+
+```bash
+curl -fsS -X PATCH "http://127.0.0.1:8080/api/scim/v2/Users/$SCIM_SESSION_USER_ID" \
+  -H "Authorization: Bearer $SCIM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "Operations": [
+      {"op": "Replace", "path": "active", "value": false}
+    ]
+  }' | python3 -m json.tool
+```
+
+DB で deactivation を確認します。
+
+```bash
+$COMPOSE exec -T postgres psql -U haohao -d haohao -c "
+select
+  email,
+  deactivated_at
+from users
+where email = '$TEST_EMAIL';
+"
+```
+
+期待値は `deactivated_at` に timestamp が入ることです。
+
+deactivate 前に控えた session は使えなくなります。
+
+```bash
+curl -i http://127.0.0.1:8080/api/v1/tenants \
+  -H "Cookie: SESSION_ID=$TEST_SESSION_ID"
+```
+
+期待値は次です。
+
+```text
+HTTP/1.1 401 Unauthorized
+{"detail":"missing or expired session", ...}
+```
+
+grant cleanup も確認します。
+
+```bash
+$COMPOSE exec -T postgres psql -U haohao -d haohao -c "
+select count(*)
+from oauth_user_grants g
+join users u on u.id = g.user_id
+where u.email = '$TEST_EMAIL';
+"
+```
+
+期待値は `0` です。
+
+### 自動確認
+
+Phase 5 実装後は最低限これを回します。
+
+```bash
+make gen
+make db-up
+make db-schema
+go test ./backend/...
+npm --prefix frontend run build
+if docker compose version >/dev/null 2>&1; then
+  docker compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet
+else
+  docker-compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet
+fi
+git diff --check
+```
+
+---
+
+## Phase 5 Exact Snapshot
+
+Phase 0-2, Phase 3, Phase 4 の exact snapshot を先に使い、Phase 5 で変わった非生成 file だけをここで上書き / 追加します。
+
+- `backend/internal/db/*.go`, `openapi/openapi.yaml`, `frontend/src/api/generated/*` は `make gen` の生成物なので、この snapshot には再掲しません
+- `db/schema.sql` は `make db-schema` の生成物ですが、`sqlc generate` の入力でもあるため、この snapshot に含めます
+- `backend/web/dist/*` は frontend build artifact なので、この snapshot には含めません
+- repo root `.env` と `dev/zitadel/.env` は Git 管理しません
+
+#### Clean worktree replay checklist
+
+`../phase5-test` のような clean worktree で **この `TUTORIAL_ZITADEL.md` だけから Phase 5 の file / directory 構成へ戻す** 場合は、次の順に進めてください。Phase 5 の block は Phase 0-2 / Phase 3 / Phase 4 の同名 file を上書きするため、最終状態が現在の Phase 5 実装になります。
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+import re
+
+doc = Path("TUTORIAL_ZITADEL.md")
+text = doc.read_text()
+
+sections = [
+    ("### Project Exact Files", "## Phase 3. External User Bearer API"),
+    ("## Phase 3 Exact Snapshot", "## Phase 4."),
+    ("## Phase 4 Exact Snapshot", "## Phase 5."),
+    ("## Phase 5 Exact Snapshot", "## Phase 6."),
+]
+
+files = {}
+for start, end in sections:
+    start_match = re.search(rf"^{re.escape(start)}", text, re.M)
+    if not start_match:
+        raise SystemExit(f"section not found: {start}")
+    start_index = start_match.start()
+    end_match = re.search(rf"^{re.escape(end)}", text[start_index:], re.M)
+    end_index = -1 if not end_match else start_index + end_match.start()
+    section = text[start_index:] if end_index == -1 else text[start_index:end_index]
+    for path, body in re.findall(r'^#### `([^`]+)`\n\n```[^\n]*\n(.*?)\n```', section, re.M | re.S):
+        files[path] = body.rstrip("\n") + "\n"
+
+for path, body in files.items():
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(body)
+    print(f"wrote {target}")
+PY
+```
+
+その後、生成物と build artifact を現在の実装と同じ状態に戻します。
+
+```bash
+npm --prefix frontend install
+make gen
+go test ./backend/...
+npm --prefix frontend run build
+if docker compose version >/dev/null 2>&1; then
+  docker compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet
+else
+  docker-compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet
+fi
+git diff --check
+```
+
+manual smoke の前には DB migration を Phase 5 まで適用してください。
+
+```bash
+make db-up
+```
+
+Zitadel Console 内の Action / SCIM client / token settings は Git に入らない外部状態です。Phase 5 では `groups` claim と SCIM bearer client を追加してください。
+
+#### `.env.example`
+
+```dotenv
+APP_NAME="HaoHao API"
+APP_VERSION=0.1.0
+HTTP_PORT=8080
+
+APP_BASE_URL=http://127.0.0.1:8080
+FRONTEND_BASE_URL=http://127.0.0.1:5173
+
+DATABASE_URL=postgres://haohao:haohao@127.0.0.1:5432/haohao?sslmode=disable
+
+AUTH_MODE=local
+ZITADEL_ISSUER=
+ZITADEL_CLIENT_ID=
+ZITADEL_CLIENT_SECRET=
+ZITADEL_REDIRECT_URI=http://127.0.0.1:8080/api/v1/auth/callback
+ZITADEL_POST_LOGOUT_REDIRECT_URI=http://127.0.0.1:5173/login
+ZITADEL_SCOPES="openid profile email"
+
+REDIS_ADDR=127.0.0.1:6379
+REDIS_PASSWORD=
+REDIS_DB=0
+
+SESSION_TTL=24h
+LOGIN_STATE_TTL=10m
+
+EXTERNAL_EXPECTED_AUDIENCE=haohao-external
+EXTERNAL_REQUIRED_SCOPE_PREFIX=
+EXTERNAL_REQUIRED_ROLE=external_api_user
+EXTERNAL_ALLOWED_ORIGINS=
+
+DOWNSTREAM_TOKEN_ENCRYPTION_KEY=
+DOWNSTREAM_TOKEN_KEY_VERSION=1
+DOWNSTREAM_REFRESH_TOKEN_TTL=2160h
+DOWNSTREAM_ACCESS_TOKEN_SKEW=30s
+DOWNSTREAM_DEFAULT_SCOPES=offline_access
+
+SCIM_BASE_PATH=/api/scim/v2
+SCIM_BEARER_AUDIENCE=scim-provisioning
+SCIM_REQUIRED_SCOPE=scim:provision
+SCIM_RECONCILE_CRON=0 3 * * *
+
+COOKIE_SECURE=false
+```
+
+#### `backend/go.mod`
+
+```text
+module example.com/haohao/backend
+
+go 1.25.0
+
+require (
+	github.com/coreos/go-oidc/v3 v3.18.0
+	github.com/danielgtaylor/huma/v2 v2.37.3
+	github.com/gin-gonic/gin v1.12.0
+	github.com/google/uuid v1.6.0
+	github.com/jackc/pgx/v5 v5.9.2
+	github.com/redis/go-redis/v9 v9.18.0
+	golang.org/x/oauth2 v0.36.0
+)
+
+require (
+	github.com/alicebob/miniredis/v2 v2.35.0 // indirect
+	github.com/bytedance/gopkg v0.1.3 // indirect
+	github.com/bytedance/sonic v1.15.0 // indirect
+	github.com/bytedance/sonic/loader v0.5.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/cloudwego/base64x v0.1.6 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
+	github.com/gin-contrib/sse v1.1.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/go-playground/locales v0.14.1 // indirect
+	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/go-playground/validator/v10 v10.30.1 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/goccy/go-yaml v1.19.2 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/quic-go/qpack v0.6.0 // indirect
+	github.com/quic-go/quic-go v0.59.0 // indirect
+	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
+	github.com/ugorji/go/codec v1.3.1 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
+	golang.org/x/arch v0.24.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
+	golang.org/x/net v0.51.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
+)
+```
+
+#### `backend/go.sum`
+
+```text
+github.com/alicebob/miniredis/v2 v2.35.0 h1:QwLphYqCEAo1eu1TqPRN2jgVMPBweeQcR21jeqDCONI=
+github.com/alicebob/miniredis/v2 v2.35.0/go.mod h1:TcL7YfarKPGDAthEtl5NBeHZfeUQj6OXMm/+iu5cLMM=
+github.com/bsm/ginkgo/v2 v2.12.0 h1:Ny8MWAHyOepLGlLKYmXG4IEkioBysk6GpaRTLC8zwWs=
+github.com/bsm/ginkgo/v2 v2.12.0/go.mod h1:SwYbGRRDovPVboqFv0tPTcG1sN61LM1Z4ARdbAV9g4c=
+github.com/bsm/gomega v1.27.10 h1:yeMWxP2pV2fG3FgAODIY8EiRE3dy0aeFYt4l7wh6yKA=
+github.com/bsm/gomega v1.27.10/go.mod h1:JyEr/xRbxbtgWNi8tIEVPUYZ5Dzef52k01W3YH0H+O0=
+github.com/bytedance/gopkg v0.1.3 h1:TPBSwH8RsouGCBcMBktLt1AymVo2TVsBVCY4b6TnZ/M=
+github.com/bytedance/gopkg v0.1.3/go.mod h1:576VvJ+eJgyCzdjS+c4+77QF3p7ubbtiKARP3TxducM=
+github.com/bytedance/sonic v1.15.0 h1:/PXeWFaR5ElNcVE84U0dOHjiMHQOwNIx3K4ymzh/uSE=
+github.com/bytedance/sonic v1.15.0/go.mod h1:tFkWrPz0/CUCLEF4ri4UkHekCIcdnkqXw9VduqpJh0k=
+github.com/bytedance/sonic/loader v0.5.0 h1:gXH3KVnatgY7loH5/TkeVyXPfESoqSBSBEiDd5VjlgE=
+github.com/bytedance/sonic/loader v0.5.0/go.mod h1:AR4NYCk5DdzZizZ5djGqQ92eEhCCcdf5x77udYiSJRo=
+github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
+github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
+github.com/cloudwego/base64x v0.1.6 h1:t11wG9AECkCDk5fMSoxmufanudBtJ+/HemLstXDLI2M=
+github.com/cloudwego/base64x v0.1.6/go.mod h1:OFcloc187FXDaYHvrNIjxSe8ncn0OOM8gEHfghB2IPU=
+github.com/coreos/go-oidc/v3 v3.18.0 h1:V9orjXynvu5wiC9SemFTWnG4F45v403aIcjWo0d41+A=
+github.com/coreos/go-oidc/v3 v3.18.0/go.mod h1:DYCf24+ncYi+XkIH97GY1+dqoRlbaSI26KVTCI9SrY4=
+github.com/danielgtaylor/huma/v2 v2.37.3 h1:6Av0Vj45Vk5lDxRVfoO2iPlEdvCvwLc7pl5nbqGOkYM=
+github.com/danielgtaylor/huma/v2 v2.37.3/go.mod h1:OeHHtCEAaNiuVbAVdYu4IQ0UOmnb4x3yMUOShNlZ53g=
+github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
+github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=
+github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
+github.com/fxamacker/cbor/v2 v2.9.0 h1:NpKPmjDBgUfBms6tr6JZkTHtfFGcMKsw3eGcmD/sapM=
+github.com/fxamacker/cbor/v2 v2.9.0/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
+github.com/gabriel-vasile/mimetype v1.4.13 h1:46nXokslUBsAJE/wMsp5gtO500a4F3Nkz9Ufpk2AcUM=
+github.com/gabriel-vasile/mimetype v1.4.13/go.mod h1:d+9Oxyo1wTzWdyVUPMmXFvp4F9tea18J8ufA774AB3s=
+github.com/gin-contrib/sse v1.1.0 h1:n0w2GMuUpWDVp7qSpvze6fAu9iRxJY4Hmj6AmBOU05w=
+github.com/gin-contrib/sse v1.1.0/go.mod h1:hxRZ5gVpWMT7Z0B0gSNYqqsSCNIJMjzvm6fqCz9vjwM=
+github.com/gin-gonic/gin v1.12.0 h1:b3YAbrZtnf8N//yjKeU2+MQsh2mY5htkZidOM7O0wG8=
+github.com/gin-gonic/gin v1.12.0/go.mod h1:VxccKfsSllpKshkBWgVgRniFFAzFb9csfngsqANjnLc=
+github.com/go-jose/go-jose/v4 v4.1.4 h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=
+github.com/go-jose/go-jose/v4 v4.1.4/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
+github.com/go-playground/assert/v2 v2.2.0 h1:JvknZsQTYeFEAhQwI4qEt9cyV5ONwRHC+lYKSsYSR8s=
+github.com/go-playground/assert/v2 v2.2.0/go.mod h1:VDjEfimB/XKnb+ZQfWdccd7VUvScMdVu0Titje2rxJ4=
+github.com/go-playground/locales v0.14.1 h1:EWaQ/wswjilfKLTECiXz7Rh+3BjFhfDFKv/oXslEjJA=
+github.com/go-playground/locales v0.14.1/go.mod h1:hxrqLVvrK65+Rwrd5Fc6F2O76J/NuW9t0sjnWqG1slY=
+github.com/go-playground/universal-translator v0.18.1 h1:Bcnm0ZwsGyWbCzImXv+pAJnYK9S473LQFuzCbDbfSFY=
+github.com/go-playground/universal-translator v0.18.1/go.mod h1:xekY+UJKNuX9WP91TpwSH2VMlDf28Uj24BCp08ZFTUY=
+github.com/go-playground/validator/v10 v10.30.1 h1:f3zDSN/zOma+w6+1Wswgd9fLkdwy06ntQJp0BBvFG0w=
+github.com/go-playground/validator/v10 v10.30.1/go.mod h1:oSuBIQzuJxL//3MelwSLD5hc2Tu889bF0Idm9Dg26cM=
+github.com/goccy/go-json v0.10.5 h1:Fq85nIqj+gXn/S5ahsiTlK3TmC85qgirsdTP/+DeaC4=
+github.com/goccy/go-json v0.10.5/go.mod h1:oq7eo15ShAhp70Anwd5lgX2pLfOS3QCiwU/PULtXL6M=
+github.com/goccy/go-yaml v1.19.2 h1:PmFC1S6h8ljIz6gMRBopkjP1TVT7xuwrButHID66PoM=
+github.com/goccy/go-yaml v1.19.2/go.mod h1:XBurs7gK8ATbW4ZPGKgcbrY1Br56PdM69F7LkFRi1kA=
+github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
+github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
+github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=
+github.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5eyVu/W2HEg=
+github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 h1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=
+github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761/go.mod h1:5TJZWKEWniPve33vlWYSoGYefn3gLQRzjfDlhSJ9ZKM=
+github.com/jackc/pgx/v5 v5.9.2 h1:3ZhOzMWnR4yJ+RW1XImIPsD1aNSz4T4fyP7zlQb56hw=
+github.com/jackc/pgx/v5 v5.9.2/go.mod h1:mal1tBGAFfLHvZzaYh77YS/eC6IX9OWbRV1QIIM0Jn4=
+github.com/jackc/puddle/v2 v2.2.2 h1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo=
+github.com/jackc/puddle/v2 v2.2.2/go.mod h1:vriiEXHvEE654aYKXXjOvZM39qJ0q+azkZFrfEOc3H4=
+github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
+github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
+github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=
+github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
+github.com/leodido/go-urn v1.4.0 h1:WT9HwE9SGECu3lg4d/dIA+jxlljEa1/ffXKmRjqdmIQ=
+github.com/leodido/go-urn v1.4.0/go.mod h1:bvxc+MVxLKB4z00jd1z+Dvzr47oO32F/QSNjSBOlFxI=
+github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
+github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
+github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
+github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=
+github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
+github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
+github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
+github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
+github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
+github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/quic-go/qpack v0.6.0 h1:g7W+BMYynC1LbYLSqRt8PBg5Tgwxn214ZZR34VIOjz8=
+github.com/quic-go/qpack v0.6.0/go.mod h1:lUpLKChi8njB4ty2bFLX2x4gzDqXwUpaO1DP9qMDZII=
+github.com/quic-go/quic-go v0.59.0 h1:OLJkp1Mlm/aS7dpKgTc6cnpynnD2Xg7C1pwL6vy/SAw=
+github.com/quic-go/quic-go v0.59.0/go.mod h1:upnsH4Ju1YkqpLXC305eW3yDZ4NfnNbmQRCMWS58IKU=
+github.com/redis/go-redis/v9 v9.18.0 h1:pMkxYPkEbMPwRdenAzUNyFNrDgHx9U+DrBabWNfSRQs=
+github.com/redis/go-redis/v9 v9.18.0/go.mod h1:k3ufPphLU5YXwNTUcCRXGxUoF1fqxnhFQmscfkCoDA0=
+github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
+github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
+github.com/stretchr/objx v0.5.2/go.mod h1:FRsXN1f5AsAjCGJKqEizvkpNtU+EGNCLh3NxZ/8L+MA=
+github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
+github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
+github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
+github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
+github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
+github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
+github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
+github.com/ugorji/go/codec v1.3.1 h1:waO7eEiFDwidsBN6agj1vJQ4AG7lh2yqXyOXqhgQuyY=
+github.com/ugorji/go/codec v1.3.1/go.mod h1:pRBVtBSKl77K30Bv8R2P+cLSGaTtex6fsA2Wjqmfxj4=
+github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
+github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
+github.com/yuin/gopher-lua v1.1.1 h1:kYKnWBjvbNP4XLT3+bPEwAXJx262OhaHDWDVOPjL46M=
+github.com/yuin/gopher-lua v1.1.1/go.mod h1:GBR0iDaNXjAgGg9zfCvksxSRnQx76gclCIb7kdAd1Pw=
+github.com/zeebo/xxh3 v1.0.2 h1:xZmwmqxHZA8AI603jOQ0tMqmBr9lPeFwGg6d+xy9DC0=
+github.com/zeebo/xxh3 v1.0.2/go.mod h1:5NWz9Sef7zIDm2JHfFlcQvNekmcEl9ekUZQQKCYaDcA=
+go.mongodb.org/mongo-driver/v2 v2.5.0 h1:yXUhImUjjAInNcpTcAlPHiT7bIXhshCTL3jVBkF3xaE=
+go.mongodb.org/mongo-driver/v2 v2.5.0/go.mod h1:yOI9kBsufol30iFsl1slpdq1I0eHPzybRWdyYUs8K/0=
+go.uber.org/atomic v1.11.0 h1:ZvwS0R+56ePWxUNi+Atn9dWONBPp/AUETXlHW0DxSjE=
+go.uber.org/atomic v1.11.0/go.mod h1:LUxbIzbOniOlMKjJjyPfpl4v+PKK2cNJn91OQbhoJI0=
+go.uber.org/mock v0.6.0 h1:hyF9dfmbgIX5EfOdasqLsWD6xqpNZlXblLB/Dbnwv3Y=
+go.uber.org/mock v0.6.0/go.mod h1:KiVJ4BqZJaMj4svdfmHM0AUx4NJYO8ZNpPnZn1Z+BBU=
+golang.org/x/arch v0.24.0 h1:qlJ3M9upxvFfwRM51tTg3Yl+8CP9vCC1E7vlFpgv99Y=
+golang.org/x/arch v0.24.0/go.mod h1:dNHoOeKiyja7GTvF9NJS1l3Z2yntpQNzgrjh1cU103A=
+golang.org/x/crypto v0.48.0 h1:/VRzVqiRSggnhY7gNRxPauEQ5Drw9haKdM0jqfcCFts=
+golang.org/x/crypto v0.48.0/go.mod h1:r0kV5h3qnFPlQnBSrULhlsRfryS2pmewsg+XfMgkVos=
+golang.org/x/net v0.51.0 h1:94R/GTO7mt3/4wIKpcR5gkGmRLOuE/2hNGeWq/GBIFo=
+golang.org/x/net v0.51.0/go.mod h1:aamm+2QF5ogm02fjy5Bb7CQ0WMt1/WVM7FtyaTLlA9Y=
+golang.org/x/oauth2 v0.36.0 h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=
+golang.org/x/oauth2 v0.36.0/go.mod h1:YDBUJMTkDnJS+A4BP4eZBjCqtokkg1hODuPjwiGPO7Q=
+golang.org/x/sync v0.19.0 h1:vV+1eWNmZ5geRlYjzm2adRgW2/mcpevXNg50YZtPCE4=
+golang.org/x/sync v0.19.0/go.mod h1:9KTHXmSnoGruLpwFjVSX0lNNA75CykiMECbovNTZqGI=
+golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.41.0 h1:Ivj+2Cp/ylzLiEU89QhWblYnOE9zerudt9Ftecq2C6k=
+golang.org/x/sys v0.41.0/go.mod h1:OgkHotnGiDImocRcuBABYBEXf8A9a87e/uXjp9XT3ks=
+golang.org/x/text v0.34.0 h1:oL/Qq0Kdaqxa1KbNeMKwQq0reLCCaFtqu2eNuSeNHbk=
+golang.org/x/text v0.34.0/go.mod h1:homfLqTYRFyVYemLBFl5GgL/DWEiH5wcsQ5gSh1yziA=
+google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=
+google.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+```
+
+#### `backend/cmd/main/main.go`
+
+```go
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"example.com/haohao/backend/internal/app"
+	"example.com/haohao/backend/internal/auth"
+	"example.com/haohao/backend/internal/config"
+	db "example.com/haohao/backend/internal/db"
+	"example.com/haohao/backend/internal/platform"
+	"example.com/haohao/backend/internal/service"
+)
+
+func main() {
+	ctx := context.Background()
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pool, err := platform.NewPostgresPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer pool.Close()
+
+	redisClient, err := platform.NewRedisClient(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer redisClient.Close()
+
+	queries := db.New(pool)
+	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
+	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode)
+	authzService := service.NewAuthzService(pool, queries)
+
+	var oidcLoginService *service.OIDCLoginService
+	var delegationService *service.DelegationService
+	var bearerVerifier *auth.BearerVerifier
+	if cfg.AuthMode == "zitadel" {
+		if cfg.ZitadelIssuer == "" || cfg.ZitadelClientID == "" || cfg.ZitadelClientSecret == "" {
+			log.Fatal("ZITADEL_ISSUER, ZITADEL_CLIENT_ID, and ZITADEL_CLIENT_SECRET are required when AUTH_MODE=zitadel")
+		}
+
+		oidcClient, err := auth.NewOIDCClient(
+			ctx,
+			cfg.ZitadelIssuer,
+			cfg.ZitadelClientID,
+			cfg.ZitadelClientSecret,
+			cfg.ZitadelRedirectURI,
+			cfg.ZitadelScopes,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		loginStateStore := auth.NewLoginStateStore(redisClient, cfg.LoginStateTTL)
+		identityService := service.NewIdentityService(pool, queries)
+		oidcLoginService = service.NewOIDCLoginService("zitadel", oidcClient, loginStateStore, identityService, authzService, sessionService)
+
+		if cfg.DownstreamTokenEncryptionKey != "" {
+			refreshTokenStore, err := auth.NewRefreshTokenStore(cfg.DownstreamTokenEncryptionKey, cfg.DownstreamTokenKeyVersion)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			delegatedOAuthClient, err := auth.NewDelegatedOAuthClient(ctx, cfg.ZitadelIssuer, cfg.ZitadelClientID, cfg.ZitadelClientSecret)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			delegationStateStore := auth.NewDelegationStateStore(redisClient, cfg.LoginStateTTL)
+			delegationService = service.NewDelegationService(
+				queries,
+				delegatedOAuthClient,
+				delegationStateStore,
+				refreshTokenStore,
+				cfg.AppBaseURL,
+				cfg.DownstreamDefaultScopes,
+				cfg.DownstreamRefreshTokenTTL,
+				cfg.DownstreamAccessTokenSkew,
+			)
+		}
+	}
+
+	if cfg.ZitadelIssuer != "" {
+		bearerVerifier, err = auth.NewBearerVerifier(ctx, cfg.ZitadelIssuer)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	provisioningService := service.NewProvisioningService(pool, queries, sessionService, delegationService, authzService)
+
+	application := app.New(cfg, sessionService, oidcLoginService, delegationService, provisioningService, authzService, bearerVerifier)
+
+	server := &http.Server{
+		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
+		Handler:           application.Router,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		log.Printf("listening on http://127.0.0.1:%d", cfg.HTTPPort)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	}()
+
+	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	<-shutdownCtx.Done()
+
+	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctxWithTimeout); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+#### `backend/cmd/openapi/main.go`
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"example.com/haohao/backend/internal/app"
+	"example.com/haohao/backend/internal/config"
+	"github.com/gin-gonic/gin"
+)
+
+func main() {
+	gin.SetMode(gin.ReleaseMode)
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	application := app.New(cfg, nil, nil, nil, nil, nil, nil)
+
+	spec, err := application.API.OpenAPI().YAML()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Print(string(spec))
+}
+```
+
+#### `backend/internal/api/external_me.go`
+
+```go
+package api
+
+import (
+	"context"
+	"net/http"
+
+	"example.com/haohao/backend/internal/service"
+
+	"github.com/danielgtaylor/huma/v2"
+)
+
+type ExternalMeBody struct {
+	Provider        string        `json:"provider" example:"zitadel"`
+	Subject         string        `json:"subject" example:"312345678901234567"`
+	AuthorizedParty string        `json:"authorizedParty,omitempty" example:"312345678901234568"`
+	Scopes          []string      `json:"scopes,omitempty" example:"external:read"`
+	Groups          []string      `json:"groups,omitempty" example:"external_api_user"`
+	Roles           []string      `json:"roles,omitempty" example:"todo_user"`
+	User            *UserResponse `json:"user,omitempty"`
+	ActiveTenant    *TenantBody   `json:"activeTenant,omitempty"`
+	DefaultTenant   *TenantBody   `json:"defaultTenant,omitempty"`
+	Tenants         []TenantBody  `json:"tenants,omitempty"`
+}
+
+type GetExternalMeInput struct {
+	TenantID string `header:"X-Tenant-ID" doc:"tenant slug for tenant-aware bearer context" example:"acme"`
+}
+
+type GetExternalMeOutput struct {
+	Body ExternalMeBody
+}
+
+func registerExternalRoutes(api huma.API, deps Dependencies) {
+	huma.Register(api, huma.Operation{
+		OperationID: "getExternalMe",
+		Method:      http.MethodGet,
+		Path:        "/api/external/v1/me",
+		Summary:     "現在の external bearer principal を返す",
+		Tags:        []string{"external"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+	}, func(ctx context.Context, input *GetExternalMeInput) (*GetExternalMeOutput, error) {
+		authCtx, ok := service.AuthContextFromContext(ctx)
+		if !ok {
+			return nil, huma.Error500InternalServerError("missing auth context")
+		}
+
+		var user *UserResponse
+		if authCtx.User != nil {
+			res := toUserResponse(*authCtx.User)
+			user = &res
+		}
+
+		var activeTenant *TenantBody
+		if authCtx.ActiveTenant != nil {
+			item := toTenantBody(*authCtx.ActiveTenant)
+			activeTenant = &item
+		}
+		var defaultTenant *TenantBody
+		if authCtx.DefaultTenant != nil {
+			item := toTenantBody(*authCtx.DefaultTenant)
+			defaultTenant = &item
+		}
+
+		return &GetExternalMeOutput{
+			Body: ExternalMeBody{
+				Provider:        authCtx.Provider,
+				Subject:         authCtx.Subject,
+				AuthorizedParty: authCtx.AuthorizedParty,
+				Scopes:          authCtx.Scopes,
+				Groups:          authCtx.Groups,
+				Roles:           authCtx.Roles,
+				User:            user,
+				ActiveTenant:    activeTenant,
+				DefaultTenant:   defaultTenant,
+				Tenants:         toTenantBodies(authCtx.Tenants),
+			},
+		}, nil
+	})
+}
+```
+
+#### `backend/internal/api/integrations.go`
+
+```go
+package api
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"example.com/haohao/backend/internal/service"
+
+	"github.com/danielgtaylor/huma/v2"
+)
+
+type IntegrationStatusBody struct {
+	ResourceServer  string     `json:"resourceServer" example:"zitadel"`
+	Provider        string     `json:"provider" example:"zitadel"`
+	Connected       bool       `json:"connected" example:"true"`
+	Scopes          []string   `json:"scopes,omitempty" example:"offline_access"`
+	GrantedAt       *time.Time `json:"grantedAt,omitempty" format:"date-time"`
+	LastRefreshedAt *time.Time `json:"lastRefreshedAt,omitempty" format:"date-time"`
+	RevokedAt       *time.Time `json:"revokedAt,omitempty" format:"date-time"`
+	LastErrorCode   string     `json:"lastErrorCode,omitempty" example:"invalid_grant"`
+}
+
+type ListIntegrationsInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+}
+
+type ListIntegrationsBody struct {
+	Items []IntegrationStatusBody `json:"items"`
+}
+
+type ListIntegrationsOutput struct {
+	Body ListIntegrationsBody
+}
+
+type ConnectIntegrationInput struct {
+	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
+	ResourceServer string      `path:"resourceServer" example:"zitadel"`
+}
+
+type ConnectIntegrationOutput struct {
+	Location string `header:"Location"`
+}
+
+type IntegrationCallbackInput struct {
+	SessionCookie    http.Cookie `cookie:"SESSION_ID"`
+	ResourceServer   string      `path:"resourceServer" example:"zitadel"`
+	Code             string      `query:"code"`
+	State            string      `query:"state"`
+	Error            string      `query:"error"`
+	ErrorDescription string      `query:"error_description"`
+}
+
+type IntegrationCallbackOutput struct {
+	Location string `header:"Location"`
+}
+
+type VerifyIntegrationInput struct {
+	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken      string      `header:"X-CSRF-Token" required:"true"`
+	ResourceServer string      `path:"resourceServer" example:"zitadel"`
+}
+
+type VerifyIntegrationBody struct {
+	ResourceServer  string     `json:"resourceServer" example:"zitadel"`
+	Connected       bool       `json:"connected" example:"true"`
+	Scopes          []string   `json:"scopes,omitempty" example:"offline_access"`
+	AccessExpiresAt *time.Time `json:"accessExpiresAt,omitempty" format:"date-time"`
+	RefreshedAt     *time.Time `json:"refreshedAt,omitempty" format:"date-time"`
+}
+
+type VerifyIntegrationOutput struct {
+	Body VerifyIntegrationBody
+}
+
+type DeleteIntegrationGrantInput struct {
+	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken      string      `header:"X-CSRF-Token" required:"true"`
+	ResourceServer string      `path:"resourceServer" example:"zitadel"`
+}
+
+type DeleteIntegrationGrantOutput struct{}
+
+func registerIntegrationRoutes(api huma.API, deps Dependencies) {
+	huma.Register(api, huma.Operation{
+		OperationID: "listIntegrations",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/integrations",
+		Summary:     "downstream integration の接続状態を返す",
+		Tags:        []string{"integrations"},
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *ListIntegrationsInput) (*ListIntegrationsOutput, error) {
+		if deps.DelegationService == nil {
+			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
+		}
+
+		current, authCtx, err := currentSessionAuthContext(ctx, deps, input.SessionCookie.Value)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+		if authCtx.ActiveTenant == nil {
+			return nil, huma.Error409Conflict("active tenant is required before connecting integrations")
+		}
+
+		statuses, err := deps.DelegationService.ListIntegrationsForTenant(ctx, current.User, authCtx.ActiveTenant.ID)
+		if err != nil {
+			return nil, toDelegationHTTPError(err)
+		}
+
+		out := &ListIntegrationsOutput{}
+		out.Body.Items = make([]IntegrationStatusBody, 0, len(statuses))
+		for _, status := range statuses {
+			out.Body.Items = append(out.Body.Items, toIntegrationStatusBody(status))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "connectIntegration",
+		Method:        http.MethodGet,
+		Path:          "/api/v1/integrations/{resourceServer}/connect",
+		Summary:       "downstream integration consent を開始する",
+		Tags:          []string{"integrations"},
+		DefaultStatus: http.StatusFound,
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *ConnectIntegrationInput) (*ConnectIntegrationOutput, error) {
+		if deps.DelegationService == nil {
+			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
+		}
+
+		current, authCtx, err := currentSessionAuthContext(ctx, deps, input.SessionCookie.Value)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+		if authCtx.ActiveTenant == nil {
+			return nil, huma.Error409Conflict("active tenant is required before connecting integrations")
+		}
+
+		location, err := deps.DelegationService.StartConnectForTenant(ctx, current.User, authCtx.ActiveTenant.ID, input.SessionCookie.Value, input.ResourceServer)
+		if err != nil {
+			return nil, toDelegationHTTPError(err)
+		}
+
+		return &ConnectIntegrationOutput{Location: location}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "finishIntegrationConnect",
+		Method:        http.MethodGet,
+		Path:          "/api/v1/integrations/{resourceServer}/callback",
+		Summary:       "downstream integration consent callback を完了する",
+		Tags:          []string{"integrations"},
+		DefaultStatus: http.StatusFound,
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *IntegrationCallbackInput) (*IntegrationCallbackOutput, error) {
+		if input.Error != "" || deps.DelegationService == nil {
+			return &IntegrationCallbackOutput{
+				Location: integrationRedirect(deps.FrontendBaseURL, "error", "delegated_callback_failed"),
+			}, nil
+		}
+
+		user, err := deps.SessionService.CurrentUser(ctx, input.SessionCookie.Value)
+		if err != nil {
+			return &IntegrationCallbackOutput{
+				Location: integrationRedirect(deps.FrontendBaseURL, "error", "missing_session"),
+			}, nil
+		}
+
+		if _, err := deps.DelegationService.SaveGrantFromCallback(ctx, user, input.SessionCookie.Value, input.ResourceServer, input.Code, input.State); err != nil {
+			return &IntegrationCallbackOutput{
+				Location: integrationRedirect(deps.FrontendBaseURL, "error", "delegated_callback_failed"),
+			}, nil
+		}
+
+		return &IntegrationCallbackOutput{
+			Location: integrationRedirect(deps.FrontendBaseURL, "connected", normalizeIntegrationResource(input.ResourceServer)),
+		}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "verifyIntegrationAccess",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/integrations/{resourceServer}/verify",
+		Summary:     "downstream access token を backend 内で取得できるか検証する",
+		Tags:        []string{"integrations"},
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *VerifyIntegrationInput) (*VerifyIntegrationOutput, error) {
+		if deps.DelegationService == nil {
+			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
+		}
+
+		current, authCtx, err := currentSessionAuthContextWithCSRF(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+		if authCtx.ActiveTenant == nil {
+			return nil, huma.Error409Conflict("active tenant is required before verifying integrations")
+		}
+
+		result, err := deps.DelegationService.VerifyAccessTokenForTenant(ctx, current.User, authCtx.ActiveTenant.ID, input.ResourceServer)
+		if err != nil {
+			return nil, toDelegationHTTPError(err)
+		}
+
+		out := &VerifyIntegrationOutput{}
+		out.Body.ResourceServer = result.ResourceServer
+		out.Body.Connected = result.Connected
+		out.Body.Scopes = result.Scopes
+		out.Body.AccessExpiresAt = result.AccessExpiresAt
+		out.Body.RefreshedAt = result.RefreshedAt
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "deleteIntegrationGrant",
+		Method:        http.MethodDelete,
+		Path:          "/api/v1/integrations/{resourceServer}/grant",
+		Summary:       "downstream integration grant を削除する",
+		Tags:          []string{"integrations"},
+		DefaultStatus: http.StatusNoContent,
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *DeleteIntegrationGrantInput) (*DeleteIntegrationGrantOutput, error) {
+		if deps.DelegationService == nil {
+			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
+		}
+
+		current, authCtx, err := currentSessionAuthContextWithCSRF(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+		if authCtx.ActiveTenant == nil {
+			return nil, huma.Error409Conflict("active tenant is required before deleting integrations")
+		}
+
+		if err := deps.DelegationService.DeleteGrantForTenant(ctx, current.User, authCtx.ActiveTenant.ID, input.ResourceServer); err != nil {
+			return nil, toDelegationHTTPError(err)
+		}
+
+		return &DeleteIntegrationGrantOutput{}, nil
+	})
+}
+
+func toIntegrationStatusBody(status service.DelegationStatus) IntegrationStatusBody {
+	return IntegrationStatusBody{
+		ResourceServer:  status.ResourceServer,
+		Provider:        status.Provider,
+		Connected:       status.Connected,
+		Scopes:          status.Scopes,
+		GrantedAt:       status.GrantedAt,
+		LastRefreshedAt: status.LastRefreshedAt,
+		RevokedAt:       status.RevokedAt,
+		LastErrorCode:   status.LastErrorCode,
+	}
+}
+
+func toDelegationHTTPError(err error) error {
+	switch {
+	case errors.Is(err, service.ErrDelegationNotConfigured):
+		return huma.Error503ServiceUnavailable("delegated auth is not configured")
+	case errors.Is(err, service.ErrDelegationUnsupportedResource):
+		return huma.Error404NotFound("unsupported downstream resource")
+	case errors.Is(err, service.ErrDelegationGrantNotFound):
+		return huma.Error404NotFound("delegated grant not found")
+	case errors.Is(err, service.ErrDelegationInvalidState):
+		return huma.Error400BadRequest("invalid delegated auth state")
+	case errors.Is(err, service.ErrDelegationIdentityNotFound):
+		return huma.Error409Conflict("zitadel identity is required before connecting the integration")
+	case errors.Is(err, service.ErrDelegationRefreshTokenMissing):
+		return huma.Error502BadGateway("provider did not return a refresh token")
+	default:
+		return huma.Error500InternalServerError("internal server error")
+	}
+}
+
+func currentSessionAuthContext(ctx context.Context, deps Dependencies, sessionID string) (service.CurrentSession, service.AuthContext, error) {
+	current, err := deps.SessionService.CurrentSession(ctx, sessionID)
+	if err != nil {
+		return service.CurrentSession{}, service.AuthContext{}, err
+	}
+	if deps.AuthzService == nil {
+		return current, service.AuthContext{}, huma.Error503ServiceUnavailable("tenant auth is not configured")
+	}
+	authCtx, err := deps.AuthzService.BuildBrowserContext(ctx, current.User, current.ActiveTenantID)
+	if err != nil {
+		return service.CurrentSession{}, service.AuthContext{}, err
+	}
+	return current, authCtx, nil
+}
+
+func currentSessionAuthContextWithCSRF(ctx context.Context, deps Dependencies, sessionID, csrfToken string) (service.CurrentSession, service.AuthContext, error) {
+	current, err := deps.SessionService.CurrentSessionWithCSRF(ctx, sessionID, csrfToken)
+	if err != nil {
+		return service.CurrentSession{}, service.AuthContext{}, err
+	}
+	if deps.AuthzService == nil {
+		return current, service.AuthContext{}, huma.Error503ServiceUnavailable("tenant auth is not configured")
+	}
+	authCtx, err := deps.AuthzService.BuildBrowserContext(ctx, current.User, current.ActiveTenantID)
+	if err != nil {
+		return service.CurrentSession{}, service.AuthContext{}, err
+	}
+	return current, authCtx, nil
+}
+
+func integrationRedirect(frontendBaseURL, key, value string) string {
+	base := strings.TrimRight(frontendBaseURL, "/")
+	query := url.Values{}
+	query.Set(key, value)
+	return base + "/integrations?" + query.Encode()
+}
+
+func normalizeIntegrationResource(resourceServer string) string {
+	return strings.ToLower(strings.TrimSpace(resourceServer))
+}
+```
+
+#### `backend/internal/api/register.go`
+
+```go
+package api
+
+import (
+	"time"
+
+	"example.com/haohao/backend/internal/service"
+
+	"github.com/danielgtaylor/huma/v2"
+)
+
+type Dependencies struct {
+	SessionService               *service.SessionService
+	OIDCLoginService             *service.OIDCLoginService
+	DelegationService            *service.DelegationService
+	ProvisioningService          *service.ProvisioningService
+	AuthzService                 *service.AuthzService
+	AuthMode                     string
+	SCIMBasePath                 string
+	FrontendBaseURL              string
+	ZitadelIssuer                string
+	ZitadelClientID              string
+	ZitadelPostLogoutRedirectURI string
+	CookieSecure                 bool
+	SessionTTL                   time.Duration
+}
+
+func Register(api huma.API, deps Dependencies) {
+	registerAuthSettingsRoute(api, deps)
+	registerOIDCRoutes(api, deps)
+	registerSessionRoutes(api, deps)
+	registerExternalRoutes(api, deps)
+	registerIntegrationRoutes(api, deps)
+	registerTenantRoutes(api, deps)
+	registerSCIMRoutes(api, deps)
+}
+```
+
+#### `backend/internal/api/scim.go`
+
+```go
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"regexp"
+	"strings"
+
+	"example.com/haohao/backend/internal/service"
+
+	"github.com/danielgtaylor/huma/v2"
+)
+
+var externalIDFilterRE = regexp.MustCompile(`(?i)^\s*externalId\s+eq\s+"([^"]+)"\s*$`)
+
+type SCIMUserBody struct {
+	Schemas     []string        `json:"schemas,omitempty"`
+	ID          string          `json:"id,omitempty" format:"uuid"`
+	ExternalID  string          `json:"externalId,omitempty"`
+	UserName    string          `json:"userName,omitempty" format:"email"`
+	DisplayName string          `json:"displayName,omitempty"`
+	Active      *bool           `json:"active,omitempty"`
+	Groups      []SCIMGroupBody `json:"groups,omitempty"`
+}
+
+type SCIMGroupBody struct {
+	Value string `json:"value"`
+}
+
+type SCIMListResponseBody struct {
+	Schemas      []string       `json:"schemas"`
+	TotalResults int            `json:"totalResults"`
+	StartIndex   int32          `json:"startIndex"`
+	ItemsPerPage int            `json:"itemsPerPage"`
+	Resources    []SCIMUserBody `json:"Resources"`
+}
+
+type SCIMUserInput struct {
+	Body SCIMUserBody
+}
+
+type SCIMUserByIDInput struct {
+	ID string `path:"id" format:"uuid"`
+}
+
+type SCIMListUsersInput struct {
+	Filter     string `query:"filter"`
+	StartIndex int32  `query:"startIndex" minimum:"1" default:"1"`
+	Count      int32  `query:"count" minimum:"1" maximum:"100" default:"100"`
+}
+
+type SCIMReplaceUserInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body SCIMUserBody
+}
+
+type SCIMPatchInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body struct {
+		Schemas    []string             `json:"schemas,omitempty"`
+		Operations []SCIMPatchOperation `json:"Operations"`
+	}
+}
+
+type SCIMPatchOperation struct {
+	Op    string          `json:"op"`
+	Path  string          `json:"path,omitempty"`
+	Value json.RawMessage `json:"value,omitempty"`
+}
+
+type SCIMUserOutput struct {
+	Body SCIMUserBody
+}
+
+type SCIMListUsersOutput struct {
+	Body SCIMListResponseBody
+}
+
+type SCIMDeleteUserOutput struct{}
+
+func registerSCIMRoutes(api huma.API, deps Dependencies) {
+	if deps.SCIMBasePath == "" {
+		return
+	}
+	usersPath := deps.SCIMBasePath + "/Users"
+
+	huma.Register(api, huma.Operation{
+		OperationID: "scimCreateUser",
+		Method:      http.MethodPost,
+		Path:        usersPath,
+		Summary:     "SCIM user を作成または upsert する",
+		Tags:        []string{"scim"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+	}, func(ctx context.Context, input *SCIMUserInput) (*SCIMUserOutput, error) {
+		if deps.ProvisioningService == nil {
+			return nil, huma.Error503ServiceUnavailable("scim provisioning is not configured")
+		}
+		user, err := deps.ProvisioningService.UpsertUser(ctx, provisionedInputFromSCIM(input.Body))
+		if err != nil {
+			return nil, toSCIMHTTPError(err)
+		}
+		return &SCIMUserOutput{Body: scimUserFromProvisioned(user)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "scimListUsers",
+		Method:      http.MethodGet,
+		Path:        usersPath,
+		Summary:     "SCIM user を list する",
+		Tags:        []string{"scim"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+	}, func(ctx context.Context, input *SCIMListUsersInput) (*SCIMListUsersOutput, error) {
+		if deps.ProvisioningService == nil {
+			return nil, huma.Error503ServiceUnavailable("scim provisioning is not configured")
+		}
+		if externalID := externalIDFromFilter(input.Filter); externalID != "" {
+			user, err := deps.ProvisioningService.GetUserByExternalID(ctx, externalID)
+			if err == nil {
+				body := scimUserFromProvisioned(user)
+				return &SCIMListUsersOutput{Body: scimList(input.StartIndex, []SCIMUserBody{body})}, nil
+			}
+			if errors.Is(err, service.ErrUnauthorized) {
+				return &SCIMListUsersOutput{Body: scimList(input.StartIndex, nil)}, nil
+			}
+			if !errors.Is(err, service.ErrInvalidSCIMUser) {
+				return nil, toSCIMHTTPError(err)
+			}
+		}
+
+		users, err := deps.ProvisioningService.ListUsers(ctx, input.StartIndex, input.Count)
+		if err != nil {
+			return nil, toSCIMHTTPError(err)
+		}
+		resources := make([]SCIMUserBody, 0, len(users))
+		for _, user := range users {
+			resources = append(resources, scimUserFromProvisioned(user))
+		}
+		return &SCIMListUsersOutput{Body: scimList(input.StartIndex, resources)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "scimGetUser",
+		Method:      http.MethodGet,
+		Path:        usersPath + "/{id}",
+		Summary:     "SCIM user を取得する",
+		Tags:        []string{"scim"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+	}, func(ctx context.Context, input *SCIMUserByIDInput) (*SCIMUserOutput, error) {
+		if deps.ProvisioningService == nil {
+			return nil, huma.Error503ServiceUnavailable("scim provisioning is not configured")
+		}
+		user, err := deps.ProvisioningService.GetUser(ctx, input.ID)
+		if err != nil {
+			return nil, toSCIMHTTPError(err)
+		}
+		return &SCIMUserOutput{Body: scimUserFromProvisioned(user)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "scimReplaceUser",
+		Method:      http.MethodPut,
+		Path:        usersPath + "/{id}",
+		Summary:     "SCIM user を置換する",
+		Tags:        []string{"scim"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+	}, func(ctx context.Context, input *SCIMReplaceUserInput) (*SCIMUserOutput, error) {
+		if deps.ProvisioningService == nil {
+			return nil, huma.Error503ServiceUnavailable("scim provisioning is not configured")
+		}
+		existing, err := deps.ProvisioningService.GetUser(ctx, input.ID)
+		if err != nil {
+			return nil, toSCIMHTTPError(err)
+		}
+		body := input.Body
+		if strings.TrimSpace(body.ExternalID) == "" {
+			body.ExternalID = existing.ExternalID
+		}
+		user, err := deps.ProvisioningService.UpsertUser(ctx, provisionedInputFromSCIM(body))
+		if err != nil {
+			return nil, toSCIMHTTPError(err)
+		}
+		return &SCIMUserOutput{Body: scimUserFromProvisioned(user)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "scimPatchUser",
+		Method:      http.MethodPatch,
+		Path:        usersPath + "/{id}",
+		Summary:     "SCIM user を patch する",
+		Tags:        []string{"scim"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+	}, func(ctx context.Context, input *SCIMPatchInput) (*SCIMUserOutput, error) {
+		if deps.ProvisioningService == nil {
+			return nil, huma.Error503ServiceUnavailable("scim provisioning is not configured")
+		}
+		existing, err := deps.ProvisioningService.GetUser(ctx, input.ID)
+		if err != nil {
+			return nil, toSCIMHTTPError(err)
+		}
+		next := SCIMUserBody{
+			ExternalID:  existing.ExternalID,
+			UserName:    existing.UserName,
+			DisplayName: existing.DisplayName,
+			Active:      &existing.Active,
+		}
+		for _, op := range input.Body.Operations {
+			if err := applySCIMPatch(&next, op); err != nil {
+				return nil, toSCIMHTTPError(err)
+			}
+		}
+		user, err := deps.ProvisioningService.UpsertUser(ctx, provisionedInputFromSCIM(next))
+		if err != nil {
+			return nil, toSCIMHTTPError(err)
+		}
+		return &SCIMUserOutput{Body: scimUserFromProvisioned(user)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "scimDeleteUser",
+		Method:        http.MethodDelete,
+		Path:          usersPath + "/{id}",
+		Summary:       "SCIM user を deactivate する",
+		Tags:          []string{"scim"},
+		DefaultStatus: http.StatusNoContent,
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+	}, func(ctx context.Context, input *SCIMUserByIDInput) (*SCIMDeleteUserOutput, error) {
+		if deps.ProvisioningService == nil {
+			return nil, huma.Error503ServiceUnavailable("scim provisioning is not configured")
+		}
+		if _, err := deps.ProvisioningService.DeactivateUser(ctx, input.ID); err != nil {
+			return nil, toSCIMHTTPError(err)
+		}
+		return &SCIMDeleteUserOutput{}, nil
+	})
+}
+
+func provisionedInputFromSCIM(body SCIMUserBody) service.ProvisionedUserInput {
+	active := true
+	if body.Active != nil {
+		active = *body.Active
+	}
+	groups := make([]string, 0, len(body.Groups))
+	for _, group := range body.Groups {
+		if strings.TrimSpace(group.Value) != "" {
+			groups = append(groups, strings.TrimSpace(group.Value))
+		}
+	}
+	if body.Groups == nil {
+		groups = nil
+	}
+	return service.ProvisionedUserInput{
+		ExternalID:  body.ExternalID,
+		UserName:    body.UserName,
+		DisplayName: body.DisplayName,
+		Active:      active,
+		Groups:      groups,
+	}
+}
+
+func scimUserFromProvisioned(user service.ProvisionedUser) SCIMUserBody {
+	active := user.Active
+	return SCIMUserBody{
+		Schemas:     []string{"urn:ietf:params:scim:schemas:core:2.0:User"},
+		ID:          user.PublicID,
+		ExternalID:  user.ExternalID,
+		UserName:    user.UserName,
+		DisplayName: user.DisplayName,
+		Active:      &active,
+	}
+}
+
+func scimList(startIndex int32, resources []SCIMUserBody) SCIMListResponseBody {
+	if startIndex < 1 {
+		startIndex = 1
+	}
+	return SCIMListResponseBody{
+		Schemas:      []string{"urn:ietf:params:scim:api:messages:2.0:ListResponse"},
+		TotalResults: len(resources),
+		StartIndex:   startIndex,
+		ItemsPerPage: len(resources),
+		Resources:    resources,
+	}
+}
+
+func applySCIMPatch(body *SCIMUserBody, op SCIMPatchOperation) error {
+	if strings.ToLower(strings.TrimSpace(op.Op)) != "replace" {
+		return service.ErrInvalidSCIMUser
+	}
+	path := strings.ToLower(strings.TrimSpace(op.Path))
+	switch path {
+	case "active":
+		var active bool
+		if err := json.Unmarshal(op.Value, &active); err != nil {
+			return service.ErrInvalidSCIMUser
+		}
+		body.Active = &active
+	case "displayname":
+		var value string
+		if err := json.Unmarshal(op.Value, &value); err != nil {
+			return service.ErrInvalidSCIMUser
+		}
+		body.DisplayName = value
+	case "username":
+		var value string
+		if err := json.Unmarshal(op.Value, &value); err != nil {
+			return service.ErrInvalidSCIMUser
+		}
+		body.UserName = value
+	case "groups":
+		var groups []SCIMGroupBody
+		if err := json.Unmarshal(op.Value, &groups); err != nil {
+			return service.ErrInvalidSCIMUser
+		}
+		body.Groups = groups
+	default:
+		return service.ErrInvalidSCIMUser
+	}
+	return nil
+}
+
+func externalIDFromFilter(filter string) string {
+	match := externalIDFilterRE.FindStringSubmatch(filter)
+	if len(match) != 2 {
+		return ""
+	}
+	return match[1]
+}
+
+func toSCIMHTTPError(err error) error {
+	switch {
+	case errors.Is(err, service.ErrInvalidSCIMUser):
+		return huma.Error400BadRequest("invalid scim user")
+	case errors.Is(err, service.ErrUnauthorized):
+		return huma.Error404NotFound("scim user not found")
+	default:
+		return huma.Error500InternalServerError(fmt.Sprintf("scim operation failed: %v", err))
+	}
+}
+```
+
+#### `backend/internal/api/tenants.go`
+
+```go
+package api
+
+import (
+	"context"
+	"net/http"
+
+	"example.com/haohao/backend/internal/service"
+
+	"github.com/danielgtaylor/huma/v2"
+)
+
+type TenantBody struct {
+	ID          int64    `json:"id" example:"1"`
+	Slug        string   `json:"slug" example:"acme"`
+	DisplayName string   `json:"displayName" example:"acme"`
+	Roles       []string `json:"roles,omitempty" example:"todo_user"`
+	Default     bool     `json:"default" example:"true"`
+	Selected    bool     `json:"selected" example:"true"`
+}
+
+type ListTenantsInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+}
+
+type ListTenantsBody struct {
+	Items         []TenantBody `json:"items"`
+	ActiveTenant  *TenantBody  `json:"activeTenant,omitempty"`
+	DefaultTenant *TenantBody  `json:"defaultTenant,omitempty"`
+}
+
+type ListTenantsOutput struct {
+	Body ListTenantsBody
+}
+
+type SelectTenantInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
+	Body          struct {
+		TenantSlug string `json:"tenantSlug" example:"acme"`
+	}
+}
+
+type SelectTenantOutput struct {
+	Body struct {
+		ActiveTenant TenantBody `json:"activeTenant"`
+	}
+}
+
+func registerTenantRoutes(api huma.API, deps Dependencies) {
+	huma.Register(api, huma.Operation{
+		OperationID: "listTenants",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/tenants",
+		Summary:     "現在の user が利用できる tenants を返す",
+		Tags:        []string{"tenants"},
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *ListTenantsInput) (*ListTenantsOutput, error) {
+		_, authCtx, err := currentSessionAuthContext(ctx, deps, input.SessionCookie.Value)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+
+		out := &ListTenantsOutput{}
+		out.Body.Items = toTenantBodies(authCtx.Tenants)
+		if authCtx.ActiveTenant != nil {
+			body := toTenantBody(*authCtx.ActiveTenant)
+			out.Body.ActiveTenant = &body
+		}
+		if authCtx.DefaultTenant != nil {
+			body := toTenantBody(*authCtx.DefaultTenant)
+			out.Body.DefaultTenant = &body
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "selectTenant",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/session/tenant",
+		Summary:     "現在の session の active tenant を切り替える",
+		Tags:        []string{"tenants"},
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *SelectTenantInput) (*SelectTenantOutput, error) {
+		current, err := deps.SessionService.CurrentSessionWithCSRF(ctx, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+		if deps.AuthzService == nil {
+			return nil, huma.Error503ServiceUnavailable("tenant auth is not configured")
+		}
+
+		tenant, err := deps.AuthzService.SelectTenant(ctx, current.User, input.Body.TenantSlug)
+		if err != nil {
+			return nil, toHTTPError(err)
+		}
+		if err := deps.SessionService.SetActiveTenant(ctx, input.SessionCookie.Value, input.CSRFToken, tenant.ID); err != nil {
+			return nil, toHTTPError(err)
+		}
+
+		out := &SelectTenantOutput{}
+		out.Body.ActiveTenant = toTenantBody(tenant)
+		return out, nil
+	})
+}
+
+func toTenantBodies(items []service.TenantAccess) []TenantBody {
+	out := make([]TenantBody, 0, len(items))
+	for _, item := range items {
+		out = append(out, toTenantBody(item))
+	}
+	return out
+}
+
+func toTenantBody(item service.TenantAccess) TenantBody {
+	return TenantBody{
+		ID:          item.ID,
+		Slug:        item.Slug,
+		DisplayName: item.DisplayName,
+		Roles:       item.Roles,
+		Default:     item.Default,
+		Selected:    item.Selected,
+	}
+}
+```
+
+#### `backend/internal/app/app.go`
+
+```go
+package app
+
+import (
+	backendapi "example.com/haohao/backend/internal/api"
+	"example.com/haohao/backend/internal/auth"
+	"example.com/haohao/backend/internal/config"
+	"example.com/haohao/backend/internal/middleware"
+	"example.com/haohao/backend/internal/service"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humagin"
+	"github.com/gin-gonic/gin"
+)
+
+type App struct {
+	Router *gin.Engine
+	API    huma.API
+}
+
+func New(cfg config.Config, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, bearerVerifier *auth.BearerVerifier) *App {
+	router := gin.New()
+	router.Use(
+		gin.Logger(),
+		gin.Recovery(),
+		middleware.ExternalCORS("/api/external/", cfg.ExternalAllowedOrigins),
+		middleware.ExternalAuth("/api/external/", bearerVerifier, authzService, "zitadel", cfg.ExternalExpectedAudience, cfg.ExternalRequiredScopePrefix, cfg.ExternalRequiredRole),
+		middleware.SCIMAuth(cfg.SCIMBasePath+"/", bearerVerifier, cfg.SCIMBearerAudience, cfg.SCIMRequiredScope),
+	)
+
+	humaConfig := huma.DefaultConfig(cfg.AppName, cfg.AppVersion)
+	humaConfig.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		"cookieAuth": {
+			Type: "apiKey",
+			In:   "cookie",
+			Name: auth.SessionCookieName,
+		},
+		"bearerAuth": {
+			Type:         "http",
+			Scheme:       "bearer",
+			BearerFormat: "JWT",
+		},
+	}
+
+	api := humagin.New(router, humaConfig)
+
+	backendapi.Register(api, backendapi.Dependencies{
+		SessionService:               sessionService,
+		OIDCLoginService:             oidcLoginService,
+		DelegationService:            delegationService,
+		ProvisioningService:          provisioningService,
+		AuthzService:                 authzService,
+		AuthMode:                     cfg.AuthMode,
+		SCIMBasePath:                 cfg.SCIMBasePath,
+		FrontendBaseURL:              cfg.FrontendBaseURL,
+		ZitadelIssuer:                cfg.ZitadelIssuer,
+		ZitadelClientID:              cfg.ZitadelClientID,
+		ZitadelPostLogoutRedirectURI: cfg.ZitadelPostLogoutRedirectURI,
+		CookieSecure:                 cfg.CookieSecure,
+		SessionTTL:                   cfg.SessionTTL,
+	})
+
+	return &App{
+		Router: router,
+		API:    api,
+	}
+}
+```
+
+#### `backend/internal/auth/bearer_verifier.go`
+
+```go
+package auth
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/go-jose/go-jose/v4/jwt"
+)
+
+var (
+	ErrMissingBearerToken    = errors.New("missing bearer token")
+	ErrInvalidBearerToken    = errors.New("invalid bearer token")
+	ErrInvalidBearerIssuer   = errors.New("invalid bearer issuer")
+	ErrInvalidBearerAudience = errors.New("invalid bearer audience")
+	ErrInvalidBearerScope    = errors.New("invalid bearer scope")
+	ErrInvalidBearerRole     = errors.New("invalid bearer role")
+)
+
+type BearerVerifier struct {
+	issuer string
+	keySet *oidc.RemoteKeySet
+}
+
+type BearerTokenClaims struct {
+	jwt.Claims
+	AuthorizedParty   string             `json:"azp,omitempty"`
+	ClientID          string             `json:"client_id,omitempty"`
+	Scope             spaceSeparatedList `json:"scope,omitempty"`
+	Groups            claimStringList    `json:"groups,omitempty"`
+	Roles             []string           `json:"-"`
+	Email             string             `json:"email,omitempty"`
+	Name              string             `json:"name,omitempty"`
+	PreferredUsername string             `json:"preferred_username,omitempty"`
+}
+
+type bearerTokenClaimsJSON struct {
+	jwt.Claims
+	AuthorizedParty   string             `json:"azp,omitempty"`
+	ClientID          string             `json:"client_id,omitempty"`
+	Scope             spaceSeparatedList `json:"scope,omitempty"`
+	Groups            claimStringList    `json:"groups,omitempty"`
+	Email             string             `json:"email,omitempty"`
+	Name              string             `json:"name,omitempty"`
+	PreferredUsername string             `json:"preferred_username,omitempty"`
+}
+
+func (c *BearerTokenClaims) UnmarshalJSON(data []byte) error {
+	var decoded bearerTokenClaimsJSON
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+
+	var rawClaims map[string]json.RawMessage
+	if err := json.Unmarshal(data, &rawClaims); err != nil {
+		return err
+	}
+
+	c.Claims = decoded.Claims
+	c.AuthorizedParty = strings.TrimSpace(decoded.AuthorizedParty)
+	c.ClientID = strings.TrimSpace(decoded.ClientID)
+	if c.AuthorizedParty == "" {
+		c.AuthorizedParty = c.ClientID
+	}
+	c.Scope = decoded.Scope
+	c.Groups = decoded.Groups
+	c.Roles = extractZitadelRoleClaims(rawClaims)
+	c.Email = decoded.Email
+	c.Name = decoded.Name
+	c.PreferredUsername = decoded.PreferredUsername
+
+	return nil
+}
+
+func NewBearerVerifier(ctx context.Context, issuer string) (*BearerVerifier, error) {
+	trimmedIssuer := strings.TrimRight(strings.TrimSpace(issuer), "/")
+	if trimmedIssuer == "" {
+		return nil, fmt.Errorf("issuer is required")
+	}
+
+	provider, err := oidc.NewProvider(ctx, trimmedIssuer)
+	if err != nil {
+		return nil, fmt.Errorf("discover oidc provider: %w", err)
+	}
+
+	var discovery struct {
+		JWKSURI string `json:"jwks_uri"`
+	}
+	if err := provider.Claims(&discovery); err != nil {
+		return nil, fmt.Errorf("decode oidc discovery document: %w", err)
+	}
+	if strings.TrimSpace(discovery.JWKSURI) == "" {
+		return nil, fmt.Errorf("jwks_uri missing from oidc discovery document")
+	}
+
+	return &BearerVerifier{
+		issuer: trimmedIssuer,
+		keySet: oidc.NewRemoteKeySet(ctx, discovery.JWKSURI),
+	}, nil
+}
+
+func (v *BearerVerifier) Verify(ctx context.Context, rawToken, expectedAudience, requiredScopePrefix string) (BearerTokenClaims, error) {
+	if strings.TrimSpace(rawToken) == "" {
+		return BearerTokenClaims{}, ErrMissingBearerToken
+	}
+	if v == nil || v.keySet == nil {
+		return BearerTokenClaims{}, fmt.Errorf("%w: verifier is not configured", ErrInvalidBearerToken)
+	}
+
+	payload, err := v.keySet.VerifySignature(ctx, rawToken)
+	if err != nil {
+		return BearerTokenClaims{}, fmt.Errorf("%w: verify signature: %v", ErrInvalidBearerToken, err)
+	}
+
+	var claims BearerTokenClaims
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return BearerTokenClaims{}, fmt.Errorf("%w: decode claims: %v", ErrInvalidBearerToken, err)
+	}
+
+	expected := jwt.Expected{
+		Issuer: v.issuer,
+		Time:   time.Now(),
+	}
+	if audience := strings.TrimSpace(expectedAudience); audience != "" {
+		expected.AnyAudience = jwt.Audience{audience}
+	}
+
+	if err := claims.Claims.ValidateWithLeeway(expected, time.Minute); err != nil {
+		switch {
+		case errors.Is(err, jwt.ErrInvalidIssuer):
+			return BearerTokenClaims{}, ErrInvalidBearerIssuer
+		case errors.Is(err, jwt.ErrInvalidAudience):
+			return BearerTokenClaims{}, ErrInvalidBearerAudience
+		default:
+			return BearerTokenClaims{}, fmt.Errorf("%w: %v", ErrInvalidBearerToken, err)
+		}
+	}
+
+	if strings.TrimSpace(claims.Subject) == "" {
+		return BearerTokenClaims{}, fmt.Errorf("%w: subject is required", ErrInvalidBearerToken)
+	}
+	if prefix := strings.TrimSpace(requiredScopePrefix); prefix != "" && !claims.HasScopePrefix(prefix) {
+		return BearerTokenClaims{}, ErrInvalidBearerScope
+	}
+
+	return claims, nil
+}
+
+func (c BearerTokenClaims) ScopeValues() []string {
+	return append([]string(nil), c.Scope...)
+}
+
+func (c BearerTokenClaims) GroupValues() []string {
+	return append([]string(nil), c.Groups...)
+}
+
+func (c BearerTokenClaims) RoleValues() []string {
+	return append([]string(nil), c.Roles...)
+}
+
+func (c BearerTokenClaims) HasScopePrefix(prefix string) bool {
+	trimmedPrefix := strings.TrimSpace(prefix)
+	if trimmedPrefix == "" {
+		return true
+	}
+
+	for _, scope := range c.Scope {
+		if scope == trimmedPrefix || strings.HasPrefix(scope, trimmedPrefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (c BearerTokenClaims) HasScope(scope string) bool {
+	needle := strings.TrimSpace(scope)
+	if needle == "" {
+		return true
+	}
+
+	for _, item := range c.Scope {
+		if item == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func extractZitadelRoleClaims(rawClaims map[string]json.RawMessage) []string {
+	roleSet := make(map[string]struct{})
+	for name, raw := range rawClaims {
+		if !isZitadelRoleClaim(name) {
+			continue
+		}
+
+		for _, role := range roleNamesFromClaim(raw) {
+			roleSet[role] = struct{}{}
+		}
+	}
+
+	roles := make([]string, 0, len(roleSet))
+	for role := range roleSet {
+		roles = append(roles, role)
+	}
+	sort.Strings(roles)
+	return roles
+}
+
+func isZitadelRoleClaim(name string) bool {
+	return name == "urn:zitadel:iam:org:project:roles" ||
+		(strings.HasPrefix(name, "urn:zitadel:iam:org:project:") && strings.HasSuffix(name, ":roles"))
+}
+
+func roleNamesFromClaim(raw json.RawMessage) []string {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err == nil {
+		roles := make([]string, 0, len(object))
+		for role := range object {
+			if trimmed := strings.TrimSpace(role); trimmed != "" {
+				roles = append(roles, trimmed)
+			}
+		}
+		return roles
+	}
+
+	var many []string
+	if err := json.Unmarshal(raw, &many); err == nil {
+		roles := make([]string, 0, len(many))
+		for _, role := range many {
+			if trimmed := strings.TrimSpace(role); trimmed != "" {
+				roles = append(roles, trimmed)
+			}
+		}
+		return roles
+	}
+
+	var single string
+	if err := json.Unmarshal(raw, &single); err == nil {
+		if trimmed := strings.TrimSpace(single); trimmed != "" {
+			return []string{trimmed}
+		}
+	}
+
+	return nil
+}
+
+type spaceSeparatedList []string
+
+func (s *spaceSeparatedList) UnmarshalJSON(data []byte) error {
+	var single string
+	if err := json.Unmarshal(data, &single); err == nil {
+		*s = append((*s)[:0], strings.Fields(single)...)
+		return nil
+	}
+
+	var many []string
+	if err := json.Unmarshal(data, &many); err == nil {
+		items := make([]string, 0, len(many))
+		for _, item := range many {
+			trimmed := strings.TrimSpace(item)
+			if trimmed != "" {
+				items = append(items, trimmed)
+			}
+		}
+		*s = items
+		return nil
+	}
+
+	return fmt.Errorf("unsupported scope claim format")
+}
+
+type claimStringList []string
+
+func (s *claimStringList) UnmarshalJSON(data []byte) error {
+	var single string
+	if err := json.Unmarshal(data, &single); err == nil {
+		single = strings.TrimSpace(single)
+		if single == "" {
+			*s = nil
+			return nil
+		}
+		*s = []string{single}
+		return nil
+	}
+
+	var many []string
+	if err := json.Unmarshal(data, &many); err == nil {
+		items := make([]string, 0, len(many))
+		for _, item := range many {
+			trimmed := strings.TrimSpace(item)
+			if trimmed != "" {
+				items = append(items, trimmed)
+			}
+		}
+		*s = items
+		return nil
+	}
+
+	return fmt.Errorf("unsupported string list claim format")
+}
+```
+
+#### `backend/internal/auth/delegation_state_store.go`
+
+```go
+package auth
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+var ErrDelegationStateNotFound = errors.New("delegation state not found")
+
+type DelegationStateRecord struct {
+	UserID         int64  `json:"userId"`
+	TenantID       int64  `json:"tenantId"`
+	ResourceServer string `json:"resourceServer"`
+	CodeVerifier   string `json:"codeVerifier"`
+	SessionHash    string `json:"sessionHash"`
+}
+
+type DelegationStateStore struct {
+	client *redis.Client
+	prefix string
+	ttl    time.Duration
+}
+
+func NewDelegationStateStore(client *redis.Client, ttl time.Duration) *DelegationStateStore {
+	return &DelegationStateStore{
+		client: client,
+		prefix: "delegation-state:",
+		ttl:    ttl,
+	}
+}
+
+func (s *DelegationStateStore) Create(ctx context.Context, userID, tenantID int64, resourceServer, sessionHash string) (string, DelegationStateRecord, error) {
+	state, err := randomToken(32)
+	if err != nil {
+		return "", DelegationStateRecord{}, err
+	}
+
+	codeVerifier, err := randomToken(32)
+	if err != nil {
+		return "", DelegationStateRecord{}, err
+	}
+
+	record := DelegationStateRecord{
+		UserID:         userID,
+		TenantID:       tenantID,
+		ResourceServer: resourceServer,
+		CodeVerifier:   codeVerifier,
+		SessionHash:    sessionHash,
+	}
+
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return "", DelegationStateRecord{}, err
+	}
+
+	if err := s.client.Set(ctx, s.prefix+state, payload, s.ttl).Err(); err != nil {
+		return "", DelegationStateRecord{}, fmt.Errorf("save delegation state: %w", err)
+	}
+
+	return state, record, nil
+}
+
+func (s *DelegationStateStore) Consume(ctx context.Context, state string) (DelegationStateRecord, error) {
+	raw, err := s.client.GetDel(ctx, s.prefix+state).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return DelegationStateRecord{}, ErrDelegationStateNotFound
+	}
+	if err != nil {
+		return DelegationStateRecord{}, fmt.Errorf("consume delegation state: %w", err)
+	}
+
+	var record DelegationStateRecord
+	if err := json.Unmarshal(raw, &record); err != nil {
+		return DelegationStateRecord{}, fmt.Errorf("decode delegation state: %w", err)
+	}
+
+	return record, nil
+}
+```
+
+#### `backend/internal/auth/session_store.go`
+
+```go
+package auth
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+var ErrSessionNotFound = errors.New("session not found")
+
+type SessionRecord struct {
+	UserID              int64  `json:"userId"`
+	CSRFToken           string `json:"csrfToken"`
+	ProviderIDTokenHint string `json:"providerIdTokenHint,omitempty"`
+	ActiveTenantID      int64  `json:"activeTenantId,omitempty"`
+}
+
+type SessionStore struct {
+	client          *redis.Client
+	prefix          string
+	userIndexPrefix string
+	ttl             time.Duration
+}
+
+func NewSessionStore(client *redis.Client, ttl time.Duration) *SessionStore {
+	return &SessionStore{
+		client:          client,
+		prefix:          "session:",
+		userIndexPrefix: "session-user:",
+		ttl:             ttl,
+	}
+}
+
+func (s *SessionStore) Create(ctx context.Context, userID int64) (string, string, error) {
+	return s.CreateWithProviderHint(ctx, userID, "")
+}
+
+func (s *SessionStore) CreateWithProviderHint(ctx context.Context, userID int64, providerIDTokenHint string) (string, string, error) {
+	sessionID, err := randomToken(32)
+	if err != nil {
+		return "", "", err
+	}
+
+	csrfToken, err := randomToken(32)
+	if err != nil {
+		return "", "", err
+	}
+
+	record := SessionRecord{
+		UserID:              userID,
+		CSRFToken:           csrfToken,
+		ProviderIDTokenHint: providerIDTokenHint,
+	}
+	if err := s.save(ctx, sessionID, record, s.ttl); err != nil {
+		return "", "", err
+	}
+
+	return sessionID, csrfToken, nil
+}
+
+func (s *SessionStore) Get(ctx context.Context, sessionID string) (SessionRecord, error) {
+	record, _, err := s.loadWithTTL(ctx, sessionID)
+	return record, err
+}
+
+func (s *SessionStore) Delete(ctx context.Context, sessionID string) error {
+	record, _, err := s.loadWithTTL(ctx, sessionID)
+	if err != nil && !errors.Is(err, ErrSessionNotFound) {
+		return err
+	}
+
+	if err := s.client.Del(ctx, s.key(sessionID)).Err(); err != nil {
+		return fmt.Errorf("delete session: %w", err)
+	}
+	if err == nil {
+		_ = s.client.SRem(ctx, s.userIndexKey(record.UserID), sessionID).Err()
+	}
+	return nil
+}
+
+func (s *SessionStore) ReissueCSRF(ctx context.Context, sessionID string) (string, error) {
+	record, ttl, err := s.loadWithTTL(ctx, sessionID)
+	if err != nil {
+		return "", err
+	}
+
+	csrfToken, err := randomToken(32)
+	if err != nil {
+		return "", err
+	}
+
+	record.CSRFToken = csrfToken
+	if err := s.save(ctx, sessionID, record, ttl); err != nil {
+		return "", err
+	}
+
+	return csrfToken, nil
+}
+
+func (s *SessionStore) Rotate(ctx context.Context, sessionID string) (string, string, error) {
+	record, _, err := s.loadWithTTL(ctx, sessionID)
+	if err != nil {
+		return "", "", err
+	}
+
+	newSessionID, err := randomToken(32)
+	if err != nil {
+		return "", "", err
+	}
+
+	newCSRFToken, err := randomToken(32)
+	if err != nil {
+		return "", "", err
+	}
+
+	record.CSRFToken = newCSRFToken
+	if err := s.save(ctx, newSessionID, record, s.ttl); err != nil {
+		return "", "", err
+	}
+	if err := s.Delete(ctx, sessionID); err != nil {
+		return "", "", err
+	}
+
+	return newSessionID, newCSRFToken, nil
+}
+
+func (s *SessionStore) SetActiveTenant(ctx context.Context, sessionID string, tenantID int64) error {
+	record, ttl, err := s.loadWithTTL(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+
+	record.ActiveTenantID = tenantID
+	if err := s.save(ctx, sessionID, record, ttl); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SessionStore) DeleteUserSessions(ctx context.Context, userID int64) error {
+	indexKey := s.userIndexKey(userID)
+	sessionIDs, err := s.client.SMembers(ctx, indexKey).Result()
+	if err != nil {
+		return fmt.Errorf("list user sessions: %w", err)
+	}
+
+	if len(sessionIDs) > 0 {
+		keys := make([]string, 0, len(sessionIDs)+1)
+		for _, sessionID := range sessionIDs {
+			keys = append(keys, s.key(sessionID))
+		}
+		keys = append(keys, indexKey)
+		if err := s.client.Del(ctx, keys...).Err(); err != nil {
+			return fmt.Errorf("delete user sessions: %w", err)
+		}
+		return nil
+	}
+
+	if err := s.client.Del(ctx, indexKey).Err(); err != nil {
+		return fmt.Errorf("delete user session index: %w", err)
+	}
+	return nil
+}
+
+func (s *SessionStore) key(sessionID string) string {
+	return s.prefix + sessionID
+}
+
+func (s *SessionStore) userIndexKey(userID int64) string {
+	return s.userIndexPrefix + strconv.FormatInt(userID, 10)
+}
+
+func (s *SessionStore) loadWithTTL(ctx context.Context, sessionID string) (SessionRecord, time.Duration, error) {
+	raw, err := s.client.Get(ctx, s.key(sessionID)).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return SessionRecord{}, 0, ErrSessionNotFound
+	}
+	if err != nil {
+		return SessionRecord{}, 0, fmt.Errorf("get session: %w", err)
+	}
+
+	var record SessionRecord
+	if err := json.Unmarshal(raw, &record); err != nil {
+		return SessionRecord{}, 0, fmt.Errorf("decode session: %w", err)
+	}
+
+	ttl, err := s.client.TTL(ctx, s.key(sessionID)).Result()
+	if err != nil {
+		return SessionRecord{}, 0, fmt.Errorf("get session ttl: %w", err)
+	}
+	if ttl <= 0 {
+		ttl = s.ttl
+	}
+
+	return record, ttl, nil
+}
+
+func (s *SessionStore) save(ctx context.Context, sessionID string, record SessionRecord, ttl time.Duration) error {
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+
+	if err := s.client.Set(ctx, s.key(sessionID), payload, ttl).Err(); err != nil {
+		return fmt.Errorf("save session: %w", err)
+	}
+	if err := s.client.SAdd(ctx, s.userIndexKey(record.UserID), sessionID).Err(); err != nil {
+		return fmt.Errorf("index session by user: %w", err)
+	}
+	if err := s.client.Expire(ctx, s.userIndexKey(record.UserID), ttl).Err(); err != nil {
+		return fmt.Errorf("expire user session index: %w", err)
+	}
+
+	return nil
+}
+
+func randomToken(numBytes int) (string, error) {
+	buf := make([]byte, numBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
+}
+```
+
+#### `backend/internal/auth/session_store_test.go`
+
+```go
+package auth
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
+)
+
+func TestSessionStoreIndexesAndDeletesByUser(t *testing.T) {
+	ctx := context.Background()
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	store := NewSessionStore(client, time.Hour)
+
+	sessionID, _, err := store.Create(ctx, 42)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if _, err := store.Get(ctx, sessionID); err != nil {
+		t.Fatalf("Get() after create error = %v", err)
+	}
+
+	if err := store.DeleteUserSessions(ctx, 42); err != nil {
+		t.Fatalf("DeleteUserSessions() error = %v", err)
+	}
+	if _, err := store.Get(ctx, sessionID); err != ErrSessionNotFound {
+		t.Fatalf("Get() after DeleteUserSessions error = %v, want %v", err, ErrSessionNotFound)
+	}
+}
+
+func TestSessionStoreRotateUpdatesUserIndex(t *testing.T) {
+	ctx := context.Background()
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	store := NewSessionStore(client, time.Hour)
+
+	oldSessionID, _, err := store.Create(ctx, 42)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	newSessionID, _, err := store.Rotate(ctx, oldSessionID)
+	if err != nil {
+		t.Fatalf("Rotate() error = %v", err)
+	}
+
+	if _, err := store.Get(ctx, oldSessionID); err != ErrSessionNotFound {
+		t.Fatalf("old session Get() error = %v, want %v", err, ErrSessionNotFound)
+	}
+	if _, err := store.Get(ctx, newSessionID); err != nil {
+		t.Fatalf("new session Get() error = %v", err)
+	}
+	if err := store.DeleteUserSessions(ctx, 42); err != nil {
+		t.Fatalf("DeleteUserSessions() error = %v", err)
+	}
+	if _, err := store.Get(ctx, newSessionID); err != ErrSessionNotFound {
+		t.Fatalf("new session after DeleteUserSessions error = %v, want %v", err, ErrSessionNotFound)
+	}
+}
+```
+
+#### `backend/internal/config/config.go`
+
+```go
+package config
+
+import (
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+type Config struct {
+	AppName                      string
+	AppVersion                   string
+	HTTPPort                     int
+	AppBaseURL                   string
+	FrontendBaseURL              string
+	DatabaseURL                  string
+	AuthMode                     string
+	ZitadelIssuer                string
+	ZitadelClientID              string
+	ZitadelClientSecret          string
+	ZitadelRedirectURI           string
+	ZitadelPostLogoutRedirectURI string
+	ZitadelScopes                string
+	ExternalExpectedAudience     string
+	ExternalRequiredScopePrefix  string
+	ExternalRequiredRole         string
+	ExternalAllowedOrigins       []string
+	DownstreamTokenEncryptionKey string
+	DownstreamTokenKeyVersion    int
+	DownstreamRefreshTokenTTL    time.Duration
+	DownstreamAccessTokenSkew    time.Duration
+	DownstreamDefaultScopes      string
+	SCIMBasePath                 string
+	SCIMBearerAudience           string
+	SCIMRequiredScope            string
+	SCIMReconcileCron            string
+	RedisAddr                    string
+	RedisPassword                string
+	RedisDB                      int
+	LoginStateTTL                time.Duration
+	SessionTTL                   time.Duration
+	CookieSecure                 bool
+}
+
+func Load() (Config, error) {
+	sessionTTL, err := time.ParseDuration(getEnv("SESSION_TTL", "24h"))
+	if err != nil {
+		return Config{}, err
+	}
+	loginStateTTL, err := time.ParseDuration(getEnv("LOGIN_STATE_TTL", "10m"))
+	if err != nil {
+		return Config{}, err
+	}
+	downstreamRefreshTokenTTL, err := time.ParseDuration(getEnv("DOWNSTREAM_REFRESH_TOKEN_TTL", "2160h"))
+	if err != nil {
+		return Config{}, err
+	}
+	downstreamAccessTokenSkew, err := time.ParseDuration(getEnv("DOWNSTREAM_ACCESS_TOKEN_SKEW", "30s"))
+	if err != nil {
+		return Config{}, err
+	}
+
+	return Config{
+		AppName:                      getEnv("APP_NAME", "HaoHao API"),
+		AppVersion:                   getEnv("APP_VERSION", "0.1.0"),
+		HTTPPort:                     getEnvInt("HTTP_PORT", 8080),
+		AppBaseURL:                   strings.TrimRight(getEnv("APP_BASE_URL", "http://127.0.0.1:8080"), "/"),
+		FrontendBaseURL:              strings.TrimRight(getEnv("FRONTEND_BASE_URL", "http://127.0.0.1:5173"), "/"),
+		DatabaseURL:                  getEnv("DATABASE_URL", ""),
+		AuthMode:                     getEnv("AUTH_MODE", "local"),
+		ZitadelIssuer:                strings.TrimRight(getEnv("ZITADEL_ISSUER", ""), "/"),
+		ZitadelClientID:              getEnv("ZITADEL_CLIENT_ID", ""),
+		ZitadelClientSecret:          getEnv("ZITADEL_CLIENT_SECRET", ""),
+		ZitadelRedirectURI:           getEnv("ZITADEL_REDIRECT_URI", "http://127.0.0.1:8080/api/v1/auth/callback"),
+		ZitadelPostLogoutRedirectURI: getEnv("ZITADEL_POST_LOGOUT_REDIRECT_URI", "http://127.0.0.1:5173/login"),
+		ZitadelScopes:                getEnv("ZITADEL_SCOPES", "openid profile email"),
+		ExternalExpectedAudience:     getEnv("EXTERNAL_EXPECTED_AUDIENCE", "haohao-external"),
+		ExternalRequiredScopePrefix:  getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", ""),
+		ExternalRequiredRole:         getEnv("EXTERNAL_REQUIRED_ROLE", "external_api_user"),
+		ExternalAllowedOrigins:       getEnvCSV("EXTERNAL_ALLOWED_ORIGINS"),
+		DownstreamTokenEncryptionKey: getEnv("DOWNSTREAM_TOKEN_ENCRYPTION_KEY", ""),
+		DownstreamTokenKeyVersion:    getEnvInt("DOWNSTREAM_TOKEN_KEY_VERSION", 1),
+		DownstreamRefreshTokenTTL:    downstreamRefreshTokenTTL,
+		DownstreamAccessTokenSkew:    downstreamAccessTokenSkew,
+		DownstreamDefaultScopes:      getEnv("DOWNSTREAM_DEFAULT_SCOPES", "offline_access"),
+		SCIMBasePath:                 strings.TrimRight(getEnv("SCIM_BASE_PATH", "/api/scim/v2"), "/"),
+		SCIMBearerAudience:           getEnv("SCIM_BEARER_AUDIENCE", "scim-provisioning"),
+		SCIMRequiredScope:            getEnv("SCIM_REQUIRED_SCOPE", "scim:provision"),
+		SCIMReconcileCron:            getEnv("SCIM_RECONCILE_CRON", "0 3 * * *"),
+		RedisAddr:                    getEnv("REDIS_ADDR", "127.0.0.1:6379"),
+		RedisPassword:                getEnv("REDIS_PASSWORD", ""),
+		RedisDB:                      getEnvInt("REDIS_DB", 0),
+		LoginStateTTL:                loginStateTTL,
+		SessionTTL:                   sessionTTL,
+		CookieSecure:                 getEnvBool("COOKIE_SECURE", false),
+	}, nil
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	value := getEnv(key, "")
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+
+	return parsed
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	value := getEnv(key, "")
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback
+	}
+
+	return parsed
+}
+
+func getEnvCSV(key string) []string {
+	value := strings.TrimSpace(getEnv(key, ""))
+	if value == "" {
+		return nil
+	}
+
+	parts := strings.Split(value, ",")
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item != "" {
+			items = append(items, item)
+		}
+	}
+
+	return items
+}
+```
+
+#### `backend/internal/jobs/provisioning_reconcile.go`
+
+```go
+package jobs
+
+import (
+	"context"
+	"fmt"
+
+	db "example.com/haohao/backend/internal/db"
+	"example.com/haohao/backend/internal/service"
+)
+
+type ProvisioningReconcileJob struct {
+	queries           *db.Queries
+	sessionService    *service.SessionService
+	delegationService *service.DelegationService
+}
+
+func NewProvisioningReconcileJob(queries *db.Queries, sessionService *service.SessionService, delegationService *service.DelegationService) *ProvisioningReconcileJob {
+	return &ProvisioningReconcileJob{
+		queries:           queries,
+		sessionService:    sessionService,
+		delegationService: delegationService,
+	}
+}
+
+func (j *ProvisioningReconcileJob) RunOnce(ctx context.Context) error {
+	if j == nil || j.queries == nil {
+		return nil
+	}
+
+	users, err := j.queries.ListDeactivatedUsersWithActiveGrants(ctx)
+	if err != nil {
+		return fmt.Errorf("list deactivated users with active grants: %w", err)
+	}
+
+	var failed int32
+	for _, user := range users {
+		if j.sessionService != nil {
+			if err := j.sessionService.DeleteUserSessions(ctx, user.ID); err != nil {
+				failed++
+				continue
+			}
+		}
+		if j.delegationService != nil {
+			if err := j.delegationService.DeleteAllGrantsForUser(ctx, user.ID); err != nil {
+				failed++
+				continue
+			}
+		}
+		if err := j.queries.DeleteOAuthUserGrantsByUserID(ctx, user.ID); err != nil {
+			failed++
+		}
+	}
+
+	if err := j.queries.UpsertProvisioningSyncState(ctx, db.UpsertProvisioningSyncStateParams{
+		Source:      "scim",
+		FailedCount: failed,
+	}); err != nil {
+		return fmt.Errorf("update provisioning reconcile state: %w", err)
+	}
+
+	return nil
+}
+```
+
+#### `backend/internal/middleware/external_auth.go`
+
+```go
+package middleware
+
+import (
+	"fmt"
+	"net/http"
+	"strings"
+
+	"example.com/haohao/backend/internal/auth"
+	"example.com/haohao/backend/internal/service"
+
+	"github.com/gin-gonic/gin"
+)
+
+func ExternalCORS(pathPrefix string, allowedOrigins []string) gin.HandlerFunc {
+	allowed := make(map[string]struct{}, len(allowedOrigins))
+	for _, origin := range allowedOrigins {
+		trimmed := strings.TrimSpace(origin)
+		if trimmed != "" {
+			allowed[trimmed] = struct{}{}
+		}
+	}
+
+	return func(c *gin.Context) {
+		if !strings.HasPrefix(c.Request.URL.Path, pathPrefix) {
+			c.Next()
+			return
+		}
+
+		origin := strings.TrimSpace(c.GetHeader("Origin"))
+		if origin != "" && originAllowed(origin, allowed) {
+			header := c.Writer.Header()
+			header.Set("Access-Control-Allow-Origin", origin)
+			header.Add("Vary", "Origin")
+			header.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Tenant-ID")
+			header.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			header.Set("Access-Control-Max-Age", "600")
+		}
+
+		if c.Request.Method == http.MethodOptions {
+			if origin == "" || !originAllowed(origin, allowed) {
+				writeProblem(c, http.StatusForbidden, "origin is not allowed")
+				return
+			}
+
+			c.Status(http.StatusNoContent)
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService *service.AuthzService, providerName, expectedAudience, requiredScopePrefix, requiredRole string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !strings.HasPrefix(c.Request.URL.Path, pathPrefix) || c.Request.Method == http.MethodOptions {
+			c.Next()
+			return
+		}
+
+		if verifier == nil || authzService == nil {
+			writeProblem(c, http.StatusServiceUnavailable, "external bearer auth is not configured")
+			return
+		}
+
+		rawToken, err := bearerTokenFromHeader(c.GetHeader("Authorization"))
+		if err != nil {
+			writeBearerProblem(c, http.StatusUnauthorized, err.Error())
+			return
+		}
+
+		claims, err := verifier.Verify(c.Request.Context(), rawToken, expectedAudience, requiredScopePrefix)
+		if err != nil {
+			status := http.StatusUnauthorized
+			switch {
+			case err == auth.ErrInvalidBearerScope:
+				status = http.StatusForbidden
+			case err == auth.ErrInvalidBearerAudience, err == auth.ErrInvalidBearerIssuer, err == auth.ErrMissingBearerToken:
+				status = http.StatusUnauthorized
+			}
+			writeBearerProblem(c, status, err.Error())
+			return
+		}
+
+		authCtx, err := authzService.AuthContextFromBearerWithTenant(c.Request.Context(), providerName, claims, c.GetHeader("X-Tenant-ID"))
+		if err != nil {
+			if err == service.ErrUnauthorized {
+				writeBearerProblem(c, http.StatusForbidden, "tenant access denied")
+				return
+			}
+			writeProblem(c, http.StatusInternalServerError, "failed to build auth context")
+			return
+		}
+		if !authCtx.HasProviderRole(requiredRole) {
+			writeBearerProblem(c, http.StatusForbidden, auth.ErrInvalidBearerRole.Error())
+			return
+		}
+
+		c.Request = c.Request.WithContext(service.ContextWithAuthContext(c.Request.Context(), authCtx))
+		c.Next()
+	}
+}
+
+func SCIMAuth(pathPrefix string, verifier *auth.BearerVerifier, expectedAudience, requiredScope string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !strings.HasPrefix(c.Request.URL.Path, pathPrefix) || c.Request.Method == http.MethodOptions {
+			c.Next()
+			return
+		}
+
+		if verifier == nil {
+			writeProblem(c, http.StatusServiceUnavailable, "scim bearer auth is not configured")
+			return
+		}
+
+		rawToken, err := bearerTokenFromHeader(c.GetHeader("Authorization"))
+		if err != nil {
+			writeBearerProblem(c, http.StatusUnauthorized, err.Error())
+			return
+		}
+
+		claims, err := verifier.Verify(c.Request.Context(), rawToken, expectedAudience, "")
+		if err != nil {
+			writeBearerProblem(c, http.StatusUnauthorized, err.Error())
+			return
+		}
+		if !claims.HasScope(requiredScope) {
+			writeBearerProblem(c, http.StatusForbidden, auth.ErrInvalidBearerScope.Error())
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func bearerTokenFromHeader(header string) (string, error) {
+	trimmed := strings.TrimSpace(header)
+	if trimmed == "" {
+		return "", auth.ErrMissingBearerToken
+	}
+
+	const prefix = "Bearer "
+	if !strings.HasPrefix(trimmed, prefix) {
+		return "", fmt.Errorf("%w: authorization header must use Bearer", auth.ErrInvalidBearerToken)
+	}
+
+	token := strings.TrimSpace(strings.TrimPrefix(trimmed, prefix))
+	if token == "" {
+		return "", auth.ErrMissingBearerToken
+	}
+
+	return token, nil
+}
+
+func originAllowed(origin string, allowed map[string]struct{}) bool {
+	if len(allowed) == 0 {
+		return false
+	}
+	_, ok := allowed[origin]
+	return ok
+}
+
+func writeBearerProblem(c *gin.Context, status int, detail string) {
+	c.Header("WWW-Authenticate", `Bearer realm="haohao-external"`)
+	writeProblem(c, status, detail)
+}
+
+func writeProblem(c *gin.Context, status int, detail string) {
+	c.Header("Content-Type", "application/problem+json")
+	c.AbortWithStatusJSON(status, gin.H{
+		"title":  http.StatusText(status),
+		"status": status,
+		"detail": detail,
+	})
+}
+```
+
+#### `backend/internal/service/authz_service.go`
+
+```go
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+
+	"example.com/haohao/backend/internal/auth"
+	db "example.com/haohao/backend/internal/db"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type AuthContext struct {
+	AuthenticatedBy string
+	Provider        string
+	Subject         string
+	AuthorizedParty string
+	Scopes          []string
+	Groups          []string
+	Roles           []string
+	User            *User
+	DefaultTenant   *TenantAccess
+	ActiveTenant    *TenantAccess
+	Tenants         []TenantAccess
+}
+
+type TenantAccess struct {
+	ID          int64
+	Slug        string
+	DisplayName string
+	Roles       []string
+	Default     bool
+	Selected    bool
+}
+
+type TenantRoleClaim struct {
+	TenantSlug string
+	RoleCode   string
+}
+
+type authContextKey struct{}
+
+type AuthzService struct {
+	pool    *pgxpool.Pool
+	queries *db.Queries
+}
+
+func NewAuthzService(pool *pgxpool.Pool, queries *db.Queries) *AuthzService {
+	return &AuthzService{
+		pool:    pool,
+		queries: queries,
+	}
+}
+
+func ContextWithAuthContext(ctx context.Context, authCtx AuthContext) context.Context {
+	return context.WithValue(ctx, authContextKey{}, authCtx)
+}
+
+func AuthContextFromContext(ctx context.Context) (AuthContext, bool) {
+	authCtx, ok := ctx.Value(authContextKey{}).(AuthContext)
+	return authCtx, ok
+}
+
+func (a AuthContext) HasRole(role string) bool {
+	needle := strings.ToLower(strings.TrimSpace(role))
+	if needle == "" {
+		return true
+	}
+
+	for _, item := range append(append([]string{}, a.Roles...), a.Groups...) {
+		if strings.ToLower(strings.TrimSpace(item)) == needle {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (a AuthContext) HasProviderRole(role string) bool {
+	needle := strings.ToLower(strings.TrimSpace(role))
+	if needle == "" {
+		return true
+	}
+
+	for _, item := range a.Groups {
+		if strings.ToLower(strings.TrimSpace(item)) == needle {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *AuthzService) SyncGlobalRoles(ctx context.Context, userID int64, providerGroups []string) ([]string, error) {
+	if s == nil || s.pool == nil || s.queries == nil {
+		return nil, fmt.Errorf("authz service is not configured")
+	}
+
+	roleCodes := normalizeGlobalRoleCodes(providerGroups)
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("begin role sync transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+
+	qtx := s.queries.WithTx(tx)
+	if len(roleCodes) == 0 {
+		if err := qtx.DeleteUserRolesByUserID(ctx, userID); err != nil {
+			return nil, fmt.Errorf("delete user roles: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fmt.Errorf("commit empty role sync transaction: %w", err)
+		}
+		return nil, nil
+	}
+
+	roles, err := qtx.GetRolesByCode(ctx, roleCodes)
+	if err != nil {
+		return nil, fmt.Errorf("load roles by code: %w", err)
+	}
+
+	roleIDs := make([]int64, 0, len(roles))
+	syncedCodes := make([]string, 0, len(roles))
+	for _, role := range roles {
+		roleIDs = append(roleIDs, role.ID)
+		syncedCodes = append(syncedCodes, role.Code)
+	}
+
+	if err := qtx.DeleteUserRolesExcluding(ctx, db.DeleteUserRolesExcludingParams{
+		UserID:  userID,
+		Column2: roleIDs,
+	}); err != nil {
+		return nil, fmt.Errorf("delete stale user roles: %w", err)
+	}
+
+	for _, roleID := range roleIDs {
+		if err := qtx.AssignUserRole(ctx, db.AssignUserRoleParams{
+			UserID: userID,
+			RoleID: roleID,
+		}); err != nil {
+			return nil, fmt.Errorf("assign user role: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit role sync transaction: %w", err)
+	}
+
+	return syncedCodes, nil
+}
+
+func (s *AuthzService) AuthContextFromBearer(ctx context.Context, provider string, claims auth.BearerTokenClaims) (AuthContext, error) {
+	return s.AuthContextFromBearerWithTenant(ctx, provider, claims, "")
+}
+
+func (s *AuthzService) AuthContextFromBearerWithTenant(ctx context.Context, provider string, claims auth.BearerTokenClaims, requestedTenantSlug string) (AuthContext, error) {
+	authCtx := AuthContext{
+		AuthenticatedBy: "bearer",
+		Provider:        strings.ToLower(strings.TrimSpace(provider)),
+		Subject:         strings.TrimSpace(claims.Subject),
+		AuthorizedParty: strings.TrimSpace(claims.AuthorizedParty),
+		Scopes:          claims.ScopeValues(),
+		Groups:          mergeClaimValues(claims.GroupValues(), claims.RoleValues()),
+	}
+
+	if s == nil || s.queries == nil || authCtx.Provider == "" || authCtx.Subject == "" {
+		return authCtx, nil
+	}
+
+	user, err := s.queries.GetUserByProviderSubject(ctx, db.GetUserByProviderSubjectParams{
+		Provider: authCtx.Provider,
+		Subject:  authCtx.Subject,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return authCtx, nil
+		}
+		return AuthContext{}, fmt.Errorf("lookup user by provider subject: %w", err)
+	}
+	if user.DeactivatedAt.Valid {
+		return AuthContext{}, ErrUnauthorized
+	}
+
+	localUser := dbUser(user.ID, user.PublicID.String(), user.Email, user.DisplayName, user.DeactivatedAt, user.DefaultTenantID)
+	authCtx.User = &localUser
+
+	if len(authCtx.Groups) > 0 {
+		roleCodes, err := s.SyncGlobalRoles(ctx, localUser.ID, authCtx.Groups)
+		if err != nil {
+			return AuthContext{}, fmt.Errorf("sync global roles from bearer claims: %w", err)
+		}
+		authCtx.Roles = roleCodes
+		if _, err := s.SyncTenantMemberships(ctx, localUser.ID, "provider_claim", authCtx.Groups); err != nil {
+			return AuthContext{}, fmt.Errorf("sync tenant memberships from bearer claims: %w", err)
+		}
+	} else {
+		roleCodes, err := s.queries.ListRoleCodesByUserID(ctx, localUser.ID)
+		if err != nil {
+			return AuthContext{}, fmt.Errorf("list local roles by user id: %w", err)
+		}
+		authCtx.Roles = roleCodes
+	}
+
+	tenants, active, def, err := s.resolveTenantAccess(ctx, localUser.ID, localUser.DefaultTenantID, requestedTenantSlug)
+	if err != nil {
+		return AuthContext{}, err
+	}
+	authCtx.Tenants = tenants
+	authCtx.ActiveTenant = active
+	authCtx.DefaultTenant = def
+
+	return authCtx, nil
+}
+
+var supportedGlobalRoles = map[string]struct{}{
+	"docs_reader":       {},
+	"external_api_user": {},
+	"todo_user":         {},
+}
+
+var supportedTenantRoles = map[string]struct{}{
+	"docs_reader": {},
+	"todo_user":   {},
+}
+
+func (s *AuthzService) BuildBrowserContext(ctx context.Context, user User, activeTenantID *int64) (AuthContext, error) {
+	if s == nil || s.queries == nil {
+		return AuthContext{}, fmt.Errorf("authz service is not configured")
+	}
+
+	roleCodes, err := s.queries.ListRoleCodesByUserID(ctx, user.ID)
+	if err != nil {
+		return AuthContext{}, fmt.Errorf("list local roles by user id: %w", err)
+	}
+
+	requestedSlug := ""
+	if activeTenantID != nil {
+		tenant, err := s.queries.GetTenantByID(ctx, *activeTenantID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return AuthContext{}, ErrUnauthorized
+			}
+			return AuthContext{}, fmt.Errorf("load active tenant: %w", err)
+		}
+		requestedSlug = tenant.Slug
+	}
+
+	tenants, active, def, err := s.resolveTenantAccess(ctx, user.ID, user.DefaultTenantID, requestedSlug)
+	if err != nil {
+		return AuthContext{}, err
+	}
+
+	return AuthContext{
+		AuthenticatedBy: "session",
+		Roles:           roleCodes,
+		User:            &user,
+		Tenants:         tenants,
+		ActiveTenant:    active,
+		DefaultTenant:   def,
+	}, nil
+}
+
+func (s *AuthzService) SyncTenantMemberships(ctx context.Context, userID int64, source string, providerGroups []string) ([]TenantAccess, error) {
+	if s == nil || s.pool == nil || s.queries == nil {
+		return nil, fmt.Errorf("authz service is not configured")
+	}
+
+	claims := ParseTenantRoleClaims(providerGroups)
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("begin tenant sync transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+
+	qtx := s.queries.WithTx(tx)
+	if err := qtx.DeleteTenantMembershipsByUserSource(ctx, db.DeleteTenantMembershipsByUserSourceParams{
+		UserID: userID,
+		Source: source,
+	}); err != nil {
+		return nil, fmt.Errorf("delete stale tenant memberships: %w", err)
+	}
+
+	if len(claims) > 0 {
+		roleCodes := tenantRoleCodes(claims)
+		roles, err := qtx.GetRolesByCode(ctx, roleCodes)
+		if err != nil {
+			return nil, fmt.Errorf("load tenant roles by code: %w", err)
+		}
+		roleIDByCode := make(map[string]int64, len(roles))
+		for _, role := range roles {
+			roleIDByCode[role.Code] = role.ID
+		}
+
+		for _, claim := range claims {
+			roleID, ok := roleIDByCode[claim.RoleCode]
+			if !ok {
+				continue
+			}
+			tenant, err := qtx.UpsertTenantBySlug(ctx, db.UpsertTenantBySlugParams{
+				Slug:        claim.TenantSlug,
+				DisplayName: claim.TenantSlug,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("upsert tenant: %w", err)
+			}
+			if err := qtx.UpsertTenantMembership(ctx, db.UpsertTenantMembershipParams{
+				UserID:   userID,
+				TenantID: tenant.ID,
+				RoleID:   roleID,
+				Source:   source,
+			}); err != nil {
+				return nil, fmt.Errorf("upsert tenant membership: %w", err)
+			}
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit tenant sync transaction: %w", err)
+	}
+
+	user, err := s.queries.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load user after tenant sync: %w", err)
+	}
+	access, err := s.ListTenantAccess(ctx, userID, optionalPgInt8(user.DefaultTenantID))
+	if err != nil {
+		return nil, err
+	}
+	if !user.DefaultTenantID.Valid && len(access) > 0 {
+		if _, err := s.queries.SetUserDefaultTenant(ctx, db.SetUserDefaultTenantParams{
+			ID:              userID,
+			DefaultTenantID: pgtype.Int8{Int64: access[0].ID, Valid: true},
+		}); err != nil {
+			return nil, fmt.Errorf("set default tenant: %w", err)
+		}
+		access[0].Default = true
+	}
+	return access, nil
+}
+
+func (s *AuthzService) ListTenantAccess(ctx context.Context, userID int64, defaultTenantID *int64) ([]TenantAccess, error) {
+	rows, err := s.queries.ListTenantMembershipRowsByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list tenant memberships: %w", err)
+	}
+	overrides, err := s.queries.ListTenantRoleOverridesByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list tenant role overrides: %w", err)
+	}
+
+	tenants := tenantAccessFromRows(rows, overrides)
+	for i := range tenants {
+		if defaultTenantID != nil && tenants[i].ID == *defaultTenantID {
+			tenants[i].Default = true
+		}
+	}
+	return tenants, nil
+}
+
+func (s *AuthzService) SelectTenant(ctx context.Context, user User, tenantSlug string) (TenantAccess, error) {
+	tenants, active, _, err := s.resolveTenantAccess(ctx, user.ID, user.DefaultTenantID, tenantSlug)
+	if err != nil {
+		return TenantAccess{}, err
+	}
+	if active == nil {
+		if len(tenants) == 0 {
+			return TenantAccess{}, ErrUnauthorized
+		}
+		return tenants[0], nil
+	}
+	return *active, nil
+}
+
+func (s *AuthzService) resolveTenantAccess(ctx context.Context, userID int64, defaultTenantID *int64, requestedTenantSlug string) ([]TenantAccess, *TenantAccess, *TenantAccess, error) {
+	tenants, err := s.ListTenantAccess(ctx, userID, defaultTenantID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	var defaultTenant *TenantAccess
+	var activeTenant *TenantAccess
+	for i := range tenants {
+		if tenants[i].Default {
+			defaultTenant = &tenants[i]
+			break
+		}
+	}
+	if defaultTenant == nil && len(tenants) > 0 {
+		tenants[0].Default = true
+		defaultTenant = &tenants[0]
+	}
+
+	requested := strings.ToLower(strings.TrimSpace(requestedTenantSlug))
+	if requested != "" {
+		for i := range tenants {
+			if tenants[i].Slug == requested {
+				tenants[i].Selected = true
+				activeTenant = &tenants[i]
+				return tenants, activeTenant, defaultTenant, nil
+			}
+		}
+		return nil, nil, nil, ErrUnauthorized
+	}
+
+	if defaultTenant != nil {
+		for i := range tenants {
+			if tenants[i].ID == defaultTenant.ID {
+				tenants[i].Selected = true
+				activeTenant = &tenants[i]
+				break
+			}
+		}
+	}
+	return tenants, activeTenant, defaultTenant, nil
+}
+
+func normalizeGlobalRoleCodes(providerGroups []string) []string {
+	set := make(map[string]struct{}, len(providerGroups))
+	for _, group := range providerGroups {
+		code := strings.ToLower(strings.TrimSpace(group))
+		if _, ok := supportedGlobalRoles[code]; ok {
+			set[code] = struct{}{}
+		}
+	}
+
+	roleCodes := make([]string, 0, len(set))
+	for code := range set {
+		roleCodes = append(roleCodes, code)
+	}
+	sort.Strings(roleCodes)
+
+	return roleCodes
+}
+
+func ParseTenantRoleClaims(providerGroups []string) []TenantRoleClaim {
+	set := make(map[TenantRoleClaim]struct{})
+	for _, group := range providerGroups {
+		parts := strings.Split(strings.ToLower(strings.TrimSpace(group)), ":")
+		if len(parts) != 3 || parts[0] != "tenant" {
+			continue
+		}
+		tenantSlug := strings.TrimSpace(parts[1])
+		roleCode := strings.TrimSpace(parts[2])
+		if tenantSlug == "" || roleCode == "" {
+			continue
+		}
+		if _, ok := supportedTenantRoles[roleCode]; !ok {
+			continue
+		}
+		set[TenantRoleClaim{TenantSlug: tenantSlug, RoleCode: roleCode}] = struct{}{}
+	}
+
+	claims := make([]TenantRoleClaim, 0, len(set))
+	for claim := range set {
+		claims = append(claims, claim)
+	}
+	sort.Slice(claims, func(i, j int) bool {
+		if claims[i].TenantSlug == claims[j].TenantSlug {
+			return claims[i].RoleCode < claims[j].RoleCode
+		}
+		return claims[i].TenantSlug < claims[j].TenantSlug
+	})
+	return claims
+}
+
+func tenantRoleCodes(claims []TenantRoleClaim) []string {
+	set := make(map[string]struct{}, len(claims))
+	for _, claim := range claims {
+		set[claim.RoleCode] = struct{}{}
+	}
+	codes := make([]string, 0, len(set))
+	for code := range set {
+		codes = append(codes, code)
+	}
+	sort.Strings(codes)
+	return codes
+}
+
+func tenantAccessFromRows(rows []db.ListTenantMembershipRowsByUserIDRow, overrides []db.ListTenantRoleOverridesByUserIDRow) []TenantAccess {
+	type tenantState struct {
+		access TenantAccess
+		roles  map[string]struct{}
+	}
+
+	byID := make(map[int64]*tenantState)
+	for _, row := range rows {
+		if !row.TenantActive || !row.MembershipActive {
+			continue
+		}
+		state, ok := byID[row.TenantID]
+		if !ok {
+			state = &tenantState{
+				access: TenantAccess{
+					ID:          row.TenantID,
+					Slug:        row.TenantSlug,
+					DisplayName: row.TenantDisplayName,
+				},
+				roles: make(map[string]struct{}),
+			}
+			byID[row.TenantID] = state
+		}
+		state.roles[row.RoleCode] = struct{}{}
+	}
+
+	for _, override := range overrides {
+		state, ok := byID[override.TenantID]
+		if !ok {
+			state = &tenantState{
+				access: TenantAccess{
+					ID:   override.TenantID,
+					Slug: override.TenantSlug,
+				},
+				roles: make(map[string]struct{}),
+			}
+			byID[override.TenantID] = state
+		}
+		switch override.Effect {
+		case "deny":
+			delete(state.roles, override.RoleCode)
+		case "allow":
+			state.roles[override.RoleCode] = struct{}{}
+		}
+	}
+
+	tenants := make([]TenantAccess, 0, len(byID))
+	for _, state := range byID {
+		if len(state.roles) == 0 {
+			continue
+		}
+		state.access.Roles = make([]string, 0, len(state.roles))
+		for role := range state.roles {
+			state.access.Roles = append(state.access.Roles, role)
+		}
+		sort.Strings(state.access.Roles)
+		tenants = append(tenants, state.access)
+	}
+	sort.Slice(tenants, func(i, j int) bool {
+		return tenants[i].Slug < tenants[j].Slug
+	})
+	return tenants
+}
+
+func mergeClaimValues(values ...[]string) []string {
+	set := make(map[string]struct{})
+	for _, group := range values {
+		for _, value := range group {
+			trimmed := strings.TrimSpace(value)
+			if trimmed != "" {
+				set[trimmed] = struct{}{}
+			}
+		}
+	}
+
+	merged := make([]string, 0, len(set))
+	for value := range set {
+		merged = append(merged, value)
+	}
+	sort.Strings(merged)
+
+	return merged
+}
+```
+
+#### `backend/internal/service/authz_service_test.go`
+
+```go
+package service
+
+import (
+	"reflect"
+	"testing"
+
+	db "example.com/haohao/backend/internal/db"
+)
+
+func TestParseTenantRoleClaims(t *testing.T) {
+	got := ParseTenantRoleClaims([]string{
+		"tenant:acme:todo_user",
+		"tenant:acme:todo_user",
+		"tenant:beta:docs_reader",
+		"external_api_user",
+		"tenant:acme:external_api_user",
+		"tenant::todo_user",
+		"tenant:bad",
+	})
+
+	want := []TenantRoleClaim{
+		{TenantSlug: "acme", RoleCode: "todo_user"},
+		{TenantSlug: "beta", RoleCode: "docs_reader"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ParseTenantRoleClaims() = %#v, want %#v", got, want)
+	}
+}
+
+func TestTenantAccessFromRowsAppliesOverrides(t *testing.T) {
+	rows := []db.ListTenantMembershipRowsByUserIDRow{
+		{TenantID: 1, TenantSlug: "acme", TenantDisplayName: "Acme", TenantActive: true, RoleCode: "todo_user", MembershipActive: true},
+		{TenantID: 1, TenantSlug: "acme", TenantDisplayName: "Acme", TenantActive: true, RoleCode: "docs_reader", MembershipActive: true},
+	}
+
+	got := tenantAccessFromRows(rows, []db.ListTenantRoleOverridesByUserIDRow{
+		{TenantID: 1, TenantSlug: "acme", RoleCode: "todo_user", Effect: "deny"},
+		{TenantID: 1, TenantSlug: "acme", RoleCode: "docs_reader", Effect: "allow"},
+	})
+
+	want := []TenantAccess{{
+		ID:          1,
+		Slug:        "acme",
+		DisplayName: "Acme",
+		Roles:       []string{"docs_reader"},
+	}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("tenant access = %#v, want %#v", got, want)
+	}
+}
+```
+
+#### `backend/internal/service/delegation_service.go`
+
+```go
+package service
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+
+	"example.com/haohao/backend/internal/auth"
+	db "example.com/haohao/backend/internal/db"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+var (
+	ErrDelegationNotConfigured       = errors.New("delegated auth is not configured")
+	ErrDelegationUnsupportedResource = errors.New("unsupported downstream resource")
+	ErrDelegationGrantNotFound       = errors.New("delegated grant not found")
+	ErrDelegationInvalidState        = errors.New("invalid delegated auth state")
+	ErrDelegationIdentityNotFound    = errors.New("delegated provider identity not found")
+	ErrDelegationRefreshTokenMissing = errors.New("delegated refresh token missing")
+)
+
+type DelegationStatus struct {
+	TenantID        int64
+	ResourceServer  string
+	Provider        string
+	Connected       bool
+	Scopes          []string
+	GrantedAt       *time.Time
+	LastRefreshedAt *time.Time
+	RevokedAt       *time.Time
+	LastErrorCode   string
+}
+
+type DelegatedAccessToken struct {
+	AccessToken string
+	ExpiresAt   *time.Time
+	Scopes      []string
+}
+
+type DelegationVerifyResult struct {
+	ResourceServer  string
+	Connected       bool
+	Scopes          []string
+	AccessExpiresAt *time.Time
+	RefreshedAt     *time.Time
+}
+
+type delegationResource struct {
+	resourceServer string
+	provider       string
+	redirectURI    string
+	scopes         []string
+}
+
+type DelegationService struct {
+	queries       *db.Queries
+	oauthClient   *auth.DelegatedOAuthClient
+	stateStore    *auth.DelegationStateStore
+	tokenStore    *auth.RefreshTokenStore
+	appBaseURL    string
+	defaultScopes []string
+	refreshTTL    time.Duration
+	accessSkew    time.Duration
+}
+
+func NewDelegationService(queries *db.Queries, oauthClient *auth.DelegatedOAuthClient, stateStore *auth.DelegationStateStore, tokenStore *auth.RefreshTokenStore, appBaseURL, defaultScopes string, refreshTTL, accessSkew time.Duration) *DelegationService {
+	return &DelegationService{
+		queries:       queries,
+		oauthClient:   oauthClient,
+		stateStore:    stateStore,
+		tokenStore:    tokenStore,
+		appBaseURL:    strings.TrimRight(appBaseURL, "/"),
+		defaultScopes: normalizeScopeList(strings.Fields(defaultScopes)),
+		refreshTTL:    refreshTTL,
+		accessSkew:    accessSkew,
+	}
+}
+
+func (s *DelegationService) ListIntegrations(ctx context.Context, user User) ([]DelegationStatus, error) {
+	tenantID, err := delegationTenantID(user)
+	if err != nil {
+		return nil, err
+	}
+	return s.ListIntegrationsForTenant(ctx, user, tenantID)
+}
+
+func (s *DelegationService) ListIntegrationsForTenant(ctx context.Context, user User, tenantID int64) ([]DelegationStatus, error) {
+	if err := s.requireConfigured(); err != nil {
+		return nil, err
+	}
+
+	rows, err := s.queries.ListOAuthUserGrantsByUserID(ctx, db.ListOAuthUserGrantsByUserIDParams{
+		UserID:   user.ID,
+		TenantID: tenantID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list downstream grants: %w", err)
+	}
+
+	byResource := make(map[string]db.ListOAuthUserGrantsByUserIDRow, len(rows))
+	for _, row := range rows {
+		if row.Provider == "zitadel" {
+			byResource[row.ResourceServer] = row
+		}
+	}
+
+	statuses := make([]DelegationStatus, 0, 1)
+	for _, resourceServer := range []string{"zitadel"} {
+		resource, err := s.resource(resourceServer)
+		if err != nil {
+			return nil, err
+		}
+
+		status := DelegationStatus{
+			TenantID:       tenantID,
+			ResourceServer: resource.resourceServer,
+			Provider:       resource.provider,
+			Scopes:         resource.scopes,
+		}
+		if row, ok := byResource[resource.resourceServer]; ok {
+			status.Connected = !row.RevokedAt.Valid
+			status.Scopes = normalizeScopeText(row.ScopeText)
+			status.GrantedAt = timeFromPg(row.GrantedAt)
+			status.LastRefreshedAt = timeFromPg(row.LastRefreshedAt)
+			status.RevokedAt = timeFromPg(row.RevokedAt)
+			if row.LastErrorCode.Valid {
+				status.LastErrorCode = row.LastErrorCode.String
+			}
+		}
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
+}
+
+func (s *DelegationService) StartConnect(ctx context.Context, user User, sessionID, resourceServer string) (string, error) {
+	tenantID, err := delegationTenantID(user)
+	if err != nil {
+		return "", err
+	}
+	return s.StartConnectForTenant(ctx, user, tenantID, sessionID, resourceServer)
+}
+
+func (s *DelegationService) StartConnectForTenant(ctx context.Context, user User, tenantID int64, sessionID, resourceServer string) (string, error) {
+	if err := s.requireConfigured(); err != nil {
+		return "", err
+	}
+
+	resource, err := s.resource(resourceServer)
+	if err != nil {
+		return "", err
+	}
+
+	state, record, err := s.stateStore.Create(ctx, user.ID, tenantID, resource.resourceServer, hashSessionID(sessionID))
+	if err != nil {
+		return "", fmt.Errorf("create delegated auth state: %w", err)
+	}
+
+	return s.oauthClient.AuthorizeURL(state, record.CodeVerifier, resource.redirectURI, resource.scopes), nil
+}
+
+func (s *DelegationService) SaveGrantFromCallback(ctx context.Context, user User, sessionID, resourceServer, code, state string) (DelegationStatus, error) {
+	if err := s.requireConfigured(); err != nil {
+		return DelegationStatus{}, err
+	}
+
+	resource, err := s.resource(resourceServer)
+	if err != nil {
+		return DelegationStatus{}, err
+	}
+
+	record, err := s.stateStore.Consume(ctx, state)
+	if err != nil {
+		return DelegationStatus{}, fmt.Errorf("%w: %v", ErrDelegationInvalidState, err)
+	}
+	if record.UserID != user.ID || record.TenantID == 0 || record.ResourceServer != resource.resourceServer || record.SessionHash != hashSessionID(sessionID) {
+		return DelegationStatus{}, ErrDelegationInvalidState
+	}
+
+	identity, err := s.queries.GetUserIdentityByUserIDProvider(ctx, db.GetUserIdentityByUserIDProviderParams{
+		UserID:   user.ID,
+		Provider: resource.provider,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DelegationStatus{}, ErrDelegationIdentityNotFound
+	}
+	if err != nil {
+		return DelegationStatus{}, fmt.Errorf("load delegated provider identity: %w", err)
+	}
+
+	token, err := s.oauthClient.ExchangeCode(ctx, code, record.CodeVerifier, resource.redirectURI, resource.scopes)
+	if err != nil {
+		return DelegationStatus{}, err
+	}
+	if token.RefreshToken == "" {
+		return DelegationStatus{}, ErrDelegationRefreshTokenMissing
+	}
+
+	ciphertext, keyVersion, err := s.tokenStore.Encrypt(token.RefreshToken)
+	if err != nil {
+		return DelegationStatus{}, fmt.Errorf("encrypt delegated refresh token: %w", err)
+	}
+
+	row, err := s.queries.UpsertOAuthUserGrant(ctx, db.UpsertOAuthUserGrantParams{
+		UserID:                 user.ID,
+		TenantID:               record.TenantID,
+		Provider:               resource.provider,
+		ResourceServer:         resource.resourceServer,
+		ProviderSubject:        identity.Subject,
+		RefreshTokenCiphertext: ciphertext,
+		RefreshTokenKeyVersion: keyVersion,
+		ScopeText:              scopeText(token.Scopes),
+		GrantedBySessionID:     hashSessionID(sessionID),
+	})
+	if err != nil {
+		return DelegationStatus{}, fmt.Errorf("save delegated grant: %w", err)
+	}
+
+	return grantStatusFromUpsertRow(row), nil
+}
+
+func (s *DelegationService) GetAccessToken(ctx context.Context, user User, resourceServer string) (DelegatedAccessToken, error) {
+	tenantID, err := delegationTenantID(user)
+	if err != nil {
+		return DelegatedAccessToken{}, err
+	}
+	return s.GetAccessTokenForTenant(ctx, user, tenantID, resourceServer)
+}
+
+func (s *DelegationService) GetAccessTokenForTenant(ctx context.Context, user User, tenantID int64, resourceServer string) (DelegatedAccessToken, error) {
+	if err := s.requireConfigured(); err != nil {
+		return DelegatedAccessToken{}, err
+	}
+
+	resource, err := s.resource(resourceServer)
+	if err != nil {
+		return DelegatedAccessToken{}, err
+	}
+
+	grant, err := s.queries.GetActiveOAuthUserGrant(ctx, db.GetActiveOAuthUserGrantParams{
+		UserID:         user.ID,
+		TenantID:       tenantID,
+		Provider:       resource.provider,
+		ResourceServer: resource.resourceServer,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DelegatedAccessToken{}, ErrDelegationGrantNotFound
+	}
+	if err != nil {
+		return DelegatedAccessToken{}, fmt.Errorf("load delegated grant: %w", err)
+	}
+	if s.refreshTokenExpired(grant.GrantedAt, grant.LastRefreshedAt) {
+		_ = s.queries.MarkOAuthUserGrantRevoked(ctx, db.MarkOAuthUserGrantRevokedParams{
+			UserID:         user.ID,
+			TenantID:       tenantID,
+			Provider:       resource.provider,
+			ResourceServer: resource.resourceServer,
+			LastErrorCode:  pgtype.Text{String: "refresh_token_expired", Valid: true},
+		})
+		return DelegatedAccessToken{}, ErrDelegationGrantNotFound
+	}
+
+	refreshToken, err := s.tokenStore.Decrypt(grant.RefreshTokenCiphertext, grant.RefreshTokenKeyVersion)
+	if err != nil {
+		return DelegatedAccessToken{}, fmt.Errorf("decrypt delegated refresh token: %w", err)
+	}
+
+	token, err := s.oauthClient.Refresh(ctx, refreshToken, resource.redirectURI, normalizeScopeText(grant.ScopeText))
+	if err != nil {
+		if auth.IsInvalidGrantError(err) {
+			_ = s.queries.MarkOAuthUserGrantRevoked(ctx, db.MarkOAuthUserGrantRevokedParams{
+				UserID:         user.ID,
+				TenantID:       tenantID,
+				Provider:       resource.provider,
+				ResourceServer: resource.resourceServer,
+				LastErrorCode:  pgtype.Text{String: "invalid_grant", Valid: true},
+			})
+			return DelegatedAccessToken{}, ErrDelegationGrantNotFound
+		}
+		return DelegatedAccessToken{}, err
+	}
+
+	nextRefreshToken := token.RefreshToken
+	if nextRefreshToken == "" {
+		nextRefreshToken = refreshToken
+	}
+
+	ciphertext, keyVersion, err := s.tokenStore.Encrypt(nextRefreshToken)
+	if err != nil {
+		return DelegatedAccessToken{}, fmt.Errorf("encrypt rotated refresh token: %w", err)
+	}
+
+	scopes := token.Scopes
+	if len(scopes) == 0 {
+		scopes = normalizeScopeText(grant.ScopeText)
+	}
+
+	if _, err := s.queries.UpdateOAuthUserGrantAfterRefresh(ctx, db.UpdateOAuthUserGrantAfterRefreshParams{
+		UserID:                 user.ID,
+		TenantID:               tenantID,
+		Provider:               resource.provider,
+		ResourceServer:         resource.resourceServer,
+		RefreshTokenCiphertext: ciphertext,
+		RefreshTokenKeyVersion: keyVersion,
+		ScopeText:              scopeText(scopes),
+	}); err != nil {
+		return DelegatedAccessToken{}, fmt.Errorf("update delegated grant after refresh: %w", err)
+	}
+
+	return DelegatedAccessToken{
+		AccessToken: token.AccessToken,
+		ExpiresAt:   expiresWithSkew(token.Expiry, s.accessSkew),
+		Scopes:      scopes,
+	}, nil
+}
+
+func (s *DelegationService) VerifyAccessToken(ctx context.Context, user User, resourceServer string) (DelegationVerifyResult, error) {
+	token, err := s.GetAccessToken(ctx, user, resourceServer)
+	if err != nil {
+		return DelegationVerifyResult{}, err
+	}
+	return delegationVerifyResult(resourceServer, token), nil
+}
+
+func (s *DelegationService) VerifyAccessTokenForTenant(ctx context.Context, user User, tenantID int64, resourceServer string) (DelegationVerifyResult, error) {
+	token, err := s.GetAccessTokenForTenant(ctx, user, tenantID, resourceServer)
+	if err != nil {
+		return DelegationVerifyResult{}, err
+	}
+	return delegationVerifyResult(resourceServer, token), nil
+}
+
+func delegationVerifyResult(resourceServer string, token DelegatedAccessToken) DelegationVerifyResult {
+	now := time.Now().UTC()
+	return DelegationVerifyResult{
+		ResourceServer:  normalizeResourceServer(resourceServer),
+		Connected:       true,
+		Scopes:          token.Scopes,
+		AccessExpiresAt: token.ExpiresAt,
+		RefreshedAt:     &now,
+	}
+}
+
+func (s *DelegationService) DeleteGrant(ctx context.Context, user User, resourceServer string) error {
+	tenantID, err := delegationTenantID(user)
+	if err != nil {
+		return err
+	}
+	return s.DeleteGrantForTenant(ctx, user, tenantID, resourceServer)
+}
+
+func (s *DelegationService) DeleteGrantForTenant(ctx context.Context, user User, tenantID int64, resourceServer string) error {
+	if err := s.requireConfigured(); err != nil {
+		return err
+	}
+
+	resource, err := s.resource(resourceServer)
+	if err != nil {
+		return err
+	}
+
+	grant, err := s.queries.GetActiveOAuthUserGrant(ctx, db.GetActiveOAuthUserGrantParams{
+		UserID:         user.ID,
+		TenantID:       tenantID,
+		Provider:       resource.provider,
+		ResourceServer: resource.resourceServer,
+	})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("load delegated grant for revoke: %w", err)
+	}
+	if err == nil {
+		refreshToken, err := s.tokenStore.Decrypt(grant.RefreshTokenCiphertext, grant.RefreshTokenKeyVersion)
+		if err != nil {
+			return fmt.Errorf("decrypt delegated refresh token for revoke: %w", err)
+		}
+		if err := s.oauthClient.RevokeRefreshToken(ctx, refreshToken); err != nil {
+			return err
+		}
+	}
+
+	if err := s.queries.DeleteOAuthUserGrant(ctx, db.DeleteOAuthUserGrantParams{
+		UserID:         user.ID,
+		TenantID:       tenantID,
+		Provider:       resource.provider,
+		ResourceServer: resource.resourceServer,
+	}); err != nil {
+		return fmt.Errorf("delete delegated grant: %w", err)
+	}
+
+	return nil
+}
+
+func (s *DelegationService) DeleteAllGrantsForUser(ctx context.Context, userID int64) error {
+	if err := s.requireConfigured(); err != nil {
+		return nil
+	}
+
+	grants, err := s.queries.ListActiveOAuthUserGrantsByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("list active delegated grants for user: %w", err)
+	}
+	for _, grant := range grants {
+		refreshToken, err := s.tokenStore.Decrypt(grant.RefreshTokenCiphertext, grant.RefreshTokenKeyVersion)
+		if err != nil {
+			return fmt.Errorf("decrypt delegated refresh token for user revoke: %w", err)
+		}
+		if err := s.oauthClient.RevokeRefreshToken(ctx, refreshToken); err != nil {
+			return err
+		}
+	}
+	if err := s.queries.DeleteOAuthUserGrantsByUserID(ctx, userID); err != nil {
+		return fmt.Errorf("delete delegated grants for user: %w", err)
+	}
+	return nil
+}
+
+func (s *DelegationService) requireConfigured() error {
+	if s == nil || s.queries == nil || s.oauthClient == nil || s.stateStore == nil || s.tokenStore == nil || s.appBaseURL == "" {
+		return ErrDelegationNotConfigured
+	}
+	return nil
+}
+
+func (s *DelegationService) resource(resourceServer string) (delegationResource, error) {
+	normalized := normalizeResourceServer(resourceServer)
+	if normalized != "zitadel" {
+		return delegationResource{}, ErrDelegationUnsupportedResource
+	}
+
+	scopes := s.defaultScopes
+	if len(scopes) == 0 {
+		scopes = []string{"offline_access"}
+	}
+
+	return delegationResource{
+		resourceServer: "zitadel",
+		provider:       "zitadel",
+		redirectURI:    s.appBaseURL + "/api/v1/integrations/zitadel/callback",
+		scopes:         scopes,
+	}, nil
+}
+
+func normalizeResourceServer(resourceServer string) string {
+	return strings.ToLower(strings.TrimSpace(resourceServer))
+}
+
+func hashSessionID(sessionID string) string {
+	sum := sha256.Sum256([]byte(sessionID))
+	return hex.EncodeToString(sum[:])
+}
+
+func scopeText(scopes []string) string {
+	return strings.Join(normalizeScopeList(scopes), " ")
+}
+
+func normalizeScopeText(value string) []string {
+	return normalizeScopeList(strings.Fields(value))
+}
+
+func normalizeScopeList(scopes []string) []string {
+	set := make(map[string]struct{}, len(scopes))
+	for _, scope := range scopes {
+		trimmed := strings.TrimSpace(scope)
+		if trimmed != "" {
+			set[trimmed] = struct{}{}
+		}
+	}
+
+	normalized := make([]string, 0, len(set))
+	for scope := range set {
+		normalized = append(normalized, scope)
+	}
+	sort.Strings(normalized)
+	return normalized
+}
+
+func timeFromPg(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time.UTC()
+	return &t
+}
+
+func expiresWithSkew(expiry time.Time, skew time.Duration) *time.Time {
+	if expiry.IsZero() {
+		return nil
+	}
+	expiresAt := expiry.Add(-skew).UTC()
+	return &expiresAt
+}
+
+func (s *DelegationService) refreshTokenExpired(grantedAt, lastRefreshedAt pgtype.Timestamptz) bool {
+	if s.refreshTTL <= 0 || !grantedAt.Valid {
+		return false
+	}
+
+	base := grantedAt.Time
+	if lastRefreshedAt.Valid {
+		base = lastRefreshedAt.Time
+	}
+
+	return time.Now().After(base.Add(s.refreshTTL))
+}
+
+func grantStatusFromUpsertRow(row db.UpsertOAuthUserGrantRow) DelegationStatus {
+	return DelegationStatus{
+		TenantID:        row.TenantID,
+		ResourceServer:  row.ResourceServer,
+		Provider:        row.Provider,
+		Connected:       !row.RevokedAt.Valid,
+		Scopes:          normalizeScopeText(row.ScopeText),
+		GrantedAt:       timeFromPg(row.GrantedAt),
+		LastRefreshedAt: timeFromPg(row.LastRefreshedAt),
+		RevokedAt:       timeFromPg(row.RevokedAt),
+		LastErrorCode: func() string {
+			if row.LastErrorCode.Valid {
+				return row.LastErrorCode.String
+			}
+			return ""
+		}(),
+	}
+}
+
+func delegationTenantID(user User) (int64, error) {
+	if user.DefaultTenantID == nil || *user.DefaultTenantID == 0 {
+		return 0, ErrDelegationGrantNotFound
+	}
+	return *user.DefaultTenantID, nil
+}
+```
+
+#### `backend/internal/service/identity_service.go`
+
+```go
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	db "example.com/haohao/backend/internal/db"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+var ErrInvalidExternalIdentity = errors.New("invalid external identity")
+
+type ExternalIdentity struct {
+	Provider      string
+	Subject       string
+	Email         string
+	EmailVerified bool
+	DisplayName   string
+}
+
+type IdentityService struct {
+	pool    *pgxpool.Pool
+	queries *db.Queries
+}
+
+func NewIdentityService(pool *pgxpool.Pool, queries *db.Queries) *IdentityService {
+	return &IdentityService{
+		pool:    pool,
+		queries: queries,
+	}
+}
+
+func (s *IdentityService) ResolveOrCreateUser(ctx context.Context, identity ExternalIdentity) (User, error) {
+	normalized, err := normalizeExternalIdentity(identity)
+	if err != nil {
+		return User{}, err
+	}
+
+	existing, err := s.queries.GetUserByProviderSubject(ctx, db.GetUserByProviderSubjectParams{
+		Provider: normalized.Provider,
+		Subject:  normalized.Subject,
+	})
+	if err == nil {
+		if existing.DeactivatedAt.Valid {
+			return User{}, ErrUnauthorized
+		}
+		_ = s.queries.UpdateUserIdentityProfile(ctx, db.UpdateUserIdentityProfileParams{
+			Provider:      normalized.Provider,
+			Subject:       normalized.Subject,
+			Email:         normalized.Email,
+			EmailVerified: normalized.EmailVerified,
+		})
+
+		return s.syncUserProfile(ctx, s.queries, dbUser(existing.ID, existing.PublicID.String(), existing.Email, existing.DisplayName, existing.DeactivatedAt, existing.DefaultTenantID), normalized)
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return User{}, fmt.Errorf("lookup identity by provider subject: %w", err)
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return User{}, fmt.Errorf("begin identity transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+
+	qtx := s.queries.WithTx(tx)
+	user, err := s.resolveUserForIdentity(ctx, qtx, normalized)
+	if err != nil {
+		return User{}, err
+	}
+
+	if err := qtx.CreateUserIdentity(ctx, db.CreateUserIdentityParams{
+		UserID:        user.ID,
+		Provider:      normalized.Provider,
+		Subject:       normalized.Subject,
+		Email:         normalized.Email,
+		EmailVerified: normalized.EmailVerified,
+	}); err != nil {
+		return User{}, fmt.Errorf("create user identity: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return User{}, fmt.Errorf("commit identity transaction: %w", err)
+	}
+
+	return user, nil
+}
+
+func (s *IdentityService) resolveUserForIdentity(ctx context.Context, queries *db.Queries, identity ExternalIdentity) (User, error) {
+	if identity.EmailVerified {
+		existing, err := queries.GetUserByEmail(ctx, identity.Email)
+		if err == nil {
+			if existing.DeactivatedAt.Valid {
+				return User{}, ErrUnauthorized
+			}
+			return s.syncUserProfile(ctx, queries, dbUser(existing.ID, existing.PublicID.String(), existing.Email, existing.DisplayName, existing.DeactivatedAt, existing.DefaultTenantID), identity)
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return User{}, fmt.Errorf("lookup user by email: %w", err)
+		}
+	}
+
+	created, err := queries.CreateOIDCUser(ctx, db.CreateOIDCUserParams{
+		Email:       identity.Email,
+		DisplayName: identity.DisplayName,
+	})
+	if err != nil {
+		return User{}, fmt.Errorf("create oidc user: %w", err)
+	}
+
+	return dbUser(created.ID, created.PublicID.String(), created.Email, created.DisplayName, created.DeactivatedAt, created.DefaultTenantID), nil
+}
+
+func (s *IdentityService) syncUserProfile(ctx context.Context, queries *db.Queries, user User, identity ExternalIdentity) (User, error) {
+	nextEmail := user.Email
+	if identity.EmailVerified && identity.Email != "" {
+		nextEmail = identity.Email
+	}
+
+	nextDisplayName := user.DisplayName
+	if identity.DisplayName != "" {
+		nextDisplayName = identity.DisplayName
+	}
+
+	if nextEmail == user.Email && nextDisplayName == user.DisplayName {
+		return user, nil
+	}
+
+	updated, err := queries.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
+		ID:          user.ID,
+		Email:       nextEmail,
+		DisplayName: nextDisplayName,
+	})
+	if err != nil {
+		return User{}, fmt.Errorf("update user profile: %w", err)
+	}
+
+	return dbUser(updated.ID, updated.PublicID.String(), updated.Email, updated.DisplayName, updated.DeactivatedAt, updated.DefaultTenantID), nil
+}
+
+func normalizeExternalIdentity(identity ExternalIdentity) (ExternalIdentity, error) {
+	provider := strings.ToLower(strings.TrimSpace(identity.Provider))
+	subject := strings.TrimSpace(identity.Subject)
+	email := strings.ToLower(strings.TrimSpace(identity.Email))
+	displayName := strings.TrimSpace(identity.DisplayName)
+
+	if provider == "" || subject == "" || email == "" {
+		return ExternalIdentity{}, ErrInvalidExternalIdentity
+	}
+	if displayName == "" {
+		displayName = fallbackDisplayName(email, subject)
+	}
+
+	return ExternalIdentity{
+		Provider:      provider,
+		Subject:       subject,
+		Email:         email,
+		EmailVerified: identity.EmailVerified,
+		DisplayName:   displayName,
+	}, nil
+}
+
+func fallbackDisplayName(email, subject string) string {
+	if email != "" {
+		if head, _, ok := strings.Cut(email, "@"); ok && head != "" {
+			return head
+		}
+		return email
+	}
+	return subject
+}
+
+func dbUser(id int64, publicID, email, displayName string, deactivatedAt pgtype.Timestamptz, defaultTenantID pgtype.Int8) User {
+	var deactivated *time.Time
+	if deactivatedAt.Valid {
+		value := deactivatedAt.Time
+		deactivated = &value
+	}
+
+	return User{
+		ID:              id,
+		PublicID:        publicID,
+		Email:           email,
+		DisplayName:     displayName,
+		DeactivatedAt:   deactivated,
+		DefaultTenantID: optionalPgInt8(defaultTenantID),
+	}
+}
+```
+
+#### `backend/internal/service/oidc_login_service.go`
+
+```go
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
+	"example.com/haohao/backend/internal/auth"
+)
+
+type OIDCLoginResult struct {
+	SessionID string
+	CSRFToken string
+	ReturnTo  string
+}
+
+type OIDCLoginService struct {
+	providerName   string
+	oidcClient     *auth.OIDCClient
+	loginState     *auth.LoginStateStore
+	identity       *IdentityService
+	authzService   *AuthzService
+	sessionService *SessionService
+}
+
+func NewOIDCLoginService(providerName string, oidcClient *auth.OIDCClient, loginState *auth.LoginStateStore, identity *IdentityService, authzService *AuthzService, sessionService *SessionService) *OIDCLoginService {
+	return &OIDCLoginService{
+		providerName:   providerName,
+		oidcClient:     oidcClient,
+		loginState:     loginState,
+		identity:       identity,
+		authzService:   authzService,
+		sessionService: sessionService,
+	}
+}
+
+func (s *OIDCLoginService) StartLogin(ctx context.Context, returnTo string) (string, error) {
+	if s == nil || s.oidcClient == nil || s.loginState == nil {
+		return "", ErrAuthModeUnsupported
+	}
+
+	state, record, err := s.loginState.Create(ctx, sanitizeReturnTo(returnTo))
+	if err != nil {
+		return "", fmt.Errorf("create oidc login state: %w", err)
+	}
+
+	return s.oidcClient.AuthorizeURL(state, record.Nonce, record.CodeVerifier), nil
+}
+
+func (s *OIDCLoginService) FinishLogin(ctx context.Context, code, state string) (OIDCLoginResult, error) {
+	if s == nil || s.oidcClient == nil || s.loginState == nil || s.identity == nil || s.sessionService == nil {
+		return OIDCLoginResult{}, ErrAuthModeUnsupported
+	}
+
+	loginState, err := s.loginState.Consume(ctx, state)
+	if err != nil {
+		return OIDCLoginResult{}, fmt.Errorf("consume oidc login state: %w", err)
+	}
+
+	identity, err := s.oidcClient.ExchangeCode(ctx, code, loginState.CodeVerifier, loginState.Nonce)
+	if err != nil {
+		return OIDCLoginResult{}, fmt.Errorf("finish oidc code exchange: %w", err)
+	}
+
+	user, err := s.identity.ResolveOrCreateUser(ctx, ExternalIdentity{
+		Provider:      s.providerName,
+		Subject:       identity.Claims.Subject,
+		Email:         identity.Claims.Email,
+		EmailVerified: identity.Claims.EmailVerified,
+		DisplayName:   identity.Claims.Name,
+	})
+	if err != nil {
+		return OIDCLoginResult{}, fmt.Errorf("resolve local user for oidc identity: %w", err)
+	}
+
+	if s.authzService != nil {
+		if _, err := s.authzService.SyncGlobalRoles(ctx, user.ID, identity.Claims.Groups); err != nil {
+			return OIDCLoginResult{}, fmt.Errorf("sync local roles for oidc login: %w", err)
+		}
+		if _, err := s.authzService.SyncTenantMemberships(ctx, user.ID, "provider_claim", identity.Claims.Groups); err != nil {
+			return OIDCLoginResult{}, fmt.Errorf("sync tenant memberships for oidc login: %w", err)
+		}
+	}
+
+	sessionID, csrfToken, err := s.sessionService.IssueSessionWithProviderHint(ctx, user.ID, identity.RawIDToken)
+	if err != nil {
+		return OIDCLoginResult{}, fmt.Errorf("issue local session for oidc login: %w", err)
+	}
+
+	return OIDCLoginResult{
+		SessionID: sessionID,
+		CSRFToken: csrfToken,
+		ReturnTo:  sanitizeReturnTo(loginState.ReturnTo),
+	}, nil
+}
+
+func sanitizeReturnTo(returnTo string) string {
+	trimmed := strings.TrimSpace(returnTo)
+	if trimmed == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(trimmed, "/") || strings.HasPrefix(trimmed, "//") {
+		return "/"
+	}
+	return trimmed
+}
+
+func IsOIDCLoginFailure(err error) bool {
+	return err != nil && (errors.Is(err, auth.ErrLoginStateNotFound) || errors.Is(err, ErrInvalidExternalIdentity))
+}
+```
+
+#### `backend/internal/service/provisioning_service.go`
+
+```go
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	db "example.com/haohao/backend/internal/db"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+const scimIdentityProvider = "scim"
+
+var ErrInvalidSCIMUser = errors.New("invalid scim user")
+
+type ProvisionedUserInput struct {
+	ExternalID  string
+	UserName    string
+	DisplayName string
+	Active      bool
+	Groups      []string
+}
+
+type ProvisionedUser struct {
+	ID          int64
+	PublicID    string
+	ExternalID  string
+	UserName    string
+	DisplayName string
+	Active      bool
+}
+
+type ProvisioningService struct {
+	pool              *pgxpool.Pool
+	queries           *db.Queries
+	sessionService    *SessionService
+	delegationService *DelegationService
+	authzService      *AuthzService
+}
+
+func NewProvisioningService(pool *pgxpool.Pool, queries *db.Queries, sessionService *SessionService, delegationService *DelegationService, authzService *AuthzService) *ProvisioningService {
+	return &ProvisioningService{
+		pool:              pool,
+		queries:           queries,
+		sessionService:    sessionService,
+		delegationService: delegationService,
+		authzService:      authzService,
+	}
+}
+
+func (s *ProvisioningService) UpsertUser(ctx context.Context, input ProvisionedUserInput) (ProvisionedUser, error) {
+	normalized, err := normalizeProvisionedUser(input)
+	if err != nil {
+		return ProvisionedUser{}, err
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return ProvisionedUser{}, fmt.Errorf("begin provisioning transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+
+	qtx := s.queries.WithTx(tx)
+	user, err := qtx.GetProvisionedUserByExternalID(ctx, db.GetProvisionedUserByExternalIDParams{
+		Provider:   scimIdentityProvider,
+		ExternalID: pgtype.Text{String: normalized.ExternalID, Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		created, err := s.createProvisionedUser(ctx, qtx, normalized)
+		if err != nil {
+			return ProvisionedUser{}, err
+		}
+		user = created
+	} else if err != nil {
+		return ProvisionedUser{}, fmt.Errorf("lookup provisioned user by external id: %w", err)
+	} else {
+		if err := s.updateProvisionedUser(ctx, qtx, user.ID, normalized); err != nil {
+			return ProvisionedUser{}, err
+		}
+		user.Email = normalized.UserName
+		user.DisplayName = normalized.DisplayName
+		user.DeactivatedAt = deactivatedAtForActive(normalized.Active)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return ProvisionedUser{}, fmt.Errorf("commit provisioning transaction: %w", err)
+	}
+
+	if s.authzService != nil && normalized.Groups != nil {
+		if _, err := s.authzService.SyncTenantMemberships(ctx, user.ID, "scim", normalized.Groups); err != nil {
+			return ProvisionedUser{}, err
+		}
+	}
+	if !normalized.Active {
+		if err := s.deactivateSideEffects(ctx, user.ID); err != nil {
+			return ProvisionedUser{}, err
+		}
+	}
+
+	return provisionedUserFromRow(user), nil
+}
+
+func (s *ProvisioningService) GetUser(ctx context.Context, publicID string) (ProvisionedUser, error) {
+	id, err := uuid.Parse(strings.TrimSpace(publicID))
+	if err != nil {
+		return ProvisionedUser{}, ErrInvalidSCIMUser
+	}
+
+	user, err := s.queries.GetProvisionedUserByPublicID(ctx, db.GetProvisionedUserByPublicIDParams{
+		Provider: scimIdentityProvider,
+		PublicID: id,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ProvisionedUser{}, ErrUnauthorized
+	}
+	if err != nil {
+		return ProvisionedUser{}, fmt.Errorf("load provisioned user: %w", err)
+	}
+	return provisionedUserFromPublicIDRow(user), nil
+}
+
+func (s *ProvisioningService) GetUserByExternalID(ctx context.Context, externalID string) (ProvisionedUser, error) {
+	user, err := s.queries.GetProvisionedUserByExternalID(ctx, db.GetProvisionedUserByExternalIDParams{
+		Provider:   scimIdentityProvider,
+		ExternalID: pgtype.Text{String: strings.TrimSpace(externalID), Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ProvisionedUser{}, ErrUnauthorized
+	}
+	if err != nil {
+		return ProvisionedUser{}, fmt.Errorf("load provisioned user by external id: %w", err)
+	}
+	return provisionedUserFromRow(user), nil
+}
+
+func (s *ProvisioningService) ListUsers(ctx context.Context, startIndex, count int32) ([]ProvisionedUser, error) {
+	if startIndex < 1 {
+		startIndex = 1
+	}
+	if count <= 0 || count > 100 {
+		count = 100
+	}
+
+	rows, err := s.queries.ListProvisionedUsers(ctx, db.ListProvisionedUsersParams{
+		Provider: scimIdentityProvider,
+		Limit:    count,
+		Offset:   startIndex - 1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list provisioned users: %w", err)
+	}
+
+	users := make([]ProvisionedUser, 0, len(rows))
+	for _, row := range rows {
+		users = append(users, provisionedUserFromListRow(row))
+	}
+	return users, nil
+}
+
+func (s *ProvisioningService) DeactivateUser(ctx context.Context, publicID string) (ProvisionedUser, error) {
+	user, err := s.GetUser(ctx, publicID)
+	if err != nil {
+		return ProvisionedUser{}, err
+	}
+
+	updated, err := s.queries.SetUserDeactivatedAt(ctx, db.SetUserDeactivatedAtParams{
+		ID:            user.ID,
+		DeactivatedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+	})
+	if err != nil {
+		return ProvisionedUser{}, fmt.Errorf("deactivate provisioned user: %w", err)
+	}
+	if err := s.deactivateSideEffects(ctx, user.ID); err != nil {
+		return ProvisionedUser{}, err
+	}
+
+	return ProvisionedUser{
+		ID:          updated.ID,
+		PublicID:    updated.PublicID.String(),
+		ExternalID:  user.ExternalID,
+		UserName:    updated.Email,
+		DisplayName: updated.DisplayName,
+		Active:      false,
+	}, nil
+}
+
+func (s *ProvisioningService) createProvisionedUser(ctx context.Context, qtx *db.Queries, input ProvisionedUserInput) (db.GetProvisionedUserByExternalIDRow, error) {
+	existing, err := qtx.GetUserByEmail(ctx, input.UserName)
+	if err == nil {
+		if err := qtx.CreateProvisionedUserIdentity(ctx, db.CreateProvisionedUserIdentityParams{
+			UserID:             existing.ID,
+			Provider:           scimIdentityProvider,
+			Subject:            input.ExternalID,
+			Email:              input.UserName,
+			EmailVerified:      true,
+			ExternalID:         pgtype.Text{String: input.ExternalID, Valid: true},
+			ProvisioningSource: pgtype.Text{String: "scim", Valid: true},
+		}); err != nil {
+			return db.GetProvisionedUserByExternalIDRow{}, fmt.Errorf("create provisioned identity: %w", err)
+		}
+		if err := s.updateProvisionedUser(ctx, qtx, existing.ID, input); err != nil {
+			return db.GetProvisionedUserByExternalIDRow{}, err
+		}
+		return rowFromUser(existing.ID, existing.PublicID.String(), input.UserName, input.DisplayName, deactivatedAtForActive(input.Active), existing.DefaultTenantID, input.ExternalID), nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return db.GetProvisionedUserByExternalIDRow{}, fmt.Errorf("lookup user by email: %w", err)
+	}
+
+	created, err := qtx.CreateOIDCUser(ctx, db.CreateOIDCUserParams{
+		Email:       input.UserName,
+		DisplayName: input.DisplayName,
+	})
+	if err != nil {
+		return db.GetProvisionedUserByExternalIDRow{}, fmt.Errorf("create provisioned user: %w", err)
+	}
+	if err := qtx.CreateProvisionedUserIdentity(ctx, db.CreateProvisionedUserIdentityParams{
+		UserID:             created.ID,
+		Provider:           scimIdentityProvider,
+		Subject:            input.ExternalID,
+		Email:              input.UserName,
+		EmailVerified:      true,
+		ExternalID:         pgtype.Text{String: input.ExternalID, Valid: true},
+		ProvisioningSource: pgtype.Text{String: "scim", Valid: true},
+	}); err != nil {
+		return db.GetProvisionedUserByExternalIDRow{}, fmt.Errorf("create provisioned identity: %w", err)
+	}
+	if !input.Active {
+		if _, err := qtx.SetUserDeactivatedAt(ctx, db.SetUserDeactivatedAtParams{
+			ID:            created.ID,
+			DeactivatedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+		}); err != nil {
+			return db.GetProvisionedUserByExternalIDRow{}, fmt.Errorf("deactivate created provisioned user: %w", err)
+		}
+	}
+
+	return rowFromUser(created.ID, created.PublicID.String(), input.UserName, input.DisplayName, deactivatedAtForActive(input.Active), created.DefaultTenantID, input.ExternalID), nil
+}
+
+func (s *ProvisioningService) updateProvisionedUser(ctx context.Context, qtx *db.Queries, userID int64, input ProvisionedUserInput) error {
+	if _, err := qtx.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
+		ID:          userID,
+		Email:       input.UserName,
+		DisplayName: input.DisplayName,
+	}); err != nil {
+		return fmt.Errorf("update provisioned user profile: %w", err)
+	}
+	if _, err := qtx.SetUserDeactivatedAt(ctx, db.SetUserDeactivatedAtParams{
+		ID:            userID,
+		DeactivatedAt: deactivatedAtForActive(input.Active),
+	}); err != nil {
+		return fmt.Errorf("update provisioned user active state: %w", err)
+	}
+	if err := qtx.UpdateUserIdentityProvisioningProfile(ctx, db.UpdateUserIdentityProvisioningProfileParams{
+		Provider:           scimIdentityProvider,
+		Subject:            input.ExternalID,
+		Email:              input.UserName,
+		EmailVerified:      true,
+		ExternalID:         pgtype.Text{String: input.ExternalID, Valid: true},
+		ProvisioningSource: pgtype.Text{String: "scim", Valid: true},
+	}); err != nil {
+		return fmt.Errorf("update provisioned identity profile: %w", err)
+	}
+	return nil
+}
+
+func (s *ProvisioningService) deactivateSideEffects(ctx context.Context, userID int64) error {
+	if s.sessionService != nil {
+		if err := s.sessionService.DeleteUserSessions(ctx, userID); err != nil {
+			return err
+		}
+	}
+	if s.delegationService != nil {
+		if err := s.delegationService.DeleteAllGrantsForUser(ctx, userID); err != nil {
+			return err
+		}
+	}
+	if err := s.queries.DeleteOAuthUserGrantsByUserID(ctx, userID); err != nil {
+		return fmt.Errorf("delete deactivated user grants: %w", err)
+	}
+	return nil
+}
+
+func normalizeProvisionedUser(input ProvisionedUserInput) (ProvisionedUserInput, error) {
+	externalID := strings.TrimSpace(input.ExternalID)
+	userName := strings.ToLower(strings.TrimSpace(input.UserName))
+	displayName := strings.TrimSpace(input.DisplayName)
+	if externalID == "" || userName == "" {
+		return ProvisionedUserInput{}, ErrInvalidSCIMUser
+	}
+	if displayName == "" {
+		displayName = fallbackDisplayName(userName, externalID)
+	}
+	return ProvisionedUserInput{
+		ExternalID:  externalID,
+		UserName:    userName,
+		DisplayName: displayName,
+		Active:      input.Active,
+		Groups:      input.Groups,
+	}, nil
+}
+
+func deactivatedAtForActive(active bool) pgtype.Timestamptz {
+	if active {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
+}
+
+func rowFromUser(id int64, publicID, email, displayName string, deactivatedAt pgtype.Timestamptz, defaultTenantID pgtype.Int8, externalID string) db.GetProvisionedUserByExternalIDRow {
+	parsed, _ := uuid.Parse(publicID)
+	return db.GetProvisionedUserByExternalIDRow{
+		ID:                 id,
+		PublicID:           parsed,
+		Email:              email,
+		DisplayName:        displayName,
+		DeactivatedAt:      deactivatedAt,
+		DefaultTenantID:    defaultTenantID,
+		Provider:           scimIdentityProvider,
+		Subject:            externalID,
+		ExternalID:         pgtype.Text{String: externalID, Valid: true},
+		ProvisioningSource: pgtype.Text{String: "scim", Valid: true},
+	}
+}
+
+func provisionedUserFromRow(row db.GetProvisionedUserByExternalIDRow) ProvisionedUser {
+	externalID := ""
+	if row.ExternalID.Valid {
+		externalID = row.ExternalID.String
+	}
+	return ProvisionedUser{
+		ID:          row.ID,
+		PublicID:    row.PublicID.String(),
+		ExternalID:  externalID,
+		UserName:    row.Email,
+		DisplayName: row.DisplayName,
+		Active:      !row.DeactivatedAt.Valid,
+	}
+}
+
+func provisionedUserFromPublicIDRow(row db.GetProvisionedUserByPublicIDRow) ProvisionedUser {
+	return provisionedUserFromRow(db.GetProvisionedUserByExternalIDRow(row))
+}
+
+func provisionedUserFromListRow(row db.ListProvisionedUsersRow) ProvisionedUser {
+	return provisionedUserFromRow(db.GetProvisionedUserByExternalIDRow(row))
+}
+```
+
+#### `backend/internal/service/session_service.go`
+
+```go
+package service
+
+import (
+	"context"
+	"crypto/subtle"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"example.com/haohao/backend/internal/auth"
+	db "example.com/haohao/backend/internal/db"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+var (
+	ErrInvalidCredentials  = errors.New("invalid credentials")
+	ErrUnauthorized        = errors.New("unauthorized")
+	ErrInvalidCSRFToken    = errors.New("invalid csrf token")
+	ErrAuthModeUnsupported = errors.New("auth mode unsupported")
+)
+
+type User struct {
+	ID              int64
+	PublicID        string
+	Email           string
+	DisplayName     string
+	DeactivatedAt   *time.Time
+	DefaultTenantID *int64
+}
+
+type CurrentSession struct {
+	User           User
+	ActiveTenantID *int64
+}
+
+type SessionService struct {
+	queries  *db.Queries
+	store    *auth.SessionStore
+	authMode string
+}
+
+func NewSessionService(queries *db.Queries, store *auth.SessionStore, authMode string) *SessionService {
+	return &SessionService{
+		queries:  queries,
+		store:    store,
+		authMode: strings.ToLower(strings.TrimSpace(authMode)),
+	}
+}
+
+func (s *SessionService) Login(ctx context.Context, email, password string) (User, string, string, error) {
+	if s.authMode == "zitadel" {
+		return User{}, "", "", ErrAuthModeUnsupported
+	}
+
+	userID, err := s.queries.AuthenticateUser(ctx, db.AuthenticateUserParams{
+		Email:    email,
+		Password: password,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, "", "", ErrInvalidCredentials
+	}
+	if err != nil {
+		return User{}, "", "", fmt.Errorf("authenticate user: %w", err)
+	}
+
+	user, err := s.loadUserByID(ctx, userID)
+	if err != nil {
+		return User{}, "", "", err
+	}
+
+	sessionID, csrfToken, err := s.IssueSession(ctx, userID)
+	if err != nil {
+		return User{}, "", "", err
+	}
+
+	return user, sessionID, csrfToken, nil
+}
+
+func (s *SessionService) CurrentUser(ctx context.Context, sessionID string) (User, error) {
+	current, err := s.CurrentSession(ctx, sessionID)
+	if err != nil {
+		return User{}, err
+	}
+	return current.User, nil
+}
+
+func (s *SessionService) CurrentSession(ctx context.Context, sessionID string) (CurrentSession, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return CurrentSession{}, ErrUnauthorized
+	}
+	if err != nil {
+		return CurrentSession{}, err
+	}
+
+	user, err := s.loadUserByID(ctx, session.UserID)
+	if err != nil {
+		return CurrentSession{}, err
+	}
+
+	return CurrentSession{
+		User:           user,
+		ActiveTenantID: optionalInt64(session.ActiveTenantID),
+	}, nil
+}
+
+func (s *SessionService) CurrentUserWithCSRF(ctx context.Context, sessionID, csrfHeader string) (User, error) {
+	current, err := s.CurrentSessionWithCSRF(ctx, sessionID, csrfHeader)
+	if err != nil {
+		return User{}, err
+	}
+	return current.User, nil
+}
+
+func (s *SessionService) CurrentSessionWithCSRF(ctx context.Context, sessionID, csrfHeader string) (CurrentSession, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return CurrentSession{}, ErrUnauthorized
+	}
+	if err != nil {
+		return CurrentSession{}, err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(session.CSRFToken), []byte(csrfHeader)) != 1 {
+		return CurrentSession{}, ErrInvalidCSRFToken
+	}
+
+	user, err := s.loadUserByID(ctx, session.UserID)
+	if err != nil {
+		return CurrentSession{}, err
+	}
+
+	return CurrentSession{
+		User:           user,
+		ActiveTenantID: optionalInt64(session.ActiveTenantID),
+	}, nil
+}
+
+func (s *SessionService) IssueSession(ctx context.Context, userID int64) (string, string, error) {
+	return s.IssueSessionWithProviderHint(ctx, userID, "")
+}
+
+func (s *SessionService) IssueSessionWithProviderHint(ctx context.Context, userID int64, providerIDTokenHint string) (string, string, error) {
+	sessionID, csrfToken, err := s.store.CreateWithProviderHint(ctx, userID, providerIDTokenHint)
+	if err != nil {
+		return "", "", fmt.Errorf("create session: %w", err)
+	}
+	return sessionID, csrfToken, nil
+}
+
+func (s *SessionService) Logout(ctx context.Context, sessionID, csrfHeader string) (string, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return "", ErrUnauthorized
+	}
+	if err != nil {
+		return "", err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(session.CSRFToken), []byte(csrfHeader)) != 1 {
+		return "", ErrInvalidCSRFToken
+	}
+
+	if err := s.store.Delete(ctx, sessionID); err != nil {
+		return "", err
+	}
+
+	return session.ProviderIDTokenHint, nil
+}
+
+func (s *SessionService) ReissueCSRF(ctx context.Context, sessionID string) (string, error) {
+	if _, err := s.CurrentUser(ctx, sessionID); err != nil {
+		return "", err
+	}
+
+	csrfToken, err := s.store.ReissueCSRF(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return "", ErrUnauthorized
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return csrfToken, nil
+}
+
+func (s *SessionService) SetActiveTenant(ctx context.Context, sessionID, csrfHeader string, tenantID int64) error {
+	if _, err := s.CurrentSessionWithCSRF(ctx, sessionID, csrfHeader); err != nil {
+		return err
+	}
+	return s.store.SetActiveTenant(ctx, sessionID, tenantID)
+}
+
+func (s *SessionService) DeleteUserSessions(ctx context.Context, userID int64) error {
+	return s.store.DeleteUserSessions(ctx, userID)
+}
+
+func (s *SessionService) RefreshSession(ctx context.Context, sessionID, csrfHeader string) (string, string, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return "", "", ErrUnauthorized
+	}
+	if err != nil {
+		return "", "", err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(session.CSRFToken), []byte(csrfHeader)) != 1 {
+		return "", "", ErrInvalidCSRFToken
+	}
+
+	newSessionID, newCSRFToken, err := s.store.Rotate(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return "", "", ErrUnauthorized
+	}
+	if err != nil {
+		return "", "", err
+	}
+
+	return newSessionID, newCSRFToken, nil
+}
+
+func (s *SessionService) loadUserByID(ctx context.Context, userID int64) (User, error) {
+	record, err := s.queries.GetUserByID(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, ErrUnauthorized
+	}
+	if err != nil {
+		return User{}, fmt.Errorf("load user by session: %w", err)
+	}
+	if record.DeactivatedAt.Valid {
+		return User{}, ErrUnauthorized
+	}
+
+	return User{
+		ID:              record.ID,
+		PublicID:        record.PublicID.String(),
+		Email:           record.Email,
+		DisplayName:     record.DisplayName,
+		DefaultTenantID: optionalPgInt8(record.DefaultTenantID),
+	}, nil
+}
+
+func optionalInt64(value int64) *int64 {
+	if value == 0 {
+		return nil
+	}
+	return &value
+}
+
+func optionalPgInt8(value pgtype.Int8) *int64 {
+	if !value.Valid {
+		return nil
+	}
+	v := value.Int64
+	return &v
+}
+```
+
+#### `db/migrations/0005_provisioning.up.sql`
+
+```sql
+ALTER TABLE users
+    ADD COLUMN deactivated_at TIMESTAMPTZ;
+
+ALTER TABLE user_identities
+    ADD COLUMN external_id TEXT,
+    ADD COLUMN provisioning_source TEXT;
+
+CREATE UNIQUE INDEX user_identities_provider_external_id_key
+    ON user_identities(provider, external_id)
+    WHERE external_id IS NOT NULL;
+
+CREATE TABLE provisioning_sync_state (
+    source TEXT PRIMARY KEY,
+    cursor_text TEXT,
+    last_synced_at TIMESTAMPTZ,
+    last_error_code TEXT,
+    last_error_message TEXT,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+#### `db/migrations/0005_provisioning.down.sql`
+
+```sql
+DROP TABLE IF EXISTS provisioning_sync_state;
+
+DROP INDEX IF EXISTS user_identities_provider_external_id_key;
+
+ALTER TABLE user_identities
+    DROP COLUMN IF EXISTS provisioning_source,
+    DROP COLUMN IF EXISTS external_id;
+
+ALTER TABLE users
+    DROP COLUMN IF EXISTS deactivated_at;
+```
+
+#### `db/migrations/0006_org_tenants.up.sql`
+
+```sql
+CREATE TABLE tenants (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    slug TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE users
+    ADD COLUMN default_tenant_id BIGINT REFERENCES tenants(id) ON DELETE SET NULL;
+
+CREATE TABLE tenant_memberships (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    role_id BIGINT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    source TEXT NOT NULL CHECK (source IN ('provider_claim', 'scim', 'local_override')),
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, tenant_id, role_id, source)
+);
+
+CREATE INDEX tenant_memberships_tenant_id_idx
+    ON tenant_memberships(tenant_id);
+
+CREATE INDEX tenant_memberships_role_id_idx
+    ON tenant_memberships(role_id);
+
+CREATE TABLE tenant_role_overrides (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    role_id BIGINT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    effect TEXT NOT NULL CHECK (effect IN ('allow', 'deny')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, tenant_id, role_id, effect)
+);
+
+CREATE INDEX tenant_role_overrides_tenant_id_idx
+    ON tenant_role_overrides(tenant_id);
+
+ALTER TABLE oauth_user_grants
+    ADD COLUMN tenant_id BIGINT REFERENCES tenants(id) ON DELETE CASCADE;
+
+UPDATE oauth_user_grants g
+SET tenant_id = u.default_tenant_id
+FROM users u
+WHERE g.user_id = u.id
+  AND u.default_tenant_id IS NOT NULL;
+
+DELETE FROM oauth_user_grants
+WHERE tenant_id IS NULL;
+
+ALTER TABLE oauth_user_grants
+    ALTER COLUMN tenant_id SET NOT NULL,
+    DROP CONSTRAINT oauth_user_grants_user_id_provider_resource_server_key,
+    ADD CONSTRAINT oauth_user_grants_user_id_provider_resource_server_tenant_id_key
+        UNIQUE (user_id, provider, resource_server, tenant_id);
+
+CREATE INDEX oauth_user_grants_tenant_id_idx
+    ON oauth_user_grants(tenant_id);
+```
+
+#### `db/migrations/0006_org_tenants.down.sql`
+
+```sql
+DROP INDEX IF EXISTS oauth_user_grants_tenant_id_idx;
+
+ALTER TABLE oauth_user_grants
+    DROP CONSTRAINT IF EXISTS oauth_user_grants_user_id_provider_resource_server_tenant_id_key,
+    DROP COLUMN IF EXISTS tenant_id,
+    ADD CONSTRAINT oauth_user_grants_user_id_provider_resource_server_key
+        UNIQUE (user_id, provider, resource_server);
+
+DROP TABLE IF EXISTS tenant_role_overrides;
+DROP TABLE IF EXISTS tenant_memberships;
+
+ALTER TABLE users
+    DROP COLUMN IF EXISTS default_tenant_id;
+
+DROP TABLE IF EXISTS tenants;
+```
+
+#### `db/queries/downstream_grants.sql`
+
+```sql
+-- name: UpsertOAuthUserGrant :one
+INSERT INTO oauth_user_grants (
+    user_id,
+    tenant_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9
+)
+ON CONFLICT (user_id, provider, resource_server, tenant_id) DO UPDATE
+SET provider_subject = EXCLUDED.provider_subject,
+    refresh_token_ciphertext = EXCLUDED.refresh_token_ciphertext,
+    refresh_token_key_version = EXCLUDED.refresh_token_key_version,
+    scope_text = EXCLUDED.scope_text,
+    granted_by_session_id = EXCLUDED.granted_by_session_id,
+    granted_at = now(),
+    last_refreshed_at = NULL,
+    revoked_at = NULL,
+    last_error_code = NULL,
+    updated_at = now()
+RETURNING
+    id,
+    user_id,
+    tenant_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at;
+
+-- name: GetOAuthUserGrant :one
+SELECT
+    id,
+    user_id,
+    tenant_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at
+FROM oauth_user_grants
+WHERE user_id = $1
+  AND tenant_id = $2
+  AND provider = $3
+  AND resource_server = $4
+LIMIT 1;
+
+-- name: GetActiveOAuthUserGrant :one
+SELECT
+    id,
+    user_id,
+    tenant_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at
+FROM oauth_user_grants
+WHERE user_id = $1
+  AND tenant_id = $2
+  AND provider = $3
+  AND resource_server = $4
+  AND revoked_at IS NULL
+LIMIT 1;
+
+-- name: ListOAuthUserGrantsByUserID :many
+SELECT
+    id,
+    user_id,
+    tenant_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at
+FROM oauth_user_grants
+WHERE user_id = $1
+  AND tenant_id = $2
+ORDER BY resource_server, provider;
+
+-- name: UpdateOAuthUserGrantAfterRefresh :one
+UPDATE oauth_user_grants
+SET refresh_token_ciphertext = $5,
+    refresh_token_key_version = $6,
+    scope_text = $7,
+    last_refreshed_at = now(),
+    last_error_code = NULL,
+    updated_at = now()
+WHERE user_id = $1
+  AND tenant_id = $2
+  AND provider = $3
+  AND resource_server = $4
+  AND revoked_at IS NULL
+RETURNING
+    id,
+    user_id,
+    tenant_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at;
+
+-- name: MarkOAuthUserGrantRevoked :exec
+UPDATE oauth_user_grants
+SET revoked_at = now(),
+    last_error_code = $5,
+    updated_at = now()
+WHERE user_id = $1
+  AND tenant_id = $2
+  AND provider = $3
+  AND resource_server = $4;
+
+-- name: DeleteOAuthUserGrant :exec
+DELETE FROM oauth_user_grants
+WHERE user_id = $1
+  AND tenant_id = $2
+  AND provider = $3
+  AND resource_server = $4;
+
+-- name: ListActiveOAuthUserGrantsByUserID :many
+SELECT
+    id,
+    user_id,
+    tenant_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at
+FROM oauth_user_grants
+WHERE user_id = $1
+  AND revoked_at IS NULL
+ORDER BY tenant_id, resource_server, provider;
+
+-- name: DeleteOAuthUserGrantsByUserID :exec
+DELETE FROM oauth_user_grants
+WHERE user_id = $1;
+```
+
+#### `db/queries/identities.sql`
+
+```sql
+-- name: GetUserByProviderSubject :one
+SELECT
+    u.id,
+    u.public_id,
+    u.email,
+    u.display_name,
+    u.deactivated_at,
+    u.default_tenant_id
+FROM user_identities ui
+JOIN users u ON u.id = ui.user_id
+WHERE ui.provider = $1
+  AND ui.subject = $2
+LIMIT 1;
+
+-- name: GetUserIdentityByUserIDProvider :one
+SELECT
+    id,
+    user_id,
+    provider,
+    subject,
+    email,
+    email_verified,
+    external_id,
+    provisioning_source,
+    created_at,
+    updated_at
+FROM user_identities
+WHERE user_id = $1
+  AND provider = $2
+LIMIT 1;
+
+-- name: CreateUserIdentity :exec
+INSERT INTO user_identities (
+    user_id,
+    provider,
+    subject,
+    email,
+    email_verified
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5
+);
+
+-- name: CreateProvisionedUserIdentity :exec
+INSERT INTO user_identities (
+    user_id,
+    provider,
+    subject,
+    email,
+    email_verified,
+    external_id,
+    provisioning_source
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7
+);
+
+-- name: UpdateUserIdentityProfile :exec
+UPDATE user_identities
+SET email = $3,
+    email_verified = $4,
+    updated_at = now()
+WHERE provider = $1
+  AND subject = $2;
+
+-- name: UpdateUserIdentityProvisioningProfile :exec
+UPDATE user_identities
+SET email = $3,
+    email_verified = $4,
+    external_id = $5,
+    provisioning_source = $6,
+    updated_at = now()
+WHERE provider = $1
+  AND subject = $2;
+
+-- name: GetProvisionedUserByExternalID :one
+SELECT
+    u.id,
+    u.public_id,
+    u.email,
+    u.display_name,
+    u.deactivated_at,
+    u.default_tenant_id,
+    ui.id AS identity_id,
+    ui.provider,
+    ui.subject,
+    ui.external_id,
+    ui.provisioning_source
+FROM user_identities ui
+JOIN users u ON u.id = ui.user_id
+WHERE ui.provider = $1
+  AND ui.external_id = $2
+LIMIT 1;
+
+-- name: GetProvisionedUserByPublicID :one
+SELECT
+    u.id,
+    u.public_id,
+    u.email,
+    u.display_name,
+    u.deactivated_at,
+    u.default_tenant_id,
+    ui.id AS identity_id,
+    ui.provider,
+    ui.subject,
+    ui.external_id,
+    ui.provisioning_source
+FROM user_identities ui
+JOIN users u ON u.id = ui.user_id
+WHERE ui.provider = $1
+  AND u.public_id = $2
+LIMIT 1;
+
+-- name: ListProvisionedUsers :many
+SELECT
+    u.id,
+    u.public_id,
+    u.email,
+    u.display_name,
+    u.deactivated_at,
+    u.default_tenant_id,
+    ui.id AS identity_id,
+    ui.provider,
+    ui.subject,
+    ui.external_id,
+    ui.provisioning_source
+FROM user_identities ui
+JOIN users u ON u.id = ui.user_id
+WHERE ui.provider = $1
+ORDER BY u.id
+LIMIT $2
+OFFSET $3;
+```
+
+#### `db/queries/provisioning.sql`
+
+```sql
+-- name: UpsertProvisioningSyncState :exec
+INSERT INTO provisioning_sync_state (
+    source,
+    cursor_text,
+    last_synced_at,
+    last_error_code,
+    last_error_message,
+    failed_count
+) VALUES (
+    $1,
+    $2,
+    now(),
+    $3,
+    $4,
+    $5
+)
+ON CONFLICT (source) DO UPDATE
+SET cursor_text = EXCLUDED.cursor_text,
+    last_synced_at = EXCLUDED.last_synced_at,
+    last_error_code = EXCLUDED.last_error_code,
+    last_error_message = EXCLUDED.last_error_message,
+    failed_count = EXCLUDED.failed_count,
+    updated_at = now();
+
+-- name: ListDeactivatedUsersWithActiveGrants :many
+SELECT DISTINCT
+    u.id,
+    u.public_id,
+    u.email,
+    u.display_name,
+    u.deactivated_at,
+    u.default_tenant_id
+FROM users u
+JOIN oauth_user_grants g ON g.user_id = u.id
+WHERE u.deactivated_at IS NOT NULL
+  AND g.revoked_at IS NULL
+ORDER BY u.id;
+```
+
+#### `db/queries/tenants.sql`
+
+```sql
+-- name: UpsertTenantBySlug :one
+INSERT INTO tenants (
+    slug,
+    display_name,
+    active
+) VALUES (
+    $1,
+    $2,
+    true
+)
+ON CONFLICT (slug) DO UPDATE
+SET display_name = EXCLUDED.display_name,
+    active = true,
+    updated_at = now()
+RETURNING
+    id,
+    slug,
+    display_name,
+    active,
+    created_at,
+    updated_at;
+
+-- name: GetTenantBySlug :one
+SELECT
+    id,
+    slug,
+    display_name,
+    active,
+    created_at,
+    updated_at
+FROM tenants
+WHERE slug = $1
+LIMIT 1;
+
+-- name: GetTenantByID :one
+SELECT
+    id,
+    slug,
+    display_name,
+    active,
+    created_at,
+    updated_at
+FROM tenants
+WHERE id = $1
+LIMIT 1;
+
+-- name: DeleteTenantMembershipsByUserSource :exec
+DELETE FROM tenant_memberships
+WHERE user_id = $1
+  AND source = $2;
+
+-- name: UpsertTenantMembership :exec
+INSERT INTO tenant_memberships (
+    user_id,
+    tenant_id,
+    role_id,
+    source,
+    active
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    true
+)
+ON CONFLICT (user_id, tenant_id, role_id, source) DO UPDATE
+SET active = true,
+    updated_at = now();
+
+-- name: ListTenantMembershipRowsByUserID :many
+SELECT
+    t.id AS tenant_id,
+    t.slug AS tenant_slug,
+    t.display_name AS tenant_display_name,
+    t.active AS tenant_active,
+    r.code AS role_code,
+    tm.source,
+    tm.active AS membership_active
+FROM tenant_memberships tm
+JOIN tenants t ON t.id = tm.tenant_id
+JOIN roles r ON r.id = tm.role_id
+WHERE tm.user_id = $1
+ORDER BY t.slug, r.code, tm.source;
+
+-- name: ListTenantRoleOverridesByUserID :many
+SELECT
+    t.id AS tenant_id,
+    t.slug AS tenant_slug,
+    r.code AS role_code,
+    tro.effect
+FROM tenant_role_overrides tro
+JOIN tenants t ON t.id = tro.tenant_id
+JOIN roles r ON r.id = tro.role_id
+WHERE tro.user_id = $1
+ORDER BY t.slug, r.code, tro.effect;
+
+-- name: UserHasActiveTenant :one
+SELECT EXISTS (
+    SELECT 1
+    FROM tenant_memberships tm
+    JOIN tenants t ON t.id = tm.tenant_id
+    WHERE tm.user_id = $1
+      AND t.id = $2
+      AND t.active = true
+      AND tm.active = true
+)::boolean AS ok;
+```
+
+#### `db/queries/users.sql`
+
+```sql
+-- name: AuthenticateUser :one
+SELECT id
+FROM users
+WHERE email = @email
+  AND password_hash IS NOT NULL
+  AND deactivated_at IS NULL
+  AND password_hash = crypt(@password, password_hash)
+LIMIT 1;
+
+-- name: GetUserByEmail :one
+SELECT
+    id,
+    public_id,
+    email,
+    display_name,
+    deactivated_at,
+    default_tenant_id
+FROM users
+WHERE email = $1
+LIMIT 1;
+
+-- name: GetUserByID :one
+SELECT
+    id,
+    public_id,
+    email,
+    display_name,
+    deactivated_at,
+    default_tenant_id
+FROM users
+WHERE id = $1
+LIMIT 1;
+
+-- name: GetUserByPublicID :one
+SELECT
+    id,
+    public_id,
+    email,
+    display_name,
+    deactivated_at,
+    default_tenant_id
+FROM users
+WHERE public_id = $1
+LIMIT 1;
+
+-- name: CreateOIDCUser :one
+INSERT INTO users (
+    email,
+    display_name,
+    password_hash
+) VALUES (
+    $1,
+    $2,
+    NULL
+)
+RETURNING
+    id,
+    public_id,
+    email,
+    display_name,
+    deactivated_at,
+    default_tenant_id;
+
+-- name: UpdateUserProfile :one
+UPDATE users
+SET email = $2,
+    display_name = $3,
+    updated_at = now()
+WHERE id = $1
+RETURNING
+    id,
+    public_id,
+    email,
+    display_name,
+    deactivated_at,
+    default_tenant_id;
+
+-- name: SetUserDeactivatedAt :one
+UPDATE users
+SET deactivated_at = $2,
+    updated_at = now()
+WHERE id = $1
+RETURNING
+    id,
+    public_id,
+    email,
+    display_name,
+    deactivated_at,
+    default_tenant_id;
+
+-- name: SetUserDefaultTenant :one
+UPDATE users
+SET default_tenant_id = $2,
+    updated_at = now()
+WHERE id = $1
+RETURNING
+    id,
+    public_id,
+    email,
+    display_name,
+    deactivated_at,
+    default_tenant_id;
+```
+
+#### `db/schema.sql`
+
+```sql
+--
+-- PostgreSQL database dump
+--
+
+
+-- Dumped from database version 18.3 (Debian 18.3-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Debian 18.3-1.pgdg13+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: oauth_user_grants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.oauth_user_grants (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    provider text NOT NULL,
+    resource_server text NOT NULL,
+    provider_subject text NOT NULL,
+    refresh_token_ciphertext bytea NOT NULL,
+    refresh_token_key_version integer NOT NULL,
+    scope_text text NOT NULL,
+    granted_by_session_id text NOT NULL,
+    granted_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_refreshed_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    last_error_code text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    tenant_id bigint NOT NULL
+);
+
+
+--
+-- Name: oauth_user_grants_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.oauth_user_grants ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.oauth_user_grants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: provisioning_sync_state; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.provisioning_sync_state (
+    source text NOT NULL,
+    cursor_text text,
+    last_synced_at timestamp with time zone,
+    last_error_code text,
+    last_error_message text,
+    failed_count integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.roles (
+    id bigint NOT NULL,
+    code text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: roles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.roles ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.roles_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schema_migrations (
+    version bigint NOT NULL,
+    dirty boolean NOT NULL
+);
+
+
+--
+-- Name: tenant_memberships; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenant_memberships (
+    user_id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    role_id bigint NOT NULL,
+    source text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT tenant_memberships_source_check CHECK ((source = ANY (ARRAY['provider_claim'::text, 'scim'::text, 'local_override'::text])))
+);
+
+
+--
+-- Name: tenant_role_overrides; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenant_role_overrides (
+    user_id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    role_id bigint NOT NULL,
+    effect text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT tenant_role_overrides_effect_check CHECK ((effect = ANY (ARRAY['allow'::text, 'deny'::text])))
+);
+
+
+--
+-- Name: tenants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenants (
+    id bigint NOT NULL,
+    slug text NOT NULL,
+    display_name text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: tenants_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.tenants ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.tenants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: user_identities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_identities (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    provider text NOT NULL,
+    subject text NOT NULL,
+    email text NOT NULL,
+    email_verified boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    external_id text,
+    provisioning_source text
+);
+
+
+--
+-- Name: user_identities_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.user_identities ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.user_identities_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: user_roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_roles (
+    user_id bigint NOT NULL,
+    role_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.users (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    email text NOT NULL,
+    display_name text NOT NULL,
+    password_hash text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deactivated_at timestamp with time zone,
+    default_tenant_id bigint
+);
+
+
+--
+-- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.users_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_user_id_provider_resource_server_tenant_id_ke; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_user_id_provider_resource_server_tenant_id_ke UNIQUE (user_id, provider, resource_server, tenant_id);
+
+
+--
+-- Name: provisioning_sync_state provisioning_sync_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.provisioning_sync_state
+    ADD CONSTRAINT provisioning_sync_state_pkey PRIMARY KEY (source);
+
+
+--
+-- Name: roles roles_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roles
+    ADD CONSTRAINT roles_code_key UNIQUE (code);
+
+
+--
+-- Name: roles roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roles
+    ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: tenant_memberships tenant_memberships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_memberships
+    ADD CONSTRAINT tenant_memberships_pkey PRIMARY KEY (user_id, tenant_id, role_id, source);
+
+
+--
+-- Name: tenant_role_overrides tenant_role_overrides_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_role_overrides
+    ADD CONSTRAINT tenant_role_overrides_pkey PRIMARY KEY (user_id, tenant_id, role_id, effect);
+
+
+--
+-- Name: tenants tenants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenants
+    ADD CONSTRAINT tenants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tenants tenants_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenants
+    ADD CONSTRAINT tenants_slug_key UNIQUE (slug);
+
+
+--
+-- Name: user_identities user_identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_identities user_identities_provider_subject_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_provider_subject_key UNIQUE (provider, subject);
+
+
+--
+-- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id);
+
+
+--
+-- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_email_key UNIQUE (email);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: oauth_user_grants_provider_subject_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_user_grants_provider_subject_idx ON public.oauth_user_grants USING btree (provider, provider_subject);
+
+
+--
+-- Name: oauth_user_grants_resource_server_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_user_grants_resource_server_idx ON public.oauth_user_grants USING btree (resource_server);
+
+
+--
+-- Name: oauth_user_grants_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_user_grants_tenant_id_idx ON public.oauth_user_grants USING btree (tenant_id);
+
+
+--
+-- Name: tenant_memberships_role_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_memberships_role_id_idx ON public.tenant_memberships USING btree (role_id);
+
+
+--
+-- Name: tenant_memberships_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_memberships_tenant_id_idx ON public.tenant_memberships USING btree (tenant_id);
+
+
+--
+-- Name: tenant_role_overrides_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tenant_role_overrides_tenant_id_idx ON public.tenant_role_overrides USING btree (tenant_id);
+
+
+--
+-- Name: user_identities_provider_external_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_identities_provider_external_id_key ON public.user_identities USING btree (provider, external_id) WHERE (external_id IS NOT NULL);
+
+
+--
+-- Name: user_identities_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_identities_user_id_idx ON public.user_identities USING btree (user_id);
+
+
+--
+-- Name: user_roles_role_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_roles_role_id_idx ON public.user_roles USING btree (role_id);
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: oauth_user_grants oauth_user_grants_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_user_grants
+    ADD CONSTRAINT oauth_user_grants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_memberships tenant_memberships_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_memberships
+    ADD CONSTRAINT tenant_memberships_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_memberships tenant_memberships_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_memberships
+    ADD CONSTRAINT tenant_memberships_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_memberships tenant_memberships_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_memberships
+    ADD CONSTRAINT tenant_memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_role_overrides tenant_role_overrides_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_role_overrides
+    ADD CONSTRAINT tenant_role_overrides_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_role_overrides tenant_role_overrides_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_role_overrides
+    ADD CONSTRAINT tenant_role_overrides_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_role_overrides tenant_role_overrides_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_role_overrides
+    ADD CONSTRAINT tenant_role_overrides_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_identities user_identities_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_roles user_roles_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_roles user_roles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: users users_default_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_default_tenant_id_fkey FOREIGN KEY (default_tenant_id) REFERENCES public.tenants(id) ON DELETE SET NULL;
+
+
+--
+-- PostgreSQL database dump complete
+--
+```
 
 ---
 

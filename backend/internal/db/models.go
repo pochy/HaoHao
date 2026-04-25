@@ -25,6 +25,18 @@ type OauthUserGrant struct {
 	LastErrorCode          pgtype.Text        `json:"last_error_code"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	TenantID               int64              `json:"tenant_id"`
+}
+
+type ProvisioningSyncState struct {
+	Source           string             `json:"source"`
+	CursorText       pgtype.Text        `json:"cursor_text"`
+	LastSyncedAt     pgtype.Timestamptz `json:"last_synced_at"`
+	LastErrorCode    pgtype.Text        `json:"last_error_code"`
+	LastErrorMessage pgtype.Text        `json:"last_error_message"`
+	FailedCount      int32              `json:"failed_count"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Role struct {
@@ -38,25 +50,57 @@ type SchemaMigration struct {
 	Dirty   bool  `json:"dirty"`
 }
 
+type Tenant struct {
+	ID          int64              `json:"id"`
+	Slug        string             `json:"slug"`
+	DisplayName string             `json:"display_name"`
+	Active      bool               `json:"active"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TenantMembership struct {
+	UserID    int64              `json:"user_id"`
+	TenantID  int64              `json:"tenant_id"`
+	RoleID    int64              `json:"role_id"`
+	Source    string             `json:"source"`
+	Active    bool               `json:"active"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TenantRoleOverride struct {
+	UserID    int64              `json:"user_id"`
+	TenantID  int64              `json:"tenant_id"`
+	RoleID    int64              `json:"role_id"`
+	Effect    string             `json:"effect"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
-	ID           int64              `json:"id"`
-	PublicID     uuid.UUID          `json:"public_id"`
-	Email        string             `json:"email"`
-	DisplayName  string             `json:"display_name"`
-	PasswordHash pgtype.Text        `json:"password_hash"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	Email           string             `json:"email"`
+	DisplayName     string             `json:"display_name"`
+	PasswordHash    pgtype.Text        `json:"password_hash"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeactivatedAt   pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID pgtype.Int8        `json:"default_tenant_id"`
 }
 
 type UserIdentity struct {
-	ID            int64              `json:"id"`
-	UserID        int64              `json:"user_id"`
-	Provider      string             `json:"provider"`
-	Subject       string             `json:"subject"`
-	Email         string             `json:"email"`
-	EmailVerified bool               `json:"email_verified"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ID                 int64              `json:"id"`
+	UserID             int64              `json:"user_id"`
+	Provider           string             `json:"provider"`
+	Subject            string             `json:"subject"`
+	Email              string             `json:"email"`
+	EmailVerified      bool               `json:"email_verified"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	ExternalID         pgtype.Text        `json:"external_id"`
+	ProvisioningSource pgtype.Text        `json:"provisioning_source"`
 }
 
 type UserRole struct {

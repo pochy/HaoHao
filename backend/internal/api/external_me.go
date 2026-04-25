@@ -17,6 +17,13 @@ type ExternalMeBody struct {
 	Groups          []string      `json:"groups,omitempty" example:"external_api_user"`
 	Roles           []string      `json:"roles,omitempty" example:"todo_user"`
 	User            *UserResponse `json:"user,omitempty"`
+	ActiveTenant    *TenantBody   `json:"activeTenant,omitempty"`
+	DefaultTenant   *TenantBody   `json:"defaultTenant,omitempty"`
+	Tenants         []TenantBody  `json:"tenants,omitempty"`
+}
+
+type GetExternalMeInput struct {
+	TenantID string `header:"X-Tenant-ID" doc:"tenant slug for tenant-aware bearer context" example:"acme"`
 }
 
 type GetExternalMeOutput struct {
@@ -33,7 +40,7 @@ func registerExternalRoutes(api huma.API, deps Dependencies) {
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
 		},
-	}, func(ctx context.Context, input *struct{}) (*GetExternalMeOutput, error) {
+	}, func(ctx context.Context, input *GetExternalMeInput) (*GetExternalMeOutput, error) {
 		authCtx, ok := service.AuthContextFromContext(ctx)
 		if !ok {
 			return nil, huma.Error500InternalServerError("missing auth context")
@@ -45,6 +52,17 @@ func registerExternalRoutes(api huma.API, deps Dependencies) {
 			user = &res
 		}
 
+		var activeTenant *TenantBody
+		if authCtx.ActiveTenant != nil {
+			item := toTenantBody(*authCtx.ActiveTenant)
+			activeTenant = &item
+		}
+		var defaultTenant *TenantBody
+		if authCtx.DefaultTenant != nil {
+			item := toTenantBody(*authCtx.DefaultTenant)
+			defaultTenant = &item
+		}
+
 		return &GetExternalMeOutput{
 			Body: ExternalMeBody{
 				Provider:        authCtx.Provider,
@@ -54,6 +72,9 @@ func registerExternalRoutes(api huma.API, deps Dependencies) {
 				Groups:          authCtx.Groups,
 				Roles:           authCtx.Roles,
 				User:            user,
+				ActiveTenant:    activeTenant,
+				DefaultTenant:   defaultTenant,
+				Tenants:         toTenantBodies(authCtx.Tenants),
 			},
 		}, nil
 	})

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -18,19 +19,22 @@ type SessionRecord struct {
 	UserID              int64  `json:"userId"`
 	CSRFToken           string `json:"csrfToken"`
 	ProviderIDTokenHint string `json:"providerIdTokenHint,omitempty"`
+	ActiveTenantID      int64  `json:"activeTenantId,omitempty"`
 }
 
 type SessionStore struct {
-	client *redis.Client
-	prefix string
-	ttl    time.Duration
+	client          *redis.Client
+	prefix          string
+	userIndexPrefix string
+	ttl             time.Duration
 }
 
 func NewSessionStore(client *redis.Client, ttl time.Duration) *SessionStore {
 	return &SessionStore{
-		client: client,
-		prefix: "session:",
-		ttl:    ttl,
+		client:          client,
+		prefix:          "session:",
+		userIndexPrefix: "session-user:",
+		ttl:             ttl,
 	}
 }
 
@@ -67,8 +71,16 @@ func (s *SessionStore) Get(ctx context.Context, sessionID string) (SessionRecord
 }
 
 func (s *SessionStore) Delete(ctx context.Context, sessionID string) error {
+	record, _, err := s.loadWithTTL(ctx, sessionID)
+	if err != nil && !errors.Is(err, ErrSessionNotFound) {
+		return err
+	}
+
 	if err := s.client.Del(ctx, s.key(sessionID)).Err(); err != nil {
 		return fmt.Errorf("delete session: %w", err)
+	}
+	if err == nil {
+		_ = s.client.SRem(ctx, s.userIndexKey(record.UserID), sessionID).Err()
 	}
 	return nil
 }
@@ -119,8 +131,51 @@ func (s *SessionStore) Rotate(ctx context.Context, sessionID string) (string, st
 	return newSessionID, newCSRFToken, nil
 }
 
+func (s *SessionStore) SetActiveTenant(ctx context.Context, sessionID string, tenantID int64) error {
+	record, ttl, err := s.loadWithTTL(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+
+	record.ActiveTenantID = tenantID
+	if err := s.save(ctx, sessionID, record, ttl); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SessionStore) DeleteUserSessions(ctx context.Context, userID int64) error {
+	indexKey := s.userIndexKey(userID)
+	sessionIDs, err := s.client.SMembers(ctx, indexKey).Result()
+	if err != nil {
+		return fmt.Errorf("list user sessions: %w", err)
+	}
+
+	if len(sessionIDs) > 0 {
+		keys := make([]string, 0, len(sessionIDs)+1)
+		for _, sessionID := range sessionIDs {
+			keys = append(keys, s.key(sessionID))
+		}
+		keys = append(keys, indexKey)
+		if err := s.client.Del(ctx, keys...).Err(); err != nil {
+			return fmt.Errorf("delete user sessions: %w", err)
+		}
+		return nil
+	}
+
+	if err := s.client.Del(ctx, indexKey).Err(); err != nil {
+		return fmt.Errorf("delete user session index: %w", err)
+	}
+	return nil
+}
+
 func (s *SessionStore) key(sessionID string) string {
 	return s.prefix + sessionID
+}
+
+func (s *SessionStore) userIndexKey(userID int64) string {
+	return s.userIndexPrefix + strconv.FormatInt(userID, 10)
 }
 
 func (s *SessionStore) loadWithTTL(ctx context.Context, sessionID string) (SessionRecord, time.Duration, error) {
@@ -156,6 +211,12 @@ func (s *SessionStore) save(ctx context.Context, sessionID string, record Sessio
 
 	if err := s.client.Set(ctx, s.key(sessionID), payload, ttl).Err(); err != nil {
 		return fmt.Errorf("save session: %w", err)
+	}
+	if err := s.client.SAdd(ctx, s.userIndexKey(record.UserID), sessionID).Err(); err != nil {
+		return fmt.Errorf("index session by user: %w", err)
+	}
+	if err := s.client.Expire(ctx, s.userIndexKey(record.UserID), ttl).Err(); err != nil {
+		return fmt.Errorf("expire user session index: %w", err)
 	}
 
 	return nil

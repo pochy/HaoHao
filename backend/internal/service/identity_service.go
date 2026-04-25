@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	db "example.com/haohao/backend/internal/db"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -45,6 +47,9 @@ func (s *IdentityService) ResolveOrCreateUser(ctx context.Context, identity Exte
 		Subject:  normalized.Subject,
 	})
 	if err == nil {
+		if existing.DeactivatedAt.Valid {
+			return User{}, ErrUnauthorized
+		}
 		_ = s.queries.UpdateUserIdentityProfile(ctx, db.UpdateUserIdentityProfileParams{
 			Provider:      normalized.Provider,
 			Subject:       normalized.Subject,
@@ -52,7 +57,7 @@ func (s *IdentityService) ResolveOrCreateUser(ctx context.Context, identity Exte
 			EmailVerified: normalized.EmailVerified,
 		})
 
-		return s.syncUserProfile(ctx, s.queries, dbUser(existing.ID, existing.PublicID.String(), existing.Email, existing.DisplayName), normalized)
+		return s.syncUserProfile(ctx, s.queries, dbUser(existing.ID, existing.PublicID.String(), existing.Email, existing.DisplayName, existing.DeactivatedAt, existing.DefaultTenantID), normalized)
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return User{}, fmt.Errorf("lookup identity by provider subject: %w", err)
@@ -93,7 +98,10 @@ func (s *IdentityService) resolveUserForIdentity(ctx context.Context, queries *d
 	if identity.EmailVerified {
 		existing, err := queries.GetUserByEmail(ctx, identity.Email)
 		if err == nil {
-			return s.syncUserProfile(ctx, queries, dbUser(existing.ID, existing.PublicID.String(), existing.Email, existing.DisplayName), identity)
+			if existing.DeactivatedAt.Valid {
+				return User{}, ErrUnauthorized
+			}
+			return s.syncUserProfile(ctx, queries, dbUser(existing.ID, existing.PublicID.String(), existing.Email, existing.DisplayName, existing.DeactivatedAt, existing.DefaultTenantID), identity)
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return User{}, fmt.Errorf("lookup user by email: %w", err)
@@ -108,7 +116,7 @@ func (s *IdentityService) resolveUserForIdentity(ctx context.Context, queries *d
 		return User{}, fmt.Errorf("create oidc user: %w", err)
 	}
 
-	return dbUser(created.ID, created.PublicID.String(), created.Email, created.DisplayName), nil
+	return dbUser(created.ID, created.PublicID.String(), created.Email, created.DisplayName, created.DeactivatedAt, created.DefaultTenantID), nil
 }
 
 func (s *IdentityService) syncUserProfile(ctx context.Context, queries *db.Queries, user User, identity ExternalIdentity) (User, error) {
@@ -135,7 +143,7 @@ func (s *IdentityService) syncUserProfile(ctx context.Context, queries *db.Queri
 		return User{}, fmt.Errorf("update user profile: %w", err)
 	}
 
-	return dbUser(updated.ID, updated.PublicID.String(), updated.Email, updated.DisplayName), nil
+	return dbUser(updated.ID, updated.PublicID.String(), updated.Email, updated.DisplayName, updated.DeactivatedAt, updated.DefaultTenantID), nil
 }
 
 func normalizeExternalIdentity(identity ExternalIdentity) (ExternalIdentity, error) {
@@ -170,11 +178,19 @@ func fallbackDisplayName(email, subject string) string {
 	return subject
 }
 
-func dbUser(id int64, publicID, email, displayName string) User {
+func dbUser(id int64, publicID, email, displayName string, deactivatedAt pgtype.Timestamptz, defaultTenantID pgtype.Int8) User {
+	var deactivated *time.Time
+	if deactivatedAt.Valid {
+		value := deactivatedAt.Time
+		deactivated = &value
+	}
+
 	return User{
-		ID:          id,
-		PublicID:    publicID,
-		Email:       email,
-		DisplayName: displayName,
+		ID:              id,
+		PublicID:        publicID,
+		Email:           email,
+		DisplayName:     displayName,
+		DeactivatedAt:   deactivated,
+		DefaultTenantID: optionalPgInt8(defaultTenantID),
 	}
 }

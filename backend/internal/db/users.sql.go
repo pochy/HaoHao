@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const authenticateUser = `-- name: AuthenticateUser :one
@@ -16,6 +17,7 @@ SELECT id
 FROM users
 WHERE email = $1
   AND password_hash IS NOT NULL
+  AND deactivated_at IS NULL
   AND password_hash = crypt($2, password_hash)
 LIMIT 1
 `
@@ -46,7 +48,9 @@ RETURNING
     id,
     public_id,
     email,
-    display_name
+    display_name,
+    deactivated_at,
+    default_tenant_id
 `
 
 type CreateOIDCUserParams struct {
@@ -55,10 +59,12 @@ type CreateOIDCUserParams struct {
 }
 
 type CreateOIDCUserRow struct {
-	ID          int64     `json:"id"`
-	PublicID    uuid.UUID `json:"public_id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	Email           string             `json:"email"`
+	DisplayName     string             `json:"display_name"`
+	DeactivatedAt   pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID pgtype.Int8        `json:"default_tenant_id"`
 }
 
 func (q *Queries) CreateOIDCUser(ctx context.Context, arg CreateOIDCUserParams) (CreateOIDCUserRow, error) {
@@ -69,6 +75,8 @@ func (q *Queries) CreateOIDCUser(ctx context.Context, arg CreateOIDCUserParams) 
 		&i.PublicID,
 		&i.Email,
 		&i.DisplayName,
+		&i.DeactivatedAt,
+		&i.DefaultTenantID,
 	)
 	return i, err
 }
@@ -78,17 +86,21 @@ SELECT
     id,
     public_id,
     email,
-    display_name
+    display_name,
+    deactivated_at,
+    default_tenant_id
 FROM users
 WHERE email = $1
 LIMIT 1
 `
 
 type GetUserByEmailRow struct {
-	ID          int64     `json:"id"`
-	PublicID    uuid.UUID `json:"public_id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	Email           string             `json:"email"`
+	DisplayName     string             `json:"display_name"`
+	DeactivatedAt   pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID pgtype.Int8        `json:"default_tenant_id"`
 }
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
@@ -99,6 +111,8 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.PublicID,
 		&i.Email,
 		&i.DisplayName,
+		&i.DeactivatedAt,
+		&i.DefaultTenantID,
 	)
 	return i, err
 }
@@ -108,17 +122,21 @@ SELECT
     id,
     public_id,
     email,
-    display_name
+    display_name,
+    deactivated_at,
+    default_tenant_id
 FROM users
 WHERE id = $1
 LIMIT 1
 `
 
 type GetUserByIDRow struct {
-	ID          int64     `json:"id"`
-	PublicID    uuid.UUID `json:"public_id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	Email           string             `json:"email"`
+	DisplayName     string             `json:"display_name"`
+	DeactivatedAt   pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID pgtype.Int8        `json:"default_tenant_id"`
 }
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (GetUserByIDRow, error) {
@@ -129,6 +147,128 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (GetUserByIDRow, er
 		&i.PublicID,
 		&i.Email,
 		&i.DisplayName,
+		&i.DeactivatedAt,
+		&i.DefaultTenantID,
+	)
+	return i, err
+}
+
+const getUserByPublicID = `-- name: GetUserByPublicID :one
+SELECT
+    id,
+    public_id,
+    email,
+    display_name,
+    deactivated_at,
+    default_tenant_id
+FROM users
+WHERE public_id = $1
+LIMIT 1
+`
+
+type GetUserByPublicIDRow struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	Email           string             `json:"email"`
+	DisplayName     string             `json:"display_name"`
+	DeactivatedAt   pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID pgtype.Int8        `json:"default_tenant_id"`
+}
+
+func (q *Queries) GetUserByPublicID(ctx context.Context, publicID uuid.UUID) (GetUserByPublicIDRow, error) {
+	row := q.db.QueryRow(ctx, getUserByPublicID, publicID)
+	var i GetUserByPublicIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.Email,
+		&i.DisplayName,
+		&i.DeactivatedAt,
+		&i.DefaultTenantID,
+	)
+	return i, err
+}
+
+const setUserDeactivatedAt = `-- name: SetUserDeactivatedAt :one
+UPDATE users
+SET deactivated_at = $2,
+    updated_at = now()
+WHERE id = $1
+RETURNING
+    id,
+    public_id,
+    email,
+    display_name,
+    deactivated_at,
+    default_tenant_id
+`
+
+type SetUserDeactivatedAtParams struct {
+	ID            int64              `json:"id"`
+	DeactivatedAt pgtype.Timestamptz `json:"deactivated_at"`
+}
+
+type SetUserDeactivatedAtRow struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	Email           string             `json:"email"`
+	DisplayName     string             `json:"display_name"`
+	DeactivatedAt   pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID pgtype.Int8        `json:"default_tenant_id"`
+}
+
+func (q *Queries) SetUserDeactivatedAt(ctx context.Context, arg SetUserDeactivatedAtParams) (SetUserDeactivatedAtRow, error) {
+	row := q.db.QueryRow(ctx, setUserDeactivatedAt, arg.ID, arg.DeactivatedAt)
+	var i SetUserDeactivatedAtRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.Email,
+		&i.DisplayName,
+		&i.DeactivatedAt,
+		&i.DefaultTenantID,
+	)
+	return i, err
+}
+
+const setUserDefaultTenant = `-- name: SetUserDefaultTenant :one
+UPDATE users
+SET default_tenant_id = $2,
+    updated_at = now()
+WHERE id = $1
+RETURNING
+    id,
+    public_id,
+    email,
+    display_name,
+    deactivated_at,
+    default_tenant_id
+`
+
+type SetUserDefaultTenantParams struct {
+	ID              int64       `json:"id"`
+	DefaultTenantID pgtype.Int8 `json:"default_tenant_id"`
+}
+
+type SetUserDefaultTenantRow struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	Email           string             `json:"email"`
+	DisplayName     string             `json:"display_name"`
+	DeactivatedAt   pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID pgtype.Int8        `json:"default_tenant_id"`
+}
+
+func (q *Queries) SetUserDefaultTenant(ctx context.Context, arg SetUserDefaultTenantParams) (SetUserDefaultTenantRow, error) {
+	row := q.db.QueryRow(ctx, setUserDefaultTenant, arg.ID, arg.DefaultTenantID)
+	var i SetUserDefaultTenantRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.Email,
+		&i.DisplayName,
+		&i.DeactivatedAt,
+		&i.DefaultTenantID,
 	)
 	return i, err
 }
@@ -143,7 +283,9 @@ RETURNING
     id,
     public_id,
     email,
-    display_name
+    display_name,
+    deactivated_at,
+    default_tenant_id
 `
 
 type UpdateUserProfileParams struct {
@@ -153,10 +295,12 @@ type UpdateUserProfileParams struct {
 }
 
 type UpdateUserProfileRow struct {
-	ID          int64     `json:"id"`
-	PublicID    uuid.UUID `json:"public_id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	Email           string             `json:"email"`
+	DisplayName     string             `json:"display_name"`
+	DeactivatedAt   pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID pgtype.Int8        `json:"default_tenant_id"`
 }
 
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error) {
@@ -167,6 +311,8 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.PublicID,
 		&i.Email,
 		&i.DisplayName,
+		&i.DeactivatedAt,
+		&i.DefaultTenantID,
 	)
 	return i, err
 }

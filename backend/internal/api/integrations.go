@@ -99,12 +99,15 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
 		}
 
-		user, err := deps.SessionService.CurrentUser(ctx, input.SessionCookie.Value)
+		current, authCtx, err := currentSessionAuthContext(ctx, deps, input.SessionCookie.Value)
 		if err != nil {
 			return nil, toHTTPError(err)
 		}
+		if authCtx.ActiveTenant == nil {
+			return nil, huma.Error409Conflict("active tenant is required before connecting integrations")
+		}
 
-		statuses, err := deps.DelegationService.ListIntegrations(ctx, user)
+		statuses, err := deps.DelegationService.ListIntegrationsForTenant(ctx, current.User, authCtx.ActiveTenant.ID)
 		if err != nil {
 			return nil, toDelegationHTTPError(err)
 		}
@@ -132,12 +135,15 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
 		}
 
-		user, err := deps.SessionService.CurrentUser(ctx, input.SessionCookie.Value)
+		current, authCtx, err := currentSessionAuthContext(ctx, deps, input.SessionCookie.Value)
 		if err != nil {
 			return nil, toHTTPError(err)
 		}
+		if authCtx.ActiveTenant == nil {
+			return nil, huma.Error409Conflict("active tenant is required before connecting integrations")
+		}
 
-		location, err := deps.DelegationService.StartConnect(ctx, user, input.SessionCookie.Value, input.ResourceServer)
+		location, err := deps.DelegationService.StartConnectForTenant(ctx, current.User, authCtx.ActiveTenant.ID, input.SessionCookie.Value, input.ResourceServer)
 		if err != nil {
 			return nil, toDelegationHTTPError(err)
 		}
@@ -194,12 +200,15 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
 		}
 
-		user, err := deps.SessionService.CurrentUserWithCSRF(ctx, input.SessionCookie.Value, input.CSRFToken)
+		current, authCtx, err := currentSessionAuthContextWithCSRF(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, toHTTPError(err)
 		}
+		if authCtx.ActiveTenant == nil {
+			return nil, huma.Error409Conflict("active tenant is required before verifying integrations")
+		}
 
-		result, err := deps.DelegationService.VerifyAccessToken(ctx, user, input.ResourceServer)
+		result, err := deps.DelegationService.VerifyAccessTokenForTenant(ctx, current.User, authCtx.ActiveTenant.ID, input.ResourceServer)
 		if err != nil {
 			return nil, toDelegationHTTPError(err)
 		}
@@ -228,12 +237,15 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			return nil, huma.Error503ServiceUnavailable("delegated auth is not configured")
 		}
 
-		user, err := deps.SessionService.CurrentUserWithCSRF(ctx, input.SessionCookie.Value, input.CSRFToken)
+		current, authCtx, err := currentSessionAuthContextWithCSRF(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, toHTTPError(err)
 		}
+		if authCtx.ActiveTenant == nil {
+			return nil, huma.Error409Conflict("active tenant is required before deleting integrations")
+		}
 
-		if err := deps.DelegationService.DeleteGrant(ctx, user, input.ResourceServer); err != nil {
+		if err := deps.DelegationService.DeleteGrantForTenant(ctx, current.User, authCtx.ActiveTenant.ID, input.ResourceServer); err != nil {
 			return nil, toDelegationHTTPError(err)
 		}
 
@@ -271,6 +283,36 @@ func toDelegationHTTPError(err error) error {
 	default:
 		return huma.Error500InternalServerError("internal server error")
 	}
+}
+
+func currentSessionAuthContext(ctx context.Context, deps Dependencies, sessionID string) (service.CurrentSession, service.AuthContext, error) {
+	current, err := deps.SessionService.CurrentSession(ctx, sessionID)
+	if err != nil {
+		return service.CurrentSession{}, service.AuthContext{}, err
+	}
+	if deps.AuthzService == nil {
+		return current, service.AuthContext{}, huma.Error503ServiceUnavailable("tenant auth is not configured")
+	}
+	authCtx, err := deps.AuthzService.BuildBrowserContext(ctx, current.User, current.ActiveTenantID)
+	if err != nil {
+		return service.CurrentSession{}, service.AuthContext{}, err
+	}
+	return current, authCtx, nil
+}
+
+func currentSessionAuthContextWithCSRF(ctx context.Context, deps Dependencies, sessionID, csrfToken string) (service.CurrentSession, service.AuthContext, error) {
+	current, err := deps.SessionService.CurrentSessionWithCSRF(ctx, sessionID, csrfToken)
+	if err != nil {
+		return service.CurrentSession{}, service.AuthContext{}, err
+	}
+	if deps.AuthzService == nil {
+		return current, service.AuthContext{}, huma.Error503ServiceUnavailable("tenant auth is not configured")
+	}
+	authCtx, err := deps.AuthzService.BuildBrowserContext(ctx, current.User, current.ActiveTenantID)
+	if err != nil {
+		return service.CurrentSession{}, service.AuthContext{}, err
+	}
+	return current, authCtx, nil
 }
 
 func integrationRedirect(frontendBaseURL, key, value string) string {

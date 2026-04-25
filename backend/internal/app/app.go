@@ -17,13 +17,14 @@ type App struct {
 	API    huma.API
 }
 
-func New(cfg config.Config, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, authzService *service.AuthzService, bearerVerifier *auth.BearerVerifier) *App {
+func New(cfg config.Config, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, bearerVerifier *auth.BearerVerifier) *App {
 	router := gin.New()
 	router.Use(
 		gin.Logger(),
 		gin.Recovery(),
 		middleware.ExternalCORS("/api/external/", cfg.ExternalAllowedOrigins),
 		middleware.ExternalAuth("/api/external/", bearerVerifier, authzService, "zitadel", cfg.ExternalExpectedAudience, cfg.ExternalRequiredScopePrefix, cfg.ExternalRequiredRole),
+		middleware.SCIMAuth(cfg.SCIMBasePath+"/", bearerVerifier, cfg.SCIMBearerAudience, cfg.SCIMRequiredScope),
 	)
 
 	humaConfig := huma.DefaultConfig(cfg.AppName, cfg.AppVersion)
@@ -46,7 +47,10 @@ func New(cfg config.Config, sessionService *service.SessionService, oidcLoginSer
 		SessionService:               sessionService,
 		OIDCLoginService:             oidcLoginService,
 		DelegationService:            delegationService,
+		ProvisioningService:          provisioningService,
+		AuthzService:                 authzService,
 		AuthMode:                     cfg.AuthMode,
+		SCIMBasePath:                 cfg.SCIMBasePath,
 		FrontendBaseURL:              cfg.FrontendBaseURL,
 		ZitadelIssuer:                cfg.ZitadelIssuer,
 		ZitadelClientID:              cfg.ZitadelClientID,

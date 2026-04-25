@@ -14,18 +14,35 @@ import (
 const deleteOAuthUserGrant = `-- name: DeleteOAuthUserGrant :exec
 DELETE FROM oauth_user_grants
 WHERE user_id = $1
-  AND provider = $2
-  AND resource_server = $3
+  AND tenant_id = $2
+  AND provider = $3
+  AND resource_server = $4
 `
 
 type DeleteOAuthUserGrantParams struct {
 	UserID         int64  `json:"user_id"`
+	TenantID       int64  `json:"tenant_id"`
 	Provider       string `json:"provider"`
 	ResourceServer string `json:"resource_server"`
 }
 
 func (q *Queries) DeleteOAuthUserGrant(ctx context.Context, arg DeleteOAuthUserGrantParams) error {
-	_, err := q.db.Exec(ctx, deleteOAuthUserGrant, arg.UserID, arg.Provider, arg.ResourceServer)
+	_, err := q.db.Exec(ctx, deleteOAuthUserGrant,
+		arg.UserID,
+		arg.TenantID,
+		arg.Provider,
+		arg.ResourceServer,
+	)
+	return err
+}
+
+const deleteOAuthUserGrantsByUserID = `-- name: DeleteOAuthUserGrantsByUserID :exec
+DELETE FROM oauth_user_grants
+WHERE user_id = $1
+`
+
+func (q *Queries) DeleteOAuthUserGrantsByUserID(ctx context.Context, userID int64) error {
+	_, err := q.db.Exec(ctx, deleteOAuthUserGrantsByUserID, userID)
 	return err
 }
 
@@ -33,6 +50,7 @@ const getActiveOAuthUserGrant = `-- name: GetActiveOAuthUserGrant :one
 SELECT
     id,
     user_id,
+    tenant_id,
     provider,
     resource_server,
     provider_subject,
@@ -48,24 +66,51 @@ SELECT
     updated_at
 FROM oauth_user_grants
 WHERE user_id = $1
-  AND provider = $2
-  AND resource_server = $3
+  AND tenant_id = $2
+  AND provider = $3
+  AND resource_server = $4
   AND revoked_at IS NULL
 LIMIT 1
 `
 
 type GetActiveOAuthUserGrantParams struct {
 	UserID         int64  `json:"user_id"`
+	TenantID       int64  `json:"tenant_id"`
 	Provider       string `json:"provider"`
 	ResourceServer string `json:"resource_server"`
 }
 
-func (q *Queries) GetActiveOAuthUserGrant(ctx context.Context, arg GetActiveOAuthUserGrantParams) (OauthUserGrant, error) {
-	row := q.db.QueryRow(ctx, getActiveOAuthUserGrant, arg.UserID, arg.Provider, arg.ResourceServer)
-	var i OauthUserGrant
+type GetActiveOAuthUserGrantRow struct {
+	ID                     int64              `json:"id"`
+	UserID                 int64              `json:"user_id"`
+	TenantID               int64              `json:"tenant_id"`
+	Provider               string             `json:"provider"`
+	ResourceServer         string             `json:"resource_server"`
+	ProviderSubject        string             `json:"provider_subject"`
+	RefreshTokenCiphertext []byte             `json:"refresh_token_ciphertext"`
+	RefreshTokenKeyVersion int32              `json:"refresh_token_key_version"`
+	ScopeText              string             `json:"scope_text"`
+	GrantedBySessionID     string             `json:"granted_by_session_id"`
+	GrantedAt              pgtype.Timestamptz `json:"granted_at"`
+	LastRefreshedAt        pgtype.Timestamptz `json:"last_refreshed_at"`
+	RevokedAt              pgtype.Timestamptz `json:"revoked_at"`
+	LastErrorCode          pgtype.Text        `json:"last_error_code"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetActiveOAuthUserGrant(ctx context.Context, arg GetActiveOAuthUserGrantParams) (GetActiveOAuthUserGrantRow, error) {
+	row := q.db.QueryRow(ctx, getActiveOAuthUserGrant,
+		arg.UserID,
+		arg.TenantID,
+		arg.Provider,
+		arg.ResourceServer,
+	)
+	var i GetActiveOAuthUserGrantRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.TenantID,
 		&i.Provider,
 		&i.ResourceServer,
 		&i.ProviderSubject,
@@ -87,6 +132,7 @@ const getOAuthUserGrant = `-- name: GetOAuthUserGrant :one
 SELECT
     id,
     user_id,
+    tenant_id,
     provider,
     resource_server,
     provider_subject,
@@ -102,23 +148,50 @@ SELECT
     updated_at
 FROM oauth_user_grants
 WHERE user_id = $1
-  AND provider = $2
-  AND resource_server = $3
+  AND tenant_id = $2
+  AND provider = $3
+  AND resource_server = $4
 LIMIT 1
 `
 
 type GetOAuthUserGrantParams struct {
 	UserID         int64  `json:"user_id"`
+	TenantID       int64  `json:"tenant_id"`
 	Provider       string `json:"provider"`
 	ResourceServer string `json:"resource_server"`
 }
 
-func (q *Queries) GetOAuthUserGrant(ctx context.Context, arg GetOAuthUserGrantParams) (OauthUserGrant, error) {
-	row := q.db.QueryRow(ctx, getOAuthUserGrant, arg.UserID, arg.Provider, arg.ResourceServer)
-	var i OauthUserGrant
+type GetOAuthUserGrantRow struct {
+	ID                     int64              `json:"id"`
+	UserID                 int64              `json:"user_id"`
+	TenantID               int64              `json:"tenant_id"`
+	Provider               string             `json:"provider"`
+	ResourceServer         string             `json:"resource_server"`
+	ProviderSubject        string             `json:"provider_subject"`
+	RefreshTokenCiphertext []byte             `json:"refresh_token_ciphertext"`
+	RefreshTokenKeyVersion int32              `json:"refresh_token_key_version"`
+	ScopeText              string             `json:"scope_text"`
+	GrantedBySessionID     string             `json:"granted_by_session_id"`
+	GrantedAt              pgtype.Timestamptz `json:"granted_at"`
+	LastRefreshedAt        pgtype.Timestamptz `json:"last_refreshed_at"`
+	RevokedAt              pgtype.Timestamptz `json:"revoked_at"`
+	LastErrorCode          pgtype.Text        `json:"last_error_code"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetOAuthUserGrant(ctx context.Context, arg GetOAuthUserGrantParams) (GetOAuthUserGrantRow, error) {
+	row := q.db.QueryRow(ctx, getOAuthUserGrant,
+		arg.UserID,
+		arg.TenantID,
+		arg.Provider,
+		arg.ResourceServer,
+	)
+	var i GetOAuthUserGrantRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.TenantID,
 		&i.Provider,
 		&i.ResourceServer,
 		&i.ProviderSubject,
@@ -136,10 +209,91 @@ func (q *Queries) GetOAuthUserGrant(ctx context.Context, arg GetOAuthUserGrantPa
 	return i, err
 }
 
+const listActiveOAuthUserGrantsByUserID = `-- name: ListActiveOAuthUserGrantsByUserID :many
+SELECT
+    id,
+    user_id,
+    tenant_id,
+    provider,
+    resource_server,
+    provider_subject,
+    refresh_token_ciphertext,
+    refresh_token_key_version,
+    scope_text,
+    granted_by_session_id,
+    granted_at,
+    last_refreshed_at,
+    revoked_at,
+    last_error_code,
+    created_at,
+    updated_at
+FROM oauth_user_grants
+WHERE user_id = $1
+  AND revoked_at IS NULL
+ORDER BY tenant_id, resource_server, provider
+`
+
+type ListActiveOAuthUserGrantsByUserIDRow struct {
+	ID                     int64              `json:"id"`
+	UserID                 int64              `json:"user_id"`
+	TenantID               int64              `json:"tenant_id"`
+	Provider               string             `json:"provider"`
+	ResourceServer         string             `json:"resource_server"`
+	ProviderSubject        string             `json:"provider_subject"`
+	RefreshTokenCiphertext []byte             `json:"refresh_token_ciphertext"`
+	RefreshTokenKeyVersion int32              `json:"refresh_token_key_version"`
+	ScopeText              string             `json:"scope_text"`
+	GrantedBySessionID     string             `json:"granted_by_session_id"`
+	GrantedAt              pgtype.Timestamptz `json:"granted_at"`
+	LastRefreshedAt        pgtype.Timestamptz `json:"last_refreshed_at"`
+	RevokedAt              pgtype.Timestamptz `json:"revoked_at"`
+	LastErrorCode          pgtype.Text        `json:"last_error_code"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListActiveOAuthUserGrantsByUserID(ctx context.Context, userID int64) ([]ListActiveOAuthUserGrantsByUserIDRow, error) {
+	rows, err := q.db.Query(ctx, listActiveOAuthUserGrantsByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveOAuthUserGrantsByUserIDRow
+	for rows.Next() {
+		var i ListActiveOAuthUserGrantsByUserIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.TenantID,
+			&i.Provider,
+			&i.ResourceServer,
+			&i.ProviderSubject,
+			&i.RefreshTokenCiphertext,
+			&i.RefreshTokenKeyVersion,
+			&i.ScopeText,
+			&i.GrantedBySessionID,
+			&i.GrantedAt,
+			&i.LastRefreshedAt,
+			&i.RevokedAt,
+			&i.LastErrorCode,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOAuthUserGrantsByUserID = `-- name: ListOAuthUserGrantsByUserID :many
 SELECT
     id,
     user_id,
+    tenant_id,
     provider,
     resource_server,
     provider_subject,
@@ -154,12 +308,19 @@ SELECT
     updated_at
 FROM oauth_user_grants
 WHERE user_id = $1
+  AND tenant_id = $2
 ORDER BY resource_server, provider
 `
+
+type ListOAuthUserGrantsByUserIDParams struct {
+	UserID   int64 `json:"user_id"`
+	TenantID int64 `json:"tenant_id"`
+}
 
 type ListOAuthUserGrantsByUserIDRow struct {
 	ID                     int64              `json:"id"`
 	UserID                 int64              `json:"user_id"`
+	TenantID               int64              `json:"tenant_id"`
 	Provider               string             `json:"provider"`
 	ResourceServer         string             `json:"resource_server"`
 	ProviderSubject        string             `json:"provider_subject"`
@@ -174,8 +335,8 @@ type ListOAuthUserGrantsByUserIDRow struct {
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) ListOAuthUserGrantsByUserID(ctx context.Context, userID int64) ([]ListOAuthUserGrantsByUserIDRow, error) {
-	rows, err := q.db.Query(ctx, listOAuthUserGrantsByUserID, userID)
+func (q *Queries) ListOAuthUserGrantsByUserID(ctx context.Context, arg ListOAuthUserGrantsByUserIDParams) ([]ListOAuthUserGrantsByUserIDRow, error) {
+	rows, err := q.db.Query(ctx, listOAuthUserGrantsByUserID, arg.UserID, arg.TenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -186,6 +347,7 @@ func (q *Queries) ListOAuthUserGrantsByUserID(ctx context.Context, userID int64)
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.TenantID,
 			&i.Provider,
 			&i.ResourceServer,
 			&i.ProviderSubject,
@@ -212,15 +374,17 @@ func (q *Queries) ListOAuthUserGrantsByUserID(ctx context.Context, userID int64)
 const markOAuthUserGrantRevoked = `-- name: MarkOAuthUserGrantRevoked :exec
 UPDATE oauth_user_grants
 SET revoked_at = now(),
-    last_error_code = $4,
+    last_error_code = $5,
     updated_at = now()
 WHERE user_id = $1
-  AND provider = $2
-  AND resource_server = $3
+  AND tenant_id = $2
+  AND provider = $3
+  AND resource_server = $4
 `
 
 type MarkOAuthUserGrantRevokedParams struct {
 	UserID         int64       `json:"user_id"`
+	TenantID       int64       `json:"tenant_id"`
 	Provider       string      `json:"provider"`
 	ResourceServer string      `json:"resource_server"`
 	LastErrorCode  pgtype.Text `json:"last_error_code"`
@@ -229,6 +393,7 @@ type MarkOAuthUserGrantRevokedParams struct {
 func (q *Queries) MarkOAuthUserGrantRevoked(ctx context.Context, arg MarkOAuthUserGrantRevokedParams) error {
 	_, err := q.db.Exec(ctx, markOAuthUserGrantRevoked,
 		arg.UserID,
+		arg.TenantID,
 		arg.Provider,
 		arg.ResourceServer,
 		arg.LastErrorCode,
@@ -238,19 +403,21 @@ func (q *Queries) MarkOAuthUserGrantRevoked(ctx context.Context, arg MarkOAuthUs
 
 const updateOAuthUserGrantAfterRefresh = `-- name: UpdateOAuthUserGrantAfterRefresh :one
 UPDATE oauth_user_grants
-SET refresh_token_ciphertext = $4,
-    refresh_token_key_version = $5,
-    scope_text = $6,
+SET refresh_token_ciphertext = $5,
+    refresh_token_key_version = $6,
+    scope_text = $7,
     last_refreshed_at = now(),
     last_error_code = NULL,
     updated_at = now()
 WHERE user_id = $1
-  AND provider = $2
-  AND resource_server = $3
+  AND tenant_id = $2
+  AND provider = $3
+  AND resource_server = $4
   AND revoked_at IS NULL
 RETURNING
     id,
     user_id,
+    tenant_id,
     provider,
     resource_server,
     provider_subject,
@@ -268,6 +435,7 @@ RETURNING
 
 type UpdateOAuthUserGrantAfterRefreshParams struct {
 	UserID                 int64  `json:"user_id"`
+	TenantID               int64  `json:"tenant_id"`
 	Provider               string `json:"provider"`
 	ResourceServer         string `json:"resource_server"`
 	RefreshTokenCiphertext []byte `json:"refresh_token_ciphertext"`
@@ -275,19 +443,40 @@ type UpdateOAuthUserGrantAfterRefreshParams struct {
 	ScopeText              string `json:"scope_text"`
 }
 
-func (q *Queries) UpdateOAuthUserGrantAfterRefresh(ctx context.Context, arg UpdateOAuthUserGrantAfterRefreshParams) (OauthUserGrant, error) {
+type UpdateOAuthUserGrantAfterRefreshRow struct {
+	ID                     int64              `json:"id"`
+	UserID                 int64              `json:"user_id"`
+	TenantID               int64              `json:"tenant_id"`
+	Provider               string             `json:"provider"`
+	ResourceServer         string             `json:"resource_server"`
+	ProviderSubject        string             `json:"provider_subject"`
+	RefreshTokenCiphertext []byte             `json:"refresh_token_ciphertext"`
+	RefreshTokenKeyVersion int32              `json:"refresh_token_key_version"`
+	ScopeText              string             `json:"scope_text"`
+	GrantedBySessionID     string             `json:"granted_by_session_id"`
+	GrantedAt              pgtype.Timestamptz `json:"granted_at"`
+	LastRefreshedAt        pgtype.Timestamptz `json:"last_refreshed_at"`
+	RevokedAt              pgtype.Timestamptz `json:"revoked_at"`
+	LastErrorCode          pgtype.Text        `json:"last_error_code"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateOAuthUserGrantAfterRefresh(ctx context.Context, arg UpdateOAuthUserGrantAfterRefreshParams) (UpdateOAuthUserGrantAfterRefreshRow, error) {
 	row := q.db.QueryRow(ctx, updateOAuthUserGrantAfterRefresh,
 		arg.UserID,
+		arg.TenantID,
 		arg.Provider,
 		arg.ResourceServer,
 		arg.RefreshTokenCiphertext,
 		arg.RefreshTokenKeyVersion,
 		arg.ScopeText,
 	)
-	var i OauthUserGrant
+	var i UpdateOAuthUserGrantAfterRefreshRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.TenantID,
 		&i.Provider,
 		&i.ResourceServer,
 		&i.ProviderSubject,
@@ -308,6 +497,7 @@ func (q *Queries) UpdateOAuthUserGrantAfterRefresh(ctx context.Context, arg Upda
 const upsertOAuthUserGrant = `-- name: UpsertOAuthUserGrant :one
 INSERT INTO oauth_user_grants (
     user_id,
+    tenant_id,
     provider,
     resource_server,
     provider_subject,
@@ -323,9 +513,10 @@ INSERT INTO oauth_user_grants (
     $5,
     $6,
     $7,
-    $8
+    $8,
+    $9
 )
-ON CONFLICT (user_id, provider, resource_server) DO UPDATE
+ON CONFLICT (user_id, provider, resource_server, tenant_id) DO UPDATE
 SET provider_subject = EXCLUDED.provider_subject,
     refresh_token_ciphertext = EXCLUDED.refresh_token_ciphertext,
     refresh_token_key_version = EXCLUDED.refresh_token_key_version,
@@ -339,6 +530,7 @@ SET provider_subject = EXCLUDED.provider_subject,
 RETURNING
     id,
     user_id,
+    tenant_id,
     provider,
     resource_server,
     provider_subject,
@@ -356,6 +548,7 @@ RETURNING
 
 type UpsertOAuthUserGrantParams struct {
 	UserID                 int64  `json:"user_id"`
+	TenantID               int64  `json:"tenant_id"`
 	Provider               string `json:"provider"`
 	ResourceServer         string `json:"resource_server"`
 	ProviderSubject        string `json:"provider_subject"`
@@ -365,9 +558,29 @@ type UpsertOAuthUserGrantParams struct {
 	GrantedBySessionID     string `json:"granted_by_session_id"`
 }
 
-func (q *Queries) UpsertOAuthUserGrant(ctx context.Context, arg UpsertOAuthUserGrantParams) (OauthUserGrant, error) {
+type UpsertOAuthUserGrantRow struct {
+	ID                     int64              `json:"id"`
+	UserID                 int64              `json:"user_id"`
+	TenantID               int64              `json:"tenant_id"`
+	Provider               string             `json:"provider"`
+	ResourceServer         string             `json:"resource_server"`
+	ProviderSubject        string             `json:"provider_subject"`
+	RefreshTokenCiphertext []byte             `json:"refresh_token_ciphertext"`
+	RefreshTokenKeyVersion int32              `json:"refresh_token_key_version"`
+	ScopeText              string             `json:"scope_text"`
+	GrantedBySessionID     string             `json:"granted_by_session_id"`
+	GrantedAt              pgtype.Timestamptz `json:"granted_at"`
+	LastRefreshedAt        pgtype.Timestamptz `json:"last_refreshed_at"`
+	RevokedAt              pgtype.Timestamptz `json:"revoked_at"`
+	LastErrorCode          pgtype.Text        `json:"last_error_code"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpsertOAuthUserGrant(ctx context.Context, arg UpsertOAuthUserGrantParams) (UpsertOAuthUserGrantRow, error) {
 	row := q.db.QueryRow(ctx, upsertOAuthUserGrant,
 		arg.UserID,
+		arg.TenantID,
 		arg.Provider,
 		arg.ResourceServer,
 		arg.ProviderSubject,
@@ -376,10 +589,11 @@ func (q *Queries) UpsertOAuthUserGrant(ctx context.Context, arg UpsertOAuthUserG
 		arg.ScopeText,
 		arg.GrantedBySessionID,
 	)
-	var i OauthUserGrant
+	var i UpsertOAuthUserGrantRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.TenantID,
 		&i.Provider,
 		&i.ResourceServer,
 		&i.ProviderSubject,

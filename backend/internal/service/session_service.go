@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"example.com/haohao/backend/internal/auth"
 	db "example.com/haohao/backend/internal/db"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var (
@@ -21,10 +23,17 @@ var (
 )
 
 type User struct {
-	ID          int64
-	PublicID    string
-	Email       string
-	DisplayName string
+	ID              int64
+	PublicID        string
+	Email           string
+	DisplayName     string
+	DeactivatedAt   *time.Time
+	DefaultTenantID *int64
+}
+
+type CurrentSession struct {
+	User           User
+	ActiveTenantID *int64
 }
 
 type SessionService struct {
@@ -71,31 +80,63 @@ func (s *SessionService) Login(ctx context.Context, email, password string) (Use
 }
 
 func (s *SessionService) CurrentUser(ctx context.Context, sessionID string) (User, error) {
-	session, err := s.store.Get(ctx, sessionID)
-	if errors.Is(err, auth.ErrSessionNotFound) {
-		return User{}, ErrUnauthorized
-	}
+	current, err := s.CurrentSession(ctx, sessionID)
 	if err != nil {
 		return User{}, err
 	}
+	return current.User, nil
+}
 
-	return s.loadUserByID(ctx, session.UserID)
+func (s *SessionService) CurrentSession(ctx context.Context, sessionID string) (CurrentSession, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return CurrentSession{}, ErrUnauthorized
+	}
+	if err != nil {
+		return CurrentSession{}, err
+	}
+
+	user, err := s.loadUserByID(ctx, session.UserID)
+	if err != nil {
+		return CurrentSession{}, err
+	}
+
+	return CurrentSession{
+		User:           user,
+		ActiveTenantID: optionalInt64(session.ActiveTenantID),
+	}, nil
 }
 
 func (s *SessionService) CurrentUserWithCSRF(ctx context.Context, sessionID, csrfHeader string) (User, error) {
-	session, err := s.store.Get(ctx, sessionID)
-	if errors.Is(err, auth.ErrSessionNotFound) {
-		return User{}, ErrUnauthorized
-	}
+	current, err := s.CurrentSessionWithCSRF(ctx, sessionID, csrfHeader)
 	if err != nil {
 		return User{}, err
 	}
+	return current.User, nil
+}
 
-	if subtle.ConstantTimeCompare([]byte(session.CSRFToken), []byte(csrfHeader)) != 1 {
-		return User{}, ErrInvalidCSRFToken
+func (s *SessionService) CurrentSessionWithCSRF(ctx context.Context, sessionID, csrfHeader string) (CurrentSession, error) {
+	session, err := s.store.Get(ctx, sessionID)
+	if errors.Is(err, auth.ErrSessionNotFound) {
+		return CurrentSession{}, ErrUnauthorized
+	}
+	if err != nil {
+		return CurrentSession{}, err
 	}
 
-	return s.loadUserByID(ctx, session.UserID)
+	if subtle.ConstantTimeCompare([]byte(session.CSRFToken), []byte(csrfHeader)) != 1 {
+		return CurrentSession{}, ErrInvalidCSRFToken
+	}
+
+	user, err := s.loadUserByID(ctx, session.UserID)
+	if err != nil {
+		return CurrentSession{}, err
+	}
+
+	return CurrentSession{
+		User:           user,
+		ActiveTenantID: optionalInt64(session.ActiveTenantID),
+	}, nil
 }
 
 func (s *SessionService) IssueSession(ctx context.Context, userID int64) (string, string, error) {
@@ -146,6 +187,17 @@ func (s *SessionService) ReissueCSRF(ctx context.Context, sessionID string) (str
 	return csrfToken, nil
 }
 
+func (s *SessionService) SetActiveTenant(ctx context.Context, sessionID, csrfHeader string, tenantID int64) error {
+	if _, err := s.CurrentSessionWithCSRF(ctx, sessionID, csrfHeader); err != nil {
+		return err
+	}
+	return s.store.SetActiveTenant(ctx, sessionID, tenantID)
+}
+
+func (s *SessionService) DeleteUserSessions(ctx context.Context, userID int64) error {
+	return s.store.DeleteUserSessions(ctx, userID)
+}
+
 func (s *SessionService) RefreshSession(ctx context.Context, sessionID, csrfHeader string) (string, string, error) {
 	session, err := s.store.Get(ctx, sessionID)
 	if errors.Is(err, auth.ErrSessionNotFound) {
@@ -178,11 +230,30 @@ func (s *SessionService) loadUserByID(ctx context.Context, userID int64) (User, 
 	if err != nil {
 		return User{}, fmt.Errorf("load user by session: %w", err)
 	}
+	if record.DeactivatedAt.Valid {
+		return User{}, ErrUnauthorized
+	}
 
 	return User{
-		ID:          record.ID,
-		PublicID:    record.PublicID.String(),
-		Email:       record.Email,
-		DisplayName: record.DisplayName,
+		ID:              record.ID,
+		PublicID:        record.PublicID.String(),
+		Email:           record.Email,
+		DisplayName:     record.DisplayName,
+		DefaultTenantID: optionalPgInt8(record.DefaultTenantID),
 	}, nil
+}
+
+func optionalInt64(value int64) *int64 {
+	if value == 0 {
+		return nil
+	}
+	return &value
+}
+
+func optionalPgInt8(value pgtype.Int8) *int64 {
+	if !value.Valid {
+		return nil
+	}
+	v := value.Int64
+	return &v
 }

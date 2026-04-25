@@ -100,7 +100,9 @@ func main() {
 		}
 	}
 
-	application := app.New(cfg, sessionService, oidcLoginService, delegationService, authzService, bearerVerifier)
+	provisioningService := service.NewProvisioningService(pool, queries, sessionService, delegationService, authzService)
+
+	application := app.New(cfg, sessionService, oidcLoginService, delegationService, provisioningService, authzService, bearerVerifier)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

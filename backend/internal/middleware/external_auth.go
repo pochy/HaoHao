@@ -31,7 +31,7 @@ func ExternalCORS(pathPrefix string, allowedOrigins []string) gin.HandlerFunc {
 			header := c.Writer.Header()
 			header.Set("Access-Control-Allow-Origin", origin)
 			header.Add("Vary", "Origin")
-			header.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			header.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Tenant-ID")
 			header.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			header.Set("Access-Control-Max-Age", "600")
 		}
@@ -82,8 +82,12 @@ func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService
 			return
 		}
 
-		authCtx, err := authzService.AuthContextFromBearer(c.Request.Context(), providerName, claims)
+		authCtx, err := authzService.AuthContextFromBearerWithTenant(c.Request.Context(), providerName, claims, c.GetHeader("X-Tenant-ID"))
 		if err != nil {
+			if err == service.ErrUnauthorized {
+				writeBearerProblem(c, http.StatusForbidden, "tenant access denied")
+				return
+			}
 			writeProblem(c, http.StatusInternalServerError, "failed to build auth context")
 			return
 		}
@@ -93,6 +97,38 @@ func ExternalAuth(pathPrefix string, verifier *auth.BearerVerifier, authzService
 		}
 
 		c.Request = c.Request.WithContext(service.ContextWithAuthContext(c.Request.Context(), authCtx))
+		c.Next()
+	}
+}
+
+func SCIMAuth(pathPrefix string, verifier *auth.BearerVerifier, expectedAudience, requiredScope string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !strings.HasPrefix(c.Request.URL.Path, pathPrefix) || c.Request.Method == http.MethodOptions {
+			c.Next()
+			return
+		}
+
+		if verifier == nil {
+			writeProblem(c, http.StatusServiceUnavailable, "scim bearer auth is not configured")
+			return
+		}
+
+		rawToken, err := bearerTokenFromHeader(c.GetHeader("Authorization"))
+		if err != nil {
+			writeBearerProblem(c, http.StatusUnauthorized, err.Error())
+			return
+		}
+
+		claims, err := verifier.Verify(c.Request.Context(), rawToken, expectedAudience, "")
+		if err != nil {
+			writeBearerProblem(c, http.StatusUnauthorized, err.Error())
+			return
+		}
+		if !claims.HasScope(requiredScope) {
+			writeBearerProblem(c, http.StatusForbidden, auth.ErrInvalidBearerScope.Error())
+			return
+		}
+
 		c.Next()
 	}
 }

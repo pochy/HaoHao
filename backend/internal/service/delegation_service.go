@@ -27,6 +27,7 @@ var (
 )
 
 type DelegationStatus struct {
+	TenantID        int64
 	ResourceServer  string
 	Provider        string
 	Connected       bool
@@ -83,11 +84,22 @@ func NewDelegationService(queries *db.Queries, oauthClient *auth.DelegatedOAuthC
 }
 
 func (s *DelegationService) ListIntegrations(ctx context.Context, user User) ([]DelegationStatus, error) {
+	tenantID, err := delegationTenantID(user)
+	if err != nil {
+		return nil, err
+	}
+	return s.ListIntegrationsForTenant(ctx, user, tenantID)
+}
+
+func (s *DelegationService) ListIntegrationsForTenant(ctx context.Context, user User, tenantID int64) ([]DelegationStatus, error) {
 	if err := s.requireConfigured(); err != nil {
 		return nil, err
 	}
 
-	rows, err := s.queries.ListOAuthUserGrantsByUserID(ctx, user.ID)
+	rows, err := s.queries.ListOAuthUserGrantsByUserID(ctx, db.ListOAuthUserGrantsByUserIDParams{
+		UserID:   user.ID,
+		TenantID: tenantID,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list downstream grants: %w", err)
 	}
@@ -107,6 +119,7 @@ func (s *DelegationService) ListIntegrations(ctx context.Context, user User) ([]
 		}
 
 		status := DelegationStatus{
+			TenantID:       tenantID,
 			ResourceServer: resource.resourceServer,
 			Provider:       resource.provider,
 			Scopes:         resource.scopes,
@@ -128,6 +141,14 @@ func (s *DelegationService) ListIntegrations(ctx context.Context, user User) ([]
 }
 
 func (s *DelegationService) StartConnect(ctx context.Context, user User, sessionID, resourceServer string) (string, error) {
+	tenantID, err := delegationTenantID(user)
+	if err != nil {
+		return "", err
+	}
+	return s.StartConnectForTenant(ctx, user, tenantID, sessionID, resourceServer)
+}
+
+func (s *DelegationService) StartConnectForTenant(ctx context.Context, user User, tenantID int64, sessionID, resourceServer string) (string, error) {
 	if err := s.requireConfigured(); err != nil {
 		return "", err
 	}
@@ -137,7 +158,7 @@ func (s *DelegationService) StartConnect(ctx context.Context, user User, session
 		return "", err
 	}
 
-	state, record, err := s.stateStore.Create(ctx, user.ID, resource.resourceServer, hashSessionID(sessionID))
+	state, record, err := s.stateStore.Create(ctx, user.ID, tenantID, resource.resourceServer, hashSessionID(sessionID))
 	if err != nil {
 		return "", fmt.Errorf("create delegated auth state: %w", err)
 	}
@@ -159,7 +180,7 @@ func (s *DelegationService) SaveGrantFromCallback(ctx context.Context, user User
 	if err != nil {
 		return DelegationStatus{}, fmt.Errorf("%w: %v", ErrDelegationInvalidState, err)
 	}
-	if record.UserID != user.ID || record.ResourceServer != resource.resourceServer || record.SessionHash != hashSessionID(sessionID) {
+	if record.UserID != user.ID || record.TenantID == 0 || record.ResourceServer != resource.resourceServer || record.SessionHash != hashSessionID(sessionID) {
 		return DelegationStatus{}, ErrDelegationInvalidState
 	}
 
@@ -189,6 +210,7 @@ func (s *DelegationService) SaveGrantFromCallback(ctx context.Context, user User
 
 	row, err := s.queries.UpsertOAuthUserGrant(ctx, db.UpsertOAuthUserGrantParams{
 		UserID:                 user.ID,
+		TenantID:               record.TenantID,
 		Provider:               resource.provider,
 		ResourceServer:         resource.resourceServer,
 		ProviderSubject:        identity.Subject,
@@ -201,10 +223,18 @@ func (s *DelegationService) SaveGrantFromCallback(ctx context.Context, user User
 		return DelegationStatus{}, fmt.Errorf("save delegated grant: %w", err)
 	}
 
-	return grantStatusFromRow(row), nil
+	return grantStatusFromUpsertRow(row), nil
 }
 
 func (s *DelegationService) GetAccessToken(ctx context.Context, user User, resourceServer string) (DelegatedAccessToken, error) {
+	tenantID, err := delegationTenantID(user)
+	if err != nil {
+		return DelegatedAccessToken{}, err
+	}
+	return s.GetAccessTokenForTenant(ctx, user, tenantID, resourceServer)
+}
+
+func (s *DelegationService) GetAccessTokenForTenant(ctx context.Context, user User, tenantID int64, resourceServer string) (DelegatedAccessToken, error) {
 	if err := s.requireConfigured(); err != nil {
 		return DelegatedAccessToken{}, err
 	}
@@ -216,6 +246,7 @@ func (s *DelegationService) GetAccessToken(ctx context.Context, user User, resou
 
 	grant, err := s.queries.GetActiveOAuthUserGrant(ctx, db.GetActiveOAuthUserGrantParams{
 		UserID:         user.ID,
+		TenantID:       tenantID,
 		Provider:       resource.provider,
 		ResourceServer: resource.resourceServer,
 	})
@@ -225,9 +256,10 @@ func (s *DelegationService) GetAccessToken(ctx context.Context, user User, resou
 	if err != nil {
 		return DelegatedAccessToken{}, fmt.Errorf("load delegated grant: %w", err)
 	}
-	if s.refreshTokenExpired(grant) {
+	if s.refreshTokenExpired(grant.GrantedAt, grant.LastRefreshedAt) {
 		_ = s.queries.MarkOAuthUserGrantRevoked(ctx, db.MarkOAuthUserGrantRevokedParams{
 			UserID:         user.ID,
+			TenantID:       tenantID,
 			Provider:       resource.provider,
 			ResourceServer: resource.resourceServer,
 			LastErrorCode:  pgtype.Text{String: "refresh_token_expired", Valid: true},
@@ -245,6 +277,7 @@ func (s *DelegationService) GetAccessToken(ctx context.Context, user User, resou
 		if auth.IsInvalidGrantError(err) {
 			_ = s.queries.MarkOAuthUserGrantRevoked(ctx, db.MarkOAuthUserGrantRevokedParams{
 				UserID:         user.ID,
+				TenantID:       tenantID,
 				Provider:       resource.provider,
 				ResourceServer: resource.resourceServer,
 				LastErrorCode:  pgtype.Text{String: "invalid_grant", Valid: true},
@@ -271,6 +304,7 @@ func (s *DelegationService) GetAccessToken(ctx context.Context, user User, resou
 
 	if _, err := s.queries.UpdateOAuthUserGrantAfterRefresh(ctx, db.UpdateOAuthUserGrantAfterRefreshParams{
 		UserID:                 user.ID,
+		TenantID:               tenantID,
 		Provider:               resource.provider,
 		ResourceServer:         resource.resourceServer,
 		RefreshTokenCiphertext: ciphertext,
@@ -292,7 +326,18 @@ func (s *DelegationService) VerifyAccessToken(ctx context.Context, user User, re
 	if err != nil {
 		return DelegationVerifyResult{}, err
 	}
+	return delegationVerifyResult(resourceServer, token), nil
+}
 
+func (s *DelegationService) VerifyAccessTokenForTenant(ctx context.Context, user User, tenantID int64, resourceServer string) (DelegationVerifyResult, error) {
+	token, err := s.GetAccessTokenForTenant(ctx, user, tenantID, resourceServer)
+	if err != nil {
+		return DelegationVerifyResult{}, err
+	}
+	return delegationVerifyResult(resourceServer, token), nil
+}
+
+func delegationVerifyResult(resourceServer string, token DelegatedAccessToken) DelegationVerifyResult {
 	now := time.Now().UTC()
 	return DelegationVerifyResult{
 		ResourceServer:  normalizeResourceServer(resourceServer),
@@ -300,10 +345,18 @@ func (s *DelegationService) VerifyAccessToken(ctx context.Context, user User, re
 		Scopes:          token.Scopes,
 		AccessExpiresAt: token.ExpiresAt,
 		RefreshedAt:     &now,
-	}, nil
+	}
 }
 
 func (s *DelegationService) DeleteGrant(ctx context.Context, user User, resourceServer string) error {
+	tenantID, err := delegationTenantID(user)
+	if err != nil {
+		return err
+	}
+	return s.DeleteGrantForTenant(ctx, user, tenantID, resourceServer)
+}
+
+func (s *DelegationService) DeleteGrantForTenant(ctx context.Context, user User, tenantID int64, resourceServer string) error {
 	if err := s.requireConfigured(); err != nil {
 		return err
 	}
@@ -315,6 +368,7 @@ func (s *DelegationService) DeleteGrant(ctx context.Context, user User, resource
 
 	grant, err := s.queries.GetActiveOAuthUserGrant(ctx, db.GetActiveOAuthUserGrantParams{
 		UserID:         user.ID,
+		TenantID:       tenantID,
 		Provider:       resource.provider,
 		ResourceServer: resource.resourceServer,
 	})
@@ -333,12 +387,37 @@ func (s *DelegationService) DeleteGrant(ctx context.Context, user User, resource
 
 	if err := s.queries.DeleteOAuthUserGrant(ctx, db.DeleteOAuthUserGrantParams{
 		UserID:         user.ID,
+		TenantID:       tenantID,
 		Provider:       resource.provider,
 		ResourceServer: resource.resourceServer,
 	}); err != nil {
 		return fmt.Errorf("delete delegated grant: %w", err)
 	}
 
+	return nil
+}
+
+func (s *DelegationService) DeleteAllGrantsForUser(ctx context.Context, userID int64) error {
+	if err := s.requireConfigured(); err != nil {
+		return nil
+	}
+
+	grants, err := s.queries.ListActiveOAuthUserGrantsByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("list active delegated grants for user: %w", err)
+	}
+	for _, grant := range grants {
+		refreshToken, err := s.tokenStore.Decrypt(grant.RefreshTokenCiphertext, grant.RefreshTokenKeyVersion)
+		if err != nil {
+			return fmt.Errorf("decrypt delegated refresh token for user revoke: %w", err)
+		}
+		if err := s.oauthClient.RevokeRefreshToken(ctx, refreshToken); err != nil {
+			return err
+		}
+	}
+	if err := s.queries.DeleteOAuthUserGrantsByUserID(ctx, userID); err != nil {
+		return fmt.Errorf("delete delegated grants for user: %w", err)
+	}
 	return nil
 }
 
@@ -418,21 +497,22 @@ func expiresWithSkew(expiry time.Time, skew time.Duration) *time.Time {
 	return &expiresAt
 }
 
-func (s *DelegationService) refreshTokenExpired(grant db.OauthUserGrant) bool {
-	if s.refreshTTL <= 0 || !grant.GrantedAt.Valid {
+func (s *DelegationService) refreshTokenExpired(grantedAt, lastRefreshedAt pgtype.Timestamptz) bool {
+	if s.refreshTTL <= 0 || !grantedAt.Valid {
 		return false
 	}
 
-	base := grant.GrantedAt.Time
-	if grant.LastRefreshedAt.Valid {
-		base = grant.LastRefreshedAt.Time
+	base := grantedAt.Time
+	if lastRefreshedAt.Valid {
+		base = lastRefreshedAt.Time
 	}
 
 	return time.Now().After(base.Add(s.refreshTTL))
 }
 
-func grantStatusFromRow(row db.OauthUserGrant) DelegationStatus {
+func grantStatusFromUpsertRow(row db.UpsertOAuthUserGrantRow) DelegationStatus {
 	return DelegationStatus{
+		TenantID:        row.TenantID,
 		ResourceServer:  row.ResourceServer,
 		Provider:        row.Provider,
 		Connected:       !row.RevokedAt.Valid,
@@ -447,4 +527,11 @@ func grantStatusFromRow(row db.OauthUserGrant) DelegationStatus {
 			return ""
 		}(),
 	}
+}
+
+func delegationTenantID(user User) (int64, error) {
+	if user.DefaultTenantID == nil || *user.DefaultTenantID == 0 {
+		return 0, ErrDelegationGrantNotFound
+	}
+	return *user.DefaultTenantID, nil
 }

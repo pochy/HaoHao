@@ -9,7 +9,51 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const createProvisionedUserIdentity = `-- name: CreateProvisionedUserIdentity :exec
+INSERT INTO user_identities (
+    user_id,
+    provider,
+    subject,
+    email,
+    email_verified,
+    external_id,
+    provisioning_source
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7
+)
+`
+
+type CreateProvisionedUserIdentityParams struct {
+	UserID             int64       `json:"user_id"`
+	Provider           string      `json:"provider"`
+	Subject            string      `json:"subject"`
+	Email              string      `json:"email"`
+	EmailVerified      bool        `json:"email_verified"`
+	ExternalID         pgtype.Text `json:"external_id"`
+	ProvisioningSource pgtype.Text `json:"provisioning_source"`
+}
+
+func (q *Queries) CreateProvisionedUserIdentity(ctx context.Context, arg CreateProvisionedUserIdentityParams) error {
+	_, err := q.db.Exec(ctx, createProvisionedUserIdentity,
+		arg.UserID,
+		arg.Provider,
+		arg.Subject,
+		arg.Email,
+		arg.EmailVerified,
+		arg.ExternalID,
+		arg.ProvisioningSource,
+	)
+	return err
+}
 
 const createUserIdentity = `-- name: CreateUserIdentity :exec
 INSERT INTO user_identities (
@@ -46,12 +90,130 @@ func (q *Queries) CreateUserIdentity(ctx context.Context, arg CreateUserIdentity
 	return err
 }
 
+const getProvisionedUserByExternalID = `-- name: GetProvisionedUserByExternalID :one
+SELECT
+    u.id,
+    u.public_id,
+    u.email,
+    u.display_name,
+    u.deactivated_at,
+    u.default_tenant_id,
+    ui.id AS identity_id,
+    ui.provider,
+    ui.subject,
+    ui.external_id,
+    ui.provisioning_source
+FROM user_identities ui
+JOIN users u ON u.id = ui.user_id
+WHERE ui.provider = $1
+  AND ui.external_id = $2
+LIMIT 1
+`
+
+type GetProvisionedUserByExternalIDParams struct {
+	Provider   string      `json:"provider"`
+	ExternalID pgtype.Text `json:"external_id"`
+}
+
+type GetProvisionedUserByExternalIDRow struct {
+	ID                 int64              `json:"id"`
+	PublicID           uuid.UUID          `json:"public_id"`
+	Email              string             `json:"email"`
+	DisplayName        string             `json:"display_name"`
+	DeactivatedAt      pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID    pgtype.Int8        `json:"default_tenant_id"`
+	IdentityID         int64              `json:"identity_id"`
+	Provider           string             `json:"provider"`
+	Subject            string             `json:"subject"`
+	ExternalID         pgtype.Text        `json:"external_id"`
+	ProvisioningSource pgtype.Text        `json:"provisioning_source"`
+}
+
+func (q *Queries) GetProvisionedUserByExternalID(ctx context.Context, arg GetProvisionedUserByExternalIDParams) (GetProvisionedUserByExternalIDRow, error) {
+	row := q.db.QueryRow(ctx, getProvisionedUserByExternalID, arg.Provider, arg.ExternalID)
+	var i GetProvisionedUserByExternalIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.Email,
+		&i.DisplayName,
+		&i.DeactivatedAt,
+		&i.DefaultTenantID,
+		&i.IdentityID,
+		&i.Provider,
+		&i.Subject,
+		&i.ExternalID,
+		&i.ProvisioningSource,
+	)
+	return i, err
+}
+
+const getProvisionedUserByPublicID = `-- name: GetProvisionedUserByPublicID :one
+SELECT
+    u.id,
+    u.public_id,
+    u.email,
+    u.display_name,
+    u.deactivated_at,
+    u.default_tenant_id,
+    ui.id AS identity_id,
+    ui.provider,
+    ui.subject,
+    ui.external_id,
+    ui.provisioning_source
+FROM user_identities ui
+JOIN users u ON u.id = ui.user_id
+WHERE ui.provider = $1
+  AND u.public_id = $2
+LIMIT 1
+`
+
+type GetProvisionedUserByPublicIDParams struct {
+	Provider string    `json:"provider"`
+	PublicID uuid.UUID `json:"public_id"`
+}
+
+type GetProvisionedUserByPublicIDRow struct {
+	ID                 int64              `json:"id"`
+	PublicID           uuid.UUID          `json:"public_id"`
+	Email              string             `json:"email"`
+	DisplayName        string             `json:"display_name"`
+	DeactivatedAt      pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID    pgtype.Int8        `json:"default_tenant_id"`
+	IdentityID         int64              `json:"identity_id"`
+	Provider           string             `json:"provider"`
+	Subject            string             `json:"subject"`
+	ExternalID         pgtype.Text        `json:"external_id"`
+	ProvisioningSource pgtype.Text        `json:"provisioning_source"`
+}
+
+func (q *Queries) GetProvisionedUserByPublicID(ctx context.Context, arg GetProvisionedUserByPublicIDParams) (GetProvisionedUserByPublicIDRow, error) {
+	row := q.db.QueryRow(ctx, getProvisionedUserByPublicID, arg.Provider, arg.PublicID)
+	var i GetProvisionedUserByPublicIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.Email,
+		&i.DisplayName,
+		&i.DeactivatedAt,
+		&i.DefaultTenantID,
+		&i.IdentityID,
+		&i.Provider,
+		&i.Subject,
+		&i.ExternalID,
+		&i.ProvisioningSource,
+	)
+	return i, err
+}
+
 const getUserByProviderSubject = `-- name: GetUserByProviderSubject :one
 SELECT
     u.id,
     u.public_id,
     u.email,
-    u.display_name
+    u.display_name,
+    u.deactivated_at,
+    u.default_tenant_id
 FROM user_identities ui
 JOIN users u ON u.id = ui.user_id
 WHERE ui.provider = $1
@@ -65,10 +227,12 @@ type GetUserByProviderSubjectParams struct {
 }
 
 type GetUserByProviderSubjectRow struct {
-	ID          int64     `json:"id"`
-	PublicID    uuid.UUID `json:"public_id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	Email           string             `json:"email"`
+	DisplayName     string             `json:"display_name"`
+	DeactivatedAt   pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID pgtype.Int8        `json:"default_tenant_id"`
 }
 
 func (q *Queries) GetUserByProviderSubject(ctx context.Context, arg GetUserByProviderSubjectParams) (GetUserByProviderSubjectRow, error) {
@@ -79,6 +243,8 @@ func (q *Queries) GetUserByProviderSubject(ctx context.Context, arg GetUserByPro
 		&i.PublicID,
 		&i.Email,
 		&i.DisplayName,
+		&i.DeactivatedAt,
+		&i.DefaultTenantID,
 	)
 	return i, err
 }
@@ -91,6 +257,8 @@ SELECT
     subject,
     email,
     email_verified,
+    external_id,
+    provisioning_source,
     created_at,
     updated_at
 FROM user_identities
@@ -104,9 +272,22 @@ type GetUserIdentityByUserIDProviderParams struct {
 	Provider string `json:"provider"`
 }
 
-func (q *Queries) GetUserIdentityByUserIDProvider(ctx context.Context, arg GetUserIdentityByUserIDProviderParams) (UserIdentity, error) {
+type GetUserIdentityByUserIDProviderRow struct {
+	ID                 int64              `json:"id"`
+	UserID             int64              `json:"user_id"`
+	Provider           string             `json:"provider"`
+	Subject            string             `json:"subject"`
+	Email              string             `json:"email"`
+	EmailVerified      bool               `json:"email_verified"`
+	ExternalID         pgtype.Text        `json:"external_id"`
+	ProvisioningSource pgtype.Text        `json:"provisioning_source"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetUserIdentityByUserIDProvider(ctx context.Context, arg GetUserIdentityByUserIDProviderParams) (GetUserIdentityByUserIDProviderRow, error) {
 	row := q.db.QueryRow(ctx, getUserIdentityByUserIDProvider, arg.UserID, arg.Provider)
-	var i UserIdentity
+	var i GetUserIdentityByUserIDProviderRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -114,10 +295,85 @@ func (q *Queries) GetUserIdentityByUserIDProvider(ctx context.Context, arg GetUs
 		&i.Subject,
 		&i.Email,
 		&i.EmailVerified,
+		&i.ExternalID,
+		&i.ProvisioningSource,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listProvisionedUsers = `-- name: ListProvisionedUsers :many
+SELECT
+    u.id,
+    u.public_id,
+    u.email,
+    u.display_name,
+    u.deactivated_at,
+    u.default_tenant_id,
+    ui.id AS identity_id,
+    ui.provider,
+    ui.subject,
+    ui.external_id,
+    ui.provisioning_source
+FROM user_identities ui
+JOIN users u ON u.id = ui.user_id
+WHERE ui.provider = $1
+ORDER BY u.id
+LIMIT $2
+OFFSET $3
+`
+
+type ListProvisionedUsersParams struct {
+	Provider string `json:"provider"`
+	Limit    int32  `json:"limit"`
+	Offset   int32  `json:"offset"`
+}
+
+type ListProvisionedUsersRow struct {
+	ID                 int64              `json:"id"`
+	PublicID           uuid.UUID          `json:"public_id"`
+	Email              string             `json:"email"`
+	DisplayName        string             `json:"display_name"`
+	DeactivatedAt      pgtype.Timestamptz `json:"deactivated_at"`
+	DefaultTenantID    pgtype.Int8        `json:"default_tenant_id"`
+	IdentityID         int64              `json:"identity_id"`
+	Provider           string             `json:"provider"`
+	Subject            string             `json:"subject"`
+	ExternalID         pgtype.Text        `json:"external_id"`
+	ProvisioningSource pgtype.Text        `json:"provisioning_source"`
+}
+
+func (q *Queries) ListProvisionedUsers(ctx context.Context, arg ListProvisionedUsersParams) ([]ListProvisionedUsersRow, error) {
+	rows, err := q.db.Query(ctx, listProvisionedUsers, arg.Provider, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProvisionedUsersRow
+	for rows.Next() {
+		var i ListProvisionedUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.Email,
+			&i.DisplayName,
+			&i.DeactivatedAt,
+			&i.DefaultTenantID,
+			&i.IdentityID,
+			&i.Provider,
+			&i.Subject,
+			&i.ExternalID,
+			&i.ProvisioningSource,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateUserIdentityProfile = `-- name: UpdateUserIdentityProfile :exec
@@ -142,6 +398,38 @@ func (q *Queries) UpdateUserIdentityProfile(ctx context.Context, arg UpdateUserI
 		arg.Subject,
 		arg.Email,
 		arg.EmailVerified,
+	)
+	return err
+}
+
+const updateUserIdentityProvisioningProfile = `-- name: UpdateUserIdentityProvisioningProfile :exec
+UPDATE user_identities
+SET email = $3,
+    email_verified = $4,
+    external_id = $5,
+    provisioning_source = $6,
+    updated_at = now()
+WHERE provider = $1
+  AND subject = $2
+`
+
+type UpdateUserIdentityProvisioningProfileParams struct {
+	Provider           string      `json:"provider"`
+	Subject            string      `json:"subject"`
+	Email              string      `json:"email"`
+	EmailVerified      bool        `json:"email_verified"`
+	ExternalID         pgtype.Text `json:"external_id"`
+	ProvisioningSource pgtype.Text `json:"provisioning_source"`
+}
+
+func (q *Queries) UpdateUserIdentityProvisioningProfile(ctx context.Context, arg UpdateUserIdentityProvisioningProfileParams) error {
+	_, err := q.db.Exec(ctx, updateUserIdentityProvisioningProfile,
+		arg.Provider,
+		arg.Subject,
+		arg.Email,
+		arg.EmailVerified,
+		arg.ExternalID,
+		arg.ProvisioningSource,
 	)
 	return err
 }

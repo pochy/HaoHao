@@ -30,6 +30,10 @@ type Config struct {
 	DownstreamRefreshTokenTTL    time.Duration
 	DownstreamAccessTokenSkew    time.Duration
 	DownstreamDefaultScopes      string
+	SCIMBasePath                 string
+	SCIMBearerAudience           string
+	SCIMRequiredScope            string
+	SCIMReconcileCron            string
 	RedisAddr                    string
 	RedisPassword                string
 	RedisDB                      int
@@ -79,6 +83,10 @@ func Load() (Config, error) {
 		DownstreamRefreshTokenTTL:    downstreamRefreshTokenTTL,
 		DownstreamAccessTokenSkew:    downstreamAccessTokenSkew,
 		DownstreamDefaultScopes:      getEnv("DOWNSTREAM_DEFAULT_SCOPES", "offline_access"),
+		SCIMBasePath:                 strings.TrimRight(getEnv("SCIM_BASE_PATH", "/api/scim/v2"), "/"),
+		SCIMBearerAudience:           getEnv("SCIM_BEARER_AUDIENCE", "scim-provisioning"),
+		SCIMRequiredScope:            getEnv("SCIM_REQUIRED_SCOPE", "scim:provision"),
+		SCIMReconcileCron:            getEnv("SCIM_RECONCILE_CRON", "0 3 * * *"),
 		RedisAddr:                    getEnv("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword:                getEnv("REDIS_PASSWORD", ""),
 		RedisDB:                      getEnvInt("REDIS_DB", 0),
