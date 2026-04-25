@@ -147,23 +147,6 @@ export type ErrorModel = {
     type?: string;
 };
 
-export type ExternalMeBody = {
-    /**
-     * A URL to the JSON Schema for this object.
-     */
-    readonly $schema?: string;
-    activeTenant?: TenantBody;
-    authorizedParty?: string;
-    defaultTenant?: TenantBody;
-    groups?: Array<string> | null;
-    provider: string;
-    roles?: Array<string> | null;
-    scopes?: Array<string> | null;
-    subject: string;
-    tenants?: Array<TenantBody> | null;
-    user?: UserResponse;
-};
-
 export type FileListOutputBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -249,18 +232,6 @@ export type LogoutBody = {
     postLogoutURL?: string;
 };
 
-export type M2mSelfBody = {
-    /**
-     * A URL to the JSON Schema for this object.
-     */
-    readonly $schema?: string;
-    active: boolean;
-    allowedScopes?: Array<string> | null;
-    defaultTenant?: TenantBody;
-    displayName: string;
-    id: number;
-};
-
 export type MachineClientBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -313,51 +284,6 @@ export type NotificationListOutputBody = {
      */
     readonly $schema?: string;
     items: Array<NotificationBody> | null;
-};
-
-export type ScimGroupBody = {
-    value: string;
-};
-
-export type ScimListResponseBody = {
-    /**
-     * A URL to the JSON Schema for this object.
-     */
-    readonly $schema?: string;
-    Resources: Array<ScimUserBody> | null;
-    itemsPerPage: number;
-    schemas: Array<string> | null;
-    startIndex: number;
-    totalResults: number;
-};
-
-export type ScimPatchInputBody = {
-    /**
-     * A URL to the JSON Schema for this object.
-     */
-    readonly $schema?: string;
-    Operations: Array<ScimPatchOperation> | null;
-    schemas?: Array<string> | null;
-};
-
-export type ScimPatchOperation = {
-    op: string;
-    path?: string;
-    value?: unknown;
-};
-
-export type ScimUserBody = {
-    /**
-     * A URL to the JSON Schema for this object.
-     */
-    readonly $schema?: string;
-    active?: boolean;
-    displayName?: string;
-    externalId?: string;
-    groups?: Array<ScimGroupBody> | null;
-    id?: string;
-    schemas?: Array<string> | null;
-    userName?: string;
 };
 
 export type SelectTenantInputBody = {
@@ -672,19 +598,6 @@ export type ErrorModelWritable = {
     type?: string;
 };
 
-export type ExternalMeBodyWritable = {
-    activeTenant?: TenantBody;
-    authorizedParty?: string;
-    defaultTenant?: TenantBody;
-    groups?: Array<string> | null;
-    provider: string;
-    roles?: Array<string> | null;
-    scopes?: Array<string> | null;
-    subject: string;
-    tenants?: Array<TenantBody> | null;
-    user?: UserResponse;
-};
-
 export type FileListOutputBodyWritable = {
     items: Array<FileObjectBody> | null;
 };
@@ -714,14 +627,6 @@ export type LoginInputBodyWritable = {
 
 export type LogoutBodyWritable = {
     postLogoutURL?: string;
-};
-
-export type M2mSelfBodyWritable = {
-    active: boolean;
-    allowedScopes?: Array<string> | null;
-    defaultTenant?: TenantBody;
-    displayName: string;
-    id: number;
 };
 
 export type MachineClientBodyWritable = {
@@ -760,29 +665,6 @@ export type NotificationBodyWritable = {
 
 export type NotificationListOutputBodyWritable = {
     items: Array<NotificationBodyWritable> | null;
-};
-
-export type ScimListResponseBodyWritable = {
-    Resources: Array<ScimUserBodyWritable> | null;
-    itemsPerPage: number;
-    schemas: Array<string> | null;
-    startIndex: number;
-    totalResults: number;
-};
-
-export type ScimPatchInputBodyWritable = {
-    Operations: Array<ScimPatchOperation> | null;
-    schemas?: Array<string> | null;
-};
-
-export type ScimUserBodyWritable = {
-    active?: boolean;
-    displayName?: string;
-    externalId?: string;
-    groups?: Array<ScimGroupBody> | null;
-    id?: string;
-    schemas?: Array<string> | null;
-    userName?: string;
 };
 
 export type SelectTenantInputBodyWritable = {
@@ -915,224 +797,6 @@ export type VerifyIntegrationBodyWritable = {
     resourceServer: string;
     scopes?: Array<string> | null;
 };
-
-export type GetExternalMeData = {
-    body?: never;
-    headers?: {
-        /**
-         * tenant slug for tenant-aware bearer context
-         */
-        'X-Tenant-ID'?: string;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/external/v1/me';
-};
-
-export type GetExternalMeErrors = {
-    /**
-     * Error
-     */
-    default: ErrorModel;
-};
-
-export type GetExternalMeError = GetExternalMeErrors[keyof GetExternalMeErrors];
-
-export type GetExternalMeResponses = {
-    /**
-     * OK
-     */
-    200: ExternalMeBody;
-};
-
-export type GetExternalMeResponse = GetExternalMeResponses[keyof GetExternalMeResponses];
-
-export type GetM2mSelfData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/m2m/v1/self';
-};
-
-export type GetM2mSelfErrors = {
-    /**
-     * Error
-     */
-    default: ErrorModel;
-};
-
-export type GetM2mSelfError = GetM2mSelfErrors[keyof GetM2mSelfErrors];
-
-export type GetM2mSelfResponses = {
-    /**
-     * OK
-     */
-    200: M2mSelfBody;
-};
-
-export type GetM2mSelfResponse = GetM2mSelfResponses[keyof GetM2mSelfResponses];
-
-export type ScimListUsersData = {
-    body?: never;
-    path?: never;
-    query?: {
-        filter?: string;
-        startIndex?: number;
-        count?: number;
-    };
-    url: '/api/scim/v2/Users';
-};
-
-export type ScimListUsersErrors = {
-    /**
-     * Error
-     */
-    default: ErrorModel;
-};
-
-export type ScimListUsersError = ScimListUsersErrors[keyof ScimListUsersErrors];
-
-export type ScimListUsersResponses = {
-    /**
-     * OK
-     */
-    200: ScimListResponseBody;
-};
-
-export type ScimListUsersResponse = ScimListUsersResponses[keyof ScimListUsersResponses];
-
-export type ScimCreateUserData = {
-    body: ScimUserBodyWritable;
-    path?: never;
-    query?: never;
-    url: '/api/scim/v2/Users';
-};
-
-export type ScimCreateUserErrors = {
-    /**
-     * Error
-     */
-    default: ErrorModel;
-};
-
-export type ScimCreateUserError = ScimCreateUserErrors[keyof ScimCreateUserErrors];
-
-export type ScimCreateUserResponses = {
-    /**
-     * OK
-     */
-    200: ScimUserBody;
-};
-
-export type ScimCreateUserResponse = ScimCreateUserResponses[keyof ScimCreateUserResponses];
-
-export type ScimDeleteUserData = {
-    body?: never;
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/scim/v2/Users/{id}';
-};
-
-export type ScimDeleteUserErrors = {
-    /**
-     * Error
-     */
-    default: ErrorModel;
-};
-
-export type ScimDeleteUserError = ScimDeleteUserErrors[keyof ScimDeleteUserErrors];
-
-export type ScimDeleteUserResponses = {
-    /**
-     * No Content
-     */
-    204: void;
-};
-
-export type ScimDeleteUserResponse = ScimDeleteUserResponses[keyof ScimDeleteUserResponses];
-
-export type ScimGetUserData = {
-    body?: never;
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/scim/v2/Users/{id}';
-};
-
-export type ScimGetUserErrors = {
-    /**
-     * Error
-     */
-    default: ErrorModel;
-};
-
-export type ScimGetUserError = ScimGetUserErrors[keyof ScimGetUserErrors];
-
-export type ScimGetUserResponses = {
-    /**
-     * OK
-     */
-    200: ScimUserBody;
-};
-
-export type ScimGetUserResponse = ScimGetUserResponses[keyof ScimGetUserResponses];
-
-export type ScimPatchUserData = {
-    body: ScimPatchInputBodyWritable;
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/scim/v2/Users/{id}';
-};
-
-export type ScimPatchUserErrors = {
-    /**
-     * Error
-     */
-    default: ErrorModel;
-};
-
-export type ScimPatchUserError = ScimPatchUserErrors[keyof ScimPatchUserErrors];
-
-export type ScimPatchUserResponses = {
-    /**
-     * OK
-     */
-    200: ScimUserBody;
-};
-
-export type ScimPatchUserResponse = ScimPatchUserResponses[keyof ScimPatchUserResponses];
-
-export type ScimReplaceUserData = {
-    body: ScimUserBodyWritable;
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/scim/v2/Users/{id}';
-};
-
-export type ScimReplaceUserErrors = {
-    /**
-     * Error
-     */
-    default: ErrorModel;
-};
-
-export type ScimReplaceUserError = ScimReplaceUserErrors[keyof ScimReplaceUserErrors];
-
-export type ScimReplaceUserResponses = {
-    /**
-     * OK
-     */
-    200: ScimUserBody;
-};
-
-export type ScimReplaceUserResponse = ScimReplaceUserResponses[keyof ScimReplaceUserResponses];
 
 export type ListTenantAdminTenantsData = {
     body?: never;

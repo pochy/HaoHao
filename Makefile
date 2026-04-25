@@ -48,7 +48,10 @@ sqlc:
 	cd backend && sqlc generate
 
 openapi:
-	go run ./backend/cmd/openapi > openapi/openapi.yaml
+	mkdir -p openapi
+	go run ./backend/cmd/openapi -surface=full > openapi/openapi.yaml
+	go run ./backend/cmd/openapi -surface=browser > openapi/browser.yaml
+	go run ./backend/cmd/openapi -surface=external > openapi/external.yaml
 
 gen:
 	./scripts/gen.sh

@@ -64,7 +64,7 @@ jobs:
       - name: Generated drift
         run: |
           make gen
-          git diff --exit-code -- openapi/openapi.yaml frontend/src/api/generated backend/internal/db
+          git diff --exit-code -- openapi/openapi.yaml openapi/browser.yaml openapi/external.yaml frontend/src/api/generated backend/internal/db
 
       - name: DB schema drift
         run: |
@@ -76,8 +76,14 @@ jobs:
 
       - name: OpenAPI validate
         run: |
-          test -s openapi/openapi.yaml
-          grep -Eq '^openapi: "?(3\.1|3\.1\.)' openapi/openapi.yaml
+          for spec in openapi/openapi.yaml openapi/browser.yaml openapi/external.yaml; do
+            test -s "$spec"
+            grep -Eq '^openapi: "?(3\.1|3\.1\.)' "$spec"
+          done
+          ! grep -Eq '/api/(external|m2m|scim)/' openapi/browser.yaml
+          ! grep -Eq 'bearerAuth|m2mBearerAuth' openapi/browser.yaml
+          ! grep -Eq '/api/v1/' openapi/external.yaml
+          ! grep -Eq 'cookieAuth' openapi/external.yaml
 
       - name: Zitadel compose config
         run: docker compose --env-file dev/zitadel/.env.example -f dev/zitadel/docker-compose.yml config --quiet

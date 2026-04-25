@@ -1,16 +1,20 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 
+	backendapi "example.com/haohao/backend/internal/api"
 	"example.com/haohao/backend/internal/app"
 	"example.com/haohao/backend/internal/config"
-	"example.com/haohao/backend/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	surfaceFlag := flag.String("surface", string(backendapi.SurfaceFull), "OpenAPI surface to export: full, browser, or external")
+	flag.Parse()
+
 	gin.SetMode(gin.ReleaseMode)
 
 	cfg, err := config.Load()
@@ -18,41 +22,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	auditService := service.NewAuditService(nil)
-	outboxService := service.NewOutboxService(nil, nil, cfg.OutboxWorkerMaxAttempts)
-	idempotencyService := service.NewIdempotencyService(nil, cfg.IdempotencyTTL)
-	notificationService := service.NewNotificationService(nil, auditService)
-	tenantSettingsService := service.NewTenantSettingsService(nil, auditService, cfg.TenantDefaultFileQuotaBytes)
-	fileService := service.NewFileService(nil, nil, nil, tenantSettingsService, auditService, cfg.FileMaxBytes, cfg.FileAllowedMIMETypes, nil)
-	tenantInvitationService := service.NewTenantInvitationService(nil, nil, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)
-	tenantDataExportService := service.NewTenantDataExportService(nil, nil, outboxService, fileService, auditService, cfg.DataExportTTL)
-	application := app.New(
-		cfg,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		auditService,
-		service.NewTenantAdminService(nil, nil, auditService),
-		service.NewCustomerSignalService(nil, nil, auditService),
-		service.NewTodoService(nil, nil, auditService),
-		service.NewMachineClientService(nil, nil, "", auditService),
-		outboxService,
-		idempotencyService,
-		notificationService,
-		tenantInvitationService,
-		fileService,
-		tenantSettingsService,
-		tenantDataExportService,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	openAPI, err := app.NewOpenAPIExport(cfg, backendapi.Surface(*surfaceFlag))
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	spec, err := application.API.OpenAPI().YAML()
+	spec, err := openAPI.YAML()
 	if err != nil {
 		log.Fatal(err)
 	}

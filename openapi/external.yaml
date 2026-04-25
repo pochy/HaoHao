@@ -1,0 +1,591 @@
+components:
+  schemas:
+    ErrorDetail:
+      additionalProperties: false
+      properties:
+        location:
+          description: Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
+          type: string
+        message:
+          description: Error message text
+          type: string
+        value:
+          description: The value at the given location
+      type: object
+    ErrorModel:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ErrorModel.json
+          format: uri
+          readOnly: true
+          type: string
+        detail:
+          description: A human-readable explanation specific to this occurrence of the problem.
+          examples:
+            - Property foo is required but is missing.
+          type: string
+        errors:
+          description: Optional list of individual error details
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
+          type:
+            - array
+            - "null"
+        instance:
+          description: A URI reference that identifies the specific occurrence of the problem.
+          examples:
+            - https://example.com/error-log/abc123
+          format: uri
+          type: string
+        status:
+          description: HTTP status code
+          examples:
+            - 400
+          format: int64
+          type: integer
+        title:
+          description: A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+          examples:
+            - Bad Request
+          type: string
+        type:
+          default: about:blank
+          description: A URI reference to human-readable documentation for the error.
+          examples:
+            - https://example.com/errors/example
+          format: uri
+          type: string
+      type: object
+    ExternalMeBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ExternalMeBody.json
+          format: uri
+          readOnly: true
+          type: string
+        activeTenant:
+          $ref: "#/components/schemas/TenantBody"
+        authorizedParty:
+          examples:
+            - "312345678901234568"
+          type: string
+        defaultTenant:
+          $ref: "#/components/schemas/TenantBody"
+        groups:
+          examples:
+            - - external_api_user
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        provider:
+          examples:
+            - zitadel
+          type: string
+        roles:
+          examples:
+            - - todo_user
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        scopes:
+          examples:
+            - - external:read
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        subject:
+          examples:
+            - "312345678901234567"
+          type: string
+        tenants:
+          items:
+            $ref: "#/components/schemas/TenantBody"
+          type:
+            - array
+            - "null"
+        user:
+          $ref: "#/components/schemas/UserResponse"
+      required:
+        - provider
+        - subject
+      type: object
+    M2MSelfBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/M2MSelfBody.json
+          format: uri
+          readOnly: true
+          type: string
+        active:
+          examples:
+            - true
+          type: boolean
+        allowedScopes:
+          examples:
+            - - m2m:read
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        defaultTenant:
+          $ref: "#/components/schemas/TenantBody"
+        displayName:
+          examples:
+            - worker
+          type: string
+        id:
+          examples:
+            - 1
+          format: int64
+          type: integer
+      required:
+        - id
+        - displayName
+        - active
+      type: object
+    SCIMGroupBody:
+      additionalProperties: false
+      properties:
+        value:
+          type: string
+      required:
+        - value
+      type: object
+    SCIMListResponseBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SCIMListResponseBody.json
+          format: uri
+          readOnly: true
+          type: string
+        Resources:
+          items:
+            $ref: "#/components/schemas/SCIMUserBody"
+          type:
+            - array
+            - "null"
+        itemsPerPage:
+          format: int64
+          type: integer
+        schemas:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        startIndex:
+          format: int32
+          type: integer
+        totalResults:
+          format: int64
+          type: integer
+      required:
+        - schemas
+        - totalResults
+        - startIndex
+        - itemsPerPage
+        - Resources
+      type: object
+    SCIMPatchInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SCIMPatchInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        Operations:
+          items:
+            $ref: "#/components/schemas/SCIMPatchOperation"
+          type:
+            - array
+            - "null"
+        schemas:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      required:
+        - Operations
+      type: object
+    SCIMPatchOperation:
+      additionalProperties: false
+      properties:
+        op:
+          type: string
+        path:
+          type: string
+        value: {}
+      required:
+        - op
+      type: object
+    SCIMUserBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SCIMUserBody.json
+          format: uri
+          readOnly: true
+          type: string
+        active:
+          type: boolean
+        displayName:
+          type: string
+        externalId:
+          type: string
+        groups:
+          items:
+            $ref: "#/components/schemas/SCIMGroupBody"
+          type:
+            - array
+            - "null"
+        id:
+          format: uuid
+          type: string
+        schemas:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        userName:
+          format: email
+          type: string
+      type: object
+    TenantBody:
+      additionalProperties: false
+      properties:
+        default:
+          examples:
+            - true
+          type: boolean
+        displayName:
+          examples:
+            - acme
+          type: string
+        id:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        roles:
+          examples:
+            - - todo_user
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        selected:
+          examples:
+            - true
+          type: boolean
+        slug:
+          examples:
+            - acme
+          type: string
+      required:
+        - id
+        - slug
+        - displayName
+        - default
+        - selected
+      type: object
+    UserResponse:
+      additionalProperties: false
+      properties:
+        displayName:
+          examples:
+            - Demo User
+          type: string
+        email:
+          examples:
+            - demo@example.com
+          format: email
+          type: string
+        publicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+      required:
+        - publicId
+        - email
+        - displayName
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+    m2mBearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+info:
+  title: HaoHao API
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /api/external/v1/me:
+    get:
+      operationId: getExternalMe
+      parameters:
+        - description: tenant slug for tenant-aware bearer context
+          in: header
+          name: X-Tenant-ID
+          schema:
+            description: tenant slug for tenant-aware bearer context
+            examples:
+              - acme
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalMeBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 現在の external bearer principal を返す
+      tags:
+        - external
+  /api/m2m/v1/self:
+    get:
+      operationId: getM2MSelf
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M2MSelfBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - m2mBearerAuth: []
+      summary: 現在の M2M machine client を返す
+      tags:
+        - m2m
+  /api/scim/v2/Users:
+    get:
+      operationId: scimListUsers
+      parameters:
+        - explode: false
+          in: query
+          name: filter
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: startIndex
+          schema:
+            default: 1
+            format: int32
+            minimum: 1
+            type: integer
+        - explode: false
+          in: query
+          name: count
+          schema:
+            default: 100
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SCIMListResponseBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: SCIM user を list する
+      tags:
+        - scim
+    post:
+      operationId: scimCreateUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SCIMUserBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SCIMUserBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: SCIM user を作成または upsert する
+      tags:
+        - scim
+  /api/scim/v2/Users/{id}:
+    delete:
+      operationId: scimDeleteUser
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: SCIM user を deactivate する
+      tags:
+        - scim
+    get:
+      operationId: scimGetUser
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SCIMUserBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: SCIM user を取得する
+      tags:
+        - scim
+    patch:
+      operationId: scimPatchUser
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SCIMPatchInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SCIMUserBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: SCIM user を patch する
+      tags:
+        - scim
+    put:
+      operationId: scimReplaceUser
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SCIMUserBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SCIMUserBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: SCIM user を置換する
+      tags:
+        - scim

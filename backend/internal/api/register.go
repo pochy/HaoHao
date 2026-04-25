@@ -37,22 +37,51 @@ type Dependencies struct {
 	SessionTTL                   time.Duration
 }
 
+type Surface string
+
+const (
+	SurfaceFull     Surface = "full"
+	SurfaceBrowser  Surface = "browser"
+	SurfaceExternal Surface = "external"
+)
+
+func (s Surface) Valid() bool {
+	return s == SurfaceFull || s == SurfaceBrowser || s == SurfaceExternal
+}
+
 func Register(api huma.API, deps Dependencies) {
-	registerAuthSettingsRoute(api, deps)
-	registerOIDCRoutes(api, deps)
-	registerSessionRoutes(api, deps)
-	registerExternalRoutes(api, deps)
-	registerIntegrationRoutes(api, deps)
-	registerTenantRoutes(api, deps)
-	registerTenantAdminRoutes(api, deps)
-	registerCustomerSignalRoutes(api, deps)
-	registerTodoRoutes(api, deps)
-	registerNotificationRoutes(api, deps)
-	registerTenantInvitationRoutes(api, deps)
-	registerFileRoutes(api, deps)
-	registerTenantSettingsRoutes(api, deps)
-	registerTenantDataExportRoutes(api, deps)
-	registerMachineClientRoutes(api, deps)
-	registerM2MRoutes(api, deps)
-	registerSCIMRoutes(api, deps)
+	RegisterSurface(api, deps, SurfaceFull)
+}
+
+func RegisterSurface(api huma.API, deps Dependencies, surface Surface) {
+	if includeBrowser(surface) {
+		registerAuthSettingsRoute(api, deps)
+		registerOIDCRoutes(api, deps)
+		registerSessionRoutes(api, deps)
+		registerIntegrationRoutes(api, deps)
+		registerTenantRoutes(api, deps)
+		registerTenantAdminRoutes(api, deps)
+		registerCustomerSignalRoutes(api, deps)
+		registerTodoRoutes(api, deps)
+		registerNotificationRoutes(api, deps)
+		registerTenantInvitationRoutes(api, deps)
+		registerFileRoutes(api, deps)
+		registerTenantSettingsRoutes(api, deps)
+		registerTenantDataExportRoutes(api, deps)
+		registerMachineClientRoutes(api, deps)
+	}
+
+	if includeExternal(surface) {
+		registerExternalRoutes(api, deps)
+		registerM2MRoutes(api, deps)
+		registerSCIMRoutes(api, deps)
+	}
+}
+
+func includeBrowser(surface Surface) bool {
+	return surface == SurfaceFull || surface == SurfaceBrowser
+}
+
+func includeExternal(surface Surface) bool {
+	return surface == SurfaceFull || surface == SurfaceExternal
 }

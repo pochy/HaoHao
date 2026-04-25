@@ -35,8 +35,10 @@ jobs:
 
       - name: Validate OpenAPI artifact
         run: |
-          test -s openapi/openapi.yaml
-          grep -Eq '^openapi: "?(3\.1|3\.1\.)' openapi/openapi.yaml
+          for spec in openapi/openapi.yaml openapi/browser.yaml openapi/external.yaml; do
+            test -s "$spec"
+            grep -Eq '^openapi: "?(3\.1|3\.1\.)' "$spec"
+          done
 
       - name: Build frontend bundle
         run: npm --prefix frontend run build
@@ -52,4 +54,6 @@ jobs:
         with:
           files: |
             openapi/openapi.yaml
+            openapi/browser.yaml
+            openapi/external.yaml
             dist/haohao-linux-amd64.tar.gz

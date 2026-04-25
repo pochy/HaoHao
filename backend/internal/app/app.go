@@ -70,55 +70,28 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	)
 	router.Use(handlers...)
 
-	humaConfig := huma.DefaultConfig(cfg.AppName, cfg.AppVersion)
-	humaConfig.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
-		"cookieAuth": {
-			Type: "apiKey",
-			In:   "cookie",
-			Name: auth.SessionCookieName,
-		},
-		"bearerAuth": {
-			Type:         "http",
-			Scheme:       "bearer",
-			BearerFormat: "JWT",
-		},
-		"m2mBearerAuth": {
-			Type:         "http",
-			Scheme:       "bearer",
-			BearerFormat: "JWT",
-		},
-	}
+	api := humagin.New(router, humaConfigForSurface(cfg, backendapi.SurfaceFull))
 
-	api := humagin.New(router, humaConfig)
-
-	backendapi.Register(api, backendapi.Dependencies{
-		SessionService:               sessionService,
-		OIDCLoginService:             oidcLoginService,
-		DelegationService:            delegationService,
-		ProvisioningService:          provisioningService,
-		AuthzService:                 authzService,
-		AuditService:                 auditService,
-		TenantAdminService:           tenantAdminService,
-		CustomerSignalService:        customerSignalService,
-		TodoService:                  todoService,
-		MachineClientService:         machineClientService,
-		OutboxService:                outboxService,
-		IdempotencyService:           idempotencyService,
-		NotificationService:          notificationService,
-		TenantInvitationService:      tenantInvitationService,
-		FileService:                  fileService,
-		TenantSettingsService:        tenantSettingsService,
-		TenantDataExportService:      tenantDataExportService,
-		AuthMode:                     cfg.AuthMode,
-		EnableLocalPasswordLogin:     cfg.EnableLocalPasswordLogin,
-		SCIMBasePath:                 cfg.SCIMBasePath,
-		FrontendBaseURL:              cfg.FrontendBaseURL,
-		ZitadelIssuer:                cfg.ZitadelIssuer,
-		ZitadelClientID:              cfg.ZitadelClientID,
-		ZitadelPostLogoutRedirectURI: cfg.ZitadelPostLogoutRedirectURI,
-		CookieSecure:                 cfg.CookieSecure,
-		SessionTTL:                   cfg.SessionTTL,
+	deps := dependenciesWithConfig(cfg, backendapi.Dependencies{
+		SessionService:          sessionService,
+		OIDCLoginService:        oidcLoginService,
+		DelegationService:       delegationService,
+		ProvisioningService:     provisioningService,
+		AuthzService:            authzService,
+		AuditService:            auditService,
+		TenantAdminService:      tenantAdminService,
+		CustomerSignalService:   customerSignalService,
+		TodoService:             todoService,
+		MachineClientService:    machineClientService,
+		OutboxService:           outboxService,
+		IdempotencyService:      idempotencyService,
+		NotificationService:     notificationService,
+		TenantInvitationService: tenantInvitationService,
+		FileService:             fileService,
+		TenantSettingsService:   tenantSettingsService,
+		TenantDataExportService: tenantDataExportService,
 	})
+	backendapi.Register(api, deps)
 	backendapi.RegisterRawFileRoutes(router, backendapi.Dependencies{
 		SessionService:        sessionService,
 		AuthzService:          authzService,
