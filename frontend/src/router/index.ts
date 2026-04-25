@@ -7,6 +7,8 @@ import LoginView from '../views/LoginView.vue'
 import MachineClientDetailView from '../views/MachineClientDetailView.vue'
 import MachineClientFormView from '../views/MachineClientFormView.vue'
 import MachineClientsView from '../views/MachineClientsView.vue'
+import CustomerSignalDetailView from '../views/CustomerSignalDetailView.vue'
+import CustomerSignalsView from '../views/CustomerSignalsView.vue'
 import TenantAdminTenantDetailView from '../views/TenantAdminTenantDetailView.vue'
 import TenantAdminTenantFormView from '../views/TenantAdminTenantFormView.vue'
 import TenantAdminTenantsView from '../views/TenantAdminTenantsView.vue'
@@ -36,6 +38,18 @@ const router = createRouter({
       path: '/todos',
       name: 'todos',
       component: TodosView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/customer-signals',
+      name: 'customer-signals',
+      component: CustomerSignalsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/customer-signals/:signalPublicId',
+      name: 'customer-signal-detail',
+      component: CustomerSignalDetailView,
       meta: { requiresAuth: true },
     },
     {

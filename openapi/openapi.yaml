@@ -78,6 +78,66 @@ components:
         - Raw
         - Unparsed
       type: object
+    CreateCustomerSignalBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateCustomerSignalBody.json
+          format: uri
+          readOnly: true
+          type: string
+        body:
+          examples:
+            - Customer asked for monthly report export.
+          maxLength: 4000
+          type: string
+        customerName:
+          examples:
+            - Acme
+          maxLength: 120
+          minLength: 1
+          type: string
+        priority:
+          enum:
+            - low
+            - medium
+            - high
+            - urgent
+          examples:
+            - medium
+          type: string
+        source:
+          enum:
+            - support
+            - sales
+            - customer_success
+            - research
+            - internal
+            - other
+          examples:
+            - support
+          type: string
+        status:
+          enum:
+            - new
+            - triaged
+            - planned
+            - closed
+          examples:
+            - new
+          type: string
+        title:
+          examples:
+            - Export CSV from reports
+          maxLength: 200
+          minLength: 1
+          type: string
+      required:
+        - customerName
+        - title
+      type: object
     CreateTodoBody:
       additionalProperties: false
       properties:
@@ -95,6 +155,103 @@ components:
           type: string
       required:
         - title
+      type: object
+    CustomerSignalBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CustomerSignalBody.json
+          format: uri
+          readOnly: true
+          type: string
+        body:
+          examples:
+            - Customer asked for monthly report export.
+          maxLength: 4000
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        customerName:
+          examples:
+            - Acme
+          maxLength: 120
+          minLength: 1
+          type: string
+        priority:
+          enum:
+            - low
+            - medium
+            - high
+            - urgent
+          examples:
+            - medium
+          type: string
+        publicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        source:
+          enum:
+            - support
+            - sales
+            - customer_success
+            - research
+            - internal
+            - other
+          examples:
+            - support
+          type: string
+        status:
+          enum:
+            - new
+            - triaged
+            - planned
+            - closed
+          examples:
+            - new
+          type: string
+        title:
+          examples:
+            - Export CSV from reports
+          maxLength: 200
+          minLength: 1
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - customerName
+        - title
+        - body
+        - source
+        - priority
+        - status
+        - createdAt
+        - updatedAt
+      type: object
+    CustomerSignalListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CustomerSignalListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/CustomerSignalBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
       type: object
     ErrorDetail:
       additionalProperties: false
@@ -944,6 +1101,63 @@ components:
       required:
         - items
       type: object
+    UpdateCustomerSignalBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/UpdateCustomerSignalBody.json
+          format: uri
+          readOnly: true
+          type: string
+        body:
+          examples:
+            - Customer asked for monthly report export.
+          maxLength: 4000
+          type: string
+        customerName:
+          examples:
+            - Acme
+          maxLength: 120
+          minLength: 1
+          type: string
+        priority:
+          enum:
+            - low
+            - medium
+            - high
+            - urgent
+          examples:
+            - medium
+          type: string
+        source:
+          enum:
+            - support
+            - sales
+            - customer_success
+            - research
+            - internal
+            - other
+          examples:
+            - support
+          type: string
+        status:
+          enum:
+            - new
+            - triaged
+            - planned
+            - closed
+          examples:
+            - triaged
+          type: string
+        title:
+          examples:
+            - Export CSV from reports
+          maxLength: 200
+          minLength: 1
+          type: string
+      type: object
     UpdateTodoBody:
       additionalProperties: false
       properties:
@@ -1663,6 +1877,174 @@ paths:
       summary: CSRF token を再発行する
       tags:
         - session
+  /api/v1/customer-signals:
+    get:
+      operationId: listCustomerSignals
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSignalListBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の Customer Signals 一覧を返す
+      tags:
+        - customer-signals
+    post:
+      operationId: createCustomerSignal
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerSignalBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSignalBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant に Customer Signal を作成する
+      tags:
+        - customer-signals
+  /api/v1/customer-signals/{signalPublicId}:
+    delete:
+      operationId: deleteCustomerSignal
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: signalPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の Customer Signal を soft delete する
+      tags:
+        - customer-signals
+    get:
+      operationId: getCustomerSignal
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: signalPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSignalBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の Customer Signal detail を返す
+      tags:
+        - customer-signals
+    patch:
+      operationId: updateCustomerSignal
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: signalPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCustomerSignalBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSignalBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の Customer Signal を更新する
+      tags:
+        - customer-signals
   /api/v1/integrations:
     get:
       operationId: listIntegrations

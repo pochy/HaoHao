@@ -79,6 +79,7 @@ func main() {
 	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode, cfg.EnableLocalPasswordLogin, auditService)
 	authzService := service.NewAuthzService(pool, queries)
 	tenantAdminService := service.NewTenantAdminService(pool, queries, auditService)
+	customerSignalService := service.NewCustomerSignalService(pool, queries, auditService)
 	todoService := service.NewTodoService(pool, queries, auditService)
 	machineClientService := service.NewMachineClientService(pool, queries, cfg.M2MRequiredScopePrefix, auditService)
 
@@ -153,7 +154,7 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, todoService, machineClientService, bearerVerifier, m2mVerifier, metrics)
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, bearerVerifier, m2mVerifier, metrics)
 	app.RegisterHealthRoutes(application.Router, platform.ReadinessChecker{
 		PostgresPing:  pool.Ping,
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },

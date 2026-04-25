@@ -21,7 +21,7 @@ type App struct {
 	API    huma.API
 }
 
-func New(cfg config.Config, logger *slog.Logger, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, auditService *service.AuditService, tenantAdminService *service.TenantAdminService, todoService *service.TodoService, machineClientService *service.MachineClientService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier, metrics *platform.Metrics) *App {
+func New(cfg config.Config, logger *slog.Logger, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, auditService *service.AuditService, tenantAdminService *service.TenantAdminService, customerSignalService *service.CustomerSignalService, todoService *service.TodoService, machineClientService *service.MachineClientService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier, metrics *platform.Metrics) *App {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
@@ -77,6 +77,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		AuthzService:                 authzService,
 		AuditService:                 auditService,
 		TenantAdminService:           tenantAdminService,
+		CustomerSignalService:        customerSignalService,
 		TodoService:                  todoService,
 		MachineClientService:         machineClientService,
 		AuthMode:                     cfg.AuthMode,

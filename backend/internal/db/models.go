@@ -27,6 +27,22 @@ type AuditEvent struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
+type CustomerSignal struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	TenantID        int64              `json:"tenant_id"`
+	CreatedByUserID pgtype.Int8        `json:"created_by_user_id"`
+	CustomerName    string             `json:"customer_name"`
+	Title           string             `json:"title"`
+	Body            string             `json:"body"`
+	Source          string             `json:"source"`
+	Priority        string             `json:"priority"`
+	Status          string             `json:"status"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type MachineClient struct {
 	ID               int64              `json:"id"`
 	Provider         string             `json:"provider"`

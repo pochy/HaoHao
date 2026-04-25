@@ -221,6 +221,7 @@ func (s *AuthzService) AuthContextFromBearerWithTenant(ctx context.Context, prov
 }
 
 var supportedGlobalRoles = map[string]struct{}{
+	"customer_signal_user": {},
 	"docs_reader":          {},
 	"external_api_user":    {},
 	"machine_client_admin": {},
@@ -229,8 +230,9 @@ var supportedGlobalRoles = map[string]struct{}{
 }
 
 var supportedTenantRoles = map[string]struct{}{
-	"docs_reader": {},
-	"todo_user":   {},
+	"customer_signal_user": {},
+	"docs_reader":          {},
+	"todo_user":            {},
 }
 
 func IsSupportedTenantRole(roleCode string) bool {

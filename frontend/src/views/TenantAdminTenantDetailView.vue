@@ -18,7 +18,7 @@ const store = useTenantAdminStore()
 const displayName = ref('')
 const active = ref(true)
 const grantUserEmail = ref('')
-const grantRoleCode = ref('todo_user')
+const grantRoleCode = ref('customer_signal_user')
 const message = ref('')
 const errorMessage = ref('')
 const pendingAction = ref<PendingAction | null>(null)
@@ -32,7 +32,7 @@ const tenantSlug = computed(() => {
 
 const tenant = computed(() => store.current?.tenant ?? null)
 const memberships = computed(() => store.current?.memberships ?? [])
-const tenantRoleOptions = ['docs_reader', 'todo_user']
+const tenantRoleOptions = ['customer_signal_user', 'docs_reader', 'todo_user']
 
 const canSaveSettings = computed(() => (
   Boolean(tenant.value) &&

@@ -31,12 +31,49 @@ export type Cookie = {
     Value: string;
 };
 
+export type CreateCustomerSignalBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    body?: string;
+    customerName: string;
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    source?: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    status?: 'new' | 'triaged' | 'planned' | 'closed';
+    title: string;
+};
+
 export type CreateTodoBody = {
     /**
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
     title: string;
+};
+
+export type CustomerSignalBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    body: string;
+    createdAt: string;
+    customerName: string;
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    publicId: string;
+    source: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    status: 'new' | 'triaged' | 'planned' | 'closed';
+    title: string;
+    updatedAt: string;
+};
+
+export type CustomerSignalListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<CustomerSignalBody> | null;
 };
 
 export type ErrorDetail = {
@@ -359,6 +396,19 @@ export type TodoListBody = {
     items: Array<TodoBody> | null;
 };
 
+export type UpdateCustomerSignalBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    body?: string;
+    customerName?: string;
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    source?: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    status?: 'new' | 'triaged' | 'planned' | 'closed';
+    title?: string;
+};
+
 export type UpdateTodoBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -397,8 +447,33 @@ export type AuthSettingsBodyWritable = {
     zitadel?: ZitadelSettingsBody;
 };
 
+export type CreateCustomerSignalBodyWritable = {
+    body?: string;
+    customerName: string;
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    source?: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    status?: 'new' | 'triaged' | 'planned' | 'closed';
+    title: string;
+};
+
 export type CreateTodoBodyWritable = {
     title: string;
+};
+
+export type CustomerSignalBodyWritable = {
+    body: string;
+    createdAt: string;
+    customerName: string;
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    publicId: string;
+    source: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    status: 'new' | 'triaged' | 'planned' | 'closed';
+    title: string;
+    updatedAt: string;
+};
+
+export type CustomerSignalListBodyWritable = {
+    items: Array<CustomerSignalBodyWritable> | null;
 };
 
 export type ErrorModelWritable = {
@@ -568,6 +643,15 @@ export type TodoBodyWritable = {
 
 export type TodoListBodyWritable = {
     items: Array<TodoBodyWritable> | null;
+};
+
+export type UpdateCustomerSignalBodyWritable = {
+    body?: string;
+    customerName?: string;
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    source?: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    status?: 'new' | 'triaged' | 'planned' | 'closed';
+    title?: string;
 };
 
 export type UpdateTodoBodyWritable = {
@@ -1109,6 +1193,146 @@ export type GetCsrfResponses = {
 };
 
 export type GetCsrfResponse = GetCsrfResponses[keyof GetCsrfResponses];
+
+export type ListCustomerSignalsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/customer-signals';
+};
+
+export type ListCustomerSignalsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListCustomerSignalsError = ListCustomerSignalsErrors[keyof ListCustomerSignalsErrors];
+
+export type ListCustomerSignalsResponses = {
+    /**
+     * OK
+     */
+    200: CustomerSignalListBody;
+};
+
+export type ListCustomerSignalsResponse = ListCustomerSignalsResponses[keyof ListCustomerSignalsResponses];
+
+export type CreateCustomerSignalData = {
+    body: CreateCustomerSignalBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/customer-signals';
+};
+
+export type CreateCustomerSignalErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateCustomerSignalError = CreateCustomerSignalErrors[keyof CreateCustomerSignalErrors];
+
+export type CreateCustomerSignalResponses = {
+    /**
+     * OK
+     */
+    200: CustomerSignalBody;
+};
+
+export type CreateCustomerSignalResponse = CreateCustomerSignalResponses[keyof CreateCustomerSignalResponses];
+
+export type DeleteCustomerSignalData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        signalPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/customer-signals/{signalPublicId}';
+};
+
+export type DeleteCustomerSignalErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeleteCustomerSignalError = DeleteCustomerSignalErrors[keyof DeleteCustomerSignalErrors];
+
+export type DeleteCustomerSignalResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteCustomerSignalResponse = DeleteCustomerSignalResponses[keyof DeleteCustomerSignalResponses];
+
+export type GetCustomerSignalData = {
+    body?: never;
+    path: {
+        signalPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/customer-signals/{signalPublicId}';
+};
+
+export type GetCustomerSignalErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetCustomerSignalError = GetCustomerSignalErrors[keyof GetCustomerSignalErrors];
+
+export type GetCustomerSignalResponses = {
+    /**
+     * OK
+     */
+    200: CustomerSignalBody;
+};
+
+export type GetCustomerSignalResponse = GetCustomerSignalResponses[keyof GetCustomerSignalResponses];
+
+export type UpdateCustomerSignalData = {
+    body: UpdateCustomerSignalBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        signalPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/customer-signals/{signalPublicId}';
+};
+
+export type UpdateCustomerSignalErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateCustomerSignalError = UpdateCustomerSignalErrors[keyof UpdateCustomerSignalErrors];
+
+export type UpdateCustomerSignalResponses = {
+    /**
+     * OK
+     */
+    200: CustomerSignalBody;
+};
+
+export type UpdateCustomerSignalResponse = UpdateCustomerSignalResponses[keyof UpdateCustomerSignalResponses];
 
 export type ListIntegrationsData = {
     body?: never;

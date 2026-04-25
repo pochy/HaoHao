@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateMachineClientData, CreateMachineClientErrors, CreateMachineClientResponses, CreateTenantAdminTenantData, CreateTenantAdminTenantErrors, CreateTenantAdminTenantResponses, CreateTodoData, CreateTodoErrors, CreateTodoResponses, DeactivateTenantAdminTenantData, DeactivateTenantAdminTenantErrors, DeactivateTenantAdminTenantResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, DeleteMachineClientData, DeleteMachineClientErrors, DeleteMachineClientResponses, DeleteTodoData, DeleteTodoErrors, DeleteTodoResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetM2mSelfData, GetM2mSelfErrors, GetM2mSelfResponses, GetMachineClientData, GetMachineClientErrors, GetMachineClientResponses, GetSessionData, GetSessionErrors, GetSessionResponses, GetTenantAdminTenantData, GetTenantAdminTenantErrors, GetTenantAdminTenantResponses, GrantTenantAdminRoleData, GrantTenantAdminRoleErrors, GrantTenantAdminRoleResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListMachineClientsData, ListMachineClientsErrors, ListMachineClientsResponses, ListTenantAdminTenantsData, ListTenantAdminTenantsErrors, ListTenantAdminTenantsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, ListTodosData, ListTodosErrors, ListTodosResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, RevokeTenantAdminRoleData, RevokeTenantAdminRoleErrors, RevokeTenantAdminRoleResponses, ScimCreateUserData, ScimCreateUserErrors, ScimCreateUserResponses, ScimDeleteUserData, ScimDeleteUserErrors, ScimDeleteUserResponses, ScimGetUserData, ScimGetUserErrors, ScimGetUserResponses, ScimListUsersData, ScimListUsersErrors, ScimListUsersResponses, ScimPatchUserData, ScimPatchUserErrors, ScimPatchUserResponses, ScimReplaceUserData, ScimReplaceUserErrors, ScimReplaceUserResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, UpdateMachineClientData, UpdateMachineClientErrors, UpdateMachineClientResponses, UpdateTenantAdminTenantData, UpdateTenantAdminTenantErrors, UpdateTenantAdminTenantResponses, UpdateTodoData, UpdateTodoErrors, UpdateTodoResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
+import type { ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateCustomerSignalData, CreateCustomerSignalErrors, CreateCustomerSignalResponses, CreateMachineClientData, CreateMachineClientErrors, CreateMachineClientResponses, CreateTenantAdminTenantData, CreateTenantAdminTenantErrors, CreateTenantAdminTenantResponses, CreateTodoData, CreateTodoErrors, CreateTodoResponses, DeactivateTenantAdminTenantData, DeactivateTenantAdminTenantErrors, DeactivateTenantAdminTenantResponses, DeleteCustomerSignalData, DeleteCustomerSignalErrors, DeleteCustomerSignalResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, DeleteMachineClientData, DeleteMachineClientErrors, DeleteMachineClientResponses, DeleteTodoData, DeleteTodoErrors, DeleteTodoResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetCustomerSignalData, GetCustomerSignalErrors, GetCustomerSignalResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetM2mSelfData, GetM2mSelfErrors, GetM2mSelfResponses, GetMachineClientData, GetMachineClientErrors, GetMachineClientResponses, GetSessionData, GetSessionErrors, GetSessionResponses, GetTenantAdminTenantData, GetTenantAdminTenantErrors, GetTenantAdminTenantResponses, GrantTenantAdminRoleData, GrantTenantAdminRoleErrors, GrantTenantAdminRoleResponses, ListCustomerSignalsData, ListCustomerSignalsErrors, ListCustomerSignalsResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListMachineClientsData, ListMachineClientsErrors, ListMachineClientsResponses, ListTenantAdminTenantsData, ListTenantAdminTenantsErrors, ListTenantAdminTenantsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, ListTodosData, ListTodosErrors, ListTodosResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, RevokeTenantAdminRoleData, RevokeTenantAdminRoleErrors, RevokeTenantAdminRoleResponses, ScimCreateUserData, ScimCreateUserErrors, ScimCreateUserResponses, ScimDeleteUserData, ScimDeleteUserErrors, ScimDeleteUserResponses, ScimGetUserData, ScimGetUserErrors, ScimGetUserResponses, ScimListUsersData, ScimListUsersErrors, ScimListUsersResponses, ScimPatchUserData, ScimPatchUserErrors, ScimPatchUserResponses, ScimReplaceUserData, ScimReplaceUserErrors, ScimReplaceUserResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, UpdateCustomerSignalData, UpdateCustomerSignalErrors, UpdateCustomerSignalResponses, UpdateMachineClientData, UpdateMachineClientErrors, UpdateMachineClientResponses, UpdateTenantAdminTenantData, UpdateTenantAdminTenantErrors, UpdateTenantAdminTenantResponses, UpdateTodoData, UpdateTodoErrors, UpdateTodoResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -231,6 +231,79 @@ export const getCsrf = <ThrowOnError extends boolean = false>(options?: Options<
         }],
     url: '/api/v1/csrf',
     ...options
+});
+
+/**
+ * active tenant の Customer Signals 一覧を返す
+ */
+export const listCustomerSignals = <ThrowOnError extends boolean = false>(options?: Options<ListCustomerSignalsData, ThrowOnError>) => (options?.client ?? client).get<ListCustomerSignalsResponses, ListCustomerSignalsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/customer-signals',
+    ...options
+});
+
+/**
+ * active tenant に Customer Signal を作成する
+ */
+export const createCustomerSignal = <ThrowOnError extends boolean = false>(options: Options<CreateCustomerSignalData, ThrowOnError>) => (options.client ?? client).post<CreateCustomerSignalResponses, CreateCustomerSignalErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/customer-signals',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * active tenant の Customer Signal を soft delete する
+ */
+export const deleteCustomerSignal = <ThrowOnError extends boolean = false>(options: Options<DeleteCustomerSignalData, ThrowOnError>) => (options.client ?? client).delete<DeleteCustomerSignalResponses, DeleteCustomerSignalErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/customer-signals/{signalPublicId}',
+    ...options
+});
+
+/**
+ * active tenant の Customer Signal detail を返す
+ */
+export const getCustomerSignal = <ThrowOnError extends boolean = false>(options: Options<GetCustomerSignalData, ThrowOnError>) => (options.client ?? client).get<GetCustomerSignalResponses, GetCustomerSignalErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/customer-signals/{signalPublicId}',
+    ...options
+});
+
+/**
+ * active tenant の Customer Signal を更新する
+ */
+export const updateCustomerSignal = <ThrowOnError extends boolean = false>(options: Options<UpdateCustomerSignalData, ThrowOnError>) => (options.client ?? client).patch<UpdateCustomerSignalResponses, UpdateCustomerSignalErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/customer-signals/{signalPublicId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**

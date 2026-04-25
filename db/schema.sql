@@ -78,6 +78,49 @@ ALTER TABLE public.audit_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
+-- Name: customer_signals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_signals (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    created_by_user_id bigint,
+    customer_name text NOT NULL,
+    title text NOT NULL,
+    body text DEFAULT ''::text NOT NULL,
+    source text DEFAULT 'other'::text NOT NULL,
+    priority text DEFAULT 'medium'::text NOT NULL,
+    status text DEFAULT 'new'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    CONSTRAINT customer_signals_customer_name_check CHECK ((btrim(customer_name) <> ''::text)),
+    CONSTRAINT customer_signals_priority_check CHECK ((priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'urgent'::text]))),
+    CONSTRAINT customer_signals_priority_check1 CHECK ((btrim(priority) <> ''::text)),
+    CONSTRAINT customer_signals_source_check CHECK ((source = ANY (ARRAY['support'::text, 'sales'::text, 'customer_success'::text, 'research'::text, 'internal'::text, 'other'::text]))),
+    CONSTRAINT customer_signals_source_check1 CHECK ((btrim(source) <> ''::text)),
+    CONSTRAINT customer_signals_status_check CHECK ((status = ANY (ARRAY['new'::text, 'triaged'::text, 'planned'::text, 'closed'::text]))),
+    CONSTRAINT customer_signals_status_check1 CHECK ((btrim(status) <> ''::text)),
+    CONSTRAINT customer_signals_title_check CHECK ((btrim(title) <> ''::text))
+);
+
+
+--
+-- Name: customer_signals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.customer_signals ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.customer_signals_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: machine_clients; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -373,6 +416,14 @@ ALTER TABLE ONLY public.audit_events
 
 
 --
+-- Name: customer_signals customer_signals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signals
+    ADD CONSTRAINT customer_signals_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: machine_clients machine_clients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -566,6 +617,41 @@ CREATE INDEX audit_events_tenant_occurred_at_idx ON public.audit_events USING bt
 
 
 --
+-- Name: customer_signals_created_by_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_signals_created_by_user_id_idx ON public.customer_signals USING btree (created_by_user_id) WHERE (created_by_user_id IS NOT NULL);
+
+
+--
+-- Name: customer_signals_public_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX customer_signals_public_id_idx ON public.customer_signals USING btree (public_id);
+
+
+--
+-- Name: customer_signals_tenant_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_signals_tenant_created_at_idx ON public.customer_signals USING btree (tenant_id, created_at DESC, id DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: customer_signals_tenant_open_priority_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_signals_tenant_open_priority_idx ON public.customer_signals USING btree (tenant_id, priority, created_at DESC, id DESC) WHERE ((deleted_at IS NULL) AND (status <> 'closed'::text));
+
+
+--
+-- Name: customer_signals_tenant_status_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_signals_tenant_status_created_at_idx ON public.customer_signals USING btree (tenant_id, status, created_at DESC, id DESC) WHERE (deleted_at IS NULL);
+
+
+--
 -- Name: machine_clients_default_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -678,6 +764,22 @@ ALTER TABLE ONLY public.audit_events
 
 ALTER TABLE ONLY public.audit_events
     ADD CONSTRAINT audit_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE SET NULL;
+
+
+--
+-- Name: customer_signals customer_signals_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signals
+    ADD CONSTRAINT customer_signals_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: customer_signals customer_signals_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_signals
+    ADD CONSTRAINT customer_signals_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --

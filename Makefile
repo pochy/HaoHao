@@ -77,3 +77,6 @@ smoke-observability:
 
 smoke-tenant-admin:
 	bash scripts/smoke-tenant-admin.sh
+
+smoke-customer-signals:
+	bash scripts/smoke-customer-signals.sh
