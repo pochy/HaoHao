@@ -17579,6 +17579,8 @@ curl -fsS -X PUT "http://127.0.0.1:8080/api/v1/machine-clients/$MACHINE_ID" \
   }"
 ```
 
+M2M smoke のために `Complement Token` flow を `haohaoM2MScope` のみに変えた場合は、M2M token を取り終わったあとに Zitadel Console の Action / Flow 設定を必ず見直してください。Phase 5 の SCIM smoke には `haohaoScimScope` が必要で、external / browser tenant smoke には `haohaoGroups` が必要です。Zitadel Console の Action / Flow は Git 管理外の外部状態なので、どの smoke のためにどの Action を有効にしたかを作業メモに残してから切り替えると事故りにくいです。
+
 ### Step 6.2. docs / OpenAPI を認証付きで公開する
 
 `CONCEPT.md` では、本番の `/docs`, `/openapi.json`, `/openapi.yaml` は認証付きで公開する前提です。ここで制御を入れます。
@@ -17638,6 +17640,39 @@ bash -lc 'set -a; source .env; export AUTH_MODE=local ENABLE_LOCAL_PASSWORD_LOGI
 
 この状態で `POST /api/v1/login` が `501` になり、frontend の password form が demo credential 前提で表示されないことを確認します。
 
+#### Phase 6 manual smoke の完了チェック
+
+この Phase の manual smoke は、最低限次が確認できれば完了でよいです。
+
+```text
+M2M token payload:
+  aud       -> M2M_EXPECTED_AUDIENCE と一致
+  scope     -> m2m: で始まる scope を含む
+  client_id -> machine_clients.provider_client_id と一致
+  groups / email / preferred_username / project roles claim が無い
+
+M2M API:
+  POST /api/v1/machine-clients が machine_client_admin session + CSRF で成功
+  GET /api/m2m/v1/self が active machine client で 200
+  DELETE /api/v1/machine-clients/{id} 後、同じ token で /api/m2m/v1/self が 403
+  PUT /api/v1/machine-clients/{id} で active に戻せる
+
+docs / cutover:
+  DOCS_AUTH_REQUIRED=true で cookie 無し /openapi.yaml が 401
+  docs_reader session 付き /openapi.yaml が 200
+  ENABLE_LOCAL_PASSWORD_LOGIN=false で POST /api/v1/login が 501
+```
+
+最後に自動確認を通します。
+
+```bash
+go test ./backend/...
+npm --prefix frontend run build
+make gen
+make db-schema
+git diff --check
+```
+
 ### Step 6.4. テスト、CI、運用を最終形へ合わせる
 
 ここで初めて全体のテストと運用をまとめて扱います。refresh token, SCIM, tenant, M2M がそろう前に先回りして書きません。
@@ -17685,6 +17720,8 @@ bash -lc 'set -a; source .env; export AUTH_MODE=local ENABLE_LOCAL_PASSWORD_LOGI
 - frontend の typecheck / build
 - browser auth, external auth, delegated auth, provisioning, M2M の smoke test
 
+初期の GitHub Actions では、実 Zitadel を使う live smoke までは必須にしません。まずは `go test`, frontend build, `make gen` drift, migration からの `db/schema.sql` drift, OpenAPI validate, Zitadel compose config check を offline CI として固定します。browser auth / external auth / SCIM / M2M の live smoke は、local runbook か self-hosted test environment が安定してから CI に昇格してください。
+
 #### self-hosted Zitadel の運用チェック
 
 `CONCEPT.md` では self-hosted Zitadel を採用するので、最低限次を runbook 化してください。
@@ -17695,6 +17732,18 @@ bash -lc 'set -a; source .env; export AUTH_MODE=local ENABLE_LOCAL_PASSWORD_LOGI
 - 監視とアラート
 - JWT signing key / client secret 変更時の影響確認
 - 障害時の一時ログイン停止手順
+
+#### Phase 6 後にやること
+
+Zitadel integration としては Phase 6 が最終 Phase です。次は新しい実装 Phase ではなく、release / cutover / 運用固定です。
+
+1. `handmaid2` を push し、GitHub Actions が通ることを確認する
+2. PR を作り、OpenAPI / generated client / migration / workflow の差分を review する
+3. merge 後に tag を切り、release workflow が `openapi/openapi.yaml` を release asset に載せることを確認する
+4. production env を `AUTH_MODE=zitadel`, `ENABLE_LOCAL_PASSWORD_LOGIN=false`, `DOCS_AUTH_REQUIRED=true` に固定する
+5. Zitadel の Action / Flow / Service User / SCIM client / external app 設定を runbook 化し、backup / restore / secret rotation / monitoring に組み込む
+
+以後の業務機能は、browser Cookie session, human-user bearer, delegated downstream access, machine-to-machine の 4 系統の入口を崩さずに追加してください。
 
 ## Phase 6 Exact Snapshot
 
