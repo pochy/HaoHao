@@ -4,17 +4,18 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLoadReadsDotEnvFromWorkingDirectory(t *testing.T) {
-	restoreEnv(t, "DATABASE_URL", "APP_NAME", "ZITADEL_SCOPES", "SCIM_RECONCILE_CRON")
+	restoreEnv(t, "DATABASE_URL", "APP_NAME", "ZITADEL_SCOPES", "SCIM_RECONCILE_INTERVAL")
 
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(`
 DATABASE_URL=postgres://haohao:haohao@127.0.0.1:5432/haohao?sslmode=disable
 APP_NAME="From Dot Env"
 ZITADEL_SCOPES="openid profile email"
-SCIM_RECONCILE_CRON=0 3 * * *
+SCIM_RECONCILE_INTERVAL=15m
 `), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -35,8 +36,8 @@ SCIM_RECONCILE_CRON=0 3 * * *
 	if cfg.ZitadelScopes != "openid profile email" {
 		t.Fatalf("ZitadelScopes = %q", cfg.ZitadelScopes)
 	}
-	if cfg.SCIMReconcileCron != "0 3 * * *" {
-		t.Fatalf("SCIMReconcileCron = %q", cfg.SCIMReconcileCron)
+	if cfg.SCIMReconcileInterval != 15*time.Minute {
+		t.Fatalf("SCIMReconcileInterval = %s", cfg.SCIMReconcileInterval)
 	}
 }
 
@@ -61,6 +62,18 @@ func TestDotEnvDoesNotOverrideExistingEnvironment(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsInvalidOperationalDuration(t *testing.T) {
+	restoreEnv(t, "READINESS_TIMEOUT")
+	t.Setenv("READINESS_TIMEOUT", "0s")
+
+	dir := t.TempDir()
+	chdir(t, dir)
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil")
+	}
+}
+
 func TestParseDotEnvLine(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -79,9 +92,9 @@ func TestParseDotEnvLine(t *testing.T) {
 		},
 		{
 			name:      "unquoted value with spaces",
-			line:      "SCIM_RECONCILE_CRON=0 3 * * *",
-			wantKey:   "SCIM_RECONCILE_CRON",
-			wantValue: "0 3 * * *",
+			line:      "ZITADEL_SCOPES=openid profile email",
+			wantKey:   "ZITADEL_SCOPES",
+			wantValue: "openid profile email",
 			wantOK:    true,
 		},
 		{

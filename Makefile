@@ -68,3 +68,6 @@ binary: frontend-build
 
 docker-build:
 	docker build -t haohao:dev -f docker/Dockerfile .
+
+smoke-operability:
+	bash scripts/smoke-operability.sh

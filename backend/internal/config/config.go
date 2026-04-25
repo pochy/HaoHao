@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -13,6 +14,8 @@ type Config struct {
 	HTTPPort                     int
 	AppBaseURL                   string
 	FrontendBaseURL              string
+	LogLevel                     string
+	LogFormat                    string
 	DatabaseURL                  string
 	AuthMode                     string
 	ZitadelIssuer                string
@@ -35,7 +38,12 @@ type Config struct {
 	SCIMBasePath                 string
 	SCIMBearerAudience           string
 	SCIMRequiredScope            string
-	SCIMReconcileCron            string
+	ReadinessTimeout             time.Duration
+	ReadinessCheckZitadel        bool
+	SCIMReconcileEnabled         bool
+	SCIMReconcileInterval        time.Duration
+	SCIMReconcileTimeout         time.Duration
+	SCIMReconcileRunOnStartup    bool
 	RedisAddr                    string
 	RedisPassword                string
 	RedisDB                      int
@@ -67,6 +75,18 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	readinessTimeout, err := getEnvPositiveDuration("READINESS_TIMEOUT", "2s")
+	if err != nil {
+		return Config{}, err
+	}
+	scimReconcileInterval, err := getEnvPositiveDuration("SCIM_RECONCILE_INTERVAL", "1h")
+	if err != nil {
+		return Config{}, err
+	}
+	scimReconcileTimeout, err := getEnvPositiveDuration("SCIM_RECONCILE_TIMEOUT", "30s")
+	if err != nil {
+		return Config{}, err
+	}
 
 	appBaseURL := strings.TrimRight(getEnv("APP_BASE_URL", "http://127.0.0.1:8080"), "/")
 	frontendBaseURL := resolveFrontendBaseURL(appBaseURL, getEnv("FRONTEND_BASE_URL", defaultFrontendBaseURL(appBaseURL, frontendEmbedded)), frontendEmbedded)
@@ -78,6 +98,8 @@ func Load() (Config, error) {
 		HTTPPort:                     getEnvInt("HTTP_PORT", 8080),
 		AppBaseURL:                   appBaseURL,
 		FrontendBaseURL:              frontendBaseURL,
+		LogLevel:                     getEnv("LOG_LEVEL", "info"),
+		LogFormat:                    getEnv("LOG_FORMAT", "json"),
 		DatabaseURL:                  getEnv("DATABASE_URL", ""),
 		AuthMode:                     getEnv("AUTH_MODE", "local"),
 		ZitadelIssuer:                strings.TrimRight(getEnv("ZITADEL_ISSUER", ""), "/"),
@@ -100,7 +122,12 @@ func Load() (Config, error) {
 		SCIMBasePath:                 strings.TrimRight(getEnv("SCIM_BASE_PATH", "/api/scim/v2"), "/"),
 		SCIMBearerAudience:           getEnv("SCIM_BEARER_AUDIENCE", "scim-provisioning"),
 		SCIMRequiredScope:            getEnv("SCIM_REQUIRED_SCOPE", "scim:provision"),
-		SCIMReconcileCron:            getEnv("SCIM_RECONCILE_CRON", "0 3 * * *"),
+		ReadinessTimeout:             readinessTimeout,
+		ReadinessCheckZitadel:        getEnvBool("READINESS_CHECK_ZITADEL", false),
+		SCIMReconcileEnabled:         getEnvBool("SCIM_RECONCILE_ENABLED", false),
+		SCIMReconcileInterval:        scimReconcileInterval,
+		SCIMReconcileTimeout:         scimReconcileTimeout,
+		SCIMReconcileRunOnStartup:    getEnvBool("SCIM_RECONCILE_RUN_ON_STARTUP", false),
 		RedisAddr:                    getEnv("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword:                getEnv("REDIS_PASSWORD", ""),
 		RedisDB:                      getEnvInt("REDIS_DB", 0),
@@ -131,6 +158,19 @@ func getEnvInt(key string, fallback int) int {
 	}
 
 	return parsed
+}
+
+func getEnvPositiveDuration(key, fallback string) (time.Duration, error) {
+	value := getEnv(key, fallback)
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", key, err)
+	}
+	if parsed <= 0 {
+		return 0, fmt.Errorf("%s must be positive", key)
+	}
+
+	return parsed, nil
 }
 
 func getEnvBool(key string, fallback bool) bool {

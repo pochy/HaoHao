@@ -1,6 +1,9 @@
 package app
 
 import (
+	"io"
+	"log/slog"
+
 	backendapi "example.com/haohao/backend/internal/api"
 	"example.com/haohao/backend/internal/auth"
 	"example.com/haohao/backend/internal/config"
@@ -17,10 +20,15 @@ type App struct {
 	API    huma.API
 }
 
-func New(cfg config.Config, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, machineClientService *service.MachineClientService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier) *App {
+func New(cfg config.Config, logger *slog.Logger, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, machineClientService *service.MachineClientService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier) *App {
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+
 	router := gin.New()
 	router.Use(
-		gin.Logger(),
+		middleware.RequestID(),
+		middleware.RequestLogger(logger),
 		gin.Recovery(),
 		middleware.DocsAuth(cfg.DocsAuthRequired, sessionService, authzService),
 		middleware.ExternalCORS("/api/external/", cfg.ExternalAllowedOrigins),

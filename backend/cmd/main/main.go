@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,8 +16,11 @@ import (
 	"example.com/haohao/backend/internal/auth"
 	"example.com/haohao/backend/internal/config"
 	db "example.com/haohao/backend/internal/db"
+	"example.com/haohao/backend/internal/jobs"
 	"example.com/haohao/backend/internal/platform"
 	"example.com/haohao/backend/internal/service"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -25,18 +28,24 @@ func main() {
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("load config", "error", err)
+		os.Exit(1)
+	}
+	logger := platform.NewLogger(cfg.LogLevel, cfg.LogFormat, os.Stdout)
+	slog.SetDefault(logger)
+	if os.Getenv(gin.EnvGinMode) == "" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
 	pool, err := platform.NewPostgresPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal(err)
+		fatal(logger, "connect postgres", err)
 	}
 	defer pool.Close()
 
 	redisClient, err := platform.NewRedisClient(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
 	if err != nil {
-		log.Fatal(err)
+		fatal(logger, "connect redis", err)
 	}
 	defer redisClient.Close()
 
@@ -52,7 +61,7 @@ func main() {
 	var m2mVerifier *auth.M2MVerifier
 	if cfg.AuthMode == "zitadel" {
 		if cfg.ZitadelIssuer == "" || cfg.ZitadelClientID == "" || cfg.ZitadelClientSecret == "" {
-			log.Fatal("ZITADEL_ISSUER, ZITADEL_CLIENT_ID, and ZITADEL_CLIENT_SECRET are required when AUTH_MODE=zitadel")
+			fatal(logger, "ZITADEL_ISSUER, ZITADEL_CLIENT_ID, and ZITADEL_CLIENT_SECRET are required when AUTH_MODE=zitadel", nil)
 		}
 
 		oidcClient, err := auth.NewOIDCClient(
@@ -64,7 +73,7 @@ func main() {
 			cfg.ZitadelScopes,
 		)
 		if err != nil {
-			log.Fatal(err)
+			fatal(logger, "create oidc client", err)
 		}
 
 		loginStateStore := auth.NewLoginStateStore(redisClient, cfg.LoginStateTTL)
@@ -74,12 +83,12 @@ func main() {
 		if cfg.DownstreamTokenEncryptionKey != "" {
 			refreshTokenStore, err := auth.NewRefreshTokenStore(cfg.DownstreamTokenEncryptionKey, cfg.DownstreamTokenKeyVersion)
 			if err != nil {
-				log.Fatal(err)
+				fatal(logger, "create refresh token store", err)
 			}
 
 			delegatedOAuthClient, err := auth.NewDelegatedOAuthClient(ctx, cfg.ZitadelIssuer, cfg.ZitadelClientID, cfg.ZitadelClientSecret)
 			if err != nil {
-				log.Fatal(err)
+				fatal(logger, "create delegated oauth client", err)
 			}
 
 			delegationStateStore := auth.NewDelegationStateStore(redisClient, cfg.LoginStateTTL)
@@ -99,16 +108,33 @@ func main() {
 	if cfg.ZitadelIssuer != "" {
 		bearerVerifier, err = auth.NewBearerVerifier(ctx, cfg.ZitadelIssuer)
 		if err != nil {
-			log.Fatal(err)
+			fatal(logger, "create bearer verifier", err)
 		}
 		m2mVerifier = auth.NewM2MVerifier(bearerVerifier, cfg.M2MExpectedAudience, cfg.M2MRequiredScopePrefix)
 	}
 
 	provisioningService := service.NewProvisioningService(pool, queries, sessionService, delegationService, authzService)
+	reconcileJob := jobs.NewProvisioningReconcileJob(queries, sessionService, delegationService)
+	reconcileScheduler := jobs.NewReconcileScheduler(reconcileJob, jobs.ReconcileSchedulerConfig{
+		Enabled:      cfg.SCIMReconcileEnabled,
+		Interval:     cfg.SCIMReconcileInterval,
+		Timeout:      cfg.SCIMReconcileTimeout,
+		RunOnStartup: cfg.SCIMReconcileRunOnStartup,
+	}, logger)
 
-	application := app.New(cfg, sessionService, oidcLoginService, delegationService, provisioningService, authzService, machineClientService, bearerVerifier, m2mVerifier)
+	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, machineClientService, bearerVerifier, m2mVerifier)
+	app.RegisterHealthRoutes(application.Router, platform.ReadinessChecker{
+		PostgresPing:  pool.Ping,
+		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },
+		ZitadelIssuer: cfg.ZitadelIssuer,
+		CheckZitadel:  cfg.ReadinessCheckZitadel,
+		HTTPClient:    platform.ReadinessTimeoutClient(cfg.ReadinessTimeout),
+	}, cfg.ReadinessTimeout)
 	if err := backendroot.RegisterFrontendRoutes(application.Router); err != nil {
-		log.Printf("frontend routes unavailable: %v", err)
+		logger.Warn("frontend routes unavailable", "error", err)
 	}
 
 	server := &http.Server{
@@ -117,15 +143,14 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	go reconcileScheduler.Start(shutdownCtx)
+
 	go func() {
-		log.Printf("listening on http://127.0.0.1:%d", cfg.HTTPPort)
+		logger.Info("listening", "url", fmt.Sprintf("http://127.0.0.1:%d", cfg.HTTPPort))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatal(err)
+			fatal(logger, "serve http", err)
 		}
 	}()
-
-	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	<-shutdownCtx.Done()
 
@@ -133,6 +158,15 @@ func main() {
 	defer cancel()
 
 	if err := server.Shutdown(ctxWithTimeout); err != nil {
-		log.Fatal(err)
+		fatal(logger, "shutdown http server", err)
 	}
+}
+
+func fatal(logger *slog.Logger, message string, err error) {
+	if err != nil {
+		logger.Error(message, "error", err)
+	} else {
+		logger.Error(message)
+	}
+	os.Exit(1)
 }

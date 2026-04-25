@@ -52,6 +52,9 @@ jobs:
       - name: Go tests
         run: go test ./backend/...
 
+      - name: Smoke script syntax
+        run: bash -n scripts/smoke-operability.sh
+
       - name: Frontend build
         run: npm --prefix frontend run build
 

@@ -1,0 +1,108 @@
+package platform
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+)
+
+type PingFunc func(context.Context) error
+
+type ReadinessChecker struct {
+	PostgresPing  PingFunc
+	RedisPing     PingFunc
+	ZitadelIssuer string
+	CheckZitadel  bool
+	HTTPClient    *http.Client
+}
+
+type ReadinessResult struct {
+	Status string                    `json:"status"`
+	Checks map[string]ReadinessCheck `json:"checks"`
+}
+
+type ReadinessCheck struct {
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
+}
+
+func (c ReadinessChecker) Check(ctx context.Context) ReadinessResult {
+	result := ReadinessResult{
+		Status: "ok",
+		Checks: map[string]ReadinessCheck{},
+	}
+
+	c.checkPing(ctx, &result, "postgres", c.PostgresPing)
+	c.checkPing(ctx, &result, "redis", c.RedisPing)
+
+	if c.CheckZitadel {
+		if err := c.checkZitadel(ctx); err != nil {
+			result.Status = "error"
+			result.Checks["zitadel"] = ReadinessCheck{Status: "error", Error: err.Error()}
+		} else {
+			result.Checks["zitadel"] = ReadinessCheck{Status: "ok"}
+		}
+	}
+
+	return result
+}
+
+func (c ReadinessChecker) checkPing(ctx context.Context, result *ReadinessResult, name string, ping PingFunc) {
+	if ping == nil {
+		result.Status = "error"
+		result.Checks[name] = ReadinessCheck{Status: "error", Error: "ping function is not configured"}
+		return
+	}
+
+	if err := ping(ctx); err != nil {
+		result.Status = "error"
+		result.Checks[name] = ReadinessCheck{Status: "error", Error: err.Error()}
+		return
+	}
+
+	result.Checks[name] = ReadinessCheck{Status: "ok"}
+}
+
+func (c ReadinessChecker) checkZitadel(ctx context.Context) error {
+	issuer := strings.TrimRight(c.ZitadelIssuer, "/")
+	if issuer == "" {
+		return fmt.Errorf("ZITADEL_ISSUER is empty")
+	}
+
+	client := c.HTTPClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, issuer+"/.well-known/openid-configuration", nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("discovery returned %d", resp.StatusCode)
+	}
+
+	var body map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return err
+	}
+	if body["issuer"] == nil {
+		return fmt.Errorf("discovery response missing issuer")
+	}
+
+	return nil
+}
+
+func ReadinessTimeoutClient(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout}
+}
