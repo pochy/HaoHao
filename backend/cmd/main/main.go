@@ -41,12 +41,14 @@ func main() {
 
 	queries := db.New(pool)
 	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
-	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode)
+	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode, cfg.EnableLocalPasswordLogin)
 	authzService := service.NewAuthzService(pool, queries)
+	machineClientService := service.NewMachineClientService(queries, cfg.M2MRequiredScopePrefix)
 
 	var oidcLoginService *service.OIDCLoginService
 	var delegationService *service.DelegationService
 	var bearerVerifier *auth.BearerVerifier
+	var m2mVerifier *auth.M2MVerifier
 	if cfg.AuthMode == "zitadel" {
 		if cfg.ZitadelIssuer == "" || cfg.ZitadelClientID == "" || cfg.ZitadelClientSecret == "" {
 			log.Fatal("ZITADEL_ISSUER, ZITADEL_CLIENT_ID, and ZITADEL_CLIENT_SECRET are required when AUTH_MODE=zitadel")
@@ -98,11 +100,12 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		m2mVerifier = auth.NewM2MVerifier(bearerVerifier, cfg.M2MExpectedAudience, cfg.M2MRequiredScopePrefix)
 	}
 
 	provisioningService := service.NewProvisioningService(pool, queries, sessionService, delegationService, authzService)
 
-	application := app.New(cfg, sessionService, oidcLoginService, delegationService, provisioningService, authzService, bearerVerifier)
+	application := app.New(cfg, sessionService, oidcLoginService, delegationService, provisioningService, authzService, machineClientService, bearerVerifier, m2mVerifier)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

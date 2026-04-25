@@ -38,7 +38,7 @@ db-down:
 	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" down 1
 
 db-schema: db-wait
-	$(DOCKER_COMPOSE) exec -T postgres pg_dump --schema-only --no-owner --no-privileges -U haohao -d haohao | sed '/^\\restrict /d; /^\\unrestrict /d' > db/schema.sql
+	$(DOCKER_COMPOSE) exec -T postgres pg_dump --schema-only --no-owner --no-privileges -U haohao -d haohao | sed '/^\\restrict /d; /^\\unrestrict /d' | perl -0pe 's/\n+\z/\n/' > db/schema.sql
 
 seed-demo-user: db-wait
 	$(DOCKER_COMPOSE) exec -T postgres psql -U haohao -d haohao < scripts/seed-demo-user.sql

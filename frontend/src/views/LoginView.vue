@@ -13,8 +13,9 @@ const sessionStore = useSessionStore()
 
 const authMode = ref<AuthMode>('local')
 const zitadelIssuer = ref('')
-const email = ref('demo@example.com')
-const password = ref('changeme123')
+const localPasswordLoginEnabled = ref(true)
+const email = ref('')
+const password = ref('')
 const submitting = ref(false)
 const loadingSettings = ref(true)
 
@@ -30,9 +31,11 @@ onMounted(async () => {
     const settings = await fetchAuthSettings()
     authMode.value = settings.mode as AuthMode
     zitadelIssuer.value = settings.zitadel?.issuer ?? ''
+    localPasswordLoginEnabled.value = settings.localPasswordLoginEnabled
   } catch {
     authMode.value = 'local'
     zitadelIssuer.value = ''
+    localPasswordLoginEnabled.value = true
   } finally {
     loadingSettings.value = false
   }
@@ -58,15 +61,15 @@ async function submit() {
       <div class="stack intro">
         <span class="status-pill">Cookie Session</span>
         <h2>Login</h2>
-        <p>
-          認証 mode を backend から読み、<code>local</code> なら password form、
-          <code>zitadel</code> なら browser redirect login を表示します。
-        </p>
       </div>
 
       <p v-if="loadingSettings">Loading auth settings...</p>
 
-      <form v-else-if="authMode === 'local'" class="stack" @submit.prevent="submit">
+      <form
+        v-else-if="authMode === 'local' && localPasswordLoginEnabled"
+        class="stack"
+        @submit.prevent="submit"
+      >
         <label class="field">
           <span class="field-label">Email</span>
           <input
@@ -95,11 +98,11 @@ async function submit() {
         </button>
       </form>
 
+      <p v-else-if="authMode === 'local'" class="error-message">
+        Password login is disabled.
+      </p>
+
       <div v-else class="stack">
-        <p>
-          <code>AUTH_MODE=zitadel</code> が有効です。browser は backend の
-          <code>/api/v1/auth/login</code> へ遷移し、callback 後に local Cookie session を受け取ります。
-        </p>
         <p v-if="zitadelIssuer">
           Issuer: <code>{{ zitadelIssuer }}</code>
         </p>
@@ -118,7 +121,6 @@ async function submit() {
 
     <aside class="panel stack">
       <h2>Routes</h2>
-      <p>backend は Huma から OpenAPI 3.1 を生成し、frontend は generated SDK を使います。</p>
       <div class="stack detail-list">
         <div>
           <strong>Settings</strong>

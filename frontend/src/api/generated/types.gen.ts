@@ -9,6 +9,7 @@ export type AuthSettingsBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    localPasswordLoginEnabled: boolean;
     mode: string;
     zitadel?: ZitadelSettingsBody;
 };
@@ -112,6 +113,14 @@ export type ListIntegrationsBody = {
     items: Array<IntegrationStatusBody> | null;
 };
 
+export type ListMachineClientsOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<MachineClientBody> | null;
+};
+
 export type ListTenantsBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -137,6 +146,47 @@ export type LogoutBody = {
      */
     readonly $schema?: string;
     postLogoutURL?: string;
+};
+
+export type M2mSelfBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    active: boolean;
+    allowedScopes?: Array<string> | null;
+    defaultTenant?: TenantBody;
+    displayName: string;
+    id: number;
+};
+
+export type MachineClientBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    active: boolean;
+    allowedScopes?: Array<string> | null;
+    createdAt: string;
+    defaultTenant?: TenantBody;
+    displayName: string;
+    id: number;
+    provider: string;
+    providerClientId: string;
+    updatedAt: string;
+};
+
+export type MachineClientRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    active?: boolean;
+    allowedScopes?: Array<string> | null;
+    defaultTenantId?: number;
+    displayName: string;
+    provider?: string;
+    providerClientId: string;
 };
 
 export type ScimGroupBody = {
@@ -241,6 +291,7 @@ export type ZitadelSettingsBody = {
 };
 
 export type AuthSettingsBodyWritable = {
+    localPasswordLoginEnabled: boolean;
     mode: string;
     zitadel?: ZitadelSettingsBody;
 };
@@ -289,6 +340,10 @@ export type ListIntegrationsBodyWritable = {
     items: Array<IntegrationStatusBody> | null;
 };
 
+export type ListMachineClientsOutputBodyWritable = {
+    items: Array<MachineClientBodyWritable> | null;
+};
+
 export type ListTenantsBodyWritable = {
     activeTenant?: TenantBody;
     defaultTenant?: TenantBody;
@@ -302,6 +357,35 @@ export type LoginInputBodyWritable = {
 
 export type LogoutBodyWritable = {
     postLogoutURL?: string;
+};
+
+export type M2mSelfBodyWritable = {
+    active: boolean;
+    allowedScopes?: Array<string> | null;
+    defaultTenant?: TenantBody;
+    displayName: string;
+    id: number;
+};
+
+export type MachineClientBodyWritable = {
+    active: boolean;
+    allowedScopes?: Array<string> | null;
+    createdAt: string;
+    defaultTenant?: TenantBody;
+    displayName: string;
+    id: number;
+    provider: string;
+    providerClientId: string;
+    updatedAt: string;
+};
+
+export type MachineClientRequestBodyWritable = {
+    active?: boolean;
+    allowedScopes?: Array<string> | null;
+    defaultTenantId?: number;
+    displayName: string;
+    provider?: string;
+    providerClientId: string;
 };
 
 export type ScimListResponseBodyWritable = {
@@ -377,6 +461,31 @@ export type GetExternalMeResponses = {
 };
 
 export type GetExternalMeResponse = GetExternalMeResponses[keyof GetExternalMeResponses];
+
+export type GetM2mSelfData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/m2m/v1/self';
+};
+
+export type GetM2mSelfErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetM2mSelfError = GetM2mSelfErrors[keyof GetM2mSelfErrors];
+
+export type GetM2mSelfResponses = {
+    /**
+     * OK
+     */
+    200: M2mSelfBody;
+};
+
+export type GetM2mSelfResponse = GetM2mSelfResponses[keyof GetM2mSelfResponses];
 
 export type ScimListUsersData = {
     body?: never;
@@ -843,6 +952,146 @@ export type LogoutResponses = {
 };
 
 export type LogoutResponse = LogoutResponses[keyof LogoutResponses];
+
+export type ListMachineClientsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/machine-clients';
+};
+
+export type ListMachineClientsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListMachineClientsError = ListMachineClientsErrors[keyof ListMachineClientsErrors];
+
+export type ListMachineClientsResponses = {
+    /**
+     * OK
+     */
+    200: ListMachineClientsOutputBody;
+};
+
+export type ListMachineClientsResponse = ListMachineClientsResponses[keyof ListMachineClientsResponses];
+
+export type CreateMachineClientData = {
+    body: MachineClientRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/machine-clients';
+};
+
+export type CreateMachineClientErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateMachineClientError = CreateMachineClientErrors[keyof CreateMachineClientErrors];
+
+export type CreateMachineClientResponses = {
+    /**
+     * OK
+     */
+    200: MachineClientBody;
+};
+
+export type CreateMachineClientResponse = CreateMachineClientResponses[keyof CreateMachineClientResponses];
+
+export type DeleteMachineClientData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/v1/machine-clients/{id}';
+};
+
+export type DeleteMachineClientErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeleteMachineClientError = DeleteMachineClientErrors[keyof DeleteMachineClientErrors];
+
+export type DeleteMachineClientResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteMachineClientResponse = DeleteMachineClientResponses[keyof DeleteMachineClientResponses];
+
+export type GetMachineClientData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/v1/machine-clients/{id}';
+};
+
+export type GetMachineClientErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetMachineClientError = GetMachineClientErrors[keyof GetMachineClientErrors];
+
+export type GetMachineClientResponses = {
+    /**
+     * OK
+     */
+    200: MachineClientBody;
+};
+
+export type GetMachineClientResponse = GetMachineClientResponses[keyof GetMachineClientResponses];
+
+export type UpdateMachineClientData = {
+    body: MachineClientRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/v1/machine-clients/{id}';
+};
+
+export type UpdateMachineClientErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateMachineClientError = UpdateMachineClientErrors[keyof UpdateMachineClientErrors];
+
+export type UpdateMachineClientResponses = {
+    /**
+     * OK
+     */
+    200: MachineClientBody;
+};
+
+export type UpdateMachineClientResponse = UpdateMachineClientResponses[keyof UpdateMachineClientResponses];
 
 export type GetSessionData = {
     body?: never;

@@ -37,21 +37,23 @@ type CurrentSession struct {
 }
 
 type SessionService struct {
-	queries  *db.Queries
-	store    *auth.SessionStore
-	authMode string
+	queries                  *db.Queries
+	store                    *auth.SessionStore
+	authMode                 string
+	enableLocalPasswordLogin bool
 }
 
-func NewSessionService(queries *db.Queries, store *auth.SessionStore, authMode string) *SessionService {
+func NewSessionService(queries *db.Queries, store *auth.SessionStore, authMode string, enableLocalPasswordLogin bool) *SessionService {
 	return &SessionService{
-		queries:  queries,
-		store:    store,
-		authMode: strings.ToLower(strings.TrimSpace(authMode)),
+		queries:                  queries,
+		store:                    store,
+		authMode:                 strings.ToLower(strings.TrimSpace(authMode)),
+		enableLocalPasswordLogin: enableLocalPasswordLogin,
 	}
 }
 
 func (s *SessionService) Login(ctx context.Context, email, password string) (User, string, string, error) {
-	if s.authMode == "zitadel" {
+	if !s.enableLocalPasswordLogin || s.authMode == "zitadel" {
 		return User{}, "", "", ErrAuthModeUnsupported
 	}
 

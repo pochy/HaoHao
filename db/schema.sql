@@ -37,6 +37,40 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: machine_clients; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.machine_clients (
+    id bigint NOT NULL,
+    provider text DEFAULT 'zitadel'::text NOT NULL,
+    provider_client_id text NOT NULL,
+    display_name text NOT NULL,
+    default_tenant_id bigint,
+    allowed_scopes text[] DEFAULT ARRAY[]::text[] NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT machine_clients_display_name_check CHECK ((btrim(display_name) <> ''::text)),
+    CONSTRAINT machine_clients_provider_check CHECK ((btrim(provider) <> ''::text)),
+    CONSTRAINT machine_clients_provider_client_id_check CHECK ((btrim(provider_client_id) <> ''::text))
+);
+
+
+--
+-- Name: machine_clients_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.machine_clients ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.machine_clients_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: oauth_user_grants; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -259,6 +293,22 @@ ALTER TABLE public.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: machine_clients machine_clients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.machine_clients
+    ADD CONSTRAINT machine_clients_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: machine_clients machine_clients_provider_client_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.machine_clients
+    ADD CONSTRAINT machine_clients_provider_client_id_key UNIQUE (provider, provider_client_id);
+
+
+--
 -- Name: oauth_user_grants oauth_user_grants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -379,6 +429,13 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: machine_clients_default_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX machine_clients_default_tenant_id_idx ON public.machine_clients USING btree (default_tenant_id);
+
+
+--
 -- Name: oauth_user_grants_provider_subject_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -439,6 +496,14 @@ CREATE INDEX user_identities_user_id_idx ON public.user_identities USING btree (
 --
 
 CREATE INDEX user_roles_role_id_idx ON public.user_roles USING btree (role_id);
+
+
+--
+-- Name: machine_clients machine_clients_default_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.machine_clients
+    ADD CONSTRAINT machine_clients_default_tenant_id_fkey FOREIGN KEY (default_tenant_id) REFERENCES public.tenants(id) ON DELETE SET NULL;
 
 
 --

@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  openapi-asset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.0"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install tools
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.0
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Generate OpenAPI and SDK
+        run: make gen
+
+      - name: Validate OpenAPI artifact
+        run: |
+          test -s openapi/openapi.yaml
+          grep -Eq '^openapi: "?(3\.1|3\.1\.)' openapi/openapi.yaml
+
+      - name: Upload OpenAPI release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: openapi/openapi.yaml

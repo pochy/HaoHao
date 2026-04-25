@@ -14,7 +14,9 @@ type Dependencies struct {
 	DelegationService            *service.DelegationService
 	ProvisioningService          *service.ProvisioningService
 	AuthzService                 *service.AuthzService
+	MachineClientService         *service.MachineClientService
 	AuthMode                     string
+	EnableLocalPasswordLogin     bool
 	SCIMBasePath                 string
 	FrontendBaseURL              string
 	ZitadelIssuer                string
@@ -31,5 +33,7 @@ func Register(api huma.API, deps Dependencies) {
 	registerExternalRoutes(api, deps)
 	registerIntegrationRoutes(api, deps)
 	registerTenantRoutes(api, deps)
+	registerMachineClientRoutes(api, deps)
+	registerM2MRoutes(api, deps)
 	registerSCIMRoutes(api, deps)
 }

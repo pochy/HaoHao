@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -133,6 +134,91 @@ func SCIMAuth(pathPrefix string, verifier *auth.BearerVerifier, expectedAudience
 	}
 }
 
+func M2MAuth(pathPrefix string, verifier *auth.M2MVerifier, machineClientService *service.MachineClientService, providerName string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !strings.HasPrefix(c.Request.URL.Path, pathPrefix) || c.Request.Method == http.MethodOptions {
+			c.Next()
+			return
+		}
+
+		if verifier == nil || machineClientService == nil {
+			writeProblem(c, http.StatusServiceUnavailable, "m2m bearer auth is not configured")
+			return
+		}
+
+		rawToken, err := bearerTokenFromHeader(c.GetHeader("Authorization"))
+		if err != nil {
+			writeBearerProblemForRealm(c, "haohao-m2m", http.StatusUnauthorized, err.Error())
+			return
+		}
+
+		principal, err := verifier.Verify(c.Request.Context(), rawToken)
+		if err != nil {
+			status := http.StatusUnauthorized
+			if errors.Is(err, auth.ErrInvalidBearerScope) || errors.Is(err, auth.ErrHumanBearerToken) {
+				status = http.StatusForbidden
+			}
+			writeBearerProblemForRealm(c, "haohao-m2m", status, err.Error())
+			return
+		}
+
+		machineCtx, err := machineClientService.AuthenticateM2M(c.Request.Context(), providerName, principal)
+		if err != nil {
+			status := http.StatusInternalServerError
+			if errors.Is(err, service.ErrMachineClientNotFound) ||
+				errors.Is(err, service.ErrMachineClientInactive) ||
+				errors.Is(err, service.ErrMachineClientScopeDenied) {
+				status = http.StatusForbidden
+			}
+			writeBearerProblemForRealm(c, "haohao-m2m", status, err.Error())
+			return
+		}
+
+		c.Request = c.Request.WithContext(service.ContextWithMachineClient(c.Request.Context(), machineCtx))
+		c.Next()
+	}
+}
+
+func DocsAuth(required bool, sessionService *service.SessionService, authzService *service.AuthzService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !required || !isDocsPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+		if sessionService == nil || authzService == nil {
+			writeProblem(c, http.StatusServiceUnavailable, "docs auth is not configured")
+			return
+		}
+
+		sessionCookie, err := c.Request.Cookie(auth.SessionCookieName)
+		if err != nil || strings.TrimSpace(sessionCookie.Value) == "" {
+			writeProblem(c, http.StatusUnauthorized, "missing or expired session")
+			return
+		}
+
+		current, err := sessionService.CurrentSession(c.Request.Context(), sessionCookie.Value)
+		if err != nil {
+			writeProblem(c, http.StatusUnauthorized, "missing or expired session")
+			return
+		}
+		authCtx, err := authzService.BuildBrowserContext(c.Request.Context(), current.User, current.ActiveTenantID)
+		if err != nil {
+			if errors.Is(err, service.ErrUnauthorized) {
+				writeProblem(c, http.StatusForbidden, "docs access denied")
+				return
+			}
+			writeProblem(c, http.StatusInternalServerError, "failed to build auth context")
+			return
+		}
+		if !authCtx.HasRole("docs_reader") {
+			writeProblem(c, http.StatusForbidden, "docs_reader role is required")
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func bearerTokenFromHeader(header string) (string, error) {
 	trimmed := strings.TrimSpace(header)
 	if trimmed == "" {
@@ -161,7 +247,11 @@ func originAllowed(origin string, allowed map[string]struct{}) bool {
 }
 
 func writeBearerProblem(c *gin.Context, status int, detail string) {
-	c.Header("WWW-Authenticate", `Bearer realm="haohao-external"`)
+	writeBearerProblemForRealm(c, "haohao-external", status, detail)
+}
+
+func writeBearerProblemForRealm(c *gin.Context, realm string, status int, detail string) {
+	c.Header("WWW-Authenticate", fmt.Sprintf(`Bearer realm="%s"`, realm))
 	writeProblem(c, status, detail)
 }
 
@@ -172,4 +262,11 @@ func writeProblem(c *gin.Context, status int, detail string) {
 		"status": status,
 		"detail": detail,
 	})
+}
+
+func isDocsPath(path string) bool {
+	return path == "/docs" ||
+		strings.HasPrefix(path, "/docs/") ||
+		path == "/openapi.json" ||
+		path == "/openapi.yaml"
 }

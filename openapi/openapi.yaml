@@ -10,6 +10,10 @@ components:
           format: uri
           readOnly: true
           type: string
+        localPasswordLoginEnabled:
+          examples:
+            - true
+          type: boolean
         mode:
           examples:
             - local
@@ -18,6 +22,7 @@ components:
           $ref: "#/components/schemas/ZitadelSettingsBody"
       required:
         - mode
+        - localPasswordLoginEnabled
       type: object
     Cookie:
       additionalProperties: false
@@ -254,6 +259,25 @@ components:
       required:
         - items
       type: object
+    ListMachineClientsOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ListMachineClientsOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/MachineClientBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
     ListTenantsBody:
       additionalProperties: false
       properties:
@@ -316,6 +340,143 @@ components:
             - http://localhost:8081/oidc/v1/end_session?id_token_hint=...
           format: uri
           type: string
+      type: object
+    M2MSelfBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/M2MSelfBody.json
+          format: uri
+          readOnly: true
+          type: string
+        active:
+          examples:
+            - true
+          type: boolean
+        allowedScopes:
+          examples:
+            - - m2m:read
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        defaultTenant:
+          $ref: "#/components/schemas/TenantBody"
+        displayName:
+          examples:
+            - worker
+          type: string
+        id:
+          examples:
+            - 1
+          format: int64
+          type: integer
+      required:
+        - id
+        - displayName
+        - active
+      type: object
+    MachineClientBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/MachineClientBody.json
+          format: uri
+          readOnly: true
+          type: string
+        active:
+          examples:
+            - true
+          type: boolean
+        allowedScopes:
+          examples:
+            - - m2m:read
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        createdAt:
+          format: date-time
+          type: string
+        defaultTenant:
+          $ref: "#/components/schemas/TenantBody"
+        displayName:
+          examples:
+            - nightly worker
+          type: string
+        id:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        provider:
+          examples:
+            - zitadel
+          type: string
+        providerClientId:
+          examples:
+            - "312345678901234567"
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - provider
+        - providerClientId
+        - displayName
+        - active
+        - createdAt
+        - updatedAt
+      type: object
+    MachineClientRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/MachineClientRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        active:
+          examples:
+            - true
+          type: boolean
+        allowedScopes:
+          examples:
+            - - m2m:read
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        defaultTenantId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        displayName:
+          examples:
+            - nightly worker
+          type: string
+        provider:
+          examples:
+            - zitadel
+          type: string
+        providerClientId:
+          examples:
+            - "312345678901234567"
+          type: string
+      required:
+        - providerClientId
+        - displayName
       type: object
     SCIMGroupBody:
       additionalProperties: false
@@ -603,6 +764,10 @@ components:
       in: cookie
       name: SESSION_ID
       type: apiKey
+    m2mBearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
 info:
   title: HaoHao API
   version: 0.1.0
@@ -638,6 +803,27 @@ paths:
       summary: 現在の external bearer principal を返す
       tags:
         - external
+  /api/m2m/v1/self:
+    get:
+      operationId: getM2MSelf
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M2MSelfBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - m2mBearerAuth: []
+      summary: 現在の M2M machine client を返す
+      tags:
+        - m2m
   /api/scim/v2/Users:
     get:
       operationId: scimListUsers
@@ -1186,6 +1372,177 @@ paths:
       summary: セッションを破棄する
       tags:
         - session
+  /api/v1/machine-clients:
+    get:
+      operationId: listMachineClients
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListMachineClientsOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: machine client を list する
+      tags:
+        - machine-clients
+    post:
+      operationId: createMachineClient
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MachineClientRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MachineClientBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: machine client を作成する
+      tags:
+        - machine-clients
+  /api/v1/machine-clients/{id}:
+    delete:
+      operationId: deleteMachineClient
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            minimum: 1
+            type: integer
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: machine client を無効化する
+      tags:
+        - machine-clients
+    get:
+      operationId: getMachineClient
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MachineClientBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: machine client を取得する
+      tags:
+        - machine-clients
+    put:
+      operationId: updateMachineClient
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            minimum: 1
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MachineClientRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MachineClientBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: machine client を更新する
+      tags:
+        - machine-clients
   /api/v1/session:
     get:
       operationId: getSession

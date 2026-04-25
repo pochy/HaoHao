@@ -8,8 +8,9 @@ import (
 )
 
 type AuthSettingsBody struct {
-	Mode    string               `json:"mode" example:"local"`
-	Zitadel *ZitadelSettingsBody `json:"zitadel,omitempty"`
+	Mode                      string               `json:"mode" example:"local"`
+	LocalPasswordLoginEnabled bool                 `json:"localPasswordLoginEnabled" example:"true"`
+	Zitadel                   *ZitadelSettingsBody `json:"zitadel,omitempty"`
 }
 
 type ZitadelSettingsBody struct {
@@ -30,7 +31,8 @@ func registerAuthSettingsRoute(api huma.API, deps Dependencies) {
 		Tags:        []string{"auth"},
 	}, func(ctx context.Context, input *struct{}) (*GetAuthSettingsOutput, error) {
 		body := AuthSettingsBody{
-			Mode: deps.AuthMode,
+			Mode:                      deps.AuthMode,
+			LocalPasswordLoginEnabled: deps.EnableLocalPasswordLogin,
 		}
 
 		if deps.AuthMode == "zitadel" {

@@ -9,6 +9,18 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type MachineClient struct {
+	ID               int64              `json:"id"`
+	Provider         string             `json:"provider"`
+	ProviderClientID string             `json:"provider_client_id"`
+	DisplayName      string             `json:"display_name"`
+	DefaultTenantID  pgtype.Int8        `json:"default_tenant_id"`
+	AllowedScopes    []string           `json:"allowed_scopes"`
+	Active           bool               `json:"active"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type OauthUserGrant struct {
 	ID                     int64              `json:"id"`
 	UserID                 int64              `json:"user_id"`

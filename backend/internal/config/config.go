@@ -25,6 +25,8 @@ type Config struct {
 	ExternalRequiredScopePrefix  string
 	ExternalRequiredRole         string
 	ExternalAllowedOrigins       []string
+	M2MExpectedAudience          string
+	M2MRequiredScopePrefix       string
 	DownstreamTokenEncryptionKey string
 	DownstreamTokenKeyVersion    int
 	DownstreamRefreshTokenTTL    time.Duration
@@ -40,6 +42,8 @@ type Config struct {
 	LoginStateTTL                time.Duration
 	SessionTTL                   time.Duration
 	CookieSecure                 bool
+	DocsAuthRequired             bool
+	EnableLocalPasswordLogin     bool
 }
 
 func Load() (Config, error) {
@@ -78,6 +82,8 @@ func Load() (Config, error) {
 		ExternalRequiredScopePrefix:  getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", ""),
 		ExternalRequiredRole:         getEnv("EXTERNAL_REQUIRED_ROLE", "external_api_user"),
 		ExternalAllowedOrigins:       getEnvCSV("EXTERNAL_ALLOWED_ORIGINS"),
+		M2MExpectedAudience:          getEnv("M2M_EXPECTED_AUDIENCE", "haohao-m2m"),
+		M2MRequiredScopePrefix:       getEnv("M2M_REQUIRED_SCOPE_PREFIX", "m2m:"),
 		DownstreamTokenEncryptionKey: getEnv("DOWNSTREAM_TOKEN_ENCRYPTION_KEY", ""),
 		DownstreamTokenKeyVersion:    getEnvInt("DOWNSTREAM_TOKEN_KEY_VERSION", 1),
 		DownstreamRefreshTokenTTL:    downstreamRefreshTokenTTL,
@@ -93,6 +99,8 @@ func Load() (Config, error) {
 		LoginStateTTL:                loginStateTTL,
 		SessionTTL:                   sessionTTL,
 		CookieSecure:                 getEnvBool("COOKIE_SECURE", false),
+		DocsAuthRequired:             getEnvBool("DOCS_AUTH_REQUIRED", false),
+		EnableLocalPasswordLogin:     getEnvBool("ENABLE_LOCAL_PASSWORD_LOGIN", true),
 	}, nil
 }
 

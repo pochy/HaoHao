@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetSessionData, GetSessionErrors, GetSessionResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, ScimCreateUserData, ScimCreateUserErrors, ScimCreateUserResponses, ScimDeleteUserData, ScimDeleteUserErrors, ScimDeleteUserResponses, ScimGetUserData, ScimGetUserErrors, ScimGetUserResponses, ScimListUsersData, ScimListUsersErrors, ScimListUsersResponses, ScimPatchUserData, ScimPatchUserErrors, ScimPatchUserResponses, ScimReplaceUserData, ScimReplaceUserErrors, ScimReplaceUserResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
+import type { ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateMachineClientData, CreateMachineClientErrors, CreateMachineClientResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, DeleteMachineClientData, DeleteMachineClientErrors, DeleteMachineClientResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetExternalMeData, GetExternalMeErrors, GetExternalMeResponses, GetM2mSelfData, GetM2mSelfErrors, GetM2mSelfResponses, GetMachineClientData, GetMachineClientErrors, GetMachineClientResponses, GetSessionData, GetSessionErrors, GetSessionResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListMachineClientsData, ListMachineClientsErrors, ListMachineClientsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, ScimCreateUserData, ScimCreateUserErrors, ScimCreateUserResponses, ScimDeleteUserData, ScimDeleteUserErrors, ScimDeleteUserResponses, ScimGetUserData, ScimGetUserErrors, ScimGetUserResponses, ScimListUsersData, ScimListUsersErrors, ScimListUsersResponses, ScimPatchUserData, ScimPatchUserErrors, ScimPatchUserResponses, ScimReplaceUserData, ScimReplaceUserErrors, ScimReplaceUserResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, UpdateMachineClientData, UpdateMachineClientErrors, UpdateMachineClientResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -24,6 +24,15 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 export const getExternalMe = <ThrowOnError extends boolean = false>(options?: Options<GetExternalMeData, ThrowOnError>) => (options?.client ?? client).get<GetExternalMeResponses, GetExternalMeErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/external/v1/me',
+    ...options
+});
+
+/**
+ * 現在の M2M machine client を返す
+ */
+export const getM2mSelf = <ThrowOnError extends boolean = false>(options?: Options<GetM2mSelfData, ThrowOnError>) => (options?.client ?? client).get<GetM2mSelfResponses, GetM2mSelfErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/m2m/v1/self',
     ...options
 });
 
@@ -209,6 +218,79 @@ export const logout = <ThrowOnError extends boolean = false>(options: Options<Lo
         }],
     url: '/api/v1/logout',
     ...options
+});
+
+/**
+ * machine client を list する
+ */
+export const listMachineClients = <ThrowOnError extends boolean = false>(options?: Options<ListMachineClientsData, ThrowOnError>) => (options?.client ?? client).get<ListMachineClientsResponses, ListMachineClientsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/machine-clients',
+    ...options
+});
+
+/**
+ * machine client を作成する
+ */
+export const createMachineClient = <ThrowOnError extends boolean = false>(options: Options<CreateMachineClientData, ThrowOnError>) => (options.client ?? client).post<CreateMachineClientResponses, CreateMachineClientErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/machine-clients',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * machine client を無効化する
+ */
+export const deleteMachineClient = <ThrowOnError extends boolean = false>(options: Options<DeleteMachineClientData, ThrowOnError>) => (options.client ?? client).delete<DeleteMachineClientResponses, DeleteMachineClientErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/machine-clients/{id}',
+    ...options
+});
+
+/**
+ * machine client を取得する
+ */
+export const getMachineClient = <ThrowOnError extends boolean = false>(options: Options<GetMachineClientData, ThrowOnError>) => (options.client ?? client).get<GetMachineClientResponses, GetMachineClientErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/machine-clients/{id}',
+    ...options
+});
+
+/**
+ * machine client を更新する
+ */
+export const updateMachineClient = <ThrowOnError extends boolean = false>(options: Options<UpdateMachineClientData, ThrowOnError>) => (options.client ?? client).put<UpdateMachineClientResponses, UpdateMachineClientErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/machine-clients/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
