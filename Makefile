@@ -74,3 +74,6 @@ smoke-operability:
 
 smoke-observability:
 	bash scripts/smoke-observability.sh
+
+smoke-tenant-admin:
+	bash scripts/smoke-tenant-admin.sh

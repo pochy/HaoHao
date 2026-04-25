@@ -15,6 +15,7 @@ INSERT INTO roles (code)
 VALUES
     ('docs_reader'),
     ('machine_client_admin'),
+    ('tenant_admin'),
     ('todo_user')
 ON CONFLICT (code) DO NOTHING;
 
@@ -37,7 +38,7 @@ WHERE email = 'demo@example.com';
 INSERT INTO user_roles (user_id, role_id)
 SELECT u.id, r.id
 FROM users u
-JOIN roles r ON r.code = 'machine_client_admin'
+JOIN roles r ON r.code IN ('machine_client_admin', 'tenant_admin')
 WHERE u.email = 'demo@example.com'
 ON CONFLICT (user_id, role_id) DO NOTHING;
 

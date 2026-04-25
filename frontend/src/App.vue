@@ -31,6 +31,7 @@ const statusLabel = computed(() => {
           <RouterLink to="/">Session</RouterLink>
           <RouterLink to="/integrations">Integrations</RouterLink>
           <RouterLink to="/todos">TODO</RouterLink>
+          <RouterLink to="/tenant-admin">Tenants</RouterLink>
           <RouterLink to="/machine-clients">Machine Clients</RouterLink>
         </nav>
       </div>

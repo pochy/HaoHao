@@ -129,6 +129,14 @@ export type ListMachineClientsOutputBody = {
     items: Array<MachineClientBody> | null;
 };
 
+export type ListTenantAdminTenantsOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<TenantAdminTenantBody> | null;
+};
+
 export type ListTenantsBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -266,6 +274,62 @@ export type SessionBody = {
     user: UserResponse;
 };
 
+export type TenantAdminMembershipBody = {
+    deactivated: boolean;
+    displayName: string;
+    email: string;
+    roles: Array<TenantAdminRoleBindingBody> | null;
+    userPublicId: string;
+};
+
+export type TenantAdminMembershipRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    roleCode: string;
+    userEmail: string;
+};
+
+export type TenantAdminRoleBindingBody = {
+    active: boolean;
+    roleCode: string;
+    source: string;
+};
+
+export type TenantAdminTenantBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    active: boolean;
+    activeMemberCount: number;
+    createdAt: string;
+    displayName: string;
+    id: number;
+    slug: string;
+    updatedAt: string;
+};
+
+export type TenantAdminTenantDetailBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    memberships: Array<TenantAdminMembershipBody> | null;
+    tenant: TenantAdminTenantBody;
+};
+
+export type TenantAdminTenantRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    active?: boolean;
+    displayName: string;
+    slug?: string;
+};
+
 export type TenantBody = {
     default: boolean;
     displayName: string;
@@ -385,6 +449,10 @@ export type ListMachineClientsOutputBodyWritable = {
     items: Array<MachineClientBodyWritable> | null;
 };
 
+export type ListTenantAdminTenantsOutputBodyWritable = {
+    items: Array<TenantAdminTenantBodyWritable> | null;
+};
+
 export type ListTenantsBodyWritable = {
     activeTenant?: TenantBody;
     defaultTenant?: TenantBody;
@@ -462,6 +530,32 @@ export type SelectTenantOutputBodyWritable = {
 
 export type SessionBodyWritable = {
     user: UserResponse;
+};
+
+export type TenantAdminMembershipRequestBodyWritable = {
+    roleCode: string;
+    userEmail: string;
+};
+
+export type TenantAdminTenantBodyWritable = {
+    active: boolean;
+    activeMemberCount: number;
+    createdAt: string;
+    displayName: string;
+    id: number;
+    slug: string;
+    updatedAt: string;
+};
+
+export type TenantAdminTenantDetailBodyWritable = {
+    memberships: Array<TenantAdminMembershipBody> | null;
+    tenant: TenantAdminTenantBodyWritable;
+};
+
+export type TenantAdminTenantRequestBodyWritable = {
+    active?: boolean;
+    displayName: string;
+    slug?: string;
 };
 
 export type TodoBodyWritable = {
@@ -706,6 +800,208 @@ export type ScimReplaceUserResponses = {
 };
 
 export type ScimReplaceUserResponse = ScimReplaceUserResponses[keyof ScimReplaceUserResponses];
+
+export type ListTenantAdminTenantsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/tenants';
+};
+
+export type ListTenantAdminTenantsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminTenantsError = ListTenantAdminTenantsErrors[keyof ListTenantAdminTenantsErrors];
+
+export type ListTenantAdminTenantsResponses = {
+    /**
+     * OK
+     */
+    200: ListTenantAdminTenantsOutputBody;
+};
+
+export type ListTenantAdminTenantsResponse = ListTenantAdminTenantsResponses[keyof ListTenantAdminTenantsResponses];
+
+export type CreateTenantAdminTenantData = {
+    body: TenantAdminTenantRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/tenants';
+};
+
+export type CreateTenantAdminTenantErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateTenantAdminTenantError = CreateTenantAdminTenantErrors[keyof CreateTenantAdminTenantErrors];
+
+export type CreateTenantAdminTenantResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminTenantBody;
+};
+
+export type CreateTenantAdminTenantResponse = CreateTenantAdminTenantResponses[keyof CreateTenantAdminTenantResponses];
+
+export type DeactivateTenantAdminTenantData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}';
+};
+
+export type DeactivateTenantAdminTenantErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeactivateTenantAdminTenantError = DeactivateTenantAdminTenantErrors[keyof DeactivateTenantAdminTenantErrors];
+
+export type DeactivateTenantAdminTenantResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeactivateTenantAdminTenantResponse = DeactivateTenantAdminTenantResponses[keyof DeactivateTenantAdminTenantResponses];
+
+export type GetTenantAdminTenantData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}';
+};
+
+export type GetTenantAdminTenantErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetTenantAdminTenantError = GetTenantAdminTenantErrors[keyof GetTenantAdminTenantErrors];
+
+export type GetTenantAdminTenantResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminTenantDetailBody;
+};
+
+export type GetTenantAdminTenantResponse = GetTenantAdminTenantResponses[keyof GetTenantAdminTenantResponses];
+
+export type UpdateTenantAdminTenantData = {
+    body: TenantAdminTenantRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}';
+};
+
+export type UpdateTenantAdminTenantErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateTenantAdminTenantError = UpdateTenantAdminTenantErrors[keyof UpdateTenantAdminTenantErrors];
+
+export type UpdateTenantAdminTenantResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminTenantBody;
+};
+
+export type UpdateTenantAdminTenantResponse = UpdateTenantAdminTenantResponses[keyof UpdateTenantAdminTenantResponses];
+
+export type GrantTenantAdminRoleData = {
+    body: TenantAdminMembershipRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/memberships';
+};
+
+export type GrantTenantAdminRoleErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GrantTenantAdminRoleError = GrantTenantAdminRoleErrors[keyof GrantTenantAdminRoleErrors];
+
+export type GrantTenantAdminRoleResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type GrantTenantAdminRoleResponse = GrantTenantAdminRoleResponses[keyof GrantTenantAdminRoleResponses];
+
+export type RevokeTenantAdminRoleData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        userPublicId: string;
+        roleCode: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/memberships/{userPublicId}/roles/{roleCode}';
+};
+
+export type RevokeTenantAdminRoleErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RevokeTenantAdminRoleError = RevokeTenantAdminRoleErrors[keyof RevokeTenantAdminRoleErrors];
+
+export type RevokeTenantAdminRoleResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RevokeTenantAdminRoleResponse = RevokeTenantAdminRoleResponses[keyof RevokeTenantAdminRoleResponses];
 
 export type FinishOidcLoginData = {
     body?: never;

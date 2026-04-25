@@ -296,6 +296,25 @@ components:
       required:
         - items
       type: object
+    ListTenantAdminTenantsOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ListTenantAdminTenantsOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/TenantAdminTenantBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
     ListTenantsBody:
       additionalProperties: false
       properties:
@@ -659,6 +678,177 @@ components:
           $ref: "#/components/schemas/UserResponse"
       required:
         - user
+      type: object
+    TenantAdminMembershipBody:
+      additionalProperties: false
+      properties:
+        deactivated:
+          examples:
+            - false
+          type: boolean
+        displayName:
+          examples:
+            - Demo User
+          type: string
+        email:
+          format: email
+          type: string
+        roles:
+          items:
+            $ref: "#/components/schemas/TenantAdminRoleBindingBody"
+          type:
+            - array
+            - "null"
+        userPublicId:
+          format: uuid
+          type: string
+      required:
+        - userPublicId
+        - email
+        - displayName
+        - deactivated
+        - roles
+      type: object
+    TenantAdminMembershipRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminMembershipRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        roleCode:
+          examples:
+            - todo_user
+          type: string
+        userEmail:
+          examples:
+            - demo@example.com
+          format: email
+          type: string
+      required:
+        - userEmail
+        - roleCode
+      type: object
+    TenantAdminRoleBindingBody:
+      additionalProperties: false
+      properties:
+        active:
+          examples:
+            - true
+          type: boolean
+        roleCode:
+          examples:
+            - todo_user
+          type: string
+        source:
+          examples:
+            - local_override
+          type: string
+      required:
+        - roleCode
+        - source
+        - active
+      type: object
+    TenantAdminTenantBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminTenantBody.json
+          format: uri
+          readOnly: true
+          type: string
+        active:
+          examples:
+            - true
+          type: boolean
+        activeMemberCount:
+          examples:
+            - 3
+          format: int64
+          type: integer
+        createdAt:
+          format: date-time
+          type: string
+        displayName:
+          examples:
+            - Acme
+          type: string
+        id:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        slug:
+          examples:
+            - acme
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - slug
+        - displayName
+        - active
+        - activeMemberCount
+        - createdAt
+        - updatedAt
+      type: object
+    TenantAdminTenantDetailBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminTenantDetailBody.json
+          format: uri
+          readOnly: true
+          type: string
+        memberships:
+          items:
+            $ref: "#/components/schemas/TenantAdminMembershipBody"
+          type:
+            - array
+            - "null"
+        tenant:
+          $ref: "#/components/schemas/TenantAdminTenantBody"
+      required:
+        - tenant
+        - memberships
+      type: object
+    TenantAdminTenantRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminTenantRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        active:
+          examples:
+            - true
+          type: boolean
+        displayName:
+          examples:
+            - Acme
+          maxLength: 120
+          minLength: 1
+          type: string
+        slug:
+          examples:
+            - acme
+          maxLength: 64
+          minLength: 3
+          type: string
+      required:
+        - displayName
       type: object
     TenantBody:
       additionalProperties: false
@@ -1104,6 +1294,262 @@ paths:
       summary: SCIM user を置換する
       tags:
         - scim
+  /api/v1/admin/tenants:
+    get:
+      operationId: listTenantAdminTenants
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListTenantAdminTenantsOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant admin 用の tenant 一覧を返す
+      tags:
+        - tenant-admin
+    post:
+      operationId: createTenantAdminTenant
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantAdminTenantRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminTenantBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant を作成する
+      tags:
+        - tenant-admin
+  /api/v1/admin/tenants/{tenantSlug}:
+    delete:
+      operationId: deactivateTenantAdminTenant
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant を無効化する
+      tags:
+        - tenant-admin
+    get:
+      operationId: getTenantAdminTenant
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminTenantDetailBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant detail と membership を返す
+      tags:
+        - tenant-admin
+    put:
+      operationId: updateTenantAdminTenant
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantAdminTenantRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminTenantBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant を更新する
+      tags:
+        - tenant-admin
+  /api/v1/admin/tenants/{tenantSlug}/memberships:
+    post:
+      operationId: grantTenantAdminRole
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantAdminMembershipRequestBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant local role を付与する
+      tags:
+        - tenant-admin
+  /api/v1/admin/tenants/{tenantSlug}/memberships/{userPublicId}/roles/{roleCode}:
+    delete:
+      operationId: revokeTenantAdminRole
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: userPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: roleCode
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant local role を無効化する
+      tags:
+        - tenant-admin
   /api/v1/auth/callback:
     get:
       operationId: finishOIDCLogin

@@ -22,7 +22,7 @@ func TestAppRegistersMetricsRoute(t *testing.T) {
 		MetricsEnabled: true,
 		MetricsPath:    "/metrics",
 		SCIMBasePath:   "/api/scim/v2",
-	}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, metrics)
+	}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, metrics)
 
 	recorder := httptest.NewRecorder()
 	application.Router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/missing", nil))

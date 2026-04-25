@@ -28,6 +28,7 @@ func main() {
 		nil,
 		nil,
 		auditService,
+		service.NewTenantAdminService(nil, nil, auditService),
 		service.NewTodoService(nil, nil, auditService),
 		service.NewMachineClientService(nil, nil, "", auditService),
 		nil,

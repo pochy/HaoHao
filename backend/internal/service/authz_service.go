@@ -224,12 +224,18 @@ var supportedGlobalRoles = map[string]struct{}{
 	"docs_reader":          {},
 	"external_api_user":    {},
 	"machine_client_admin": {},
+	"tenant_admin":         {},
 	"todo_user":            {},
 }
 
 var supportedTenantRoles = map[string]struct{}{
 	"docs_reader": {},
 	"todo_user":   {},
+}
+
+func IsSupportedTenantRole(roleCode string) bool {
+	_, ok := supportedTenantRoles[strings.ToLower(strings.TrimSpace(roleCode))]
+	return ok
 }
 
 func (s *AuthzService) BuildBrowserContext(ctx context.Context, user User, activeTenantID *int64) (AuthContext, error) {

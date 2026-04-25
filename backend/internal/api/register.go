@@ -15,6 +15,7 @@ type Dependencies struct {
 	ProvisioningService          *service.ProvisioningService
 	AuthzService                 *service.AuthzService
 	AuditService                 *service.AuditService
+	TenantAdminService           *service.TenantAdminService
 	TodoService                  *service.TodoService
 	MachineClientService         *service.MachineClientService
 	AuthMode                     string
@@ -35,6 +36,7 @@ func Register(api huma.API, deps Dependencies) {
 	registerExternalRoutes(api, deps)
 	registerIntegrationRoutes(api, deps)
 	registerTenantRoutes(api, deps)
+	registerTenantAdminRoutes(api, deps)
 	registerTodoRoutes(api, deps)
 	registerMachineClientRoutes(api, deps)
 	registerM2MRoutes(api, deps)

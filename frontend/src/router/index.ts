@@ -7,6 +7,9 @@ import LoginView from '../views/LoginView.vue'
 import MachineClientDetailView from '../views/MachineClientDetailView.vue'
 import MachineClientFormView from '../views/MachineClientFormView.vue'
 import MachineClientsView from '../views/MachineClientsView.vue'
+import TenantAdminTenantDetailView from '../views/TenantAdminTenantDetailView.vue'
+import TenantAdminTenantFormView from '../views/TenantAdminTenantFormView.vue'
+import TenantAdminTenantsView from '../views/TenantAdminTenantsView.vue'
 import TodosView from '../views/TodosView.vue'
 
 const router = createRouter({
@@ -33,6 +36,24 @@ const router = createRouter({
       path: '/todos',
       name: 'todos',
       component: TodosView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/tenant-admin',
+      name: 'tenant-admin',
+      component: TenantAdminTenantsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/tenant-admin/new',
+      name: 'tenant-admin-new',
+      component: TenantAdminTenantFormView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/tenant-admin/:tenantSlug',
+      name: 'tenant-admin-detail',
+      component: TenantAdminTenantDetailView,
       meta: { requiresAuth: true },
     },
     {
