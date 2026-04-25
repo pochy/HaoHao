@@ -24,6 +24,15 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      redis:
+        image: redis:7.4
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     env:
       DATABASE_URL: postgres://haohao:haohao@127.0.0.1:5432/haohao?sslmode=disable
     steps:
@@ -49,17 +58,34 @@ jobs:
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
 
+      - name: Install Playwright browsers
+        run: npm --prefix frontend exec -- playwright install --with-deps chromium
+
       - name: Go tests
         run: go test ./backend/...
 
       - name: Smoke script syntax
-        run: bash -n scripts/smoke-operability.sh
+        run: |
+          bash -n scripts/smoke-operability.sh
+          bash -n scripts/e2e-single-binary.sh
 
       - name: Frontend build
         run: npm --prefix frontend run build
 
       - name: Embedded binary build
         run: CGO_ENABLED=0 go build -buildvcs=false -trimpath -tags "embed_frontend nomsgpack" -ldflags "-s -w -buildid=" -o ./bin/haohao ./backend/cmd/main
+
+      - name: UI E2E
+        run: make e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
 
       - name: Generated drift
         run: |

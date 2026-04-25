@@ -487,12 +487,19 @@ async function confirmPendingAction() {
 
         <label class="field">
           <span class="field-label">Email</span>
-          <input v-model="invitationEmail" class="field-input" autocomplete="email" type="email" required>
+          <input
+            v-model="invitationEmail"
+            data-testid="tenant-invitation-email"
+            class="field-input"
+            autocomplete="email"
+            type="email"
+            required
+          >
         </label>
 
         <label class="field">
           <span class="field-label">Role</span>
-          <select v-model="invitationRoleCode" class="field-input">
+          <select v-model="invitationRoleCode" data-testid="tenant-invitation-role" class="field-input">
             <option v-for="role in tenantRoleOptions" :key="role" :value="role">
               {{ role }}
             </option>
@@ -545,12 +552,12 @@ async function confirmPendingAction() {
 
         <label class="field">
           <span class="field-label">File quota bytes</span>
-          <input v-model.number="fileQuotaBytes" class="field-input" min="0" type="number">
+          <input v-model.number="fileQuotaBytes" data-testid="tenant-file-quota" class="field-input" min="0" type="number">
         </label>
 
         <label class="field">
           <span class="field-label">Browser API limit / minute</span>
-          <input v-model.number="browserRateLimit" class="field-input" min="1" type="number">
+          <input v-model.number="browserRateLimit" data-testid="tenant-browser-rate-limit" class="field-input" min="1" type="number">
         </label>
 
         <label class="checkbox-field form-span">
@@ -571,7 +578,13 @@ async function confirmPendingAction() {
             <span class="status-pill">Export</span>
             <h2>Tenant Data Exports</h2>
           </div>
-          <button class="primary-button compact-button" type="button" :disabled="commonStore.saving" @click="requestExport">
+          <button
+            data-testid="tenant-request-export"
+            class="primary-button compact-button"
+            type="button"
+            :disabled="commonStore.saving"
+            @click="requestExport"
+          >
             Request export
           </button>
         </div>

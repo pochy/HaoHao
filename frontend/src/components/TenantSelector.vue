@@ -29,6 +29,7 @@ onMounted(async () => {
     <label class="field-label" for="tenant-selector">Active tenant</label>
     <select
       id="tenant-selector"
+      data-testid="tenant-selector"
       class="field-input tenant-select"
       :disabled="disabled"
       :value="selectedSlug"

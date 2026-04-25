@@ -89,3 +89,6 @@ smoke-common-services:
 
 smoke-backup-restore:
 	bash scripts/smoke-backup-restore.sh
+
+e2e: binary
+	bash scripts/e2e-single-binary.sh

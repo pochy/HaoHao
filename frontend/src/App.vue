@@ -44,7 +44,7 @@ const statusLabel = computed(() => {
         <div class="identity-card">
           <span class="identity-label">Current identity</span>
           <strong>{{ displayName }}</strong>
-          <span class="identity-status">{{ statusLabel }}</span>
+          <span class="identity-status" data-testid="identity-status">{{ statusLabel }}</span>
         </div>
       </div>
     </header>

@@ -74,6 +74,7 @@ async function submit() {
           <span class="field-label">Email</span>
           <input
             v-model="email"
+            data-testid="login-email"
             class="field-input"
             type="email"
             required
@@ -85,6 +86,7 @@ async function submit() {
           <span class="field-label">Password</span>
           <input
             v-model="password"
+            data-testid="login-password"
             class="field-input"
             type="password"
             required
