@@ -8,15 +8,18 @@
 - `TUTORIAL.md`
 - `TUTORIAL_ZITADEL.md`
 - `TUTORIAL_SINGLE_BINARY.md`
+- `TUTORIAL_P0_OPERABILITY.md`
+- `TUTORIAL_P1_ADMIN_UI.md`
+- `RUNBOOK_OPERABILITY.md`
 - 現在の repository 実装
 
 ## 全体像
 
 現在の実装は、`CONCEPT.md` の基本方針である **OpenAPI 3.1 優先 + Monorepo + Go/Huma + Vue + PostgreSQL/sqlc + BFF Cookie 認証** をかなり広い範囲まで反映している。
 
-`TUTORIAL.md` の foundation は、local password login / Cookie session / OpenAPI 生成 / frontend generated SDK 連携まで実装済み。さらに `TUTORIAL_ZITADEL.md` の Phase 1-5 と Phase 6 の一部まで進んでおり、Zitadel browser login、bearer API、delegated auth、SCIM、tenant-aware auth、M2M の backend surface が存在する。
+`TUTORIAL.md` の foundation は、local password login / Cookie session / OpenAPI 生成 / frontend generated SDK 連携まで実装済み。さらに `TUTORIAL_ZITADEL.md` の Phase 1-6、`TUTORIAL_SINGLE_BINARY.md`、`TUTORIAL_P0_OPERABILITY.md`、`TUTORIAL_P1_ADMIN_UI.md` まで進んでおり、Zitadel browser login、bearer API、delegated auth、SCIM、tenant-aware auth、M2M、単一バイナリ配信、運用確認、管理 UI が存在する。
 
-単一バイナリで SPA を配信する部分、Dockerfile、CI、release asset も追加済み。現時点で大きく残るのは、`ProvisioningReconcileJob` の scheduler 接続、tenant / machine client 管理 UI、cutover runbook、observability などの運用仕上げ。
+単一バイナリで SPA を配信する部分、Dockerfile、CI、release asset、P0 operability、P1 admin UI も追加済み。現時点で大きく残るのは、P2 の業務ドメイン縦切り、tenant 自体の CRUD 管理 UI、metrics / tracing などの本番 observability の拡張。
 
 ## 方針との対応
 
@@ -31,6 +34,8 @@
 | Auth | local password login と Zitadel OIDC login の両対応 |
 | Session | Redis に session / CSRF / OIDC state / delegation state を保存 |
 | Single binary | 実装済み。frontend build output を `backend/web/dist/` に出し、`embed_frontend` build tag で Go binary に embed する |
+| Operability | 実装済み。structured request logging、request id、health/readiness、SCIM reconcile scheduler、smoke script、runbook がある |
+| Admin UI | 実装済み。tenant selector、integrations UX、machine client admin UI、docs access check がある |
 | Docker / CI / release | 実装済み。`docker/Dockerfile`、`.dockerignore`、CI の embedded binary / Docker build、release asset upload がある |
 
 ## 開発基盤
@@ -39,19 +44,23 @@
 
 - `go.work` は Go `1.26.0`、`use ./backend`。
 - `compose.yaml` は PostgreSQL `18` と Redis `7.4` を起動する。
-- `Makefile` に `up`, `down`, `db-up`, `db-down`, `db-schema`, `seed-demo-user`, `sqlc`, `openapi`, `gen`, `backend-dev`, `frontend-dev`, `frontend-build`, `binary`, `docker-build` がある。
+- `Makefile` に `up`, `down`, `db-up`, `db-down`, `db-schema`, `seed-demo-user`, `sqlc`, `openapi`, `gen`, `backend-dev`, `frontend-dev`, `frontend-build`, `binary`, `docker-build`, `smoke-operability` がある。
 - `scripts/gen.sh` は `sqlc generate`、OpenAPI export、frontend SDK 生成をまとめて実行する。
-- `.env.example` に local / Zitadel / external bearer / M2M / downstream delegated auth / SCIM / cookie / docs auth の設定がそろっている。
+- `.env.example` に local / Zitadel / external bearer / M2M / downstream delegated auth / SCIM / readiness / reconcile scheduler / cookie / docs auth の設定がそろっている。
 - `dev/zitadel/` に self-hosted dev 用 Zitadel compose と `.env.example` がある。`make zitadel-up` 系の入口もある。
 - `docker/Dockerfile` は Node builder、Go builder、`scratch` runtime の multi-stage build。
 - `.github/workflows/ci.yml` は backend test、frontend build、embedded binary build、generated drift、DB schema drift、OpenAPI validate、Zitadel compose config、Docker build を確認する。
+- CI は `bash -n scripts/smoke-operability.sh` で operability smoke script の syntax も確認する。
 - `.github/workflows/release.yml` は OpenAPI artifact と embedded Linux amd64 binary tarball を GitHub Release に upload する。
+- `scripts/smoke-operability.sh` と `make smoke-operability` があり、既存 server に対して `/healthz`, `/readyz`, `/api/v1/session`, `/openapi.yaml`, forced OIDC callback redirect を確認する。
+- `RUNBOOK_OPERABILITY.md` に binary deploy、Docker deploy、rollback、Zitadel redirect URI、smoke test の手順がある。
 
 注意点:
 
 - backend 本体は環境変数を読み、補助として `.env` も任意で読み込む。読み込み候補はカレントディレクトリの `.env` と実行ファイル横の `.env`。
 - 既に設定されている環境変数は `.env` で上書きしない。Docker/Kubernetes や shell から渡した値が優先される。
 - `make backend-dev` は引き続き `.env` を source してから起動するため、従来の開発起動も動く。
+- `make smoke-operability` は server を起動しない。既に動いている `BASE_URL`、既定では `http://127.0.0.1:8080`、に対して確認する。
 - `dev/zitadel/.env` と root `.env` は実ファイルが存在するが、秘密値を含み得るため実装ドキュメントでは値を前提にしない。
 
 ## Database / sqlc
@@ -95,10 +104,37 @@ sqlc:
 - `backend/internal/middleware/`: docs auth、external CORS/auth、SCIM auth、M2M auth。
 - `backend/internal/config/dotenv.go`: `.env` の任意読み込み。カレントディレクトリと実行ファイル横の `.env` を読み、既存環境変数は上書きしない。
 - `backend/internal/config/frontend_url.go`: embedded frontend build では dev 用 `http://127.0.0.1:5173` / `http://localhost:5173` の frontend URL と post logout URL を `APP_BASE_URL` 側へ補正する。
+- `backend/internal/platform/logger.go`: `log/slog` ベースの logger。`LOG_LEVEL` と `LOG_FORMAT` で制御する。
+- `backend/internal/platform/readiness.go`: PostgreSQL / Redis / optional Zitadel discovery の readiness check helper。
+- `backend/internal/middleware/request_id.go`: `X-Request-ID` の受け取り / 生成 / response header 設定。
+- `backend/internal/middleware/request_logger.go`: request id 付き structured request logging。
+- `backend/internal/app/health.go`: Gin route として `/healthz` / `/readyz` を登録する。
+- `backend/internal/jobs/scheduler.go`: `ProvisioningReconcileJob.RunOnce(ctx)` を `time.Ticker` で interval 実行する scheduler。
 - `backend/frontend.go`: embedded frontend の static serving と SPA fallback。
 - `backend/frontend_embed.go`: `embed_frontend` build tag 付きで `backend/web/dist` を `embed.FS` に埋め込む。
 - `backend/frontend_stub.go`: build tag なしでは frontend 未埋め込みとして扱う。
 - `backend/frontend_test.go`: SPA fallback、reserved path、missing asset の挙動をテストする。
+
+### Operability
+
+実装済み:
+
+- `LOG_LEVEL` は `debug`, `info`, `warn`, `error` を扱う。
+- `LOG_FORMAT` は `json` / `text` を扱い、既定は `json`。
+- `gin.Logger()` は使わず、`RequestID()` と `RequestLogger(logger)` を middleware として登録する。
+- request log は `request_id`, `method`, `path`, `status`, `latency_ms`, `client_ip`, `user_agent` を出す。
+- `/healthz` は process liveness として常に `200 {"status":"ok"}` を返す。
+- `/readyz` は PostgreSQL / Redis を ping し、`READINESS_CHECK_ZITADEL=true` の場合だけ Zitadel discovery も確認する。
+- readiness timeout は `READINESS_TIMEOUT` で制御する。
+- `ProvisioningReconcileJob` は `SCIM_RECONCILE_ENABLED=true` のとき scheduler から呼ばれる。
+- scheduler は no-overlap、per-run timeout、shutdown context、run-on-startup を扱う。
+- scheduler 設定は `SCIM_RECONCILE_INTERVAL`, `SCIM_RECONCILE_TIMEOUT`, `SCIM_RECONCILE_RUN_ON_STARTUP`。
+
+注意点:
+
+- `/healthz` / `/readyz` は Huma operation ではなく Gin route。OpenAPI には出ない。
+- `READINESS_CHECK_ZITADEL=false` なら Zitadel が落ちていても DB / Redis が正常なら `/readyz` は通る。
+- `SCIM_RECONCILE_ENABLED=false` が既定。local development では明示的に有効化しない限り reconcile は走らない。
 
 ### API surface
 
@@ -135,6 +171,11 @@ sqlc:
   - `DELETE /api/v1/machine-clients/{id}`
 - M2M:
   - `GET /api/m2m/v1/self`
+
+OpenAPI には出ないが runtime に存在する endpoint:
+
+- `GET /healthz`
+- `GET /readyz`
 
 ### Browser auth / session
 
@@ -207,11 +248,11 @@ sqlc:
 - browser session には active tenant を保存できる。
 - `GET /api/v1/tenants` と `POST /api/v1/session/tenant` がある。
 - tenant role override の DB と解決ロジックがある。
+- `ProvisioningReconcileJob` は runtime scheduler に接続済み。
 
 注意点:
 
-- `ProvisioningReconcileJob` は存在するが、cron/scheduler として runtime に wiring されていない。
-- tenant 管理 UI は無い。tenant は provider claim / SCIM group から upsert される形。
+- tenant selector UI はあるが、tenant 自体の CRUD 管理 UI は無い。tenant は provider claim / SCIM group から upsert される形。
 
 ### M2M
 
@@ -219,6 +260,9 @@ sqlc:
 
 - `machine_clients` table と CRUD API がある。
 - CRUD API は browser session + `machine_client_admin` role が必要。
+- frontend に machine client admin UI がある。
+- `/machine-clients` で一覧、`/machine-clients/new` で作成、`/machine-clients/:id` で detail / update / disable を扱う。
+- role 不足時は 403 を raw JSON ではなく admin access denied UI として表示する。
 - `/api/m2m/` は M2M middleware で bearer token を検証する。
 - human user claim を持つ token は M2M として拒否する。
 - token の `client_id` / `azp` を provider client ID として local `machine_clients` に照合する。
@@ -227,8 +271,8 @@ sqlc:
 
 注意点:
 
-- machine client 管理用 frontend は無い。
 - Zitadel 側の machine client/application 作成は別途 Console または手順に従う必要がある。
+- machine client admin は tenant role ではなく global role `machine_client_admin` を見る。
 
 ### Docs / OpenAPI
 
@@ -248,6 +292,7 @@ sqlc:
 - build tag なしの `go test ./backend/...` や `go run ./backend/cmd/openapi` は frontend dist 不在でも壊れない。
 - `cmd/main` は router 作成後に `backend.RegisterFrontendRoutes(application.Router)` を呼ぶ。
 - `/`, `/login`, `/integrations` は SPA fallback として `index.html` を返す。
+- `/machine-clients`, `/machine-clients/new`, `/machine-clients/:id` も SPA fallback として `index.html` を返す。
 - `/assets/*`, `/favicon.svg`, `/icons.svg` は frontend build artifact として返す。
 - `/api/*`, `/docs`, `/schemas/*`, `/openapi.yaml`, `/openapi.json`, `/openapi-3.0.yaml`, `/openapi-3.0.json` は SPA fallback しない。
 - 存在しない `/assets/*` や拡張子付き path は `index.html` ではなく `404` を返す。
@@ -274,16 +319,22 @@ Docker:
 実装済み:
 
 - Vue 3 + Vite + TypeScript。
-- Pinia store は session state を管理する。
-- Vue Router で `/`, `/login`, `/integrations` を持つ。
+- Pinia store は session state、tenant state、machine client state を管理する。
+- Vue Router で `/`, `/login`, `/integrations`, `/machine-clients`, `/machine-clients/new`, `/machine-clients/:id` を持つ。
 - generated SDK は `frontend/src/api/generated/`。
 - `frontend/src/api/client.ts` が generated client の共通 transport 設定を持つ。
+- `frontend/src/api/client.ts` は Problem JSON の status を読み、403 を UI state として扱う helper も持つ。
+- `frontend/src/api/tenants.ts`, `frontend/src/api/machine-clients.ts`, `frontend/src/api/docs.ts` が generated SDK の薄い wrapper を持つ。
 - fetch は `credentials: 'include'` で Cookie を送る。
 - mutation 前に `XSRF-TOKEN` Cookie を読み、`X-CSRF-Token` header を付ける。
 - `XSRF-TOKEN` が無い場合は `GET /api/v1/csrf` を先に呼ぶ。
 - Login 画面は `GET /api/v1/auth/settings` を見て local password form と Zitadel login link を切り替える。
-- Home 画面は current session 表示、session refresh、logout、docs link を持つ。
-- Integrations 画面は delegated auth の list/connect/verify/revoke を呼ぶ。
+- App header は authenticated user に tenant selector を表示する。
+- Home 画面は current session 表示、session refresh、logout、docs access check 付き link を持つ。
+- Integrations 画面は active tenant を表示し、tenant 切り替えに追従して delegated auth の list/connect/verify/revoke を呼ぶ。
+- Machine client admin 画面は list/create/detail/update/disable を扱う。
+- `AdminAccessDenied` は `machine_client_admin` 不足時の 403 を画面内で表示する。
+- logout 時に tenant store を reset し、次 user に古い tenant state が残らないようにしている。
 - Vite dev server は `/api`, `/openapi`, `/docs` を backend `127.0.0.1:8080` に proxy する。
 - `npm --prefix frontend run build` の出力先は `backend/web/dist`。
 - production build output は `embed_frontend` build tag 付き Go binary に埋め込まれ、単一バイナリで SPA と API を配信できる。
@@ -292,7 +343,8 @@ Docker:
 
 - `frontend/src/api/generated/` には現在の `@hey-api/openapi-ts` 生成物がある。
 - frontend build output `backend/web/dist/` は生成物であり commit しない。
-- tenant selector UI と machine client admin UI は無い。
+- tenant selector はログイン中 user の `tenant_memberships` だけを表示する。Zitadel login user と local demo user は別 user として扱う。
+- docs auth が有効な環境では `DocsLink` が `/docs` を開く前に access check し、401 / 403 を frontend 上の error message にする。
 
 ## 生成物
 
@@ -318,12 +370,10 @@ Docker:
 
 `CONCEPT.md` / tutorial の最終形に対して残っている主な項目:
 
-- `ProvisioningReconcileJob` の scheduler wiring。
-- frontend の tenant selector。
-- frontend の machine client admin UI。
-- TODO 縦切り機能。
-- release 後の cutover / rollback runbook。
-- 本番用の observability / structured logging / metrics。
+- P2: 業務ドメインの縦切り機能。現時点では TODO 機能用の schema / API / frontend は存在しない。
+- tenant 自体の CRUD 管理 UI。
+- 本番用 metrics / tracing / alerting。structured logging と readiness はあるが、metrics exporter や distributed tracing は未実装。
+- SCIM / Zitadel provisioning の本番運用では、provider 側 claim / group / SCIM 設定の runbook と staging smoke の拡充が必要。
 
 ## 検証結果
 
@@ -334,8 +384,9 @@ go test ./backend/...
 npm --prefix frontend run build
 CGO_ENABLED=0 go build -buildvcs=false -trimpath -tags "embed_frontend nomsgpack" -ldflags "-s -w -buildid=" -o ./bin/haohao ./backend/cmd/main
 make binary
+make smoke-operability
 docker build -t haohao:dev -f docker/Dockerfile .
-go run ./backend/cmd/openapi > /tmp/haohao-openapi.yaml && diff -u openapi/openapi.yaml /tmp/haohao-openapi.yaml
+go run ./backend/cmd/openapi > /tmp/haohao-openapi.yaml && /usr/bin/diff -u openapi/openapi.yaml /tmp/haohao-openapi.yaml
 cd backend && sqlc generate
 cd frontend && npm run openapi-ts
 ```
@@ -346,11 +397,14 @@ cd frontend && npm run openapi-ts
 - frontend build は成功し、`backend/web/dist/` に出力された。
 - embedded binary build は成功。
 - `make binary` は成功。
+- `make smoke-operability` は成功し、`operability smoke ok: http://127.0.0.1:8080` を確認済み。
 - `docker build -t haohao:dev -f docker/Dockerfile .` は成功。
 - OpenAPI 再生成結果は tracked artifact と差分なし。
 - sqlc 再生成後の差分なし。
 - frontend SDK 再生成後の差分なし。
 - binary smoke test では `/`, `/login`, `/integrations` が HTML、`/api/v1/session` が `401 application/problem+json`、`/openapi.yaml` が OpenAPI YAML、`/assets/missing.js` が `404`。
+- operability smoke test では `/healthz`, `/readyz`, `/api/v1/session`, `/openapi.yaml`, forced OIDC callback redirect を確認済み。
+- P1 browser smoke では tenant selector の Acme / Beta 切り替え、Integrations の tenant 追従、machine client の作成 / detail / update / disable、role 不足時の 403 UI、docs link access check を確認済み。
 - `AUTH_MODE=local` / `ENABLE_LOCAL_PASSWORD_LOGIN=true` で起動した local password login smoke test は `200 OK` と `Set-Cookie` を返した。
 - Docker image smoke test では `/`, `/login`, `/api/v1/session`, `/openapi.yaml`, `/openapi-3.0.yaml`, `/assets/missing.js` を確認済み。
 - `bin/haohao` と同じ directory に `.env` を置き、`cd <dir> && ./haohao` で `DATABASE_URL` などが読み込まれることを確認済み。
@@ -360,6 +414,6 @@ cd frontend && npm run openapi-ts
 
 ## 現在地の要約
 
-HaoHao は、foundation の login/session 縦切りを超えて、Zitadel を中心にした browser login、external bearer API、delegated auth、SCIM provisioning、tenant-aware auth、M2M まで backend 実装が入っている。さらに、frontend SPA を Go binary に埋め込む単一バイナリ配信、`scratch` runtime Docker image、CI / release artifact 生成まで到達している。
+HaoHao は、foundation の login/session 縦切りを超えて、Zitadel を中心にした browser login、external bearer API、delegated auth、SCIM provisioning、tenant-aware auth、M2M まで backend 実装が入っている。さらに、frontend SPA を Go binary に埋め込む単一バイナリ配信、`scratch` runtime Docker image、CI / release artifact 生成、P0 operability、P1 admin UI まで到達している。
 
-次に優先すべきなのは、実装済み backend surface を運用可能な形に閉じる作業である。具体的には、`ProvisioningReconcileJob` の scheduler 接続、tenant selector UI、machine client admin UI、release cutover / rollback runbook、observability / structured logging / metrics の整備が残っている。
+次に優先すべきなのは、P2 の業務ドメイン縦切りである。現時点では TODO などの業務 schema / API / frontend はまだ無く、認証・認可・tenant・operability・admin UI の土台の上に、実際の業務データを tenant-aware に扱う最初の縦切りを追加する段階にいる。
