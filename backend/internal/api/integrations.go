@@ -143,7 +143,14 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			return nil, huma.Error409Conflict("active tenant is required before connecting integrations")
 		}
 
-		location, err := deps.DelegationService.StartConnectForTenant(ctx, current.User, authCtx.ActiveTenant.ID, input.SessionCookie.Value, input.ResourceServer)
+		location, err := deps.DelegationService.StartConnectForTenant(
+			ctx,
+			current.User,
+			authCtx.ActiveTenant.ID,
+			input.SessionCookie.Value,
+			input.ResourceServer,
+			userAuditContext(ctx, current.User.ID, &authCtx.ActiveTenant.ID),
+		)
 		if err != nil {
 			return nil, toDelegationHTTPError(err)
 		}
@@ -175,7 +182,15 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			}, nil
 		}
 
-		if _, err := deps.DelegationService.SaveGrantFromCallback(ctx, user, input.SessionCookie.Value, input.ResourceServer, input.Code, input.State); err != nil {
+		if _, err := deps.DelegationService.SaveGrantFromCallback(
+			ctx,
+			user,
+			input.SessionCookie.Value,
+			input.ResourceServer,
+			input.Code,
+			input.State,
+			service.UserAuditContext(user.ID, nil, auditRequest(ctx)),
+		); err != nil {
 			return &IntegrationCallbackOutput{
 				Location: integrationRedirect(deps.FrontendBaseURL, "error", "delegated_callback_failed"),
 			}, nil
@@ -208,7 +223,13 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			return nil, huma.Error409Conflict("active tenant is required before verifying integrations")
 		}
 
-		result, err := deps.DelegationService.VerifyAccessTokenForTenant(ctx, current.User, authCtx.ActiveTenant.ID, input.ResourceServer)
+		result, err := deps.DelegationService.VerifyAccessTokenForTenant(
+			ctx,
+			current.User,
+			authCtx.ActiveTenant.ID,
+			input.ResourceServer,
+			userAuditContext(ctx, current.User.ID, &authCtx.ActiveTenant.ID),
+		)
 		if err != nil {
 			return nil, toDelegationHTTPError(err)
 		}
@@ -245,7 +266,13 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			return nil, huma.Error409Conflict("active tenant is required before deleting integrations")
 		}
 
-		if err := deps.DelegationService.DeleteGrantForTenant(ctx, current.User, authCtx.ActiveTenant.ID, input.ResourceServer); err != nil {
+		if err := deps.DelegationService.DeleteGrantForTenant(
+			ctx,
+			current.User,
+			authCtx.ActiveTenant.ID,
+			input.ResourceServer,
+			userAuditContext(ctx, current.User.ID, &authCtx.ActiveTenant.ID),
+		); err != nil {
 			return nil, toDelegationHTTPError(err)
 		}
 

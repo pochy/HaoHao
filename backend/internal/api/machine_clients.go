@@ -87,7 +87,7 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *ListMachineClientsInput) (*ListMachineClientsOutput, error) {
-		if err := requireMachineClientAdmin(ctx, deps, input.SessionCookie.Value, ""); err != nil {
+		if _, err := requireMachineClientAdmin(ctx, deps, input.SessionCookie.Value, ""); err != nil {
 			return nil, err
 		}
 		items, err := deps.MachineClientService.List(ctx)
@@ -112,10 +112,11 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *CreateMachineClientInput) (*CreateMachineClientOutput, error) {
-		if err := requireMachineClientAdmin(ctx, deps, input.SessionCookie.Value, input.CSRFToken); err != nil {
+		current, err := requireMachineClientAdmin(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
 			return nil, err
 		}
-		item, err := deps.MachineClientService.Create(ctx, machineClientInputFromBody(input.Body))
+		item, err := deps.MachineClientService.Create(ctx, machineClientInputFromBody(input.Body), userAuditContext(ctx, current.User.ID, nil))
 		if err != nil {
 			return nil, toMachineClientHTTPError(err)
 		}
@@ -132,7 +133,7 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *MachineClientByIDInput) (*CreateMachineClientOutput, error) {
-		if err := requireMachineClientAdmin(ctx, deps, input.SessionCookie.Value, ""); err != nil {
+		if _, err := requireMachineClientAdmin(ctx, deps, input.SessionCookie.Value, ""); err != nil {
 			return nil, err
 		}
 		item, err := deps.MachineClientService.Get(ctx, input.ID)
@@ -152,10 +153,11 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *UpdateMachineClientInput) (*UpdateMachineClientOutput, error) {
-		if err := requireMachineClientAdmin(ctx, deps, input.SessionCookie.Value, input.CSRFToken); err != nil {
+		current, err := requireMachineClientAdmin(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
 			return nil, err
 		}
-		item, err := deps.MachineClientService.Update(ctx, input.ID, machineClientInputFromBody(input.Body))
+		item, err := deps.MachineClientService.Update(ctx, input.ID, machineClientInputFromBody(input.Body), userAuditContext(ctx, current.User.ID, nil))
 		if err != nil {
 			return nil, toMachineClientHTTPError(err)
 		}
@@ -173,40 +175,42 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *DeleteMachineClientInput) (*DeleteMachineClientOutput, error) {
-		if err := requireMachineClientAdmin(ctx, deps, input.SessionCookie.Value, input.CSRFToken); err != nil {
+		current, err := requireMachineClientAdmin(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
 			return nil, err
 		}
-		if _, err := deps.MachineClientService.Disable(ctx, input.ID); err != nil {
+		if _, err := deps.MachineClientService.Disable(ctx, input.ID, userAuditContext(ctx, current.User.ID, nil)); err != nil {
 			return nil, toMachineClientHTTPError(err)
 		}
 		return &DeleteMachineClientOutput{}, nil
 	})
 }
 
-func requireMachineClientAdmin(ctx context.Context, deps Dependencies, sessionID, csrfToken string) error {
+func requireMachineClientAdmin(ctx context.Context, deps Dependencies, sessionID, csrfToken string) (service.CurrentSession, error) {
 	if deps.MachineClientService == nil {
-		return huma.Error503ServiceUnavailable("machine client service is not configured")
+		return service.CurrentSession{}, huma.Error503ServiceUnavailable("machine client service is not configured")
 	}
+	var current service.CurrentSession
 	var authCtx service.AuthContext
 	var err error
 	if csrfToken == "" {
-		_, authCtx, err = currentSessionAuthContext(ctx, deps, sessionID)
+		current, authCtx, err = currentSessionAuthContext(ctx, deps, sessionID)
 	} else {
-		_, authCtx, err = currentSessionAuthContextWithCSRF(ctx, deps, sessionID, csrfToken)
+		current, authCtx, err = currentSessionAuthContextWithCSRF(ctx, deps, sessionID, csrfToken)
 	}
 	if err != nil {
 		if errors.Is(err, service.ErrUnauthorized) ||
 			errors.Is(err, service.ErrInvalidCSRFToken) ||
 			errors.Is(err, service.ErrAuthModeUnsupported) ||
 			errors.Is(err, service.ErrInvalidCredentials) {
-			return toHTTPError(err)
+			return service.CurrentSession{}, toHTTPError(err)
 		}
-		return err
+		return service.CurrentSession{}, err
 	}
 	if !authCtx.HasRole("machine_client_admin") {
-		return huma.Error403Forbidden("machine_client_admin role is required")
+		return service.CurrentSession{}, huma.Error403Forbidden("machine_client_admin role is required")
 	}
-	return nil
+	return current, nil
 }
 
 func machineClientInputFromBody(body MachineClientRequestBody) service.MachineClientInput {

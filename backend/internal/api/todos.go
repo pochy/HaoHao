@@ -110,7 +110,7 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 
-		item, err := deps.TodoService.Create(ctx, tenant.ID, current.User.ID, input.Body.Title)
+		item, err := deps.TodoService.Create(ctx, tenant.ID, current.User.ID, input.Body.Title, userAuditContext(ctx, current.User.ID, &tenant.ID))
 		if err != nil {
 			return nil, toTodoHTTPError(err)
 		}
@@ -127,7 +127,7 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *UpdateTodoInput) (*TodoOutput, error) {
-		_, tenant, err := requireTodoTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		current, tenant, err := requireTodoTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +135,7 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 		item, err := deps.TodoService.Update(ctx, tenant.ID, input.TodoPublicID, service.TodoUpdateInput{
 			Title:     input.Body.Title,
 			Completed: input.Body.Completed,
-		})
+		}, userAuditContext(ctx, current.User.ID, &tenant.ID))
 		if err != nil {
 			return nil, toTodoHTTPError(err)
 		}
@@ -153,12 +153,12 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *DeleteTodoInput) (*DeleteTodoOutput, error) {
-		_, tenant, err := requireTodoTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		current, tenant, err := requireTodoTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := deps.TodoService.Delete(ctx, tenant.ID, input.TodoPublicID); err != nil {
+		if err := deps.TodoService.Delete(ctx, tenant.ID, input.TodoPublicID, userAuditContext(ctx, current.User.ID, &tenant.ID)); err != nil {
 			return nil, toTodoHTTPError(err)
 		}
 		return &DeleteTodoOutput{}, nil

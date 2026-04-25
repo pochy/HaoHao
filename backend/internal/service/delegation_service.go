@@ -68,9 +68,10 @@ type DelegationService struct {
 	defaultScopes []string
 	refreshTTL    time.Duration
 	accessSkew    time.Duration
+	audit         AuditRecorder
 }
 
-func NewDelegationService(queries *db.Queries, oauthClient *auth.DelegatedOAuthClient, stateStore *auth.DelegationStateStore, tokenStore *auth.RefreshTokenStore, appBaseURL, defaultScopes string, refreshTTL, accessSkew time.Duration) *DelegationService {
+func NewDelegationService(queries *db.Queries, oauthClient *auth.DelegatedOAuthClient, stateStore *auth.DelegationStateStore, tokenStore *auth.RefreshTokenStore, appBaseURL, defaultScopes string, refreshTTL, accessSkew time.Duration, audit AuditRecorder) *DelegationService {
 	return &DelegationService{
 		queries:       queries,
 		oauthClient:   oauthClient,
@@ -80,6 +81,7 @@ func NewDelegationService(queries *db.Queries, oauthClient *auth.DelegatedOAuthC
 		defaultScopes: normalizeScopeList(strings.Fields(defaultScopes)),
 		refreshTTL:    refreshTTL,
 		accessSkew:    accessSkew,
+		audit:         audit,
 	}
 }
 
@@ -145,10 +147,10 @@ func (s *DelegationService) StartConnect(ctx context.Context, user User, session
 	if err != nil {
 		return "", err
 	}
-	return s.StartConnectForTenant(ctx, user, tenantID, sessionID, resourceServer)
+	return s.StartConnectForTenant(ctx, user, tenantID, sessionID, resourceServer, UserAuditContext(user.ID, &tenantID, AuditRequest{}))
 }
 
-func (s *DelegationService) StartConnectForTenant(ctx context.Context, user User, tenantID int64, sessionID, resourceServer string) (string, error) {
+func (s *DelegationService) StartConnectForTenant(ctx context.Context, user User, tenantID int64, sessionID, resourceServer string, auditCtx AuditContext) (string, error) {
 	if err := s.requireConfigured(); err != nil {
 		return "", err
 	}
@@ -163,10 +165,23 @@ func (s *DelegationService) StartConnectForTenant(ctx context.Context, user User
 		return "", fmt.Errorf("create delegated auth state: %w", err)
 	}
 
+	auditCtx.TenantID = &tenantID
+	if s.audit != nil {
+		if err := s.audit.Record(ctx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "integration.connect_start",
+			TargetType:   "integration",
+			TargetID:     resource.resourceServer,
+			Metadata:     delegationAuditMetadata(resource),
+		}); err != nil {
+			return "", err
+		}
+	}
+
 	return s.oauthClient.AuthorizeURL(state, record.CodeVerifier, resource.redirectURI, resource.scopes), nil
 }
 
-func (s *DelegationService) SaveGrantFromCallback(ctx context.Context, user User, sessionID, resourceServer, code, state string) (DelegationStatus, error) {
+func (s *DelegationService) SaveGrantFromCallback(ctx context.Context, user User, sessionID, resourceServer, code, state string, auditCtx AuditContext) (DelegationStatus, error) {
 	if err := s.requireConfigured(); err != nil {
 		return DelegationStatus{}, err
 	}
@@ -223,7 +238,19 @@ func (s *DelegationService) SaveGrantFromCallback(ctx context.Context, user User
 		return DelegationStatus{}, fmt.Errorf("save delegated grant: %w", err)
 	}
 
-	return grantStatusFromUpsertRow(row), nil
+	status := grantStatusFromUpsertRow(row)
+	auditCtx.TenantID = &record.TenantID
+	if s.audit != nil {
+		s.audit.RecordBestEffort(ctx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "integration.connect_finish",
+			TargetType:   "integration",
+			TargetID:     resource.resourceServer,
+			Metadata:     delegationAuditMetadata(resource),
+		})
+	}
+
+	return status, nil
 }
 
 func (s *DelegationService) GetAccessToken(ctx context.Context, user User, resourceServer string) (DelegatedAccessToken, error) {
@@ -329,12 +356,34 @@ func (s *DelegationService) VerifyAccessToken(ctx context.Context, user User, re
 	return delegationVerifyResult(resourceServer, token), nil
 }
 
-func (s *DelegationService) VerifyAccessTokenForTenant(ctx context.Context, user User, tenantID int64, resourceServer string) (DelegationVerifyResult, error) {
+func (s *DelegationService) VerifyAccessTokenForTenant(ctx context.Context, user User, tenantID int64, resourceServer string, auditCtx AuditContext) (DelegationVerifyResult, error) {
+	if err := s.requireConfigured(); err != nil {
+		return DelegationVerifyResult{}, err
+	}
+	resource, err := s.resource(resourceServer)
+	if err != nil {
+		return DelegationVerifyResult{}, err
+	}
 	token, err := s.GetAccessTokenForTenant(ctx, user, tenantID, resourceServer)
 	if err != nil {
 		return DelegationVerifyResult{}, err
 	}
-	return delegationVerifyResult(resourceServer, token), nil
+	result := delegationVerifyResult(resourceServer, token)
+	auditCtx.TenantID = &tenantID
+	if s.audit != nil {
+		if err := s.audit.Record(ctx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "integration.verify",
+			TargetType:   "integration",
+			TargetID:     resource.resourceServer,
+			Metadata: map[string]any{
+				"provider": resource.provider,
+			},
+		}); err != nil {
+			return DelegationVerifyResult{}, err
+		}
+	}
+	return result, nil
 }
 
 func delegationVerifyResult(resourceServer string, token DelegatedAccessToken) DelegationVerifyResult {
@@ -353,10 +402,10 @@ func (s *DelegationService) DeleteGrant(ctx context.Context, user User, resource
 	if err != nil {
 		return err
 	}
-	return s.DeleteGrantForTenant(ctx, user, tenantID, resourceServer)
+	return s.DeleteGrantForTenant(ctx, user, tenantID, resourceServer, UserAuditContext(user.ID, &tenantID, AuditRequest{}))
 }
 
-func (s *DelegationService) DeleteGrantForTenant(ctx context.Context, user User, tenantID int64, resourceServer string) error {
+func (s *DelegationService) DeleteGrantForTenant(ctx context.Context, user User, tenantID int64, resourceServer string, auditCtx AuditContext) error {
 	if err := s.requireConfigured(); err != nil {
 		return err
 	}
@@ -392,6 +441,19 @@ func (s *DelegationService) DeleteGrantForTenant(ctx context.Context, user User,
 		ResourceServer: resource.resourceServer,
 	}); err != nil {
 		return fmt.Errorf("delete delegated grant: %w", err)
+	}
+
+	auditCtx.TenantID = &tenantID
+	if s.audit != nil {
+		s.audit.RecordBestEffort(ctx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "integration.revoke",
+			TargetType:   "integration",
+			TargetID:     resource.resourceServer,
+			Metadata: map[string]any{
+				"provider": resource.provider,
+			},
+		})
 	}
 
 	return nil
@@ -445,6 +507,14 @@ func (s *DelegationService) resource(resourceServer string) (delegationResource,
 		redirectURI:    s.appBaseURL + "/api/v1/integrations/zitadel/callback",
 		scopes:         scopes,
 	}, nil
+}
+
+func delegationAuditMetadata(resource delegationResource) map[string]any {
+	return map[string]any{
+		"resourceServer": resource.resourceServer,
+		"provider":       resource.provider,
+		"scopeCount":     len(resource.scopes),
+	}
 }
 
 func normalizeResourceServer(resourceServer string) string {

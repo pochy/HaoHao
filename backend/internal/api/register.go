@@ -14,6 +14,7 @@ type Dependencies struct {
 	DelegationService            *service.DelegationService
 	ProvisioningService          *service.ProvisioningService
 	AuthzService                 *service.AuthzService
+	AuditService                 *service.AuditService
 	TodoService                  *service.TodoService
 	MachineClientService         *service.MachineClientService
 	AuthMode                     string

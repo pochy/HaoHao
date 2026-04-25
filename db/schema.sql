@@ -37,6 +37,47 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: audit_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audit_events (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    actor_type text NOT NULL,
+    actor_user_id bigint,
+    actor_machine_client_id bigint,
+    tenant_id bigint,
+    action text NOT NULL,
+    target_type text NOT NULL,
+    target_id text NOT NULL,
+    request_id text DEFAULT ''::text NOT NULL,
+    client_ip text DEFAULT ''::text NOT NULL,
+    user_agent text DEFAULT ''::text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    occurred_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT audit_events_action_check CHECK ((btrim(action) <> ''::text)),
+    CONSTRAINT audit_events_actor_type_check CHECK ((actor_type = ANY (ARRAY['user'::text, 'machine_client'::text, 'system'::text]))),
+    CONSTRAINT audit_events_target_id_check CHECK ((btrim(target_id) <> ''::text)),
+    CONSTRAINT audit_events_target_type_check CHECK ((btrim(target_type) <> ''::text))
+);
+
+
+--
+-- Name: audit_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.audit_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.audit_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: machine_clients; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -324,6 +365,14 @@ ALTER TABLE public.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: audit_events audit_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_events
+    ADD CONSTRAINT audit_events_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: machine_clients machine_clients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -468,6 +517,55 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: audit_events_action_occurred_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX audit_events_action_occurred_at_idx ON public.audit_events USING btree (action, occurred_at DESC, id DESC);
+
+
+--
+-- Name: audit_events_actor_machine_client_occurred_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX audit_events_actor_machine_client_occurred_at_idx ON public.audit_events USING btree (actor_machine_client_id, occurred_at DESC, id DESC);
+
+
+--
+-- Name: audit_events_actor_user_occurred_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX audit_events_actor_user_occurred_at_idx ON public.audit_events USING btree (actor_user_id, occurred_at DESC, id DESC);
+
+
+--
+-- Name: audit_events_occurred_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX audit_events_occurred_at_idx ON public.audit_events USING btree (occurred_at DESC, id DESC);
+
+
+--
+-- Name: audit_events_public_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX audit_events_public_id_idx ON public.audit_events USING btree (public_id);
+
+
+--
+-- Name: audit_events_target_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX audit_events_target_idx ON public.audit_events USING btree (target_type, target_id, occurred_at DESC, id DESC);
+
+
+--
+-- Name: audit_events_tenant_occurred_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX audit_events_tenant_occurred_at_idx ON public.audit_events USING btree (tenant_id, occurred_at DESC, id DESC);
+
+
+--
 -- Name: machine_clients_default_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -556,6 +654,30 @@ CREATE INDEX user_identities_user_id_idx ON public.user_identities USING btree (
 --
 
 CREATE INDEX user_roles_role_id_idx ON public.user_roles USING btree (role_id);
+
+
+--
+-- Name: audit_events audit_events_actor_machine_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_events
+    ADD CONSTRAINT audit_events_actor_machine_client_id_fkey FOREIGN KEY (actor_machine_client_id) REFERENCES public.machine_clients(id) ON DELETE SET NULL;
+
+
+--
+-- Name: audit_events audit_events_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_events
+    ADD CONSTRAINT audit_events_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: audit_events audit_events_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_events
+    ADD CONSTRAINT audit_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE SET NULL;
 
 
 --

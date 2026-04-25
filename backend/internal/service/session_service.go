@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,18 +42,20 @@ type SessionService struct {
 	store                    *auth.SessionStore
 	authMode                 string
 	enableLocalPasswordLogin bool
+	audit                    AuditRecorder
 }
 
-func NewSessionService(queries *db.Queries, store *auth.SessionStore, authMode string, enableLocalPasswordLogin bool) *SessionService {
+func NewSessionService(queries *db.Queries, store *auth.SessionStore, authMode string, enableLocalPasswordLogin bool, audit AuditRecorder) *SessionService {
 	return &SessionService{
 		queries:                  queries,
 		store:                    store,
 		authMode:                 strings.ToLower(strings.TrimSpace(authMode)),
 		enableLocalPasswordLogin: enableLocalPasswordLogin,
+		audit:                    audit,
 	}
 }
 
-func (s *SessionService) Login(ctx context.Context, email, password string) (User, string, string, error) {
+func (s *SessionService) Login(ctx context.Context, email, password string, auditRequest AuditRequest) (User, string, string, error) {
 	if !s.enableLocalPasswordLogin || s.authMode == "zitadel" {
 		return User{}, "", "", ErrAuthModeUnsupported
 	}
@@ -76,6 +79,18 @@ func (s *SessionService) Login(ctx context.Context, email, password string) (Use
 	sessionID, csrfToken, err := s.IssueSession(ctx, userID)
 	if err != nil {
 		return User{}, "", "", err
+	}
+
+	if s.audit != nil {
+		if err := s.audit.Record(ctx, AuditEventInput{
+			AuditContext: UserAuditContext(user.ID, user.DefaultTenantID, auditRequest),
+			Action:       "session.login",
+			TargetType:   "session",
+			TargetID:     "browser",
+		}); err != nil {
+			_ = s.store.Delete(ctx, sessionID)
+			return User{}, "", "", err
+		}
 	}
 
 	return user, sessionID, csrfToken, nil
@@ -153,7 +168,7 @@ func (s *SessionService) IssueSessionWithProviderHint(ctx context.Context, userI
 	return sessionID, csrfToken, nil
 }
 
-func (s *SessionService) Logout(ctx context.Context, sessionID, csrfHeader string) (string, error) {
+func (s *SessionService) Logout(ctx context.Context, sessionID, csrfHeader string, auditRequest AuditRequest) (string, error) {
 	session, err := s.store.Get(ctx, sessionID)
 	if errors.Is(err, auth.ErrSessionNotFound) {
 		return "", ErrUnauthorized
@@ -166,8 +181,18 @@ func (s *SessionService) Logout(ctx context.Context, sessionID, csrfHeader strin
 		return "", ErrInvalidCSRFToken
 	}
 
+	user, userErr := s.loadUserByID(ctx, session.UserID)
 	if err := s.store.Delete(ctx, sessionID); err != nil {
 		return "", err
+	}
+
+	if userErr == nil && s.audit != nil {
+		s.audit.RecordBestEffort(ctx, AuditEventInput{
+			AuditContext: UserAuditContext(user.ID, sessionAuditTenantID(user, session.ActiveTenantID), auditRequest),
+			Action:       "session.logout",
+			TargetType:   "session",
+			TargetID:     "browser",
+		})
 	}
 
 	return session.ProviderIDTokenHint, nil
@@ -189,18 +214,32 @@ func (s *SessionService) ReissueCSRF(ctx context.Context, sessionID string) (str
 	return csrfToken, nil
 }
 
-func (s *SessionService) SetActiveTenant(ctx context.Context, sessionID, csrfHeader string, tenantID int64) error {
-	if _, err := s.CurrentSessionWithCSRF(ctx, sessionID, csrfHeader); err != nil {
+func (s *SessionService) SetActiveTenant(ctx context.Context, sessionID, csrfHeader string, tenantID int64, auditRequest AuditRequest) error {
+	current, err := s.CurrentSessionWithCSRF(ctx, sessionID, csrfHeader)
+	if err != nil {
 		return err
 	}
-	return s.store.SetActiveTenant(ctx, sessionID, tenantID)
+	if err := s.store.SetActiveTenant(ctx, sessionID, tenantID); err != nil {
+		return err
+	}
+	if s.audit != nil {
+		if err := s.audit.Record(ctx, AuditEventInput{
+			AuditContext: UserAuditContext(current.User.ID, &tenantID, auditRequest),
+			Action:       "session.tenant_switch",
+			TargetType:   "tenant",
+			TargetID:     strconv.FormatInt(tenantID, 10),
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *SessionService) DeleteUserSessions(ctx context.Context, userID int64) error {
 	return s.store.DeleteUserSessions(ctx, userID)
 }
 
-func (s *SessionService) RefreshSession(ctx context.Context, sessionID, csrfHeader string) (string, string, error) {
+func (s *SessionService) RefreshSession(ctx context.Context, sessionID, csrfHeader string, auditRequest AuditRequest) (string, string, error) {
 	session, err := s.store.Get(ctx, sessionID)
 	if errors.Is(err, auth.ErrSessionNotFound) {
 		return "", "", ErrUnauthorized
@@ -213,12 +252,29 @@ func (s *SessionService) RefreshSession(ctx context.Context, sessionID, csrfHead
 		return "", "", ErrInvalidCSRFToken
 	}
 
+	user, err := s.loadUserByID(ctx, session.UserID)
+	if err != nil {
+		return "", "", err
+	}
+
 	newSessionID, newCSRFToken, err := s.store.Rotate(ctx, sessionID)
 	if errors.Is(err, auth.ErrSessionNotFound) {
 		return "", "", ErrUnauthorized
 	}
 	if err != nil {
 		return "", "", err
+	}
+
+	if s.audit != nil {
+		if err := s.audit.Record(ctx, AuditEventInput{
+			AuditContext: UserAuditContext(user.ID, sessionAuditTenantID(user, session.ActiveTenantID), auditRequest),
+			Action:       "session.refresh",
+			TargetType:   "session",
+			TargetID:     "browser",
+		}); err != nil {
+			_ = s.store.Delete(ctx, newSessionID)
+			return "", "", err
+		}
 	}
 
 	return newSessionID, newCSRFToken, nil
@@ -258,4 +314,11 @@ func optionalPgInt8(value pgtype.Int8) *int64 {
 	}
 	v := value.Int64
 	return &v
+}
+
+func sessionAuditTenantID(user User, activeTenantID int64) *int64 {
+	if activeTenantID != 0 {
+		return &activeTenantID
+	}
+	return user.DefaultTenantID
 }

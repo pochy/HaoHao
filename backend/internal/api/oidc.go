@@ -66,7 +66,7 @@ func registerOIDCRoutes(api huma.API, deps Dependencies) {
 			}, nil
 		}
 
-		result, err := deps.OIDCLoginService.FinishLogin(ctx, input.Code, input.State)
+		result, err := deps.OIDCLoginService.FinishLogin(ctx, input.Code, input.State, auditRequest(ctx))
 		if err != nil {
 			return &OIDCCallbackOutput{
 				Location: oidcFailureRedirect(deps.FrontendBaseURL),

@@ -48,7 +48,7 @@ func (s *OIDCLoginService) StartLogin(ctx context.Context, returnTo string) (str
 	return s.oidcClient.AuthorizeURL(state, record.Nonce, record.CodeVerifier), nil
 }
 
-func (s *OIDCLoginService) FinishLogin(ctx context.Context, code, state string) (OIDCLoginResult, error) {
+func (s *OIDCLoginService) FinishLogin(ctx context.Context, code, state string, auditRequest AuditRequest) (OIDCLoginResult, error) {
 	if s == nil || s.oidcClient == nil || s.loginState == nil || s.identity == nil || s.sessionService == nil {
 		return OIDCLoginResult{}, ErrAuthModeUnsupported
 	}
@@ -86,6 +86,17 @@ func (s *OIDCLoginService) FinishLogin(ctx context.Context, code, state string) 
 	sessionID, csrfToken, err := s.sessionService.IssueSessionWithProviderHint(ctx, user.ID, identity.RawIDToken)
 	if err != nil {
 		return OIDCLoginResult{}, fmt.Errorf("issue local session for oidc login: %w", err)
+	}
+	if s.sessionService.audit != nil {
+		if err := s.sessionService.audit.Record(ctx, AuditEventInput{
+			AuditContext: UserAuditContext(user.ID, user.DefaultTenantID, auditRequest),
+			Action:       "session.login",
+			TargetType:   "session",
+			TargetID:     "browser",
+		}); err != nil {
+			_ = s.sessionService.store.Delete(ctx, sessionID)
+			return OIDCLoginResult{}, err
+		}
 	}
 
 	return OIDCLoginResult{

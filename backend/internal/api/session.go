@@ -102,7 +102,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 		Summary:     "ログインして Cookie セッションを払い出す",
 		Tags:        []string{"session"},
 	}, func(ctx context.Context, input *LoginInput) (*LoginOutput, error) {
-		user, sessionID, csrfToken, err := deps.SessionService.Login(ctx, input.Body.Email, input.Body.Password)
+		user, sessionID, csrfToken, err := deps.SessionService.Login(ctx, input.Body.Email, input.Body.Password, auditRequest(ctx))
 		if err != nil {
 			return nil, toHTTPError(err)
 		}
@@ -152,7 +152,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *RefreshSessionInput) (*RefreshSessionOutput, error) {
-		sessionID, csrfToken, err := deps.SessionService.RefreshSession(ctx, input.SessionCookie.Value, input.CSRFToken)
+		sessionID, csrfToken, err := deps.SessionService.RefreshSession(ctx, input.SessionCookie.Value, input.CSRFToken, auditRequest(ctx))
 		if err != nil {
 			return nil, toHTTPError(err)
 		}
@@ -176,7 +176,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *LogoutInput) (*LogoutOutput, error) {
-		idTokenHint, err := deps.SessionService.Logout(ctx, input.SessionCookie.Value, input.CSRFToken)
+		idTokenHint, err := deps.SessionService.Logout(ctx, input.SessionCookie.Value, input.CSRFToken, auditRequest(ctx))
 		if err != nil && !errors.Is(err, service.ErrUnauthorized) {
 			return nil, toHTTPError(err)
 		}

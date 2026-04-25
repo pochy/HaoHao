@@ -9,6 +9,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AuditEvent struct {
+	ID                   int64              `json:"id"`
+	PublicID             uuid.UUID          `json:"public_id"`
+	ActorType            string             `json:"actor_type"`
+	ActorUserID          pgtype.Int8        `json:"actor_user_id"`
+	ActorMachineClientID pgtype.Int8        `json:"actor_machine_client_id"`
+	TenantID             pgtype.Int8        `json:"tenant_id"`
+	Action               string             `json:"action"`
+	TargetType           string             `json:"target_type"`
+	TargetID             string             `json:"target_id"`
+	RequestID            string             `json:"request_id"`
+	ClientIp             string             `json:"client_ip"`
+	UserAgent            string             `json:"user_agent"`
+	Metadata             []byte             `json:"metadata"`
+	OccurredAt           pgtype.Timestamptz `json:"occurred_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
 type MachineClient struct {
 	ID               int64              `json:"id"`
 	Provider         string             `json:"provider"`

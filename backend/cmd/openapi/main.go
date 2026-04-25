@@ -18,7 +18,21 @@ func main() {
 		log.Fatal(err)
 	}
 
-	application := app.New(cfg, nil, nil, nil, nil, nil, nil, service.NewTodoService(nil), nil, nil, nil)
+	auditService := service.NewAuditService(nil)
+	application := app.New(
+		cfg,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		auditService,
+		service.NewTodoService(nil, nil, auditService),
+		service.NewMachineClientService(nil, nil, "", auditService),
+		nil,
+		nil,
+	)
 
 	spec, err := application.API.OpenAPI().YAML()
 	if err != nil {

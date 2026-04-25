@@ -50,11 +50,12 @@ func main() {
 	defer redisClient.Close()
 
 	queries := db.New(pool)
+	auditService := service.NewAuditService(queries)
 	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
-	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode, cfg.EnableLocalPasswordLogin)
+	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode, cfg.EnableLocalPasswordLogin, auditService)
 	authzService := service.NewAuthzService(pool, queries)
-	todoService := service.NewTodoService(queries)
-	machineClientService := service.NewMachineClientService(queries, cfg.M2MRequiredScopePrefix)
+	todoService := service.NewTodoService(pool, queries, auditService)
+	machineClientService := service.NewMachineClientService(pool, queries, cfg.M2MRequiredScopePrefix, auditService)
 
 	var oidcLoginService *service.OIDCLoginService
 	var delegationService *service.DelegationService
@@ -102,6 +103,7 @@ func main() {
 				cfg.DownstreamDefaultScopes,
 				cfg.DownstreamRefreshTokenTTL,
 				cfg.DownstreamAccessTokenSkew,
+				auditService,
 			)
 		}
 	}
@@ -126,7 +128,7 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, todoService, machineClientService, bearerVerifier, m2mVerifier)
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, todoService, machineClientService, bearerVerifier, m2mVerifier)
 	app.RegisterHealthRoutes(application.Router, platform.ReadinessChecker{
 		PostgresPing:  pool.Ping,
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },

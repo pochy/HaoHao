@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 
+	"example.com/haohao/backend/internal/platform"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,6 +20,11 @@ func RequestID() gin.HandlerFunc {
 
 		c.Set("request_id", requestID)
 		c.Header(RequestIDHeader, requestID)
+		c.Request = c.Request.WithContext(platform.ContextWithRequestMetadata(c.Request.Context(), platform.RequestMetadata{
+			RequestID: requestID,
+			ClientIP:  c.ClientIP(),
+			UserAgent: c.Request.UserAgent(),
+		}))
 		c.Next()
 	}
 }

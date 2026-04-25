@@ -97,7 +97,7 @@ func registerTenantRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, toHTTPError(err)
 		}
-		if err := deps.SessionService.SetActiveTenant(ctx, input.SessionCookie.Value, input.CSRFToken, tenant.ID); err != nil {
+		if err := deps.SessionService.SetActiveTenant(ctx, input.SessionCookie.Value, input.CSRFToken, tenant.ID, auditRequest(ctx)); err != nil {
 			return nil, toHTTPError(err)
 		}
 
