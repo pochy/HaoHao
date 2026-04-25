@@ -66,21 +66,31 @@ func openAPIExportDependencies(cfg config.Config) backendapi.Dependencies {
 	tenantSettingsService := service.NewTenantSettingsService(nil, auditService, cfg.TenantDefaultFileQuotaBytes)
 	fileService := service.NewFileService(nil, nil, nil, tenantSettingsService, auditService, cfg.FileMaxBytes, cfg.FileAllowedMIMETypes, nil)
 	tenantInvitationService := service.NewTenantInvitationService(nil, nil, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)
-	tenantDataExportService := service.NewTenantDataExportService(nil, nil, outboxService, fileService, auditService, cfg.DataExportTTL)
+	entitlementService := service.NewEntitlementService(nil, auditService)
+	tenantDataExportService := service.NewTenantDataExportService(nil, nil, outboxService, fileService, auditService, cfg.DataExportTTL, entitlementService)
+	webhookService := service.NewWebhookService(nil, outboxService, entitlementService, auditService, nil, cfg.WebhookHTTPTimeout)
+	customerSignalImportService := service.NewCustomerSignalImportService(nil, nil, outboxService, fileService, entitlementService, auditService)
+	customerSignalSavedFilterService := service.NewCustomerSignalSavedFilterService(nil, entitlementService, auditService)
+	supportAccessService := service.NewSupportAccessService(nil, nil, entitlementService, auditService, cfg.SupportAccessMaxDuration)
 
 	return dependenciesWithConfig(cfg, backendapi.Dependencies{
-		AuditService:            auditService,
-		TenantAdminService:      service.NewTenantAdminService(nil, nil, auditService),
-		CustomerSignalService:   service.NewCustomerSignalService(nil, nil, auditService),
-		TodoService:             service.NewTodoService(nil, nil, auditService),
-		MachineClientService:    service.NewMachineClientService(nil, nil, "", auditService),
-		OutboxService:           outboxService,
-		IdempotencyService:      idempotencyService,
-		NotificationService:     notificationService,
-		TenantInvitationService: tenantInvitationService,
-		FileService:             fileService,
-		TenantSettingsService:   tenantSettingsService,
-		TenantDataExportService: tenantDataExportService,
+		AuditService:                     auditService,
+		TenantAdminService:               service.NewTenantAdminService(nil, nil, auditService),
+		CustomerSignalService:            service.NewCustomerSignalService(nil, nil, auditService, webhookService),
+		TodoService:                      service.NewTodoService(nil, nil, auditService),
+		MachineClientService:             service.NewMachineClientService(nil, nil, "", auditService),
+		OutboxService:                    outboxService,
+		IdempotencyService:               idempotencyService,
+		NotificationService:              notificationService,
+		TenantInvitationService:          tenantInvitationService,
+		FileService:                      fileService,
+		TenantSettingsService:            tenantSettingsService,
+		TenantDataExportService:          tenantDataExportService,
+		EntitlementService:               entitlementService,
+		WebhookService:                   webhookService,
+		CustomerSignalImportService:      customerSignalImportService,
+		CustomerSignalSavedFilterService: customerSignalSavedFilterService,
+		SupportAccessService:             supportAccessService,
 	})
 }
 

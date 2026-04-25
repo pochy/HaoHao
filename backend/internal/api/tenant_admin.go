@@ -150,7 +150,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		tenant, err := deps.TenantAdminService.CreateTenant(ctx, tenantAdminTenantInputFromBody(input.Body), userAuditContext(ctx, current.User.ID, nil))
+		tenant, err := deps.TenantAdminService.CreateTenant(ctx, tenantAdminTenantInputFromBody(input.Body), sessionAuditContext(ctx, current, nil))
 		if err != nil {
 			return nil, toTenantAdminHTTPError(err)
 		}
@@ -191,7 +191,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		tenant, err := deps.TenantAdminService.UpdateTenant(ctx, input.TenantSlug, tenantAdminTenantInputFromBody(input.Body), userAuditContext(ctx, current.User.ID, nil))
+		tenant, err := deps.TenantAdminService.UpdateTenant(ctx, input.TenantSlug, tenantAdminTenantInputFromBody(input.Body), sessionAuditContext(ctx, current, nil))
 		if err != nil {
 			return nil, toTenantAdminHTTPError(err)
 		}
@@ -213,7 +213,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		if _, err := deps.TenantAdminService.DeactivateTenant(ctx, input.TenantSlug, userAuditContext(ctx, current.User.ID, nil)); err != nil {
+		if _, err := deps.TenantAdminService.DeactivateTenant(ctx, input.TenantSlug, sessionAuditContext(ctx, current, nil)); err != nil {
 			return nil, toTenantAdminHTTPError(err)
 		}
 		return &TenantAdminNoContentOutput{}, nil
@@ -237,7 +237,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		if _, err := deps.TenantAdminService.GrantRole(ctx, input.TenantSlug, service.TenantRoleGrantInput{
 			UserEmail: input.Body.UserEmail,
 			RoleCode:  input.Body.RoleCode,
-		}, userAuditContext(ctx, current.User.ID, nil)); err != nil {
+		}, sessionAuditContext(ctx, current, nil)); err != nil {
 			return nil, toTenantAdminHTTPError(err)
 		}
 		return &TenantAdminNoContentOutput{}, nil
@@ -258,7 +258,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		if err := deps.TenantAdminService.RevokeLocalRole(ctx, input.TenantSlug, input.UserPublicID, input.RoleCode, userAuditContext(ctx, current.User.ID, nil)); err != nil {
+		if err := deps.TenantAdminService.RevokeLocalRole(ctx, input.TenantSlug, input.UserPublicID, input.RoleCode, sessionAuditContext(ctx, current, nil)); err != nil {
 			return nil, toTenantAdminHTTPError(err)
 		}
 		return &TenantAdminNoContentOutput{}, nil

@@ -24,11 +24,18 @@ type CustomerSignalBody struct {
 }
 
 type CustomerSignalListBody struct {
-	Items []CustomerSignalBody `json:"items"`
+	Items      []CustomerSignalBody `json:"items"`
+	NextCursor string               `json:"nextCursor,omitempty"`
 }
 
 type ListCustomerSignalsInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	Query         string      `query:"q"`
+	Status        string      `query:"status"`
+	Priority      string      `query:"priority"`
+	Source        string      `query:"source"`
+	Cursor        string      `query:"cursor"`
+	Limit         int         `query:"limit" minimum:"1" maximum:"100"`
 }
 
 type CustomerSignalListOutput struct {
@@ -100,14 +107,22 @@ func registerCustomerSignalRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 
-		items, err := deps.CustomerSignalService.List(ctx, tenant.ID)
+		result, err := deps.CustomerSignalService.Search(ctx, tenant.ID, service.CustomerSignalListInput{
+			Query:    input.Query,
+			Status:   input.Status,
+			Priority: input.Priority,
+			Source:   input.Source,
+			Cursor:   input.Cursor,
+			Limit:    input.Limit,
+		})
 		if err != nil {
 			return nil, toCustomerSignalHTTPError(err)
 		}
 
 		out := &CustomerSignalListOutput{}
-		out.Body.Items = make([]CustomerSignalBody, 0, len(items))
-		for _, item := range items {
+		out.Body.Items = make([]CustomerSignalBody, 0, len(result.Items))
+		out.Body.NextCursor = result.NextCursor
+		for _, item := range result.Items {
 			out.Body.Items = append(out.Body.Items, toCustomerSignalBody(item))
 		}
 		return out, nil
@@ -140,7 +155,7 @@ func registerCustomerSignalRoutes(api huma.API, deps Dependencies) {
 			return &CustomerSignalOutput{Body: body}, nil
 		}
 
-		item, err := deps.CustomerSignalService.Create(ctx, tenant.ID, current.User.ID, customerSignalCreateInputFromBody(input.Body), userAuditContext(ctx, current.User.ID, &tenant.ID))
+		item, err := deps.CustomerSignalService.Create(ctx, tenant.ID, current.User.ID, customerSignalCreateInputFromBody(input.Body), sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			if deps.IdempotencyService != nil {
 				deps.IdempotencyService.Fail(ctx, attempt, http.StatusInternalServerError, err.Error())
@@ -191,7 +206,7 @@ func registerCustomerSignalRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 
-		item, err := deps.CustomerSignalService.Update(ctx, tenant.ID, input.SignalPublicID, customerSignalUpdateInputFromBody(input.Body), userAuditContext(ctx, current.User.ID, &tenant.ID))
+		item, err := deps.CustomerSignalService.Update(ctx, tenant.ID, input.SignalPublicID, customerSignalUpdateInputFromBody(input.Body), sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toCustomerSignalHTTPError(err)
 		}
@@ -214,7 +229,7 @@ func registerCustomerSignalRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 
-		if err := deps.CustomerSignalService.Delete(ctx, tenant.ID, input.SignalPublicID, userAuditContext(ctx, current.User.ID, &tenant.ID)); err != nil {
+		if err := deps.CustomerSignalService.Delete(ctx, tenant.ID, input.SignalPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
 			return nil, toCustomerSignalHTTPError(err)
 		}
 		return &DeleteCustomerSignalOutput{}, nil
@@ -294,6 +309,8 @@ func toCustomerSignalHTTPError(err error) error {
 		return huma.Error400BadRequest("invalid customer signal update")
 	case errors.Is(err, service.ErrCustomerSignalNotFound):
 		return huma.Error404NotFound("customer signal not found")
+	case errors.Is(err, service.ErrInvalidCursor):
+		return huma.Error400BadRequest("invalid cursor")
 	default:
 		return toHTTPError(err)
 	}

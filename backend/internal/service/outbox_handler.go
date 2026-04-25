@@ -16,15 +16,26 @@ type P7OutboxHandler struct {
 	notifications *NotificationService
 	invitations   *TenantInvitationService
 	dataExports   *TenantDataExportService
+	webhooks      *WebhookService
+	imports       *CustomerSignalImportService
 }
 
-func NewOutboxHandler(emailSender EmailSender, notifications *NotificationService, invitations *TenantInvitationService, dataExports *TenantDataExportService) *P7OutboxHandler {
-	return &P7OutboxHandler{
+func NewOutboxHandler(emailSender EmailSender, notifications *NotificationService, invitations *TenantInvitationService, dataExports *TenantDataExportService, extras ...any) *P7OutboxHandler {
+	handler := &P7OutboxHandler{
 		emailSender:   emailSender,
 		notifications: notifications,
 		invitations:   invitations,
 		dataExports:   dataExports,
 	}
+	for _, extra := range extras {
+		switch item := extra.(type) {
+		case *WebhookService:
+			handler.webhooks = item
+		case *CustomerSignalImportService:
+			handler.imports = item
+		}
+	}
+	return handler
 }
 
 func (h *P7OutboxHandler) HandleOutboxEvent(ctx context.Context, event db.OutboxEvent) error {
@@ -72,6 +83,29 @@ func (h *P7OutboxHandler) HandleOutboxEvent(ctx context.Context, event db.Outbox
 			return nil
 		}
 		return h.dataExports.HandleRequested(ctx, payload.TenantID, payload.ExportID)
+	case "webhook.delivery_requested":
+		var payload struct {
+			DeliveryID int64 `json:"deliveryId"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.webhooks == nil {
+			return nil
+		}
+		return h.webhooks.Deliver(ctx, payload.DeliveryID)
+	case "customer_signal_import.requested":
+		var payload struct {
+			ImportJobID int64 `json:"importJobId"`
+			TenantID    int64 `json:"tenantId"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.imports == nil {
+			return nil
+		}
+		return h.imports.HandleRequested(ctx, payload.TenantID, payload.ImportJobID)
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownOutboxEvent, event.EventType)
 	}

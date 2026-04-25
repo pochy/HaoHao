@@ -116,7 +116,7 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		item, err := deps.MachineClientService.Create(ctx, machineClientInputFromBody(input.Body), userAuditContext(ctx, current.User.ID, nil))
+		item, err := deps.MachineClientService.Create(ctx, machineClientInputFromBody(input.Body), sessionAuditContext(ctx, current, nil))
 		if err != nil {
 			return nil, toMachineClientHTTPError(err)
 		}
@@ -157,7 +157,7 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		item, err := deps.MachineClientService.Update(ctx, input.ID, machineClientInputFromBody(input.Body), userAuditContext(ctx, current.User.ID, nil))
+		item, err := deps.MachineClientService.Update(ctx, input.ID, machineClientInputFromBody(input.Body), sessionAuditContext(ctx, current, nil))
 		if err != nil {
 			return nil, toMachineClientHTTPError(err)
 		}
@@ -179,7 +179,7 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		if _, err := deps.MachineClientService.Disable(ctx, input.ID, userAuditContext(ctx, current.User.ID, nil)); err != nil {
+		if _, err := deps.MachineClientService.Disable(ctx, input.ID, sessionAuditContext(ctx, current, nil)); err != nil {
 			return nil, toMachineClientHTTPError(err)
 		}
 		return &DeleteMachineClientOutput{}, nil

@@ -43,6 +43,50 @@ type CustomerSignal struct {
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type CustomerSignalImportJob struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
+	InputFileObjectID int64              `json:"input_file_object_id"`
+	ErrorFileObjectID pgtype.Int8        `json:"error_file_object_id"`
+	OutboxEventID     pgtype.Int8        `json:"outbox_event_id"`
+	Status            string             `json:"status"`
+	ValidateOnly      bool               `json:"validate_only"`
+	TotalRows         int32              `json:"total_rows"`
+	ValidRows         int32              `json:"valid_rows"`
+	InvalidRows       int32              `json:"invalid_rows"`
+	InsertedRows      int32              `json:"inserted_rows"`
+	ErrorSummary      pgtype.Text        `json:"error_summary"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type CustomerSignalSavedFilter struct {
+	ID          int64              `json:"id"`
+	PublicID    uuid.UUID          `json:"public_id"`
+	TenantID    int64              `json:"tenant_id"`
+	OwnerUserID int64              `json:"owner_user_id"`
+	Name        string             `json:"name"`
+	Query       string             `json:"query"`
+	Filters     []byte             `json:"filters"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type FeatureDefinition struct {
+	Code           string             `json:"code"`
+	DisplayName    string             `json:"display_name"`
+	Description    string             `json:"description"`
+	DefaultEnabled bool               `json:"default_enabled"`
+	DefaultLimit   []byte             `json:"default_limit"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type FileObject struct {
 	ID               int64              `json:"id"`
 	PublicID         uuid.UUID          `json:"public_id"`
@@ -172,6 +216,21 @@ type SchemaMigration struct {
 	Dirty   bool  `json:"dirty"`
 }
 
+type SupportAccessSession struct {
+	ID                 int64              `json:"id"`
+	PublicID           uuid.UUID          `json:"public_id"`
+	SupportUserID      int64              `json:"support_user_id"`
+	ImpersonatedUserID int64              `json:"impersonated_user_id"`
+	TenantID           int64              `json:"tenant_id"`
+	Reason             string             `json:"reason"`
+	Status             string             `json:"status"`
+	StartedAt          pgtype.Timestamptz `json:"started_at"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	EndedAt            pgtype.Timestamptz `json:"ended_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Tenant struct {
 	ID          int64              `json:"id"`
 	Slug        string             `json:"slug"`
@@ -196,6 +255,16 @@ type TenantDataExport struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
 	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type TenantEntitlement struct {
+	TenantID    int64              `json:"tenant_id"`
+	FeatureCode string             `json:"feature_code"`
+	Enabled     bool               `json:"enabled"`
+	LimitValue  []byte             `json:"limit_value"`
+	Source      string             `json:"source"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type TenantInvitation struct {
@@ -286,4 +355,41 @@ type UserRole struct {
 	UserID    int64              `json:"user_id"`
 	RoleID    int64              `json:"role_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type WebhookDelivery struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	WebhookEndpointID int64              `json:"webhook_endpoint_id"`
+	OutboxEventID     pgtype.Int8        `json:"outbox_event_id"`
+	EventType         string             `json:"event_type"`
+	Payload           []byte             `json:"payload"`
+	Status            string             `json:"status"`
+	AttemptCount      int32              `json:"attempt_count"`
+	MaxAttempts       int32              `json:"max_attempts"`
+	NextAttemptAt     pgtype.Timestamptz `json:"next_attempt_at"`
+	LastHttpStatus    pgtype.Int4        `json:"last_http_status"`
+	LastError         pgtype.Text        `json:"last_error"`
+	ResponsePreview   pgtype.Text        `json:"response_preview"`
+	DeliveredAt       pgtype.Timestamptz `json:"delivered_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WebhookEndpoint struct {
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	TenantID         int64              `json:"tenant_id"`
+	CreatedByUserID  pgtype.Int8        `json:"created_by_user_id"`
+	Name             string             `json:"name"`
+	Url              string             `json:"url"`
+	EventTypes       []string           `json:"event_types"`
+	SecretCiphertext string             `json:"secret_ciphertext"`
+	SecretKeyVersion int32              `json:"secret_key_version"`
+	Active           bool               `json:"active"`
+	LastDeliveryAt   pgtype.Timestamptz `json:"last_delivery_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
 }

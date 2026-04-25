@@ -166,6 +166,7 @@ components:
         format:
           enum:
             - json
+            - csv
           examples:
             - json
           type: string
@@ -288,6 +289,101 @@ components:
         - createdAt
         - updatedAt
       type: object
+    CustomerSignalImportJobBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CustomerSignalImportJobBody.json
+          format: uri
+          readOnly: true
+          type: string
+        completedAt:
+          format: date-time
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        errorFileObjectId:
+          format: int64
+          type: integer
+        errorSummary:
+          type: string
+        inputFileObjectId:
+          format: int64
+          type: integer
+        insertedRows:
+          format: int32
+          type: integer
+        invalidRows:
+          format: int32
+          type: integer
+        publicId:
+          format: uuid
+          type: string
+        status:
+          type: string
+        totalRows:
+          format: int32
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+        validRows:
+          format: int32
+          type: integer
+        validateOnly:
+          type: boolean
+      required:
+        - publicId
+        - status
+        - validateOnly
+        - inputFileObjectId
+        - totalRows
+        - validRows
+        - invalidRows
+        - insertedRows
+        - createdAt
+        - updatedAt
+      type: object
+    CustomerSignalImportListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CustomerSignalImportListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/CustomerSignalImportJobBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    CustomerSignalImportRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CustomerSignalImportRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        inputFilePublicId:
+          format: uuid
+          type: string
+        validateOnly:
+          type: boolean
+      required:
+        - inputFilePublicId
+      type: object
     CustomerSignalListBody:
       additionalProperties: false
       properties:
@@ -304,8 +400,147 @@ components:
           type:
             - array
             - "null"
+        nextCursor:
+          type: string
       required:
         - items
+      type: object
+    CustomerSignalSavedFilterBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CustomerSignalSavedFilterBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        filters:
+          additionalProperties: {}
+          type: object
+        name:
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        query:
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - name
+        - query
+        - filters
+        - createdAt
+        - updatedAt
+      type: object
+    CustomerSignalSavedFilterListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CustomerSignalSavedFilterListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/CustomerSignalSavedFilterBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    CustomerSignalSavedFilterRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CustomerSignalSavedFilterRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        filters:
+          additionalProperties: {}
+          type: object
+        name:
+          maxLength: 120
+          minLength: 1
+          type: string
+        query:
+          maxLength: 200
+          type: string
+      required:
+        - name
+      type: object
+    EntitlementBody:
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+        displayName:
+          type: string
+        enabled:
+          type: boolean
+        featureCode:
+          type: string
+        limitValue:
+          additionalProperties: {}
+          type: object
+        source:
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - featureCode
+        - displayName
+        - description
+        - enabled
+        - limitValue
+        - source
+        - updatedAt
+      type: object
+    EntitlementListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/EntitlementListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/EntitlementBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    EntitlementUpdateBody:
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        featureCode:
+          type: string
+        limitValue:
+          additionalProperties: {}
+          type: object
+      required:
+        - featureCode
+        - enabled
       type: object
     ErrorDetail:
       additionalProperties: false
@@ -1031,10 +1266,99 @@ components:
           format: uri
           readOnly: true
           type: string
+        supportAccess:
+          $ref: "#/components/schemas/SupportAccessBody"
         user:
           $ref: "#/components/schemas/UserResponse"
       required:
         - user
+      type: object
+    StartSupportAccessBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/StartSupportAccessBody.json
+          format: uri
+          readOnly: true
+          type: string
+        durationMinutes:
+          format: int64
+          minimum: 1
+          type: integer
+        impersonatedUserPublicId:
+          format: uuid
+          type: string
+        reason:
+          maxLength: 1000
+          minLength: 8
+          type: string
+        tenantSlug:
+          maxLength: 64
+          minLength: 3
+          type: string
+      required:
+        - tenantSlug
+        - impersonatedUserPublicId
+        - reason
+      type: object
+    SupportAccessBody:
+      additionalProperties: false
+      properties:
+        expiresAt:
+          format: date-time
+          type: string
+        impersonatedUserDisplayName:
+          type: string
+        impersonatedUserEmail:
+          format: email
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        reason:
+          type: string
+        startedAt:
+          format: date-time
+          type: string
+        supportUserDisplayName:
+          type: string
+        supportUserEmail:
+          format: email
+          type: string
+        tenantDisplayName:
+          type: string
+        tenantSlug:
+          type: string
+      required:
+        - publicId
+        - supportUserEmail
+        - supportUserDisplayName
+        - impersonatedUserEmail
+        - impersonatedUserDisplayName
+        - tenantSlug
+        - tenantDisplayName
+        - reason
+        - startedAt
+        - expiresAt
+      type: object
+    SupportAccessOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SupportAccessOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        access:
+          $ref: "#/components/schemas/SupportAccessBody"
+        active:
+          type: boolean
+      required:
+        - active
       type: object
     TenantAdminMembershipBody:
       additionalProperties: false
@@ -1574,6 +1898,25 @@ components:
           minLength: 1
           type: string
       type: object
+    UpdateEntitlementsInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/UpdateEntitlementsInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/EntitlementUpdateBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
     UpdateTodoBody:
       additionalProperties: false
       properties:
@@ -1651,6 +1994,168 @@ components:
       required:
         - resourceServer
         - connected
+      type: object
+    WebhookDeliveryBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/WebhookDeliveryBody.json
+          format: uri
+          readOnly: true
+          type: string
+        attemptCount:
+          format: int32
+          type: integer
+        createdAt:
+          format: date-time
+          type: string
+        deliveredAt:
+          format: date-time
+          type: string
+        eventType:
+          type: string
+        lastError:
+          type: string
+        lastHttpStatus:
+          format: int32
+          type: integer
+        maxAttempts:
+          format: int32
+          type: integer
+        publicId:
+          format: uuid
+          type: string
+        responsePreview:
+          type: string
+        status:
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - eventType
+        - status
+        - attemptCount
+        - maxAttempts
+        - createdAt
+        - updatedAt
+      type: object
+    WebhookDeliveryListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/WebhookDeliveryListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/WebhookDeliveryBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    WebhookEndpointBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/WebhookEndpointBody.json
+          format: uri
+          readOnly: true
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          format: date-time
+          type: string
+        eventTypes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        lastDeliveryAt:
+          format: date-time
+          type: string
+        name:
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        secret:
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        url:
+          format: uri
+          type: string
+      required:
+        - publicId
+        - name
+        - url
+        - eventTypes
+        - active
+        - createdAt
+        - updatedAt
+      type: object
+    WebhookEndpointRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/WebhookEndpointRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        active:
+          type: boolean
+        eventTypes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        name:
+          maxLength: 120
+          minLength: 1
+          type: string
+        url:
+          format: uri
+          type: string
+      required:
+        - name
+        - url
+        - eventTypes
+      type: object
+    WebhookListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/WebhookListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/WebhookEndpointBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
       type: object
     ZitadelSettingsBody:
       additionalProperties: false
@@ -2095,6 +2600,82 @@ paths:
       summary: tenant を更新する
       tags:
         - tenant-admin
+  /api/v1/admin/tenants/{tenantSlug}/entitlements:
+    get:
+      operationId: listTenantEntitlements
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntitlementListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant entitlements を返す
+      tags:
+        - entitlements
+    put:
+      operationId: updateTenantEntitlements
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEntitlementsInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntitlementListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant entitlements を更新する
+      tags:
+        - entitlements
   /api/v1/admin/tenants/{tenantSlug}/exports:
     get:
       operationId: listTenantDataExports
@@ -2261,6 +2842,121 @@ paths:
       summary: ready tenant data export を download する
       tags:
         - tenant-data-exports
+  /api/v1/admin/tenants/{tenantSlug}/imports:
+    get:
+      operationId: listCustomerSignalImports
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSignalImportListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Customer Signals import job 一覧を返す
+      tags:
+        - customer-signal-imports
+    post:
+      operationId: createCustomerSignalImport
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerSignalImportRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSignalImportJobBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Customer Signals CSV import job を作成する
+      tags:
+        - customer-signal-imports
+  /api/v1/admin/tenants/{tenantSlug}/imports/{importPublicId}:
+    get:
+      operationId: getCustomerSignalImport
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: importPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSignalImportJobBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Customer Signals import job detail を返す
+      tags:
+        - customer-signal-imports
   /api/v1/admin/tenants/{tenantSlug}/invitations:
     get:
       operationId: listTenantInvitations
@@ -2542,6 +3238,342 @@ paths:
       summary: tenant settings を更新する
       tags:
         - tenant-settings
+  /api/v1/admin/tenants/{tenantSlug}/webhooks:
+    get:
+      operationId: listWebhooks
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: webhook endpoint 一覧を返す
+      tags:
+        - webhooks
+    post:
+      operationId: createWebhook
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookEndpointRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpointBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: webhook endpoint を作成する
+      tags:
+        - webhooks
+  /api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}:
+    delete:
+      operationId: deleteWebhook
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: webhookPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: webhook endpoint を削除する
+      tags:
+        - webhooks
+    get:
+      operationId: getWebhook
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: webhookPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpointBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: webhook endpoint detail を返す
+      tags:
+        - webhooks
+    put:
+      operationId: updateWebhook
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: webhookPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookEndpointRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpointBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: webhook endpoint を更新する
+      tags:
+        - webhooks
+  /api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/deliveries:
+    get:
+      operationId: listWebhookDeliveries
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: webhookPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: webhook delivery log を返す
+      tags:
+        - webhooks
+  /api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/deliveries/{deliveryPublicId}/retry:
+    post:
+      operationId: retryWebhookDelivery
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: webhookPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: deliveryPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: webhook delivery を retry する
+      tags:
+        - webhooks
+  /api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/rotate-secret:
+    post:
+      operationId: rotateWebhookSecret
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: webhookPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpointBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: webhook secret を rotate する
+      tags:
+        - webhooks
   /api/v1/auth/callback:
     get:
       operationId: finishOIDCLogin
@@ -2655,6 +3687,143 @@ paths:
       summary: CSRF token を再発行する
       tags:
         - session
+  /api/v1/customer-signal-filters:
+    get:
+      operationId: listCustomerSignalSavedFilters
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSignalSavedFilterListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Customer Signal saved filters を返す
+      tags:
+        - customer-signal-filters
+    post:
+      operationId: createCustomerSignalSavedFilter
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerSignalSavedFilterRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSignalSavedFilterBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Customer Signal saved filter を作成する
+      tags:
+        - customer-signal-filters
+  /api/v1/customer-signal-filters/{filterPublicId}:
+    delete:
+      operationId: deleteCustomerSignalSavedFilter
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filterPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Customer Signal saved filter を削除する
+      tags:
+        - customer-signal-filters
+    put:
+      operationId: updateCustomerSignalSavedFilter
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filterPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerSignalSavedFilterRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSignalSavedFilterBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Customer Signal saved filter を更新する
+      tags:
+        - customer-signal-filters
   /api/v1/customer-signals:
     get:
       operationId: listCustomerSignals
@@ -2663,6 +3832,39 @@ paths:
           name: SESSION_ID
           schema:
             $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: q
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: status
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: priority
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: source
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: cursor
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            format: int64
+            maximum: 100
+            minimum: 1
+            type: integer
       responses:
         "200":
           content:
@@ -3521,6 +4723,96 @@ paths:
       summary: 現在の session の active tenant を切り替える
       tags:
         - tenants
+  /api/v1/support/access/current:
+    get:
+      operationId: getCurrentSupportAccess
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportAccessOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: 現在の support access を返す
+      tags:
+        - support-access
+  /api/v1/support/access/end:
+    post:
+      operationId: endSupportAccess
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: support access を終了する
+      tags:
+        - support-access
+  /api/v1/support/access/start:
+    post:
+      operationId: startSupportAccess
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartSupportAccessBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportAccessOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: support access を開始する
+      tags:
+        - support-access
   /api/v1/tenants:
     get:
       operationId: listTenants

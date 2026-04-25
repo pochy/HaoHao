@@ -22,7 +22,26 @@ type App struct {
 	API    huma.API
 }
 
-func New(cfg config.Config, logger *slog.Logger, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, auditService *service.AuditService, tenantAdminService *service.TenantAdminService, customerSignalService *service.CustomerSignalService, todoService *service.TodoService, machineClientService *service.MachineClientService, outboxService *service.OutboxService, idempotencyService *service.IdempotencyService, notificationService *service.NotificationService, tenantInvitationService *service.TenantInvitationService, fileService *service.FileService, tenantSettingsService *service.TenantSettingsService, tenantDataExportService *service.TenantDataExportService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier, redisClient *redis.Client, metrics *platform.Metrics) *App {
+func New(cfg config.Config, logger *slog.Logger, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, auditService *service.AuditService, tenantAdminService *service.TenantAdminService, customerSignalService *service.CustomerSignalService, todoService *service.TodoService, machineClientService *service.MachineClientService, outboxService *service.OutboxService, idempotencyService *service.IdempotencyService, notificationService *service.NotificationService, tenantInvitationService *service.TenantInvitationService, fileService *service.FileService, tenantSettingsService *service.TenantSettingsService, tenantDataExportService *service.TenantDataExportService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier, redisClient *redis.Client, metrics *platform.Metrics, extras ...any) *App {
+	var entitlementService *service.EntitlementService
+	var webhookService *service.WebhookService
+	var customerSignalImportService *service.CustomerSignalImportService
+	var customerSignalSavedFilterService *service.CustomerSignalSavedFilterService
+	var supportAccessService *service.SupportAccessService
+	for _, extra := range extras {
+		switch item := extra.(type) {
+		case *service.EntitlementService:
+			entitlementService = item
+		case *service.WebhookService:
+			webhookService = item
+		case *service.CustomerSignalImportService:
+			customerSignalImportService = item
+		case *service.CustomerSignalSavedFilterService:
+			customerSignalSavedFilterService = item
+		case *service.SupportAccessService:
+			supportAccessService = item
+		}
+	}
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
@@ -73,23 +92,28 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	api := humagin.New(router, humaConfigForSurface(cfg, backendapi.SurfaceFull))
 
 	deps := dependenciesWithConfig(cfg, backendapi.Dependencies{
-		SessionService:          sessionService,
-		OIDCLoginService:        oidcLoginService,
-		DelegationService:       delegationService,
-		ProvisioningService:     provisioningService,
-		AuthzService:            authzService,
-		AuditService:            auditService,
-		TenantAdminService:      tenantAdminService,
-		CustomerSignalService:   customerSignalService,
-		TodoService:             todoService,
-		MachineClientService:    machineClientService,
-		OutboxService:           outboxService,
-		IdempotencyService:      idempotencyService,
-		NotificationService:     notificationService,
-		TenantInvitationService: tenantInvitationService,
-		FileService:             fileService,
-		TenantSettingsService:   tenantSettingsService,
-		TenantDataExportService: tenantDataExportService,
+		SessionService:                   sessionService,
+		OIDCLoginService:                 oidcLoginService,
+		DelegationService:                delegationService,
+		ProvisioningService:              provisioningService,
+		AuthzService:                     authzService,
+		AuditService:                     auditService,
+		TenantAdminService:               tenantAdminService,
+		CustomerSignalService:            customerSignalService,
+		TodoService:                      todoService,
+		MachineClientService:             machineClientService,
+		OutboxService:                    outboxService,
+		IdempotencyService:               idempotencyService,
+		NotificationService:              notificationService,
+		TenantInvitationService:          tenantInvitationService,
+		FileService:                      fileService,
+		TenantSettingsService:            tenantSettingsService,
+		TenantDataExportService:          tenantDataExportService,
+		EntitlementService:               entitlementService,
+		WebhookService:                   webhookService,
+		CustomerSignalImportService:      customerSignalImportService,
+		CustomerSignalSavedFilterService: customerSignalSavedFilterService,
+		SupportAccessService:             supportAccessService,
 	})
 	backendapi.Register(api, deps)
 	backendapi.RegisterRawFileRoutes(router, backendapi.Dependencies{

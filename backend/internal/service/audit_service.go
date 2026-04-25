@@ -33,6 +33,8 @@ type AuditContext struct {
 	ActorMachineClientID *int64
 	TenantID             *int64
 	Request              AuditRequest
+	SupportAccessID      *int64
+	ImpersonatedUserID   *int64
 }
 
 type AuditEventInput struct {
@@ -135,6 +137,12 @@ func normalizeAuditEvent(event AuditEventInput) (AuditEventInput, error) {
 	event.Request.UserAgent = strings.TrimSpace(event.Request.UserAgent)
 	if event.Metadata == nil {
 		event.Metadata = map[string]any{}
+	}
+	if event.SupportAccessID != nil {
+		event.Metadata["supportAccessId"] = *event.SupportAccessID
+	}
+	if event.ImpersonatedUserID != nil {
+		event.Metadata["impersonatedUserId"] = *event.ImpersonatedUserID
 	}
 
 	return event, nil

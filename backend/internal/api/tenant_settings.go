@@ -90,7 +90,7 @@ func registerTenantSettingsRoutes(api huma.API, deps Dependencies) {
 		if deps.TenantSettingsService == nil {
 			return nil, huma.Error503ServiceUnavailable("tenant settings service is not configured")
 		}
-		settings, err := deps.TenantSettingsService.Update(ctx, tenant.ID, tenantSettingsInputFromBody(input.Body), userAuditContext(ctx, current.User.ID, &tenant.ID))
+		settings, err := deps.TenantSettingsService.Update(ctx, tenant.ID, tenantSettingsInputFromBody(input.Body), sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toTenantSettingsHTTPError(err)
 		}

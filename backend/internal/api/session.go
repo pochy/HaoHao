@@ -18,7 +18,8 @@ type UserResponse struct {
 }
 
 type SessionBody struct {
-	User UserResponse `json:"user"`
+	User          UserResponse       `json:"user"`
+	SupportAccess *SupportAccessBody `json:"supportAccess,omitempty"`
 }
 
 type GetSessionInput struct {
@@ -83,16 +84,17 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *GetSessionInput) (*GetSessionOutput, error) {
-		user, err := deps.SessionService.CurrentUser(ctx, input.SessionCookie.Value)
+		current, err := deps.SessionService.CurrentSession(ctx, input.SessionCookie.Value)
 		if err != nil {
 			return nil, toHTTPError(err)
 		}
 
-		return &GetSessionOutput{
-			Body: SessionBody{
-				User: toUserResponse(user),
-			},
-		}, nil
+		body := SessionBody{User: toUserResponse(current.User)}
+		if current.SupportAccess != nil {
+			access := toSupportAccessBody(*current.SupportAccess)
+			body.SupportAccess = &access
+		}
+		return &GetSessionOutput{Body: body}, nil
 	})
 
 	huma.Register(api, huma.Operation{

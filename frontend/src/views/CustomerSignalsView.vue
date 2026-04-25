@@ -22,6 +22,7 @@ const source = ref<typeof sourceOptions[number]>('support')
 const priority = ref<typeof priorityOptions[number]>('medium')
 const status = ref<typeof statusOptions[number]>('new')
 const actionErrorMessage = ref('')
+const savedFilterName = ref('')
 
 const activeTenantLabel = computed(() => (
   tenantStore.activeTenant
@@ -53,6 +54,7 @@ watch(
 
     if (slug) {
       await signalStore.load()
+      await signalStore.loadSavedFilters()
     }
   },
   { immediate: true },
@@ -98,6 +100,39 @@ async function createSignal() {
   } catch (error) {
     actionErrorMessage.value = toApiErrorMessage(error)
   }
+}
+
+async function applySearch() {
+  actionErrorMessage.value = ''
+  await signalStore.load()
+}
+
+async function loadMore() {
+  if (!signalStore.nextCursor) {
+    return
+  }
+  await signalStore.load({ cursor: signalStore.nextCursor })
+}
+
+async function saveFilter() {
+  if (savedFilterName.value.trim() === '') {
+    return
+  }
+  actionErrorMessage.value = ''
+  try {
+    await signalStore.saveCurrentFilter(savedFilterName.value.trim())
+    savedFilterName.value = ''
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function applySavedFilter(filter: { query?: string, filters?: Record<string, unknown> }) {
+  signalStore.query = filter.query ?? ''
+  signalStore.filters.status = typeof filter.filters?.status === 'string' ? filter.filters.status : ''
+  signalStore.filters.priority = typeof filter.filters?.priority === 'string' ? filter.filters.priority : ''
+  signalStore.filters.source = typeof filter.filters?.source === 'string' ? filter.filters.source : ''
+  await signalStore.load()
 }
 </script>
 
@@ -145,6 +180,90 @@ async function createSignal() {
     <p v-if="actionErrorMessage || signalStore.errorMessage" class="error-message">
       {{ actionErrorMessage || signalStore.errorMessage }}
     </p>
+
+    <form class="admin-form" @submit.prevent="applySearch">
+      <label class="field">
+        <span class="field-label">Search</span>
+        <input
+          v-model="signalStore.query"
+          class="field-input"
+          autocomplete="off"
+          placeholder="customer, title, or detail"
+        >
+      </label>
+
+      <label class="field">
+        <span class="field-label">Status filter</span>
+        <select v-model="signalStore.filters.status" class="field-input">
+          <option value="">Any</option>
+          <option v-for="item in statusOptions" :key="item" :value="item">
+            {{ item }}
+          </option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Priority filter</span>
+        <select v-model="signalStore.filters.priority" class="field-input">
+          <option value="">Any</option>
+          <option v-for="item in priorityOptions" :key="item" :value="item">
+            {{ item }}
+          </option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Source filter</span>
+        <select v-model="signalStore.filters.source" class="field-input">
+          <option value="">Any</option>
+          <option v-for="item in sourceOptions" :key="item" :value="item">
+            {{ sourceLabel(item) }}
+          </option>
+        </select>
+      </label>
+
+      <div class="action-row form-span">
+        <button
+          class="primary-button"
+          :disabled="signalStore.status === 'loading'"
+          type="submit"
+          aria-label="Apply signal search"
+        >
+          Apply
+        </button>
+        <input
+          v-model="savedFilterName"
+          class="field-input inline-input"
+          autocomplete="off"
+          placeholder="Filter name"
+        >
+        <button class="secondary-button" :disabled="savedFilterName.trim() === ''" type="button" @click="saveFilter">
+          Save filter
+        </button>
+      </div>
+    </form>
+
+    <div v-if="signalStore.savedFilters.length > 0" class="list-stack">
+      <article v-for="filter in signalStore.savedFilters" :key="filter.publicId" class="list-item">
+        <div>
+          <strong>{{ filter.name }}</strong>
+          <span class="cell-subtle">{{ filter.query || 'No search text' }}</span>
+        </div>
+        <div class="action-row">
+          <button
+            class="secondary-button compact-button"
+            type="button"
+            :aria-label="`Apply saved filter ${filter.name}`"
+            @click="applySavedFilter(filter)"
+          >
+            Apply
+          </button>
+          <button class="secondary-button danger-button compact-button" type="button" @click="signalStore.deleteSavedFilter(filter.publicId)">
+            Delete
+          </button>
+        </div>
+      </article>
+    </div>
 
     <form class="admin-form" @submit.prevent="createSignal">
       <label class="field">
@@ -247,6 +366,11 @@ async function createSignal() {
           Open
         </RouterLink>
       </article>
+      <div v-if="signalStore.nextCursor" class="action-row">
+        <button class="secondary-button" type="button" @click="loadMore">
+          Load more
+        </button>
+      </div>
     </div>
 
     <div v-else-if="signalStore.status === 'empty'" class="empty-state">

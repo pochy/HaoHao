@@ -9,6 +9,14 @@ INSERT INTO tenant_data_exports (
 )
 RETURNING *;
 
+-- name: UpdateTenantDataExportFormat :one
+UPDATE tenant_data_exports
+SET
+    format = $2,
+    updated_at = now()
+WHERE id = $1
+RETURNING *;
+
 -- name: ListTenantDataExports :many
 SELECT *
 FROM tenant_data_exports

@@ -2,9 +2,21 @@ import { defineStore } from 'pinia'
 
 import { toApiErrorMessage } from '../api/client'
 import {
+  fetchTenantEntitlements,
+  updateTenantEntitlementItems,
+} from '../api/entitlements'
+import {
+  createCustomerSignalImportItem,
+  fetchCustomerSignalImports,
+} from '../api/customer-signal-imports'
+import {
   createTenantDataExportItem,
   fetchTenantDataExports,
 } from '../api/tenant-data-exports'
+import {
+  createWebhookItem,
+  fetchWebhooks,
+} from '../api/webhooks'
 import {
   createTenantInvitationItem,
   fetchTenantInvitations,
@@ -16,16 +28,24 @@ import {
 } from '../api/tenant-settings'
 import type {
   CreateTenantInvitationRequestBodyWritable,
+  CustomerSignalImportJobBody,
+  EntitlementBody,
+  EntitlementUpdateBody,
   TenantDataExportBody,
   TenantInvitationBody,
   TenantSettingsBody,
   TenantSettingsRequestBodyWritable,
+  WebhookEndpointBody,
+  WebhookEndpointRequestBodyWritable,
 } from '../api/generated/types.gen'
 
 export const useTenantCommonStore = defineStore('tenantCommon', {
   state: () => ({
     invitations: [] as TenantInvitationBody[],
     exports: [] as TenantDataExportBody[],
+    imports: [] as CustomerSignalImportJobBody[],
+    entitlements: [] as EntitlementBody[],
+    webhooks: [] as WebhookEndpointBody[],
     settings: null as TenantSettingsBody | null,
     loading: false,
     saving: false,
@@ -37,14 +57,20 @@ export const useTenantCommonStore = defineStore('tenantCommon', {
       this.loading = true
       this.errorMessage = ''
       try {
-        const [settings, invitations, exports] = await Promise.all([
+        const [settings, invitations, exports, imports, entitlements, webhooks] = await Promise.all([
           fetchTenantSettings(tenantSlug),
           fetchTenantInvitations(tenantSlug),
           fetchTenantDataExports(tenantSlug),
+          fetchCustomerSignalImports(tenantSlug).catch(() => []),
+          fetchTenantEntitlements(tenantSlug).catch(() => []),
+          fetchWebhooks(tenantSlug).catch(() => []),
         ])
         this.settings = settings
         this.invitations = invitations
         this.exports = exports
+        this.imports = imports
+        this.entitlements = entitlements
+        this.webhooks = webhooks
       } catch (error) {
         this.errorMessage = toApiErrorMessage(error)
       } finally {
@@ -102,6 +128,64 @@ export const useTenantCommonStore = defineStore('tenantCommon', {
       try {
         const created = await createTenantDataExportItem(tenantSlug)
         this.exports = [created, ...this.exports]
+        return created
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async requestCSVExport(tenantSlug: string) {
+      this.saving = true
+      this.errorMessage = ''
+      try {
+        const created = await createTenantDataExportItem(tenantSlug, 'csv')
+        this.exports = [created, ...this.exports]
+        return created
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async updateEntitlements(tenantSlug: string, items: EntitlementUpdateBody[]) {
+      this.saving = true
+      this.errorMessage = ''
+      try {
+        this.entitlements = await updateTenantEntitlementItems(tenantSlug, items)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async createWebhook(tenantSlug: string, body: WebhookEndpointRequestBodyWritable) {
+      this.saving = true
+      this.errorMessage = ''
+      try {
+        const created = await createWebhookItem(tenantSlug, body)
+        this.webhooks = [created, ...this.webhooks]
+        return created
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async createImport(tenantSlug: string, inputFilePublicId: string) {
+      this.saving = true
+      this.errorMessage = ''
+      try {
+        const created = await createCustomerSignalImportItem(tenantSlug, { inputFilePublicId })
+        this.imports = [created, ...this.imports]
         return created
       } catch (error) {
         this.errorMessage = toApiErrorMessage(error)

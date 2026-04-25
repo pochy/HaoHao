@@ -130,7 +130,7 @@ func registerTenantInvitationRoutes(api huma.API, deps Dependencies) {
 			ActorID:   current.User.ID,
 			Email:     input.Body.Email,
 			RoleCodes: input.Body.RoleCodes,
-		}, userAuditContext(ctx, current.User.ID, &tenant.ID))
+		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			if deps.IdempotencyService != nil {
 				deps.IdempotencyService.Fail(ctx, attempt, http.StatusInternalServerError, err.Error())
@@ -159,7 +159,7 @@ func registerTenantInvitationRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		if err := deps.TenantInvitationService.Revoke(ctx, tenant.ID, input.InvitationPublicID, userAuditContext(ctx, current.User.ID, &tenant.ID)); err != nil {
+		if err := deps.TenantInvitationService.Revoke(ctx, tenant.ID, input.InvitationPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
 			return nil, toTenantInvitationHTTPError(err)
 		}
 		return &TenantAdminNoContentOutput{}, nil
@@ -190,7 +190,7 @@ func registerTenantInvitationRoutes(api huma.API, deps Dependencies) {
 			}
 			return &TenantInvitationOutput{Body: body}, nil
 		}
-		item, err := deps.TenantInvitationService.Accept(ctx, current.User, input.Body.Token, userAuditContext(ctx, current.User.ID, nil))
+		item, err := deps.TenantInvitationService.Accept(ctx, current.User, input.Body.Token, sessionAuditContext(ctx, current, nil))
 		if err != nil {
 			return nil, toTenantInvitationHTTPError(err)
 		}

@@ -38,7 +38,7 @@
 | P6: 業務ドメイン拡張 | 実装済み | Customer Signals の tenant-aware CRUD、role、UI、audit、metrics smoke |
 | P7: Web サービス共通機能 | 実装済み | security hardening、outbox、idempotency、notification、invitation、file upload、tenant settings/quota、data export、data lifecycle、backup/restore smoke |
 
-現時点で残る大きな領域は、ブラウザ E2E の拡充、P7.5 以降の webhooks / import-export / search / support access / feature flags / entitlements、billing、大量ファイル、multi-region などである。
+現時点で残る大きな領域は、ブラウザ E2E の拡充、P10 以降の webhooks / import-export / search / support access / feature flags / entitlements、billing、大量ファイル、multi-region などである。
 
 ## 方針との対応
 
@@ -340,7 +340,7 @@ sqlc:
 注意点:
 
 - P7 初期版では file body の物理削除は未実装。metadata soft delete と retention 方針はある。
-- tenant data export は JSON metadata 中心。大量 file archive は P7.5 以降。
+- tenant data export は JSON metadata 中心。大量 file archive は P10 以降。
 - tenant settings の feature toggle は保存できるが、billing / pricing / entitlement との接続は未実装。
 
 ## API surface
@@ -560,7 +560,7 @@ P7 までの範囲で明確に残っているもの:
 - DB query span などの詳細 tracing instrumentation。
 - alert rule / dashboard の具体ファイル。現在は metrics と runbook まで。
 
-P7.5 / P8 以降に回す候補:
+P10 以降に回す候補:
 
 - outbound webhooks。署名、retry、delivery log、dead letter。
 - import / export jobs。CSV import、CSV export、job status UI。
@@ -577,4 +577,4 @@ P7.5 / P8 以降に回す候補:
 
 HaoHao は、foundation の login/session 縦切りを超えて、Zitadel を中心にした browser login、external bearer API、delegated auth、SCIM provisioning、tenant-aware auth、M2M、single binary 配信、Docker/CI/release、operability、observability、audit、admin UI、tenant 管理、tenant-aware TODO、Customer Signals、Web サービス共通機能まで到達している。
 
-現時点では、B2B SaaS や社内向け multi-tenant 業務 CRUD アプリの土台として、認証・認可・tenant・運用・監査・観測・管理・業務 CRUD・共通サービスの主要な縦切りが動作確認済みである。次の優先は、UI E2E で回帰検知を固めること、または P7.5 として webhooks / import-export / search / support access / feature flags を足すことである。
+現時点では、B2B SaaS や社内向け multi-tenant 業務 CRUD アプリの土台として、認証・認可・tenant・運用・監査・観測・管理・業務 CRUD・共通サービスの主要な縦切りが動作確認済みである。次の優先は、UI E2E で回帰検知を固めること、または P10 として webhooks / import-export / search / support access / feature flags を足すことである。

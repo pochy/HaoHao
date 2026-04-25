@@ -225,6 +225,7 @@ var supportedGlobalRoles = map[string]struct{}{
 	"docs_reader":          {},
 	"external_api_user":    {},
 	"machine_client_admin": {},
+	"support_agent":        {},
 	"tenant_admin":         {},
 	"todo_user":            {},
 }

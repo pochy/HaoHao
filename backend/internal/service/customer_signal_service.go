@@ -55,6 +55,7 @@ var (
 )
 
 type CustomerSignal struct {
+	ID           int64
 	PublicID     string
 	CustomerName string
 	Title        string
@@ -84,17 +85,37 @@ type CustomerSignalUpdateInput struct {
 	Status       *string
 }
 
-type CustomerSignalService struct {
-	pool    *pgxpool.Pool
-	queries *db.Queries
-	audit   AuditRecorder
+type CustomerSignalListInput struct {
+	Query    string
+	Status   string
+	Priority string
+	Source   string
+	Cursor   string
+	Limit    int
 }
 
-func NewCustomerSignalService(pool *pgxpool.Pool, queries *db.Queries, audit AuditRecorder) *CustomerSignalService {
+type CustomerSignalListResult struct {
+	Items      []CustomerSignal
+	NextCursor string
+}
+
+type CustomerSignalService struct {
+	pool     *pgxpool.Pool
+	queries  *db.Queries
+	audit    AuditRecorder
+	webhooks *WebhookService
+}
+
+func NewCustomerSignalService(pool *pgxpool.Pool, queries *db.Queries, audit AuditRecorder, webhooks ...*WebhookService) *CustomerSignalService {
+	var webhookService *WebhookService
+	if len(webhooks) > 0 {
+		webhookService = webhooks[0]
+	}
 	return &CustomerSignalService{
-		pool:    pool,
-		queries: queries,
-		audit:   audit,
+		pool:     pool,
+		queries:  queries,
+		audit:    audit,
+		webhooks: webhookService,
 	}
 }
 
@@ -113,6 +134,45 @@ func (s *CustomerSignalService) List(ctx context.Context, tenantID int64) ([]Cus
 		items = append(items, customerSignalFromDB(row))
 	}
 	return items, nil
+}
+
+func (s *CustomerSignalService) Search(ctx context.Context, tenantID int64, input CustomerSignalListInput) (CustomerSignalListResult, error) {
+	if s == nil || s.queries == nil {
+		return CustomerSignalListResult{}, fmt.Errorf("customer signal service is not configured")
+	}
+	normalized, cursor, err := normalizeCustomerSignalListInput(input)
+	if err != nil {
+		return CustomerSignalListResult{}, err
+	}
+	limitPlusOne := normalized.Limit + 1
+	rows, err := s.queries.SearchCustomerSignals(ctx, db.SearchCustomerSignalsParams{
+		TenantID:        tenantID,
+		Q:               pgText(normalized.Query),
+		Status:          pgText(normalized.Status),
+		Priority:        pgText(normalized.Priority),
+		Source:          pgText(normalized.Source),
+		CursorCreatedAt: pgTimestamp(cursor.CreatedAt),
+		CursorID:        pgInt8(optionalCursorID(cursor)),
+		ResultLimit:     int32(limitPlusOne),
+	})
+	if err != nil {
+		return CustomerSignalListResult{}, fmt.Errorf("search customer signals: %w", err)
+	}
+	items := make([]CustomerSignal, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, customerSignalFromDB(row))
+	}
+	result := CustomerSignalListResult{Items: items}
+	if len(result.Items) > normalized.Limit {
+		next := result.Items[normalized.Limit-1]
+		nextCursor, err := EncodeCreatedAtIDCursor(CreatedAtIDCursor{CreatedAt: next.CreatedAt, ID: next.ID})
+		if err != nil {
+			return CustomerSignalListResult{}, err
+		}
+		result.NextCursor = nextCursor
+		result.Items = result.Items[:normalized.Limit]
+	}
+	return result, nil
 }
 
 func (s *CustomerSignalService) Get(ctx context.Context, tenantID int64, publicID string) (CustomerSignal, error) {
@@ -191,6 +251,18 @@ func (s *CustomerSignalService) Create(ctx context.Context, tenantID, userID int
 	}); err != nil {
 		return CustomerSignal{}, err
 	}
+	if s.webhooks != nil {
+		if err := s.webhooks.EnqueueTenantEventWithQueries(ctx, qtx, tenantID, "customer_signal.created", map[string]any{
+			"publicId":     item.PublicID,
+			"customerName": item.CustomerName,
+			"title":        item.Title,
+			"source":       item.Source,
+			"priority":     item.Priority,
+			"status":       item.Status,
+		}); err != nil {
+			return CustomerSignal{}, err
+		}
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return CustomerSignal{}, fmt.Errorf("commit customer signal create transaction: %w", err)
@@ -260,6 +332,15 @@ func (s *CustomerSignalService) Update(ctx context.Context, tenantID int64, publ
 	}); err != nil {
 		return CustomerSignal{}, err
 	}
+	if s.webhooks != nil {
+		if err := s.webhooks.EnqueueTenantEventWithQueries(ctx, qtx, tenantID, "customer_signal.updated", map[string]any{
+			"publicId":      item.PublicID,
+			"changedFields": changedFields,
+			"status":        item.Status,
+		}); err != nil {
+			return CustomerSignal{}, err
+		}
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return CustomerSignal{}, fmt.Errorf("commit customer signal update transaction: %w", err)
@@ -322,6 +403,14 @@ func (s *CustomerSignalService) Delete(ctx context.Context, tenantID int64, publ
 		},
 	}); err != nil {
 		return err
+	}
+	if s.webhooks != nil {
+		if err := s.webhooks.EnqueueTenantEventWithQueries(ctx, qtx, tenantID, "customer_signal.deleted", map[string]any{
+			"publicId": parsedPublicID.String(),
+			"status":   existing.Status,
+		}); err != nil {
+			return err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -429,6 +518,46 @@ func normalizeCustomerSignalCreateInput(input CustomerSignalCreateInput) (Custom
 	return input, nil
 }
 
+func normalizeCustomerSignalListInput(input CustomerSignalListInput) (CustomerSignalListInput, CreatedAtIDCursor, error) {
+	input.Query = strings.TrimSpace(input.Query)
+	input.Status = strings.ToLower(strings.TrimSpace(input.Status))
+	input.Priority = strings.ToLower(strings.TrimSpace(input.Priority))
+	input.Source = strings.ToLower(strings.TrimSpace(input.Source))
+	if input.Status != "" {
+		if _, ok := allowedCustomerSignalStatuses[input.Status]; !ok {
+			return CustomerSignalListInput{}, CreatedAtIDCursor{}, ErrInvalidCustomerSignalInput
+		}
+	}
+	if input.Priority != "" {
+		if _, ok := allowedCustomerSignalPriorities[input.Priority]; !ok {
+			return CustomerSignalListInput{}, CreatedAtIDCursor{}, ErrInvalidCustomerSignalInput
+		}
+	}
+	if input.Source != "" {
+		if _, ok := allowedCustomerSignalSources[input.Source]; !ok {
+			return CustomerSignalListInput{}, CreatedAtIDCursor{}, ErrInvalidCustomerSignalInput
+		}
+	}
+	if input.Limit <= 0 {
+		input.Limit = 25
+	}
+	if input.Limit > 100 {
+		input.Limit = 100
+	}
+	cursor, err := DecodeCreatedAtIDCursor(input.Cursor)
+	if err != nil {
+		return CustomerSignalListInput{}, CreatedAtIDCursor{}, err
+	}
+	return input, cursor, nil
+}
+
+func optionalCursorID(cursor CreatedAtIDCursor) *int64 {
+	if cursor.ID <= 0 {
+		return nil
+	}
+	return &cursor.ID
+}
+
 func normalizeCustomerSignalText(value string, maxLength int, required bool) (string, error) {
 	normalized := strings.TrimSpace(value)
 	length := len([]rune(normalized))
@@ -459,6 +588,7 @@ func parseCustomerSignalPublicID(publicID string) (uuid.UUID, error) {
 
 func customerSignalFromDB(row db.CustomerSignal) CustomerSignal {
 	return CustomerSignal{
+		ID:           row.ID,
 		PublicID:     row.PublicID.String(),
 		CustomerName: row.CustomerName,
 		Title:        row.Title,

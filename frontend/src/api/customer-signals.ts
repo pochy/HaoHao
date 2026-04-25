@@ -9,6 +9,7 @@ import {
 import type {
   CreateCustomerSignalBodyWritable,
   CustomerSignalBody,
+  CustomerSignalListBody,
   UpdateCustomerSignalBodyWritable,
 } from './generated/types.gen'
 
@@ -18,13 +19,26 @@ function csrfHeaders() {
   }
 }
 
-export async function fetchCustomerSignals(): Promise<CustomerSignalBody[]> {
+export type CustomerSignalListParams = {
+  q?: string
+  status?: string
+  priority?: string
+  source?: string
+  cursor?: string
+  limit?: number
+}
+
+export async function fetchCustomerSignals(params: CustomerSignalListParams = {}): Promise<CustomerSignalListBody> {
   const data = await listCustomerSignals({
+    query: params,
     responseStyle: 'data',
     throwOnError: true,
-  }) as unknown as { items?: CustomerSignalBody[] | null }
+  }) as unknown as CustomerSignalListBody
 
-  return data.items ?? []
+  return {
+    items: data.items ?? [],
+    nextCursor: data.nextCursor,
+  }
 }
 
 export async function fetchCustomerSignal(signalPublicId: string): Promise<CustomerSignalBody> {

@@ -110,7 +110,7 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 
-		item, err := deps.TodoService.Create(ctx, tenant.ID, current.User.ID, input.Body.Title, userAuditContext(ctx, current.User.ID, &tenant.ID))
+		item, err := deps.TodoService.Create(ctx, tenant.ID, current.User.ID, input.Body.Title, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toTodoHTTPError(err)
 		}
@@ -135,7 +135,7 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 		item, err := deps.TodoService.Update(ctx, tenant.ID, input.TodoPublicID, service.TodoUpdateInput{
 			Title:     input.Body.Title,
 			Completed: input.Body.Completed,
-		}, userAuditContext(ctx, current.User.ID, &tenant.ID))
+		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toTodoHTTPError(err)
 		}
@@ -158,7 +158,7 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 
-		if err := deps.TodoService.Delete(ctx, tenant.ID, input.TodoPublicID, userAuditContext(ctx, current.User.ID, &tenant.ID)); err != nil {
+		if err := deps.TodoService.Delete(ctx, tenant.ID, input.TodoPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
 			return nil, toTodoHTTPError(err)
 		}
 		return &DeleteTodoOutput{}, nil

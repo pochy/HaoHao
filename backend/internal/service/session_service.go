@@ -34,7 +34,9 @@ type User struct {
 
 type CurrentSession struct {
 	User           User
+	ActorUser      *User
 	ActiveTenantID *int64
+	SupportAccess  *SupportAccess
 }
 
 type SessionService struct {
@@ -113,15 +115,7 @@ func (s *SessionService) CurrentSession(ctx context.Context, sessionID string) (
 		return CurrentSession{}, err
 	}
 
-	user, err := s.loadUserByID(ctx, session.UserID)
-	if err != nil {
-		return CurrentSession{}, err
-	}
-
-	return CurrentSession{
-		User:           user,
-		ActiveTenantID: optionalInt64(session.ActiveTenantID),
-	}, nil
+	return s.currentSessionFromRecord(ctx, sessionID, session)
 }
 
 func (s *SessionService) CurrentUserWithCSRF(ctx context.Context, sessionID, csrfHeader string) (User, error) {
@@ -145,15 +139,7 @@ func (s *SessionService) CurrentSessionWithCSRF(ctx context.Context, sessionID, 
 		return CurrentSession{}, ErrInvalidCSRFToken
 	}
 
-	user, err := s.loadUserByID(ctx, session.UserID)
-	if err != nil {
-		return CurrentSession{}, err
-	}
-
-	return CurrentSession{
-		User:           user,
-		ActiveTenantID: optionalInt64(session.ActiveTenantID),
-	}, nil
+	return s.currentSessionFromRecord(ctx, sessionID, session)
 }
 
 func (s *SessionService) IssueSession(ctx context.Context, userID int64) (string, string, error) {
@@ -235,6 +221,20 @@ func (s *SessionService) SetActiveTenant(ctx context.Context, sessionID, csrfHea
 	return nil
 }
 
+func (s *SessionService) SetSupportAccessSession(ctx context.Context, sessionID string, supportAccessID, tenantID int64) error {
+	if s == nil || s.store == nil {
+		return fmt.Errorf("session service is not configured")
+	}
+	return s.store.SetSupportAccess(ctx, sessionID, supportAccessID, tenantID)
+}
+
+func (s *SessionService) ClearSupportAccessSession(ctx context.Context, sessionID string) error {
+	if s == nil || s.store == nil {
+		return fmt.Errorf("session service is not configured")
+	}
+	return s.store.ClearSupportAccess(ctx, sessionID)
+}
+
 func (s *SessionService) DeleteUserSessions(ctx context.Context, userID int64) error {
 	return s.store.DeleteUserSessions(ctx, userID)
 }
@@ -278,6 +278,46 @@ func (s *SessionService) RefreshSession(ctx context.Context, sessionID, csrfHead
 	}
 
 	return newSessionID, newCSRFToken, nil
+}
+
+func (s *SessionService) currentSessionFromRecord(ctx context.Context, sessionID string, session auth.SessionRecord) (CurrentSession, error) {
+	user, err := s.loadUserByID(ctx, session.UserID)
+	if err != nil {
+		return CurrentSession{}, err
+	}
+	current := CurrentSession{
+		User:           user,
+		ActiveTenantID: optionalInt64(session.ActiveTenantID),
+	}
+	if session.SupportAccessID <= 0 {
+		return current, nil
+	}
+	row, err := s.queries.GetSupportAccessSessionByID(ctx, session.SupportAccessID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		_ = s.store.ClearSupportAccess(ctx, sessionID)
+		return current, nil
+	}
+	if err != nil {
+		return CurrentSession{}, err
+	}
+	if row.Status != "active" || timestamptzTime(row.ExpiresAt).Before(time.Now()) || row.SupportUserID != session.UserID {
+		if row.Status == "active" {
+			_, _ = s.queries.ExpireSupportAccessSession(ctx, row.ID)
+		}
+		_ = s.store.ClearSupportAccess(ctx, sessionID)
+		return current, nil
+	}
+	impersonated, err := s.loadUserByID(ctx, row.ImpersonatedUserID)
+	if err != nil {
+		_ = s.store.ClearSupportAccess(ctx, sessionID)
+		return current, nil
+	}
+	supportAccess := supportAccessFromSessionRow(row)
+	current.ActorUser = &user
+	current.User = impersonated
+	current.ActiveTenantID = &row.TenantID
+	current.SupportAccess = supportAccess
+	return current, nil
 }
 
 func (s *SessionService) loadUserByID(ctx context.Context, userID int64) (User, error) {

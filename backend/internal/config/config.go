@@ -83,6 +83,10 @@ type Config struct {
 	OutboxRetention               time.Duration
 	NotificationRetention         time.Duration
 	FileDeletedRetention          time.Duration
+	WebhookSecretEncryptionKey    string
+	WebhookSecretKeyVersion       int
+	WebhookHTTPTimeout            time.Duration
+	SupportAccessMaxDuration      time.Duration
 	RedisAddr                     string
 	RedisPassword                 string
 	RedisDB                       int
@@ -163,6 +167,14 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	fileDeletedRetention, err := getEnvPositiveDuration("FILE_DELETED_RETENTION", "720h")
+	if err != nil {
+		return Config{}, err
+	}
+	webhookHTTPTimeout, err := getEnvPositiveDuration("WEBHOOK_HTTP_TIMEOUT", "10s")
+	if err != nil {
+		return Config{}, err
+	}
+	supportAccessMaxDuration, err := getEnvPositiveDuration("SUPPORT_ACCESS_MAX_DURATION", "1h")
 	if err != nil {
 		return Config{}, err
 	}
@@ -248,6 +260,10 @@ func Load() (Config, error) {
 		OutboxRetention:               outboxRetention,
 		NotificationRetention:         notificationRetention,
 		FileDeletedRetention:          fileDeletedRetention,
+		WebhookSecretEncryptionKey:    getEnv("WEBHOOK_SECRET_ENCRYPTION_KEY", ""),
+		WebhookSecretKeyVersion:       positiveInt(getEnvInt("WEBHOOK_SECRET_KEY_VERSION", 1), 1),
+		WebhookHTTPTimeout:            webhookHTTPTimeout,
+		SupportAccessMaxDuration:      supportAccessMaxDuration,
 		RedisAddr:                     getEnv("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword:                 getEnv("REDIS_PASSWORD", ""),
 		RedisDB:                       getEnvInt("REDIS_DB", 0),

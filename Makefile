@@ -87,6 +87,9 @@ smoke-customer-signals:
 smoke-common-services:
 	bash scripts/smoke-common-services.sh
 
+smoke-p10:
+	bash scripts/smoke-p10.sh
+
 smoke-backup-restore:
 	bash scripts/smoke-backup-restore.sh
 

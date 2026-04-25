@@ -9,32 +9,37 @@ import (
 )
 
 type Dependencies struct {
-	SessionService               *service.SessionService
-	OIDCLoginService             *service.OIDCLoginService
-	DelegationService            *service.DelegationService
-	ProvisioningService          *service.ProvisioningService
-	AuthzService                 *service.AuthzService
-	AuditService                 *service.AuditService
-	TenantAdminService           *service.TenantAdminService
-	CustomerSignalService        *service.CustomerSignalService
-	TodoService                  *service.TodoService
-	MachineClientService         *service.MachineClientService
-	OutboxService                *service.OutboxService
-	IdempotencyService           *service.IdempotencyService
-	NotificationService          *service.NotificationService
-	TenantInvitationService      *service.TenantInvitationService
-	FileService                  *service.FileService
-	TenantSettingsService        *service.TenantSettingsService
-	TenantDataExportService      *service.TenantDataExportService
-	AuthMode                     string
-	EnableLocalPasswordLogin     bool
-	SCIMBasePath                 string
-	FrontendBaseURL              string
-	ZitadelIssuer                string
-	ZitadelClientID              string
-	ZitadelPostLogoutRedirectURI string
-	CookieSecure                 bool
-	SessionTTL                   time.Duration
+	SessionService                   *service.SessionService
+	OIDCLoginService                 *service.OIDCLoginService
+	DelegationService                *service.DelegationService
+	ProvisioningService              *service.ProvisioningService
+	AuthzService                     *service.AuthzService
+	AuditService                     *service.AuditService
+	TenantAdminService               *service.TenantAdminService
+	CustomerSignalService            *service.CustomerSignalService
+	TodoService                      *service.TodoService
+	MachineClientService             *service.MachineClientService
+	OutboxService                    *service.OutboxService
+	IdempotencyService               *service.IdempotencyService
+	NotificationService              *service.NotificationService
+	TenantInvitationService          *service.TenantInvitationService
+	FileService                      *service.FileService
+	TenantSettingsService            *service.TenantSettingsService
+	TenantDataExportService          *service.TenantDataExportService
+	EntitlementService               *service.EntitlementService
+	WebhookService                   *service.WebhookService
+	CustomerSignalImportService      *service.CustomerSignalImportService
+	CustomerSignalSavedFilterService *service.CustomerSignalSavedFilterService
+	SupportAccessService             *service.SupportAccessService
+	AuthMode                         string
+	EnableLocalPasswordLogin         bool
+	SCIMBasePath                     string
+	FrontendBaseURL                  string
+	ZitadelIssuer                    string
+	ZitadelClientID                  string
+	ZitadelPostLogoutRedirectURI     string
+	CookieSecure                     bool
+	SessionTTL                       time.Duration
 }
 
 type Surface string
@@ -68,6 +73,11 @@ func RegisterSurface(api huma.API, deps Dependencies, surface Surface) {
 		registerFileRoutes(api, deps)
 		registerTenantSettingsRoutes(api, deps)
 		registerTenantDataExportRoutes(api, deps)
+		registerEntitlementRoutes(api, deps)
+		registerWebhookRoutes(api, deps)
+		registerCustomerSignalImportRoutes(api, deps)
+		registerCustomerSignalSavedFilterRoutes(api, deps)
+		registerSupportAccessRoutes(api, deps)
 		registerMachineClientRoutes(api, deps)
 	}
 

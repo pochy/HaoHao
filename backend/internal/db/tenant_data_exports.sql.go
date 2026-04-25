@@ -306,3 +306,39 @@ func (q *Queries) SoftDeleteExpiredTenantDataExports(ctx context.Context) (int64
 	}
 	return result.RowsAffected(), nil
 }
+
+const updateTenantDataExportFormat = `-- name: UpdateTenantDataExportFormat :one
+UPDATE tenant_data_exports
+SET
+    format = $2,
+    updated_at = now()
+WHERE id = $1
+RETURNING id, public_id, tenant_id, requested_by_user_id, outbox_event_id, file_object_id, format, status, error_summary, expires_at, created_at, updated_at, completed_at, deleted_at
+`
+
+type UpdateTenantDataExportFormatParams struct {
+	ID     int64  `json:"id"`
+	Format string `json:"format"`
+}
+
+func (q *Queries) UpdateTenantDataExportFormat(ctx context.Context, arg UpdateTenantDataExportFormatParams) (TenantDataExport, error) {
+	row := q.db.QueryRow(ctx, updateTenantDataExportFormat, arg.ID, arg.Format)
+	var i TenantDataExport
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.RequestedByUserID,
+		&i.OutboxEventID,
+		&i.FileObjectID,
+		&i.Format,
+		&i.Status,
+		&i.ErrorSummary,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}

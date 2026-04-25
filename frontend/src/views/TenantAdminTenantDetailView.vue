@@ -3,11 +3,14 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { toApiErrorMessage } from '../api/client'
+import { uploadFile } from '../api/files'
+import { startSupportAccessSession } from '../api/support-access'
 import type { TenantAdminMembershipBody, TenantAdminRoleBindingBody } from '../api/generated/types.gen'
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
 import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
 import { useTenantAdminStore } from '../stores/tenant-admin'
 import { useTenantCommonStore } from '../stores/tenant-common'
+import { useSessionStore } from '../stores/session'
 
 type PendingAction =
   | { kind: 'deactivate' }
@@ -16,6 +19,7 @@ type PendingAction =
 const route = useRoute()
 const store = useTenantAdminStore()
 const commonStore = useTenantCommonStore()
+const sessionStore = useSessionStore()
 
 const displayName = ref('')
 const active = ref(true)
@@ -26,6 +30,12 @@ const invitationRoleCode = ref('todo_user')
 const fileQuotaBytes = ref(104857600)
 const browserRateLimit = ref<number | null>(null)
 const notificationsEnabled = ref(true)
+const webhookName = ref('')
+const webhookUrl = ref('')
+const webhookEvents = ref('customer_signal.created')
+const importFile = ref<File | null>(null)
+const supportUserPublicId = ref('')
+const supportReason = ref('')
 const message = ref('')
 const errorMessage = ref('')
 const pendingAction = ref<PendingAction | null>(null)
@@ -273,6 +283,105 @@ async function requestExport() {
   } catch (error) {
     errorMessage.value = toApiErrorMessage(error)
   }
+}
+
+async function requestCSVExport() {
+  if (!tenant.value) {
+    return
+  }
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    await commonStore.requestCSVExport(tenant.value.slug)
+    message.value = 'Customer Signals CSV export を request しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function saveEntitlements() {
+  if (!tenant.value) {
+    return
+  }
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    await commonStore.updateEntitlements(tenant.value.slug, commonStore.entitlements.map((item) => ({
+      featureCode: item.featureCode,
+      enabled: item.enabled,
+      limitValue: item.limitValue,
+    })))
+    message.value = 'Entitlements を更新しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function createWebhook() {
+  if (!tenant.value) {
+    return
+  }
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    const created = await commonStore.createWebhook(tenant.value.slug, {
+      name: webhookName.value.trim(),
+      url: webhookUrl.value.trim(),
+      eventTypes: webhookEvents.value.split(',').map((item) => item.trim()).filter(Boolean),
+      active: true,
+    })
+    webhookName.value = ''
+    webhookUrl.value = ''
+    message.value = created.secret ? `Webhook secret: ${created.secret}` : 'Webhook を作成しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function uploadImportCSV() {
+  if (!tenant.value || !importFile.value) {
+    return
+  }
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    const form = new FormData()
+    form.append('purpose', 'import')
+    form.append('file', importFile.value)
+    const file = await uploadFile(form)
+    await commonStore.createImport(tenant.value.slug, file.publicId)
+    importFile.value = null
+    message.value = 'CSV import job を作成しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function startSupportAccess() {
+  if (!tenant.value) {
+    return
+  }
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    const result = await startSupportAccessSession({
+      tenantSlug: tenant.value.slug,
+      impersonatedUserPublicId: supportUserPublicId.value.trim(),
+      reason: supportReason.value.trim(),
+      durationMinutes: 30,
+    })
+    sessionStore.supportAccess = result.access ?? null
+    sessionStore.status = 'idle'
+    await sessionStore.bootstrap()
+    message.value = 'Support access を開始しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+function onImportFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  importFile.value = target.files?.[0] ?? null
 }
 
 function askDeactivate() {
@@ -572,6 +681,89 @@ async function confirmPendingAction() {
         </div>
       </form>
 
+      <form class="admin-form" @submit.prevent="saveEntitlements">
+        <div class="form-span">
+          <span class="status-pill">Entitlements</span>
+          <h2>Feature Gates</h2>
+        </div>
+
+        <label
+          v-for="item in commonStore.entitlements"
+          :key="item.featureCode"
+          class="checkbox-field"
+        >
+          <input v-model="item.enabled" type="checkbox">
+          <span>{{ item.featureCode }}</span>
+        </label>
+
+        <div class="action-row form-span">
+          <button class="primary-button" :disabled="commonStore.saving" type="submit">
+            Save entitlements
+          </button>
+        </div>
+      </form>
+
+      <form class="admin-form" @submit.prevent="startSupportAccess">
+        <div class="form-span">
+          <span class="status-pill">Support</span>
+          <h2>Support Access</h2>
+        </div>
+
+        <label class="field">
+          <span class="field-label">User public ID</span>
+          <input v-model="supportUserPublicId" class="field-input" autocomplete="off">
+        </label>
+
+        <label class="field">
+          <span class="field-label">Reason</span>
+          <input v-model="supportReason" class="field-input" autocomplete="off">
+        </label>
+
+        <div class="action-row form-span">
+          <button class="secondary-button" :disabled="supportUserPublicId.trim() === '' || supportReason.trim().length < 8" type="submit">
+            Start support access
+          </button>
+        </div>
+      </form>
+
+      <form class="admin-form" @submit.prevent="createWebhook">
+        <div class="form-span">
+          <span class="status-pill">Webhooks</span>
+          <h2>Outbound Webhooks</h2>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Name</span>
+          <input v-model="webhookName" class="field-input" autocomplete="off" placeholder="Customer Signals">
+        </label>
+
+        <label class="field">
+          <span class="field-label">URL</span>
+          <input v-model="webhookUrl" class="field-input" autocomplete="url" placeholder="https://example.com/webhook">
+        </label>
+
+        <label class="field form-span">
+          <span class="field-label">Events</span>
+          <input v-model="webhookEvents" class="field-input" autocomplete="off">
+        </label>
+
+        <div class="action-row form-span">
+          <button class="primary-button" :disabled="commonStore.saving || webhookName.trim() === '' || webhookUrl.trim() === ''" type="submit">
+            Create webhook
+          </button>
+        </div>
+      </form>
+
+      <div v-if="commonStore.webhooks.length > 0" class="list-stack">
+        <article v-for="item in commonStore.webhooks" :key="item.publicId" class="list-item">
+          <div>
+            <strong>{{ item.name }} / {{ item.active ? 'active' : 'inactive' }}</strong>
+            <span class="cell-subtle">{{ item.url }}</span>
+            <span class="cell-subtle">{{ item.eventTypes?.join(', ') }}</span>
+          </div>
+        </article>
+      </div>
+
       <div class="stack">
         <div class="section-header">
           <div>
@@ -586,6 +778,14 @@ async function confirmPendingAction() {
             @click="requestExport"
           >
             Request export
+          </button>
+          <button
+            class="secondary-button compact-button"
+            type="button"
+            :disabled="commonStore.saving"
+            @click="requestCSVExport"
+          >
+            Request CSV
           </button>
         </div>
 
@@ -609,6 +809,36 @@ async function confirmPendingAction() {
         <div v-else class="empty-state">
           <p>Export request はありません。</p>
         </div>
+      </div>
+
+      <form class="admin-form" @submit.prevent="uploadImportCSV">
+        <div class="form-span">
+          <span class="status-pill">Import</span>
+          <h2>Customer Signals CSV</h2>
+        </div>
+
+        <label class="field form-span">
+          <span class="field-label">CSV file</span>
+          <input class="field-input" accept=".csv,text/csv" type="file" @change="onImportFileChange">
+        </label>
+
+        <div class="action-row form-span">
+          <button class="primary-button" :disabled="commonStore.saving || !importFile" type="submit">
+            Upload and import
+          </button>
+        </div>
+      </form>
+
+      <div v-if="commonStore.imports.length > 0" class="list-stack">
+        <article v-for="item in commonStore.imports" :key="item.publicId" class="list-item">
+          <div>
+            <strong>{{ item.status }}</strong>
+            <span class="cell-subtle">{{ item.publicId }}</span>
+            <span class="cell-subtle">
+              rows {{ item.validRows }}/{{ item.totalRows }} valid, {{ item.invalidRows }} invalid
+            </span>
+          </div>
+        </article>
       </div>
     </template>
   </section>

@@ -18,11 +18,11 @@ export async function fetchTenantDataExports(tenantSlug: string): Promise<Tenant
   return data.items ?? []
 }
 
-export async function createTenantDataExportItem(tenantSlug: string): Promise<TenantDataExportBody> {
+export async function createTenantDataExportItem(tenantSlug: string, format: 'json' | 'csv' = 'json'): Promise<TenantDataExportBody> {
   return createTenantDataExport({
     headers: csrfHeaders(),
     path: { tenantSlug },
-    body: { format: 'json' },
+    body: { format },
     responseStyle: 'data',
     throwOnError: true,
   }) as unknown as Promise<TenantDataExportBody>

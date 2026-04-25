@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import TenantSelector from './components/TenantSelector.vue'
+import SupportAccessBanner from './components/SupportAccessBanner.vue'
 import { useSessionStore } from './stores/session'
 
 const sessionStore = useSessionStore()
@@ -23,6 +24,7 @@ const statusLabel = computed(() => {
 
 <template>
   <div class="app-shell">
+    <SupportAccessBanner />
     <header class="app-header">
       <div>
         <p class="eyebrow">Foundation Tutorial Build</p>

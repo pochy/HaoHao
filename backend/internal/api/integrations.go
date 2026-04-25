@@ -149,7 +149,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			authCtx.ActiveTenant.ID,
 			input.SessionCookie.Value,
 			input.ResourceServer,
-			userAuditContext(ctx, current.User.ID, &authCtx.ActiveTenant.ID),
+			sessionAuditContext(ctx, current, &authCtx.ActiveTenant.ID),
 		)
 		if err != nil {
 			return nil, toDelegationHTTPError(err)
@@ -228,7 +228,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			current.User,
 			authCtx.ActiveTenant.ID,
 			input.ResourceServer,
-			userAuditContext(ctx, current.User.ID, &authCtx.ActiveTenant.ID),
+			sessionAuditContext(ctx, current, &authCtx.ActiveTenant.ID),
 		)
 		if err != nil {
 			return nil, toDelegationHTTPError(err)
@@ -271,7 +271,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 			current.User,
 			authCtx.ActiveTenant.ID,
 			input.ResourceServer,
-			userAuditContext(ctx, current.User.ID, &authCtx.ActiveTenant.ID),
+			sessionAuditContext(ctx, current, &authCtx.ActiveTenant.ID),
 		); err != nil {
 			return nil, toDelegationHTTPError(err)
 		}

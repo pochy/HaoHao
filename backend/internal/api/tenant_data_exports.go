@@ -38,7 +38,7 @@ type TenantDataExportListOutput struct {
 }
 
 type CreateTenantDataExportRequestBody struct {
-	Format string `json:"format,omitempty" enum:"json" example:"json"`
+	Format string `json:"format,omitempty" enum:"json,csv" example:"json"`
 }
 
 type CreateTenantDataExportInput struct {
@@ -123,7 +123,7 @@ func registerTenantDataExportRoutes(api huma.API, deps Dependencies) {
 			}
 			return &TenantDataExportOutput{Body: body}, nil
 		}
-		item, err := deps.TenantDataExportService.Create(ctx, tenant.ID, current.User.ID, input.Body.Format, userAuditContext(ctx, current.User.ID, &tenant.ID))
+		item, err := deps.TenantDataExportService.Create(ctx, tenant.ID, current.User.ID, input.Body.Format, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toTenantDataExportHTTPError(err)
 		}
@@ -209,6 +209,8 @@ func toTenantDataExportHTTPError(err error) error {
 		return huma.Error404NotFound("tenant data export not found")
 	case errors.Is(err, service.ErrTenantDataExportNotReady):
 		return huma.Error409Conflict("tenant data export is not ready")
+	case errors.Is(err, service.ErrCustomerSignalImportEntitled):
+		return huma.Error403Forbidden("customer signal import/export entitlement is disabled")
 	default:
 		return toHTTPError(err)
 	}

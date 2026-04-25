@@ -80,8 +80,17 @@ func main() {
 	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
 	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode, cfg.EnableLocalPasswordLogin, auditService)
 	authzService := service.NewAuthzService(pool, queries)
+	entitlementService := service.NewEntitlementService(queries, auditService)
+	var webhookSecretBox *auth.SecretBox
+	if cfg.WebhookSecretEncryptionKey != "" {
+		webhookSecretBox, err = auth.NewSecretBox(cfg.WebhookSecretEncryptionKey, cfg.WebhookSecretKeyVersion)
+		if err != nil {
+			fatal(logger, "create webhook secret box", err)
+		}
+	}
+	webhookService := service.NewWebhookService(queries, outboxService, entitlementService, auditService, webhookSecretBox, cfg.WebhookHTTPTimeout)
 	tenantAdminService := service.NewTenantAdminService(pool, queries, auditService)
-	customerSignalService := service.NewCustomerSignalService(pool, queries, auditService)
+	customerSignalService := service.NewCustomerSignalService(pool, queries, auditService, webhookService)
 	todoService := service.NewTodoService(pool, queries, auditService)
 	machineClientService := service.NewMachineClientService(pool, queries, cfg.M2MRequiredScopePrefix, auditService)
 	notificationService := service.NewNotificationService(queries, auditService)
@@ -89,9 +98,12 @@ func main() {
 	fileStorage := service.NewLocalFileStorage(cfg.FileLocalDir)
 	fileService := service.NewFileService(pool, queries, fileStorage, tenantSettingsService, auditService, cfg.FileMaxBytes, cfg.FileAllowedMIMETypes, metrics)
 	tenantInvitationService := service.NewTenantInvitationService(pool, queries, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)
-	tenantDataExportService := service.NewTenantDataExportService(pool, queries, outboxService, fileService, auditService, cfg.DataExportTTL)
+	tenantDataExportService := service.NewTenantDataExportService(pool, queries, outboxService, fileService, auditService, cfg.DataExportTTL, entitlementService)
+	customerSignalImportService := service.NewCustomerSignalImportService(pool, queries, outboxService, fileService, entitlementService, auditService)
+	customerSignalSavedFilterService := service.NewCustomerSignalSavedFilterService(queries, entitlementService, auditService)
+	supportAccessService := service.NewSupportAccessService(queries, sessionService, entitlementService, auditService, cfg.SupportAccessMaxDuration)
 	emailSender := service.NewLogEmailSender(logger, cfg.EmailFrom)
-	outboxHandler := service.NewOutboxHandler(emailSender, notificationService, tenantInvitationService, tenantDataExportService)
+	outboxHandler := service.NewOutboxHandler(emailSender, notificationService, tenantInvitationService, tenantDataExportService, webhookService, customerSignalImportService)
 
 	var oidcLoginService *service.OIDCLoginService
 	var delegationService *service.DelegationService
@@ -179,7 +191,7 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics)
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics, entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService)
 	app.RegisterHealthRoutes(application.Router, platform.ReadinessChecker{
 		PostgresPing:  pool.Ping,
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },

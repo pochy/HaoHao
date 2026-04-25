@@ -96,7 +96,7 @@ func registerFileRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		if err := deps.FileService.Delete(ctx, tenant.ID, input.FilePublicID, userAuditContext(ctx, current.User.ID, &tenant.ID)); err != nil {
+		if err := deps.FileService.Delete(ctx, tenant.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
 			return nil, toFileHTTPError(err)
 		}
 		return &DeleteFileOutput{}, nil
@@ -147,7 +147,7 @@ func RegisterRawFileRoutes(router *gin.Engine, deps Dependencies, maxBytes int64
 			OriginalFilename: header.Filename,
 			ContentType:      contentType,
 			Body:             file,
-		}, userAuditContext(c.Request.Context(), current.User.ID, &tenant.ID))
+		}, sessionAuditContext(c.Request.Context(), current, &tenant.ID))
 		if err != nil {
 			writeRawFileError(c, err)
 			return

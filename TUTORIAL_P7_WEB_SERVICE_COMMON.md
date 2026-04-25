@@ -1965,7 +1965,7 @@ tenant data export は outbox handler として実装します。
 - notifications metadata
 - audit event summary
 
-file body は P7 初期版では export に含めず、metadata と download link だけにします。大量 file archive は P7.5 以降に回します。
+file body は P7 初期版では export に含めず、metadata と download link だけにします。大量 file archive は P10 以降に回します。
 
 ## Step 18. backup / restore drill を追加する
 

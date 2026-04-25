@@ -83,6 +83,9 @@ func NewFileService(pool *pgxpool.Pool, queries *db.Queries, storage FileStorage
 			allowed[trimmed] = struct{}{}
 		}
 	}
+	if len(allowed) > 0 {
+		allowed["text/csv"] = struct{}{}
+	}
 	if maxBytes <= 0 {
 		maxBytes = 10 * 1024 * 1024
 	}
@@ -223,6 +226,28 @@ func (s *FileService) Download(ctx context.Context, tenantID int64, publicID str
 	if err != nil {
 		return FileDownload{}, err
 	}
+	body, err := s.storage.Open(ctx, file.StorageKey)
+	if err != nil {
+		return FileDownload{}, err
+	}
+	return FileDownload{File: file, Body: body}, nil
+}
+
+func (s *FileService) DownloadByID(ctx context.Context, tenantID, fileID int64) (FileDownload, error) {
+	if s == nil || s.queries == nil || s.storage == nil {
+		return FileDownload{}, fmt.Errorf("file service is not configured")
+	}
+	row, err := s.queries.GetFileObjectByIDForTenant(ctx, db.GetFileObjectByIDForTenantParams{
+		ID:       fileID,
+		TenantID: tenantID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return FileDownload{}, ErrFileNotFound
+	}
+	if err != nil {
+		return FileDownload{}, fmt.Errorf("get file object: %w", err)
+	}
+	file := fileObjectFromDB(row)
 	body, err := s.storage.Open(ctx, file.StorageKey)
 	if err != nil {
 		return FileDownload{}, err

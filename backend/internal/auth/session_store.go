@@ -20,6 +20,7 @@ type SessionRecord struct {
 	CSRFToken           string `json:"csrfToken"`
 	ProviderIDTokenHint string `json:"providerIdTokenHint,omitempty"`
 	ActiveTenantID      int64  `json:"activeTenantId,omitempty"`
+	SupportAccessID     int64  `json:"supportAccessId,omitempty"`
 }
 
 type SessionStore struct {
@@ -143,6 +144,25 @@ func (s *SessionStore) SetActiveTenant(ctx context.Context, sessionID string, te
 	}
 
 	return nil
+}
+
+func (s *SessionStore) SetSupportAccess(ctx context.Context, sessionID string, supportAccessID, tenantID int64) error {
+	record, ttl, err := s.loadWithTTL(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	record.SupportAccessID = supportAccessID
+	record.ActiveTenantID = tenantID
+	return s.save(ctx, sessionID, record, ttl)
+}
+
+func (s *SessionStore) ClearSupportAccess(ctx context.Context, sessionID string) error {
+	record, ttl, err := s.loadWithTTL(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	record.SupportAccessID = 0
+	return s.save(ctx, sessionID, record, ttl)
 }
 
 func (s *SessionStore) DeleteUserSessions(ctx context.Context, userID int64) error {

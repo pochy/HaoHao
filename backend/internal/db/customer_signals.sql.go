@@ -192,6 +192,104 @@ func (q *Queries) ListCustomerSignalsByTenantID(ctx context.Context, tenantID in
 	return items, nil
 }
 
+const searchCustomerSignals = `-- name: SearchCustomerSignals :many
+SELECT
+    id,
+    public_id,
+    tenant_id,
+    created_by_user_id,
+    customer_name,
+    title,
+    body,
+    source,
+    priority,
+    status,
+    created_at,
+    updated_at,
+    deleted_at
+FROM customer_signals
+WHERE tenant_id = $1
+  AND deleted_at IS NULL
+  AND (
+      $2::text IS NULL
+      OR btrim($2::text) = ''
+      OR to_tsvector('simple', customer_name || ' ' || title || ' ' || body)
+         @@ websearch_to_tsquery('simple', $2::text)
+  )
+  AND (
+      $3::text IS NULL
+      OR status = $3::text
+  )
+  AND (
+      $4::text IS NULL
+      OR priority = $4::text
+  )
+  AND (
+      $5::text IS NULL
+      OR source = $5::text
+  )
+  AND (
+      $6::timestamptz IS NULL
+      OR (created_at, id) < ($6::timestamptz, $7::bigint)
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT $8
+`
+
+type SearchCustomerSignalsParams struct {
+	TenantID        int64              `json:"tenant_id"`
+	Q               pgtype.Text        `json:"q"`
+	Status          pgtype.Text        `json:"status"`
+	Priority        pgtype.Text        `json:"priority"`
+	Source          pgtype.Text        `json:"source"`
+	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID        pgtype.Int8        `json:"cursor_id"`
+	ResultLimit     int32              `json:"result_limit"`
+}
+
+func (q *Queries) SearchCustomerSignals(ctx context.Context, arg SearchCustomerSignalsParams) ([]CustomerSignal, error) {
+	rows, err := q.db.Query(ctx, searchCustomerSignals,
+		arg.TenantID,
+		arg.Q,
+		arg.Status,
+		arg.Priority,
+		arg.Source,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.ResultLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CustomerSignal
+	for rows.Next() {
+		var i CustomerSignal
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.CreatedByUserID,
+			&i.CustomerName,
+			&i.Title,
+			&i.Body,
+			&i.Source,
+			&i.Priority,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const softDeleteCustomerSignalByPublicIDForTenant = `-- name: SoftDeleteCustomerSignalByPublicIDForTenant :execrows
 UPDATE customer_signals
 SET

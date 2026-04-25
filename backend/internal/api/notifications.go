@@ -100,7 +100,7 @@ func registerNotificationRoutes(api huma.API, deps Dependencies) {
 		if authCtx.ActiveTenant != nil {
 			tenantID = &authCtx.ActiveTenant.ID
 		}
-		item, err := deps.NotificationService.MarkRead(ctx, current.User.ID, input.NotificationPublicID, userAuditContext(ctx, current.User.ID, tenantID))
+		item, err := deps.NotificationService.MarkRead(ctx, current.User.ID, input.NotificationPublicID, sessionAuditContext(ctx, current, tenantID))
 		if err != nil {
 			return nil, toNotificationHTTPError(err)
 		}

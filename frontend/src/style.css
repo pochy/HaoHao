@@ -147,6 +147,10 @@ code {
   transform: translateY(-1px);
 }
 
+.inline-input {
+  width: min(260px, 100%);
+}
+
 .primary-button,
 .secondary-button {
   min-height: 48px;

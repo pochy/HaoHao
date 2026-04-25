@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { toApiErrorMessage } from '../api/client'
-import type { UserResponse } from '../api/generated/types.gen'
+import type { SupportAccessBody, UserResponse } from '../api/generated/types.gen'
 import {
   fetchCurrentSession,
   loginWithPassword,
@@ -15,6 +15,7 @@ export const useSessionStore = defineStore('session', {
   state: () => ({
     status: 'idle' as AuthStatus,
     user: null as UserResponse | null,
+    supportAccess: null as SupportAccessBody | null,
     errorMessage: '',
   }),
 
@@ -30,9 +31,11 @@ export const useSessionStore = defineStore('session', {
       try {
         const data = await fetchCurrentSession()
         this.user = data.user
+        this.supportAccess = data.supportAccess ?? null
         this.status = 'authenticated'
       } catch {
         this.user = null
+        this.supportAccess = null
         this.status = 'anonymous'
       }
     },
@@ -61,6 +64,7 @@ export const useSessionStore = defineStore('session', {
         const tenantStore = useTenantStore()
         tenantStore.reset()
         this.user = null
+        this.supportAccess = null
         this.status = 'anonymous'
         return data.postLogoutURL ?? ''
       } catch (error) {

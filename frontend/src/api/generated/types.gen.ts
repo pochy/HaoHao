@@ -57,7 +57,7 @@ export type CreateTenantDataExportRequestBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
-    format?: 'json';
+    format?: 'json' | 'csv';
 };
 
 export type CreateTenantInvitationRequestBody = {
@@ -93,12 +93,113 @@ export type CustomerSignalBody = {
     updatedAt: string;
 };
 
+export type CustomerSignalImportJobBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    completedAt?: string;
+    createdAt: string;
+    errorFileObjectId?: number;
+    errorSummary?: string;
+    inputFileObjectId: number;
+    insertedRows: number;
+    invalidRows: number;
+    publicId: string;
+    status: string;
+    totalRows: number;
+    updatedAt: string;
+    validRows: number;
+    validateOnly: boolean;
+};
+
+export type CustomerSignalImportListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<CustomerSignalImportJobBody> | null;
+};
+
+export type CustomerSignalImportRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    inputFilePublicId: string;
+    validateOnly?: boolean;
+};
+
 export type CustomerSignalListBody = {
     /**
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
     items: Array<CustomerSignalBody> | null;
+    nextCursor?: string;
+};
+
+export type CustomerSignalSavedFilterBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    filters: {
+        [key: string]: unknown;
+    };
+    name: string;
+    publicId: string;
+    query: string;
+    updatedAt: string;
+};
+
+export type CustomerSignalSavedFilterListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<CustomerSignalSavedFilterBody> | null;
+};
+
+export type CustomerSignalSavedFilterRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    filters?: {
+        [key: string]: unknown;
+    };
+    name: string;
+    query?: string;
+};
+
+export type EntitlementBody = {
+    description: string;
+    displayName: string;
+    enabled: boolean;
+    featureCode: string;
+    limitValue: {
+        [key: string]: unknown;
+    };
+    source: string;
+    updatedAt: string;
+};
+
+export type EntitlementListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<EntitlementBody> | null;
+};
+
+export type EntitlementUpdateBody = {
+    enabled: boolean;
+    featureCode: string;
+    limitValue?: {
+        [key: string]: unknown;
+    };
 };
 
 export type ErrorDetail = {
@@ -307,7 +408,41 @@ export type SessionBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    supportAccess?: SupportAccessBody;
     user: UserResponse;
+};
+
+export type StartSupportAccessBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    durationMinutes?: number;
+    impersonatedUserPublicId: string;
+    reason: string;
+    tenantSlug: string;
+};
+
+export type SupportAccessBody = {
+    expiresAt: string;
+    impersonatedUserDisplayName: string;
+    impersonatedUserEmail: string;
+    publicId: string;
+    reason: string;
+    startedAt: string;
+    supportUserDisplayName: string;
+    supportUserEmail: string;
+    tenantDisplayName: string;
+    tenantSlug: string;
+};
+
+export type SupportAccessOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    access?: SupportAccessBody;
+    active: boolean;
 };
 
 export type TenantAdminMembershipBody = {
@@ -491,6 +626,14 @@ export type UpdateCustomerSignalBody = {
     title?: string;
 };
 
+export type UpdateEntitlementsInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<EntitlementUpdateBody> | null;
+};
+
 export type UpdateTodoBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -518,6 +661,67 @@ export type VerifyIntegrationBody = {
     scopes?: Array<string> | null;
 };
 
+export type WebhookDeliveryBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    attemptCount: number;
+    createdAt: string;
+    deliveredAt?: string;
+    eventType: string;
+    lastError?: string;
+    lastHttpStatus?: number;
+    maxAttempts: number;
+    publicId: string;
+    responsePreview?: string;
+    status: string;
+    updatedAt: string;
+};
+
+export type WebhookDeliveryListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<WebhookDeliveryBody> | null;
+};
+
+export type WebhookEndpointBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    active: boolean;
+    createdAt: string;
+    eventTypes: Array<string> | null;
+    lastDeliveryAt?: string;
+    name: string;
+    publicId: string;
+    secret?: string;
+    updatedAt: string;
+    url: string;
+};
+
+export type WebhookEndpointRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    active?: boolean;
+    eventTypes: Array<string> | null;
+    name: string;
+    url: string;
+};
+
+export type WebhookListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<WebhookEndpointBody> | null;
+};
+
 export type ZitadelSettingsBody = {
     clientId: string;
     issuer: string;
@@ -543,7 +747,7 @@ export type CreateCustomerSignalBodyWritable = {
 };
 
 export type CreateTenantDataExportRequestBodyWritable = {
-    format?: 'json';
+    format?: 'json' | 'csv';
 };
 
 export type CreateTenantInvitationRequestBodyWritable = {
@@ -567,8 +771,61 @@ export type CustomerSignalBodyWritable = {
     updatedAt: string;
 };
 
+export type CustomerSignalImportJobBodyWritable = {
+    completedAt?: string;
+    createdAt: string;
+    errorFileObjectId?: number;
+    errorSummary?: string;
+    inputFileObjectId: number;
+    insertedRows: number;
+    invalidRows: number;
+    publicId: string;
+    status: string;
+    totalRows: number;
+    updatedAt: string;
+    validRows: number;
+    validateOnly: boolean;
+};
+
+export type CustomerSignalImportListOutputBodyWritable = {
+    items: Array<CustomerSignalImportJobBodyWritable> | null;
+};
+
+export type CustomerSignalImportRequestBodyWritable = {
+    inputFilePublicId: string;
+    validateOnly?: boolean;
+};
+
 export type CustomerSignalListBodyWritable = {
     items: Array<CustomerSignalBodyWritable> | null;
+    nextCursor?: string;
+};
+
+export type CustomerSignalSavedFilterBodyWritable = {
+    createdAt: string;
+    filters: {
+        [key: string]: unknown;
+    };
+    name: string;
+    publicId: string;
+    query: string;
+    updatedAt: string;
+};
+
+export type CustomerSignalSavedFilterListOutputBodyWritable = {
+    items: Array<CustomerSignalSavedFilterBodyWritable> | null;
+};
+
+export type CustomerSignalSavedFilterRequestBodyWritable = {
+    filters?: {
+        [key: string]: unknown;
+    };
+    name: string;
+    query?: string;
+};
+
+export type EntitlementListOutputBodyWritable = {
+    items: Array<EntitlementBody> | null;
 };
 
 export type ErrorModelWritable = {
@@ -676,7 +933,20 @@ export type SelectTenantOutputBodyWritable = {
 };
 
 export type SessionBodyWritable = {
+    supportAccess?: SupportAccessBody;
     user: UserResponse;
+};
+
+export type StartSupportAccessBodyWritable = {
+    durationMinutes?: number;
+    impersonatedUserPublicId: string;
+    reason: string;
+    tenantSlug: string;
+};
+
+export type SupportAccessOutputBodyWritable = {
+    access?: SupportAccessBody;
+    active: boolean;
 };
 
 export type TenantAdminMembershipRequestBodyWritable = {
@@ -785,6 +1055,10 @@ export type UpdateCustomerSignalBodyWritable = {
     title?: string;
 };
 
+export type UpdateEntitlementsInputBodyWritable = {
+    items: Array<EntitlementUpdateBody> | null;
+};
+
 export type UpdateTodoBodyWritable = {
     completed?: boolean;
     title?: string;
@@ -796,6 +1070,47 @@ export type VerifyIntegrationBodyWritable = {
     refreshedAt?: string;
     resourceServer: string;
     scopes?: Array<string> | null;
+};
+
+export type WebhookDeliveryBodyWritable = {
+    attemptCount: number;
+    createdAt: string;
+    deliveredAt?: string;
+    eventType: string;
+    lastError?: string;
+    lastHttpStatus?: number;
+    maxAttempts: number;
+    publicId: string;
+    responsePreview?: string;
+    status: string;
+    updatedAt: string;
+};
+
+export type WebhookDeliveryListOutputBodyWritable = {
+    items: Array<WebhookDeliveryBodyWritable> | null;
+};
+
+export type WebhookEndpointBodyWritable = {
+    active: boolean;
+    createdAt: string;
+    eventTypes: Array<string> | null;
+    lastDeliveryAt?: string;
+    name: string;
+    publicId: string;
+    secret?: string;
+    updatedAt: string;
+    url: string;
+};
+
+export type WebhookEndpointRequestBodyWritable = {
+    active?: boolean;
+    eventTypes: Array<string> | null;
+    name: string;
+    url: string;
+};
+
+export type WebhookListOutputBodyWritable = {
+    items: Array<WebhookEndpointBodyWritable> | null;
 };
 
 export type ListTenantAdminTenantsData = {
@@ -938,6 +1253,63 @@ export type UpdateTenantAdminTenantResponses = {
 
 export type UpdateTenantAdminTenantResponse = UpdateTenantAdminTenantResponses[keyof UpdateTenantAdminTenantResponses];
 
+export type ListTenantEntitlementsData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/entitlements';
+};
+
+export type ListTenantEntitlementsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantEntitlementsError = ListTenantEntitlementsErrors[keyof ListTenantEntitlementsErrors];
+
+export type ListTenantEntitlementsResponses = {
+    /**
+     * OK
+     */
+    200: EntitlementListOutputBody;
+};
+
+export type ListTenantEntitlementsResponse = ListTenantEntitlementsResponses[keyof ListTenantEntitlementsResponses];
+
+export type UpdateTenantEntitlementsData = {
+    body: UpdateEntitlementsInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/entitlements';
+};
+
+export type UpdateTenantEntitlementsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateTenantEntitlementsError = UpdateTenantEntitlementsErrors[keyof UpdateTenantEntitlementsErrors];
+
+export type UpdateTenantEntitlementsResponses = {
+    /**
+     * OK
+     */
+    200: EntitlementListOutputBody;
+};
+
+export type UpdateTenantEntitlementsResponse = UpdateTenantEntitlementsResponses[keyof UpdateTenantEntitlementsResponses];
+
 export type ListTenantDataExportsData = {
     body?: never;
     path: {
@@ -1051,6 +1423,91 @@ export type DownloadTenantDataExportResponses = {
 };
 
 export type DownloadTenantDataExportResponse = DownloadTenantDataExportResponses[keyof DownloadTenantDataExportResponses];
+
+export type ListCustomerSignalImportsData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/imports';
+};
+
+export type ListCustomerSignalImportsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListCustomerSignalImportsError = ListCustomerSignalImportsErrors[keyof ListCustomerSignalImportsErrors];
+
+export type ListCustomerSignalImportsResponses = {
+    /**
+     * OK
+     */
+    200: CustomerSignalImportListOutputBody;
+};
+
+export type ListCustomerSignalImportsResponse = ListCustomerSignalImportsResponses[keyof ListCustomerSignalImportsResponses];
+
+export type CreateCustomerSignalImportData = {
+    body: CustomerSignalImportRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/imports';
+};
+
+export type CreateCustomerSignalImportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateCustomerSignalImportError = CreateCustomerSignalImportErrors[keyof CreateCustomerSignalImportErrors];
+
+export type CreateCustomerSignalImportResponses = {
+    /**
+     * OK
+     */
+    200: CustomerSignalImportJobBody;
+};
+
+export type CreateCustomerSignalImportResponse = CreateCustomerSignalImportResponses[keyof CreateCustomerSignalImportResponses];
+
+export type GetCustomerSignalImportData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+        importPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/imports/{importPublicId}';
+};
+
+export type GetCustomerSignalImportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetCustomerSignalImportError = GetCustomerSignalImportErrors[keyof GetCustomerSignalImportErrors];
+
+export type GetCustomerSignalImportResponses = {
+    /**
+     * OK
+     */
+    200: CustomerSignalImportJobBody;
+};
+
+export type GetCustomerSignalImportResponse = GetCustomerSignalImportResponses[keyof GetCustomerSignalImportResponses];
 
 export type ListTenantInvitationsData = {
     body?: never;
@@ -1260,6 +1717,244 @@ export type UpdateTenantSettingsResponses = {
 
 export type UpdateTenantSettingsResponse = UpdateTenantSettingsResponses[keyof UpdateTenantSettingsResponses];
 
+export type ListWebhooksData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/webhooks';
+};
+
+export type ListWebhooksErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListWebhooksError = ListWebhooksErrors[keyof ListWebhooksErrors];
+
+export type ListWebhooksResponses = {
+    /**
+     * OK
+     */
+    200: WebhookListOutputBody;
+};
+
+export type ListWebhooksResponse = ListWebhooksResponses[keyof ListWebhooksResponses];
+
+export type CreateWebhookData = {
+    body: WebhookEndpointRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/webhooks';
+};
+
+export type CreateWebhookErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateWebhookError = CreateWebhookErrors[keyof CreateWebhookErrors];
+
+export type CreateWebhookResponses = {
+    /**
+     * OK
+     */
+    200: WebhookEndpointBody;
+};
+
+export type CreateWebhookResponse = CreateWebhookResponses[keyof CreateWebhookResponses];
+
+export type DeleteWebhookData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        webhookPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}';
+};
+
+export type DeleteWebhookErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeleteWebhookError = DeleteWebhookErrors[keyof DeleteWebhookErrors];
+
+export type DeleteWebhookResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteWebhookResponse = DeleteWebhookResponses[keyof DeleteWebhookResponses];
+
+export type GetWebhookData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+        webhookPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}';
+};
+
+export type GetWebhookErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetWebhookError = GetWebhookErrors[keyof GetWebhookErrors];
+
+export type GetWebhookResponses = {
+    /**
+     * OK
+     */
+    200: WebhookEndpointBody;
+};
+
+export type GetWebhookResponse = GetWebhookResponses[keyof GetWebhookResponses];
+
+export type UpdateWebhookData = {
+    body: WebhookEndpointRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        webhookPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}';
+};
+
+export type UpdateWebhookErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateWebhookError = UpdateWebhookErrors[keyof UpdateWebhookErrors];
+
+export type UpdateWebhookResponses = {
+    /**
+     * OK
+     */
+    200: WebhookEndpointBody;
+};
+
+export type UpdateWebhookResponse = UpdateWebhookResponses[keyof UpdateWebhookResponses];
+
+export type ListWebhookDeliveriesData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+        webhookPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/deliveries';
+};
+
+export type ListWebhookDeliveriesErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListWebhookDeliveriesError = ListWebhookDeliveriesErrors[keyof ListWebhookDeliveriesErrors];
+
+export type ListWebhookDeliveriesResponses = {
+    /**
+     * OK
+     */
+    200: WebhookDeliveryListOutputBody;
+};
+
+export type ListWebhookDeliveriesResponse = ListWebhookDeliveriesResponses[keyof ListWebhookDeliveriesResponses];
+
+export type RetryWebhookDeliveryData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        webhookPublicId: string;
+        deliveryPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/deliveries/{deliveryPublicId}/retry';
+};
+
+export type RetryWebhookDeliveryErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RetryWebhookDeliveryError = RetryWebhookDeliveryErrors[keyof RetryWebhookDeliveryErrors];
+
+export type RetryWebhookDeliveryResponses = {
+    /**
+     * OK
+     */
+    200: WebhookDeliveryBody;
+};
+
+export type RetryWebhookDeliveryResponse = RetryWebhookDeliveryResponses[keyof RetryWebhookDeliveryResponses];
+
+export type RotateWebhookSecretData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        webhookPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/rotate-secret';
+};
+
+export type RotateWebhookSecretErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RotateWebhookSecretError = RotateWebhookSecretErrors[keyof RotateWebhookSecretErrors];
+
+export type RotateWebhookSecretResponses = {
+    /**
+     * OK
+     */
+    200: WebhookEndpointBody;
+};
+
+export type RotateWebhookSecretResponse = RotateWebhookSecretResponses[keyof RotateWebhookSecretResponses];
+
 export type FinishOidcLoginData = {
     body?: never;
     path?: never;
@@ -1367,10 +2062,130 @@ export type GetCsrfResponses = {
 
 export type GetCsrfResponse = GetCsrfResponses[keyof GetCsrfResponses];
 
-export type ListCustomerSignalsData = {
+export type ListCustomerSignalSavedFiltersData = {
     body?: never;
     path?: never;
     query?: never;
+    url: '/api/v1/customer-signal-filters';
+};
+
+export type ListCustomerSignalSavedFiltersErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListCustomerSignalSavedFiltersError = ListCustomerSignalSavedFiltersErrors[keyof ListCustomerSignalSavedFiltersErrors];
+
+export type ListCustomerSignalSavedFiltersResponses = {
+    /**
+     * OK
+     */
+    200: CustomerSignalSavedFilterListOutputBody;
+};
+
+export type ListCustomerSignalSavedFiltersResponse = ListCustomerSignalSavedFiltersResponses[keyof ListCustomerSignalSavedFiltersResponses];
+
+export type CreateCustomerSignalSavedFilterData = {
+    body: CustomerSignalSavedFilterRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/customer-signal-filters';
+};
+
+export type CreateCustomerSignalSavedFilterErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateCustomerSignalSavedFilterError = CreateCustomerSignalSavedFilterErrors[keyof CreateCustomerSignalSavedFilterErrors];
+
+export type CreateCustomerSignalSavedFilterResponses = {
+    /**
+     * OK
+     */
+    200: CustomerSignalSavedFilterBody;
+};
+
+export type CreateCustomerSignalSavedFilterResponse = CreateCustomerSignalSavedFilterResponses[keyof CreateCustomerSignalSavedFilterResponses];
+
+export type DeleteCustomerSignalSavedFilterData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filterPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/customer-signal-filters/{filterPublicId}';
+};
+
+export type DeleteCustomerSignalSavedFilterErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeleteCustomerSignalSavedFilterError = DeleteCustomerSignalSavedFilterErrors[keyof DeleteCustomerSignalSavedFilterErrors];
+
+export type DeleteCustomerSignalSavedFilterResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteCustomerSignalSavedFilterResponse = DeleteCustomerSignalSavedFilterResponses[keyof DeleteCustomerSignalSavedFilterResponses];
+
+export type UpdateCustomerSignalSavedFilterData = {
+    body: CustomerSignalSavedFilterRequestBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filterPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/customer-signal-filters/{filterPublicId}';
+};
+
+export type UpdateCustomerSignalSavedFilterErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateCustomerSignalSavedFilterError = UpdateCustomerSignalSavedFilterErrors[keyof UpdateCustomerSignalSavedFilterErrors];
+
+export type UpdateCustomerSignalSavedFilterResponses = {
+    /**
+     * OK
+     */
+    200: CustomerSignalSavedFilterBody;
+};
+
+export type UpdateCustomerSignalSavedFilterResponse = UpdateCustomerSignalSavedFilterResponses[keyof UpdateCustomerSignalSavedFilterResponses];
+
+export type ListCustomerSignalsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        q?: string;
+        status?: string;
+        priority?: string;
+        source?: string;
+        cursor?: string;
+        limit?: number;
+    };
     url: '/api/v1/customer-signals';
 };
 
@@ -2069,6 +2884,87 @@ export type SelectTenantResponses = {
 };
 
 export type SelectTenantResponse = SelectTenantResponses[keyof SelectTenantResponses];
+
+export type GetCurrentSupportAccessData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/support/access/current';
+};
+
+export type GetCurrentSupportAccessErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetCurrentSupportAccessError = GetCurrentSupportAccessErrors[keyof GetCurrentSupportAccessErrors];
+
+export type GetCurrentSupportAccessResponses = {
+    /**
+     * OK
+     */
+    200: SupportAccessOutputBody;
+};
+
+export type GetCurrentSupportAccessResponse = GetCurrentSupportAccessResponses[keyof GetCurrentSupportAccessResponses];
+
+export type EndSupportAccessData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/support/access/end';
+};
+
+export type EndSupportAccessErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type EndSupportAccessError = EndSupportAccessErrors[keyof EndSupportAccessErrors];
+
+export type EndSupportAccessResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type EndSupportAccessResponse = EndSupportAccessResponses[keyof EndSupportAccessResponses];
+
+export type StartSupportAccessData = {
+    body: StartSupportAccessBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/support/access/start';
+};
+
+export type StartSupportAccessErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type StartSupportAccessError = StartSupportAccessErrors[keyof StartSupportAccessErrors];
+
+export type StartSupportAccessResponses = {
+    /**
+     * OK
+     */
+    200: SupportAccessOutputBody;
+};
+
+export type StartSupportAccessResponse = StartSupportAccessResponses[keyof StartSupportAccessResponses];
 
 export type ListTenantsData = {
     body?: never;
