@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 
+import DataCard from '../components/DataCard.vue'
+import EmptyState from '../components/EmptyState.vue'
+import MetricTile from '../components/MetricTile.vue'
+import PageHeader from '../components/PageHeader.vue'
 import { useNotificationStore } from '../stores/notifications'
 
 const store = useNotificationStore()
@@ -21,15 +25,24 @@ function formatDate(value?: string) {
 </script>
 
 <template>
-  <section class="panel stack">
-    <div class="section-header">
-      <div>
-        <span class="status-pill">Notifications</span>
-        <h2>Notification Center</h2>
-      </div>
+  <section class="stack">
+    <PageHeader
+      eyebrow="Notifications"
+      title="Notification Center"
+      description="Tenant invitation や async job の通知を確認します。"
+    >
+      <template #actions>
       <button class="secondary-button" type="button" @click="store.load">
         Refresh
       </button>
+      </template>
+    </PageHeader>
+
+    <div class="metric-grid">
+      <MetricTile label="Notifications" :value="store.items.length" hint="Current page" />
+      <MetricTile label="Unread" :value="store.items.filter((item) => !item.readAt).length" hint="Needs action" />
+      <MetricTile label="Read" :value="store.items.filter((item) => item.readAt).length" hint="Completed" />
+      <MetricTile label="Status" :value="store.status" hint="List loading state" />
     </div>
 
     <p v-if="store.status === 'loading'">
@@ -39,7 +52,7 @@ function formatDate(value?: string) {
       {{ store.errorMessage }}
     </p>
 
-    <div v-if="store.items.length > 0" class="list-stack">
+    <DataCard v-if="store.items.length > 0" title="Notifications">
       <article v-for="item in store.items" :key="item.publicId" class="list-item">
         <div>
           <strong>{{ item.subject || item.template }}</strong>
@@ -55,10 +68,8 @@ function formatDate(value?: string) {
           {{ item.readAt ? 'Read' : 'Mark read' }}
         </button>
       </article>
-    </div>
+    </DataCard>
 
-    <div v-else-if="store.status === 'empty'" class="empty-state">
-      <p>通知はありません。</p>
-    </div>
+    <EmptyState v-else-if="store.status === 'empty'" title="No notifications" message="通知はありません。" />
   </section>
 </template>

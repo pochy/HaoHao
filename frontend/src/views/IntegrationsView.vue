@@ -293,8 +293,8 @@ watch(
   gap: 20px;
   padding: 20px;
   border: 1px solid var(--border);
-  border-radius: 20px;
-  background: rgba(255, 250, 243, 0.72);
+  border-radius: var(--radius-lg);
+  background: #fff;
 }
 
 h3 {
@@ -310,23 +310,23 @@ h3 {
   padding: 0 12px;
   border-radius: 999px;
   font-size: 0.8rem;
-  letter-spacing: 0.08em;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
 .connection-state.connected {
-  color: var(--accent-strong);
-  background: rgba(11, 93, 91, 0.1);
+  color: var(--success);
+  background: #dcfce7;
 }
 
 .connection-state.disconnected {
   color: var(--muted);
-  background: rgba(124, 102, 88, 0.12);
+  background: var(--surface-muted);
 }
 
 .connection-state.revoked {
   color: var(--danger);
-  background: rgba(174, 45, 42, 0.1);
+  background: #fee2e2;
 }
 
 .metadata-grid {
@@ -344,7 +344,6 @@ h3 {
   margin-bottom: 4px;
   color: var(--muted);
   font-size: 0.78rem;
-  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 

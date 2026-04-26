@@ -1,6 +1,17 @@
 <script setup lang="ts">
+import {
+  Download,
+  Edit3,
+  FolderInput,
+  RefreshCw,
+  RotateCcw,
+  Share2,
+  Trash2,
+} from 'lucide-vue-next'
+
 import type { DriveFileBody, DriveItemBody } from '../api/generated/types.gen'
 import { labelFromDriveItem } from '../stores/drive'
+import IconButton from './IconButton.vue'
 
 defineProps<{
   items: DriveItemBody[]
@@ -98,66 +109,60 @@ function formatSize(value?: number) {
           <td class="tabular-cell">{{ formatDate(trashMode ? itemDeletedAt(item) : itemUpdatedAt(item)) }}</td>
           <td class="drive-actions-cell">
             <div v-if="trashMode" class="drive-row-actions">
-              <button
-                class="secondary-button compact-button"
-                type="button"
+              <IconButton
+                label="Restore"
                 :disabled="busyResourceId === itemPublicId(item)"
                 @click="emit('restoreItem', item)"
               >
-                Restore
-              </button>
+                <RotateCcw :size="16" stroke-width="1.8" aria-hidden="true" />
+              </IconButton>
             </div>
             <div v-else class="drive-row-actions">
-              <button
+              <IconButton
                 v-if="item.file"
-                class="secondary-button compact-button"
-                type="button"
+                label="Download"
                 :disabled="busyResourceId === item.file.publicId"
                 @click="emit('downloadFile', item.file)"
               >
-                Download
-              </button>
-              <button
-                class="secondary-button compact-button"
-                type="button"
+                <Download :size="16" stroke-width="1.8" aria-hidden="true" />
+              </IconButton>
+              <IconButton
+                label="Rename"
                 :disabled="busyResourceId === itemPublicId(item) || item.file?.locked"
                 @click="emit('renameItem', item)"
               >
-                Rename
-              </button>
-              <button
-                class="secondary-button compact-button"
-                type="button"
+                <Edit3 :size="16" stroke-width="1.8" aria-hidden="true" />
+              </IconButton>
+              <IconButton
+                label="Move"
                 :disabled="busyResourceId === itemPublicId(item) || item.file?.locked"
                 @click="emit('moveItem', item)"
               >
-                Move
-              </button>
-              <button
+                <FolderInput :size="16" stroke-width="1.8" aria-hidden="true" />
+              </IconButton>
+              <IconButton
                 v-if="item.file"
-                class="secondary-button compact-button"
-                type="button"
+                label="Replace"
                 :disabled="busyResourceId === item.file.publicId || item.file.locked"
                 @click="emit('overwriteFile', item.file)"
               >
-                Replace
-              </button>
-              <button
-                class="secondary-button compact-button"
-                type="button"
+                <RefreshCw :size="16" stroke-width="1.8" aria-hidden="true" />
+              </IconButton>
+              <IconButton
+                label="Share"
                 :disabled="busyResourceId === itemPublicId(item) || item.file?.locked"
                 @click="emit('shareItem', item)"
               >
-                Share
-              </button>
-              <button
-                class="secondary-button compact-button danger-button"
-                type="button"
+                <Share2 :size="16" stroke-width="1.8" aria-hidden="true" />
+              </IconButton>
+              <IconButton
+                label="Delete"
+                variant="danger"
                 :disabled="deletingResourceId === itemPublicId(item) || item.file?.locked"
                 @click="emit('deleteItem', item)"
               >
-                Delete
-              </button>
+                <Trash2 :size="16" stroke-width="1.8" aria-hidden="true" />
+              </IconButton>
             </div>
           </td>
         </tr>

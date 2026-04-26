@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { FolderPlus, RefreshCw, Search, Upload } from 'lucide-vue-next'
 
 defineProps<{
   busy: boolean
@@ -54,11 +55,13 @@ function onFileChange(event: Event) {
         >
       </label>
       <button class="primary-button compact-button" type="submit" :disabled="disabled || busy || folderName.trim() === ''">
+        <FolderPlus :size="16" stroke-width="1.8" aria-hidden="true" />
         Create
       </button>
     </form>
 
     <label class="secondary-button compact-button drive-upload-button">
+      <Upload :size="16" stroke-width="1.8" aria-hidden="true" />
       <span>Upload</span>
       <input class="drive-hidden-input" type="file" :disabled="disabled || busy" @change="onFileChange">
     </label>
@@ -75,11 +78,13 @@ function onFileChange(event: Event) {
         >
       </label>
       <button class="secondary-button compact-button" type="submit" :disabled="disabled || busy">
+        <Search :size="16" stroke-width="1.8" aria-hidden="true" />
         Search
       </button>
     </form>
 
     <button class="secondary-button compact-button" type="button" :disabled="disabled || busy" @click="emit('refresh')">
+      <RefreshCw :size="16" stroke-width="1.8" aria-hidden="true" />
       Refresh
     </button>
   </div>

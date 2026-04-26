@@ -5,10 +5,16 @@ import { useRoute, useRouter } from 'vue-router'
 import type { DriveFileBody, DriveItemBody, DrivePermissionBody } from '../api/generated/types.gen'
 import { toApiErrorMessage } from '../api/client'
 import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
+import DataCard from '../components/DataCard.vue'
 import DriveBreadcrumbs from '../components/DriveBreadcrumbs.vue'
 import DriveItemTable from '../components/DriveItemTable.vue'
 import DriveShareDialog from '../components/DriveShareDialog.vue'
 import DriveToolbar from '../components/DriveToolbar.vue'
+import EmptyState from '../components/EmptyState.vue'
+import MetricTile from '../components/MetricTile.vue'
+import PageHeader from '../components/PageHeader.vue'
+import SectionTabs from '../components/SectionTabs.vue'
+import TextInputDialog from '../components/TextInputDialog.vue'
 import {
   labelFromDriveItem,
   useDriveStore,
@@ -23,7 +29,10 @@ const driveStore = useDriveStore()
 const actionMessage = ref('')
 const actionErrorMessage = ref('')
 const shareDialogOpen = ref(false)
+const workspaceDialogOpen = ref(false)
 const pendingDelete = ref<DriveItemBody | null>(null)
+const pendingRename = ref<DriveItemBody | null>(null)
+const pendingMove = ref<DriveItemBody | null>(null)
 const pendingOverwriteFile = ref<DriveFileBody | null>(null)
 const overwriteInput = ref<HTMLInputElement | null>(null)
 const searchMode = ref(false)
@@ -49,6 +58,9 @@ const visibleItems = computed(() => {
 const selectedLabel = computed(() => (driveStore.selectedItem ? labelFromDriveItem(driveStore.selectedItem) : 'Drive item'))
 const selectedResource = computed(() => driveStore.selectedResource)
 const currentWorkspaceId = computed(() => driveStore.currentWorkspace?.publicId ?? '')
+const itemCount = computed(() => visibleItems.value.length)
+const fileCount = computed(() => visibleItems.value.filter((item) => item.file).length)
+const folderCount = computed(() => visibleItems.value.filter((item) => item.folder).length)
 const driveTitle = computed(() => {
   if (trashMode.value) {
     return 'Drive Trash'
@@ -65,6 +77,17 @@ const deleteMessage = computed(() => {
   }
   return `${label} をゴミ箱へ移動します。`
 })
+const renameInitialValue = computed(() => (pendingRename.value ? labelFromDriveItem(pendingRename.value) : ''))
+const moveMessage = computed(() => {
+  const label = pendingMove.value ? labelFromDriveItem(pendingMove.value) : 'this item'
+  return `${label} の移動先 folder public ID を入力します。空欄なら root へ移動します。`
+})
+const driveTabs = [
+  { to: '/drive', label: 'Browser' },
+  { to: '/drive/search', label: 'Search' },
+  { to: '/drive/trash', label: 'Trash' },
+  { to: '/drive/groups', label: 'Groups' },
+]
 
 onMounted(async () => {
   if (tenantStore.status === 'idle') {
@@ -113,9 +136,17 @@ async function selectWorkspace(event: Event) {
   }
 }
 
-async function createWorkspace() {
-  const name = window.prompt('Workspace name', '')
-  if (!name?.trim()) {
+function requestCreateWorkspace() {
+  workspaceDialogOpen.value = true
+}
+
+function cancelCreateWorkspace() {
+  workspaceDialogOpen.value = false
+}
+
+async function createWorkspace(name: string) {
+  workspaceDialogOpen.value = false
+  if (!name.trim()) {
     return
   }
   try {
@@ -160,10 +191,22 @@ async function downloadFile(file: DriveFileBody) {
   }
 }
 
-async function renameItem(item: DriveItemBody) {
+function renameItem(item: DriveItemBody) {
+  pendingRename.value = item
+}
+
+function cancelRename() {
+  pendingRename.value = null
+}
+
+async function confirmRename(nextName: string) {
+  if (!pendingRename.value) {
+    return
+  }
+  const item = pendingRename.value
+  pendingRename.value = null
   const currentName = labelFromDriveItem(item)
-  const nextName = window.prompt('New name', currentName)
-  if (!nextName || nextName.trim() === currentName) {
+  if (!nextName.trim() || nextName.trim() === currentName) {
     return
   }
   try {
@@ -178,11 +221,20 @@ async function renameItem(item: DriveItemBody) {
   }
 }
 
-async function moveItem(item: DriveItemBody) {
-  const target = window.prompt('Target folder public ID. 空欄なら root へ移動します。', '')
-  if (target === null) {
+function moveItem(item: DriveItemBody) {
+  pendingMove.value = item
+}
+
+function cancelMove() {
+  pendingMove.value = null
+}
+
+async function confirmMove(target: string) {
+  if (!pendingMove.value) {
     return
   }
+  const item = pendingMove.value
+  pendingMove.value = null
   try {
     if (item.file) {
       await driveStore.moveFile(item.file, target)
@@ -367,13 +419,13 @@ async function refreshDrive() {
 </script>
 
 <template>
-  <section class="panel stack">
-    <div class="section-header">
-      <div>
-        <span class="status-pill">Drive</span>
-        <h2>{{ driveTitle }}</h2>
-      </div>
-      <div class="action-row">
+  <section class="stack">
+    <PageHeader
+      eyebrow="Drive"
+      :title="driveTitle"
+      description="Workspace、folder、file、share link を tenant ごとに管理します。"
+    >
+      <template #actions>
         <RouterLink v-if="trashMode || searchMode" class="secondary-button link-button compact-button" to="/drive">
           Drive
         </RouterLink>
@@ -383,10 +435,20 @@ async function refreshDrive() {
         <RouterLink class="secondary-button link-button compact-button" to="/drive/groups">
           Groups
         </RouterLink>
-      </div>
+      </template>
+    </PageHeader>
+
+    <SectionTabs :tabs="driveTabs" />
+
+    <div class="metric-grid">
+      <MetricTile label="Active tenant" :value="activeTenantLabel" hint="Tenant context" />
+      <MetricTile label="Items" :value="itemCount" hint="Current view" />
+      <MetricTile label="Files" :value="fileCount" hint="Visible files" />
+      <MetricTile label="Folders" :value="folderCount" hint="Visible folders" />
     </div>
 
-    <div v-if="!searchMode && !trashMode" class="action-row">
+    <DataCard v-if="!searchMode && !trashMode" title="Workspace" subtitle="Drive の root workspace と現在の folder context です。">
+    <div class="action-row">
       <label class="field compact-field">
         <span class="field-label">Workspace</span>
         <select class="field-input" :value="currentWorkspaceId" :disabled="driveStore.isBusy" @change="selectWorkspace">
@@ -395,7 +457,7 @@ async function refreshDrive() {
           </option>
         </select>
       </label>
-      <button class="secondary-button compact-button" type="button" :disabled="driveStore.isBusy || !tenantStore.activeTenant" @click="createWorkspace">
+      <button class="secondary-button compact-button" type="button" :disabled="driveStore.isBusy || !tenantStore.activeTenant" @click="requestCreateWorkspace">
         New workspace
       </button>
     </div>
@@ -416,6 +478,7 @@ async function refreshDrive() {
     </dl>
 
     <DriveBreadcrumbs v-if="!searchMode && !trashMode" :current-folder="driveStore.currentFolder" />
+    </DataCard>
 
     <p v-if="tenantStore.status === 'empty'" class="warning-message">
       Active tenant がありません。tenant selector で tenant を選択してください。
@@ -426,6 +489,7 @@ async function refreshDrive() {
     </p>
     <p v-if="actionMessage" class="notice-message">{{ actionMessage }}</p>
 
+    <DataCard title="Files and folders" :subtitle="trashMode ? 'Trash にある item を復元できます。' : 'Folder 作成、upload、検索、共有をここから実行します。'">
     <DriveToolbar
       v-if="!trashMode"
       :busy="driveStore.isBusy"
@@ -445,9 +509,11 @@ async function refreshDrive() {
       </button>
     </div>
 
-    <div v-if="driveStore.status === 'forbidden'" class="empty-state">
-      <p>Drive authorization が有効でない、またはこの tenant で Drive を表示する権限がありません。</p>
-    </div>
+    <EmptyState
+      v-if="driveStore.status === 'forbidden'"
+      title="Drive access denied"
+      message="Drive authorization が有効でない、またはこの tenant で Drive を表示する権限がありません。"
+    />
 
     <DriveItemTable
       v-else-if="visibleItems.length > 0 || driveStore.status === 'loading'"
@@ -466,14 +532,20 @@ async function refreshDrive() {
       :trash-mode="trashMode"
     />
 
-    <div v-else class="empty-state">
-      <p>{{ trashMode ? 'ゴミ箱は空です。' : searchMode ? '検索結果はありません。' : 'この folder にはまだ item がありません。' }}</p>
-      <button v-if="searchMode" class="secondary-button compact-button" type="button" @click="router.push('/drive')">
-        Back to Drive
-      </button>
-    </div>
+    <EmptyState
+      v-else
+      :title="trashMode ? 'Trash is empty' : searchMode ? 'No search results' : 'No items yet'"
+      :message="trashMode ? 'ゴミ箱は空です。' : searchMode ? '検索結果はありません。' : 'この folder にはまだ item がありません。'"
+    >
+      <template v-if="searchMode" #actions>
+        <button class="secondary-button compact-button" type="button" @click="router.push('/drive')">
+          Back to Drive
+        </button>
+      </template>
+    </EmptyState>
 
     <input ref="overwriteInput" class="drive-hidden-input" type="file" @change="onOverwriteFileChange">
+    </DataCard>
   </section>
 
   <DriveShareDialog
@@ -502,5 +574,37 @@ async function refreshDrive() {
     confirm-label="Delete"
     @cancel="cancelDelete"
     @confirm="confirmDelete"
+  />
+
+  <TextInputDialog
+    :open="workspaceDialogOpen"
+    title="New workspace"
+    label="Workspace name"
+    placeholder="Product team"
+    confirm-label="Create workspace"
+    @cancel="cancelCreateWorkspace"
+    @confirm="createWorkspace"
+  />
+
+  <TextInputDialog
+    :open="pendingRename !== null"
+    title="Rename item"
+    label="New name"
+    :initial-value="renameInitialValue"
+    confirm-label="Rename"
+    @cancel="cancelRename"
+    @confirm="confirmRename"
+  />
+
+  <TextInputDialog
+    :open="pendingMove !== null"
+    title="Move item"
+    label="Target folder public ID"
+    :message="moveMessage"
+    placeholder="folder public ID"
+    confirm-label="Move"
+    allow-empty
+    @cancel="cancelMove"
+    @confirm="confirmMove"
   />
 </template>

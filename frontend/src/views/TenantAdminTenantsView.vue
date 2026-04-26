@@ -3,6 +3,11 @@ import { onMounted } from 'vue'
 
 import type { TenantAdminTenantBody } from '../api/generated/types.gen'
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
+import DataCard from '../components/DataCard.vue'
+import EmptyState from '../components/EmptyState.vue'
+import MetricTile from '../components/MetricTile.vue'
+import PageHeader from '../components/PageHeader.vue'
+import StatusBadge from '../components/StatusBadge.vue'
 import { useTenantAdminStore } from '../stores/tenant-admin'
 
 const store = useTenantAdminStore()
@@ -31,12 +36,13 @@ function formatMemberCount(item: TenantAdminTenantBody) {
     role-label="tenant_admin"
   />
 
-  <section v-else class="panel stack">
-    <div class="section-header">
-      <div>
-        <span class="status-pill">Tenant Admin</span>
-        <h2>Tenants</h2>
-      </div>
+  <section v-else class="stack">
+    <PageHeader
+      eyebrow="Tenant Admin"
+      title="Tenants"
+      description="Tenant、member count、state を管理します。"
+    >
+      <template #actions>
       <div class="action-row">
         <button class="secondary-button" :disabled="store.status === 'loading'" type="button" @click="store.loadList()">
           {{ store.status === 'loading' ? 'Refreshing...' : 'Refresh' }}
@@ -45,6 +51,14 @@ function formatMemberCount(item: TenantAdminTenantBody) {
           New
         </RouterLink>
       </div>
+      </template>
+    </PageHeader>
+
+    <div class="metric-grid">
+      <MetricTile label="Tenants" :value="store.items.length" hint="Total records" />
+      <MetricTile label="Active" :value="store.items.filter((item) => item.active).length" hint="Enabled tenants" />
+      <MetricTile label="Inactive" :value="store.items.filter((item) => !item.active).length" hint="Disabled tenants" />
+      <MetricTile label="Status" :value="store.status" hint="List loading state" />
     </div>
 
     <p v-if="store.errorMessage" class="error-message">
@@ -55,7 +69,8 @@ function formatMemberCount(item: TenantAdminTenantBody) {
       Loading tenants...
     </p>
 
-    <div v-else-if="store.items.length > 0" class="admin-table">
+    <DataCard v-else-if="store.items.length > 0" title="Tenant list">
+    <div class="admin-table">
       <table>
         <thead>
           <tr>
@@ -76,21 +91,23 @@ function formatMemberCount(item: TenantAdminTenantBody) {
             <td class="monospace-cell">{{ item.slug }}</td>
             <td class="tabular-cell">{{ formatMemberCount(item) }}</td>
             <td>
-              <span :class="['status-pill', item.active ? '' : 'danger']">
+              <StatusBadge :tone="item.active ? 'success' : 'danger'">
                 {{ item.active ? 'Active' : 'Inactive' }}
-              </span>
+              </StatusBadge>
             </td>
             <td>{{ formatDate(item.updatedAt) }}</td>
           </tr>
         </tbody>
       </table>
     </div>
+    </DataCard>
 
-    <div v-else-if="store.status === 'ready'" class="empty-state">
-      <p>Tenant はまだ登録されていません。</p>
-      <RouterLink class="primary-button link-button" to="/tenant-admin/new">
-        New Tenant
-      </RouterLink>
-    </div>
+    <EmptyState v-else-if="store.status === 'ready'" title="No tenants" message="Tenant はまだ登録されていません。">
+      <template #actions>
+        <RouterLink class="primary-button link-button" to="/tenant-admin/new">
+          New Tenant
+        </RouterLink>
+      </template>
+    </EmptyState>
   </section>
 </template>

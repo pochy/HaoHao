@@ -38,10 +38,10 @@ test.describe('P5 Drive UI', () => {
     const download = await downloadPromise
     expect(download.suggestedFilename()).toBe(originalName)
 
-    page.once('dialog', async (dialog) => {
-      await dialog.accept(renamedName)
-    })
     await row.getByRole('button', { name: 'Rename' }).click()
+    const renameDialog = page.locator('dialog').filter({ hasText: 'Rename item' })
+    await renameDialog.getByLabel('New name').fill(renamedName)
+    await renameDialog.getByRole('button', { name: 'Rename' }).click()
     await expect(page.getByText(renamedName)).toBeVisible()
 
     await page.getByRole('row').filter({ hasText: renamedName }).getByRole('button', { name: 'Share' }).click()

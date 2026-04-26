@@ -5,6 +5,12 @@ import { RouterLink } from 'vue-router'
 import { toApiErrorMessage } from '../api/client'
 import type { CustomerSignalBody } from '../api/generated/types.gen'
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
+import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
+import DataCard from '../components/DataCard.vue'
+import EmptyState from '../components/EmptyState.vue'
+import MetricTile from '../components/MetricTile.vue'
+import PageHeader from '../components/PageHeader.vue'
+import StatusBadge from '../components/StatusBadge.vue'
 import { useCustomerSignalStore } from '../stores/customer-signals'
 import { useTenantStore } from '../stores/tenants'
 
@@ -23,6 +29,7 @@ const priority = ref<typeof priorityOptions[number]>('medium')
 const status = ref<typeof statusOptions[number]>('new')
 const actionErrorMessage = ref('')
 const savedFilterName = ref('')
+const pendingFilterDelete = ref<{ publicId: string, name: string } | null>(null)
 
 const activeTenantLabel = computed(() => (
   tenantStore.activeTenant
@@ -31,6 +38,8 @@ const activeTenantLabel = computed(() => (
 ))
 
 const openCount = computed(() => signalStore.items.filter((item) => item.status !== 'closed').length)
+const urgentCount = computed(() => signalStore.items.filter((item) => item.priority === 'urgent').length)
+const savedFilterCount = computed(() => signalStore.savedFilters.length)
 
 const canCreate = computed(() => (
   Boolean(tenantStore.activeTenant) &&
@@ -127,6 +136,23 @@ async function saveFilter() {
   }
 }
 
+function requestDeleteSavedFilter(filter: { publicId: string, name: string }) {
+  pendingFilterDelete.value = filter
+}
+
+function cancelDeleteSavedFilter() {
+  pendingFilterDelete.value = null
+}
+
+async function confirmDeleteSavedFilter() {
+  if (!pendingFilterDelete.value) {
+    return
+  }
+  const target = pendingFilterDelete.value
+  pendingFilterDelete.value = null
+  await signalStore.deleteSavedFilter(target.publicId)
+}
+
 async function applySavedFilter(filter: { query?: string, filters?: Record<string, unknown> }) {
   signalStore.query = filter.query ?? ''
   signalStore.filters.status = typeof filter.filters?.status === 'string' ? filter.filters.status : ''
@@ -144,12 +170,13 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
     role-label="customer_signal_user"
   />
 
-  <section v-else class="panel stack">
-    <div class="section-header">
-      <div>
-        <span class="status-pill">Customer Signals</span>
-        <h2>Signals</h2>
-      </div>
+  <section v-else class="stack">
+    <PageHeader
+      eyebrow="Customer Signals"
+      title="Signals"
+      description="顧客要望、source、priority、status を tenant 単位で検索、保存、記録します。"
+    >
+      <template #actions>
       <button
         class="secondary-button"
         :disabled="signalStore.status === 'loading' || !tenantStore.activeTenant"
@@ -158,18 +185,15 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
       >
         {{ signalStore.status === 'loading' ? 'Refreshing...' : 'Refresh' }}
       </button>
-    </div>
+      </template>
+    </PageHeader>
 
-    <dl class="metadata-grid">
-      <div>
-        <dt>Active tenant</dt>
-        <dd>{{ activeTenantLabel }}</dd>
-      </div>
-      <div>
-        <dt>Open signals</dt>
-        <dd>{{ openCount }}</dd>
-      </div>
-    </dl>
+    <div class="metric-grid">
+      <MetricTile label="Active tenant" :value="activeTenantLabel" hint="Current workspace" />
+      <MetricTile label="Open signals" :value="openCount" hint="Status is not closed" />
+      <MetricTile label="Urgent" :value="urgentCount" hint="Priority queue" />
+      <MetricTile label="Saved filters" :value="savedFilterCount" hint="Reusable search" />
+    </div>
 
     <p v-if="tenantStore.status === 'empty'" class="warning-message">
       Active tenant がありません。tenant membership を seed してから再ログインしてください。
@@ -181,6 +205,7 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
       {{ actionErrorMessage || signalStore.errorMessage }}
     </p>
 
+    <DataCard title="Search and filters" subtitle="一覧の検索条件を絞り込み、必要なら filter として保存します。">
     <form class="admin-form" @submit.prevent="applySearch">
       <label class="field">
         <span class="field-label">Search</span>
@@ -242,8 +267,9 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
         </button>
       </div>
     </form>
+    </DataCard>
 
-    <div v-if="signalStore.savedFilters.length > 0" class="list-stack">
+    <DataCard v-if="signalStore.savedFilters.length > 0" title="Saved filters">
       <article v-for="filter in signalStore.savedFilters" :key="filter.publicId" class="list-item">
         <div>
           <strong>{{ filter.name }}</strong>
@@ -258,13 +284,14 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
           >
             Apply
           </button>
-          <button class="secondary-button danger-button compact-button" type="button" @click="signalStore.deleteSavedFilter(filter.publicId)">
+          <button class="secondary-button danger-button compact-button" type="button" @click="requestDeleteSavedFilter(filter)">
             Delete
           </button>
         </div>
       </article>
-    </div>
+    </DataCard>
 
+    <DataCard title="Add signal" subtitle="新しい customer signal を active tenant に登録します。">
     <form class="admin-form" @submit.prevent="createSignal">
       <label class="field">
         <span class="field-label">Customer</span>
@@ -336,21 +363,22 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
         </button>
       </div>
     </form>
+    </DataCard>
 
     <p v-if="signalStore.status === 'loading'" class="todo-loading">
       Loading customer signals...
     </p>
 
-    <div v-else-if="signalStore.items.length > 0" class="signal-list">
+    <DataCard v-else-if="signalStore.items.length > 0" title="Signal list">
       <article v-for="item in signalStore.items" :key="item.publicId" class="signal-item">
         <div class="signal-item-main">
           <div class="signal-title-row">
             <RouterLink class="text-link signal-title" :to="`/customer-signals/${item.publicId}`">
               {{ item.title }}
             </RouterLink>
-            <span :class="['status-pill', item.status === 'closed' ? 'danger' : '']">
+            <StatusBadge :tone="item.status === 'closed' ? 'danger' : 'neutral'">
               {{ item.status }}
-            </span>
+            </StatusBadge>
           </div>
           <p class="signal-preview">
             {{ previewText(item) }}
@@ -371,10 +399,21 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
           Load more
         </button>
       </div>
-    </div>
+    </DataCard>
 
-    <div v-else-if="signalStore.status === 'empty'" class="empty-state">
-      <p>この tenant の Customer Signal はまだありません。</p>
-    </div>
+    <EmptyState
+      v-else-if="signalStore.status === 'empty'"
+      title="No customer signals"
+      message="この tenant の Customer Signal はまだありません。"
+    />
+
+    <ConfirmActionDialog
+      :open="pendingFilterDelete !== null"
+      title="Delete saved filter"
+      :message="`${pendingFilterDelete?.name ?? 'This filter'} を削除します。`"
+      confirm-label="Delete"
+      @cancel="cancelDeleteSavedFilter"
+      @confirm="confirmDeleteSavedFilter"
+    />
   </section>
 </template>

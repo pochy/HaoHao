@@ -2,6 +2,11 @@
 import { onMounted } from 'vue'
 
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
+import DataCard from '../components/DataCard.vue'
+import EmptyState from '../components/EmptyState.vue'
+import MetricTile from '../components/MetricTile.vue'
+import PageHeader from '../components/PageHeader.vue'
+import StatusBadge from '../components/StatusBadge.vue'
 import { useMachineClientStore } from '../stores/machine-clients'
 import type { MachineClientBody } from '../api/generated/types.gen'
 
@@ -26,12 +31,13 @@ function formatScopes(item: MachineClientBody) {
 <template>
   <AdminAccessDenied v-if="store.status === 'forbidden'" />
 
-  <section v-else class="panel stack">
-    <div class="section-header">
-      <div>
-        <span class="status-pill">M2M</span>
-        <h2>Machine Clients</h2>
-      </div>
+  <section v-else class="stack">
+    <PageHeader
+      eyebrow="M2M"
+      title="Machine Clients"
+      description="Provider client、default tenant、allowed scopes を管理します。"
+    >
+      <template #actions>
       <div class="action-row">
         <button class="secondary-button" :disabled="store.status === 'loading'" type="button" @click="store.loadList()">
           {{ store.status === 'loading' ? 'Refreshing...' : 'Refresh' }}
@@ -40,6 +46,14 @@ function formatScopes(item: MachineClientBody) {
           New
         </RouterLink>
       </div>
+      </template>
+    </PageHeader>
+
+    <div class="metric-grid">
+      <MetricTile label="Clients" :value="store.items.length" hint="Total records" />
+      <MetricTile label="Active" :value="store.items.filter((item) => item.active).length" hint="Enabled clients" />
+      <MetricTile label="Inactive" :value="store.items.filter((item) => !item.active).length" hint="Disabled clients" />
+      <MetricTile label="Status" :value="store.status" hint="List loading state" />
     </div>
 
     <p v-if="store.errorMessage" class="error-message">
@@ -50,7 +64,8 @@ function formatScopes(item: MachineClientBody) {
       Loading machine clients...
     </p>
 
-    <div v-else-if="store.items.length > 0" class="admin-table">
+    <DataCard v-else-if="store.items.length > 0" title="Machine client list">
+    <div class="admin-table">
       <table>
         <thead>
           <tr>
@@ -74,21 +89,23 @@ function formatScopes(item: MachineClientBody) {
             <td>{{ item.defaultTenant?.displayName ?? 'None' }}</td>
             <td>{{ formatScopes(item) }}</td>
             <td>
-              <span :class="['status-pill', item.active ? '' : 'danger']">
+              <StatusBadge :tone="item.active ? 'success' : 'danger'">
                 {{ item.active ? 'Active' : 'Inactive' }}
-              </span>
+              </StatusBadge>
             </td>
             <td>{{ formatDate(item.updatedAt) }}</td>
           </tr>
         </tbody>
       </table>
     </div>
+    </DataCard>
 
-    <div v-else-if="store.status === 'ready'" class="empty-state">
-      <p>Machine client はまだ登録されていません。</p>
-      <RouterLink class="primary-button link-button" to="/machine-clients/new">
-        New Machine Client
-      </RouterLink>
-    </div>
+    <EmptyState v-else-if="store.status === 'ready'" title="No machine clients" message="Machine client はまだ登録されていません。">
+      <template #actions>
+        <RouterLink class="primary-button link-button" to="/machine-clients/new">
+          New Machine Client
+        </RouterLink>
+      </template>
+    </EmptyState>
   </section>
 </template>
