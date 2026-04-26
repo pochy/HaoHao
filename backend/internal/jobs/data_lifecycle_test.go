@@ -1,8 +1,10 @@
 package jobs
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,27 +14,32 @@ import (
 )
 
 type fakeLifecycleQueries struct {
-	err error
+	err                      error
+	expiredIDKeys            int64
+	expiredTenantInvitations int64
+	deletedProcessedOutbox   int64
+	deletedReadNotifications int64
+	expiredTenantDataExports int64
 }
 
 func (q fakeLifecycleQueries) DeleteExpiredIdempotencyKeys(context.Context) (int64, error) {
-	return 1, q.err
+	return q.expiredIDKeys, q.err
 }
 
 func (q fakeLifecycleQueries) ExpireTenantInvitations(context.Context) (int64, error) {
-	return 2, nil
+	return q.expiredTenantInvitations, nil
 }
 
 func (q fakeLifecycleQueries) DeleteProcessedOutboxEventsBefore(context.Context, pgtype.Timestamptz) (int64, error) {
-	return 3, nil
+	return q.deletedProcessedOutbox, nil
 }
 
 func (q fakeLifecycleQueries) DeleteReadNotificationsBefore(context.Context, pgtype.Timestamptz) (int64, error) {
-	return 4, nil
+	return q.deletedReadNotifications, nil
 }
 
 func (q fakeLifecycleQueries) SoftDeleteExpiredTenantDataExports(context.Context) (int64, error) {
-	return 5, nil
+	return q.expiredTenantDataExports, nil
 }
 
 type fakeDeletedFilePurger struct {
@@ -59,6 +66,75 @@ func (m *fakeDataLifecycleMetrics) IncDataLifecycleItems(kind string, count int6
 		m.items = map[string]int64{}
 	}
 	m.items[kind] += count
+}
+
+func TestDataLifecycleRunOnceNoopIntervalDoesNotInfoLog(t *testing.T) {
+	var logs bytes.Buffer
+	job := &DataLifecycleJob{
+		queries: fakeLifecycleQueries{},
+		config:  normalizeDataLifecycleConfig(DataLifecycleConfig{Timeout: time.Second}),
+		logger:  newInfoBufferLogger(&logs),
+	}
+
+	job.runOnce(context.Background(), "interval")
+
+	if strings.Contains(logs.String(), "data lifecycle job completed") {
+		t.Fatalf("expected no info completion log for noop interval, got %s", logs.String())
+	}
+}
+
+func TestDataLifecycleRunOnceStartupInfoLogs(t *testing.T) {
+	var logs bytes.Buffer
+	job := &DataLifecycleJob{
+		queries: fakeLifecycleQueries{},
+		config:  normalizeDataLifecycleConfig(DataLifecycleConfig{Timeout: time.Second}),
+		logger:  newInfoBufferLogger(&logs),
+	}
+
+	job.runOnce(context.Background(), "startup")
+
+	got := logs.String()
+	if !strings.Contains(got, "data lifecycle job completed") {
+		t.Fatalf("expected startup completion log, got %s", got)
+	}
+	if !strings.Contains(got, `"expired_idempotency_keys_deleted":0`) {
+		t.Fatalf("expected startup completion log with counts, got %s", got)
+	}
+}
+
+func TestDataLifecycleRunOnceWithWorkInfoLogsCounts(t *testing.T) {
+	var logs bytes.Buffer
+	job := &DataLifecycleJob{
+		queries: fakeLifecycleQueries{expiredIDKeys: 3},
+		config:  normalizeDataLifecycleConfig(DataLifecycleConfig{Timeout: time.Second}),
+		logger:  newInfoBufferLogger(&logs),
+	}
+
+	job.runOnce(context.Background(), "interval")
+
+	got := logs.String()
+	if !strings.Contains(got, "data lifecycle job completed") {
+		t.Fatalf("expected info completion log, got %s", got)
+	}
+	if !strings.Contains(got, `"expired_idempotency_keys_deleted":3`) {
+		t.Fatalf("expected completion log with counts, got %s", got)
+	}
+}
+
+func TestDataLifecycleRunOnceFailureErrorLogs(t *testing.T) {
+	var logs bytes.Buffer
+	job := &DataLifecycleJob{
+		queries: fakeLifecycleQueries{err: errors.New("delete failed")},
+		config:  normalizeDataLifecycleConfig(DataLifecycleConfig{Timeout: time.Second}),
+		logger:  newInfoBufferLogger(&logs),
+	}
+
+	job.runOnce(context.Background(), "interval")
+
+	got := logs.String()
+	if !strings.Contains(got, `"level":"ERROR"`) || !strings.Contains(got, "data lifecycle job failed") {
+		t.Fatalf("expected error log, got %s", got)
+	}
 }
 
 func TestDataLifecycleRunOncePurgesDeletedFileBodies(t *testing.T) {
