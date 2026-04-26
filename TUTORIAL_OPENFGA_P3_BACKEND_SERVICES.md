@@ -6,6 +6,8 @@
 
 この Phase の中心は、API handler から OpenFGA SDK を直接呼ばせないことです。OpenFGA の object ID 組み立て、timeout、fail-closed、metrics、error mapping は `DriveAuthorizationService` に閉じ込めます。
 
+この文書は OpenFGA 導入全体の **Phase 3** です。ユーザー向け API route と Vue UI は Phase 4/5 で実装し、この Phase では backend service と wiring だけを追加します。
+
 ## 完成条件
 
 - OpenFGA SDK access が backend service 層に閉じている
@@ -27,6 +29,14 @@ backend/internal/service/openfga_client_test.go
 ```
 
 ### 実装方針
+
+Go SDK は `github.com/openfga/go-sdk` を使います。実装時点では `v0.8.0` を採用します。
+
+```bash
+cd backend
+go get github.com/openfga/go-sdk@v0.8.0
+go mod tidy
+```
 
 OpenFGA SDK の型を API 層や DriveService に広げません。HaoHao 内部用の小さな interface を作ります。
 
@@ -53,6 +63,8 @@ type OpenFGAClient interface {
 ```
 
 実 SDK client はこの interface を満たす adapter にします。unit test では fake を注入します。
+
+SDK adapter は `OPENFGA_TIMEOUT` 相当の timeout を各 call に適用し、SDK の `ClientConfiguration` には `ApiUrl`, `StoreId`, `AuthorizationModelId`, 任意の API token credential を設定します。
 
 ## Step 2. object ID helper を作る
 
@@ -111,9 +123,13 @@ WriteShareLinkTuple(ctx, link)
 DeleteShareLinkTuple(ctx, link)
 ```
 
+`Can*` method は `bool` ではなく `error` を返す形にします。許可なら `nil`、拒否なら `ErrDrivePermissionDenied`、OpenFGA 障害なら `ErrDriveAuthzUnavailable`、locked file の変更系操作なら `ErrDriveLocked` です。この形にすると API 層の status mapping が単純になります。
+
 ### fail-closed
 
 `OPENFGA_ENABLED=true` で OpenFGA call が error になった場合、permission は拒否します。
+
+`OPENFGA_ENABLED=false` でも `OPENFGA_FAIL_CLOSED=true` の場合は Drive resource operation を拒否します。Phase 3 時点では API route がないため通常ユーザー影響はありませんが、Phase 4 以降で誤って DriveService が呼ばれた場合も fail-closed に倒します。
 
 error mapping は service 層では typed error にします。
 
@@ -172,6 +188,8 @@ type DriveService struct {
 8. tuple write 失敗時は resource を使用不可状態にし、audit failed を残す
 ```
 
+owner tuple と parent tuple は、可能な限り同じ `WriteTuples` call で書きます。片方だけ成功して片方だけ失敗する状態を避けるためです。
+
 ### file upload
 
 順序:
@@ -225,12 +243,15 @@ locked file は `can_view` だけ許可し、edit / overwrite / rename / move / 
 
 ```text
 1. actor の can_share を確認する
-2. OpenFGA tuple delete を実行する
-3. delete 成功後に DB share row を revoked にする
-4. audit drive.share.revoke を記録する
+2. DB share row を public_id で取得し、resource/subject tuple を復元する
+3. OpenFGA tuple delete を実行する
+4. delete 成功後に DB share row を revoked にする
+5. audit drive.share.revoke を記録する
 ```
 
 revoke は「OpenFGA から先に消す」順序を守ります。DB だけ revoked で tuple が残る状態を避けます。
+
+このため Phase 3 で `GetDriveResourceShareByPublicIDForTenant` の sqlc query を追加します。`public_id` は Phase 2 で unique index 済みなので、追加 index は不要です。
 
 ### group member add/remove
 
@@ -271,12 +292,14 @@ disable:
 
 ```text
 1. actor の can_share を確認する
-2. DB inheritance_enabled=false に更新する
-3. OpenFGA parent tuple を delete する
+2. OpenFGA parent tuple を delete する
+3. delete 成功後に DB inheritance_enabled=false に更新する
 4. audit を記録する
 ```
 
 再開する場合は逆に `inheritance_enabled=true` と parent tuple write を行います。
+
+この順序は fail-closed を優先するためです。DB 表示上は継承停止済みなのに OpenFGA tuple が残る状態を避けます。
 
 ## Step 9. backend wiring に接続する
 
@@ -307,6 +330,8 @@ app.New(...)
 
 `backend/internal/api.Dependencies` に `DriveService` を追加します。route 登録は Phase 4 で行います。
 
+既存 `app.New(...)` は後方互換のため `extras ...any` を使っているので、`*service.DriveService` は extras として受け取り、`Dependencies.DriveService` に詰めます。
+
 ## Step 10. unit test を追加する
 
 ### 確認観点
@@ -324,9 +349,10 @@ app.New(...)
 ## Phase 3 の完了確認
 
 ```bash
+make sqlc
 go test ./backend/internal/service
 go test ./backend/internal/app ./backend/cmd/main
+go test ./backend/...
 ```
 
 この時点では API route が未接続でも構いません。service の fail-closed と tuple ordering を先に固めます。
-

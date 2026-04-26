@@ -32,6 +32,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	var customerSignalImportService *service.CustomerSignalImportService
 	var customerSignalSavedFilterService *service.CustomerSignalSavedFilterService
 	var supportAccessService *service.SupportAccessService
+	var driveService *service.DriveService
 	for _, extra := range extras {
 		switch item := extra.(type) {
 		case *service.EntitlementService:
@@ -44,6 +45,8 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 			customerSignalSavedFilterService = item
 		case *service.SupportAccessService:
 			supportAccessService = item
+		case *service.DriveService:
+			driveService = item
 		}
 	}
 	if logger == nil {
@@ -117,6 +120,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		NotificationService:              notificationService,
 		TenantInvitationService:          tenantInvitationService,
 		FileService:                      fileService,
+		DriveService:                     driveService,
 		TenantSettingsService:            tenantSettingsService,
 		TenantDataExportService:          tenantDataExportService,
 		EntitlementService:               entitlementService,

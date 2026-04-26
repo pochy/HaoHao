@@ -97,6 +97,24 @@ func main() {
 	tenantSettingsService := service.NewTenantSettingsService(queries, auditService, cfg.TenantDefaultFileQuotaBytes)
 	fileStorage := service.NewLocalFileStorage(cfg.FileLocalDir)
 	fileService := service.NewFileService(pool, queries, fileStorage, tenantSettingsService, auditService, cfg.FileMaxBytes, cfg.FileAllowedMIMETypes, metrics)
+	var openFGAClient service.OpenFGAClient
+	if cfg.OpenFGA.Enabled {
+		openFGAClient, err = service.NewOpenFGASDKClient(service.OpenFGAClientConfig{
+			APIURL:               cfg.OpenFGA.APIURL,
+			StoreID:              cfg.OpenFGA.StoreID,
+			AuthorizationModelID: cfg.OpenFGA.AuthorizationModelID,
+			APIToken:             cfg.OpenFGA.APIToken,
+			Timeout:              cfg.OpenFGA.Timeout,
+		})
+		if err != nil {
+			fatal(logger, "create openfga client", err)
+		}
+	}
+	driveAuthorizationService := service.NewDriveAuthorizationService(openFGAClient, service.DriveAuthorizationConfig{
+		Enabled:    cfg.OpenFGA.Enabled,
+		FailClosed: cfg.OpenFGA.FailClosed,
+	})
+	driveService := service.NewDriveService(pool, queries, fileService, fileStorage, driveAuthorizationService, tenantSettingsService, auditService)
 	tenantInvitationService := service.NewTenantInvitationService(pool, queries, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)
 	tenantDataExportService := service.NewTenantDataExportService(pool, queries, outboxService, fileService, auditService, cfg.DataExportTTL, entitlementService)
 	customerSignalImportService := service.NewCustomerSignalImportService(pool, queries, outboxService, fileService, entitlementService, auditService)
@@ -193,7 +211,7 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics, entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService)
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics, entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService)
 	app.RegisterHealthRoutes(application.Router, platform.ReadinessChecker{
 		PostgresPing:  pool.Ping,
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },

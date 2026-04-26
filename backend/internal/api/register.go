@@ -24,6 +24,7 @@ type Dependencies struct {
 	NotificationService              *service.NotificationService
 	TenantInvitationService          *service.TenantInvitationService
 	FileService                      *service.FileService
+	DriveService                     *service.DriveService
 	TenantSettingsService            *service.TenantSettingsService
 	TenantDataExportService          *service.TenantDataExportService
 	EntitlementService               *service.EntitlementService

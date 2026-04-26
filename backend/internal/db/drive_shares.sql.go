@@ -77,6 +77,41 @@ func (q *Queries) CreateDriveResourceShare(ctx context.Context, arg CreateDriveR
 	return i, err
 }
 
+const getDriveResourceShareByPublicIDForTenant = `-- name: GetDriveResourceShareByPublicIDForTenant :one
+SELECT id, public_id, tenant_id, resource_type, resource_id, subject_type, subject_id, role, status, created_by_user_id, revoked_by_user_id, revoked_at, created_at, updated_at
+FROM drive_resource_shares
+WHERE public_id = $1
+  AND tenant_id = $2
+  AND status <> 'revoked'
+`
+
+type GetDriveResourceShareByPublicIDForTenantParams struct {
+	PublicID uuid.UUID `json:"public_id"`
+	TenantID int64     `json:"tenant_id"`
+}
+
+func (q *Queries) GetDriveResourceShareByPublicIDForTenant(ctx context.Context, arg GetDriveResourceShareByPublicIDForTenantParams) (DriveResourceShare, error) {
+	row := q.db.QueryRow(ctx, getDriveResourceShareByPublicIDForTenant, arg.PublicID, arg.TenantID)
+	var i DriveResourceShare
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.ResourceType,
+		&i.ResourceID,
+		&i.SubjectType,
+		&i.SubjectID,
+		&i.Role,
+		&i.Status,
+		&i.CreatedByUserID,
+		&i.RevokedByUserID,
+		&i.RevokedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listActiveDriveResourceSharesBySubject = `-- name: ListActiveDriveResourceSharesBySubject :many
 SELECT id, public_id, tenant_id, resource_type, resource_id, subject_type, subject_id, role, status, created_by_user_id, revoked_by_user_id, revoked_at, created_at, updated_at
 FROM drive_resource_shares

@@ -51,6 +51,13 @@ WHERE tenant_id = sqlc.arg(tenant_id)
   AND status IN ('active', 'pending_sync')
 ORDER BY created_at ASC, id ASC;
 
+-- name: GetDriveResourceShareByPublicIDForTenant :one
+SELECT *
+FROM drive_resource_shares
+WHERE public_id = sqlc.arg(public_id)
+  AND tenant_id = sqlc.arg(tenant_id)
+  AND status <> 'revoked';
+
 -- name: ListActiveDriveResourceSharesBySubject :many
 SELECT *
 FROM drive_resource_shares
