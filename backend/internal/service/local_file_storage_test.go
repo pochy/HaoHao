@@ -10,10 +10,16 @@ import (
 func TestLocalFileStorageDeleteIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	storage := NewLocalFileStorage(t.TempDir())
+	if storage.StorageDriver() != FileStorageDriverLocal {
+		t.Fatalf("StorageDriver() = %q, want %q", storage.StorageDriver(), FileStorageDriverLocal)
+	}
 
 	stored, err := storage.Save(ctx, "tenants/1/files/test.txt", strings.NewReader("hello"), 1024)
 	if err != nil {
 		t.Fatalf("Save() error = %v", err)
+	}
+	if stored.Driver != FileStorageDriverLocal {
+		t.Fatalf("stored.Driver = %q, want %q", stored.Driver, FileStorageDriverLocal)
 	}
 
 	path, err := storage.pathForKey(stored.Key)

@@ -80,11 +80,16 @@ func (s *LocalFileStorage) PutObject(ctx context.Context, key string, reader io.
 	}
 
 	return StoredFile{
+		Driver:    FileStorageDriverLocal,
 		Key:       key,
 		Size:      written,
 		SHA256Hex: hex.EncodeToString(hasher.Sum(nil)),
 		ETag:      hex.EncodeToString(hasher.Sum(nil)),
 	}, nil
+}
+
+func (s *LocalFileStorage) StorageDriver() string {
+	return FileStorageDriverLocal
 }
 
 func (s *LocalFileStorage) Open(ctx context.Context, key string) (FileReadCloser, error) {

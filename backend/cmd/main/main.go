@@ -95,7 +95,19 @@ func main() {
 	machineClientService := service.NewMachineClientService(pool, queries, cfg.M2MRequiredScopePrefix, auditService)
 	notificationService := service.NewNotificationService(queries, auditService)
 	tenantSettingsService := service.NewTenantSettingsService(queries, auditService, cfg.TenantDefaultFileQuotaBytes)
-	fileStorage := service.NewLocalFileStorage(cfg.FileLocalDir)
+	fileStorage, err := service.NewFileStorage(ctx, service.FileStorageConfig{
+		Driver:            cfg.FileStorageDriver,
+		LocalDir:          cfg.FileLocalDir,
+		S3Endpoint:        cfg.FileS3Endpoint,
+		S3Region:          cfg.FileS3Region,
+		S3Bucket:          cfg.FileS3Bucket,
+		S3AccessKeyID:     cfg.FileS3AccessKeyID,
+		S3SecretAccessKey: cfg.FileS3SecretAccessKey,
+		S3ForcePathStyle:  cfg.FileS3ForcePathStyle,
+	})
+	if err != nil {
+		fatal(logger, "create file storage", err)
+	}
 	fileService := service.NewFileService(pool, queries, fileStorage, tenantSettingsService, auditService, cfg.FileMaxBytes, cfg.FileAllowedMIMETypes, metrics)
 	var openFGAClient service.OpenFGAClient
 	if cfg.OpenFGA.Enabled {

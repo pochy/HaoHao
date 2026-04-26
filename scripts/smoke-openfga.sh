@@ -30,6 +30,11 @@ trap 'rm -f "$OWNER_COOKIE" "$VIEWER_COOKIE" "$EDITOR_COOKIE" "$PUBLIC_COOKIE" "
 command -v psql >/dev/null
 command -v curl >/dev/null
 command -v rg >/dev/null
+if [[ "${RUN_DRIVE_STORAGE_DRIVER_SMOKE:-0}" == "1" || "${RUN_DRIVE_STORAGE_CONSISTENCY_SMOKE:-0}" == "1" ]]; then
+  if [[ "${FILE_STORAGE_DRIVER:-local}" == "seaweedfs_s3" ]]; then
+    command -v aws >/dev/null
+  fi
+fi
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
 INSERT INTO roles (code) VALUES ('todo_user') ON CONFLICT (code) DO NOTHING;
@@ -114,6 +119,44 @@ expect_status() {
   fi
 }
 
+check_drive_storage_object() {
+  local public_id="$1"
+  local expected_driver="${FILE_STORAGE_DRIVER:-local}"
+  local row driver bucket key etag expected_bucket endpoint access_key secret_key
+  row="$(psql "$DATABASE_URL" -At -F '|' -c "SELECT storage_driver, coalesce(storage_bucket, ''), storage_key, coalesce(etag, '') FROM file_objects WHERE public_id = '$public_id'::uuid LIMIT 1")"
+  IFS='|' read -r driver bucket key etag <<< "$row"
+  if [[ "$driver" != "$expected_driver" ]]; then
+    echo "expected storage driver $expected_driver but got $driver" >&2
+    exit 1
+  fi
+  if [[ -z "$key" ]]; then
+    echo "missing storage key for $public_id" >&2
+    exit 1
+  fi
+  if [[ "$key" == *"$OWNER_EMAIL"* || "$key" == *"$TENANT_SLUG"* || "$key" == *"$RUN_ID"* ]]; then
+    echo "storage key includes user-controlled data: $key" >&2
+    exit 1
+  fi
+  if [[ "$expected_driver" == "seaweedfs_s3" ]]; then
+    expected_bucket="${FILE_S3_BUCKET:-${SEAWEEDFS_BUCKET:-}}"
+    endpoint="${FILE_S3_ENDPOINT:-${SEAWEEDFS_S3_ENDPOINT:-http://127.0.0.1:8333}}"
+    access_key="${FILE_S3_ACCESS_KEY_ID:-${SEAWEEDFS_ACCESS_KEY:-}}"
+    secret_key="${FILE_S3_SECRET_ACCESS_KEY:-${SEAWEEDFS_SECRET_KEY:-}}"
+    if [[ -z "$bucket" || "$bucket" != "$expected_bucket" ]]; then
+      echo "expected storage bucket $expected_bucket but got $bucket" >&2
+      exit 1
+    fi
+    if [[ -z "$etag" ]]; then
+      echo "missing storage etag for $public_id" >&2
+      exit 1
+    fi
+    AWS_ACCESS_KEY_ID="$access_key" \
+    AWS_SECRET_ACCESS_KEY="$secret_key" \
+    AWS_DEFAULT_REGION="${FILE_S3_REGION:-us-east-1}" \
+    aws --endpoint-url "$endpoint" s3api head-object --bucket "$bucket" --key "$key" >/dev/null
+  fi
+}
+
 owner_csrf="$(login "$OWNER_EMAIL" "$OWNER_COOKIE")"
 viewer_csrf="$(login "$VIEWER_EMAIL" "$VIEWER_COOKIE")"
 editor_csrf="$(login "$EDITOR_EMAIL" "$EDITOR_COOKIE")"
@@ -139,6 +182,9 @@ file_id="$(printf '%s' "$upload_response" | extract_json_string publicId)"
 if [[ -z "$file_id" ]]; then
   echo "missing file id: $upload_response" >&2
   exit 1
+fi
+if [[ "${RUN_DRIVE_STORAGE_DRIVER_SMOKE:-0}" == "1" || "${RUN_DRIVE_STORAGE_CONSISTENCY_SMOKE:-0}" == "1" ]]; then
+  check_drive_storage_object "$file_id"
 fi
 
 expect_status 403 -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" "$BASE_URL/api/v1/drive/files/$file_id/content"
@@ -180,6 +226,9 @@ curl -fsS -c "$EDITOR_COOKIE" -b "$EDITOR_COOKIE" \
   -X PUT \
   -F "file=@$OVERWRITE_FILE;filename=$RUN_ID-overwrite.txt;type=text/plain" \
   "$BASE_URL/api/v1/drive/files/$file_id/content" | rg "\"originalFilename\":\"$RUN_ID-overwrite.txt\"" >/dev/null
+if [[ "${RUN_DRIVE_STORAGE_DRIVER_SMOKE:-0}" == "1" || "${RUN_DRIVE_STORAGE_CONSISTENCY_SMOKE:-0}" == "1" ]]; then
+  check_drive_storage_object "$file_id"
+fi
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
 UPDATE file_objects

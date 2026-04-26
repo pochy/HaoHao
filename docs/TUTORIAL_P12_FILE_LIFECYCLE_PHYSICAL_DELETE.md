@@ -25,7 +25,7 @@ P12 では、この残りを閉じます。retention を過ぎた soft-deleted f
 - `make gen` が sqlc / OpenAPI / frontend SDK を更新できる
 - `make binary` で frontend embed single binary を作れる
 
-この P12 では、S3 / GCS などの object storage driver は扱いません。まずは `storage_driver = 'local'` の file body だけを purge 対象にします。
+この P12 の初期実装は `storage_driver = 'local'` の file body を対象にします。SeaweedFS 導入後は同じ purge path が実行中 storage driver に合わせて `local` または `seaweedfs_s3` を claim します。
 
 ## 完成条件
 
@@ -240,10 +240,10 @@ down migration は P12 で追加した column と index だけを戻します。
 
 #### ファイル: `db/queries/file_objects.sql`
 
-既存 query の下に、deleted local file を claim する query を追加します。
+既存 query の下に、実行中 storage driver で削除できる deleted file を claim する query を追加します。
 
 ```sql
--- name: ClaimDeletedLocalFileObjectsForPurge :many
+-- name: ClaimDeletedFileObjectsForPurge :many
 UPDATE file_objects
 SET
     purge_locked_at = now(),
@@ -253,7 +253,7 @@ SET
 WHERE id IN (
     SELECT id
     FROM file_objects
-    WHERE storage_driver = 'local'
+    WHERE storage_driver = ANY(sqlc.arg(storage_drivers)::text[])
       AND status = 'deleted'
       AND deleted_at IS NOT NULL
       AND deleted_at < sqlc.arg(cutoff)
@@ -356,7 +356,7 @@ make sqlc
 
 `backend/internal/db/file_objects.sql.go` に次の method が生成されます。
 
-- `ClaimDeletedLocalFileObjectsForPurge`
+- `ClaimDeletedFileObjectsForPurge`
 - `MarkFileObjectBodyPurged`
 - `MarkFileObjectPurgeFailed`
 
@@ -406,11 +406,12 @@ func (s *FileService) PurgeDeletedBodies(ctx context.Context, input FilePurgeInp
         return FilePurgeResult{}, fmt.Errorf("%w: purge cutoff is required", ErrInvalidFileInput)
     }
 
-    rows, err := s.queries.ClaimDeletedLocalFileObjectsForPurge(ctx, db.ClaimDeletedLocalFileObjectsForPurgeParams{
-        WorkerID:    pgtype.Text{String: strings.TrimSpace(input.WorkerID), Valid: strings.TrimSpace(input.WorkerID) != ""},
-        Cutoff:      pgtype.Timestamptz{Time: input.Cutoff, Valid: true},
-        LockTimeout: input.LockTimeout,
-        BatchSize:   input.BatchSize,
+    rows, err := s.queries.ClaimDeletedFileObjectsForPurge(ctx, db.ClaimDeletedFileObjectsForPurgeParams{
+        WorkerID:       strings.TrimSpace(input.WorkerID),
+        StorageDrivers: []string{FileStorageDriverName(s.storage)},
+        Cutoff:         pgtype.Timestamptz{Time: input.Cutoff, Valid: true},
+        LockTimeout:    pgtype.Interval{Microseconds: input.LockTimeout.Microseconds(), Valid: true},
+        BatchSize:      input.BatchSize,
     })
     if err != nil {
         return FilePurgeResult{}, fmt.Errorf("claim deleted file objects: %w", err)
@@ -1243,7 +1244,7 @@ haohao_data_lifecycle_items_total{app_version="0.1.0",kind="file_objects_body_pu
 見る場所:
 
 ```bash
-rg -n "PurgeDeletedBodies|ClaimDeletedLocalFileObjectsForPurge|FilePurge" backend db
+rg -n "PurgeDeletedBodies|ClaimDeletedFileObjectsForPurge|FilePurge" backend db
 ```
 
 確認すること:
@@ -1251,7 +1252,7 @@ rg -n "PurgeDeletedBodies|ClaimDeletedLocalFileObjectsForPurge|FilePurge" backen
 - `DataLifecycleJob` に `fileService` を渡している
 - `DATA_LIFECYCLE_ENABLED=true` で起動している
 - `FILE_DELETED_RETENTION` を過ぎている
-- `storage_driver = 'local'` になっている
+- `storage_driver` が起動中の `FILE_STORAGE_DRIVER` と一致している
 - `purged_at IS NULL` の row が残っている
 - `purge_locked_at` が stale lock timeout 内で止まっていない
 

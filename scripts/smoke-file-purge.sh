@@ -6,6 +6,13 @@ PORT="${SMOKE_FILE_PURGE_HTTP_PORT:-18081}"
 BASE_URL="${SMOKE_FILE_PURGE_BASE_URL:-http://127.0.0.1:${PORT}}"
 DATABASE_URL="${DATABASE_URL:-postgres://haohao:haohao@127.0.0.1:5432/haohao?sslmode=disable}"
 REDIS_ADDR="${REDIS_ADDR:-127.0.0.1:6379}"
+STORAGE_DRIVER="${FILE_STORAGE_DRIVER:-local}"
+FILE_S3_ENDPOINT="${FILE_S3_ENDPOINT:-${SEAWEEDFS_S3_ENDPOINT:-http://127.0.0.1:8333}}"
+FILE_S3_REGION="${FILE_S3_REGION:-us-east-1}"
+FILE_S3_BUCKET="${FILE_S3_BUCKET:-${SEAWEEDFS_BUCKET:-haohao-drive-dev}}"
+FILE_S3_ACCESS_KEY_ID="${FILE_S3_ACCESS_KEY_ID:-${SEAWEEDFS_ACCESS_KEY:-haohao}}"
+FILE_S3_SECRET_ACCESS_KEY="${FILE_S3_SECRET_ACCESS_KEY:-${SEAWEEDFS_SECRET_KEY:-haohao-secret}}"
+FILE_S3_FORCE_PATH_STYLE="${FILE_S3_FORCE_PATH_STYLE:-true}"
 FILE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/haohao-file-purge-files.XXXXXX")"
 LOG_FILE="$(mktemp "${TMPDIR:-/tmp}/haohao-file-purge-server.XXXXXX")"
 COOKIE_JAR="$(mktemp)"
@@ -35,6 +42,17 @@ if [[ ! -x ./bin/haohao ]]; then
   echo "bin/haohao is missing. Run make binary first." >&2
   exit 1
 fi
+if [[ "$STORAGE_DRIVER" == "seaweedfs_s3" ]]; then
+  command -v aws >/dev/null
+  AWS_ACCESS_KEY_ID="$FILE_S3_ACCESS_KEY_ID" \
+  AWS_SECRET_ACCESS_KEY="$FILE_S3_SECRET_ACCESS_KEY" \
+  AWS_DEFAULT_REGION="$FILE_S3_REGION" \
+  aws --endpoint-url "$FILE_S3_ENDPOINT" s3api head-bucket --bucket "$FILE_S3_BUCKET" >/dev/null 2>&1 || \
+  AWS_ACCESS_KEY_ID="$FILE_S3_ACCESS_KEY_ID" \
+  AWS_SECRET_ACCESS_KEY="$FILE_S3_SECRET_ACCESS_KEY" \
+  AWS_DEFAULT_REGION="$FILE_S3_REGION" \
+  aws --endpoint-url "$FILE_S3_ENDPOINT" s3 mb "s3://$FILE_S3_BUCKET" >/dev/null
+fi
 
 for attempt in {1..60}; do
   if psql "$DATABASE_URL" -c 'select 1' >/dev/null 2>&1; then
@@ -60,7 +78,14 @@ ENABLE_LOCAL_PASSWORD_LOGIN=true \
 COOKIE_SECURE=false \
 DOCS_AUTH_REQUIRED=false \
 RATE_LIMIT_ENABLED=false \
+FILE_STORAGE_DRIVER="$STORAGE_DRIVER" \
 FILE_LOCAL_DIR="$FILE_DIR" \
+FILE_S3_ENDPOINT="$FILE_S3_ENDPOINT" \
+FILE_S3_REGION="$FILE_S3_REGION" \
+FILE_S3_BUCKET="$FILE_S3_BUCKET" \
+FILE_S3_ACCESS_KEY_ID="$FILE_S3_ACCESS_KEY_ID" \
+FILE_S3_SECRET_ACCESS_KEY="$FILE_S3_SECRET_ACCESS_KEY" \
+FILE_S3_FORCE_PATH_STYLE="$FILE_S3_FORCE_PATH_STYLE" \
 OUTBOX_WORKER_INTERVAL=200ms \
 OUTBOX_WORKER_TIMEOUT=2s \
 DATA_LIFECYCLE_ENABLED=true \
@@ -134,11 +159,27 @@ if [[ -z "$file_public_id" ]]; then
   exit 1
 fi
 
-storage_key="$(psql "$DATABASE_URL" -tA -c "SELECT storage_key FROM file_objects WHERE public_id = '$file_public_id'")"
+storage_row="$(psql "$DATABASE_URL" -tA -F '|' -c "SELECT storage_driver, coalesce(storage_bucket, ''), storage_key FROM file_objects WHERE public_id = '$file_public_id'")"
+IFS='|' read -r storage_driver storage_bucket storage_key <<< "$storage_row"
 file_path="$FILE_DIR/$storage_key"
-if [[ -z "$storage_key" || ! -f "$file_path" ]]; then
-  echo "expected uploaded file body at $file_path" >&2
+if [[ "$storage_driver" != "$STORAGE_DRIVER" || -z "$storage_key" ]]; then
+  echo "unexpected storage metadata: driver=$storage_driver key=$storage_key" >&2
   exit 1
+fi
+if [[ "$STORAGE_DRIVER" == "seaweedfs_s3" ]]; then
+  if [[ "$storage_bucket" != "$FILE_S3_BUCKET" ]]; then
+    echo "unexpected storage bucket: $storage_bucket" >&2
+    exit 1
+  fi
+  AWS_ACCESS_KEY_ID="$FILE_S3_ACCESS_KEY_ID" \
+  AWS_SECRET_ACCESS_KEY="$FILE_S3_SECRET_ACCESS_KEY" \
+  AWS_DEFAULT_REGION="$FILE_S3_REGION" \
+  aws --endpoint-url "$FILE_S3_ENDPOINT" s3api head-object --bucket "$storage_bucket" --key "$storage_key" >/dev/null
+else
+  if [[ ! -f "$file_path" ]]; then
+    echo "expected uploaded file body at $file_path" >&2
+    exit 1
+  fi
 fi
 
 curl -sS -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
@@ -155,9 +196,19 @@ fi
 purged=0
 for _ in {1..100}; do
   purged_at="$(psql "$DATABASE_URL" -tA -c "SELECT COALESCE(purged_at::text, '') FROM file_objects WHERE public_id = '$file_public_id'")"
-  if [[ -n "$purged_at" && ! -e "$file_path" ]]; then
-    purged=1
-    break
+  if [[ -n "$purged_at" ]]; then
+    if [[ "$STORAGE_DRIVER" == "seaweedfs_s3" ]]; then
+      if ! AWS_ACCESS_KEY_ID="$FILE_S3_ACCESS_KEY_ID" \
+        AWS_SECRET_ACCESS_KEY="$FILE_S3_SECRET_ACCESS_KEY" \
+        AWS_DEFAULT_REGION="$FILE_S3_REGION" \
+        aws --endpoint-url "$FILE_S3_ENDPOINT" s3api head-object --bucket "$storage_bucket" --key "$storage_key" >/dev/null 2>&1; then
+        purged=1
+        break
+      fi
+    elif [[ ! -e "$file_path" ]]; then
+      purged=1
+      break
+    fi
   fi
   sleep 0.25
 done

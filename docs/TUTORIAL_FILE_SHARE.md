@@ -31,6 +31,8 @@
 
 未実装の外部 provider 連携は、最初から本物の vendor API に直結しません。Office、eDiscovery、HSM、on-prem gateway、AI、marketplace、object storage、virus scan などは、local fake / interface / policy guard を先に作り、production provider は別 PR で差し替えます。
 
+SeaweedFS を file body storage として採用する場合は、`docs/TUTORIAL_SEAWEEDFS_DRIVE_PLAN.md` をこのチュートリアルの storage provider track として扱います。PostgreSQL は引き続き metadata の正本、OpenFGA は authorization の正本、SeaweedFS は S3-compatible object body store です。
+
 ## 完成条件
 
 ### MVP の完成条件
@@ -85,7 +87,7 @@ MVP では、`FILE_SHARE_SPEC.md` の「21. MVPで実装すべき機能」を br
 | 13. 組織ポリシー | tenant drive policy、share policy、download policy | `docs/TUTORIAL_OPENFGA_P2_DB_SQLC.md`, `docs/TUTORIAL_OPENFGA_P6_REMAINING_TASKS.md` |
 | 14. 通知 | invitation、notification、outbox | `docs/TUTORIAL_P7_WEB_SERVICE_COMMON.md`, `docs/TUTORIAL_OPENFGA_P6_REMAINING_TASKS.md` |
 | 15. コメント・共同作業 | lock、edit session、presence、collaboration provider | `docs/TUTORIAL_OPENFGA_P8_DRIVE_PRODUCT_EXPANSION.md` |
-| 16. ストレージ管理 | local / object storage driver、quota、storage consistency | `docs/TUTORIAL_OPENFGA_P7_ADVANCED_DRIVE_OPERATIONS.md` |
+| 16. ストレージ管理 | local / SeaweedFS S3-compatible object storage driver、quota、storage consistency | `docs/TUTORIAL_OPENFGA_P7_ADVANCED_DRIVE_OPERATIONS.md`, `docs/TUTORIAL_SEAWEEDFS_DRIVE_PLAN.md` |
 | 17. セキュリティ | fail-closed、DLP、CMK、E2EE、zero-knowledge guard | `docs/TUTORIAL_OPENFGA_P8_DRIVE_PRODUCT_EXPANSION.md`, `docs/TUTORIAL_OPENFGA_P9_DRIVE_PRODUCT_COMPLETION.md` |
 | 18. 管理者機能 | tenant admin UI、break-glass、legal discovery | `docs/TUTORIAL_OPENFGA_P6_REMAINING_TASKS.md`, `docs/TUTORIAL_OPENFGA_P8_DRIVE_PRODUCT_EXPANSION.md` |
 | 19. API要件 | `/api/v1/drive/...`、public link、external Drive surface | `docs/TUTORIAL_OPENFGA_P4_API_AUDIT_SMOKE.md`, `docs/TUTORIAL_OPENFGA_P7_ADVANCED_DRIVE_OPERATIONS.md` |

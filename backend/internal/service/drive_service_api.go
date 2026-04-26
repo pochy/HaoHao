@@ -574,7 +574,7 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 		return DriveFile{}, fmt.Errorf("%w: filename is required", ErrDriveInvalidInput)
 	}
 	contentType := normalizeContentType(input.ContentType)
-	storageKey := fmt.Sprintf("tenants/%d/drive/%s", input.TenantID, uuid.NewString())
+	storageKey := newDriveStorageKey(input.TenantID, file.WorkspacePublicID, 1)
 	maxBytes := int64(10 * 1024 * 1024)
 	if s.files != nil && s.files.maxBytes > 0 {
 		maxBytes = s.files.maxBytes
@@ -586,7 +586,9 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 	if policy.MaxFileSizeBytes > 0 && policy.MaxFileSizeBytes < maxBytes {
 		maxBytes = policy.MaxFileSizeBytes
 	}
-	stored, err := s.storage.Save(ctx, storageKey, input.Body, maxBytes)
+	stored, err := s.storage.PutObject(ctx, storageKey, input.Body, maxBytes, ObjectPutOptions{
+		ContentType: contentType,
+	})
 	if err != nil {
 		if errors.Is(err, ErrFileTooLarge) {
 			return DriveFile{}, ErrInvalidFileInput
@@ -611,8 +613,10 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 		ContentType:   contentType,
 		ByteSize:      stored.Size,
 		Sha256Hex:     stored.SHA256Hex,
-		StorageDriver: "local",
+		StorageDriver: storageDriverForStoredFile(s.storage, stored),
 		StorageKey:    stored.Key,
+		StorageBucket: pgText(stored.Bucket),
+		Etag:          stored.ETag,
 		ScanStatus:    driveInitialScanStatus(policy),
 		ID:            file.ID,
 		TenantID:      input.TenantID,

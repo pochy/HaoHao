@@ -190,8 +190,10 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 	if policy.MaxFileSizeBytes > 0 && policy.MaxFileSizeBytes < maxBytes {
 		maxBytes = policy.MaxFileSizeBytes
 	}
-	storageKey := fmt.Sprintf("tenants/%d/drive/%s", input.TenantID, uuid.NewString())
-	stored, err := s.storage.Save(ctx, storageKey, input.Body, maxBytes)
+	storageKey := newDriveStorageKey(input.TenantID, workspace.PublicID, 1)
+	stored, err := s.storage.PutObject(ctx, storageKey, input.Body, maxBytes, ObjectPutOptions{
+		ContentType: contentType,
+	})
 	if err != nil {
 		if errors.Is(err, ErrFileTooLarge) {
 			return DriveFile{}, ErrInvalidFileInput
@@ -231,8 +233,10 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 		ContentType:        contentType,
 		ByteSize:           stored.Size,
 		Sha256Hex:          stored.SHA256Hex,
-		StorageDriver:      "local",
+		StorageDriver:      storageDriverForStoredFile(s.storage, stored),
 		StorageKey:         stored.Key,
+		StorageBucket:      pgText(stored.Bucket),
+		Etag:               stored.ETag,
 		ScanStatus:         driveInitialScanStatus(policy),
 		InheritanceEnabled: true,
 	})
@@ -995,6 +999,17 @@ func normalizeContentType(value string) string {
 		return "application/octet-stream"
 	}
 	return contentType
+}
+
+func newDriveStorageKey(tenantID int64, workspacePublicID string, revision int) string {
+	if revision <= 0 {
+		revision = 1
+	}
+	workspaceSegment := strings.TrimSpace(workspacePublicID)
+	if workspaceSegment == "" {
+		workspaceSegment = "default"
+	}
+	return fmt.Sprintf("tenants/%d/workspaces/%s/files/%s/v%d/body", tenantID, workspaceSegment, uuid.NewString(), revision)
 }
 
 func normalizeDriveRole(role DriveRole) DriveRole {

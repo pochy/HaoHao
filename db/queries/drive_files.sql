@@ -14,6 +14,8 @@ INSERT INTO file_objects (
     content_sha256,
     storage_driver,
     storage_key,
+    storage_bucket,
+    etag,
     scan_status,
     inheritance_enabled
 ) VALUES (
@@ -31,6 +33,8 @@ INSERT INTO file_objects (
     NULLIF(sqlc.arg(sha256_hex), ''),
     sqlc.arg(storage_driver),
     sqlc.arg(storage_key),
+    sqlc.narg(storage_bucket),
+    NULLIF(sqlc.arg(etag)::text, ''),
     sqlc.arg(scan_status),
     sqlc.arg(inheritance_enabled)
 )
@@ -117,6 +121,8 @@ SET
     sha256_hex = sqlc.arg(sha256_hex),
     storage_driver = sqlc.arg(storage_driver),
     storage_key = sqlc.arg(storage_key),
+    storage_bucket = sqlc.narg(storage_bucket),
+    etag = NULLIF(sqlc.arg(etag)::text, ''),
     content_sha256 = NULLIF(sqlc.arg(sha256_hex), ''),
     scan_status = sqlc.arg(scan_status),
     scan_reason = NULL,

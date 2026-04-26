@@ -14,6 +14,18 @@ up:
 down:
 	$(DOCKER_COMPOSE) down
 
+seaweedfs-up:
+	$(DOCKER_COMPOSE) --profile seaweedfs up -d seaweedfs
+
+seaweedfs-config:
+	$(DOCKER_COMPOSE) --profile seaweedfs config
+
+seaweedfs-down:
+	$(DOCKER_COMPOSE) --profile seaweedfs stop seaweedfs
+
+seaweedfs-logs:
+	$(DOCKER_COMPOSE) --profile seaweedfs logs -f seaweedfs
+
 zitadel-env:
 	@test -f $(ZITADEL_ENV_FILE) || cp $(ZITADEL_ENV_EXAMPLE) $(ZITADEL_ENV_FILE)
 

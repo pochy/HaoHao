@@ -70,7 +70,30 @@ services:
       timeout: 30s
       retries: 3
 
+  seaweedfs:
+    image: ${SEAWEEDFS_IMAGE:-chrislusf/seaweedfs:latest}
+    container_name: haohao-seaweedfs
+    profiles:
+      - seaweedfs
+    command:
+      - mini
+      - -dir=/data
+    environment:
+      AWS_ACCESS_KEY_ID: ${SEAWEEDFS_ACCESS_KEY:-haohao}
+      AWS_SECRET_ACCESS_KEY: ${SEAWEEDFS_SECRET_KEY:-haohao-secret}
+      S3_ENDPOINT: ${SEAWEEDFS_S3_ENDPOINT:-http://localhost:8333}
+    ports:
+      - "127.0.0.1:9333:9333"
+      - "127.0.0.1:9340:9340"
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:8333:8333"
+      - "127.0.0.1:7333:7333"
+      - "127.0.0.1:23646:23646"
+    volumes:
+      - seaweedfs-data:/data
+
 volumes:
   postgres-data:
   redis-data:
   openfga-postgres-data:
+  seaweedfs-data:

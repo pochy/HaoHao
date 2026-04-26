@@ -513,8 +513,10 @@ func (s *DriveService) SaveEditSessionContent(ctx context.Context, input DriveSa
 	if strings.TrimSpace(input.ContentType) == "" {
 		contentType = "text/plain"
 	}
-	storageKey := fmt.Sprintf("tenants/%d/drive/%s", input.TenantID, uuid.NewString())
-	stored, err := s.storage.Save(ctx, storageKey, strings.NewReader(input.Content), policy.MaxFileSizeBytes)
+	storageKey := newDriveStorageKey(input.TenantID, file.WorkspacePublicID, 1)
+	stored, err := s.storage.PutObject(ctx, storageKey, strings.NewReader(input.Content), policy.MaxFileSizeBytes, ObjectPutOptions{
+		ContentType: contentType,
+	})
 	if err != nil {
 		if errors.Is(err, ErrFileTooLarge) {
 			return DriveSaveEditResult{}, ErrInvalidFileInput
@@ -542,8 +544,10 @@ func (s *DriveService) SaveEditSessionContent(ctx context.Context, input DriveSa
 		ContentType:   contentType,
 		ByteSize:      stored.Size,
 		Sha256Hex:     stored.SHA256Hex,
-		StorageDriver: "local",
+		StorageDriver: storageDriverForStoredFile(s.storage, stored),
 		StorageKey:    stored.Key,
+		StorageBucket: pgText(stored.Bucket),
+		Etag:          stored.ETag,
 		ScanStatus:    driveInitialScanStatus(policy),
 		ID:            file.ID,
 		TenantID:      input.TenantID,

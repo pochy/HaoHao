@@ -128,7 +128,9 @@ func (s *FileService) Upload(ctx context.Context, input FileUploadInput, auditCt
 		return FileObject{}, err
 	}
 	storageKey := fmt.Sprintf("tenants/%d/files/%s", normalized.TenantID, uuid.NewString())
-	stored, err := s.storage.Save(ctx, storageKey, normalized.Body, s.maxBytes)
+	stored, err := s.storage.PutObject(ctx, storageKey, normalized.Body, s.maxBytes, ObjectPutOptions{
+		ContentType: normalized.ContentType,
+	})
 	if err != nil {
 		if errors.Is(err, ErrFileTooLarge) {
 			return FileObject{}, ErrInvalidFileInput
@@ -173,8 +175,10 @@ func (s *FileService) Upload(ctx context.Context, input FileUploadInput, auditCt
 		ContentType:      normalized.ContentType,
 		ByteSize:         stored.Size,
 		Sha256Hex:        stored.SHA256Hex,
-		StorageDriver:    "local",
+		StorageDriver:    storageDriverForStoredFile(s.storage, stored),
 		StorageKey:       stored.Key,
+		StorageBucket:    pgText(stored.Bucket),
+		Etag:             stored.ETag,
 	})
 	if err != nil {
 		_ = s.storage.Delete(ctx, stored.Key)
@@ -337,11 +341,12 @@ func (s *FileService) PurgeDeletedBodies(ctx context.Context, input FilePurgeInp
 		return FilePurgeResult{}, fmt.Errorf("%w: purge cutoff is required", ErrInvalidFileInput)
 	}
 
-	rows, err := s.queries.ClaimDeletedLocalFileObjectsForPurge(ctx, db.ClaimDeletedLocalFileObjectsForPurgeParams{
-		WorkerID:    strings.TrimSpace(input.WorkerID),
-		Cutoff:      pgTimestamp(input.Cutoff),
-		LockTimeout: pgtype.Interval{Microseconds: input.LockTimeout.Microseconds(), Valid: true},
-		BatchSize:   input.BatchSize,
+	rows, err := s.queries.ClaimDeletedFileObjectsForPurge(ctx, db.ClaimDeletedFileObjectsForPurgeParams{
+		WorkerID:       strings.TrimSpace(input.WorkerID),
+		Cutoff:         pgTimestamp(input.Cutoff),
+		LockTimeout:    pgtype.Interval{Microseconds: input.LockTimeout.Microseconds(), Valid: true},
+		BatchSize:      input.BatchSize,
+		StorageDrivers: []string{FileStorageDriverName(s.storage)},
 	})
 	if err != nil {
 		return FilePurgeResult{}, fmt.Errorf("claim deleted file objects: %w", err)
@@ -359,7 +364,7 @@ func (s *FileService) PurgeDeletedBodies(ctx context.Context, input FilePurgeInp
 }
 
 func (s *FileService) purgeDeletedBody(ctx context.Context, row db.FileObject) error {
-	if row.StorageDriver != "local" {
+	if row.StorageDriver != FileStorageDriverName(s.storage) {
 		err := fmt.Errorf("unsupported storage driver for purge")
 		_, _ = s.queries.MarkFileObjectPurgeFailed(ctx, db.MarkFileObjectPurgeFailedParams{
 			ID:        row.ID,

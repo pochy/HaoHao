@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const claimDeletedLocalFileObjectsForPurge = `-- name: ClaimDeletedLocalFileObjectsForPurge :many
+const claimDeletedFileObjectsForPurge = `-- name: ClaimDeletedFileObjectsForPurge :many
 UPDATE file_objects
 SET
     purge_locked_at = now(),
@@ -22,32 +22,34 @@ SET
 WHERE id IN (
     SELECT id
     FROM file_objects
-    WHERE storage_driver = 'local'
+    WHERE storage_driver = ANY($2::text[])
       AND status = 'deleted'
       AND deleted_at IS NOT NULL
-      AND deleted_at < $2::timestamptz
+      AND deleted_at < $3::timestamptz
       AND purged_at IS NULL
       AND (
           purge_locked_at IS NULL
-          OR purge_locked_at < now() - $3::interval
+          OR purge_locked_at < now() - $4::interval
       )
     ORDER BY deleted_at, id
-    LIMIT $4::int
+    LIMIT $5::int
     FOR UPDATE SKIP LOCKED
 )
 RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
 `
 
-type ClaimDeletedLocalFileObjectsForPurgeParams struct {
-	WorkerID    string             `json:"worker_id"`
-	Cutoff      pgtype.Timestamptz `json:"cutoff"`
-	LockTimeout pgtype.Interval    `json:"lock_timeout"`
-	BatchSize   int32              `json:"batch_size"`
+type ClaimDeletedFileObjectsForPurgeParams struct {
+	WorkerID       string             `json:"worker_id"`
+	StorageDrivers []string           `json:"storage_drivers"`
+	Cutoff         pgtype.Timestamptz `json:"cutoff"`
+	LockTimeout    pgtype.Interval    `json:"lock_timeout"`
+	BatchSize      int32              `json:"batch_size"`
 }
 
-func (q *Queries) ClaimDeletedLocalFileObjectsForPurge(ctx context.Context, arg ClaimDeletedLocalFileObjectsForPurgeParams) ([]FileObject, error) {
-	rows, err := q.db.Query(ctx, claimDeletedLocalFileObjectsForPurge,
+func (q *Queries) ClaimDeletedFileObjectsForPurge(ctx context.Context, arg ClaimDeletedFileObjectsForPurgeParams) ([]FileObject, error) {
+	rows, err := q.db.Query(ctx, claimDeletedFileObjectsForPurge,
 		arg.WorkerID,
+		arg.StorageDrivers,
 		arg.Cutoff,
 		arg.LockTimeout,
 		arg.BatchSize,
@@ -134,9 +136,12 @@ INSERT INTO file_objects (
     byte_size,
     sha256_hex,
     storage_driver,
-    storage_key
+    storage_key,
+    storage_bucket,
+    content_sha256,
+    etag
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULLIF($9, ''), NULLIF($13::text, '')
 )
 RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
 `
@@ -153,6 +158,8 @@ type CreateFileObjectParams struct {
 	Sha256Hex        string      `json:"sha256_hex"`
 	StorageDriver    string      `json:"storage_driver"`
 	StorageKey       string      `json:"storage_key"`
+	StorageBucket    pgtype.Text `json:"storage_bucket"`
+	Etag             string      `json:"etag"`
 }
 
 func (q *Queries) CreateFileObject(ctx context.Context, arg CreateFileObjectParams) (FileObject, error) {
@@ -168,6 +175,8 @@ func (q *Queries) CreateFileObject(ctx context.Context, arg CreateFileObjectPara
 		arg.Sha256Hex,
 		arg.StorageDriver,
 		arg.StorageKey,
+		arg.StorageBucket,
+		arg.Etag,
 	)
 	var i FileObject
 	err := row.Scan(

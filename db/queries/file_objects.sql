@@ -10,9 +10,12 @@ INSERT INTO file_objects (
     byte_size,
     sha256_hex,
     storage_driver,
-    storage_key
+    storage_key,
+    storage_bucket,
+    content_sha256,
+    etag
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, sqlc.narg(storage_bucket), NULLIF($9, ''), NULLIF(sqlc.arg(etag)::text, '')
 )
 RETURNING *;
 
@@ -63,7 +66,7 @@ WHERE public_id = $1
   AND deleted_at IS NULL
 RETURNING *;
 
--- name: ClaimDeletedLocalFileObjectsForPurge :many
+-- name: ClaimDeletedFileObjectsForPurge :many
 UPDATE file_objects
 SET
     purge_locked_at = now(),
@@ -73,7 +76,7 @@ SET
 WHERE id IN (
     SELECT id
     FROM file_objects
-    WHERE storage_driver = 'local'
+    WHERE storage_driver = ANY(sqlc.arg(storage_drivers)::text[])
       AND status = 'deleted'
       AND deleted_at IS NOT NULL
       AND deleted_at < sqlc.arg(cutoff)::timestamptz

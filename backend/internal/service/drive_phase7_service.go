@@ -303,8 +303,10 @@ func (s *DriveService) PublicShareLinkOverwriteContentWithVerification(ctx conte
 		filename = file.OriginalFilename
 	}
 	contentType := normalizeContentType(input.ContentType)
-	storageKey := fmt.Sprintf("tenants/%d/drive/%s", link.TenantID, uuid.NewString())
-	stored, err := s.storage.Save(ctx, storageKey, input.Body, policy.MaxFileSizeBytes)
+	storageKey := newDriveStorageKey(link.TenantID, file.WorkspacePublicID, 1)
+	stored, err := s.storage.PutObject(ctx, storageKey, input.Body, policy.MaxFileSizeBytes, ObjectPutOptions{
+		ContentType: contentType,
+	})
 	if err != nil {
 		if errors.Is(err, ErrFileTooLarge) {
 			return DriveFile{}, ErrInvalidFileInput
@@ -341,8 +343,10 @@ func (s *DriveService) PublicShareLinkOverwriteContentWithVerification(ctx conte
 		ContentType:   contentType,
 		ByteSize:      stored.Size,
 		Sha256Hex:     stored.SHA256Hex,
-		StorageDriver: "local",
+		StorageDriver: storageDriverForStoredFile(s.storage, stored),
 		StorageKey:    stored.Key,
+		StorageBucket: pgText(stored.Bucket),
+		Etag:          stored.ETag,
 		ScanStatus:    driveInitialScanStatus(policy),
 		ID:            file.ID,
 		TenantID:      file.TenantID,

@@ -67,7 +67,14 @@ type Config struct {
 	EmailDeliveryMode             string
 	EmailFrom                     string
 	InvitationTTL                 time.Duration
+	FileStorageDriver             string
 	FileLocalDir                  string
+	FileS3Endpoint                string
+	FileS3Region                  string
+	FileS3Bucket                  string
+	FileS3AccessKeyID             string
+	FileS3SecretAccessKey         string
+	FileS3ForcePathStyle          bool
 	FileMaxBytes                  int64
 	FileAllowedMIMETypes          []string
 	RateLimitEnabled              bool
@@ -217,6 +224,14 @@ func Load() (Config, error) {
 	if err := validateOpenFGAConfig(openFGAConfig); err != nil {
 		return Config{}, err
 	}
+	fileStorageDriver := strings.ToLower(strings.TrimSpace(getEnv("FILE_STORAGE_DRIVER", "local")))
+	fileS3Endpoint := strings.TrimRight(strings.TrimSpace(getEnv("FILE_S3_ENDPOINT", getEnv("SEAWEEDFS_S3_ENDPOINT", ""))), "/")
+	fileS3Bucket := strings.TrimSpace(getEnv("FILE_S3_BUCKET", getEnv("SEAWEEDFS_BUCKET", "")))
+	fileS3AccessKeyID := strings.TrimSpace(getEnv("FILE_S3_ACCESS_KEY_ID", getEnv("SEAWEEDFS_ACCESS_KEY", "")))
+	fileS3SecretAccessKey := strings.TrimSpace(getEnv("FILE_S3_SECRET_ACCESS_KEY", getEnv("SEAWEEDFS_SECRET_KEY", "")))
+	if err := validateFileStorageConfig(fileStorageDriver, fileS3Endpoint, fileS3Bucket, fileS3AccessKeyID, fileS3SecretAccessKey); err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		AppName:                       getEnv("APP_NAME", "HaoHao API"),
@@ -277,7 +292,14 @@ func Load() (Config, error) {
 		EmailDeliveryMode:             strings.ToLower(strings.TrimSpace(getEnv("EMAIL_DELIVERY_MODE", "log"))),
 		EmailFrom:                     getEnv("EMAIL_FROM", "no-reply@example.com"),
 		InvitationTTL:                 invitationTTL,
+		FileStorageDriver:             fileStorageDriver,
 		FileLocalDir:                  getEnv("FILE_LOCAL_DIR", ".data/files"),
+		FileS3Endpoint:                fileS3Endpoint,
+		FileS3Region:                  strings.TrimSpace(getEnv("FILE_S3_REGION", "us-east-1")),
+		FileS3Bucket:                  fileS3Bucket,
+		FileS3AccessKeyID:             fileS3AccessKeyID,
+		FileS3SecretAccessKey:         fileS3SecretAccessKey,
+		FileS3ForcePathStyle:          getEnvBool("FILE_S3_FORCE_PATH_STYLE", true),
 		FileMaxBytes:                  positiveInt64(getEnvInt64("FILE_MAX_BYTES", 10485760), 10485760),
 		FileAllowedMIMETypes:          getEnvCSV("FILE_ALLOWED_MIME_TYPES"),
 		RateLimitEnabled:              getEnvBool("RATE_LIMIT_ENABLED", true),
@@ -329,6 +351,29 @@ func validateOpenFGAConfig(cfg OpenFGAConfig) error {
 	}
 
 	return nil
+}
+
+func validateFileStorageConfig(driver, endpoint, bucket, accessKeyID, secretAccessKey string) error {
+	switch driver {
+	case "", "local":
+		return nil
+	case "seaweedfs_s3":
+		if endpoint == "" {
+			return fmt.Errorf("FILE_S3_ENDPOINT is required when FILE_STORAGE_DRIVER=seaweedfs_s3")
+		}
+		if bucket == "" {
+			return fmt.Errorf("FILE_S3_BUCKET is required when FILE_STORAGE_DRIVER=seaweedfs_s3")
+		}
+		if accessKeyID == "" {
+			return fmt.Errorf("FILE_S3_ACCESS_KEY_ID is required when FILE_STORAGE_DRIVER=seaweedfs_s3")
+		}
+		if secretAccessKey == "" {
+			return fmt.Errorf("FILE_S3_SECRET_ACCESS_KEY is required when FILE_STORAGE_DRIVER=seaweedfs_s3")
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported FILE_STORAGE_DRIVER %q", driver)
+	}
 }
 
 func getEnv(key, fallback string) string {
