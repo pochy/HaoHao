@@ -129,6 +129,7 @@ func (s *DriveService) CreateFolder(ctx context.Context, input DriveCreateFolder
 		s.auditFailed(ctx, actor, "drive.folder.create", "drive_folder", folder.PublicID, err, auditCtx)
 		return DriveFolder{}, err
 	}
+	s.recordDriveActivityBestEffort(ctx, actor, folder.ResourceRef(), "updated", map[string]any{"name": folder.Name, "operation": "created"})
 	s.recordDriveSyncEventBestEffort(ctx, folder.ResourceRef(), "folder.created", "", map[string]any{"name": folder.Name})
 	return folder, nil
 }
@@ -266,6 +267,8 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 		s.auditFailed(ctx, actor, "drive.file.create", "drive_file", file.PublicID, err, auditCtx)
 		return DriveFile{}, err
 	}
+	s.recordDriveActivityBestEffort(ctx, actor, file.ResourceRef(), "uploaded", map[string]any{"filename": file.OriginalFilename, "byteSize": file.ByteSize})
+	s.recordDriveFilePreviewStateBestEffort(ctx, file)
 	s.indexDriveFileBestEffort(ctx, file, "file_created")
 	s.recordDriveSyncEventBestEffort(ctx, file.ResourceRef(), "file.created", file.SHA256Hex, map[string]any{"filename": file.OriginalFilename})
 	return file, nil
@@ -329,6 +332,10 @@ func (s *DriveService) CreateShare(ctx context.Context, input DriveCreateShareIn
 		s.auditFailed(ctx, actor, "drive.share.create", "drive_share", share.PublicID, err, auditCtx)
 		return DriveShare{}, err
 	}
+	s.recordDriveActivityBestEffort(ctx, actor, share.Resource, "shared", map[string]any{
+		"subjectType": share.SubjectType,
+		"role":        share.Role,
+	})
 	return share, nil
 }
 
@@ -382,6 +389,7 @@ func (s *DriveService) RevokeShare(ctx context.Context, input DriveRevokeShareIn
 		"role":         share.Role,
 		"subjectType":  share.SubjectType,
 	})
+	s.recordDriveActivityBestEffort(ctx, actor, share.Resource, "unshared", map[string]any{"sharePublicId": share.PublicID})
 	return nil
 }
 

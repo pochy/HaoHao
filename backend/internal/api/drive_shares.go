@@ -33,6 +33,10 @@ type CreateDriveShareBody struct {
 	Role            string `json:"role" enum:"owner,editor,viewer"`
 }
 
+type UpdateDriveShareBody struct {
+	Role string `json:"role" enum:"editor,viewer"`
+}
+
 type CreateDriveFileShareInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
 	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
@@ -54,11 +58,27 @@ type DeleteDriveFileShareInput struct {
 	SharePublicID string      `path:"sharePublicId"`
 }
 
+type UpdateDriveFileShareInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
+	FilePublicID  string      `path:"filePublicId"`
+	SharePublicID string      `path:"sharePublicId"`
+	Body          UpdateDriveShareBody
+}
+
 type DeleteDriveFolderShareInput struct {
 	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
 	CSRFToken      string      `header:"X-CSRF-Token" required:"true"`
 	FolderPublicID string      `path:"folderPublicId"`
 	SharePublicID  string      `path:"sharePublicId"`
+}
+
+type UpdateDriveFolderShareInput struct {
+	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken      string      `header:"X-CSRF-Token" required:"true"`
+	FolderPublicID string      `path:"folderPublicId"`
+	SharePublicID  string      `path:"sharePublicId"`
+	Body           UpdateDriveShareBody
 }
 
 func registerDriveShareRoutes(api huma.API, deps Dependencies) {
@@ -145,6 +165,56 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 			SubjectType:     service.DriveShareSubjectType(input.Body.SubjectType),
 			SubjectPublicID: input.Body.SubjectPublicID,
 			Role:            service.DriveRole(input.Body.Role),
+		}, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		return &DriveShareOutput{Body: toDriveShareBody(share)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "updateDriveFileShare",
+		Method:      http.MethodPatch,
+		Path:        "/api/v1/drive/files/{filePublicId}/shares/{sharePublicId}",
+		Summary:     "Drive file share role を更新する",
+		Tags:        []string{"drive"},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *UpdateDriveFileShareInput) (*DriveShareOutput, error) {
+		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		share, err := deps.DriveService.UpdateShareRole(ctx, service.DriveUpdateShareInput{
+			TenantID:    tenant.ID,
+			ActorUserID: current.User.ID,
+			Resource:    service.DriveResourceRef{Type: service.DriveResourceTypeFile, PublicID: input.FilePublicID, TenantID: tenant.ID},
+			ShareID:     input.SharePublicID,
+			Role:        service.DriveRole(input.Body.Role),
+		}, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		return &DriveShareOutput{Body: toDriveShareBody(share)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "updateDriveFolderShare",
+		Method:      http.MethodPatch,
+		Path:        "/api/v1/drive/folders/{folderPublicId}/shares/{sharePublicId}",
+		Summary:     "Drive folder share role を更新する",
+		Tags:        []string{"drive"},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *UpdateDriveFolderShareInput) (*DriveShareOutput, error) {
+		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		share, err := deps.DriveService.UpdateShareRole(ctx, service.DriveUpdateShareInput{
+			TenantID:    tenant.ID,
+			ActorUserID: current.User.ID,
+			Resource:    service.DriveResourceRef{Type: service.DriveResourceTypeFolder, PublicID: input.FolderPublicID, TenantID: tenant.ID},
+			ShareID:     input.SharePublicID,
+			Role:        service.DriveRole(input.Body.Role),
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toDriveHTTPError(err)

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptDriveOfficeWebhookData, AcceptDriveOfficeWebhookErrors, AcceptDriveOfficeWebhookResponses, AcceptDriveShareInvitationData, AcceptDriveShareInvitationErrors, AcceptDriveShareInvitationResponses, AcceptTenantInvitationData, AcceptTenantInvitationErrors, AcceptTenantInvitationResponses, AddDriveCleanRoomParticipantData, AddDriveCleanRoomParticipantErrors, AddDriveCleanRoomParticipantResponses, AddDriveGroupMemberData, AddDriveGroupMemberErrors, AddDriveGroupMemberResponses, AddDriveLegalCaseFileData, AddDriveLegalCaseFileErrors, AddDriveLegalCaseFileResponses, ApproveDriveEDiscoveryExportData, ApproveDriveEDiscoveryExportErrors, ApproveDriveEDiscoveryExportResponses, ApproveDriveMarketplaceInstallationData, ApproveDriveMarketplaceInstallationErrors, ApproveDriveMarketplaceInstallationResponses, ApproveTenantAdminDriveShareApprovalData, ApproveTenantAdminDriveShareApprovalErrors, ApproveTenantAdminDriveShareApprovalResponses, BindDriveGatewayFileData, BindDriveGatewayFileErrors, BindDriveGatewayFileResponses, BindDriveHsmKeyData, BindDriveHsmKeyErrors, BindDriveHsmKeyResponses, CheckDriveMarketplaceScopeData, CheckDriveMarketplaceScopeErrors, CheckDriveMarketplaceScopeResponses, CheckTenantAdminDriveOperationsDriftData, CheckTenantAdminDriveOperationsDriftErrors, CheckTenantAdminDriveOperationsDriftResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateCustomerSignalData, CreateCustomerSignalErrors, CreateCustomerSignalImportData, CreateCustomerSignalImportErrors, CreateCustomerSignalImportResponses, CreateCustomerSignalResponses, CreateCustomerSignalSavedFilterData, CreateCustomerSignalSavedFilterErrors, CreateCustomerSignalSavedFilterResponses, CreateDriveAiJobData, CreateDriveAiJobErrors, CreateDriveAiJobResponses, CreateDriveCleanRoomData, CreateDriveCleanRoomErrors, CreateDriveCleanRoomResponses, CreateDriveE2EeEnvelopeData, CreateDriveE2EeEnvelopeErrors, CreateDriveE2EeEnvelopeResponses, CreateDriveE2EeFileKeyData, CreateDriveE2EeFileKeyErrors, CreateDriveE2EeFileKeyResponses, CreateDriveE2EeUserKeyData, CreateDriveE2EeUserKeyErrors, CreateDriveE2EeUserKeyResponses, CreateDriveEDiscoveryConnectionData, CreateDriveEDiscoveryConnectionErrors, CreateDriveEDiscoveryConnectionResponses, CreateDriveFileShareData, CreateDriveFileShareErrors, CreateDriveFileShareInvitationData, CreateDriveFileShareInvitationErrors, CreateDriveFileShareInvitationResponses, CreateDriveFileShareLinkData, CreateDriveFileShareLinkErrors, CreateDriveFileShareLinkResponses, CreateDriveFileShareResponses, CreateDriveFolderData, CreateDriveFolderErrors, CreateDriveFolderResponses, CreateDriveFolderShareData, CreateDriveFolderShareErrors, CreateDriveFolderShareInvitationData, CreateDriveFolderShareInvitationErrors, CreateDriveFolderShareInvitationResponses, CreateDriveFolderShareLinkData, CreateDriveFolderShareLinkErrors, CreateDriveFolderShareLinkResponses, CreateDriveFolderShareResponses, CreateDriveGroupData, CreateDriveGroupErrors, CreateDriveGroupResponses, CreateDriveHsmDeploymentData, CreateDriveHsmDeploymentErrors, CreateDriveHsmDeploymentResponses, CreateDriveLegalCaseData, CreateDriveLegalCaseErrors, CreateDriveLegalCaseResponses, CreateDriveLegalExportData, CreateDriveLegalExportErrors, CreateDriveLegalExportResponses, CreateDriveOfficeSessionData, CreateDriveOfficeSessionErrors, CreateDriveOfficeSessionResponses, CreateDriveWorkspaceData, CreateDriveWorkspaceErrors, CreateDriveWorkspaceResponses, CreateMachineClientData, CreateMachineClientErrors, CreateMachineClientResponses, CreateTenantAdminTenantData, CreateTenantAdminTenantErrors, CreateTenantAdminTenantResponses, CreateTenantDataExportData, CreateTenantDataExportErrors, CreateTenantDataExportResponses, CreateTenantInvitationData, CreateTenantInvitationErrors, CreateTenantInvitationResponses, CreateTodoData, CreateTodoErrors, CreateTodoResponses, CreateWebhookData, CreateWebhookErrors, CreateWebhookResponses, DeactivateTenantAdminTenantData, DeactivateTenantAdminTenantErrors, DeactivateTenantAdminTenantResponses, DeleteCustomerSignalData, DeleteCustomerSignalErrors, DeleteCustomerSignalResponses, DeleteCustomerSignalSavedFilterData, DeleteCustomerSignalSavedFilterErrors, DeleteCustomerSignalSavedFilterResponses, DeleteDriveFileData, DeleteDriveFileErrors, DeleteDriveFileResponses, DeleteDriveFileShareData, DeleteDriveFileShareErrors, DeleteDriveFileShareResponses, DeleteDriveFolderData, DeleteDriveFolderErrors, DeleteDriveFolderResponses, DeleteDriveFolderShareData, DeleteDriveFolderShareErrors, DeleteDriveFolderShareResponses, DeleteDriveGroupData, DeleteDriveGroupErrors, DeleteDriveGroupMemberData, DeleteDriveGroupMemberErrors, DeleteDriveGroupMemberResponses, DeleteDriveGroupResponses, DeleteDriveShareLinkData, DeleteDriveShareLinkErrors, DeleteDriveShareLinkResponses, DeleteDriveWorkspaceData, DeleteDriveWorkspaceErrors, DeleteDriveWorkspaceResponses, DeleteFileData, DeleteFileErrors, DeleteFileResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, DeleteMachineClientData, DeleteMachineClientErrors, DeleteMachineClientResponses, DeleteTodoData, DeleteTodoErrors, DeleteTodoResponses, DeleteWebhookData, DeleteWebhookErrors, DeleteWebhookResponses, DownloadTenantDataExportData, DownloadTenantDataExportErrors, DownloadTenantDataExportResponses, EndDriveEditSessionData, EndDriveEditSessionErrors, EndDriveEditSessionResponses, EndSupportAccessData, EndSupportAccessErrors, EndSupportAccessResponses, EndTenantAdminDriveContentAccessSessionData, EndTenantAdminDriveContentAccessSessionErrors, EndTenantAdminDriveContentAccessSessionResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetCurrentSupportAccessData, GetCurrentSupportAccessErrors, GetCurrentSupportAccessResponses, GetCustomerSignalData, GetCustomerSignalErrors, GetCustomerSignalImportData, GetCustomerSignalImportErrors, GetCustomerSignalImportResponses, GetCustomerSignalResponses, GetDriveAiSummaryData, GetDriveAiSummaryErrors, GetDriveAiSummaryResponses, GetDriveE2EeEnvelopeData, GetDriveE2EeEnvelopeErrors, GetDriveE2EeEnvelopeResponses, GetDriveFileData, GetDriveFileErrors, GetDriveFilePermissionsData, GetDriveFilePermissionsErrors, GetDriveFilePermissionsResponses, GetDriveFileResponses, GetDriveFolderData, GetDriveFolderErrors, GetDriveFolderPermissionsData, GetDriveFolderPermissionsErrors, GetDriveFolderPermissionsResponses, GetDriveFolderResponses, GetDriveGroupData, GetDriveGroupErrors, GetDriveGroupResponses, GetDriveSyncDeltaData, GetDriveSyncDeltaErrors, GetDriveSyncDeltaResponses, GetMachineClientData, GetMachineClientErrors, GetMachineClientResponses, GetPublicDriveShareLinkData, GetPublicDriveShareLinkErrors, GetPublicDriveShareLinkResponses, GetSessionData, GetSessionErrors, GetSessionResponses, GetTenantAdminDriveEncryptionPolicyData, GetTenantAdminDriveEncryptionPolicyErrors, GetTenantAdminDriveEncryptionPolicyResponses, GetTenantAdminDriveFileMetadataData, GetTenantAdminDriveFileMetadataErrors, GetTenantAdminDriveFileMetadataResponses, GetTenantAdminDriveOpenFgaDriftData, GetTenantAdminDriveOpenFgaDriftErrors, GetTenantAdminDriveOpenFgaDriftResponses, GetTenantAdminDriveOperationsHealthData, GetTenantAdminDriveOperationsHealthErrors, GetTenantAdminDriveOperationsHealthResponses, GetTenantAdminDriveResidencyPolicyData, GetTenantAdminDriveResidencyPolicyErrors, GetTenantAdminDriveResidencyPolicyResponses, GetTenantAdminTenantData, GetTenantAdminTenantErrors, GetTenantAdminTenantResponses, GetTenantDataExportData, GetTenantDataExportErrors, GetTenantDataExportResponses, GetTenantSettingsData, GetTenantSettingsErrors, GetTenantSettingsResponses, GetWebhookData, GetWebhookErrors, GetWebhookResponses, GrantTenantAdminRoleData, GrantTenantAdminRoleErrors, GrantTenantAdminRoleResponses, HeartbeatDriveEditSessionData, HeartbeatDriveEditSessionErrors, HeartbeatDriveEditSessionResponses, InstallDriveMarketplaceAppData, InstallDriveMarketplaceAppErrors, InstallDriveMarketplaceAppResponses, ListCustomerSignalImportsData, ListCustomerSignalImportsErrors, ListCustomerSignalImportsResponses, ListCustomerSignalSavedFiltersData, ListCustomerSignalSavedFiltersErrors, ListCustomerSignalSavedFiltersResponses, ListCustomerSignalsData, ListCustomerSignalsErrors, ListCustomerSignalsResponses, ListDriveAiClassificationsData, ListDriveAiClassificationsErrors, ListDriveAiClassificationsResponses, ListDriveFolderChildrenData, ListDriveFolderChildrenErrors, ListDriveFolderChildrenResponses, ListDriveGroupsData, ListDriveGroupsErrors, ListDriveGroupsResponses, ListDriveItemsData, ListDriveItemsErrors, ListDriveItemsResponses, ListDriveMarketplaceAppsData, ListDriveMarketplaceAppsErrors, ListDriveMarketplaceAppsResponses, ListDriveShareInvitationsData, ListDriveShareInvitationsErrors, ListDriveShareInvitationsResponses, ListDriveTrashItemsData, ListDriveTrashItemsErrors, ListDriveTrashItemsResponses, ListDriveWorkspacesData, ListDriveWorkspacesErrors, ListDriveWorkspacesResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListMachineClientsData, ListMachineClientsErrors, ListMachineClientsResponses, ListNotificationsData, ListNotificationsErrors, ListNotificationsResponses, ListTenantAdminDriveAuditEventsData, ListTenantAdminDriveAuditEventsErrors, ListTenantAdminDriveAuditEventsResponses, ListTenantAdminDriveInvitationsData, ListTenantAdminDriveInvitationsErrors, ListTenantAdminDriveInvitationsResponses, ListTenantAdminDriveShareApprovalsData, ListTenantAdminDriveShareApprovalsErrors, ListTenantAdminDriveShareApprovalsResponses, ListTenantAdminDriveShareLinksData, ListTenantAdminDriveShareLinksErrors, ListTenantAdminDriveShareLinksResponses, ListTenantAdminDriveSharesData, ListTenantAdminDriveSharesErrors, ListTenantAdminDriveSharesResponses, ListTenantAdminTenantsData, ListTenantAdminTenantsErrors, ListTenantAdminTenantsResponses, ListTenantDataExportsData, ListTenantDataExportsErrors, ListTenantDataExportsResponses, ListTenantEntitlementsData, ListTenantEntitlementsErrors, ListTenantEntitlementsResponses, ListTenantInvitationsData, ListTenantInvitationsErrors, ListTenantInvitationsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, ListTodosData, ListTodosErrors, ListTodosResponses, ListWebhookDeliveriesData, ListWebhookDeliveriesErrors, ListWebhookDeliveriesResponses, ListWebhooksData, ListWebhooksErrors, ListWebhooksResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, RebuildTenantAdminDriveSearchIndexData, RebuildTenantAdminDriveSearchIndexErrors, RebuildTenantAdminDriveSearchIndexResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, RegisterDriveGatewayData, RegisterDriveGatewayErrors, RegisterDriveGatewayResponses, RegisterDriveSyncDeviceData, RegisterDriveSyncDeviceErrors, RegisterDriveSyncDeviceResponses, RejectTenantAdminDriveShareApprovalData, RejectTenantAdminDriveShareApprovalErrors, RejectTenantAdminDriveShareApprovalResponses, RepairTenantAdminDriveOpenFgaSyncData, RepairTenantAdminDriveOpenFgaSyncErrors, RepairTenantAdminDriveOpenFgaSyncResponses, RepairTenantAdminDriveOperationsData, RepairTenantAdminDriveOperationsErrors, RepairTenantAdminDriveOperationsResponses, ReplayDriveMobileOfflineOperationsData, ReplayDriveMobileOfflineOperationsErrors, ReplayDriveMobileOfflineOperationsResponses, RequestDriveCleanRoomExportData, RequestDriveCleanRoomExportErrors, RequestDriveCleanRoomExportResponses, RequestDriveEDiscoveryExportData, RequestDriveEDiscoveryExportErrors, RequestDriveEDiscoveryExportResponses, RestoreDriveFileData, RestoreDriveFileErrors, RestoreDriveFileResponses, RestoreDriveFolderData, RestoreDriveFolderErrors, RestoreDriveFolderResponses, RetryWebhookDeliveryData, RetryWebhookDeliveryErrors, RetryWebhookDeliveryResponses, RevokeDriveE2EeEnvelopeData, RevokeDriveE2EeEnvelopeErrors, RevokeDriveE2EeEnvelopeResponses, RevokeDriveOfficeSessionData, RevokeDriveOfficeSessionErrors, RevokeDriveOfficeSessionResponses, RevokeDriveShareInvitationData, RevokeDriveShareInvitationErrors, RevokeDriveShareInvitationResponses, RevokeDriveSyncDeviceData, RevokeDriveSyncDeviceErrors, RevokeDriveSyncDeviceResponses, RevokeTenantAdminRoleData, RevokeTenantAdminRoleErrors, RevokeTenantAdminRoleResponses, RevokeTenantInvitationData, RevokeTenantInvitationErrors, RevokeTenantInvitationResponses, RotateWebhookSecretData, RotateWebhookSecretErrors, RotateWebhookSecretResponses, SaveDriveEditSessionContentData, SaveDriveEditSessionContentErrors, SaveDriveEditSessionContentResponses, SearchDriveDocumentsData, SearchDriveDocumentsErrors, SearchDriveDocumentsResponses, SearchDriveItemsData, SearchDriveItemsErrors, SearchDriveItemsResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StartDriveEditSessionData, StartDriveEditSessionErrors, StartDriveEditSessionResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, StartSupportAccessData, StartSupportAccessErrors, StartSupportAccessResponses, StartTenantAdminDriveContentAccessSessionData, StartTenantAdminDriveContentAccessSessionErrors, StartTenantAdminDriveContentAccessSessionResponses, SubmitDriveCleanRoomDatasetData, SubmitDriveCleanRoomDatasetErrors, SubmitDriveCleanRoomDatasetResponses, UninstallDriveMarketplaceInstallationData, UninstallDriveMarketplaceInstallationErrors, UninstallDriveMarketplaceInstallationResponses, UpdateCustomerSignalData, UpdateCustomerSignalErrors, UpdateCustomerSignalResponses, UpdateCustomerSignalSavedFilterData, UpdateCustomerSignalSavedFilterErrors, UpdateCustomerSignalSavedFilterResponses, UpdateDriveFileData, UpdateDriveFileErrors, UpdateDriveFileInheritanceData, UpdateDriveFileInheritanceErrors, UpdateDriveFileInheritanceResponses, UpdateDriveFileResponses, UpdateDriveFolderData, UpdateDriveFolderErrors, UpdateDriveFolderInheritanceData, UpdateDriveFolderInheritanceErrors, UpdateDriveFolderInheritanceResponses, UpdateDriveFolderResponses, UpdateDriveGatewayStatusData, UpdateDriveGatewayStatusErrors, UpdateDriveGatewayStatusResponses, UpdateDriveGroupData, UpdateDriveGroupErrors, UpdateDriveGroupResponses, UpdateDriveHsmKeyStatusData, UpdateDriveHsmKeyStatusErrors, UpdateDriveHsmKeyStatusResponses, UpdateDriveShareLinkData, UpdateDriveShareLinkErrors, UpdateDriveShareLinkResponses, UpdateDriveWorkspaceData, UpdateDriveWorkspaceErrors, UpdateDriveWorkspaceResponses, UpdateMachineClientData, UpdateMachineClientErrors, UpdateMachineClientResponses, UpdateTenantAdminDriveEncryptionPolicyData, UpdateTenantAdminDriveEncryptionPolicyErrors, UpdateTenantAdminDriveEncryptionPolicyResponses, UpdateTenantAdminDriveKmsKeyStatusData, UpdateTenantAdminDriveKmsKeyStatusErrors, UpdateTenantAdminDriveKmsKeyStatusResponses, UpdateTenantAdminDriveResidencyPolicyData, UpdateTenantAdminDriveResidencyPolicyErrors, UpdateTenantAdminDriveResidencyPolicyResponses, UpdateTenantAdminTenantData, UpdateTenantAdminTenantErrors, UpdateTenantAdminTenantResponses, UpdateTenantEntitlementsData, UpdateTenantEntitlementsErrors, UpdateTenantEntitlementsResponses, UpdateTenantSettingsData, UpdateTenantSettingsErrors, UpdateTenantSettingsResponses, UpdateTodoData, UpdateTodoErrors, UpdateTodoResponses, UpdateWebhookData, UpdateWebhookErrors, UpdateWebhookResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
+import type { AcceptDriveOfficeWebhookData, AcceptDriveOfficeWebhookErrors, AcceptDriveOfficeWebhookResponses, AcceptDriveShareInvitationData, AcceptDriveShareInvitationErrors, AcceptDriveShareInvitationResponses, AcceptTenantInvitationData, AcceptTenantInvitationErrors, AcceptTenantInvitationResponses, AddDriveCleanRoomParticipantData, AddDriveCleanRoomParticipantErrors, AddDriveCleanRoomParticipantResponses, AddDriveGroupMemberData, AddDriveGroupMemberErrors, AddDriveGroupMemberResponses, AddDriveLegalCaseFileData, AddDriveLegalCaseFileErrors, AddDriveLegalCaseFileResponses, ApproveDriveEDiscoveryExportData, ApproveDriveEDiscoveryExportErrors, ApproveDriveEDiscoveryExportResponses, ApproveDriveMarketplaceInstallationData, ApproveDriveMarketplaceInstallationErrors, ApproveDriveMarketplaceInstallationResponses, ApproveTenantAdminDriveShareApprovalData, ApproveTenantAdminDriveShareApprovalErrors, ApproveTenantAdminDriveShareApprovalResponses, BindDriveGatewayFileData, BindDriveGatewayFileErrors, BindDriveGatewayFileResponses, BindDriveHsmKeyData, BindDriveHsmKeyErrors, BindDriveHsmKeyResponses, CheckDriveMarketplaceScopeData, CheckDriveMarketplaceScopeErrors, CheckDriveMarketplaceScopeResponses, CheckTenantAdminDriveOperationsDriftData, CheckTenantAdminDriveOperationsDriftErrors, CheckTenantAdminDriveOperationsDriftResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CopyDriveFileData, CopyDriveFileErrors, CopyDriveFileResponses, CopyDriveFolderData, CopyDriveFolderErrors, CopyDriveFolderResponses, CreateCustomerSignalData, CreateCustomerSignalErrors, CreateCustomerSignalImportData, CreateCustomerSignalImportErrors, CreateCustomerSignalImportResponses, CreateCustomerSignalResponses, CreateCustomerSignalSavedFilterData, CreateCustomerSignalSavedFilterErrors, CreateCustomerSignalSavedFilterResponses, CreateDriveAiJobData, CreateDriveAiJobErrors, CreateDriveAiJobResponses, CreateDriveCleanRoomData, CreateDriveCleanRoomErrors, CreateDriveCleanRoomResponses, CreateDriveE2EeEnvelopeData, CreateDriveE2EeEnvelopeErrors, CreateDriveE2EeEnvelopeResponses, CreateDriveE2EeFileKeyData, CreateDriveE2EeFileKeyErrors, CreateDriveE2EeFileKeyResponses, CreateDriveE2EeUserKeyData, CreateDriveE2EeUserKeyErrors, CreateDriveE2EeUserKeyResponses, CreateDriveEDiscoveryConnectionData, CreateDriveEDiscoveryConnectionErrors, CreateDriveEDiscoveryConnectionResponses, CreateDriveFileShareData, CreateDriveFileShareErrors, CreateDriveFileShareInvitationData, CreateDriveFileShareInvitationErrors, CreateDriveFileShareInvitationResponses, CreateDriveFileShareLinkData, CreateDriveFileShareLinkErrors, CreateDriveFileShareLinkResponses, CreateDriveFileShareResponses, CreateDriveFolderData, CreateDriveFolderErrors, CreateDriveFolderResponses, CreateDriveFolderShareData, CreateDriveFolderShareErrors, CreateDriveFolderShareInvitationData, CreateDriveFolderShareInvitationErrors, CreateDriveFolderShareInvitationResponses, CreateDriveFolderShareLinkData, CreateDriveFolderShareLinkErrors, CreateDriveFolderShareLinkResponses, CreateDriveFolderShareResponses, CreateDriveGroupData, CreateDriveGroupErrors, CreateDriveGroupResponses, CreateDriveHsmDeploymentData, CreateDriveHsmDeploymentErrors, CreateDriveHsmDeploymentResponses, CreateDriveLegalCaseData, CreateDriveLegalCaseErrors, CreateDriveLegalCaseResponses, CreateDriveLegalExportData, CreateDriveLegalExportErrors, CreateDriveLegalExportResponses, CreateDriveOfficeSessionData, CreateDriveOfficeSessionErrors, CreateDriveOfficeSessionResponses, CreateDriveWorkspaceData, CreateDriveWorkspaceErrors, CreateDriveWorkspaceResponses, CreateMachineClientData, CreateMachineClientErrors, CreateMachineClientResponses, CreateTenantAdminTenantData, CreateTenantAdminTenantErrors, CreateTenantAdminTenantResponses, CreateTenantDataExportData, CreateTenantDataExportErrors, CreateTenantDataExportResponses, CreateTenantInvitationData, CreateTenantInvitationErrors, CreateTenantInvitationResponses, CreateTodoData, CreateTodoErrors, CreateTodoResponses, CreateWebhookData, CreateWebhookErrors, CreateWebhookResponses, DeactivateTenantAdminTenantData, DeactivateTenantAdminTenantErrors, DeactivateTenantAdminTenantResponses, DeleteCustomerSignalData, DeleteCustomerSignalErrors, DeleteCustomerSignalResponses, DeleteCustomerSignalSavedFilterData, DeleteCustomerSignalSavedFilterErrors, DeleteCustomerSignalSavedFilterResponses, DeleteDriveFileData, DeleteDriveFileErrors, DeleteDriveFileResponses, DeleteDriveFileShareData, DeleteDriveFileShareErrors, DeleteDriveFileShareResponses, DeleteDriveFolderData, DeleteDriveFolderErrors, DeleteDriveFolderResponses, DeleteDriveFolderShareData, DeleteDriveFolderShareErrors, DeleteDriveFolderShareResponses, DeleteDriveGroupData, DeleteDriveGroupErrors, DeleteDriveGroupMemberData, DeleteDriveGroupMemberErrors, DeleteDriveGroupMemberResponses, DeleteDriveGroupResponses, DeleteDriveShareLinkData, DeleteDriveShareLinkErrors, DeleteDriveShareLinkResponses, DeleteDriveWorkspaceData, DeleteDriveWorkspaceErrors, DeleteDriveWorkspaceResponses, DeleteFileData, DeleteFileErrors, DeleteFileResponses, DeleteIntegrationGrantData, DeleteIntegrationGrantErrors, DeleteIntegrationGrantResponses, DeleteMachineClientData, DeleteMachineClientErrors, DeleteMachineClientResponses, DeleteTodoData, DeleteTodoErrors, DeleteTodoResponses, DeleteWebhookData, DeleteWebhookErrors, DeleteWebhookResponses, DownloadDriveArchiveData, DownloadDriveArchiveErrors, DownloadDriveArchiveResponses, DownloadTenantDataExportData, DownloadTenantDataExportErrors, DownloadTenantDataExportResponses, EndDriveEditSessionData, EndDriveEditSessionErrors, EndDriveEditSessionResponses, EndSupportAccessData, EndSupportAccessErrors, EndSupportAccessResponses, EndTenantAdminDriveContentAccessSessionData, EndTenantAdminDriveContentAccessSessionErrors, EndTenantAdminDriveContentAccessSessionResponses, FinishIntegrationConnectData, FinishIntegrationConnectErrors, FinishIntegrationConnectResponses, FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetCurrentSupportAccessData, GetCurrentSupportAccessErrors, GetCurrentSupportAccessResponses, GetCustomerSignalData, GetCustomerSignalErrors, GetCustomerSignalImportData, GetCustomerSignalImportErrors, GetCustomerSignalImportResponses, GetCustomerSignalResponses, GetDriveAiSummaryData, GetDriveAiSummaryErrors, GetDriveAiSummaryResponses, GetDriveE2EeEnvelopeData, GetDriveE2EeEnvelopeErrors, GetDriveE2EeEnvelopeResponses, GetDriveFileData, GetDriveFileErrors, GetDriveFilePermissionsData, GetDriveFilePermissionsErrors, GetDriveFilePermissionsResponses, GetDriveFileResponses, GetDriveFolderData, GetDriveFolderErrors, GetDriveFolderPermissionsData, GetDriveFolderPermissionsErrors, GetDriveFolderPermissionsResponses, GetDriveFolderResponses, GetDriveFolderTreeData, GetDriveFolderTreeErrors, GetDriveFolderTreeResponses, GetDriveGroupData, GetDriveGroupErrors, GetDriveGroupResponses, GetDriveStorageUsageData, GetDriveStorageUsageErrors, GetDriveStorageUsageResponses, GetDriveSyncDeltaData, GetDriveSyncDeltaErrors, GetDriveSyncDeltaResponses, GetMachineClientData, GetMachineClientErrors, GetMachineClientResponses, GetPublicDriveShareLinkData, GetPublicDriveShareLinkErrors, GetPublicDriveShareLinkResponses, GetSessionData, GetSessionErrors, GetSessionResponses, GetTenantAdminDriveEncryptionPolicyData, GetTenantAdminDriveEncryptionPolicyErrors, GetTenantAdminDriveEncryptionPolicyResponses, GetTenantAdminDriveFileMetadataData, GetTenantAdminDriveFileMetadataErrors, GetTenantAdminDriveFileMetadataResponses, GetTenantAdminDriveOpenFgaDriftData, GetTenantAdminDriveOpenFgaDriftErrors, GetTenantAdminDriveOpenFgaDriftResponses, GetTenantAdminDriveOperationsHealthData, GetTenantAdminDriveOperationsHealthErrors, GetTenantAdminDriveOperationsHealthResponses, GetTenantAdminDriveResidencyPolicyData, GetTenantAdminDriveResidencyPolicyErrors, GetTenantAdminDriveResidencyPolicyResponses, GetTenantAdminTenantData, GetTenantAdminTenantErrors, GetTenantAdminTenantResponses, GetTenantDataExportData, GetTenantDataExportErrors, GetTenantDataExportResponses, GetTenantSettingsData, GetTenantSettingsErrors, GetTenantSettingsResponses, GetWebhookData, GetWebhookErrors, GetWebhookResponses, GrantTenantAdminRoleData, GrantTenantAdminRoleErrors, GrantTenantAdminRoleResponses, HeartbeatDriveEditSessionData, HeartbeatDriveEditSessionErrors, HeartbeatDriveEditSessionResponses, InstallDriveMarketplaceAppData, InstallDriveMarketplaceAppErrors, InstallDriveMarketplaceAppResponses, ListCustomerSignalImportsData, ListCustomerSignalImportsErrors, ListCustomerSignalImportsResponses, ListCustomerSignalSavedFiltersData, ListCustomerSignalSavedFiltersErrors, ListCustomerSignalSavedFiltersResponses, ListCustomerSignalsData, ListCustomerSignalsErrors, ListCustomerSignalsResponses, ListDriveAiClassificationsData, ListDriveAiClassificationsErrors, ListDriveAiClassificationsResponses, ListDriveFileActivityData, ListDriveFileActivityErrors, ListDriveFileActivityResponses, ListDriveFolderActivityData, ListDriveFolderActivityErrors, ListDriveFolderActivityResponses, ListDriveFolderChildrenData, ListDriveFolderChildrenErrors, ListDriveFolderChildrenResponses, ListDriveGroupsData, ListDriveGroupsErrors, ListDriveGroupsResponses, ListDriveItemsData, ListDriveItemsErrors, ListDriveItemsResponses, ListDriveMarketplaceAppsData, ListDriveMarketplaceAppsErrors, ListDriveMarketplaceAppsResponses, ListDriveRecentData, ListDriveRecentErrors, ListDriveRecentResponses, ListDriveSharedWithMeData, ListDriveSharedWithMeErrors, ListDriveSharedWithMeResponses, ListDriveShareInvitationsData, ListDriveShareInvitationsErrors, ListDriveShareInvitationsResponses, ListDriveShareTargetsData, ListDriveShareTargetsErrors, ListDriveShareTargetsResponses, ListDriveStarredData, ListDriveStarredErrors, ListDriveStarredResponses, ListDriveTrashItemsData, ListDriveTrashItemsErrors, ListDriveTrashItemsResponses, ListDriveWorkspacesData, ListDriveWorkspacesErrors, ListDriveWorkspacesResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListMachineClientsData, ListMachineClientsErrors, ListMachineClientsResponses, ListNotificationsData, ListNotificationsErrors, ListNotificationsResponses, ListPublicDriveShareLinkChildrenData, ListPublicDriveShareLinkChildrenErrors, ListPublicDriveShareLinkChildrenResponses, ListTenantAdminDriveAuditEventsData, ListTenantAdminDriveAuditEventsErrors, ListTenantAdminDriveAuditEventsResponses, ListTenantAdminDriveInvitationsData, ListTenantAdminDriveInvitationsErrors, ListTenantAdminDriveInvitationsResponses, ListTenantAdminDriveShareApprovalsData, ListTenantAdminDriveShareApprovalsErrors, ListTenantAdminDriveShareApprovalsResponses, ListTenantAdminDriveShareLinksData, ListTenantAdminDriveShareLinksErrors, ListTenantAdminDriveShareLinksResponses, ListTenantAdminDriveSharesData, ListTenantAdminDriveSharesErrors, ListTenantAdminDriveSharesResponses, ListTenantAdminTenantsData, ListTenantAdminTenantsErrors, ListTenantAdminTenantsResponses, ListTenantDataExportsData, ListTenantDataExportsErrors, ListTenantDataExportsResponses, ListTenantEntitlementsData, ListTenantEntitlementsErrors, ListTenantEntitlementsResponses, ListTenantInvitationsData, ListTenantInvitationsErrors, ListTenantInvitationsResponses, ListTenantsData, ListTenantsErrors, ListTenantsResponses, ListTodosData, ListTodosErrors, ListTodosResponses, ListWebhookDeliveriesData, ListWebhookDeliveriesErrors, ListWebhookDeliveriesResponses, ListWebhooksData, ListWebhooksErrors, ListWebhooksResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, PermanentlyDeleteDriveFileData, PermanentlyDeleteDriveFileErrors, PermanentlyDeleteDriveFileResponses, PermanentlyDeleteDriveFolderData, PermanentlyDeleteDriveFolderErrors, PermanentlyDeleteDriveFolderResponses, RebuildTenantAdminDriveSearchIndexData, RebuildTenantAdminDriveSearchIndexErrors, RebuildTenantAdminDriveSearchIndexResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, RegisterDriveGatewayData, RegisterDriveGatewayErrors, RegisterDriveGatewayResponses, RegisterDriveSyncDeviceData, RegisterDriveSyncDeviceErrors, RegisterDriveSyncDeviceResponses, RejectTenantAdminDriveShareApprovalData, RejectTenantAdminDriveShareApprovalErrors, RejectTenantAdminDriveShareApprovalResponses, RepairTenantAdminDriveOpenFgaSyncData, RepairTenantAdminDriveOpenFgaSyncErrors, RepairTenantAdminDriveOpenFgaSyncResponses, RepairTenantAdminDriveOperationsData, RepairTenantAdminDriveOperationsErrors, RepairTenantAdminDriveOperationsResponses, ReplayDriveMobileOfflineOperationsData, ReplayDriveMobileOfflineOperationsErrors, ReplayDriveMobileOfflineOperationsResponses, RequestDriveCleanRoomExportData, RequestDriveCleanRoomExportErrors, RequestDriveCleanRoomExportResponses, RequestDriveEDiscoveryExportData, RequestDriveEDiscoveryExportErrors, RequestDriveEDiscoveryExportResponses, RestoreDriveFileData, RestoreDriveFileErrors, RestoreDriveFileResponses, RestoreDriveFolderData, RestoreDriveFolderErrors, RestoreDriveFolderResponses, RetryWebhookDeliveryData, RetryWebhookDeliveryErrors, RetryWebhookDeliveryResponses, RevokeDriveE2EeEnvelopeData, RevokeDriveE2EeEnvelopeErrors, RevokeDriveE2EeEnvelopeResponses, RevokeDriveOfficeSessionData, RevokeDriveOfficeSessionErrors, RevokeDriveOfficeSessionResponses, RevokeDriveShareInvitationData, RevokeDriveShareInvitationErrors, RevokeDriveShareInvitationResponses, RevokeDriveSyncDeviceData, RevokeDriveSyncDeviceErrors, RevokeDriveSyncDeviceResponses, RevokeTenantAdminRoleData, RevokeTenantAdminRoleErrors, RevokeTenantAdminRoleResponses, RevokeTenantInvitationData, RevokeTenantInvitationErrors, RevokeTenantInvitationResponses, RotateWebhookSecretData, RotateWebhookSecretErrors, RotateWebhookSecretResponses, SaveDriveEditSessionContentData, SaveDriveEditSessionContentErrors, SaveDriveEditSessionContentResponses, SearchDriveDocumentsData, SearchDriveDocumentsErrors, SearchDriveDocumentsResponses, SearchDriveItemsData, SearchDriveItemsErrors, SearchDriveItemsResponses, SelectTenantData, SelectTenantErrors, SelectTenantResponses, StarDriveFileData, StarDriveFileErrors, StarDriveFileResponses, StarDriveFolderData, StarDriveFolderErrors, StarDriveFolderResponses, StartDriveEditSessionData, StartDriveEditSessionErrors, StartDriveEditSessionResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses, StartSupportAccessData, StartSupportAccessErrors, StartSupportAccessResponses, StartTenantAdminDriveContentAccessSessionData, StartTenantAdminDriveContentAccessSessionErrors, StartTenantAdminDriveContentAccessSessionResponses, SubmitDriveCleanRoomDatasetData, SubmitDriveCleanRoomDatasetErrors, SubmitDriveCleanRoomDatasetResponses, TransferDriveFileOwnerData, TransferDriveFileOwnerErrors, TransferDriveFileOwnerResponses, TransferDriveFolderOwnerData, TransferDriveFolderOwnerErrors, TransferDriveFolderOwnerResponses, UninstallDriveMarketplaceInstallationData, UninstallDriveMarketplaceInstallationErrors, UninstallDriveMarketplaceInstallationResponses, UnstarDriveFileData, UnstarDriveFileErrors, UnstarDriveFileResponses, UnstarDriveFolderData, UnstarDriveFolderErrors, UnstarDriveFolderResponses, UpdateCustomerSignalData, UpdateCustomerSignalErrors, UpdateCustomerSignalResponses, UpdateCustomerSignalSavedFilterData, UpdateCustomerSignalSavedFilterErrors, UpdateCustomerSignalSavedFilterResponses, UpdateDriveFileData, UpdateDriveFileErrors, UpdateDriveFileInheritanceData, UpdateDriveFileInheritanceErrors, UpdateDriveFileInheritanceResponses, UpdateDriveFileResponses, UpdateDriveFileShareData, UpdateDriveFileShareErrors, UpdateDriveFileShareResponses, UpdateDriveFolderData, UpdateDriveFolderErrors, UpdateDriveFolderInheritanceData, UpdateDriveFolderInheritanceErrors, UpdateDriveFolderInheritanceResponses, UpdateDriveFolderResponses, UpdateDriveFolderShareData, UpdateDriveFolderShareErrors, UpdateDriveFolderShareResponses, UpdateDriveGatewayStatusData, UpdateDriveGatewayStatusErrors, UpdateDriveGatewayStatusResponses, UpdateDriveGroupData, UpdateDriveGroupErrors, UpdateDriveGroupResponses, UpdateDriveHsmKeyStatusData, UpdateDriveHsmKeyStatusErrors, UpdateDriveHsmKeyStatusResponses, UpdateDriveShareLinkData, UpdateDriveShareLinkErrors, UpdateDriveShareLinkResponses, UpdateDriveWorkspaceData, UpdateDriveWorkspaceErrors, UpdateDriveWorkspaceResponses, UpdateMachineClientData, UpdateMachineClientErrors, UpdateMachineClientResponses, UpdateTenantAdminDriveEncryptionPolicyData, UpdateTenantAdminDriveEncryptionPolicyErrors, UpdateTenantAdminDriveEncryptionPolicyResponses, UpdateTenantAdminDriveKmsKeyStatusData, UpdateTenantAdminDriveKmsKeyStatusErrors, UpdateTenantAdminDriveKmsKeyStatusResponses, UpdateTenantAdminDriveResidencyPolicyData, UpdateTenantAdminDriveResidencyPolicyErrors, UpdateTenantAdminDriveResidencyPolicyResponses, UpdateTenantAdminTenantData, UpdateTenantAdminTenantErrors, UpdateTenantAdminTenantResponses, UpdateTenantEntitlementsData, UpdateTenantEntitlementsErrors, UpdateTenantEntitlementsResponses, UpdateTenantSettingsData, UpdateTenantSettingsErrors, UpdateTenantSettingsResponses, UpdateTodoData, UpdateTodoErrors, UpdateTodoResponses, UpdateWebhookData, UpdateWebhookErrors, UpdateWebhookResponses, VerifyIntegrationAccessData, VerifyIntegrationAccessErrors, VerifyIntegrationAccessResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -34,6 +34,11 @@ export const acceptDriveOfficeWebhook = <ThrowOnError extends boolean = false>(o
  * public Drive share link metadata を返す
  */
 export const getPublicDriveShareLink = <ThrowOnError extends boolean = false>(options: Options<GetPublicDriveShareLinkData, ThrowOnError>) => (options.client ?? client).get<GetPublicDriveShareLinkResponses, GetPublicDriveShareLinkErrors, ThrowOnError>({ url: '/api/public/drive/share-links/{token}', ...options });
+
+/**
+ * public Drive folder share link children を返す
+ */
+export const listPublicDriveShareLinkChildren = <ThrowOnError extends boolean = false>(options: Options<ListPublicDriveShareLinkChildrenData, ThrowOnError>) => (options.client ?? client).get<ListPublicDriveShareLinkChildrenResponses, ListPublicDriveShareLinkChildrenErrors, ThrowOnError>({ url: '/api/public/drive/share-links/{token}/children', ...options });
 
 /**
  * tenant admin 用の tenant 一覧を返す
@@ -1274,6 +1279,23 @@ export const revokeDriveSyncDevice = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
+ * Drive items を ZIP archive として download する
+ */
+export const downloadDriveArchive = <ThrowOnError extends boolean = false>(options: Options<DownloadDriveArchiveData, ThrowOnError>) => (options.client ?? client).post<DownloadDriveArchiveResponses, DownloadDriveArchiveErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/downloads/archive',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Drive E2EE public key を登録する
  */
 export const createDriveE2EeUserKey = <ThrowOnError extends boolean = false>(options: Options<CreateDriveE2EeUserKeyData, ThrowOnError>) => (options.client ?? client).post<CreateDriveE2EeUserKeyResponses, CreateDriveE2EeUserKeyErrors, ThrowOnError>({
@@ -1334,6 +1356,19 @@ export const updateDriveFile = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
+ * Drive file activity を返す
+ */
+export const listDriveFileActivity = <ThrowOnError extends boolean = false>(options: Options<ListDriveFileActivityData, ThrowOnError>) => (options.client ?? client).get<ListDriveFileActivityResponses, ListDriveFileActivityErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/files/{filePublicId}/activity',
+    ...options
+});
+
+/**
  * Drive AI classifications を返す
  */
 export const listDriveAiClassifications = <ThrowOnError extends boolean = false>(options: Options<ListDriveAiClassificationsData, ThrowOnError>) => (options.client ?? client).get<ListDriveAiClassificationsResponses, ListDriveAiClassificationsErrors, ThrowOnError>({
@@ -1374,6 +1409,23 @@ export const getDriveAiSummary = <ThrowOnError extends boolean = false>(options:
         }],
     url: '/api/v1/drive/files/{filePublicId}/ai/summary',
     ...options
+});
+
+/**
+ * Drive file を copy する
+ */
+export const copyDriveFile = <ThrowOnError extends boolean = false>(options: Options<CopyDriveFileData, ThrowOnError>) => (options.client ?? client).post<CopyDriveFileResponses, CopyDriveFileErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/files/{filePublicId}/copy',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -1544,6 +1596,36 @@ export const createDriveOfficeSession = <ThrowOnError extends boolean = false>(o
 });
 
 /**
+ * Drive file owner を移譲する
+ */
+export const transferDriveFileOwner = <ThrowOnError extends boolean = false>(options: Options<TransferDriveFileOwnerData, ThrowOnError>) => (options.client ?? client).post<TransferDriveFileOwnerResponses, TransferDriveFileOwnerErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/files/{filePublicId}/owner-transfer',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Drive file を完全削除する
+ */
+export const permanentlyDeleteDriveFile = <ThrowOnError extends boolean = false>(options: Options<PermanentlyDeleteDriveFileData, ThrowOnError>) => (options.client ?? client).delete<PermanentlyDeleteDriveFileResponses, PermanentlyDeleteDriveFileErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/files/{filePublicId}/permanent',
+    ...options
+});
+
+/**
  * Drive file permissions を返す
  */
 export const getDriveFilePermissions = <ThrowOnError extends boolean = false>(options: Options<GetDriveFilePermissionsData, ThrowOnError>) => (options.client ?? client).get<GetDriveFilePermissionsResponses, GetDriveFilePermissionsErrors, ThrowOnError>({
@@ -1621,6 +1703,62 @@ export const deleteDriveFileShare = <ThrowOnError extends boolean = false>(optio
 });
 
 /**
+ * Drive file share role を更新する
+ */
+export const updateDriveFileShare = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveFileShareData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveFileShareResponses, UpdateDriveFileShareErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/files/{filePublicId}/shares/{sharePublicId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Drive file の star を外す
+ */
+export const unstarDriveFile = <ThrowOnError extends boolean = false>(options: Options<UnstarDriveFileData, ThrowOnError>) => (options.client ?? client).delete<UnstarDriveFileResponses, UnstarDriveFileErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/files/{filePublicId}/star',
+    ...options
+});
+
+/**
+ * Drive file に star を付ける
+ */
+export const starDriveFile = <ThrowOnError extends boolean = false>(options: Options<StarDriveFileData, ThrowOnError>) => (options.client ?? client).post<StarDriveFileResponses, StarDriveFileErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/files/{filePublicId}/star',
+    ...options
+});
+
+/**
+ * Drive folder tree を返す
+ */
+export const getDriveFolderTree = <ThrowOnError extends boolean = false>(options?: Options<GetDriveFolderTreeData, ThrowOnError>) => (options?.client ?? client).get<GetDriveFolderTreeResponses, GetDriveFolderTreeErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/folder-tree',
+    ...options
+});
+
+/**
  * Drive folder を作成する
  */
 export const createDriveFolder = <ThrowOnError extends boolean = false>(options: Options<CreateDriveFolderData, ThrowOnError>) => (options.client ?? client).post<CreateDriveFolderResponses, CreateDriveFolderErrors, ThrowOnError>({
@@ -1681,6 +1819,19 @@ export const updateDriveFolder = <ThrowOnError extends boolean = false>(options:
 });
 
 /**
+ * Drive folder activity を返す
+ */
+export const listDriveFolderActivity = <ThrowOnError extends boolean = false>(options: Options<ListDriveFolderActivityData, ThrowOnError>) => (options.client ?? client).get<ListDriveFolderActivityResponses, ListDriveFolderActivityErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/folders/{folderPublicId}/activity',
+    ...options
+});
+
+/**
  * Drive folder children を返す
  */
 export const listDriveFolderChildren = <ThrowOnError extends boolean = false>(options: Options<ListDriveFolderChildrenData, ThrowOnError>) => (options.client ?? client).get<ListDriveFolderChildrenResponses, ListDriveFolderChildrenErrors, ThrowOnError>({
@@ -1691,6 +1842,23 @@ export const listDriveFolderChildren = <ThrowOnError extends boolean = false>(op
         }],
     url: '/api/v1/drive/folders/{folderPublicId}/children',
     ...options
+});
+
+/**
+ * Drive folder を copy する
+ */
+export const copyDriveFolder = <ThrowOnError extends boolean = false>(options: Options<CopyDriveFolderData, ThrowOnError>) => (options.client ?? client).post<CopyDriveFolderResponses, CopyDriveFolderErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/folders/{folderPublicId}/copy',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -1725,6 +1893,36 @@ export const createDriveFolderShareInvitation = <ThrowOnError extends boolean = 
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Drive folder owner を移譲する
+ */
+export const transferDriveFolderOwner = <ThrowOnError extends boolean = false>(options: Options<TransferDriveFolderOwnerData, ThrowOnError>) => (options.client ?? client).post<TransferDriveFolderOwnerResponses, TransferDriveFolderOwnerErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/folders/{folderPublicId}/owner-transfer',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Drive folder を完全削除する
+ */
+export const permanentlyDeleteDriveFolder = <ThrowOnError extends boolean = false>(options: Options<PermanentlyDeleteDriveFolderData, ThrowOnError>) => (options.client ?? client).delete<PermanentlyDeleteDriveFolderResponses, PermanentlyDeleteDriveFolderErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/folders/{folderPublicId}/permanent',
+    ...options
 });
 
 /**
@@ -1801,6 +1999,49 @@ export const deleteDriveFolderShare = <ThrowOnError extends boolean = false>(opt
             type: 'apiKey'
         }],
     url: '/api/v1/drive/folders/{folderPublicId}/shares/{sharePublicId}',
+    ...options
+});
+
+/**
+ * Drive folder share role を更新する
+ */
+export const updateDriveFolderShare = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveFolderShareData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveFolderShareResponses, UpdateDriveFolderShareErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/folders/{folderPublicId}/shares/{sharePublicId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Drive folder の star を外す
+ */
+export const unstarDriveFolder = <ThrowOnError extends boolean = false>(options: Options<UnstarDriveFolderData, ThrowOnError>) => (options.client ?? client).delete<UnstarDriveFolderResponses, UnstarDriveFolderErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/folders/{folderPublicId}/star',
+    ...options
+});
+
+/**
+ * Drive folder に star を付ける
+ */
+export const starDriveFolder = <ThrowOnError extends boolean = false>(options: Options<StarDriveFolderData, ThrowOnError>) => (options.client ?? client).post<StarDriveFolderResponses, StarDriveFolderErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/folders/{folderPublicId}/star',
     ...options
 });
 
@@ -1990,6 +2231,19 @@ export const revokeDriveOfficeSession = <ThrowOnError extends boolean = false>(o
 });
 
 /**
+ * Recent Drive item を返す
+ */
+export const listDriveRecent = <ThrowOnError extends boolean = false>(options?: Options<ListDriveRecentData, ThrowOnError>) => (options?.client ?? client).get<ListDriveRecentResponses, ListDriveRecentErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/recent',
+    ...options
+});
+
+/**
  * Drive item を検索する
  */
 export const searchDriveItems = <ThrowOnError extends boolean = false>(options?: Options<SearchDriveItemsData, ThrowOnError>) => (options?.client ?? client).get<SearchDriveItemsResponses, SearchDriveItemsErrors, ThrowOnError>({
@@ -2043,6 +2297,58 @@ export const updateDriveShareLink = <ThrowOnError extends boolean = false>(optio
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Drive share target candidates を返す
+ */
+export const listDriveShareTargets = <ThrowOnError extends boolean = false>(options?: Options<ListDriveShareTargetsData, ThrowOnError>) => (options?.client ?? client).get<ListDriveShareTargetsResponses, ListDriveShareTargetsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/share-targets',
+    ...options
+});
+
+/**
+ * 自分に共有された Drive item を返す
+ */
+export const listDriveSharedWithMe = <ThrowOnError extends boolean = false>(options?: Options<ListDriveSharedWithMeData, ThrowOnError>) => (options?.client ?? client).get<ListDriveSharedWithMeResponses, ListDriveSharedWithMeErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/shared-with-me',
+    ...options
+});
+
+/**
+ * Starred Drive item を返す
+ */
+export const listDriveStarred = <ThrowOnError extends boolean = false>(options?: Options<ListDriveStarredData, ThrowOnError>) => (options?.client ?? client).get<ListDriveStarredResponses, ListDriveStarredErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/starred',
+    ...options
+});
+
+/**
+ * Drive storage usage を返す
+ */
+export const getDriveStorageUsage = <ThrowOnError extends boolean = false>(options?: Options<GetDriveStorageUsageData, ThrowOnError>) => (options?.client ?? client).get<GetDriveStorageUsageResponses, GetDriveStorageUsageErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/drive/storage',
+    ...options
 });
 
 /**

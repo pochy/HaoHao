@@ -1,6 +1,8 @@
 import {
   acceptDriveShareInvitation,
   addDriveGroupMember,
+  copyDriveFile,
+  copyDriveFolder,
   createDriveFileShare,
   createDriveFileShareInvitation,
   createDriveFileShareLink,
@@ -18,23 +20,42 @@ import {
   deleteDriveGroupMember,
   deleteDriveShareLink,
   getCsrf,
+  getDriveFolderTree,
   getDriveFile,
+  getDriveStorageUsage,
   getDriveFilePermissions,
   getDriveFolder,
   getDriveFolderPermissions,
   getDriveGroup,
   getPublicDriveShareLink,
+  listDriveFileActivity,
+  listDriveFolderActivity,
   listDriveGroups,
   listDriveItems,
+  listDriveRecent,
+  listPublicDriveShareLinkChildren,
   listDriveShareInvitations,
+  listDriveShareTargets,
+  listDriveSharedWithMe,
+  listDriveStarred,
+  permanentlyDeleteDriveFile,
+  permanentlyDeleteDriveFolder,
   listDriveTrashItems,
   listDriveWorkspaces,
   restoreDriveFile,
   restoreDriveFolder,
   revokeDriveShareInvitation,
   searchDriveItems,
+  starDriveFile,
+  starDriveFolder,
+  transferDriveFileOwner,
+  transferDriveFolderOwner,
+  unstarDriveFile,
+  unstarDriveFolder,
   updateDriveFile,
+  updateDriveFileShare,
   updateDriveFolder,
+  updateDriveFolderShare,
   updateDriveGroup,
   updateDriveShareLink,
 } from './generated/sdk.gen'
@@ -45,19 +66,27 @@ import type {
   CreateDriveShareInvitationBodyWritable,
   CreateDriveShareLinkBodyWritable,
   CreateDriveWorkspaceBodyWritable,
+  DriveActivityBody,
+  DriveArchiveBodyWritable,
+  DriveCopyBodyWritable,
   DriveFileBody,
   DriveFolderBody,
+  DriveFolderTreeBody,
   DriveGroupBody,
   DriveItemBody,
   DrivePermissionsBody,
   DriveShareBody,
   DriveShareInvitationBody,
   DriveShareLinkBody,
+  DriveShareTargetBody,
+  DriveStorageUsageBody,
   DriveWorkspaceBody,
+  DriveOwnerTransferBodyWritable,
   PublicDriveShareLinkOutputBody,
   RestoreDriveResourceBodyWritable,
   UpdateDriveFileBodyWritable,
   UpdateDriveFolderBodyWritable,
+  UpdateDriveShareBodyWritable,
   UpdateDriveShareLinkBodyWritable,
 } from './generated/types.gen'
 import { readCookie, toApiErrorMessage } from './client'
@@ -67,6 +96,14 @@ export type DriveResourceType = 'file' | 'folder'
 export type DriveResourceRef = {
   type: DriveResourceType
   publicId: string
+}
+
+export type DriveListFilters = {
+  type?: 'all' | 'file' | 'folder'
+  owner?: 'all' | 'me' | 'shared_with_me'
+  source?: 'all' | 'upload' | 'external' | 'generated' | 'sync'
+  sort?: 'name' | 'updated_at' | 'size'
+  direction?: 'asc' | 'desc'
 }
 
 export type DriveDownloadedFile = {
@@ -169,22 +206,62 @@ export async function createDriveWorkspaceItem(body: CreateDriveWorkspaceBodyWri
   }) as unknown as Promise<DriveWorkspaceBody>
 }
 
-export async function fetchDriveItems(parentFolderPublicId = '', workspacePublicId = ''): Promise<DriveItemBody[]> {
+export async function fetchDriveItems(parentFolderPublicId = '', workspacePublicId = '', filters: DriveListFilters = {}): Promise<DriveItemBody[]> {
   const data = await listDriveItems({
     query: {
       ...(parentFolderPublicId ? { parentFolderPublicId } : {}),
       ...(workspacePublicId ? { workspacePublicId } : {}),
+      ...(filters.type ? { type: filters.type } : {}),
+      ...(filters.owner ? { owner: filters.owner } : {}),
+      ...(filters.source ? { source: filters.source } : {}),
+      ...(filters.sort ? { sort: filters.sort } : {}),
+      ...(filters.direction ? { direction: filters.direction } : {}),
     },
   }) as unknown as { items: DriveItemBody[] | null }
   return data.items ?? []
 }
 
-export async function searchDriveItemsByKeyword(query: string, contentType = ''): Promise<DriveItemBody[]> {
+export async function searchDriveItemsByKeyword(query: string, contentType = '', filters: DriveListFilters = {}): Promise<DriveItemBody[]> {
   const data = await searchDriveItems({
     query: {
       q: query,
       contentType,
+      ...(filters.type ? { type: filters.type } : {}),
+      ...(filters.owner ? { owner: filters.owner } : {}),
+      ...(filters.source ? { source: filters.source } : {}),
+      ...(filters.sort ? { sort: filters.sort } : {}),
+      ...(filters.direction ? { direction: filters.direction } : {}),
     },
+  }) as unknown as { items: DriveItemBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchDriveSharedWithMe(): Promise<DriveItemBody[]> {
+  const data = await listDriveSharedWithMe() as unknown as { items: DriveItemBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchDriveStarredItems(): Promise<DriveItemBody[]> {
+  const data = await listDriveStarred() as unknown as { items: DriveItemBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchDriveRecentItems(): Promise<DriveItemBody[]> {
+  const data = await listDriveRecent() as unknown as { items: DriveItemBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchDriveStorageUsage(): Promise<DriveStorageUsageBody> {
+  return getDriveStorageUsage() as unknown as Promise<DriveStorageUsageBody>
+}
+
+export async function fetchDriveFolderTree(): Promise<DriveFolderTreeBody> {
+  return getDriveFolderTree() as unknown as Promise<DriveFolderTreeBody>
+}
+
+export async function fetchPublicDriveShareLinkChildren(token: string): Promise<DriveItemBody[]> {
+  const data = await listPublicDriveShareLinkChildren({
+    path: { token },
   }) as unknown as { items: DriveItemBody[] | null }
   return data.items ?? []
 }
@@ -213,6 +290,65 @@ export async function deleteDriveFolderItem(folderPublicId: string): Promise<voi
   await deleteDriveFolder({
     headers: csrfHeaders(),
     path: { folderPublicId },
+  })
+}
+
+export async function copyDriveItem(resource: DriveResourceRef, body: DriveCopyBodyWritable = {}): Promise<DriveItemBody> {
+  if (resource.type === 'file') {
+    return copyDriveFile({
+      headers: csrfHeaders(),
+      path: { filePublicId: resource.publicId },
+      body,
+    }) as unknown as Promise<DriveItemBody>
+  }
+  return copyDriveFolder({
+    headers: csrfHeaders(),
+    path: { folderPublicId: resource.publicId },
+    body,
+  }) as unknown as Promise<DriveItemBody>
+}
+
+export async function transferDriveOwner(resource: DriveResourceRef, body: DriveOwnerTransferBodyWritable): Promise<DriveItemBody> {
+  if (resource.type === 'file') {
+    return transferDriveFileOwner({
+      headers: csrfHeaders(),
+      path: { filePublicId: resource.publicId },
+      body,
+    }) as unknown as Promise<DriveItemBody>
+  }
+  return transferDriveFolderOwner({
+    headers: csrfHeaders(),
+    path: { folderPublicId: resource.publicId },
+    body,
+  }) as unknown as Promise<DriveItemBody>
+}
+
+export async function downloadDriveArchiveItems(body: DriveArchiveBodyWritable): Promise<DriveDownloadedFile> {
+  const response = await driveFetch('/api/v1/drive/downloads/archive', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/zip',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  return {
+    blob: await response.blob(),
+    filename: contentDispositionFilename(response.headers.get('Content-Disposition'), body.filename || 'drive-archive.zip'),
+  }
+}
+
+export async function permanentlyDeleteDriveItem(resource: DriveResourceRef): Promise<void> {
+  if (resource.type === 'file') {
+    await permanentlyDeleteDriveFile({
+      headers: csrfHeaders(),
+      path: { filePublicId: resource.publicId },
+    })
+    return
+  }
+  await permanentlyDeleteDriveFolder({
+    headers: csrfHeaders(),
+    path: { folderPublicId: resource.publicId },
   })
 }
 
@@ -283,6 +419,54 @@ export async function deleteDriveFileItem(filePublicId: string): Promise<void> {
     headers: csrfHeaders(),
     path: { filePublicId },
   })
+}
+
+export async function starDriveItem(resource: DriveResourceRef): Promise<void> {
+  if (resource.type === 'file') {
+    await starDriveFile({
+      headers: csrfHeaders(),
+      path: { filePublicId: resource.publicId },
+    })
+    return
+  }
+  await starDriveFolder({
+    headers: csrfHeaders(),
+    path: { folderPublicId: resource.publicId },
+  })
+}
+
+export async function unstarDriveItem(resource: DriveResourceRef): Promise<void> {
+  if (resource.type === 'file') {
+    await unstarDriveFile({
+      headers: csrfHeaders(),
+      path: { filePublicId: resource.publicId },
+    })
+    return
+  }
+  await unstarDriveFolder({
+    headers: csrfHeaders(),
+    path: { folderPublicId: resource.publicId },
+  })
+}
+
+export async function fetchDriveActivity(resource: DriveResourceRef): Promise<DriveActivityBody[]> {
+  if (resource.type === 'file') {
+    const data = await listDriveFileActivity({
+      path: { filePublicId: resource.publicId },
+    }) as unknown as { items: DriveActivityBody[] | null }
+    return data.items ?? []
+  }
+  const data = await listDriveFolderActivity({
+    path: { folderPublicId: resource.publicId },
+  }) as unknown as { items: DriveActivityBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchDriveShareTargets(query: string): Promise<DriveShareTargetBody[]> {
+  const data = await listDriveShareTargets({
+    query: { q: query.trim() },
+  }) as unknown as { items: DriveShareTargetBody[] | null }
+  return data.items ?? []
 }
 
 export async function restoreDriveFileItem(filePublicId: string, parentFolderPublicId = ''): Promise<DriveFileBody> {
@@ -358,6 +542,27 @@ export async function revokeDriveShareItem(resource: DriveResourceRef, sharePubl
       sharePublicId,
     },
   })
+}
+
+export async function updateDriveShareItem(resource: DriveResourceRef, sharePublicId: string, body: UpdateDriveShareBodyWritable): Promise<DriveShareBody> {
+  if (resource.type === 'file') {
+    return updateDriveFileShare({
+      headers: csrfHeaders(),
+      path: {
+        filePublicId: resource.publicId,
+        sharePublicId,
+      },
+      body,
+    }) as unknown as Promise<DriveShareBody>
+  }
+  return updateDriveFolderShare({
+    headers: csrfHeaders(),
+    path: {
+      folderPublicId: resource.publicId,
+      sharePublicId,
+    },
+    body,
+  }) as unknown as Promise<DriveShareBody>
 }
 
 export async function createDriveShareLinkItem(

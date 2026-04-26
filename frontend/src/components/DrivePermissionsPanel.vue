@@ -9,6 +9,7 @@ defineProps<{
 const emit = defineEmits<{
   revokeShare: [permission: DrivePermissionBody]
   disableLink: [permission: DrivePermissionBody]
+  updateShareRole: [permission: DrivePermissionBody, role: string]
 }>()
 
 function formatDate(value?: string) {
@@ -54,6 +55,17 @@ function subjectLabel(permission: DrivePermissionBody) {
             </span>
           </div>
           <div class="drive-row-actions">
+            <select
+              v-if="permission.kind === 'share' && permission.publicId"
+              class="field-input compact-select"
+              :value="permission.role"
+              :disabled="busy"
+              aria-label="Update share role"
+              @change="emit('updateShareRole', permission, ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="viewer">Viewer</option>
+              <option value="editor">Editor</option>
+            </select>
             <button
               v-if="permission.kind === 'share' && permission.publicId"
               class="secondary-button compact-button danger-button"

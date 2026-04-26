@@ -35,7 +35,7 @@ WHERE id IN (
     LIMIT $5::int
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
 `
 
 type ClaimDeletedFileObjectsForPurgeParams struct {
@@ -113,6 +113,7 @@ func (q *Queries) ClaimDeletedFileObjectsForPurge(ctx context.Context, arg Claim
 			&i.EncryptionMode,
 			&i.E2eeFileKeyPublicID,
 			&i.StorageGatewayID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -143,7 +144,7 @@ INSERT INTO file_objects (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULLIF($9, ''), NULLIF($13::text, '')
 )
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
 `
 
 type CreateFileObjectParams struct {
@@ -231,12 +232,13 @@ func (q *Queries) CreateFileObject(ctx context.Context, arg CreateFileObjectPara
 		&i.EncryptionMode,
 		&i.E2eeFileKeyPublicID,
 		&i.StorageGatewayID,
+		&i.Description,
 	)
 	return i, err
 }
 
 const getFileObjectByIDForTenant = `-- name: GetFileObjectByIDForTenant :one
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
 FROM file_objects
 WHERE id = $1
   AND tenant_id = $2
@@ -304,12 +306,13 @@ func (q *Queries) GetFileObjectByIDForTenant(ctx context.Context, arg GetFileObj
 		&i.EncryptionMode,
 		&i.E2eeFileKeyPublicID,
 		&i.StorageGatewayID,
+		&i.Description,
 	)
 	return i, err
 }
 
 const getFileObjectForTenant = `-- name: GetFileObjectForTenant :one
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
 FROM file_objects
 WHERE public_id = $1
   AND tenant_id = $2
@@ -377,12 +380,13 @@ func (q *Queries) GetFileObjectForTenant(ctx context.Context, arg GetFileObjectF
 		&i.EncryptionMode,
 		&i.E2eeFileKeyPublicID,
 		&i.StorageGatewayID,
+		&i.Description,
 	)
 	return i, err
 }
 
 const listActiveFileObjectsForTenant = `-- name: ListActiveFileObjectsForTenant :many
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
 FROM file_objects
 WHERE tenant_id = $1
   AND purpose <> 'drive'
@@ -457,6 +461,7 @@ func (q *Queries) ListActiveFileObjectsForTenant(ctx context.Context, arg ListAc
 			&i.EncryptionMode,
 			&i.E2eeFileKeyPublicID,
 			&i.StorageGatewayID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -469,7 +474,7 @@ func (q *Queries) ListActiveFileObjectsForTenant(ctx context.Context, arg ListAc
 }
 
 const listFileObjectsForAttachment = `-- name: ListFileObjectsForAttachment :many
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
 FROM file_objects
 WHERE tenant_id = $1
   AND attached_to_type = $2
@@ -546,6 +551,7 @@ func (q *Queries) ListFileObjectsForAttachment(ctx context.Context, arg ListFile
 			&i.EncryptionMode,
 			&i.E2eeFileKeyPublicID,
 			&i.StorageGatewayID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -569,7 +575,7 @@ WHERE id = $1
   AND status = 'deleted'
   AND deleted_at IS NOT NULL
   AND purged_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
 `
 
 func (q *Queries) MarkFileObjectBodyPurged(ctx context.Context, id int64) (FileObject, error) {
@@ -627,6 +633,7 @@ func (q *Queries) MarkFileObjectBodyPurged(ctx context.Context, id int64) (FileO
 		&i.EncryptionMode,
 		&i.E2eeFileKeyPublicID,
 		&i.StorageGatewayID,
+		&i.Description,
 	)
 	return i, err
 }
@@ -640,7 +647,7 @@ SET
     updated_at = now()
 WHERE id = $2
   AND purged_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
 `
 
 type MarkFileObjectPurgeFailedParams struct {
@@ -703,6 +710,7 @@ func (q *Queries) MarkFileObjectPurgeFailed(ctx context.Context, arg MarkFileObj
 		&i.EncryptionMode,
 		&i.E2eeFileKeyPublicID,
 		&i.StorageGatewayID,
+		&i.Description,
 	)
 	return i, err
 }
@@ -717,7 +725,7 @@ WHERE public_id = $1
   AND tenant_id = $2
   AND purpose <> 'drive'
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
 `
 
 type SoftDeleteFileObjectForTenantParams struct {
@@ -780,6 +788,7 @@ func (q *Queries) SoftDeleteFileObjectForTenant(ctx context.Context, arg SoftDel
 		&i.EncryptionMode,
 		&i.E2eeFileKeyPublicID,
 		&i.StorageGatewayID,
+		&i.Description,
 	)
 	return i, err
 }

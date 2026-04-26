@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  Copy,
   Download,
   Edit3,
   Eye,
@@ -8,6 +9,7 @@ import {
   RefreshCw,
   RotateCcw,
   Share2,
+  Star,
   Trash2,
 } from 'lucide-vue-next'
 
@@ -33,6 +35,12 @@ const emit = defineEmits<{
   shareItem: [item: DriveItemBody]
   restoreItem: [item: DriveItemBody]
   detailsItem: [item: DriveItemBody]
+  toggleStar: [item: DriveItemBody]
+  copyItem: [item: DriveItemBody]
+  downloadArchive: [item: DriveItemBody]
+  editMetadataItem: [item: DriveItemBody]
+  previewItem: [item: DriveItemBody]
+  permanentlyDeleteItem: [item: DriveItemBody]
 }>()
 
 function itemBusy() {
@@ -60,7 +68,28 @@ function deleteBusy() {
         <RotateCcw :size="16" stroke-width="1.8" aria-hidden="true" />
         Restore
       </button>
+      <button
+        v-if="trashMode"
+        class="danger"
+        type="button"
+        role="menuitem"
+        :disabled="deleteBusy()"
+        @click="emit('permanentlyDeleteItem', item)"
+      >
+        <Trash2 :size="16" stroke-width="1.8" aria-hidden="true" />
+        Delete permanently
+      </button>
       <template v-else>
+        <button
+          v-if="item.file"
+          type="button"
+          role="menuitem"
+          :disabled="busyResourceId === item.file.publicId"
+          @click="emit('previewItem', item)"
+        >
+          <Eye :size="16" stroke-width="1.8" aria-hidden="true" />
+          Preview
+        </button>
         <button
           v-if="item.file"
           type="button"
@@ -70,6 +99,33 @@ function deleteBusy() {
         >
           <Download :size="16" stroke-width="1.8" aria-hidden="true" />
           Download
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          :disabled="itemBusy()"
+          @click="emit('downloadArchive', item)"
+        >
+          <Download :size="16" stroke-width="1.8" aria-hidden="true" />
+          Download ZIP
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          :disabled="itemBusy()"
+          @click="emit('toggleStar', item)"
+        >
+          <Star :size="16" stroke-width="1.8" aria-hidden="true" />
+          {{ item.starredByMe ? 'Remove star' : 'Add star' }}
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          :disabled="itemBusy() || item.file?.locked"
+          @click="emit('copyItem', item)"
+        >
+          <Copy :size="16" stroke-width="1.8" aria-hidden="true" />
+          Copy
         </button>
         <button
           type="button"
@@ -88,6 +144,15 @@ function deleteBusy() {
         >
           <Edit3 :size="16" stroke-width="1.8" aria-hidden="true" />
           Rename
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          :disabled="itemBusy() || item.file?.locked"
+          @click="emit('editMetadataItem', item)"
+        >
+          <Edit3 :size="16" stroke-width="1.8" aria-hidden="true" />
+          Metadata
         </button>
         <button
           type="button"

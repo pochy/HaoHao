@@ -26,8 +26,10 @@ type GetDriveFileInput struct {
 }
 
 type UpdateDriveFileBody struct {
-	OriginalFilename     *string `json:"originalFilename,omitempty" maxLength:"255"`
-	ParentFolderPublicID *string `json:"parentFolderPublicId,omitempty"`
+	OriginalFilename     *string   `json:"originalFilename,omitempty" maxLength:"255"`
+	Description          *string   `json:"description,omitempty" maxLength:"4000"`
+	Tags                 *[]string `json:"tags,omitempty"`
+	ParentFolderPublicID *string   `json:"parentFolderPublicId,omitempty"`
 }
 
 type UpdateDriveFileInput struct {
@@ -87,6 +89,8 @@ func registerDriveFileRoutes(api huma.API, deps Dependencies) {
 			ActorUserID:          current.User.ID,
 			FilePublicID:         input.FilePublicID,
 			Filename:             input.Body.OriginalFilename,
+			Description:          input.Body.Description,
+			Tags:                 input.Body.Tags,
 			ParentFolderPublicID: input.Body.ParentFolderPublicID,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
@@ -198,6 +202,34 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 		}
 		defer download.Body.Close()
 		writeDriveDownload(c, download)
+	})
+
+	router.GET("/api/v1/drive/files/:filePublicId/preview", func(c *gin.Context) {
+		current, tenant, ok := rawDriveActiveTenant(c, deps, false)
+		if !ok {
+			return
+		}
+		download, err := deps.DriveService.PreviewFile(c.Request.Context(), tenant.ID, current.User.ID, c.Param("filePublicId"), false, sessionAuditContext(c.Request.Context(), current, &tenant.ID))
+		if err != nil {
+			writeRawDriveError(c, err)
+			return
+		}
+		defer download.Body.Close()
+		writeDriveInline(c, download)
+	})
+
+	router.GET("/api/v1/drive/files/:filePublicId/thumbnail", func(c *gin.Context) {
+		current, tenant, ok := rawDriveActiveTenant(c, deps, false)
+		if !ok {
+			return
+		}
+		download, err := deps.DriveService.PreviewFile(c.Request.Context(), tenant.ID, current.User.ID, c.Param("filePublicId"), true, sessionAuditContext(c.Request.Context(), current, &tenant.ID))
+		if err != nil {
+			writeRawDriveError(c, err)
+			return
+		}
+		defer download.Body.Close()
+		writeDriveInline(c, download)
 	})
 
 	router.PUT("/api/v1/drive/files/:filePublicId/content", func(c *gin.Context) {
@@ -471,6 +503,14 @@ func driveErrorTitle(err error) string {
 func writeDriveDownload(c *gin.Context, download service.DriveFileDownload) {
 	c.Header("Content-Type", download.File.ContentType)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", download.File.OriginalFilename))
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Status(http.StatusOK)
+	_, _ = io.Copy(c.Writer, download.Body)
+}
+
+func writeDriveInline(c *gin.Context, download service.DriveFileDownload) {
+	c.Header("Content-Type", download.File.ContentType)
+	c.Header("Content-Disposition", fmt.Sprintf("inline; filename=%q", download.File.OriginalFilename))
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Status(http.StatusOK)
 	_, _ = io.Copy(c.Writer, download.Body)

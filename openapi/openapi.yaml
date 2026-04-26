@@ -770,6 +770,89 @@ components:
         - provider
         - createdAt
       type: object
+    DriveActivityBody:
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+        actorDisplayName:
+          type: string
+        actorUserPublicId:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        metadata:
+          additionalProperties: {}
+          type: object
+        publicId:
+          type: string
+        resourceType:
+          type: string
+      required:
+        - publicId
+        - resourceType
+        - action
+        - createdAt
+      type: object
+    DriveActivityListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveActivityListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DriveActivityBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DriveArchiveBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveArchiveBody.json
+          format: uri
+          readOnly: true
+          type: string
+        filename:
+          maxLength: 255
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DriveArchiveItemBody"
+          maxItems: 100
+          minItems: 1
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DriveArchiveItemBody:
+      additionalProperties: false
+      properties:
+        publicId:
+          format: uuid
+          type: string
+        type:
+          enum:
+            - file
+            - folder
+          type: string
+      required:
+        - type
+        - publicId
+      type: object
     DriveCleanRoomBody:
       additionalProperties: false
       properties:
@@ -916,6 +999,22 @@ components:
       required:
         - userPublicId
         - role
+      type: object
+    DriveCopyBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveCopyBody.json
+          format: uri
+          readOnly: true
+          type: string
+        name:
+          maxLength: 255
+          type: string
+        parentFolderPublicId:
+          type: string
       type: object
     DriveDeviceBody:
       additionalProperties: false
@@ -1312,6 +1411,8 @@ components:
         deletedAt:
           format: date-time
           type: string
+        description:
+          type: string
         dlpBlocked:
           type: boolean
         inheritanceEnabled:
@@ -1372,6 +1473,8 @@ components:
         deletedAt:
           format: date-time
           type: string
+        description:
+          type: string
         inheritanceEnabled:
           type: boolean
         name:
@@ -1393,6 +1496,50 @@ components:
         - inheritanceEnabled
         - createdAt
         - updatedAt
+      type: object
+    DriveFolderTreeBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveFolderTreeBody.json
+          format: uri
+          readOnly: true
+          type: string
+        ownedRoots:
+          items:
+            $ref: "#/components/schemas/DriveFolderTreeNodeBody"
+          type:
+            - array
+            - "null"
+        sharedRoots:
+          items:
+            $ref: "#/components/schemas/DriveFolderTreeNodeBody"
+          type:
+            - array
+            - "null"
+      required:
+        - ownedRoots
+        - sharedRoots
+      type: object
+    DriveFolderTreeNodeBody:
+      additionalProperties: false
+      properties:
+        children:
+          items:
+            $ref: "#/components/schemas/DriveFolderTreeNodeBody"
+          type:
+            - array
+            - "null"
+        name:
+          type: string
+        publicId:
+          type: string
+      required:
+        - publicId
+        - name
+        - children
       type: object
     DriveGatewayBindInputBody:
       additionalProperties: false
@@ -1694,16 +1841,48 @@ components:
     DriveItemBody:
       additionalProperties: false
       properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveItemBody.json
+          format: uri
+          readOnly: true
+          type: string
         file:
           $ref: "#/components/schemas/DriveFileBody"
         folder:
           $ref: "#/components/schemas/DriveFolderBody"
+        ownedByMe:
+          type: boolean
+        ownerDisplayName:
+          type: string
+        ownerUserPublicId:
+          type: string
+        shareRole:
+          type: string
+        sharedWithMe:
+          type: boolean
+        source:
+          examples:
+            - upload
+          type: string
+        starredByMe:
+          type: boolean
+        tags:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
         type:
           examples:
             - file
           type: string
       required:
         - type
+        - ownedByMe
+        - sharedWithMe
+        - starredByMe
       type: object
     DriveItemListOutputBody:
       additionalProperties: false
@@ -2093,6 +2272,25 @@ components:
         - revision
         - result
       type: object
+    DriveOwnerTransferBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveOwnerTransferBody.json
+          format: uri
+          readOnly: true
+          type: string
+        newOwnerUserPublicId:
+          format: uuid
+          type: string
+        revokePreviousOwnerAccess:
+          type: boolean
+      required:
+        - newOwnerUserPublicId
+        - revokePreviousOwnerAccess
+      type: object
     DrivePermissionBody:
       additionalProperties: false
       properties:
@@ -2379,6 +2577,77 @@ components:
         - status
         - createdAt
         - updatedAt
+      type: object
+    DriveShareTargetBody:
+      additionalProperties: false
+      properties:
+        displayName:
+          type: string
+        publicId:
+          type: string
+        secondary:
+          type: string
+        type:
+          examples:
+            - user
+          type: string
+      required:
+        - type
+        - publicId
+        - displayName
+      type: object
+    DriveShareTargetsOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveShareTargetsOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DriveShareTargetBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DriveStorageUsageBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveStorageUsageBody.json
+          format: uri
+          readOnly: true
+          type: string
+        fileCount:
+          format: int64
+          type: integer
+        quotaBytes:
+          format: int64
+          type: integer
+        storageDriver:
+          type: string
+        trashBytes:
+          format: int64
+          type: integer
+        trashFileCount:
+          format: int64
+          type: integer
+        usedBytes:
+          format: int64
+          type: integer
+      required:
+        - usedBytes
+        - trashBytes
+        - fileCount
+        - trashFileCount
+        - storageDriver
       type: object
     DriveSyncDeltaEventBody:
       additionalProperties: false
@@ -4368,11 +4637,18 @@ components:
           format: uri
           readOnly: true
           type: string
+        description:
+          maxLength: 4000
+          type: string
         originalFilename:
           maxLength: 255
           type: string
         parentFolderPublicId:
           type: string
+        tags:
+          items:
+            type: string
+          type: array
       type: object
     UpdateDriveFolderBody:
       additionalProperties: false
@@ -4384,11 +4660,36 @@ components:
           format: uri
           readOnly: true
           type: string
+        description:
+          maxLength: 4000
+          type: string
         name:
           maxLength: 255
           type: string
         parentFolderPublicId:
           type: string
+        tags:
+          items:
+            type: string
+          type: array
+      type: object
+    UpdateDriveShareBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/UpdateDriveShareBody.json
+          format: uri
+          readOnly: true
+          type: string
+        role:
+          enum:
+            - editor
+            - viewer
+          type: string
+      required:
+        - role
       type: object
     UpdateDriveShareLinkBody:
       additionalProperties: false
@@ -4977,6 +5278,42 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: public Drive share link metadata を返す
+      tags:
+        - drive-public
+  /api/public/drive/share-links/{token}/children:
+    get:
+      operationId: listPublicDriveShareLinkChildren
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+        - in: cookie
+          name: DRIVE_SHARE_LINK_VERIFICATION
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveItemListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: public Drive folder share link children を返す
       tags:
         - drive-public
   /api/scim/v2/Users:
@@ -8664,6 +9001,52 @@ paths:
       summary: Drive sync device を revoke する
       tags:
         - drive-sync
+  /api/v1/drive/downloads/archive:
+    post:
+      operationId: downloadDriveArchive
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveArchiveBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/zip:
+              schema:
+                contentMediaType: application/octet-stream
+                format: binary
+                type: string
+          description: ZIP archive
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+            Content-Type:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive items を ZIP archive として download する
+      tags:
+        - drive
   /api/v1/drive/e2ee/user-keys:
     post:
       operationId: createDriveE2EEUserKey
@@ -8804,6 +9187,44 @@ paths:
       summary: Drive file metadata を更新する
       tags:
         - drive
+  /api/v1/drive/files/{filePublicId}/activity:
+    get:
+      operationId: listDriveFileActivity
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveActivityListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file activity を返す
+      tags:
+        - drive
   /api/v1/drive/files/{filePublicId}/ai/classifications:
     get:
       operationId: listDriveAIClassifications
@@ -8911,6 +9332,48 @@ paths:
       summary: Drive AI summary を返す
       tags:
         - drive-ai
+  /api/v1/drive/files/{filePublicId}/copy:
+    post:
+      operationId: copyDriveFile
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveCopyBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveItemBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file を copy する
+      tags:
+        - drive
   /api/v1/drive/files/{filePublicId}/e2ee/envelope:
     get:
       operationId: getDriveE2EEEnvelope
@@ -9359,6 +9822,80 @@ paths:
       summary: Drive Office edit session を作成する
       tags:
         - drive-office
+  /api/v1/drive/files/{filePublicId}/owner-transfer:
+    post:
+      operationId: transferDriveFileOwner
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveOwnerTransferBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveItemBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file owner を移譲する
+      tags:
+        - drive
+  /api/v1/drive/files/{filePublicId}/permanent:
+    delete:
+      operationId: permanentlyDeleteDriveFile
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file を完全削除する
+      tags:
+        - drive
   /api/v1/drive/files/{filePublicId}/permissions:
     get:
       operationId: getDriveFilePermissions
@@ -9553,6 +10090,148 @@ paths:
       summary: Drive file share を解除する
       tags:
         - drive
+    patch:
+      operationId: updateDriveFileShare
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: sharePublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDriveShareBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveShareBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file share role を更新する
+      tags:
+        - drive
+  /api/v1/drive/files/{filePublicId}/star:
+    delete:
+      operationId: unstarDriveFile
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file の star を外す
+      tags:
+        - drive
+    post:
+      operationId: starDriveFile
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file に star を付ける
+      tags:
+        - drive
+  /api/v1/drive/folder-tree:
+    get:
+      operationId: getDriveFolderTree
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 500
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveFolderTreeBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive folder tree を返す
+      tags:
+        - drive
   /api/v1/drive/folders:
     post:
       operationId: createDriveFolder
@@ -9693,6 +10372,44 @@ paths:
       summary: Drive folder を更新する
       tags:
         - drive
+  /api/v1/drive/folders/{folderPublicId}/activity:
+    get:
+      operationId: listDriveFolderActivity
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: folderPublicId
+          required: true
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveActivityListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive folder activity を返す
+      tags:
+        - drive
   /api/v1/drive/folders/{folderPublicId}/children:
     get:
       operationId: listDriveFolderChildren
@@ -9735,6 +10452,48 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive folder children を返す
+      tags:
+        - drive
+  /api/v1/drive/folders/{folderPublicId}/copy:
+    post:
+      operationId: copyDriveFolder
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: folderPublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveCopyBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveItemBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive folder を copy する
       tags:
         - drive
   /api/v1/drive/folders/{folderPublicId}/inheritance:
@@ -9815,6 +10574,80 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive folder external share invitation を作成する
+      tags:
+        - drive
+  /api/v1/drive/folders/{folderPublicId}/owner-transfer:
+    post:
+      operationId: transferDriveFolderOwner
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: folderPublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveOwnerTransferBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveItemBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive folder owner を移譲する
+      tags:
+        - drive
+  /api/v1/drive/folders/{folderPublicId}/permanent:
+    delete:
+      operationId: permanentlyDeleteDriveFolder
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: folderPublicId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive folder を完全削除する
       tags:
         - drive
   /api/v1/drive/folders/{folderPublicId}/permissions:
@@ -10009,6 +10842,115 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive folder share を解除する
+      tags:
+        - drive
+    patch:
+      operationId: updateDriveFolderShare
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: folderPublicId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: sharePublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDriveShareBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveShareBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive folder share role を更新する
+      tags:
+        - drive
+  /api/v1/drive/folders/{folderPublicId}/star:
+    delete:
+      operationId: unstarDriveFolder
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: folderPublicId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive folder の star を外す
+      tags:
+        - drive
+    post:
+      operationId: starDriveFolder
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: folderPublicId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive folder に star を付ける
       tags:
         - drive
   /api/v1/drive/groups:
@@ -10384,6 +11326,36 @@ paths:
             type: string
         - explode: false
           in: query
+          name: type
+          schema:
+            default: all
+            type: string
+        - explode: false
+          in: query
+          name: owner
+          schema:
+            default: all
+            type: string
+        - explode: false
+          in: query
+          name: source
+          schema:
+            default: all
+            type: string
+        - explode: false
+          in: query
+          name: sort
+          schema:
+            default: updated_at
+            type: string
+        - explode: false
+          in: query
+          name: direction
+          schema:
+            default: desc
+            type: string
+        - explode: false
+          in: query
           name: limit
           schema:
             default: 100
@@ -10466,6 +11438,39 @@ paths:
       summary: Drive Office edit session を revoke する
       tags:
         - drive-office
+  /api/v1/drive/recent:
+    get:
+      operationId: listDriveRecent
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveItemListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Recent Drive item を返す
+      tags:
+        - drive
   /api/v1/drive/search:
     get:
       operationId: searchDriveItems
@@ -10483,6 +11488,36 @@ paths:
           in: query
           name: contentType
           schema:
+            type: string
+        - explode: false
+          in: query
+          name: type
+          schema:
+            default: all
+            type: string
+        - explode: false
+          in: query
+          name: owner
+          schema:
+            default: all
+            type: string
+        - explode: false
+          in: query
+          name: source
+          schema:
+            default: all
+            type: string
+        - explode: false
+          in: query
+          name: sort
+          schema:
+            default: updated_at
+            type: string
+        - explode: false
+          in: query
+          name: direction
+          schema:
+            default: desc
             type: string
         - explode: false
           in: query
@@ -10526,6 +11561,36 @@ paths:
           in: query
           name: contentType
           schema:
+            type: string
+        - explode: false
+          in: query
+          name: type
+          schema:
+            default: all
+            type: string
+        - explode: false
+          in: query
+          name: owner
+          schema:
+            default: all
+            type: string
+        - explode: false
+          in: query
+          name: source
+          schema:
+            default: all
+            type: string
+        - explode: false
+          in: query
+          name: sort
+          schema:
+            default: updated_at
+            type: string
+        - explode: false
+          in: query
+          name: direction
+          schema:
+            default: desc
             type: string
         - explode: false
           in: query
@@ -10623,6 +11688,143 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive share link を更新する
+      tags:
+        - drive
+  /api/v1/drive/share-targets:
+    get:
+      operationId: listDriveShareTargets
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: q
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 20
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveShareTargetsOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive share target candidates を返す
+      tags:
+        - drive
+  /api/v1/drive/shared-with-me:
+    get:
+      operationId: listDriveSharedWithMe
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveItemListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: 自分に共有された Drive item を返す
+      tags:
+        - drive
+  /api/v1/drive/starred:
+    get:
+      operationId: listDriveStarred
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveItemListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Starred Drive item を返す
+      tags:
+        - drive
+  /api/v1/drive/storage:
+    get:
+      operationId: getDriveStorageUsage
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveStorageUsageBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive storage usage を返す
       tags:
         - drive
   /api/v1/drive/trash:

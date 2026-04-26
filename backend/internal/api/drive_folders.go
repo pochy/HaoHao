@@ -20,6 +20,10 @@ type DriveItemListOutput struct {
 	}
 }
 
+type DriveItemOutput struct {
+	Body DriveItemBody
+}
+
 type CreateDriveFolderBody struct {
 	Name                 string `json:"name" maxLength:"255"`
 	WorkspacePublicID    string `json:"workspacePublicId,omitempty" format:"uuid"`
@@ -38,8 +42,10 @@ type GetDriveFolderInput struct {
 }
 
 type UpdateDriveFolderBody struct {
-	Name                 *string `json:"name,omitempty" maxLength:"255"`
-	ParentFolderPublicID *string `json:"parentFolderPublicId,omitempty"`
+	Name                 *string   `json:"name,omitempty" maxLength:"255"`
+	Description          *string   `json:"description,omitempty" maxLength:"4000"`
+	Tags                 *[]string `json:"tags,omitempty"`
+	ParentFolderPublicID *string   `json:"parentFolderPublicId,omitempty"`
 }
 
 type UpdateDriveFolderInput struct {
@@ -78,6 +84,11 @@ type ListDriveItemsInput struct {
 	WorkspacePublicID    string      `query:"workspacePublicId" format:"uuid"`
 	FolderPublicID       string      `query:"folderPublicId"`
 	ParentFolderPublicID string      `query:"parentFolderPublicId"`
+	Type                 string      `query:"type" default:"all"`
+	Owner                string      `query:"owner" default:"all"`
+	Source               string      `query:"source" default:"all"`
+	Sort                 string      `query:"sort" default:"updated_at"`
+	Direction            string      `query:"direction" default:"desc"`
 	Limit                int32       `query:"limit" default:"100"`
 }
 
@@ -85,6 +96,11 @@ type SearchDriveItemsInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
 	Query         string      `query:"q"`
 	ContentType   string      `query:"contentType"`
+	Type          string      `query:"type" default:"all"`
+	Owner         string      `query:"owner" default:"all"`
+	Source        string      `query:"source" default:"all"`
+	Sort          string      `query:"sort" default:"updated_at"`
+	Direction     string      `query:"direction" default:"desc"`
 	Limit         int32       `query:"limit" default:"100"`
 }
 
@@ -97,6 +113,7 @@ func registerDriveRoutes(api huma.API, deps Dependencies) {
 	registerDriveShareLinkRoutes(api, deps)
 	registerDriveInvitationRoutes(api, deps)
 	registerDriveTrashRoutes(api, deps)
+	registerDriveP16Routes(api, deps)
 	registerDrivePhase8Routes(api, deps)
 	registerDrivePhase9Routes(api, deps)
 }
@@ -173,6 +190,8 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 			ActorUserID:          current.User.ID,
 			FolderPublicID:       input.FolderPublicID,
 			Name:                 input.Body.Name,
+			Description:          input.Body.Description,
+			Tags:                 input.Body.Tags,
 			ParentFolderPublicID: input.Body.ParentFolderPublicID,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
@@ -270,7 +289,14 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 			ActorUserID:          current.User.ID,
 			WorkspacePublicID:    input.WorkspacePublicID,
 			ParentFolderPublicID: parentID,
-			Limit:                input.Limit,
+			Filter: service.DriveListItemsFilter{
+				Type:      input.Type,
+				Owner:     input.Owner,
+				Source:    input.Source,
+				Sort:      input.Sort,
+				Direction: input.Direction,
+			},
+			Limit: input.Limit,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toDriveHTTPError(err)
@@ -295,7 +321,14 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 			ActorUserID: current.User.ID,
 			Query:       input.Query,
 			ContentType: input.ContentType,
-			Limit:       input.Limit,
+			Filter: service.DriveListItemsFilter{
+				Type:      input.Type,
+				Owner:     input.Owner,
+				Source:    input.Source,
+				Sort:      input.Sort,
+				Direction: input.Direction,
+			},
+			Limit: input.Limit,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toDriveHTTPError(err)

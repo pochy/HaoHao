@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { Info, Lock, ShieldCheck, X } from 'lucide-vue-next'
 
-import type { DriveFolderBody, DriveItemBody, DrivePermissionsBody } from '../api/generated/types.gen'
+import type { DriveActivityBody, DriveFolderBody, DriveItemBody, DrivePermissionsBody } from '../api/generated/types.gen'
 import {
   driveItemContentType,
   driveItemName,
@@ -17,6 +17,7 @@ const props = defineProps<{
   selectedItem: DriveItemBody | null
   currentFolder: DriveFolderBody
   permissions: DrivePermissionsBody | null
+  activities: DriveActivityBody[]
   itemCount: number
   fileCount: number
   folderCount: number
@@ -34,6 +35,8 @@ const title = computed(() => (
 ))
 const directCount = computed(() => props.permissions?.direct?.length ?? 0)
 const inheritedCount = computed(() => props.permissions?.inherited?.length ?? 0)
+const selectedDescription = computed(() => props.selectedItem?.file?.description ?? props.selectedItem?.folder?.description ?? '')
+const selectedTags = computed(() => props.selectedItem?.tags ?? [])
 </script>
 
 <template>
@@ -89,7 +92,33 @@ const inheritedCount = computed(() => props.permissions?.inherited?.length ?? 0)
           <dt>Scan</dt>
           <dd>{{ selectedItem.file.scanStatus }}</dd>
         </div>
+        <div v-if="selectedItem?.ownerDisplayName || selectedItem?.ownerUserPublicId">
+          <dt>Owner</dt>
+          <dd>{{ selectedItem.ownerDisplayName || selectedItem.ownerUserPublicId }}</dd>
+        </div>
+        <div v-if="selectedItem?.source">
+          <dt>Source</dt>
+          <dd>{{ selectedItem.source }}</dd>
+        </div>
+        <div v-if="selectedItem?.shareRole">
+          <dt>Share role</dt>
+          <dd>{{ selectedItem.shareRole }}</dd>
+        </div>
       </dl>
+
+      <div v-if="selectedItem" class="drive-metadata-stack">
+        <div>
+          <h3>Description</h3>
+          <p class="cell-subtle">{{ selectedDescription || 'No description.' }}</p>
+        </div>
+        <div>
+          <h3>Tags</h3>
+          <div v-if="selectedTags.length > 0" class="drive-tag-list">
+            <span v-for="tag in selectedTags" :key="tag" class="status-pill">{{ tag }}</span>
+          </div>
+          <p v-else class="cell-subtle">No tags.</p>
+        </div>
+      </div>
 
       <div v-if="!selectedItem" class="drive-details-summary">
         <span>{{ itemCount }} items</span>
@@ -102,8 +131,15 @@ const inheritedCount = computed(() => props.permissions?.inherited?.length ?? 0)
     </div>
 
     <div v-else-if="activeTab === 'activity'" class="drive-details-section">
-      <p class="cell-subtle">
-        Activity feed will connect to Drive audit events in a later API phase.
+      <div v-if="activities.length > 0" class="drive-activity-list">
+        <article v-for="activity in activities" :key="activity.publicId" class="drive-activity-row">
+          <strong>{{ activity.action }}</strong>
+          <span>{{ activity.actorDisplayName || activity.actorUserPublicId || 'System' }}</span>
+          <time :datetime="activity.createdAt">{{ formatDriveDate(activity.createdAt) }}</time>
+        </article>
+      </div>
+      <p v-else class="cell-subtle">
+        Activity はまだありません。
       </p>
     </div>
 

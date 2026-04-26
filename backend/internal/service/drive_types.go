@@ -53,6 +53,7 @@ type DriveFolder struct {
 	WorkspacePublicID  string
 	ParentFolderID     *int64
 	Name               string
+	Description        string
 	CreatedByUserID    int64
 	InheritanceEnabled bool
 	DeletedAt          *time.Time
@@ -69,6 +70,7 @@ type DriveFile struct {
 	UploadedByUserID   *int64
 	DriveFolderID      *int64
 	OriginalFilename   string
+	Description        string
 	ContentType        string
 	ByteSize           int64
 	SHA256Hex          string
@@ -223,9 +225,21 @@ const (
 )
 
 type DriveItem struct {
-	Type   DriveItemType
-	Folder *DriveFolder
-	File   *DriveFile
+	Type     DriveItemType
+	Folder   *DriveFolder
+	File     *DriveFile
+	Metadata DriveItemMetadata
+}
+
+type DriveItemMetadata struct {
+	OwnedByMe         bool
+	SharedWithMe      bool
+	StarredByMe       bool
+	OwnerUserPublicID string
+	OwnerDisplayName  string
+	ShareRole         string
+	Source            string
+	Tags              []string
 }
 
 type DrivePermission struct {
@@ -274,6 +288,14 @@ type DriveOperationsHealth struct {
 	CheckedAt               time.Time
 }
 
+type DriveListItemsFilter struct {
+	Type      string
+	Owner     string
+	Source    string
+	Sort      string
+	Direction string
+}
+
 type DriveCreateFolderInput struct {
 	TenantID             int64
 	ActorUserID          int64
@@ -288,6 +310,8 @@ type DriveUpdateFolderInput struct {
 	ActorUserID          int64
 	FolderPublicID       string
 	Name                 *string
+	Description          *string
+	Tags                 *[]string
 	ParentFolderPublicID *string
 }
 
@@ -307,6 +331,8 @@ type DriveUpdateFileInput struct {
 	ActorUserID          int64
 	FilePublicID         string
 	Filename             *string
+	Description          *string
+	Tags                 *[]string
 	ParentFolderPublicID *string
 }
 
@@ -331,6 +357,7 @@ type DriveListChildrenInput struct {
 	ActorUserID          int64
 	WorkspacePublicID    string
 	ParentFolderPublicID string
+	Filter               DriveListItemsFilter
 	Limit                int32
 }
 
@@ -347,7 +374,46 @@ type DriveSearchInput struct {
 	ContentType   string
 	UpdatedAfter  *time.Time
 	UpdatedBefore *time.Time
+	Filter        DriveListItemsFilter
 	Limit         int32
+}
+
+type DriveActivity struct {
+	PublicID          string
+	ResourceType      DriveResourceType
+	ResourceID        int64
+	Action            string
+	ActorUserPublicID string
+	ActorDisplayName  string
+	Metadata          map[string]any
+	CreatedAt         time.Time
+}
+
+type DriveStorageUsage struct {
+	QuotaBytes     *int64
+	UsedBytes      int64
+	TrashBytes     int64
+	FileCount      int64
+	TrashFileCount int64
+	StorageDriver  string
+}
+
+type DriveFolderTreeNode struct {
+	PublicID string
+	Name     string
+	Children []DriveFolderTreeNode
+}
+
+type DriveFolderTree struct {
+	OwnedRoots  []DriveFolderTreeNode
+	SharedRoots []DriveFolderTreeNode
+}
+
+type DriveShareTarget struct {
+	Type        string
+	PublicID    string
+	DisplayName string
+	Secondary   string
 }
 
 type DriveCreateShareInput struct {
@@ -364,6 +430,54 @@ type DriveRevokeShareInput struct {
 	TenantID    int64
 	ActorUserID int64
 	ShareID     string
+}
+
+type DriveUpdateShareInput struct {
+	TenantID    int64
+	ActorUserID int64
+	Resource    DriveResourceRef
+	ShareID     string
+	Role        DriveRole
+}
+
+type DriveOwnerTransferInput struct {
+	TenantID                  int64
+	ActorUserID               int64
+	Resource                  DriveResourceRef
+	NewOwnerUserPublicID      string
+	RevokePreviousOwnerAccess bool
+}
+
+type DriveCopyResourceInput struct {
+	TenantID             int64
+	ActorUserID          int64
+	Resource             DriveResourceRef
+	ParentFolderPublicID string
+	Name                 string
+}
+
+type DrivePermanentDeleteInput struct {
+	TenantID    int64
+	ActorUserID int64
+	Resource    DriveResourceRef
+}
+
+type DriveArchiveItemInput struct {
+	Type     DriveResourceType
+	PublicID string
+}
+
+type DriveArchiveInput struct {
+	TenantID    int64
+	ActorUserID int64
+	Filename    string
+	Items       []DriveArchiveItemInput
+}
+
+type DriveArchiveDownload struct {
+	Filename    string
+	ContentType string
+	Body        []byte
 }
 
 type DriveCreateShareLinkInput struct {
@@ -465,6 +579,7 @@ func driveFolderFromDB(row db.DriveFolder) DriveFolder {
 		WorkspaceID:        optionalPgInt8(row.WorkspaceID),
 		ParentFolderID:     optionalPgInt8(row.ParentFolderID),
 		Name:               row.Name,
+		Description:        row.Description,
 		CreatedByUserID:    row.CreatedByUserID,
 		InheritanceEnabled: row.InheritanceEnabled,
 		DeletedAt:          optionalPgTime(row.DeletedAt),
@@ -482,6 +597,7 @@ func driveFileFromDB(row db.FileObject) DriveFile {
 		UploadedByUserID:   optionalPgInt8(row.UploadedByUserID),
 		DriveFolderID:      optionalPgInt8(row.DriveFolderID),
 		OriginalFilename:   row.OriginalFilename,
+		Description:        row.Description,
 		ContentType:        row.ContentType,
 		ByteSize:           row.ByteSize,
 		SHA256Hex:          row.Sha256Hex,

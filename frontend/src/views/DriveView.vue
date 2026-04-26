@@ -10,21 +10,30 @@ import DriveBreadcrumbs from '../components/DriveBreadcrumbs.vue'
 import DriveDetailsPanel from '../components/DriveDetailsPanel.vue'
 import DriveItemGrid from '../components/DriveItemGrid.vue'
 import DriveItemList from '../components/DriveItemList.vue'
+import DriveMetadataDialog from '../components/DriveMetadataDialog.vue'
+import DrivePreviewDialog from '../components/DrivePreviewDialog.vue'
 import DriveSideNav from '../components/DriveSideNav.vue'
 import DriveShareDialog from '../components/DriveShareDialog.vue'
+import DriveUploadQueue from '../components/DriveUploadQueue.vue'
 import DriveWorkspaceLayout from '../components/DriveWorkspaceLayout.vue'
 import EmptyState from '../components/EmptyState.vue'
 import TextInputDialog from '../components/TextInputDialog.vue'
 import {
   labelFromDriveItem,
+  type DriveModifiedFilter,
+  type DriveOwnerFilter,
+  type DriveSortKey,
+  type DriveSourceFilter,
+  type DriveTypeFilter,
   useDriveStore,
 } from '../stores/drive'
 import { useTenantStore } from '../stores/tenants'
 import {
-  driveItemKind,
   driveItemName,
+  driveItemPublicId,
   driveItemSize,
   driveItemUpdatedAt,
+  formatDriveSize,
 } from '../utils/driveItems'
 
 const route = useRoute()
@@ -35,9 +44,12 @@ const driveStore = useDriveStore()
 const actionMessage = ref('')
 const actionErrorMessage = ref('')
 const shareDialogOpen = ref(false)
+const metadataDialogOpen = ref(false)
 const workspaceDialogOpen = ref(false)
 const createFolderDialogOpen = ref(false)
 const detailsPanelOpen = ref(false)
+const metadataTarget = ref<DriveItemBody | null>(null)
+const previewTarget = ref<DriveItemBody | null>(null)
 const pendingDelete = ref<DriveItemBody | null>(null)
 const pendingRename = ref<DriveItemBody | null>(null)
 const pendingMove = ref<DriveItemBody | null>(null)
@@ -45,11 +57,18 @@ const pendingOverwriteFile = ref<DriveFileBody | null>(null)
 const overwriteInput = ref<HTMLInputElement | null>(null)
 const searchMode = ref(false)
 const trashMode = ref(false)
+const sharedMode = ref(false)
+const starredMode = ref(false)
+const recentMode = ref(false)
+const storageMode = ref(false)
+const dropActive = ref(false)
+const dragDepth = ref(0)
 
 const routeFolderPublicId = computed(() => {
   const raw = route.params.folderPublicId
   return Array.isArray(raw) ? raw[0] : raw
 })
+const routeQueryFingerprint = computed(() => JSON.stringify(route.query))
 
 const activeTenantLabel = computed(() => (
   tenantStore.activeTenant
@@ -61,6 +80,18 @@ const sourceItems = computed(() => {
   if (trashMode.value) {
     return driveStore.trashItems
   }
+  if (sharedMode.value) {
+    return driveStore.sharedItems
+  }
+  if (starredMode.value) {
+    return driveStore.starredItems
+  }
+  if (recentMode.value) {
+    return driveStore.recentItems
+  }
+  if (storageMode.value) {
+    return []
+  }
   return searchMode.value ? driveStore.searchResults : driveStore.children
 })
 const visibleItems = computed(() => {
@@ -71,15 +102,20 @@ const visibleItems = computed(() => {
       return false
     }
 
-    if (driveStore.typeFilter !== 'all' && driveItemKind(item) !== driveStore.typeFilter) {
+    if (driveStore.typeFilter === 'file' && !item.file) {
+      return false
+    }
+    if (driveStore.typeFilter === 'folder' && !item.folder) {
       return false
     }
 
-    if (driveStore.ownerFilter === 'shared_with_me') {
+    if (driveStore.ownerFilter === 'me' && !item.ownedByMe) {
       return false
     }
-
-    if (driveStore.sourceFilter === 'external') {
+    if (driveStore.ownerFilter === 'shared_with_me' && !item.sharedWithMe) {
+      return false
+    }
+    if (driveStore.sourceFilter !== 'all' && item.source !== driveStore.sourceFilter) {
       return false
     }
 
@@ -110,12 +146,12 @@ const visibleItems = computed(() => {
     if (driveStore.sortKey === 'size') {
       return ((driveItemSize(a) ?? -1) - (driveItemSize(b) ?? -1)) * direction
     }
-    if (driveStore.sortKey === 'type') {
-      return driveItemKind(a).localeCompare(driveItemKind(b)) * direction
-    }
     return (new Date(driveItemUpdatedAt(a)).getTime() - new Date(driveItemUpdatedAt(b)).getTime()) * direction
   })
 })
+const selectedArchiveItems = computed(() => visibleItems.value.filter((item) => (
+  driveStore.selectedResourceIds.includes(driveItemPublicId(item))
+)))
 const selectedLabel = computed(() => (driveStore.selectedItem ? labelFromDriveItem(driveStore.selectedItem) : 'Drive item'))
 const selectedResource = computed(() => driveStore.selectedResource)
 const selectedResourceId = computed(() => driveStore.selectedResource?.publicId ?? '')
@@ -128,11 +164,35 @@ const driveTitle = computed(() => {
   if (trashMode.value) {
     return 'Drive Trash'
   }
+  if (sharedMode.value) {
+    return 'Shared with me'
+  }
+  if (starredMode.value) {
+    return 'Starred'
+  }
+  if (recentMode.value) {
+    return 'Recent'
+  }
+  if (storageMode.value) {
+    return 'Storage'
+  }
   return searchMode.value ? 'Search Drive' : 'Drive Browser'
 })
 const activeDriveView = computed(() => {
   if (trashMode.value) {
     return 'trash'
+  }
+  if (sharedMode.value) {
+    return 'shared'
+  }
+  if (starredMode.value) {
+    return 'starred'
+  }
+  if (recentMode.value) {
+    return 'recent'
+  }
+  if (storageMode.value) {
+    return 'storage'
   }
   if (searchMode.value) {
     return 'search'
@@ -142,6 +202,15 @@ const activeDriveView = computed(() => {
   }
   return 'my-drive'
 })
+const canUploadToCurrentView = computed(() => (
+  Boolean(tenantStore.activeTenant)
+  && !trashMode.value
+  && !sharedMode.value
+  && !starredMode.value
+  && !recentMode.value
+  && !storageMode.value
+  && !searchMode.value
+))
 const deleteTitle = computed(() => (
   pendingDelete.value?.type === 'folder' ? 'Delete folder' : 'Delete file'
 ))
@@ -157,6 +226,58 @@ const moveMessage = computed(() => {
   const label = pendingMove.value ? labelFromDriveItem(pendingMove.value) : 'this item'
   return `${label} の移動先 folder public ID を入力します。空欄なら root へ移動します。`
 })
+
+const validTypeFilters: DriveTypeFilter[] = ['all', 'file', 'folder']
+const validOwnerFilters: DriveOwnerFilter[] = ['all', 'me', 'shared_with_me']
+const validModifiedFilters: DriveModifiedFilter[] = ['any', 'today', 'last_7_days', 'last_30_days']
+const validSourceFilters: DriveSourceFilter[] = ['all', 'upload', 'external', 'generated', 'sync']
+const validSortKeys: DriveSortKey[] = ['updated_at', 'name', 'size']
+
+function routeString(value: unknown) {
+  return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : ''
+}
+
+function applyRouteQueryFilters() {
+  const query = routeString(route.query.q)
+  if (driveStore.query !== query) {
+    driveStore.setQuery(query)
+  }
+
+  const type = routeString(route.query.type)
+  driveStore.setTypeFilter(validTypeFilters.includes(type as DriveTypeFilter) ? type as DriveTypeFilter : 'all')
+
+  const owner = routeString(route.query.owner)
+  driveStore.setOwnerFilter(validOwnerFilters.includes(owner as DriveOwnerFilter) ? owner as DriveOwnerFilter : 'all')
+
+  const modified = routeString(route.query.modified)
+  driveStore.setModifiedFilter(validModifiedFilters.includes(modified as DriveModifiedFilter) ? modified as DriveModifiedFilter : 'any')
+
+  const source = routeString(route.query.source)
+  driveStore.setSourceFilter(validSourceFilters.includes(source as DriveSourceFilter) ? source as DriveSourceFilter : 'all')
+
+  const sort = routeString(route.query.sort)
+  driveStore.sortKey = validSortKeys.includes(sort as DriveSortKey) ? sort as DriveSortKey : 'updated_at'
+
+  const direction = routeString(route.query.direction)
+  driveStore.sortDirection = direction === 'asc' || direction === 'desc' ? direction : 'desc'
+}
+
+function driveFilterQuery() {
+  return {
+    ...(driveStore.query ? { q: driveStore.query } : {}),
+    ...(driveStore.typeFilter !== 'all' ? { type: driveStore.typeFilter } : {}),
+    ...(driveStore.ownerFilter !== 'all' ? { owner: driveStore.ownerFilter } : {}),
+    ...(driveStore.modifiedFilter !== 'any' ? { modified: driveStore.modifiedFilter } : {}),
+    ...(driveStore.sourceFilter !== 'all' ? { source: driveStore.sourceFilter } : {}),
+    ...(driveStore.sortKey !== 'updated_at' ? { sort: driveStore.sortKey } : {}),
+    ...(driveStore.sortDirection !== 'desc' ? { direction: driveStore.sortDirection } : {}),
+  }
+}
+
+async function replaceDriveQuery() {
+  await router.replace({ query: driveFilterQuery() })
+}
+
 onMounted(async () => {
   if (tenantStore.status === 'idle') {
     await tenantStore.load()
@@ -164,14 +285,19 @@ onMounted(async () => {
 })
 
 watch(
-  () => [tenantStore.activeTenant?.slug, route.name, routeFolderPublicId.value],
+  () => [tenantStore.activeTenant?.slug, route.name, routeFolderPublicId.value, routeQueryFingerprint.value],
   async ([slug]) => {
     actionMessage.value = ''
     actionErrorMessage.value = ''
     shareDialogOpen.value = false
     searchMode.value = route.name === 'drive-search'
     trashMode.value = route.name === 'drive-trash'
+    sharedMode.value = route.name === 'drive-shared'
+    starredMode.value = route.name === 'drive-starred'
+    recentMode.value = route.name === 'drive-recent'
+    storageMode.value = route.name === 'drive-storage'
     detailsPanelOpen.value = false
+    applyRouteQueryFilters()
 
     if (!slug) {
       return
@@ -182,9 +308,34 @@ watch(
       return
     }
 
+    if (sharedMode.value) {
+      await driveStore.loadSharedWithMe()
+      return
+    }
+
+    if (starredMode.value) {
+      await driveStore.loadStarred()
+      return
+    }
+
+    if (recentMode.value) {
+      await driveStore.loadRecent()
+      return
+    }
+
+    if (storageMode.value) {
+      await driveStore.loadStorage()
+      await driveStore.loadFolderTree()
+      driveStore.status = 'ready'
+      return
+    }
+
     if (searchMode.value) {
       driveStore.status = 'idle'
       driveStore.searchResults = []
+      if (driveStore.query) {
+        await driveStore.search(driveStore.query)
+      }
       return
     }
 
@@ -258,6 +409,60 @@ async function uploadFile(file: File) {
   }
 }
 
+async function uploadFiles(files: File[]) {
+  try {
+    await driveStore.uploadFiles(files)
+    actionMessage.value = `${files.length} files を upload しました。`
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+function hasDraggedFiles(event: DragEvent) {
+  return Array.from(event.dataTransfer?.types ?? []).includes('Files')
+}
+
+function onDragEnter(event: DragEvent) {
+  if (!canUploadToCurrentView.value || !hasDraggedFiles(event)) {
+    return
+  }
+  event.preventDefault()
+  dragDepth.value += 1
+  dropActive.value = true
+}
+
+function onDragOver(event: DragEvent) {
+  if (!canUploadToCurrentView.value || !hasDraggedFiles(event)) {
+    return
+  }
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'copy'
+  }
+}
+
+function onDragLeave(event: DragEvent) {
+  if (!canUploadToCurrentView.value || !hasDraggedFiles(event)) {
+    return
+  }
+  dragDepth.value = Math.max(0, dragDepth.value - 1)
+  dropActive.value = dragDepth.value > 0
+}
+
+async function onDropFiles(event: DragEvent) {
+  if (!canUploadToCurrentView.value || !hasDraggedFiles(event)) {
+    return
+  }
+  event.preventDefault()
+  dragDepth.value = 0
+  dropActive.value = false
+  const files = Array.from(event.dataTransfer?.files ?? [])
+  if (files.length === 0) {
+    return
+  }
+  await uploadFiles(files)
+}
+
 async function downloadFile(file: DriveFileBody) {
   try {
     const download = await driveStore.downloadFile(file)
@@ -268,6 +473,27 @@ async function downloadFile(file: DriveFileBody) {
     anchor.rel = 'noopener'
     anchor.click()
     URL.revokeObjectURL(href)
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function downloadArchive(items: DriveItemBody[] = selectedArchiveItems.value) {
+  if (items.length === 0) {
+    actionErrorMessage.value = 'ZIP に含める item を選択してください。'
+    return
+  }
+  try {
+    const download = await driveStore.downloadArchive(items)
+    const href = URL.createObjectURL(download.blob)
+    const anchor = document.createElement('a')
+    anchor.href = href
+    anchor.download = download.filename
+    anchor.rel = 'noopener'
+    anchor.click()
+    URL.revokeObjectURL(href)
+    driveStore.clearSelection()
+    actionMessage.value = 'ZIP download を開始しました。'
   } catch (error) {
     actionErrorMessage.value = toApiErrorMessage(error)
   }
@@ -373,10 +599,65 @@ async function confirmDelete() {
   }
 }
 
+async function copyItem(item: DriveItemBody) {
+  try {
+    await driveStore.copyItem(item)
+    actionMessage.value = 'Copy を作成しました。'
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+function openMetadataDialog(item: DriveItemBody) {
+  metadataTarget.value = item
+  metadataDialogOpen.value = true
+}
+
+function closeMetadataDialog() {
+  metadataDialogOpen.value = false
+  metadataTarget.value = null
+}
+
+async function saveMetadata(description: string, tags: string[]) {
+  if (!metadataTarget.value) {
+    return
+  }
+  try {
+    await driveStore.updateItemMetadata(metadataTarget.value, description, tags)
+    actionMessage.value = 'Metadata を更新しました。'
+    closeMetadataDialog()
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+function openPreviewDialog(item: DriveItemBody) {
+  if (!item.file) {
+    return
+  }
+  previewTarget.value = item
+}
+
+function closePreviewDialog() {
+  previewTarget.value = null
+}
+
 async function restoreItem(item: DriveItemBody) {
   try {
     await driveStore.restoreItem(item)
     actionMessage.value = '復元しました。'
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function permanentlyDeleteItem(item: DriveItemBody) {
+  if (!confirm('この item を完全に削除します。元に戻せません。')) {
+    return
+  }
+  try {
+    await driveStore.permanentlyDeleteItem(item)
+    actionMessage.value = '完全削除しました。'
   } catch (error) {
     actionErrorMessage.value = toApiErrorMessage(error)
   }
@@ -481,6 +762,33 @@ async function disableShareLink(permission: DrivePermissionBody) {
   }
 }
 
+async function updateShareRole(permission: DrivePermissionBody, role: string) {
+  if (!selectedResource.value || !permission.publicId || permission.role === role) {
+    return
+  }
+  try {
+    await driveStore.updateShareRole(selectedResource.value, permission.publicId, role)
+    actionMessage.value = 'Share role を更新しました。'
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function transferOwner(newOwnerUserPublicId: string, revokePreviousOwnerAccess: boolean) {
+  if (!selectedResource.value) {
+    return
+  }
+  if (!confirm(`Owner を ${newOwnerUserPublicId} に移管します。続行しますか？`)) {
+    return
+  }
+  try {
+    await driveStore.transferOwner(selectedResource.value, newOwnerUserPublicId, revokePreviousOwnerAccess)
+    actionMessage.value = 'Owner を移管しました。'
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
 async function reloadPermissions() {
   if (!selectedResource.value) {
     return
@@ -496,11 +804,13 @@ async function search(query: string) {
   driveStore.setQuery(query)
   if (!query) {
     searchMode.value = false
-    await router.push('/drive')
+    await router.push({ name: 'drive', query: driveFilterQuery() })
     return
   }
   if (route.name !== 'drive-search') {
-    await router.push({ name: 'drive-search' })
+    await router.push({ name: 'drive-search', query: driveFilterQuery() })
+  } else {
+    await replaceDriveQuery()
   }
   searchMode.value = true
   await driveStore.search(query)
@@ -511,7 +821,10 @@ async function clearDriveFilters() {
   if (searchMode.value) {
     searchMode.value = false
     await router.push('/drive')
+    return
   }
+  await replaceDriveQuery()
+  await refreshDrive()
 }
 
 async function refreshDrive() {
@@ -519,7 +832,66 @@ async function refreshDrive() {
     await driveStore.loadTrash()
     return
   }
+  if (sharedMode.value) {
+    await driveStore.loadSharedWithMe()
+    return
+  }
+  if (starredMode.value) {
+    await driveStore.loadStarred()
+    return
+  }
+  if (recentMode.value) {
+    await driveStore.loadRecent()
+    return
+  }
+  if (storageMode.value) {
+    await driveStore.loadStorage()
+    return
+  }
+  if (searchMode.value && driveStore.query) {
+    await driveStore.search(driveStore.query)
+    return
+  }
   await driveStore.refreshCurrent()
+}
+
+async function updateTypeFilter(filter: DriveTypeFilter) {
+  driveStore.setTypeFilter(filter)
+  await replaceDriveQuery()
+  await refreshDrive()
+}
+
+async function updateOwnerFilter(filter: DriveOwnerFilter) {
+  driveStore.setOwnerFilter(filter)
+  await replaceDriveQuery()
+  await refreshDrive()
+}
+
+async function updateModifiedFilter(filter: DriveModifiedFilter) {
+  driveStore.setModifiedFilter(filter)
+  await replaceDriveQuery()
+  await refreshDrive()
+}
+
+async function updateSourceFilter(filter: DriveSourceFilter) {
+  driveStore.setSourceFilter(filter)
+  await replaceDriveQuery()
+  await refreshDrive()
+}
+
+async function updateSort(key: DriveSortKey) {
+  driveStore.setSort(key)
+  await replaceDriveQuery()
+  await refreshDrive()
+}
+
+async function toggleStar(item: DriveItemBody) {
+  try {
+    await driveStore.toggleStar(item)
+    actionMessage.value = item.starredByMe ? 'Star を外しました。' : 'Star を付けました。'
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
 }
 </script>
 
@@ -529,12 +901,15 @@ async function refreshDrive() {
       <DriveSideNav
         :current-folder="driveStore.currentFolder"
         :children="driveStore.children"
+        :folder-tree="driveStore.folderTree"
         :active-view="activeDriveView"
         :workspace-name="currentWorkspaceName"
+        :storage-usage="driveStore.storageUsage"
         :disabled="!tenantStore.activeTenant"
         :busy="driveStore.isBusy"
         @create-folder="requestCreateFolder"
         @upload-file="uploadFile"
+        @upload-files="uploadFiles"
         @open-folder="navigateFolder"
       />
     </template>
@@ -585,19 +960,32 @@ async function refreshDrive() {
         :source-filter="driveStore.sourceFilter"
         :sort-key="driveStore.sortKey"
         :sort-direction="driveStore.sortDirection"
+        :selection-count="selectedArchiveItems.length"
         @search="search"
         @clear-filters="clearDriveFilters"
         @update-view-mode="driveStore.setViewMode"
-        @update-type-filter="driveStore.setTypeFilter"
-        @update-owner-filter="driveStore.setOwnerFilter"
-        @update-modified-filter="driveStore.setModifiedFilter"
-        @update-source-filter="driveStore.setSourceFilter"
-        @update-sort="driveStore.setSort"
+        @update-type-filter="updateTypeFilter"
+        @update-modified-filter="updateModifiedFilter"
+        @update-owner-filter="updateOwnerFilter"
+        @update-source-filter="updateSourceFilter"
+        @update-sort="updateSort"
         @refresh="refreshDrive"
+        @download-archive="downloadArchive()"
+        @clear-selection="driveStore.clearSelection"
       />
     </template>
 
-    <div class="drive-workspace-content">
+    <div
+      class="drive-workspace-content"
+      :class="{ 'drop-active': dropActive }"
+      @dragenter="onDragEnter"
+      @dragover="onDragOver"
+      @dragleave="onDragLeave"
+      @drop="onDropFiles"
+    >
+      <div v-if="dropActive" class="drive-drop-overlay" aria-live="polite">
+        Drop files to upload
+      </div>
       <p v-if="tenantStore.status === 'empty'" class="warning-message">
         Active tenant がありません。tenant selector で tenant を選択してください。
       </p>
@@ -616,13 +1004,40 @@ async function refreshDrive() {
         </button>
       </div>
 
+      <section v-if="storageMode" class="data-card">
+        <div class="card-header">
+          <div>
+            <h2>Storage usage</h2>
+            <p>DB 上の Drive file metadata を正本にした使用量です。</p>
+          </div>
+        </div>
+        <dl class="metadata-grid">
+          <div>
+            <dt>Used</dt>
+            <dd class="tabular-cell">{{ formatDriveSize(driveStore.storageUsage?.usedBytes) }}</dd>
+          </div>
+          <div>
+            <dt>Trash</dt>
+            <dd class="tabular-cell">{{ formatDriveSize(driveStore.storageUsage?.trashBytes) }}</dd>
+          </div>
+          <div>
+            <dt>Files</dt>
+            <dd class="tabular-cell">{{ driveStore.storageUsage?.fileCount ?? 0 }}</dd>
+          </div>
+          <div>
+            <dt>Storage driver</dt>
+            <dd>{{ driveStore.storageUsage?.storageDriver || '-' }}</dd>
+          </div>
+        </dl>
+      </section>
+
       <EmptyState
         v-if="driveStore.status === 'forbidden'"
         title="Drive access denied"
         message="Drive authorization が有効でない、またはこの tenant で Drive を表示する権限がありません。"
       />
 
-      <template v-else-if="visibleItems.length > 0 || driveStore.status === 'loading'">
+      <template v-else-if="!storageMode && (visibleItems.length > 0 || driveStore.status === 'loading')">
         <DriveItemGrid
           v-if="driveStore.viewMode === 'grid'"
           :items="visibleItems"
@@ -630,6 +1045,7 @@ async function refreshDrive() {
           :busy-resource-id="driveStore.busyResourceId"
           :deleting-resource-id="driveStore.deletingResourceId"
           :selected-resource-id="selectedResourceId"
+          :selected-resource-ids="driveStore.selectedResourceIds"
           :trash-mode="trashMode"
           @open-folder="navigateFolder"
           @download-file="downloadFile"
@@ -637,9 +1053,16 @@ async function refreshDrive() {
           @move-item="moveItem"
           @overwrite-file="requestOverwrite"
           @delete-item="askDelete"
+          @copy-item="copyItem"
+          @download-archive="(item) => downloadArchive([item])"
+          @edit-metadata-item="openMetadataDialog"
+          @preview-item="openPreviewDialog"
           @share-item="openShareDialog"
           @restore-item="restoreItem"
+          @permanently-delete-item="permanentlyDeleteItem"
           @details-item="openDetailsPanel"
+          @toggle-star="toggleStar"
+          @toggle-select="driveStore.toggleSelectedItem"
         />
         <DriveItemList
           v-else
@@ -648,6 +1071,7 @@ async function refreshDrive() {
           :busy-resource-id="driveStore.busyResourceId"
           :deleting-resource-id="driveStore.deletingResourceId"
           :selected-resource-id="selectedResourceId"
+          :selected-resource-ids="driveStore.selectedResourceIds"
           :trash-mode="trashMode"
           @open-folder="navigateFolder"
           @download-file="downloadFile"
@@ -655,16 +1079,23 @@ async function refreshDrive() {
           @move-item="moveItem"
           @overwrite-file="requestOverwrite"
           @delete-item="askDelete"
+          @copy-item="copyItem"
+          @download-archive="(item) => downloadArchive([item])"
+          @edit-metadata-item="openMetadataDialog"
+          @preview-item="openPreviewDialog"
           @share-item="openShareDialog"
           @restore-item="restoreItem"
+          @permanently-delete-item="permanentlyDeleteItem"
           @details-item="openDetailsPanel"
+          @toggle-star="toggleStar"
+          @toggle-select="driveStore.toggleSelectedItem"
         />
       </template>
 
       <EmptyState
-        v-else
-        :title="trashMode ? 'Trash is empty' : searchMode ? 'No search results' : 'No items yet'"
-        :message="trashMode ? 'ゴミ箱は空です。' : searchMode ? '検索結果はありません。' : 'この folder にはまだ item がありません。'"
+        v-else-if="!storageMode"
+        :title="trashMode ? 'Trash is empty' : sharedMode ? 'No shared items' : starredMode ? 'No starred items' : recentMode ? 'No recent items' : searchMode ? 'No search results' : 'No items yet'"
+        :message="trashMode ? 'ゴミ箱は空です。' : sharedMode ? '共有された item はありません。' : starredMode ? 'Star 付き item はありません。' : recentMode ? '最近使った item はありません。' : searchMode ? '検索結果はありません。' : 'この folder にはまだ item がありません。'"
       >
         <template #actions>
           <button v-if="!trashMode" class="primary-button compact-button" type="button" @click="requestCreateFolder">
@@ -677,6 +1108,13 @@ async function refreshDrive() {
       </EmptyState>
 
       <input ref="overwriteInput" class="drive-hidden-input" type="file" @change="onOverwriteFileChange">
+      <DriveUploadQueue
+        :items="driveStore.uploadQueue"
+        :busy="driveStore.isBusy"
+        @retry="driveStore.retryUpload"
+        @cancel="driveStore.cancelUpload"
+        @clear-completed="driveStore.clearCompletedUploads"
+      />
     </div>
 
     <template #details>
@@ -685,6 +1123,7 @@ async function refreshDrive() {
         :selected-item="driveStore.selectedItem"
         :current-folder="driveStore.currentFolder"
         :permissions="driveStore.permissions"
+        :activities="driveStore.activityItems"
         :item-count="itemCount"
         :file-count="fileCount"
         :folder-count="folderCount"
@@ -710,7 +1149,24 @@ async function refreshDrive() {
     @create-share-link="createShareLink"
     @revoke-share="revokeShare"
     @disable-link="disableShareLink"
+    @update-share-role="updateShareRole"
+    @transfer-owner="transferOwner"
     @reload-permissions="reloadPermissions"
+  />
+
+  <DriveMetadataDialog
+    :open="metadataDialogOpen"
+    :item="metadataTarget"
+    :busy="driveStore.isBusy"
+    :error-message="actionErrorMessage || driveStore.errorMessage"
+    @close="closeMetadataDialog"
+    @save="saveMetadata"
+  />
+
+  <DrivePreviewDialog
+    :open="previewTarget !== null"
+    :item="previewTarget"
+    @close="closePreviewDialog"
   />
 
   <ConfirmActionDialog

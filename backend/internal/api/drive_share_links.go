@@ -65,6 +65,12 @@ type PublicDriveShareLinkInput struct {
 	Token string `path:"token"`
 }
 
+type PublicDriveShareLinkChildrenInput struct {
+	Token              string      `path:"token"`
+	VerificationCookie http.Cookie `cookie:"DRIVE_SHARE_LINK_VERIFICATION" required:"false"`
+	Limit              int32       `query:"limit" default:"100"`
+}
+
 func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{
 		OperationID: "createDriveFileShareLink",
@@ -189,6 +195,23 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 			out.Body.Folder = &body
 		}
 		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listPublicDriveShareLinkChildren",
+		Method:      http.MethodGet,
+		Path:        "/api/public/drive/share-links/{token}/children",
+		Summary:     "public Drive folder share link children を返す",
+		Tags:        []string{"drive-public"},
+	}, func(ctx context.Context, input *PublicDriveShareLinkChildrenInput) (*DriveItemListOutput, error) {
+		if deps.DriveService == nil {
+			return nil, huma.Error503ServiceUnavailable("drive service is not configured")
+		}
+		items, err := deps.DriveService.PublicShareLinkFolderChildrenWithVerification(ctx, input.Token, input.VerificationCookie.Value, input.Limit)
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		return driveItemListOutput(items), nil
 	})
 }
 

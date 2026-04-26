@@ -72,6 +72,8 @@ components:
         deletedAt:
           format: date-time
           type: string
+        description:
+          type: string
         dlpBlocked:
           type: boolean
         inheritanceEnabled:
@@ -132,6 +134,8 @@ components:
         deletedAt:
           format: date-time
           type: string
+        description:
+          type: string
         inheritanceEnabled:
           type: boolean
         name:
@@ -161,12 +165,37 @@ components:
           $ref: "#/components/schemas/DriveFileBody"
         folder:
           $ref: "#/components/schemas/DriveFolderBody"
+        ownedByMe:
+          type: boolean
+        ownerDisplayName:
+          type: string
+        ownerUserPublicId:
+          type: string
+        shareRole:
+          type: string
+        sharedWithMe:
+          type: boolean
+        source:
+          examples:
+            - upload
+          type: string
+        starredByMe:
+          type: boolean
+        tags:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
         type:
           examples:
             - file
           type: string
       required:
         - type
+        - ownedByMe
+        - sharedWithMe
+        - starredByMe
       type: object
     DriveItemListOutputBody:
       additionalProperties: false

@@ -2,9 +2,18 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { fetchPublicDriveShareLink, verifyPublicDriveShareLinkPassword } from '../api/drive'
+import { fetchPublicDriveShareLink, fetchPublicDriveShareLinkChildren, verifyPublicDriveShareLinkPassword } from '../api/drive'
 import { toApiErrorMessage } from '../api/client'
-import type { PublicDriveShareLinkOutputBody } from '../api/generated/types.gen'
+import type { DriveItemBody, PublicDriveShareLinkOutputBody } from '../api/generated/types.gen'
+import DriveFileTypeIcon from '../components/DriveFileTypeIcon.vue'
+import {
+  driveItemKind,
+  driveItemName,
+  driveItemPublicId,
+  driveItemUpdatedAt,
+  formatDriveDate as formatDriveItemDate,
+  formatDriveSize,
+} from '../utils/driveItems'
 
 const route = useRoute()
 
@@ -14,6 +23,9 @@ const errorMessage = ref('')
 const password = ref('')
 const verifying = ref(false)
 const passwordVerified = ref(false)
+const children = ref<DriveItemBody[]>([])
+const childrenStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+const childrenErrorMessage = ref('')
 
 const token = computed(() => {
   const raw = route.params.token
@@ -45,6 +57,10 @@ async function load() {
     data.value = await fetchPublicDriveShareLink(token.value)
     passwordVerified.value = !data.value.link.passwordRequired
     status.value = 'ready'
+    children.value = []
+    if (data.value.folder && passwordVerified.value) {
+      await loadChildren()
+    }
   } catch (error) {
     data.value = null
     status.value = 'error'
@@ -62,10 +78,29 @@ async function verifyPassword() {
     await verifyPublicDriveShareLinkPassword(token.value, password.value)
     password.value = ''
     passwordVerified.value = true
+    if (data.value?.folder) {
+      await loadChildren()
+    }
   } catch (error) {
     errorMessage.value = toApiErrorMessage(error)
   } finally {
     verifying.value = false
+  }
+}
+
+async function loadChildren() {
+  if (!token.value || !data.value?.folder) {
+    return
+  }
+  childrenStatus.value = 'loading'
+  childrenErrorMessage.value = ''
+  try {
+    children.value = await fetchPublicDriveShareLinkChildren(token.value)
+    childrenStatus.value = 'ready'
+  } catch (error) {
+    children.value = []
+    childrenStatus.value = 'error'
+    childrenErrorMessage.value = toApiErrorMessage(error)
   }
 }
 
@@ -144,8 +179,33 @@ function formatDate(value?: string) {
         この link では content download は許可されていません。
       </p>
       <p v-if="data.folder" class="cell-subtle">
-        Public folder link は metadata 表示のみです。folder children の public browser は次フェーズで追加します。
+        This public folder link shows the folder contents allowed by the link policy.
       </p>
+
+      <section v-if="data.folder && passwordVerified" class="drive-public-browser">
+        <div class="section-header">
+          <div>
+            <h3>Folder contents</h3>
+            <p class="cell-subtle">{{ children.length }} items visible through this public link.</p>
+          </div>
+          <button class="secondary-button compact-button" type="button" :disabled="childrenStatus === 'loading'" @click="loadChildren">
+            Refresh
+          </button>
+        </div>
+
+        <p v-if="childrenErrorMessage" class="error-message">{{ childrenErrorMessage }}</p>
+        <p v-if="childrenStatus === 'loading'" class="cell-subtle">Loading folder contents...</p>
+        <div v-else-if="children.length > 0" class="drive-public-grid">
+          <article v-for="item in children" :key="driveItemPublicId(item)" class="drive-public-item">
+            <DriveFileTypeIcon :kind="driveItemKind(item)" :size="18" />
+            <div>
+              <strong>{{ driveItemName(item) }}</strong>
+              <span>{{ item.folder ? 'Folder' : formatDriveSize(item.file?.byteSize) }} · {{ formatDriveItemDate(driveItemUpdatedAt(item)) }}</span>
+            </div>
+          </article>
+        </div>
+        <p v-else class="cell-subtle">This folder has no visible children.</p>
+      </section>
     </template>
   </section>
 </template>

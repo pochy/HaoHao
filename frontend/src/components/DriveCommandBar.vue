@@ -2,6 +2,7 @@
 import {
   ArrowDownAZ,
   ArrowUpAZ,
+  Download,
   Grid3X3,
   List,
   RefreshCw,
@@ -31,6 +32,7 @@ const props = defineProps<{
   sourceFilter: DriveSourceFilter
   sortKey: DriveSortKey
   sortDirection: 'asc' | 'desc'
+  selectionCount: number
 }>()
 
 const emit = defineEmits<{
@@ -43,6 +45,8 @@ const emit = defineEmits<{
   updateSourceFilter: [filter: DriveSourceFilter]
   updateSort: [key: DriveSortKey]
   refresh: []
+  downloadArchive: []
+  clearSelection: []
 }>()
 
 const localQuery = ref(props.query)
@@ -87,18 +91,15 @@ function clearAll() {
         <span>Type</span>
         <select :value="typeFilter" :disabled="disabled || busy" @change="emit('updateTypeFilter', ($event.target as HTMLSelectElement).value as DriveTypeFilter)">
           <option value="all">All</option>
+          <option value="file">Files</option>
           <option value="folder">Folders</option>
-          <option value="document">Documents</option>
-          <option value="image">Images</option>
-          <option value="archive">Archives</option>
-          <option value="other">Other</option>
         </select>
       </label>
       <label class="drive-filter-chip">
         <span>Owner</span>
         <select :value="ownerFilter" :disabled="disabled || busy" @change="emit('updateOwnerFilter', ($event.target as HTMLSelectElement).value as DriveOwnerFilter)">
           <option value="all">All</option>
-          <option value="owned_by_me">Owned by me</option>
+          <option value="me">Owned by me</option>
           <option value="shared_with_me">Shared with me</option>
         </select>
       </label>
@@ -115,7 +116,9 @@ function clearAll() {
         <span>Source</span>
         <select :value="sourceFilter" :disabled="disabled || busy" @change="emit('updateSourceFilter', ($event.target as HTMLSelectElement).value as DriveSourceFilter)">
           <option value="all">All</option>
-          <option value="uploaded">Uploaded</option>
+          <option value="upload">Uploaded</option>
+          <option value="generated">Generated</option>
+          <option value="sync">Sync</option>
           <option value="external">External</option>
         </select>
       </label>
@@ -157,10 +160,20 @@ function clearAll() {
         <option value="updated_at">Updated</option>
         <option value="name">Name</option>
         <option value="size">Size</option>
-        <option value="type">Type</option>
       </select>
       <button class="icon-button" type="button" aria-label="Refresh Drive" title="Refresh Drive" :disabled="disabled || busy" @click="emit('refresh')">
         <RefreshCw :size="17" stroke-width="1.9" aria-hidden="true" />
+      </button>
+    </div>
+
+    <div v-if="selectionCount > 0" class="drive-selection-bar" aria-live="polite">
+      <span>{{ selectionCount }} selected</span>
+      <button class="primary-button compact-button" type="button" :disabled="disabled || busy" @click="emit('downloadArchive')">
+        <Download :size="15" stroke-width="1.9" aria-hidden="true" />
+        Download ZIP
+      </button>
+      <button class="secondary-button compact-button" type="button" :disabled="disabled || busy" @click="emit('clearSelection')">
+        Clear selection
       </button>
     </div>
   </div>

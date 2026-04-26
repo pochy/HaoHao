@@ -75,7 +75,7 @@ func (q *Queries) DeleteDriveSearchDocument(ctx context.Context, arg DeleteDrive
 
 const listDriveSearchResults = `-- name: ListDriveSearchResults :many
 SELECT
-    f.id, f.public_id, f.tenant_id, f.uploaded_by_user_id, f.purpose, f.attached_to_type, f.attached_to_id, f.original_filename, f.content_type, f.byte_size, f.sha256_hex, f.storage_driver, f.storage_key, f.status, f.created_at, f.updated_at, f.deleted_at, f.purged_at, f.purge_attempts, f.purge_locked_at, f.purge_locked_by, f.last_purge_error, f.drive_folder_id, f.locked_at, f.locked_by_user_id, f.lock_reason, f.inheritance_enabled, f.deleted_by_user_id, f.deleted_parent_folder_id, f.retention_until, f.legal_hold_at, f.legal_hold_by_user_id, f.legal_hold_reason, f.purge_block_reason, f.workspace_id, f.storage_bucket, f.storage_version, f.content_sha256, f.etag, f.scan_status, f.scan_reason, f.scan_engine, f.scanned_at, f.dlp_blocked, f.upload_state, f.office_mime_family, f.office_coauthoring_enabled, f.office_last_revision, f.encryption_mode, f.e2ee_file_key_public_id, f.storage_gateway_id,
+    f.id, f.public_id, f.tenant_id, f.uploaded_by_user_id, f.purpose, f.attached_to_type, f.attached_to_id, f.original_filename, f.content_type, f.byte_size, f.sha256_hex, f.storage_driver, f.storage_key, f.status, f.created_at, f.updated_at, f.deleted_at, f.purged_at, f.purge_attempts, f.purge_locked_at, f.purge_locked_by, f.last_purge_error, f.drive_folder_id, f.locked_at, f.locked_by_user_id, f.lock_reason, f.inheritance_enabled, f.deleted_by_user_id, f.deleted_parent_folder_id, f.retention_until, f.legal_hold_at, f.legal_hold_by_user_id, f.legal_hold_reason, f.purge_block_reason, f.workspace_id, f.storage_bucket, f.storage_version, f.content_sha256, f.etag, f.scan_status, f.scan_reason, f.scan_engine, f.scanned_at, f.dlp_blocked, f.upload_state, f.office_mime_family, f.office_coauthoring_enabled, f.office_last_revision, f.encryption_mode, f.e2ee_file_key_public_id, f.storage_gateway_id, f.description,
     COALESCE(d.snippet, '') AS search_snippet,
     d.indexed_at AS search_indexed_at
 FROM file_objects f
@@ -157,6 +157,7 @@ type ListDriveSearchResultsRow struct {
 	EncryptionMode           string             `json:"encryption_mode"`
 	E2eeFileKeyPublicID      pgtype.UUID        `json:"e2ee_file_key_public_id"`
 	StorageGatewayID         pgtype.Int8        `json:"storage_gateway_id"`
+	Description              string             `json:"description"`
 	SearchSnippet            string             `json:"search_snippet"`
 	SearchIndexedAt          pgtype.Timestamptz `json:"search_indexed_at"`
 }
@@ -227,6 +228,7 @@ func (q *Queries) ListDriveSearchResults(ctx context.Context, arg ListDriveSearc
 			&i.EncryptionMode,
 			&i.E2eeFileKeyPublicID,
 			&i.StorageGatewayID,
+			&i.Description,
 			&i.SearchSnippet,
 			&i.SearchIndexedAt,
 		); err != nil {
@@ -241,7 +243,7 @@ func (q *Queries) ListDriveSearchResults(ctx context.Context, arg ListDriveSearc
 }
 
 const searchDriveIndexedFileCandidates = `-- name: SearchDriveIndexedFileCandidates :many
-SELECT f.id, f.public_id, f.tenant_id, f.uploaded_by_user_id, f.purpose, f.attached_to_type, f.attached_to_id, f.original_filename, f.content_type, f.byte_size, f.sha256_hex, f.storage_driver, f.storage_key, f.status, f.created_at, f.updated_at, f.deleted_at, f.purged_at, f.purge_attempts, f.purge_locked_at, f.purge_locked_by, f.last_purge_error, f.drive_folder_id, f.locked_at, f.locked_by_user_id, f.lock_reason, f.inheritance_enabled, f.deleted_by_user_id, f.deleted_parent_folder_id, f.retention_until, f.legal_hold_at, f.legal_hold_by_user_id, f.legal_hold_reason, f.purge_block_reason, f.workspace_id, f.storage_bucket, f.storage_version, f.content_sha256, f.etag, f.scan_status, f.scan_reason, f.scan_engine, f.scanned_at, f.dlp_blocked, f.upload_state, f.office_mime_family, f.office_coauthoring_enabled, f.office_last_revision, f.encryption_mode, f.e2ee_file_key_public_id, f.storage_gateway_id
+SELECT f.id, f.public_id, f.tenant_id, f.uploaded_by_user_id, f.purpose, f.attached_to_type, f.attached_to_id, f.original_filename, f.content_type, f.byte_size, f.sha256_hex, f.storage_driver, f.storage_key, f.status, f.created_at, f.updated_at, f.deleted_at, f.purged_at, f.purge_attempts, f.purge_locked_at, f.purge_locked_by, f.last_purge_error, f.drive_folder_id, f.locked_at, f.locked_by_user_id, f.lock_reason, f.inheritance_enabled, f.deleted_by_user_id, f.deleted_parent_folder_id, f.retention_until, f.legal_hold_at, f.legal_hold_by_user_id, f.legal_hold_reason, f.purge_block_reason, f.workspace_id, f.storage_bucket, f.storage_version, f.content_sha256, f.etag, f.scan_status, f.scan_reason, f.scan_engine, f.scanned_at, f.dlp_blocked, f.upload_state, f.office_mime_family, f.office_coauthoring_enabled, f.office_last_revision, f.encryption_mode, f.e2ee_file_key_public_id, f.storage_gateway_id, f.description
 FROM file_objects f
 LEFT JOIN drive_search_documents d ON d.file_object_id = f.id
 WHERE f.tenant_id = $1
@@ -354,6 +356,7 @@ func (q *Queries) SearchDriveIndexedFileCandidates(ctx context.Context, arg Sear
 			&i.EncryptionMode,
 			&i.E2eeFileKeyPublicID,
 			&i.StorageGatewayID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}

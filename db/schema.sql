@@ -992,6 +992,7 @@ CREATE TABLE public.drive_folders (
     tenant_id bigint NOT NULL,
     parent_folder_id bigint,
     name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
     created_by_user_id bigint NOT NULL,
     inheritance_enabled boolean DEFAULT true NOT NULL,
     deleted_at timestamp with time zone,
@@ -2098,6 +2099,83 @@ CREATE TABLE public.drive_resource_shares (
 
 
 --
+-- Name: drive_starred_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_starred_items (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    deleted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_starred_items_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text])))
+);
+
+
+--
+-- Name: drive_item_activities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_item_activities (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    actor_user_id bigint,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    action text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_item_activities_action_check CHECK ((action = ANY (ARRAY['viewed'::text, 'downloaded'::text, 'uploaded'::text, 'updated'::text, 'renamed'::text, 'moved'::text, 'shared'::text, 'unshared'::text, 'deleted'::text, 'restored'::text, 'previewed'::text]))),
+    CONSTRAINT drive_item_activities_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text])))
+);
+
+
+--
+-- Name: drive_file_previews; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_file_previews (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    thumbnail_storage_key text,
+    preview_storage_key text,
+    content_type text DEFAULT ''::text NOT NULL,
+    error_code text,
+    generated_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_file_previews_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'ready'::text, 'failed'::text, 'skipped'::text])))
+);
+
+
+--
+-- Name: drive_item_tags; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_item_tags (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    tag text NOT NULL,
+    normalized_tag text NOT NULL,
+    created_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_item_tags_normalized_tag_check CHECK ((btrim(normalized_tag) <> ''::text)),
+    CONSTRAINT drive_item_tags_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text]))),
+    CONSTRAINT drive_item_tags_tag_check CHECK ((btrim(tag) <> ''::text))
+);
+
+
+--
 -- Name: drive_resource_shares_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -2590,6 +2668,7 @@ CREATE TABLE public.file_objects (
     encryption_mode text DEFAULT 'server_managed'::text NOT NULL,
     e2ee_file_key_public_id uuid,
     storage_gateway_id bigint,
+    description text DEFAULT ''::text NOT NULL,
     CONSTRAINT file_objects_byte_size_check CHECK ((byte_size >= 0)),
     CONSTRAINT file_objects_encryption_mode_check CHECK ((encryption_mode = ANY (ARRAY['server_managed'::text, 'tenant_managed'::text, 'hsm_managed'::text, 'zero_knowledge'::text]))),
     CONSTRAINT file_objects_purge_attempts_check CHECK ((purge_attempts >= 0)),

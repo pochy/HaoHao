@@ -301,6 +301,40 @@ export type DriveAiSummaryBody = {
     summaryText: string;
 };
 
+export type DriveActivityBody = {
+    action: string;
+    actorDisplayName?: string;
+    actorUserPublicId?: string;
+    createdAt: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    publicId: string;
+    resourceType: string;
+};
+
+export type DriveActivityListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DriveActivityBody> | null;
+};
+
+export type DriveArchiveBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    filename?: string;
+    items: Array<DriveArchiveItemBody> | null;
+};
+
+export type DriveArchiveItemBody = {
+    publicId: string;
+    type: 'file' | 'folder';
+};
+
 export type DriveCleanRoomBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -366,6 +400,15 @@ export type DriveCleanRoomParticipantInputBody = {
     readonly $schema?: string;
     role: 'participant' | 'reviewer' | 'owner';
     userPublicId: string;
+};
+
+export type DriveCopyBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    name?: string;
+    parentFolderPublicId?: string;
 };
 
 export type DriveDeviceBody = {
@@ -549,6 +592,7 @@ export type DriveFileBody = {
     contentType: string;
     createdAt: string;
     deletedAt?: string;
+    description?: string;
     dlpBlocked: boolean;
     inheritanceEnabled: boolean;
     lockReason?: string;
@@ -570,11 +614,27 @@ export type DriveFolderBody = {
     readonly $schema?: string;
     createdAt: string;
     deletedAt?: string;
+    description?: string;
     inheritanceEnabled: boolean;
     name: string;
     publicId: string;
     updatedAt: string;
     workspacePublicId?: string;
+};
+
+export type DriveFolderTreeBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    ownedRoots: Array<DriveFolderTreeNodeBody> | null;
+    sharedRoots: Array<DriveFolderTreeNodeBody> | null;
+};
+
+export type DriveFolderTreeNodeBody = {
+    children: Array<DriveFolderTreeNodeBody> | null;
+    name: string;
+    publicId: string;
 };
 
 export type DriveGatewayBindInputBody = {
@@ -710,8 +770,20 @@ export type DriveInheritanceBody = {
 };
 
 export type DriveItemBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
     file?: DriveFileBody;
     folder?: DriveFolderBody;
+    ownedByMe: boolean;
+    ownerDisplayName?: string;
+    ownerUserPublicId?: string;
+    shareRole?: string;
+    sharedWithMe: boolean;
+    source?: string;
+    starredByMe: boolean;
+    tags?: Array<string> | null;
     type: string;
 };
 
@@ -882,6 +954,15 @@ export type DriveOfficeWebhookOutputBody = {
     revision: string;
 };
 
+export type DriveOwnerTransferBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    newOwnerUserPublicId: string;
+    revokePreviousOwnerAccess: boolean;
+};
+
 export type DrivePermissionBody = {
     canDownload?: boolean;
     createdAt: string;
@@ -987,6 +1068,34 @@ export type DriveShareLinkBody = {
     status: string;
     token?: string;
     updatedAt: string;
+};
+
+export type DriveShareTargetBody = {
+    displayName: string;
+    publicId: string;
+    secondary?: string;
+    type: string;
+};
+
+export type DriveShareTargetsOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DriveShareTargetBody> | null;
+};
+
+export type DriveStorageUsageBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    fileCount: number;
+    quotaBytes?: number;
+    storageDriver: string;
+    trashBytes: number;
+    trashFileCount: number;
+    usedBytes: number;
 };
 
 export type DriveSyncDeltaEventBody = {
@@ -1679,8 +1788,10 @@ export type UpdateDriveFileBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    description?: string;
     originalFilename?: string;
     parentFolderPublicId?: string;
+    tags?: Array<string>;
 };
 
 export type UpdateDriveFolderBody = {
@@ -1688,8 +1799,18 @@ export type UpdateDriveFolderBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    description?: string;
     name?: string;
     parentFolderPublicId?: string;
+    tags?: Array<string>;
+};
+
+export type UpdateDriveShareBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    role: 'editor' | 'viewer';
 };
 
 export type UpdateDriveShareLinkBody = {
@@ -1971,6 +2092,15 @@ export type DriveAiSummaryBodyWritable = {
     summaryText: string;
 };
 
+export type DriveActivityListOutputBodyWritable = {
+    items: Array<DriveActivityBody> | null;
+};
+
+export type DriveArchiveBodyWritable = {
+    filename?: string;
+    items: Array<DriveArchiveItemBody> | null;
+};
+
 export type DriveCleanRoomBodyWritable = {
     createdAt: string;
     name: string;
@@ -2008,6 +2138,11 @@ export type DriveCleanRoomExportInputBodyWritable = {
 export type DriveCleanRoomParticipantInputBodyWritable = {
     role: 'participant' | 'reviewer' | 'owner';
     userPublicId: string;
+};
+
+export type DriveCopyBodyWritable = {
+    name?: string;
+    parentFolderPublicId?: string;
 };
 
 export type DriveDeviceBodyWritable = {
@@ -2127,6 +2262,7 @@ export type DriveFileBodyWritable = {
     contentType: string;
     createdAt: string;
     deletedAt?: string;
+    description?: string;
     dlpBlocked: boolean;
     inheritanceEnabled: boolean;
     lockReason?: string;
@@ -2144,11 +2280,17 @@ export type DriveFileBodyWritable = {
 export type DriveFolderBodyWritable = {
     createdAt: string;
     deletedAt?: string;
+    description?: string;
     inheritanceEnabled: boolean;
     name: string;
     publicId: string;
     updatedAt: string;
     workspacePublicId?: string;
+};
+
+export type DriveFolderTreeBodyWritable = {
+    ownedRoots: Array<DriveFolderTreeNodeBody> | null;
+    sharedRoots: Array<DriveFolderTreeNodeBody> | null;
 };
 
 export type DriveGatewayBindInputBodyWritable = {
@@ -2234,6 +2376,14 @@ export type DriveInheritanceBodyWritable = {
 export type DriveItemBodyWritable = {
     file?: DriveFileBodyWritable;
     folder?: DriveFolderBodyWritable;
+    ownedByMe: boolean;
+    ownerDisplayName?: string;
+    ownerUserPublicId?: string;
+    shareRole?: string;
+    sharedWithMe: boolean;
+    source?: string;
+    starredByMe: boolean;
+    tags?: Array<string> | null;
     type: string;
 };
 
@@ -2326,6 +2476,11 @@ export type DriveOfficeWebhookOutputBodyWritable = {
     revision: string;
 };
 
+export type DriveOwnerTransferBodyWritable = {
+    newOwnerUserPublicId: string;
+    revokePreviousOwnerAccess: boolean;
+};
+
 export type DrivePermissionsBodyWritable = {
     direct: Array<DrivePermissionBody> | null;
     inherited: Array<DrivePermissionBody> | null;
@@ -2389,6 +2544,19 @@ export type DriveShareLinkBodyWritable = {
     status: string;
     token?: string;
     updatedAt: string;
+};
+
+export type DriveShareTargetsOutputBodyWritable = {
+    items: Array<DriveShareTargetBody> | null;
+};
+
+export type DriveStorageUsageBodyWritable = {
+    fileCount: number;
+    quotaBytes?: number;
+    storageDriver: string;
+    trashBytes: number;
+    trashFileCount: number;
+    usedBytes: number;
 };
 
 export type DriveSyncDeltaOutputBodyWritable = {
@@ -2729,13 +2897,21 @@ export type UpdateCustomerSignalBodyWritable = {
 };
 
 export type UpdateDriveFileBodyWritable = {
+    description?: string;
     originalFilename?: string;
     parentFolderPublicId?: string;
+    tags?: Array<string>;
 };
 
 export type UpdateDriveFolderBodyWritable = {
+    description?: string;
     name?: string;
     parentFolderPublicId?: string;
+    tags?: Array<string>;
+};
+
+export type UpdateDriveShareBodyWritable = {
+    role: 'editor' | 'viewer';
 };
 
 export type UpdateDriveShareLinkBodyWritable = {
@@ -2854,6 +3030,35 @@ export type GetPublicDriveShareLinkResponses = {
 };
 
 export type GetPublicDriveShareLinkResponse = GetPublicDriveShareLinkResponses[keyof GetPublicDriveShareLinkResponses];
+
+export type ListPublicDriveShareLinkChildrenData = {
+    body?: never;
+    path: {
+        token: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/public/drive/share-links/{token}/children';
+};
+
+export type ListPublicDriveShareLinkChildrenErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListPublicDriveShareLinkChildrenError = ListPublicDriveShareLinkChildrenErrors[keyof ListPublicDriveShareLinkChildrenErrors];
+
+export type ListPublicDriveShareLinkChildrenResponses = {
+    /**
+     * OK
+     */
+    200: DriveItemListOutputBody;
+};
+
+export type ListPublicDriveShareLinkChildrenResponse = ListPublicDriveShareLinkChildrenResponses[keyof ListPublicDriveShareLinkChildrenResponses];
 
 export type ListTenantAdminTenantsData = {
     body?: never;
@@ -5415,6 +5620,34 @@ export type RevokeDriveSyncDeviceResponses = {
 
 export type RevokeDriveSyncDeviceResponse = RevokeDriveSyncDeviceResponses[keyof RevokeDriveSyncDeviceResponses];
 
+export type DownloadDriveArchiveData = {
+    body: DriveArchiveBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/drive/downloads/archive';
+};
+
+export type DownloadDriveArchiveErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DownloadDriveArchiveError = DownloadDriveArchiveErrors[keyof DownloadDriveArchiveErrors];
+
+export type DownloadDriveArchiveResponses = {
+    /**
+     * ZIP archive
+     */
+    200: Blob | File;
+};
+
+export type DownloadDriveArchiveResponse = DownloadDriveArchiveResponses[keyof DownloadDriveArchiveResponses];
+
 export type CreateDriveE2EeUserKeyData = {
     body: DriveE2EeUserKeyCreateInputBodyWritable;
     headers: {
@@ -5530,6 +5763,35 @@ export type UpdateDriveFileResponses = {
 
 export type UpdateDriveFileResponse = UpdateDriveFileResponses[keyof UpdateDriveFileResponses];
 
+export type ListDriveFileActivityData = {
+    body?: never;
+    path: {
+        filePublicId: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/drive/files/{filePublicId}/activity';
+};
+
+export type ListDriveFileActivityErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveFileActivityError = ListDriveFileActivityErrors[keyof ListDriveFileActivityErrors];
+
+export type ListDriveFileActivityResponses = {
+    /**
+     * OK
+     */
+    200: DriveActivityListOutputBody;
+};
+
+export type ListDriveFileActivityResponse = ListDriveFileActivityResponses[keyof ListDriveFileActivityResponses];
+
 export type ListDriveAiClassificationsData = {
     body?: never;
     path: {
@@ -5613,6 +5875,36 @@ export type GetDriveAiSummaryResponses = {
 };
 
 export type GetDriveAiSummaryResponse = GetDriveAiSummaryResponses[keyof GetDriveAiSummaryResponses];
+
+export type CopyDriveFileData = {
+    body: DriveCopyBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/copy';
+};
+
+export type CopyDriveFileErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CopyDriveFileError = CopyDriveFileErrors[keyof CopyDriveFileErrors];
+
+export type CopyDriveFileResponses = {
+    /**
+     * OK
+     */
+    200: DriveItemBody;
+};
+
+export type CopyDriveFileResponse = CopyDriveFileResponses[keyof CopyDriveFileResponses];
 
 export type GetDriveE2EeEnvelopeData = {
     body?: never;
@@ -5945,6 +6237,66 @@ export type CreateDriveOfficeSessionResponses = {
 
 export type CreateDriveOfficeSessionResponse = CreateDriveOfficeSessionResponses[keyof CreateDriveOfficeSessionResponses];
 
+export type TransferDriveFileOwnerData = {
+    body: DriveOwnerTransferBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/owner-transfer';
+};
+
+export type TransferDriveFileOwnerErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type TransferDriveFileOwnerError = TransferDriveFileOwnerErrors[keyof TransferDriveFileOwnerErrors];
+
+export type TransferDriveFileOwnerResponses = {
+    /**
+     * OK
+     */
+    200: DriveItemBody;
+};
+
+export type TransferDriveFileOwnerResponse = TransferDriveFileOwnerResponses[keyof TransferDriveFileOwnerResponses];
+
+export type PermanentlyDeleteDriveFileData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/permanent';
+};
+
+export type PermanentlyDeleteDriveFileErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type PermanentlyDeleteDriveFileError = PermanentlyDeleteDriveFileErrors[keyof PermanentlyDeleteDriveFileErrors];
+
+export type PermanentlyDeleteDriveFileResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type PermanentlyDeleteDriveFileResponse = PermanentlyDeleteDriveFileResponses[keyof PermanentlyDeleteDriveFileResponses];
+
 export type GetDriveFilePermissionsData = {
     body?: never;
     path: {
@@ -6093,6 +6445,124 @@ export type DeleteDriveFileShareResponses = {
 
 export type DeleteDriveFileShareResponse = DeleteDriveFileShareResponses[keyof DeleteDriveFileShareResponses];
 
+export type UpdateDriveFileShareData = {
+    body: UpdateDriveShareBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+        sharePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/shares/{sharePublicId}';
+};
+
+export type UpdateDriveFileShareErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateDriveFileShareError = UpdateDriveFileShareErrors[keyof UpdateDriveFileShareErrors];
+
+export type UpdateDriveFileShareResponses = {
+    /**
+     * OK
+     */
+    200: DriveShareBody;
+};
+
+export type UpdateDriveFileShareResponse = UpdateDriveFileShareResponses[keyof UpdateDriveFileShareResponses];
+
+export type UnstarDriveFileData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/star';
+};
+
+export type UnstarDriveFileErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UnstarDriveFileError = UnstarDriveFileErrors[keyof UnstarDriveFileErrors];
+
+export type UnstarDriveFileResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UnstarDriveFileResponse = UnstarDriveFileResponses[keyof UnstarDriveFileResponses];
+
+export type StarDriveFileData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/star';
+};
+
+export type StarDriveFileErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type StarDriveFileError = StarDriveFileErrors[keyof StarDriveFileErrors];
+
+export type StarDriveFileResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type StarDriveFileResponse = StarDriveFileResponses[keyof StarDriveFileResponses];
+
+export type GetDriveFolderTreeData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/drive/folder-tree';
+};
+
+export type GetDriveFolderTreeErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDriveFolderTreeError = GetDriveFolderTreeErrors[keyof GetDriveFolderTreeErrors];
+
+export type GetDriveFolderTreeResponses = {
+    /**
+     * OK
+     */
+    200: DriveFolderTreeBody;
+};
+
+export type GetDriveFolderTreeResponse = GetDriveFolderTreeResponses[keyof GetDriveFolderTreeResponses];
+
 export type CreateDriveFolderData = {
     body: CreateDriveFolderBodyWritable;
     headers: {
@@ -6208,6 +6678,35 @@ export type UpdateDriveFolderResponses = {
 
 export type UpdateDriveFolderResponse = UpdateDriveFolderResponses[keyof UpdateDriveFolderResponses];
 
+export type ListDriveFolderActivityData = {
+    body?: never;
+    path: {
+        folderPublicId: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/drive/folders/{folderPublicId}/activity';
+};
+
+export type ListDriveFolderActivityErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveFolderActivityError = ListDriveFolderActivityErrors[keyof ListDriveFolderActivityErrors];
+
+export type ListDriveFolderActivityResponses = {
+    /**
+     * OK
+     */
+    200: DriveActivityListOutputBody;
+};
+
+export type ListDriveFolderActivityResponse = ListDriveFolderActivityResponses[keyof ListDriveFolderActivityResponses];
+
 export type ListDriveFolderChildrenData = {
     body?: never;
     path: {
@@ -6237,6 +6736,36 @@ export type ListDriveFolderChildrenResponses = {
 };
 
 export type ListDriveFolderChildrenResponse = ListDriveFolderChildrenResponses[keyof ListDriveFolderChildrenResponses];
+
+export type CopyDriveFolderData = {
+    body: DriveCopyBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        folderPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/folders/{folderPublicId}/copy';
+};
+
+export type CopyDriveFolderErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CopyDriveFolderError = CopyDriveFolderErrors[keyof CopyDriveFolderErrors];
+
+export type CopyDriveFolderResponses = {
+    /**
+     * OK
+     */
+    200: DriveItemBody;
+};
+
+export type CopyDriveFolderResponse = CopyDriveFolderResponses[keyof CopyDriveFolderResponses];
 
 export type UpdateDriveFolderInheritanceData = {
     body: DriveInheritanceBodyWritable;
@@ -6297,6 +6826,66 @@ export type CreateDriveFolderShareInvitationResponses = {
 };
 
 export type CreateDriveFolderShareInvitationResponse = CreateDriveFolderShareInvitationResponses[keyof CreateDriveFolderShareInvitationResponses];
+
+export type TransferDriveFolderOwnerData = {
+    body: DriveOwnerTransferBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        folderPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/folders/{folderPublicId}/owner-transfer';
+};
+
+export type TransferDriveFolderOwnerErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type TransferDriveFolderOwnerError = TransferDriveFolderOwnerErrors[keyof TransferDriveFolderOwnerErrors];
+
+export type TransferDriveFolderOwnerResponses = {
+    /**
+     * OK
+     */
+    200: DriveItemBody;
+};
+
+export type TransferDriveFolderOwnerResponse = TransferDriveFolderOwnerResponses[keyof TransferDriveFolderOwnerResponses];
+
+export type PermanentlyDeleteDriveFolderData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        folderPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/folders/{folderPublicId}/permanent';
+};
+
+export type PermanentlyDeleteDriveFolderErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type PermanentlyDeleteDriveFolderError = PermanentlyDeleteDriveFolderErrors[keyof PermanentlyDeleteDriveFolderErrors];
+
+export type PermanentlyDeleteDriveFolderResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type PermanentlyDeleteDriveFolderResponse = PermanentlyDeleteDriveFolderResponses[keyof PermanentlyDeleteDriveFolderResponses];
 
 export type GetDriveFolderPermissionsData = {
     body?: never;
@@ -6445,6 +7034,97 @@ export type DeleteDriveFolderShareResponses = {
 };
 
 export type DeleteDriveFolderShareResponse = DeleteDriveFolderShareResponses[keyof DeleteDriveFolderShareResponses];
+
+export type UpdateDriveFolderShareData = {
+    body: UpdateDriveShareBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        folderPublicId: string;
+        sharePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/folders/{folderPublicId}/shares/{sharePublicId}';
+};
+
+export type UpdateDriveFolderShareErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateDriveFolderShareError = UpdateDriveFolderShareErrors[keyof UpdateDriveFolderShareErrors];
+
+export type UpdateDriveFolderShareResponses = {
+    /**
+     * OK
+     */
+    200: DriveShareBody;
+};
+
+export type UpdateDriveFolderShareResponse = UpdateDriveFolderShareResponses[keyof UpdateDriveFolderShareResponses];
+
+export type UnstarDriveFolderData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        folderPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/folders/{folderPublicId}/star';
+};
+
+export type UnstarDriveFolderErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UnstarDriveFolderError = UnstarDriveFolderErrors[keyof UnstarDriveFolderErrors];
+
+export type UnstarDriveFolderResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UnstarDriveFolderResponse = UnstarDriveFolderResponses[keyof UnstarDriveFolderResponses];
+
+export type StarDriveFolderData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        folderPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/folders/{folderPublicId}/star';
+};
+
+export type StarDriveFolderErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type StarDriveFolderError = StarDriveFolderErrors[keyof StarDriveFolderErrors];
+
+export type StarDriveFolderResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type StarDriveFolderResponse = StarDriveFolderResponses[keyof StarDriveFolderResponses];
 
 export type ListDriveGroupsData = {
     body?: never;
@@ -6741,6 +7421,11 @@ export type ListDriveItemsData = {
         workspacePublicId?: string;
         folderPublicId?: string;
         parentFolderPublicId?: string;
+        type?: string;
+        owner?: string;
+        source?: string;
+        sort?: string;
+        direction?: string;
         limit?: number;
     };
     url: '/api/v1/drive/items';
@@ -6819,12 +7504,44 @@ export type RevokeDriveOfficeSessionResponses = {
 
 export type RevokeDriveOfficeSessionResponse = RevokeDriveOfficeSessionResponses[keyof RevokeDriveOfficeSessionResponses];
 
+export type ListDriveRecentData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/drive/recent';
+};
+
+export type ListDriveRecentErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveRecentError = ListDriveRecentErrors[keyof ListDriveRecentErrors];
+
+export type ListDriveRecentResponses = {
+    /**
+     * OK
+     */
+    200: DriveItemListOutputBody;
+};
+
+export type ListDriveRecentResponse = ListDriveRecentResponses[keyof ListDriveRecentResponses];
+
 export type SearchDriveItemsData = {
     body?: never;
     path?: never;
     query?: {
         q?: string;
         contentType?: string;
+        type?: string;
+        owner?: string;
+        source?: string;
+        sort?: string;
+        direction?: string;
         limit?: number;
     };
     url: '/api/v1/drive/search';
@@ -6854,6 +7571,11 @@ export type SearchDriveDocumentsData = {
     query?: {
         q?: string;
         contentType?: string;
+        type?: string;
+        owner?: string;
+        source?: string;
+        sort?: string;
+        direction?: string;
         limit?: number;
     };
     url: '/api/v1/drive/search/documents';
@@ -6936,6 +7658,115 @@ export type UpdateDriveShareLinkResponses = {
 };
 
 export type UpdateDriveShareLinkResponse = UpdateDriveShareLinkResponses[keyof UpdateDriveShareLinkResponses];
+
+export type ListDriveShareTargetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        q?: string;
+        limit?: number;
+    };
+    url: '/api/v1/drive/share-targets';
+};
+
+export type ListDriveShareTargetsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveShareTargetsError = ListDriveShareTargetsErrors[keyof ListDriveShareTargetsErrors];
+
+export type ListDriveShareTargetsResponses = {
+    /**
+     * OK
+     */
+    200: DriveShareTargetsOutputBody;
+};
+
+export type ListDriveShareTargetsResponse = ListDriveShareTargetsResponses[keyof ListDriveShareTargetsResponses];
+
+export type ListDriveSharedWithMeData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/drive/shared-with-me';
+};
+
+export type ListDriveSharedWithMeErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveSharedWithMeError = ListDriveSharedWithMeErrors[keyof ListDriveSharedWithMeErrors];
+
+export type ListDriveSharedWithMeResponses = {
+    /**
+     * OK
+     */
+    200: DriveItemListOutputBody;
+};
+
+export type ListDriveSharedWithMeResponse = ListDriveSharedWithMeResponses[keyof ListDriveSharedWithMeResponses];
+
+export type ListDriveStarredData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/drive/starred';
+};
+
+export type ListDriveStarredErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveStarredError = ListDriveStarredErrors[keyof ListDriveStarredErrors];
+
+export type ListDriveStarredResponses = {
+    /**
+     * OK
+     */
+    200: DriveItemListOutputBody;
+};
+
+export type ListDriveStarredResponse = ListDriveStarredResponses[keyof ListDriveStarredResponses];
+
+export type GetDriveStorageUsageData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/drive/storage';
+};
+
+export type GetDriveStorageUsageErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDriveStorageUsageError = GetDriveStorageUsageErrors[keyof GetDriveStorageUsageErrors];
+
+export type GetDriveStorageUsageResponses = {
+    /**
+     * OK
+     */
+    200: DriveStorageUsageBody;
+};
+
+export type GetDriveStorageUsageResponse = GetDriveStorageUsageResponses[keyof GetDriveStorageUsageResponses];
 
 export type ListDriveTrashItemsData = {
     body?: never;

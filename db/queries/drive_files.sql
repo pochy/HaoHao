@@ -100,6 +100,17 @@ WHERE id = sqlc.arg(id)
   AND deleted_at IS NULL
 RETURNING *;
 
+-- name: UpdateDriveFileDescription :one
+UPDATE file_objects
+SET
+    description = sqlc.arg(description),
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+  AND tenant_id = sqlc.arg(tenant_id)
+  AND purpose = 'drive'
+  AND deleted_at IS NULL
+RETURNING *;
+
 -- name: MoveDriveFile :one
 UPDATE file_objects
 SET

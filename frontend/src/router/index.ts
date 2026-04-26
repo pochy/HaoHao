@@ -89,6 +89,30 @@ const router = createRouter({
       meta: { requiresAuth: true, title: 'Drive Search', group: 'Work' },
     },
     {
+      path: '/drive/shared',
+      name: 'drive-shared',
+      component: DriveView,
+      meta: { requiresAuth: true, title: 'Shared with me', group: 'Work' },
+    },
+    {
+      path: '/drive/starred',
+      name: 'drive-starred',
+      component: DriveView,
+      meta: { requiresAuth: true, title: 'Starred', group: 'Work' },
+    },
+    {
+      path: '/drive/recent',
+      name: 'drive-recent',
+      component: DriveView,
+      meta: { requiresAuth: true, title: 'Recent Drive', group: 'Work' },
+    },
+    {
+      path: '/drive/storage',
+      name: 'drive-storage',
+      component: DriveView,
+      meta: { requiresAuth: true, title: 'Drive Storage', group: 'Work' },
+    },
+    {
       path: '/drive/trash',
       name: 'drive-trash',
       component: DriveView,

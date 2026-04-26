@@ -88,6 +88,16 @@ WHERE id = sqlc.arg(id)
   AND deleted_at IS NULL
 RETURNING *;
 
+-- name: UpdateDriveFolderDescription :one
+UPDATE drive_folders
+SET
+    description = sqlc.arg(description),
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+  AND tenant_id = sqlc.arg(tenant_id)
+  AND deleted_at IS NULL
+RETURNING *;
+
 -- name: MoveDriveFolder :one
 UPDATE drive_folders
 SET

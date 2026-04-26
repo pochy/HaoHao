@@ -33,6 +33,7 @@ func (s *DriveService) GetFolder(ctx context.Context, tenantID, actorUserID int6
 		s.auditDenied(ctx, actor, "drive.folder.view", "drive_folder", folder.PublicID, err, auditCtx)
 		return DriveFolder{}, err
 	}
+	s.recordDriveActivityBestEffort(ctx, actor, folder.ResourceRef(), "viewed", nil)
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.folder.view", "drive_folder", folder.PublicID, nil)
 	return folder, nil
 }
@@ -121,7 +122,7 @@ func (s *DriveService) ListChildren(ctx context.Context, input DriveListChildren
 		file := viewableFiles[i]
 		items = append(items, DriveItem{Type: DriveItemTypeFile, File: &file})
 	}
-	return items, nil
+	return s.applyDriveListFilter(s.enrichDriveItems(ctx, actor, items), input.Filter), nil
 }
 
 func (s *DriveService) Search(ctx context.Context, input DriveSearchInput, auditCtx AuditContext) ([]DriveItem, error) {
@@ -197,7 +198,7 @@ func (s *DriveService) Search(ctx context.Context, input DriveSearchInput, audit
 		file := viewableFiles[i]
 		items = append(items, DriveItem{Type: DriveItemTypeFile, File: &file})
 	}
-	return items, nil
+	return s.applyDriveListFilter(s.enrichDriveItems(ctx, actor, items), input.Filter), nil
 }
 
 func (s *DriveService) ListTrash(ctx context.Context, input DriveListTrashInput, auditCtx AuditContext) ([]DriveItem, error) {
@@ -296,6 +297,27 @@ func (s *DriveService) UpdateFolder(ctx context.Context, input DriveUpdateFolder
 		folder = driveFolderFromDB(row)
 	}
 
+	if input.Description != nil {
+		row, err := s.queries.UpdateDriveFolderDescription(ctx, db.UpdateDriveFolderDescriptionParams{
+			Description: strings.TrimSpace(*input.Description),
+			ID:          folder.ID,
+			TenantID:    input.TenantID,
+		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DriveFolder{}, ErrDriveNotFound
+		}
+		if err != nil {
+			return DriveFolder{}, fmt.Errorf("update drive folder description: %w", err)
+		}
+		folder = driveFolderFromDB(row)
+	}
+
+	if input.Tags != nil {
+		if err := s.replaceDriveItemTags(ctx, input.TenantID, actor.UserID, folder.ResourceRef(), *input.Tags); err != nil {
+			return DriveFolder{}, err
+		}
+	}
+
 	if input.ParentFolderPublicID != nil {
 		moved, err := s.moveFolder(ctx, actor, folder, *input.ParentFolderPublicID)
 		if err != nil {
@@ -305,6 +327,7 @@ func (s *DriveService) UpdateFolder(ctx context.Context, input DriveUpdateFolder
 	}
 
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.folder.update", "drive_folder", folder.PublicID, nil)
+	s.recordDriveActivityBestEffort(ctx, actor, folder.ResourceRef(), "updated", map[string]any{"name": folder.Name})
 	s.recordDriveSyncEventBestEffort(ctx, folder.ResourceRef(), "folder.updated", "", map[string]any{"name": folder.Name})
 	return folder, nil
 }
@@ -358,6 +381,7 @@ func (s *DriveService) DeleteFolder(ctx context.Context, tenantID, actorUserID i
 		return fmt.Errorf("delete drive folder: %w", err)
 	}
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.folder.delete", "drive_folder", folder.PublicID, nil)
+	s.recordDriveActivityBestEffort(ctx, actor, folder.ResourceRef(), "deleted", nil)
 	s.recordDriveSyncEventBestEffort(ctx, folder.ResourceRef(), "folder.deleted", "", map[string]any{"name": folder.Name})
 	return nil
 }
@@ -424,6 +448,7 @@ func (s *DriveService) RestoreFolder(ctx context.Context, input DriveRestoreReso
 	}
 	result := driveFolderFromDB(restored)
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.folder.restore", "drive_folder", result.PublicID, nil)
+	s.recordDriveActivityBestEffort(ctx, actor, result.ResourceRef(), "restored", nil)
 	s.recordDriveSyncEventBestEffort(ctx, result.ResourceRef(), "folder.restored", "", map[string]any{"name": result.Name})
 	return result, nil
 }
@@ -445,6 +470,7 @@ func (s *DriveService) GetFile(ctx context.Context, tenantID, actorUserID int64,
 		s.auditDenied(ctx, actor, "drive.file.view", "drive_file", file.PublicID, err, auditCtx)
 		return DriveFile{}, err
 	}
+	s.recordDriveActivityBestEffort(ctx, actor, file.ResourceRef(), "viewed", nil)
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.file.view", "drive_file", file.PublicID, nil)
 	return file, nil
 }
@@ -485,6 +511,7 @@ func (s *DriveService) DownloadFile(ctx context.Context, tenantID, actorUserID i
 		"contentType": file.ContentType,
 		"byteSize":    file.ByteSize,
 	})
+	s.recordDriveActivityBestEffort(ctx, actor, file.ResourceRef(), "downloaded", map[string]any{"byteSize": file.ByteSize})
 	return DriveFileDownload{File: file, Body: body}, nil
 }
 
@@ -528,6 +555,27 @@ func (s *DriveService) UpdateFile(ctx context.Context, input DriveUpdateFileInpu
 		file = driveFileFromDB(renamed)
 	}
 
+	if input.Description != nil {
+		updated, err := s.queries.UpdateDriveFileDescription(ctx, db.UpdateDriveFileDescriptionParams{
+			Description: strings.TrimSpace(*input.Description),
+			ID:          file.ID,
+			TenantID:    input.TenantID,
+		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DriveFile{}, ErrDriveNotFound
+		}
+		if err != nil {
+			return DriveFile{}, fmt.Errorf("update drive file description: %w", err)
+		}
+		file = driveFileFromDB(updated)
+	}
+
+	if input.Tags != nil {
+		if err := s.replaceDriveItemTags(ctx, input.TenantID, actor.UserID, file.ResourceRef(), *input.Tags); err != nil {
+			return DriveFile{}, err
+		}
+	}
+
 	if input.ParentFolderPublicID != nil {
 		moved, err := s.moveFile(ctx, actor, file, *input.ParentFolderPublicID)
 		if err != nil {
@@ -537,6 +585,7 @@ func (s *DriveService) UpdateFile(ctx context.Context, input DriveUpdateFileInpu
 	}
 
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.file.update", "drive_file", file.PublicID, nil)
+	s.recordDriveActivityBestEffort(ctx, actor, file.ResourceRef(), "updated", map[string]any{"filename": file.OriginalFilename})
 	s.indexDriveFileBestEffort(ctx, file, "metadata_changed")
 	s.recordDriveSyncEventBestEffort(ctx, file.ResourceRef(), "file.metadata_updated", file.SHA256Hex, map[string]any{"filename": file.OriginalFilename})
 	return file, nil
@@ -645,6 +694,8 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 		"contentType": result.ContentType,
 		"byteSize":    result.ByteSize,
 	})
+	s.recordDriveActivityBestEffort(ctx, actor, result.ResourceRef(), "updated", map[string]any{"filename": result.OriginalFilename, "byteSize": result.ByteSize})
+	s.recordDriveFilePreviewStateBestEffort(ctx, result)
 	s.indexDriveFileBestEffort(ctx, result, "content_updated")
 	s.recordDriveSyncEventBestEffort(ctx, result.ResourceRef(), "file.updated", result.SHA256Hex, map[string]any{"filename": result.OriginalFilename})
 	return result, nil
@@ -681,6 +732,7 @@ func (s *DriveService) DeleteFile(ctx context.Context, tenantID, actorUserID int
 		return fmt.Errorf("delete drive file: %w", err)
 	}
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.file.delete", "drive_file", file.PublicID, nil)
+	s.recordDriveActivityBestEffort(ctx, actor, file.ResourceRef(), "deleted", nil)
 	_ = s.queries.DeleteDriveSearchDocument(ctx, db.DeleteDriveSearchDocumentParams{TenantID: tenantID, FileObjectID: file.ID})
 	s.recordDriveSyncEventBestEffort(ctx, file.ResourceRef(), "file.deleted", file.SHA256Hex, map[string]any{"filename": file.OriginalFilename})
 	return nil
@@ -744,6 +796,7 @@ func (s *DriveService) RestoreFile(ctx context.Context, input DriveRestoreResour
 	}
 	result := driveFileFromDB(restored)
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.file.restore", "drive_file", result.PublicID, nil)
+	s.recordDriveActivityBestEffort(ctx, actor, result.ResourceRef(), "restored", nil)
 	s.indexDriveFileBestEffort(ctx, result, "file_restored")
 	s.recordDriveSyncEventBestEffort(ctx, result.ResourceRef(), "file.restored", result.SHA256Hex, map[string]any{"filename": result.OriginalFilename})
 	return result, nil

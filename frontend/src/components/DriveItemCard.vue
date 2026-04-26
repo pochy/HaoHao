@@ -17,6 +17,7 @@ defineProps<{
   busyResourceId: string
   deletingResourceId: string
   selected?: boolean
+  selectedForArchive?: boolean
   trashMode?: boolean
 }>()
 
@@ -30,11 +31,26 @@ const emit = defineEmits<{
   shareItem: [item: DriveItemBody]
   restoreItem: [item: DriveItemBody]
   detailsItem: [item: DriveItemBody]
+  toggleStar: [item: DriveItemBody]
+  copyItem: [item: DriveItemBody]
+  downloadArchive: [item: DriveItemBody]
+  editMetadataItem: [item: DriveItemBody]
+  previewItem: [item: DriveItemBody]
+  toggleSelect: [item: DriveItemBody]
+  permanentlyDeleteItem: [item: DriveItemBody]
 }>()
 </script>
 
 <template>
-  <article class="drive-item-card" :class="{ selected }">
+  <article class="drive-item-card" :class="{ selected, 'archive-selected': selectedForArchive }">
+    <label v-if="!trashMode" class="drive-select-checkbox">
+      <input
+        type="checkbox"
+        :checked="selectedForArchive"
+        :aria-label="`Select ${driveItemName(item)} for archive download`"
+        @change="emit('toggleSelect', item)"
+      >
+    </label>
     <button
       v-if="item.folder && !trashMode"
       class="drive-item-card-open"
@@ -61,6 +77,7 @@ const emit = defineEmits<{
       <span>{{ formatDriveDate(driveItemUpdatedAt(item)) }}</span>
       <span>{{ item.file ? formatDriveSize(item.file.byteSize) : 'Folder' }}</span>
       <span v-if="item.file?.locked" class="status-pill danger">Locked</span>
+      <span v-else-if="item.starredByMe" class="status-pill">Starred</span>
       <span v-else-if="item.file?.status" class="status-pill">{{ item.file.status }}</span>
     </footer>
 
@@ -78,6 +95,12 @@ const emit = defineEmits<{
       @share-item="emit('shareItem', $event)"
       @restore-item="emit('restoreItem', $event)"
       @details-item="emit('detailsItem', $event)"
+      @toggle-star="emit('toggleStar', $event)"
+      @copy-item="emit('copyItem', $event)"
+      @download-archive="emit('downloadArchive', $event)"
+      @edit-metadata-item="emit('editMetadataItem', $event)"
+      @preview-item="emit('previewItem', $event)"
+      @permanently-delete-item="emit('permanentlyDeleteItem', $event)"
     />
     <span class="drive-item-public-id monospace-cell">{{ driveItemPublicId(item) }}</span>
   </article>

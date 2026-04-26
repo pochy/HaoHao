@@ -17,6 +17,7 @@ defineProps<{
   busyResourceId: string
   deletingResourceId: string
   selectedResourceId: string
+  selectedResourceIds: string[]
   trashMode?: boolean
 }>()
 
@@ -30,12 +31,20 @@ const emit = defineEmits<{
   shareItem: [item: DriveItemBody]
   restoreItem: [item: DriveItemBody]
   detailsItem: [item: DriveItemBody]
+  toggleStar: [item: DriveItemBody]
+  copyItem: [item: DriveItemBody]
+  downloadArchive: [item: DriveItemBody]
+  editMetadataItem: [item: DriveItemBody]
+  previewItem: [item: DriveItemBody]
+  toggleSelect: [item: DriveItemBody]
+  permanentlyDeleteItem: [item: DriveItemBody]
 }>()
 </script>
 
 <template>
   <div class="drive-list" role="table" aria-label="Drive items">
     <div class="drive-list-header" role="row">
+      <span role="columnheader">Select</span>
       <span role="columnheader">Name</span>
       <span role="columnheader">Type</span>
       <span role="columnheader">Size</span>
@@ -50,9 +59,18 @@ const emit = defineEmits<{
       v-else
       :key="driveItemPublicId(item)"
       class="drive-list-row"
-      :class="{ selected: selectedResourceId === driveItemPublicId(item) }"
+      :class="{ selected: selectedResourceId === driveItemPublicId(item), 'archive-selected': selectedResourceIds.includes(driveItemPublicId(item)) }"
       role="row"
     >
+      <label class="drive-list-select" role="cell">
+        <input
+          v-if="!trashMode"
+          type="checkbox"
+          :checked="selectedResourceIds.includes(driveItemPublicId(item))"
+          :aria-label="`Select ${driveItemName(item)} for archive download`"
+          @change="emit('toggleSelect', item)"
+        >
+      </label>
       <div class="drive-list-name" role="cell">
         <DriveFileTypeIcon :kind="driveItemKind(item)" :size="18" />
         <button
@@ -72,6 +90,7 @@ const emit = defineEmits<{
       <div class="drive-list-actions" role="cell">
         <span v-if="trashMode" class="status-pill danger">Deleted</span>
         <span v-else-if="item.file?.locked" class="status-pill danger">Locked</span>
+        <span v-else-if="item.starredByMe" class="status-pill">Starred</span>
         <span v-else-if="item.file?.status" class="status-pill">{{ item.file.status }}</span>
         <DriveItemMenu
           :item="item"
@@ -86,6 +105,12 @@ const emit = defineEmits<{
           @share-item="emit('shareItem', $event)"
           @restore-item="emit('restoreItem', $event)"
           @details-item="emit('detailsItem', $event)"
+          @toggle-star="emit('toggleStar', $event)"
+          @copy-item="emit('copyItem', $event)"
+          @download-archive="emit('downloadArchive', $event)"
+          @edit-metadata-item="emit('editMetadataItem', $event)"
+          @preview-item="emit('previewItem', $event)"
+          @permanently-delete-item="emit('permanentlyDeleteItem', $event)"
         />
       </div>
     </div>

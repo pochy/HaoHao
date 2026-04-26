@@ -351,6 +351,21 @@ type DriveEncryptionPolicy struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DriveFilePreview struct {
+	ID                  int64              `json:"id"`
+	PublicID            uuid.UUID          `json:"public_id"`
+	TenantID            int64              `json:"tenant_id"`
+	FileObjectID        int64              `json:"file_object_id"`
+	Status              string             `json:"status"`
+	ThumbnailStorageKey pgtype.Text        `json:"thumbnail_storage_key"`
+	PreviewStorageKey   pgtype.Text        `json:"preview_storage_key"`
+	ContentType         string             `json:"content_type"`
+	ErrorCode           pgtype.Text        `json:"error_code"`
+	GeneratedAt         pgtype.Timestamptz `json:"generated_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DriveFileRevision struct {
 	ID                       int64              `json:"id"`
 	PublicID                 uuid.UUID          `json:"public_id"`
@@ -374,6 +389,7 @@ type DriveFolder struct {
 	TenantID              int64              `json:"tenant_id"`
 	ParentFolderID        pgtype.Int8        `json:"parent_folder_id"`
 	Name                  string             `json:"name"`
+	Description           string             `json:"description"`
 	CreatedByUserID       int64              `json:"created_by_user_id"`
 	InheritanceEnabled    bool               `json:"inheritance_enabled"`
 	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
@@ -499,6 +515,29 @@ type DriveIndexJob struct {
 	LastError    pgtype.Text        `json:"last_error"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveItemActivity struct {
+	ID           int64              `json:"id"`
+	PublicID     uuid.UUID          `json:"public_id"`
+	TenantID     int64              `json:"tenant_id"`
+	ActorUserID  pgtype.Int8        `json:"actor_user_id"`
+	ResourceType string             `json:"resource_type"`
+	ResourceID   int64              `json:"resource_id"`
+	Action       string             `json:"action"`
+	Metadata     []byte             `json:"metadata"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveItemTag struct {
+	ID              int64              `json:"id"`
+	TenantID        int64              `json:"tenant_id"`
+	ResourceType    string             `json:"resource_type"`
+	ResourceID      int64              `json:"resource_id"`
+	Tag             string             `json:"tag"`
+	NormalizedTag   string             `json:"normalized_tag"`
+	CreatedByUserID pgtype.Int8        `json:"created_by_user_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type DriveKeyRotationJob struct {
@@ -858,6 +897,18 @@ type DriveShareLinkPasswordAttempt struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DriveStarredItem struct {
+	ID           int64              `json:"id"`
+	PublicID     uuid.UUID          `json:"public_id"`
+	TenantID     int64              `json:"tenant_id"`
+	UserID       int64              `json:"user_id"`
+	ResourceType string             `json:"resource_type"`
+	ResourceID   int64              `json:"resource_id"`
+	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DriveStorageGateway struct {
 	ID                     int64              `json:"id"`
 	PublicID               uuid.UUID          `json:"public_id"`
@@ -1014,6 +1065,7 @@ type FileObject struct {
 	EncryptionMode           string             `json:"encryption_mode"`
 	E2eeFileKeyPublicID      pgtype.UUID        `json:"e2ee_file_key_public_id"`
 	StorageGatewayID         pgtype.Int8        `json:"storage_gateway_id"`
+	Description              string             `json:"description"`
 }
 
 type IdempotencyKey struct {
