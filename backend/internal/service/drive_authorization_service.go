@@ -12,6 +12,7 @@ type DriveAuthorizationConfig struct {
 	Enabled    bool
 	FailClosed bool
 	Now        func() time.Time
+	Metrics    DriveAuthzMetrics
 }
 
 type DriveAuthorizationService struct {
@@ -19,6 +20,11 @@ type DriveAuthorizationService struct {
 	enabled    bool
 	failClosed bool
 	now        func() time.Time
+	metrics    DriveAuthzMetrics
+}
+
+type DriveAuthzMetrics interface {
+	IncDriveAuthzDenied(operation, resourceType string)
 }
 
 func NewDriveAuthorizationService(client OpenFGAClient, cfg DriveAuthorizationConfig) *DriveAuthorizationService {
@@ -31,6 +37,7 @@ func NewDriveAuthorizationService(client OpenFGAClient, cfg DriveAuthorizationCo
 		enabled:    cfg.Enabled,
 		failClosed: cfg.FailClosed,
 		now:        now,
+		metrics:    cfg.Metrics,
 	}
 }
 
@@ -38,14 +45,14 @@ func (s *DriveAuthorizationService) CanViewFile(ctx context.Context, actor Drive
 	if err := validateDriveActorResource(actor, file.ResourceRef(), file.DeletedAt); err != nil {
 		return err
 	}
-	return s.check(ctx, openFGAUser(actor.PublicID), "can_view", openFGAFile(file.PublicID), s.currentTimeContext())
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_view", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanDownloadFile(ctx context.Context, actor DriveActor, file DriveFile) error {
 	if err := validateDriveActorResource(actor, file.ResourceRef(), file.DeletedAt); err != nil {
 		return err
 	}
-	return s.check(ctx, openFGAUser(actor.PublicID), "can_download", openFGAFile(file.PublicID), s.currentTimeContext())
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_download", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanEditFile(ctx context.Context, actor DriveActor, file DriveFile) error {
@@ -55,7 +62,7 @@ func (s *DriveAuthorizationService) CanEditFile(ctx context.Context, actor Drive
 	if file.LockedAt != nil {
 		return ErrDriveLocked
 	}
-	return s.check(ctx, openFGAUser(actor.PublicID), "can_edit", openFGAFile(file.PublicID), s.currentTimeContext())
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_edit", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanDeleteFile(ctx context.Context, actor DriveActor, file DriveFile) error {
@@ -65,7 +72,7 @@ func (s *DriveAuthorizationService) CanDeleteFile(ctx context.Context, actor Dri
 	if file.LockedAt != nil {
 		return ErrDriveLocked
 	}
-	return s.check(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFile(file.PublicID), s.currentTimeContext())
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanShareFile(ctx context.Context, actor DriveActor, file DriveFile) error {
@@ -75,42 +82,113 @@ func (s *DriveAuthorizationService) CanShareFile(ctx context.Context, actor Driv
 	if file.LockedAt != nil {
 		return ErrDriveLocked
 	}
-	return s.check(ctx, openFGAUser(actor.PublicID), "can_share", openFGAFile(file.PublicID), s.currentTimeContext())
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_share", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanViewFolder(ctx context.Context, actor DriveActor, folder DriveFolder) error {
 	if err := validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt); err != nil {
 		return err
 	}
-	return s.check(ctx, openFGAUser(actor.PublicID), "can_view", openFGAFolder(folder.PublicID), s.currentTimeContext())
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_view", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanEditFolder(ctx context.Context, actor DriveActor, folder DriveFolder) error {
 	if err := validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt); err != nil {
 		return err
 	}
-	return s.check(ctx, openFGAUser(actor.PublicID), "can_edit", openFGAFolder(folder.PublicID), s.currentTimeContext())
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_edit", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanDeleteFolder(ctx context.Context, actor DriveActor, folder DriveFolder) error {
 	if err := validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt); err != nil {
 		return err
 	}
-	return s.check(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFolder(folder.PublicID), s.currentTimeContext())
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanShareFolder(ctx context.Context, actor DriveActor, folder DriveFolder) error {
 	if err := validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt); err != nil {
 		return err
 	}
-	return s.check(ctx, openFGAUser(actor.PublicID), "can_share", openFGAFolder(folder.PublicID), s.currentTimeContext())
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_share", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanViewWithShareLink(ctx context.Context, link DriveShareLink) error {
 	if link.Status != "active" || !link.ExpiresAt.After(s.now()) {
+		s.recordDenied("can_view", "share_link")
 		return ErrDrivePermissionDenied
 	}
-	return s.check(ctx, openFGAShareLink(link.PublicID), "can_view", openFGAResourceObject(link.Resource), s.currentTimeContext())
+	return s.checkResource(ctx, openFGAShareLink(link.PublicID), "can_view", openFGAResourceObject(link.Resource), "share_link", s.currentTimeContext())
+}
+
+func (s *DriveAuthorizationService) FilterViewableFiles(ctx context.Context, actor DriveActor, files []DriveFile) ([]DriveFile, error) {
+	if len(files) == 0 {
+		return nil, nil
+	}
+	if actor.UserID <= 0 || actor.TenantID <= 0 || strings.TrimSpace(actor.PublicID) == "" {
+		s.recordDenied("can_view", "file")
+		return nil, ErrDrivePermissionDenied
+	}
+	tuples := make([]OpenFGATuple, 0, len(files))
+	indexes := make([]int, 0, len(files))
+	for i, file := range files {
+		if validateDriveActorResource(actor, file.ResourceRef(), file.DeletedAt) != nil {
+			continue
+		}
+		tuples = append(tuples, OpenFGATuple{
+			User:     openFGAUser(actor.PublicID),
+			Relation: "can_view",
+			Object:   openFGAFile(file.PublicID),
+		})
+		indexes = append(indexes, i)
+	}
+	allowed, err := s.batchCheck(ctx, tuples, s.currentTimeContext())
+	if err != nil {
+		s.recordDenied("can_view", "file")
+		return nil, err
+	}
+	items := make([]DriveFile, 0, len(files))
+	for i, ok := range allowed {
+		if ok {
+			items = append(items, files[indexes[i]])
+		}
+	}
+	return items, nil
+}
+
+func (s *DriveAuthorizationService) FilterViewableFolders(ctx context.Context, actor DriveActor, folders []DriveFolder) ([]DriveFolder, error) {
+	if len(folders) == 0 {
+		return nil, nil
+	}
+	if actor.UserID <= 0 || actor.TenantID <= 0 || strings.TrimSpace(actor.PublicID) == "" {
+		s.recordDenied("can_view", "folder")
+		return nil, ErrDrivePermissionDenied
+	}
+	tuples := make([]OpenFGATuple, 0, len(folders))
+	indexes := make([]int, 0, len(folders))
+	for i, folder := range folders {
+		if validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt) != nil {
+			continue
+		}
+		tuples = append(tuples, OpenFGATuple{
+			User:     openFGAUser(actor.PublicID),
+			Relation: "can_view",
+			Object:   openFGAFolder(folder.PublicID),
+		})
+		indexes = append(indexes, i)
+	}
+	allowed, err := s.batchCheck(ctx, tuples, s.currentTimeContext())
+	if err != nil {
+		s.recordDenied("can_view", "folder")
+		return nil, err
+	}
+	items := make([]DriveFolder, 0, len(folders))
+	for i, ok := range allowed {
+		if ok {
+			items = append(items, folders[indexes[i]])
+		}
+	}
+	return items, nil
 }
 
 func (s *DriveAuthorizationService) ListViewableFiles(ctx context.Context, actor DriveActor) ([]string, error) {
@@ -149,6 +227,14 @@ func (s *DriveAuthorizationService) WriteResourceParent(ctx context.Context, chi
 
 func (s *DriveAuthorizationService) DeleteResourceParent(ctx context.Context, child, parent DriveResourceRef) error {
 	return s.deleteTuples(ctx, []OpenFGATuple{parentTuple(child, parent)})
+}
+
+func (s *DriveAuthorizationService) DeleteResourceOwner(ctx context.Context, actor DriveActor, resource DriveResourceRef) error {
+	return s.deleteTuples(ctx, []OpenFGATuple{{
+		User:     openFGAUser(actor.PublicID),
+		Relation: "owner",
+		Object:   openFGAResourceObject(resource),
+	}})
 }
 
 func (s *DriveAuthorizationService) WriteResourceCreateTuples(ctx context.Context, actor DriveActor, resource DriveResourceRef, parent *DriveResourceRef) error {
@@ -213,6 +299,39 @@ func (s *DriveAuthorizationService) check(ctx context.Context, user, relation, o
 		return ErrDrivePermissionDenied
 	}
 	return nil
+}
+
+func (s *DriveAuthorizationService) checkResource(ctx context.Context, user, relation, object, resourceType string, contextMap map[string]any) error {
+	if err := s.check(ctx, user, relation, object, contextMap); err != nil {
+		s.recordDenied(relation, resourceType)
+		return err
+	}
+	return nil
+}
+
+func (s *DriveAuthorizationService) batchCheck(ctx context.Context, tuples []OpenFGATuple, contextMap map[string]any) ([]bool, error) {
+	if len(tuples) == 0 {
+		return nil, nil
+	}
+	if err := s.ensureReady(); err != nil {
+		if !s.failClosed {
+			return make([]bool, len(tuples)), nil
+		}
+		return nil, err
+	}
+	allowed, err := s.client.BatchCheck(ctx, tuples, contextMap)
+	if err != nil {
+		if s.failClosed {
+			return nil, fmt.Errorf("%w: %v", ErrDriveAuthzUnavailable, err)
+		}
+		return make([]bool, len(tuples)), nil
+	}
+	if len(allowed) != len(tuples) {
+		resized := make([]bool, len(tuples))
+		copy(resized, allowed)
+		allowed = resized
+	}
+	return allowed, nil
 }
 
 func (s *DriveAuthorizationService) listObjects(ctx context.Context, user, relation, objectType string, contextMap map[string]any) ([]string, error) {
@@ -343,4 +462,11 @@ func stripOpenFGAObjectPrefixes(objects []string) []string {
 
 func isDrivePermissionError(err error) bool {
 	return errors.Is(err, ErrDrivePermissionDenied) || errors.Is(err, ErrDriveAuthzUnavailable) || errors.Is(err, ErrDriveLocked)
+}
+
+func (s *DriveAuthorizationService) recordDenied(operation, resourceType string) {
+	if s == nil || s.metrics == nil {
+		return
+	}
+	s.metrics.IncDriveAuthzDenied(operation, resourceType)
 }

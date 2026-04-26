@@ -18,6 +18,11 @@ type OpenFGAClientConfig struct {
 	AuthorizationModelID string
 	APIToken             string
 	Timeout              time.Duration
+	Metrics              OpenFGAMetrics
+}
+
+type OpenFGAMetrics interface {
+	ObserveOpenFGARequest(operation string, duration time.Duration, err error)
 }
 
 type OpenFGACondition struct {
@@ -44,6 +49,7 @@ type OpenFGASDKClient struct {
 	client  fgaclient.SdkClient
 	modelID string
 	timeout time.Duration
+	metrics OpenFGAMetrics
 }
 
 func NewOpenFGASDKClient(cfg OpenFGAClientConfig) (*OpenFGASDKClient, error) {
@@ -82,6 +88,7 @@ func NewOpenFGASDKClient(cfg OpenFGAClientConfig) (*OpenFGASDKClient, error) {
 		client:  client,
 		modelID: modelID,
 		timeout: timeout,
+		metrics: cfg.Metrics,
 	}, nil
 }
 
@@ -91,6 +98,11 @@ func (c *OpenFGASDKClient) Check(ctx context.Context, tuple OpenFGATuple, contex
 	}
 	ctx, cancel := c.callContext(ctx)
 	defer cancel()
+	startedAt := time.Now()
+	var callErr error
+	defer func() {
+		c.observe("openfga_check", startedAt, callErr)
+	}()
 
 	body := fgaclient.ClientCheckRequest{
 		User:     tuple.User,
@@ -105,6 +117,7 @@ func (c *OpenFGASDKClient) Check(ctx context.Context, tuple OpenFGATuple, contex
 	}
 	resp, err := c.client.Check(ctx).Body(body).Options(options).Execute()
 	if err != nil {
+		callErr = err
 		return false, err
 	}
 	if resp == nil {
@@ -122,6 +135,11 @@ func (c *OpenFGASDKClient) BatchCheck(ctx context.Context, tuples []OpenFGATuple
 	}
 	ctx, cancel := c.callContext(ctx)
 	defer cancel()
+	startedAt := time.Now()
+	var callErr error
+	defer func() {
+		c.observe("openfga_check", startedAt, callErr)
+	}()
 
 	checks := make([]fgaclient.ClientBatchCheckItem, 0, len(tuples))
 	for i, tuple := range tuples {
@@ -141,6 +159,7 @@ func (c *OpenFGASDKClient) BatchCheck(ctx context.Context, tuples []OpenFGATuple
 	}
 	resp, err := c.client.BatchCheck(ctx).Body(fgaclient.ClientBatchCheckRequest{Checks: checks}).Options(options).Execute()
 	if err != nil {
+		callErr = err
 		return nil, err
 	}
 	result := make([]bool, len(tuples))
@@ -163,6 +182,11 @@ func (c *OpenFGASDKClient) ListObjects(ctx context.Context, user string, relatio
 	}
 	ctx, cancel := c.callContext(ctx)
 	defer cancel()
+	startedAt := time.Now()
+	var callErr error
+	defer func() {
+		c.observe("openfga_list_objects", startedAt, callErr)
+	}()
 
 	body := fgaclient.ClientListObjectsRequest{
 		User:     user,
@@ -177,6 +201,7 @@ func (c *OpenFGASDKClient) ListObjects(ctx context.Context, user string, relatio
 	}
 	resp, err := c.client.ListObjects(ctx).Body(body).Options(options).Execute()
 	if err != nil {
+		callErr = err
 		return nil, err
 	}
 	if resp == nil {
@@ -194,6 +219,11 @@ func (c *OpenFGASDKClient) WriteTuples(ctx context.Context, tuples []OpenFGATupl
 	}
 	ctx, cancel := c.callContext(ctx)
 	defer cancel()
+	startedAt := time.Now()
+	var callErr error
+	defer func() {
+		c.observe("openfga_write", startedAt, callErr)
+	}()
 
 	body := make(fgaclient.ClientWriteTuplesBody, 0, len(tuples))
 	for _, tuple := range tuples {
@@ -203,6 +233,7 @@ func (c *OpenFGASDKClient) WriteTuples(ctx context.Context, tuples []OpenFGATupl
 		AuthorizationModelId: openfga.ToPtr(c.modelID),
 	}
 	_, err := c.client.WriteTuples(ctx).Body(body).Options(options).Execute()
+	callErr = err
 	return err
 }
 
@@ -215,6 +246,11 @@ func (c *OpenFGASDKClient) DeleteTuples(ctx context.Context, tuples []OpenFGATup
 	}
 	ctx, cancel := c.callContext(ctx)
 	defer cancel()
+	startedAt := time.Now()
+	var callErr error
+	defer func() {
+		c.observe("openfga_delete", startedAt, callErr)
+	}()
 
 	body := make(fgaclient.ClientDeleteTuplesBody, 0, len(tuples))
 	for _, tuple := range tuples {
@@ -228,6 +264,7 @@ func (c *OpenFGASDKClient) DeleteTuples(ctx context.Context, tuples []OpenFGATup
 		AuthorizationModelId: openfga.ToPtr(c.modelID),
 	}
 	_, err := c.client.DeleteTuples(ctx).Body(body).Options(options).Execute()
+	callErr = err
 	return err
 }
 
@@ -236,6 +273,13 @@ func (c *OpenFGASDKClient) callContext(ctx context.Context) (context.Context, co
 		return context.WithCancel(ctx)
 	}
 	return context.WithTimeout(ctx, c.timeout)
+}
+
+func (c *OpenFGASDKClient) observe(operation string, startedAt time.Time, err error) {
+	if c == nil || c.metrics == nil {
+		return
+	}
+	c.metrics.ObserveOpenFGARequest(operation, time.Since(startedAt), err)
 }
 
 func openFGATupleToSDK(tuple OpenFGATuple) openfga.TupleKey {

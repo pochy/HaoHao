@@ -10,7 +10,8 @@
 
 - `/api/v1/drive/...` が browser surface に追加される
 - external surface / M2M surface / SCIM surface には Drive route が出ない
-- raw upload/download route が Cookie session + CSRF + active tenant を確認する
+- raw upload/overwrite route は Cookie session + CSRF + active tenant を確認する
+- raw download route は read operation として Cookie session + active tenant を確認する
 - denied / failed operation が audit に残る
 - OpenFGA metrics が低 cardinality label で記録される
 - `OPENFGA_ENABLED=true` のとき `/readyz` が OpenFGA を確認する
@@ -70,9 +71,11 @@ PATCH  /api/v1/drive/folders/{folderPublicId}/inheritance
 
 ### auth
 
-すべて Cookie session + CSRF + active tenant を前提にします。folder detail と children は `can_view`、rename/move/delete/inheritance はそれぞれ `can_edit` / `can_delete` / `can_share` を要求します。
+mutating request は Cookie session + CSRF + active tenant を前提にします。read request は Cookie session + active tenant を前提にします。folder detail と children は `can_view`、rename/move/delete/inheritance はそれぞれ `can_edit` / `can_delete` / `can_share` を要求します。
 
 children list は DB で tenant / parent / deleted を絞った後、OpenFGA `BatchCheck(can_view)` で不可視 item を除外します。
+
+Gin は `/api/v1/drive/folders/root` と `/api/v1/drive/folders/{folderPublicId}` を別 route として同居させると wildcard conflict になります。runtime では `/api/v1/drive/folders/{folderPublicId}` handler が `folderPublicId == "root"` を特別扱いし、`/api/v1/drive/folders/root` URL を返します。OpenAPI 上は `/api/v1/drive/folders/{folderPublicId}` として表現します。
 
 ## Step 3. file API と raw route を追加する
 
@@ -100,6 +103,8 @@ PUT  /api/v1/drive/files/{filePublicId}/content
 download は `can_view` と `can_download` の両方を要求します。`can_download=false` の share link は metadata/preview 相当だけ許可し、content endpoint は拒否します。
 
 overwrite は `can_edit` を要求し、locked/deleted/read-only file は拒否します。
+
+download は read operation なので `X-CSRF-Token` は要求しません。upload / overwrite は mutating operation なので CSRF を必須にします。
 
 ## Step 4. share / group / link API を追加する
 
@@ -185,13 +190,13 @@ Drive service error を API response に変換します。
 ErrDriveAuthzUnavailable -> 503
 ErrDrivePermissionDenied -> 403
 ErrDriveNotFound         -> 404
-ErrDriveTenantMismatch   -> 404
+tenant mismatch         -> ErrDriveNotFound -> 404
 ErrDriveLocked           -> 409
 ErrInvalidDriveInput     -> 400
 ErrDrivePolicyDenied     -> 403
 ```
 
-OpenFGA timeout / unavailable は denied と区別し、`503` にします。OpenFGA check が false の場合は `403` です。
+OpenFGA timeout / unavailable は denied と区別し、`503` にします。OpenFGA check が false の場合は `403` です。tenant mismatch は OpenFGA に到達する前に DB tenant check / `validateDriveActorResource` で `ErrDriveNotFound` に寄せます。
 
 ## Step 8. audit event を追加する
 
@@ -233,6 +238,8 @@ drive.authz.denied
 
 metadata は resource type、resource public ID、role、subject public ID、result など低感度の値にします。
 
+public share link token は URL path に含まれるため、request log は raw `Request.URL.Path` ではなく Gin route template の `FullPath()` を記録します。未マッチ route は `unmatched` に丸めます。
+
 ## Step 9. metrics / readiness を追加する
 
 ### metrics
@@ -258,7 +265,7 @@ tenant ID、user ID、file ID、folder ID、link token は label に入れませ
 
 `OPENFGA_ENABLED=true` の場合、`/readyz` で OpenFGA API 疎通を確認します。OpenFGA が落ちている場合は readiness fail です。
 
-既存 session が有効でも OpenFGA が落ちていれば Drive protected operation は fail-closed です。
+既存 session が有効でも OpenFGA が落ちていれば Drive protected operation は fail-closed です。SDK client wrapper は `haohao_openfga_requests_total{operation,result}` と `haohao_openfga_request_duration_seconds{operation,result}` を記録し、authorization denied は service layer で `haohao_drive_authz_denied_total{operation,resource_type}` に記録します。
 
 ## Step 10. smoke script を追加する
 
@@ -276,6 +283,8 @@ smoke-openfga:
 	bash scripts/smoke-openfga.sh
 ```
 
+`scripts/smoke-openfga.sh` は local password login 前提の開発用 smoke です。`.env` を読み込み、`DATABASE_URL` で owner / viewer / editor の smoke user と tenant membership を準備します。`AUTH_MODE=zitadel` のまま起動している場合、local password login は `501` になるため、smoke 実行時は backend を `AUTH_MODE=local` と `ENABLE_LOCAL_PASSWORD_LOGIN=true` で起動します。
+
 ### smoke scenario
 
 ```text
@@ -286,13 +295,14 @@ smoke-openfga:
 5. viewer は download できる
 6. viewer は delete できない
 7. editor share user は file rename / overwrite できる
-8. locked file は editor でも overwrite / delete できない
+8. DB 上で locked にした file は editor でも overwrite / delete できない
 9. owner が group を作り member を追加する
 10. group に folder viewer を付与し child file を閲覧できる
 11. search 結果には閲覧可能 item だけが出る
 12. share link を作成し public metadata を取得できる
 13. can_download=false link で content download が拒否される
 14. share link disable 後に public access が拒否される
+15. audit と OpenFGA metrics が出ていることを確認する
 ```
 
 ## Phase 4 の完了確認
@@ -309,4 +319,3 @@ OpenAPI 確認:
 rg "/api/v1/drive" openapi/browser.yaml openapi/openapi.yaml
 ! rg "/api/v1/drive" openapi/external.yaml
 ```
-

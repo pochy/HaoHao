@@ -138,6 +138,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		CustomerSignalService: customerSignalService,
 		TodoService:           todoService,
 	}, cfg.FileMaxBytes)
+	backendapi.RegisterRawDriveRoutes(router, deps, cfg.FileMaxBytes)
 
 	return &App{
 		Router: router,

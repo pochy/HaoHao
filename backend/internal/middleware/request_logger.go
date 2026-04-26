@@ -19,10 +19,14 @@ func RequestLogger(logger *slog.Logger) gin.HandlerFunc {
 
 		latency := time.Since(startedAt)
 		status := c.Writer.Status()
+		path := c.FullPath()
+		if path == "" {
+			path = "unmatched"
+		}
 		attrs := []any{
 			"request_id", RequestIDFromContext(c),
 			"method", c.Request.Method,
-			"path", c.Request.URL.Path,
+			"path", path,
 			"status", status,
 			"latency_ms", float64(latency.Microseconds()) / 1000,
 			"client_ip", c.ClientIP(),

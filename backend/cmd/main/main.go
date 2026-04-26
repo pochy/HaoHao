@@ -105,6 +105,7 @@ func main() {
 			AuthorizationModelID: cfg.OpenFGA.AuthorizationModelID,
 			APIToken:             cfg.OpenFGA.APIToken,
 			Timeout:              cfg.OpenFGA.Timeout,
+			Metrics:              metrics,
 		})
 		if err != nil {
 			fatal(logger, "create openfga client", err)
@@ -113,6 +114,7 @@ func main() {
 	driveAuthorizationService := service.NewDriveAuthorizationService(openFGAClient, service.DriveAuthorizationConfig{
 		Enabled:    cfg.OpenFGA.Enabled,
 		FailClosed: cfg.OpenFGA.FailClosed,
+		Metrics:    metrics,
 	})
 	driveService := service.NewDriveService(pool, queries, fileService, fileStorage, driveAuthorizationService, tenantSettingsService, auditService)
 	tenantInvitationService := service.NewTenantInvitationService(pool, queries, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)

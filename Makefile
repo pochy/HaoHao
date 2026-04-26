@@ -102,6 +102,9 @@ smoke-rate-limit-runtime:
 smoke-file-purge: binary
 	bash scripts/smoke-file-purge.sh
 
+smoke-openfga:
+	bash scripts/smoke-openfga.sh
+
 smoke-backup-restore:
 	bash scripts/smoke-backup-restore.sh
 

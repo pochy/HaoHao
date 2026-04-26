@@ -64,8 +64,15 @@ func (s *DriveService) CreateFolder(ctx context.Context, input DriveCreateFolder
 
 	var parentRef *DriveResourceRef
 	parentID := pgtype.Int8{}
-	if input.ParentFolderID != nil {
-		parent, err := s.getFolderByID(ctx, input.TenantID, *input.ParentFolderID)
+	parentPublicIDInput := strings.TrimSpace(input.ParentFolderPublicID)
+	if input.ParentFolderID != nil || (parentPublicIDInput != "" && parentPublicIDInput != "root") {
+		var parent DriveFolder
+		var err error
+		if input.ParentFolderID != nil {
+			parent, err = s.getFolderByID(ctx, input.TenantID, *input.ParentFolderID)
+		} else {
+			parent, err = s.getDriveFolder(ctx, input.TenantID, DriveResourceRef{Type: DriveResourceTypeFolder, PublicID: parentPublicIDInput})
+		}
 		if err != nil {
 			return DriveFolder{}, err
 		}
@@ -136,8 +143,15 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 
 	var parentRef *DriveResourceRef
 	parentID := pgtype.Int8{}
-	if input.ParentFolderID != nil {
-		parent, err := s.getFolderByID(ctx, input.TenantID, *input.ParentFolderID)
+	parentPublicIDInput := strings.TrimSpace(input.ParentFolderPublicID)
+	if input.ParentFolderID != nil || (parentPublicIDInput != "" && parentPublicIDInput != "root") {
+		var parent DriveFolder
+		var err error
+		if input.ParentFolderID != nil {
+			parent, err = s.getFolderByID(ctx, input.TenantID, *input.ParentFolderID)
+		} else {
+			parent, err = s.getDriveFolder(ctx, input.TenantID, DriveResourceRef{Type: DriveResourceTypeFolder, PublicID: parentPublicIDInput})
+		}
 		if err != nil {
 			return DriveFile{}, err
 		}
@@ -245,7 +259,14 @@ func (s *DriveService) CreateShare(ctx context.Context, input DriveCreateShareIn
 		return DriveShare{}, fmt.Errorf("%w: share role is required", ErrDriveInvalidInput)
 	}
 
-	subjectPublicID, err := s.resolveShareSubjectPublicID(ctx, input.TenantID, input.SubjectType, input.SubjectID)
+	subjectID := input.SubjectID
+	if subjectID <= 0 && strings.TrimSpace(input.SubjectPublicID) != "" {
+		subjectID, err = s.resolveShareSubjectID(ctx, input.TenantID, input.SubjectType, input.SubjectPublicID)
+		if err != nil {
+			return DriveShare{}, err
+		}
+	}
+	subjectPublicID, err := s.resolveShareSubjectPublicID(ctx, input.TenantID, input.SubjectType, subjectID)
 	if err != nil {
 		return DriveShare{}, err
 	}
@@ -254,7 +275,7 @@ func (s *DriveService) CreateShare(ctx context.Context, input DriveCreateShareIn
 		ResourceType:    string(resource.Type),
 		ResourceID:      resource.ID,
 		SubjectType:     string(input.SubjectType),
-		SubjectID:       input.SubjectID,
+		SubjectID:       subjectID,
 		Role:            string(role),
 		Status:          "active",
 		CreatedByUserID: actor.UserID,

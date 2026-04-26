@@ -33,6 +33,9 @@ type Metrics struct {
 	dataLifecycleRunsTotal  *prometheus.CounterVec
 	dataLifecycleItemsTotal *prometheus.CounterVec
 	fileQuotaExceededTotal  *prometheus.CounterVec
+	openFGARequestsTotal    *prometheus.CounterVec
+	openFGARequestDuration  *prometheus.HistogramVec
+	driveAuthzDeniedTotal   *prometheus.CounterVec
 }
 
 func NewMetrics(appVersion string) *Metrics {
@@ -141,6 +144,25 @@ func NewMetrics(appVersion string) *Metrics {
 			Help:        "Total number of file uploads blocked by tenant quota.",
 			ConstLabels: constLabels,
 		}, []string{"purpose"}),
+		openFGARequestsTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "openfga_requests_total",
+			Help:        "Total number of OpenFGA client requests.",
+			ConstLabels: constLabels,
+		}, []string{"operation", "result"}),
+		openFGARequestDuration: factory.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace:   "haohao",
+			Name:        "openfga_request_duration_seconds",
+			Help:        "OpenFGA client request duration in seconds.",
+			Buckets:     []float64{0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2},
+			ConstLabels: constLabels,
+		}, []string{"operation", "result"}),
+		driveAuthzDeniedTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "drive_authz_denied_total",
+			Help:        "Total number of denied Drive authorization decisions.",
+			ConstLabels: constLabels,
+		}, []string{"operation", "resource_type"}),
 	}
 }
 
@@ -285,4 +307,38 @@ func (m *Metrics) IncFileQuotaExceeded(purpose string) {
 		return
 	}
 	m.fileQuotaExceededTotal.WithLabelValues(purpose).Inc()
+}
+
+func (m *Metrics) ObserveOpenFGARequest(operation string, duration time.Duration, err error) {
+	if m == nil {
+		return
+	}
+	switch operation {
+	case "openfga_check", "openfga_write", "openfga_delete", "openfga_list_objects":
+	default:
+		operation = "openfga_check"
+	}
+	result := "ok"
+	if err != nil {
+		result = "error"
+	}
+	m.openFGARequestsTotal.WithLabelValues(operation, result).Inc()
+	m.openFGARequestDuration.WithLabelValues(operation, result).Observe(duration.Seconds())
+}
+
+func (m *Metrics) IncDriveAuthzDenied(operation, resourceType string) {
+	if m == nil {
+		return
+	}
+	switch operation {
+	case "can_view", "can_download", "can_edit", "can_delete", "can_share":
+	default:
+		operation = "unknown"
+	}
+	switch resourceType {
+	case "file", "folder", "share_link":
+	default:
+		resourceType = "unknown"
+	}
+	m.driveAuthzDeniedTotal.WithLabelValues(operation, resourceType).Inc()
 }

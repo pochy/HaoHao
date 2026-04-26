@@ -33,6 +33,7 @@ func TestNewOpenAPIExportSurfaces(t *testing.T) {
 			surface: backendapi.SurfaceFull,
 			wantPaths: []string{
 				"/api/v1/session",
+				"/api/v1/drive/items",
 				"/api/external/v1/me",
 				"/api/m2m/v1/self",
 				"/api/scim/v2/Users",
@@ -47,6 +48,7 @@ func TestNewOpenAPIExportSurfaces(t *testing.T) {
 				"/api/v1/csrf",
 				"/api/v1/integrations",
 				"/api/v1/machine-clients",
+				"/api/v1/drive/items",
 			},
 			blockPrefixes: []string{"/api/external/", "/api/m2m/", "/api/scim/"},
 			wantSchemes:   []string{"cookieAuth"},
@@ -60,7 +62,7 @@ func TestNewOpenAPIExportSurfaces(t *testing.T) {
 				"/api/m2m/v1/self",
 				"/api/scim/v2/Users",
 			},
-			blockPrefixes: []string{"/api/v1/"},
+			blockPrefixes: []string{"/api/v1/", "/api/public/drive"},
 			wantSchemes:   []string{"bearerAuth", "m2mBearerAuth"},
 			blockSchemes:  []string{"cookieAuth"},
 		},
@@ -126,7 +128,7 @@ func TestRuntimeOpenAPIYAMLUsesFullSurface(t *testing.T) {
 	}
 
 	body := recorder.Body.String()
-	for _, want := range []string{"/api/v1/session:", "/api/external/v1/me:", "/api/m2m/v1/self:", "/api/scim/v2/Users:"} {
+	for _, want := range []string{"/api/v1/session:", "/api/v1/drive/items:", "/api/external/v1/me:", "/api/m2m/v1/self:", "/api/scim/v2/Users:"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("/openapi.yaml is missing %s", want)
 		}

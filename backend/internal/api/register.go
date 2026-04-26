@@ -80,6 +80,7 @@ func RegisterSurface(api huma.API, deps Dependencies, surface Surface) {
 		registerCustomerSignalSavedFilterRoutes(api, deps)
 		registerSupportAccessRoutes(api, deps)
 		registerMachineClientRoutes(api, deps)
+		registerDriveRoutes(api, deps)
 	}
 
 	if includeExternal(surface) {

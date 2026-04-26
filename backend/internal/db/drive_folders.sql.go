@@ -290,6 +290,73 @@ func (q *Queries) RenameDriveFolder(ctx context.Context, arg RenameDriveFolderPa
 	return i, err
 }
 
+const searchDriveFolderCandidates = `-- name: SearchDriveFolderCandidates :many
+SELECT id, public_id, tenant_id, parent_folder_id, name, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at
+FROM drive_folders
+WHERE tenant_id = $1
+  AND deleted_at IS NULL
+  AND (
+      $2::text IS NULL
+      OR name ILIKE '%' || $2::text || '%'
+  )
+  AND (
+      $3::timestamptz IS NULL
+      OR updated_at >= $3::timestamptz
+  )
+  AND (
+      $4::timestamptz IS NULL
+      OR updated_at <= $4::timestamptz
+  )
+ORDER BY updated_at DESC, id DESC
+LIMIT $5
+`
+
+type SearchDriveFolderCandidatesParams struct {
+	TenantID      int64              `json:"tenant_id"`
+	Query         pgtype.Text        `json:"query"`
+	UpdatedAfter  pgtype.Timestamptz `json:"updated_after"`
+	UpdatedBefore pgtype.Timestamptz `json:"updated_before"`
+	LimitCount    int32              `json:"limit_count"`
+}
+
+func (q *Queries) SearchDriveFolderCandidates(ctx context.Context, arg SearchDriveFolderCandidatesParams) ([]DriveFolder, error) {
+	rows, err := q.db.Query(ctx, searchDriveFolderCandidates,
+		arg.TenantID,
+		arg.Query,
+		arg.UpdatedAfter,
+		arg.UpdatedBefore,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DriveFolder
+	for rows.Next() {
+		var i DriveFolder
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.ParentFolderID,
+			&i.Name,
+			&i.CreatedByUserID,
+			&i.InheritanceEnabled,
+			&i.DeletedAt,
+			&i.DeletedByUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const softDeleteDriveFolder = `-- name: SoftDeleteDriveFolder :one
 UPDATE drive_folders
 SET

@@ -65,6 +65,8 @@ func openAPIExportDependencies(cfg config.Config) backendapi.Dependencies {
 	notificationService := service.NewNotificationService(nil, auditService)
 	tenantSettingsService := service.NewTenantSettingsService(nil, auditService, cfg.TenantDefaultFileQuotaBytes)
 	fileService := service.NewFileService(nil, nil, nil, tenantSettingsService, auditService, cfg.FileMaxBytes, cfg.FileAllowedMIMETypes, nil)
+	driveAuthorizationService := service.NewDriveAuthorizationService(nil, service.DriveAuthorizationConfig{})
+	driveService := service.NewDriveService(nil, nil, fileService, nil, driveAuthorizationService, tenantSettingsService, auditService)
 	tenantInvitationService := service.NewTenantInvitationService(nil, nil, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)
 	entitlementService := service.NewEntitlementService(nil, auditService)
 	tenantDataExportService := service.NewTenantDataExportService(nil, nil, outboxService, fileService, auditService, cfg.DataExportTTL, entitlementService)
@@ -84,6 +86,7 @@ func openAPIExportDependencies(cfg config.Config) backendapi.Dependencies {
 		NotificationService:              notificationService,
 		TenantInvitationService:          tenantInvitationService,
 		FileService:                      fileService,
+		DriveService:                     driveService,
 		TenantSettingsService:            tenantSettingsService,
 		TenantDataExportService:          tenantDataExportService,
 		EntitlementService:               entitlementService,

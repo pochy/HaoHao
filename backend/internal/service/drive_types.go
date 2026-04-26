@@ -117,29 +117,111 @@ type DriveShareLink struct {
 	RawToken        string
 }
 
+type DriveItemType string
+
+const (
+	DriveItemTypeFolder DriveItemType = "folder"
+	DriveItemTypeFile   DriveItemType = "file"
+)
+
+type DriveItem struct {
+	Type   DriveItemType
+	Folder *DriveFolder
+	File   *DriveFile
+}
+
+type DrivePermission struct {
+	Source          string
+	Kind            string
+	PublicID        string
+	Role            DriveRole
+	SubjectType     string
+	SubjectID       string
+	CanDownload     *bool
+	Status          string
+	ExpiresAt       *time.Time
+	InheritedFromID string
+	CreatedAt       time.Time
+}
+
+type DrivePermissions struct {
+	Direct    []DrivePermission
+	Inherited []DrivePermission
+}
+
+type DriveFileDownload struct {
+	File DriveFile
+	Body FileReadCloser
+}
+
 type DriveCreateFolderInput struct {
-	TenantID       int64
-	ActorUserID    int64
-	ParentFolderID *int64
-	Name           string
+	TenantID             int64
+	ActorUserID          int64
+	ParentFolderID       *int64
+	ParentFolderPublicID string
+	Name                 string
+}
+
+type DriveUpdateFolderInput struct {
+	TenantID             int64
+	ActorUserID          int64
+	FolderPublicID       string
+	Name                 *string
+	ParentFolderPublicID *string
 }
 
 type DriveUploadFileInput struct {
-	TenantID       int64
-	ActorUserID    int64
-	ParentFolderID *int64
-	Filename       string
-	ContentType    string
-	Body           io.Reader
+	TenantID             int64
+	ActorUserID          int64
+	ParentFolderID       *int64
+	ParentFolderPublicID string
+	Filename             string
+	ContentType          string
+	Body                 io.Reader
+}
+
+type DriveUpdateFileInput struct {
+	TenantID             int64
+	ActorUserID          int64
+	FilePublicID         string
+	Filename             *string
+	ParentFolderPublicID *string
+}
+
+type DriveOverwriteFileInput struct {
+	TenantID     int64
+	ActorUserID  int64
+	FilePublicID string
+	Filename     string
+	ContentType  string
+	Body         io.Reader
+}
+
+type DriveListChildrenInput struct {
+	TenantID             int64
+	ActorUserID          int64
+	ParentFolderPublicID string
+	Limit                int32
+}
+
+type DriveSearchInput struct {
+	TenantID      int64
+	ActorUserID   int64
+	Query         string
+	ContentType   string
+	UpdatedAfter  *time.Time
+	UpdatedBefore *time.Time
+	Limit         int32
 }
 
 type DriveCreateShareInput struct {
-	TenantID    int64
-	ActorUserID int64
-	Resource    DriveResourceRef
-	SubjectType DriveShareSubjectType
-	SubjectID   int64
-	Role        DriveRole
+	TenantID        int64
+	ActorUserID     int64
+	Resource        DriveResourceRef
+	SubjectType     DriveShareSubjectType
+	SubjectID       int64
+	SubjectPublicID string
+	Role            DriveRole
 }
 
 type DriveRevokeShareInput struct {
@@ -154,6 +236,14 @@ type DriveCreateShareLinkInput struct {
 	Resource    DriveResourceRef
 	CanDownload bool
 	ExpiresAt   time.Time
+}
+
+type DriveUpdateShareLinkInput struct {
+	TenantID    int64
+	ActorUserID int64
+	ShareLinkID string
+	CanDownload *bool
+	ExpiresAt   *time.Time
 }
 
 type DriveDisableShareLinkInput struct {

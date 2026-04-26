@@ -37,6 +37,26 @@ WHERE tenant_id = sqlc.arg(tenant_id)
 ORDER BY name ASC, id ASC
 LIMIT sqlc.arg(limit_count);
 
+-- name: SearchDriveFolderCandidates :many
+SELECT *
+FROM drive_folders
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND deleted_at IS NULL
+  AND (
+      sqlc.narg(query)::text IS NULL
+      OR name ILIKE '%' || sqlc.narg(query)::text || '%'
+  )
+  AND (
+      sqlc.narg(updated_after)::timestamptz IS NULL
+      OR updated_at >= sqlc.narg(updated_after)::timestamptz
+  )
+  AND (
+      sqlc.narg(updated_before)::timestamptz IS NULL
+      OR updated_at <= sqlc.narg(updated_before)::timestamptz
+  )
+ORDER BY updated_at DESC, id DESC
+LIMIT sqlc.arg(limit_count);
+
 -- name: RenameDriveFolder :one
 UPDATE drive_folders
 SET
