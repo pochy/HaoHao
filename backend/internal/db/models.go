@@ -89,6 +89,58 @@ type DriveAdminContentAccessSession struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type DriveAiClassification struct {
+	ID           int64              `json:"id"`
+	TenantID     int64              `json:"tenant_id"`
+	FileObjectID int64              `json:"file_object_id"`
+	FileRevision string             `json:"file_revision"`
+	Label        string             `json:"label"`
+	Confidence   pgtype.Numeric     `json:"confidence"`
+	Provider     string             `json:"provider"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveAiJob struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	FileObjectID      int64              `json:"file_object_id"`
+	FileRevision      string             `json:"file_revision"`
+	JobType           string             `json:"job_type"`
+	Provider          string             `json:"provider"`
+	Status            string             `json:"status"`
+	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
+	ErrorMessage      pgtype.Text        `json:"error_message"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveAiSummary struct {
+	ID           int64              `json:"id"`
+	PublicID     uuid.UUID          `json:"public_id"`
+	TenantID     int64              `json:"tenant_id"`
+	FileObjectID int64              `json:"file_object_id"`
+	FileRevision string             `json:"file_revision"`
+	SummaryText  string             `json:"summary_text"`
+	Provider     string             `json:"provider"`
+	InputHash    string             `json:"input_hash"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveAppWebhookDelivery struct {
+	ID             int64              `json:"id"`
+	PublicID       uuid.UUID          `json:"public_id"`
+	TenantID       int64              `json:"tenant_id"`
+	InstallationID int64              `json:"installation_id"`
+	EventType      string             `json:"event_type"`
+	PayloadHash    string             `json:"payload_hash"`
+	Status         string             `json:"status"`
+	Attempts       int32              `json:"attempts"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DriveChainOfCustodyEvent struct {
 	ID          int64              `json:"id"`
 	PublicID    uuid.UUID          `json:"public_id"`
@@ -178,6 +230,85 @@ type DriveCleanRoomPolicyDecision struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type DriveE2eeFileKey struct {
+	ID                  int64              `json:"id"`
+	PublicID            uuid.UUID          `json:"public_id"`
+	TenantID            int64              `json:"tenant_id"`
+	FileObjectID        int64              `json:"file_object_id"`
+	KeyVersion          int32              `json:"key_version"`
+	EncryptionAlgorithm string             `json:"encryption_algorithm"`
+	CiphertextSha256    string             `json:"ciphertext_sha256"`
+	EncryptedMetadata   []byte             `json:"encrypted_metadata"`
+	CreatedByUserID     int64              `json:"created_by_user_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveE2eeKeyEnvelope struct {
+	ID              int64              `json:"id"`
+	TenantID        int64              `json:"tenant_id"`
+	FileKeyID       int64              `json:"file_key_id"`
+	RecipientUserID int64              `json:"recipient_user_id"`
+	RecipientKeyID  int64              `json:"recipient_key_id"`
+	WrappedFileKey  []byte             `json:"wrapped_file_key"`
+	WrapAlgorithm   string             `json:"wrap_algorithm"`
+	CreatedByUserID int64              `json:"created_by_user_id"`
+	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveE2eeUserKey struct {
+	ID           int64              `json:"id"`
+	PublicID     uuid.UUID          `json:"public_id"`
+	TenantID     int64              `json:"tenant_id"`
+	UserID       int64              `json:"user_id"`
+	KeyAlgorithm string             `json:"key_algorithm"`
+	PublicKeyJwk []byte             `json:"public_key_jwk"`
+	Status       string             `json:"status"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	RotatedAt    pgtype.Timestamptz `json:"rotated_at"`
+}
+
+type DriveEdiscoveryExport struct {
+	ID                   int64              `json:"id"`
+	PublicID             uuid.UUID          `json:"public_id"`
+	TenantID             int64              `json:"tenant_id"`
+	CaseID               pgtype.Int8        `json:"case_id"`
+	CasePublicID         pgtype.UUID        `json:"case_public_id"`
+	ProviderConnectionID int64              `json:"provider_connection_id"`
+	RequestedByUserID    int64              `json:"requested_by_user_id"`
+	ApprovedByUserID     pgtype.Int8        `json:"approved_by_user_id"`
+	Status               string             `json:"status"`
+	ManifestHash         pgtype.Text        `json:"manifest_hash"`
+	ProviderExportID     pgtype.Text        `json:"provider_export_id"`
+	ErrorMessage         pgtype.Text        `json:"error_message"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveEdiscoveryExportItem struct {
+	ID             int64              `json:"id"`
+	ExportID       int64              `json:"export_id"`
+	FileObjectID   int64              `json:"file_object_id"`
+	FileRevision   string             `json:"file_revision"`
+	ContentSha256  string             `json:"content_sha256"`
+	Status         string             `json:"status"`
+	ProviderItemID pgtype.Text        `json:"provider_item_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveEdiscoveryProviderConnection struct {
+	ID                   int64              `json:"id"`
+	PublicID             uuid.UUID          `json:"public_id"`
+	TenantID             int64              `json:"tenant_id"`
+	Provider             string             `json:"provider"`
+	Status               string             `json:"status"`
+	ConfigJson           []byte             `json:"config_json"`
+	EncryptedCredentials []byte             `json:"encrypted_credentials"`
+	CreatedByUserID      int64              `json:"created_by_user_id"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DriveEditLock struct {
 	ID              int64              `json:"id"`
 	PublicID        uuid.UUID          `json:"public_id"`
@@ -258,6 +389,33 @@ type DriveFolder struct {
 	WorkspaceID           pgtype.Int8        `json:"workspace_id"`
 }
 
+type DriveGatewayObject struct {
+	ID                int64              `json:"id"`
+	TenantID          int64              `json:"tenant_id"`
+	GatewayID         int64              `json:"gateway_id"`
+	FileObjectID      int64              `json:"file_object_id"`
+	GatewayObjectKey  string             `json:"gateway_object_key"`
+	ManifestHash      string             `json:"manifest_hash"`
+	ReplicationStatus string             `json:"replication_status"`
+	LastVerifiedAt    pgtype.Timestamptz `json:"last_verified_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveGatewayTransfer struct {
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	TenantID         int64              `json:"tenant_id"`
+	GatewayID        int64              `json:"gateway_id"`
+	FileObjectID     pgtype.Int8        `json:"file_object_id"`
+	Direction        string             `json:"direction"`
+	Status           string             `json:"status"`
+	BytesTotal       int64              `json:"bytes_total"`
+	BytesTransferred int64              `json:"bytes_transferred"`
+	ErrorMessage     pgtype.Text        `json:"error_message"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DriveGroup struct {
 	ID              int64              `json:"id"`
 	PublicID        uuid.UUID          `json:"public_id"`
@@ -289,6 +447,45 @@ type DriveGroupMember struct {
 	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveHsmDeployment struct {
+	ID                  int64              `json:"id"`
+	PublicID            uuid.UUID          `json:"public_id"`
+	TenantID            int64              `json:"tenant_id"`
+	Provider            string             `json:"provider"`
+	EndpointUrl         string             `json:"endpoint_url"`
+	Status              string             `json:"status"`
+	AttestationHash     pgtype.Text        `json:"attestation_hash"`
+	HealthStatus        string             `json:"health_status"`
+	LastHealthCheckedAt pgtype.Timestamptz `json:"last_health_checked_at"`
+	CreatedByUserID     int64              `json:"created_by_user_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveHsmKey struct {
+	ID            int64              `json:"id"`
+	PublicID      uuid.UUID          `json:"public_id"`
+	TenantID      int64              `json:"tenant_id"`
+	DeploymentID  int64              `json:"deployment_id"`
+	KeyRef        string             `json:"key_ref"`
+	KeyVersion    string             `json:"key_version"`
+	Purpose       string             `json:"purpose"`
+	Status        string             `json:"status"`
+	RotationDueAt pgtype.Timestamptz `json:"rotation_due_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveHsmKeyBinding struct {
+	ID           int64              `json:"id"`
+	TenantID     int64              `json:"tenant_id"`
+	WorkspaceID  pgtype.Int8        `json:"workspace_id"`
+	FileObjectID pgtype.Int8        `json:"file_object_id"`
+	HsmKeyID     int64              `json:"hsm_key_id"`
+	BindingScope string             `json:"binding_scope"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type DriveIndexJob struct {
@@ -393,6 +590,48 @@ type DriveLegalHold struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type DriveMarketplaceApp struct {
+	ID            int64              `json:"id"`
+	PublicID      uuid.UUID          `json:"public_id"`
+	Slug          string             `json:"slug"`
+	Name          string             `json:"name"`
+	PublisherName string             `json:"publisher_name"`
+	Status        string             `json:"status"`
+	HomepageUrl   pgtype.Text        `json:"homepage_url"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveMarketplaceAppVersion struct {
+	ID           int64              `json:"id"`
+	AppID        int64              `json:"app_id"`
+	Version      string             `json:"version"`
+	ManifestJson []byte             `json:"manifest_json"`
+	Signature    string             `json:"signature"`
+	ReviewStatus string             `json:"review_status"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveMarketplaceInstallation struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	AppID             int64              `json:"app_id"`
+	AppVersionID      int64              `json:"app_version_id"`
+	Status            string             `json:"status"`
+	InstalledByUserID int64              `json:"installed_by_user_id"`
+	ApprovedByUserID  pgtype.Int8        `json:"approved_by_user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveMarketplaceInstallationScope struct {
+	ID             int64              `json:"id"`
+	InstallationID int64              `json:"installation_id"`
+	Scope          string             `json:"scope"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type DriveMobileOfflineOperation struct {
 	ID               int64              `json:"id"`
 	PublicID         uuid.UUID          `json:"public_id"`
@@ -416,6 +655,48 @@ type DriveObjectKeyVersion struct {
 	KeyVersion   string             `json:"key_version"`
 	Status       string             `json:"status"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveOfficeEditSession struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	FileObjectID      int64              `json:"file_object_id"`
+	ActorUserID       int64              `json:"actor_user_id"`
+	Provider          string             `json:"provider"`
+	ProviderSessionID string             `json:"provider_session_id"`
+	AccessLevel       string             `json:"access_level"`
+	LaunchUrl         string             `json:"launch_url"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveOfficeProviderFile struct {
+	ID                 int64              `json:"id"`
+	TenantID           int64              `json:"tenant_id"`
+	FileObjectID       int64              `json:"file_object_id"`
+	Provider           string             `json:"provider"`
+	ProviderFileID     string             `json:"provider_file_id"`
+	CompatibilityState string             `json:"compatibility_state"`
+	ProviderRevision   string             `json:"provider_revision"`
+	ContentChecksum    pgtype.Text        `json:"content_checksum"`
+	LastSyncedAt       pgtype.Timestamptz `json:"last_synced_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveOfficeWebhookEvent struct {
+	ID               int64              `json:"id"`
+	Provider         string             `json:"provider"`
+	ProviderEventID  string             `json:"provider_event_id"`
+	TenantID         int64              `json:"tenant_id"`
+	FileObjectID     pgtype.Int8        `json:"file_object_id"`
+	PayloadHash      string             `json:"payload_hash"`
+	ProviderRevision pgtype.Text        `json:"provider_revision"`
+	ReceivedAt       pgtype.Timestamptz `json:"received_at"`
+	ProcessedAt      pgtype.Timestamptz `json:"processed_at"`
+	Result           pgtype.Text        `json:"result"`
 }
 
 type DrivePresenceSession struct {
@@ -577,6 +858,21 @@ type DriveShareLinkPasswordAttempt struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DriveStorageGateway struct {
+	ID                     int64              `json:"id"`
+	PublicID               uuid.UUID          `json:"public_id"`
+	TenantID               int64              `json:"tenant_id"`
+	WorkspaceID            pgtype.Int8        `json:"workspace_id"`
+	Name                   string             `json:"name"`
+	Status                 string             `json:"status"`
+	EndpointUrl            string             `json:"endpoint_url"`
+	CertificateFingerprint string             `json:"certificate_fingerprint"`
+	LastSeenAt             pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedByUserID        int64              `json:"created_by_user_id"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DriveSyncConflict struct {
 	ID           int64              `json:"id"`
 	PublicID     uuid.UUID          `json:"public_id"`
@@ -667,51 +963,57 @@ type FeatureDefinition struct {
 }
 
 type FileObject struct {
-	ID                    int64              `json:"id"`
-	PublicID              uuid.UUID          `json:"public_id"`
-	TenantID              int64              `json:"tenant_id"`
-	UploadedByUserID      pgtype.Int8        `json:"uploaded_by_user_id"`
-	Purpose               string             `json:"purpose"`
-	AttachedToType        pgtype.Text        `json:"attached_to_type"`
-	AttachedToID          pgtype.Text        `json:"attached_to_id"`
-	OriginalFilename      string             `json:"original_filename"`
-	ContentType           string             `json:"content_type"`
-	ByteSize              int64              `json:"byte_size"`
-	Sha256Hex             string             `json:"sha256_hex"`
-	StorageDriver         string             `json:"storage_driver"`
-	StorageKey            string             `json:"storage_key"`
-	Status                string             `json:"status"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
-	PurgedAt              pgtype.Timestamptz `json:"purged_at"`
-	PurgeAttempts         int32              `json:"purge_attempts"`
-	PurgeLockedAt         pgtype.Timestamptz `json:"purge_locked_at"`
-	PurgeLockedBy         pgtype.Text        `json:"purge_locked_by"`
-	LastPurgeError        pgtype.Text        `json:"last_purge_error"`
-	DriveFolderID         pgtype.Int8        `json:"drive_folder_id"`
-	LockedAt              pgtype.Timestamptz `json:"locked_at"`
-	LockedByUserID        pgtype.Int8        `json:"locked_by_user_id"`
-	LockReason            pgtype.Text        `json:"lock_reason"`
-	InheritanceEnabled    bool               `json:"inheritance_enabled"`
-	DeletedByUserID       pgtype.Int8        `json:"deleted_by_user_id"`
-	DeletedParentFolderID pgtype.Int8        `json:"deleted_parent_folder_id"`
-	RetentionUntil        pgtype.Timestamptz `json:"retention_until"`
-	LegalHoldAt           pgtype.Timestamptz `json:"legal_hold_at"`
-	LegalHoldByUserID     pgtype.Int8        `json:"legal_hold_by_user_id"`
-	LegalHoldReason       pgtype.Text        `json:"legal_hold_reason"`
-	PurgeBlockReason      pgtype.Text        `json:"purge_block_reason"`
-	WorkspaceID           pgtype.Int8        `json:"workspace_id"`
-	StorageBucket         pgtype.Text        `json:"storage_bucket"`
-	StorageVersion        pgtype.Text        `json:"storage_version"`
-	ContentSha256         pgtype.Text        `json:"content_sha256"`
-	Etag                  pgtype.Text        `json:"etag"`
-	ScanStatus            string             `json:"scan_status"`
-	ScanReason            pgtype.Text        `json:"scan_reason"`
-	ScanEngine            pgtype.Text        `json:"scan_engine"`
-	ScannedAt             pgtype.Timestamptz `json:"scanned_at"`
-	DlpBlocked            bool               `json:"dlp_blocked"`
-	UploadState           string             `json:"upload_state"`
+	ID                       int64              `json:"id"`
+	PublicID                 uuid.UUID          `json:"public_id"`
+	TenantID                 int64              `json:"tenant_id"`
+	UploadedByUserID         pgtype.Int8        `json:"uploaded_by_user_id"`
+	Purpose                  string             `json:"purpose"`
+	AttachedToType           pgtype.Text        `json:"attached_to_type"`
+	AttachedToID             pgtype.Text        `json:"attached_to_id"`
+	OriginalFilename         string             `json:"original_filename"`
+	ContentType              string             `json:"content_type"`
+	ByteSize                 int64              `json:"byte_size"`
+	Sha256Hex                string             `json:"sha256_hex"`
+	StorageDriver            string             `json:"storage_driver"`
+	StorageKey               string             `json:"storage_key"`
+	Status                   string             `json:"status"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt                pgtype.Timestamptz `json:"deleted_at"`
+	PurgedAt                 pgtype.Timestamptz `json:"purged_at"`
+	PurgeAttempts            int32              `json:"purge_attempts"`
+	PurgeLockedAt            pgtype.Timestamptz `json:"purge_locked_at"`
+	PurgeLockedBy            pgtype.Text        `json:"purge_locked_by"`
+	LastPurgeError           pgtype.Text        `json:"last_purge_error"`
+	DriveFolderID            pgtype.Int8        `json:"drive_folder_id"`
+	LockedAt                 pgtype.Timestamptz `json:"locked_at"`
+	LockedByUserID           pgtype.Int8        `json:"locked_by_user_id"`
+	LockReason               pgtype.Text        `json:"lock_reason"`
+	InheritanceEnabled       bool               `json:"inheritance_enabled"`
+	DeletedByUserID          pgtype.Int8        `json:"deleted_by_user_id"`
+	DeletedParentFolderID    pgtype.Int8        `json:"deleted_parent_folder_id"`
+	RetentionUntil           pgtype.Timestamptz `json:"retention_until"`
+	LegalHoldAt              pgtype.Timestamptz `json:"legal_hold_at"`
+	LegalHoldByUserID        pgtype.Int8        `json:"legal_hold_by_user_id"`
+	LegalHoldReason          pgtype.Text        `json:"legal_hold_reason"`
+	PurgeBlockReason         pgtype.Text        `json:"purge_block_reason"`
+	WorkspaceID              pgtype.Int8        `json:"workspace_id"`
+	StorageBucket            pgtype.Text        `json:"storage_bucket"`
+	StorageVersion           pgtype.Text        `json:"storage_version"`
+	ContentSha256            pgtype.Text        `json:"content_sha256"`
+	Etag                     pgtype.Text        `json:"etag"`
+	ScanStatus               string             `json:"scan_status"`
+	ScanReason               pgtype.Text        `json:"scan_reason"`
+	ScanEngine               pgtype.Text        `json:"scan_engine"`
+	ScannedAt                pgtype.Timestamptz `json:"scanned_at"`
+	DlpBlocked               bool               `json:"dlp_blocked"`
+	UploadState              string             `json:"upload_state"`
+	OfficeMimeFamily         pgtype.Text        `json:"office_mime_family"`
+	OfficeCoauthoringEnabled bool               `json:"office_coauthoring_enabled"`
+	OfficeLastRevision       pgtype.Text        `json:"office_last_revision"`
+	EncryptionMode           string             `json:"encryption_mode"`
+	E2eeFileKeyPublicID      pgtype.UUID        `json:"e2ee_file_key_public_id"`
+	StorageGatewayID         pgtype.Int8        `json:"storage_gateway_id"`
 }
 
 type IdempotencyKey struct {

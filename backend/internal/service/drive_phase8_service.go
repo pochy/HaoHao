@@ -969,12 +969,12 @@ func (s *DriveService) ensureDriveEncryptionAvailable(ctx context.Context, tenan
 		return err
 	}
 	if policy.Mode == "" || policy.Mode == "service_managed" {
-		return nil
+		return s.ensureDriveHSMAvailable(ctx, tenantID, fileObjectID)
 	}
 	if policy.KeyStatus != "active" {
 		return ErrDrivePolicyDenied
 	}
-	return nil
+	return s.ensureDriveHSMAvailable(ctx, tenantID, fileObjectID)
 }
 
 func (s *DriveService) UpsertResidencyPolicy(ctx context.Context, tenantID, actorUserID int64, input DriveResidencyPolicy, auditCtx AuditContext) (DriveResidencyPolicy, error) {

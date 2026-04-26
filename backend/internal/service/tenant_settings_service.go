@@ -87,6 +87,15 @@ type DrivePolicy struct {
 	LegalDiscoveryEnabled               bool
 	CleanRoomEnabled                    bool
 	CleanRoomRawExportEnabled           bool
+	OfficeCoauthoringEnabled            bool
+	EDiscoveryProviderExportEnabled     bool
+	HSMEnabled                          bool
+	OnPremGatewayEnabled                bool
+	E2EEEnabled                         bool
+	E2EEZeroKnowledgeRequired           bool
+	AIEnabled                           bool
+	AITrainingOptOut                    bool
+	MarketplaceEnabled                  bool
 	EncryptionMode                      string
 	PrimaryRegion                       string
 	AllowedRegions                      []string
@@ -336,6 +345,15 @@ func defaultDrivePolicy() DrivePolicy {
 		LegalDiscoveryEnabled:               false,
 		CleanRoomEnabled:                    false,
 		CleanRoomRawExportEnabled:           false,
+		OfficeCoauthoringEnabled:            false,
+		EDiscoveryProviderExportEnabled:     false,
+		HSMEnabled:                          false,
+		OnPremGatewayEnabled:                false,
+		E2EEEnabled:                         false,
+		E2EEZeroKnowledgeRequired:           true,
+		AIEnabled:                           false,
+		AITrainingOptOut:                    true,
+		MarketplaceEnabled:                  false,
 		EncryptionMode:                      "service_managed",
 		PrimaryRegion:                       "global",
 		AllowedRegions:                      []string{"global"},
@@ -391,6 +409,15 @@ func drivePolicyFromFeatures(features map[string]any) DrivePolicy {
 	policy.LegalDiscoveryEnabled = featureBool(raw, "legalDiscoveryEnabled", policy.LegalDiscoveryEnabled)
 	policy.CleanRoomEnabled = featureBool(raw, "cleanRoomEnabled", policy.CleanRoomEnabled)
 	policy.CleanRoomRawExportEnabled = featureBool(raw, "cleanRoomRawExportEnabled", policy.CleanRoomRawExportEnabled)
+	policy.OfficeCoauthoringEnabled = featureBool(raw, "officeCoauthoringEnabled", policy.OfficeCoauthoringEnabled)
+	policy.EDiscoveryProviderExportEnabled = featureBool(raw, "eDiscoveryProviderExportEnabled", policy.EDiscoveryProviderExportEnabled)
+	policy.HSMEnabled = featureBool(raw, "hsmEnabled", policy.HSMEnabled)
+	policy.OnPremGatewayEnabled = featureBool(raw, "onPremGatewayEnabled", policy.OnPremGatewayEnabled)
+	policy.E2EEEnabled = featureBool(raw, "e2eeEnabled", policy.E2EEEnabled)
+	policy.E2EEZeroKnowledgeRequired = featureBool(raw, "e2eeZeroKnowledgeRequired", policy.E2EEZeroKnowledgeRequired)
+	policy.AIEnabled = featureBool(raw, "aiEnabled", policy.AIEnabled)
+	policy.AITrainingOptOut = featureBool(raw, "aiTrainingOptOut", policy.AITrainingOptOut)
+	policy.MarketplaceEnabled = featureBool(raw, "marketplaceEnabled", policy.MarketplaceEnabled)
 	policy.EncryptionMode = featureString(raw, "encryptionMode", policy.EncryptionMode)
 	policy.PrimaryRegion = featureString(raw, "primaryRegion", policy.PrimaryRegion)
 	policy.AllowedRegions = featureStringSlice(raw, "allowedRegions", policy.AllowedRegions)
@@ -530,6 +557,15 @@ func drivePolicyToFeatureMap(policy DrivePolicy) map[string]any {
 		"legalDiscoveryEnabled":               policy.LegalDiscoveryEnabled,
 		"cleanRoomEnabled":                    policy.CleanRoomEnabled,
 		"cleanRoomRawExportEnabled":           policy.CleanRoomRawExportEnabled,
+		"officeCoauthoringEnabled":            policy.OfficeCoauthoringEnabled,
+		"eDiscoveryProviderExportEnabled":     policy.EDiscoveryProviderExportEnabled,
+		"hsmEnabled":                          policy.HSMEnabled,
+		"onPremGatewayEnabled":                policy.OnPremGatewayEnabled,
+		"e2eeEnabled":                         policy.E2EEEnabled,
+		"e2eeZeroKnowledgeRequired":           policy.E2EEZeroKnowledgeRequired,
+		"aiEnabled":                           policy.AIEnabled,
+		"aiTrainingOptOut":                    policy.AITrainingOptOut,
+		"marketplaceEnabled":                  policy.MarketplaceEnabled,
 		"encryptionMode":                      policy.EncryptionMode,
 		"primaryRegion":                       policy.PrimaryRegion,
 		"allowedRegions":                      policy.AllowedRegions,

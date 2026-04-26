@@ -232,6 +232,157 @@ ALTER TABLE public.drive_admin_content_access_sessions ALTER COLUMN id ADD GENER
 
 
 --
+-- Name: drive_ai_classifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_ai_classifications (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    file_revision text DEFAULT '1'::text NOT NULL,
+    label text NOT NULL,
+    confidence numeric(5,4) NOT NULL,
+    provider text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: drive_ai_classifications_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_ai_classifications_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_ai_classifications_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_ai_classifications_id_seq OWNED BY public.drive_ai_classifications.id;
+
+
+--
+-- Name: drive_ai_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_ai_jobs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    file_revision text DEFAULT '1'::text NOT NULL,
+    job_type text NOT NULL,
+    provider text NOT NULL,
+    status text DEFAULT 'completed'::text NOT NULL,
+    requested_by_user_id bigint,
+    error_message text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_ai_jobs_job_type_check CHECK ((job_type = ANY (ARRAY['classification'::text, 'summary'::text]))),
+    CONSTRAINT drive_ai_jobs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'denied'::text])))
+);
+
+
+--
+-- Name: drive_ai_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_ai_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_ai_jobs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_ai_jobs_id_seq OWNED BY public.drive_ai_jobs.id;
+
+
+--
+-- Name: drive_ai_summaries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_ai_summaries (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    file_revision text DEFAULT '1'::text NOT NULL,
+    summary_text text NOT NULL,
+    provider text NOT NULL,
+    input_hash text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: drive_ai_summaries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_ai_summaries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_ai_summaries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_ai_summaries_id_seq OWNED BY public.drive_ai_summaries.id;
+
+
+--
+-- Name: drive_app_webhook_deliveries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_app_webhook_deliveries (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    installation_id bigint NOT NULL,
+    event_type text NOT NULL,
+    payload_hash text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    next_attempt_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_app_webhook_deliveries_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text, 'stopped'::text])))
+);
+
+
+--
+-- Name: drive_app_webhook_deliveries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_app_webhook_deliveries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_app_webhook_deliveries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_app_webhook_deliveries_id_seq OWNED BY public.drive_app_webhook_deliveries.id;
+
+
+--
 -- Name: drive_chain_of_custody_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -463,6 +614,233 @@ ALTER TABLE public.drive_clean_rooms ALTER COLUMN id ADD GENERATED ALWAYS AS IDE
 
 
 --
+-- Name: drive_e2ee_file_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_e2ee_file_keys (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    key_version integer DEFAULT 1 NOT NULL,
+    encryption_algorithm text NOT NULL,
+    ciphertext_sha256 text NOT NULL,
+    encrypted_metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by_user_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: drive_e2ee_file_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_e2ee_file_keys_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_e2ee_file_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_e2ee_file_keys_id_seq OWNED BY public.drive_e2ee_file_keys.id;
+
+
+--
+-- Name: drive_e2ee_key_envelopes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_e2ee_key_envelopes (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_key_id bigint NOT NULL,
+    recipient_user_id bigint NOT NULL,
+    recipient_key_id bigint NOT NULL,
+    wrapped_file_key bytea NOT NULL,
+    wrap_algorithm text NOT NULL,
+    created_by_user_id bigint NOT NULL,
+    revoked_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: drive_e2ee_key_envelopes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_e2ee_key_envelopes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_e2ee_key_envelopes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_e2ee_key_envelopes_id_seq OWNED BY public.drive_e2ee_key_envelopes.id;
+
+
+--
+-- Name: drive_e2ee_user_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_e2ee_user_keys (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    key_algorithm text NOT NULL,
+    public_key_jwk jsonb NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    rotated_at timestamp with time zone,
+    CONSTRAINT drive_e2ee_user_keys_status_check CHECK ((status = ANY (ARRAY['active'::text, 'retired'::text, 'revoked'::text])))
+);
+
+
+--
+-- Name: drive_e2ee_user_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_e2ee_user_keys_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_e2ee_user_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_e2ee_user_keys_id_seq OWNED BY public.drive_e2ee_user_keys.id;
+
+
+--
+-- Name: drive_ediscovery_export_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_ediscovery_export_items (
+    id bigint NOT NULL,
+    export_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    file_revision text DEFAULT '1'::text NOT NULL,
+    content_sha256 text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    provider_item_id text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_ediscovery_export_items_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'uploaded'::text, 'skipped'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: drive_ediscovery_export_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_ediscovery_export_items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_ediscovery_export_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_ediscovery_export_items_id_seq OWNED BY public.drive_ediscovery_export_items.id;
+
+
+--
+-- Name: drive_ediscovery_exports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_ediscovery_exports (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    case_id bigint,
+    case_public_id uuid,
+    provider_connection_id bigint NOT NULL,
+    requested_by_user_id bigint NOT NULL,
+    approved_by_user_id bigint,
+    status text DEFAULT 'pending_approval'::text NOT NULL,
+    manifest_hash text,
+    provider_export_id text,
+    error_message text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_ediscovery_exports_status_check CHECK ((status = ANY (ARRAY['pending_approval'::text, 'approved'::text, 'exported'::text, 'rejected'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: drive_ediscovery_exports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_ediscovery_exports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_ediscovery_exports_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_ediscovery_exports_id_seq OWNED BY public.drive_ediscovery_exports.id;
+
+
+--
+-- Name: drive_ediscovery_provider_connections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_ediscovery_provider_connections (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    provider text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    config_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    encrypted_credentials bytea,
+    created_by_user_id bigint CONSTRAINT drive_ediscovery_provider_connectio_created_by_user_id_not_null NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_ediscovery_provider_connections_status_check CHECK ((status = ANY (ARRAY['active'::text, 'disabled'::text, 'error'::text])))
+);
+
+
+--
+-- Name: drive_ediscovery_provider_connections_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_ediscovery_provider_connections_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_ediscovery_provider_connections_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_ediscovery_provider_connections_id_seq OWNED BY public.drive_ediscovery_provider_connections.id;
+
+
+--
 -- Name: drive_edit_locks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -646,6 +1024,84 @@ ALTER TABLE public.drive_folders ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 
 
 --
+-- Name: drive_gateway_objects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_gateway_objects (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    gateway_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    gateway_object_key text NOT NULL,
+    manifest_hash text NOT NULL,
+    replication_status text DEFAULT 'active'::text NOT NULL,
+    last_verified_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_gateway_objects_replication_status_check CHECK ((replication_status = ANY (ARRAY['active'::text, 'pending'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: drive_gateway_objects_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_gateway_objects_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_gateway_objects_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_gateway_objects_id_seq OWNED BY public.drive_gateway_objects.id;
+
+
+--
+-- Name: drive_gateway_transfers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_gateway_transfers (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    gateway_id bigint NOT NULL,
+    file_object_id bigint,
+    direction text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    bytes_total bigint DEFAULT 0 NOT NULL,
+    bytes_transferred bigint DEFAULT 0 NOT NULL,
+    error_message text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_gateway_transfers_direction_check CHECK ((direction = ANY (ARRAY['upload'::text, 'download'::text, 'verify'::text]))),
+    CONSTRAINT drive_gateway_transfers_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: drive_gateway_transfers_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_gateway_transfers_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_gateway_transfers_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_gateway_transfers_id_seq OWNED BY public.drive_gateway_transfers.id;
+
+
+--
 -- Name: drive_group_external_mappings; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -736,6 +1192,121 @@ ALTER TABLE public.drive_groups ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: drive_hsm_deployments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_hsm_deployments (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    provider text NOT NULL,
+    endpoint_url text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    attestation_hash text,
+    health_status text DEFAULT 'healthy'::text NOT NULL,
+    last_health_checked_at timestamp with time zone,
+    created_by_user_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_hsm_deployments_health_check CHECK ((health_status = ANY (ARRAY['healthy'::text, 'unavailable'::text, 'unknown'::text]))),
+    CONSTRAINT drive_hsm_deployments_status_check CHECK ((status = ANY (ARRAY['active'::text, 'disabled'::text, 'error'::text])))
+);
+
+
+--
+-- Name: drive_hsm_deployments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_hsm_deployments_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_hsm_deployments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_hsm_deployments_id_seq OWNED BY public.drive_hsm_deployments.id;
+
+
+--
+-- Name: drive_hsm_key_bindings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_hsm_key_bindings (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    workspace_id bigint,
+    file_object_id bigint,
+    hsm_key_id bigint NOT NULL,
+    binding_scope text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_hsm_key_bindings_scope_check CHECK ((binding_scope = ANY (ARRAY['tenant'::text, 'workspace'::text, 'file'::text])))
+);
+
+
+--
+-- Name: drive_hsm_key_bindings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_hsm_key_bindings_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_hsm_key_bindings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_hsm_key_bindings_id_seq OWNED BY public.drive_hsm_key_bindings.id;
+
+
+--
+-- Name: drive_hsm_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_hsm_keys (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    deployment_id bigint NOT NULL,
+    key_ref text NOT NULL,
+    key_version text DEFAULT '1'::text NOT NULL,
+    purpose text DEFAULT 'drive_file'::text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    rotation_due_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_hsm_keys_status_check CHECK ((status = ANY (ARRAY['active'::text, 'disabled'::text, 'destroyed'::text, 'unavailable'::text])))
+);
+
+
+--
+-- Name: drive_hsm_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_hsm_keys_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_hsm_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_hsm_keys_id_seq OWNED BY public.drive_hsm_keys.id;
 
 
 --
@@ -1006,6 +1577,147 @@ ALTER TABLE public.drive_legal_holds ALTER COLUMN id ADD GENERATED ALWAYS AS IDE
 
 
 --
+-- Name: drive_marketplace_app_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_marketplace_app_versions (
+    id bigint NOT NULL,
+    app_id bigint NOT NULL,
+    version text NOT NULL,
+    manifest_json jsonb NOT NULL,
+    signature text NOT NULL,
+    review_status text DEFAULT 'approved'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_marketplace_app_versions_review_check CHECK ((review_status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: drive_marketplace_app_versions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_marketplace_app_versions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_marketplace_app_versions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_marketplace_app_versions_id_seq OWNED BY public.drive_marketplace_app_versions.id;
+
+
+--
+-- Name: drive_marketplace_apps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_marketplace_apps (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    slug text NOT NULL,
+    name text NOT NULL,
+    publisher_name text NOT NULL,
+    status text DEFAULT 'reviewed'::text NOT NULL,
+    homepage_url text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_marketplace_apps_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'reviewed'::text, 'rejected'::text, 'disabled'::text])))
+);
+
+
+--
+-- Name: drive_marketplace_apps_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_marketplace_apps_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_marketplace_apps_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_marketplace_apps_id_seq OWNED BY public.drive_marketplace_apps.id;
+
+
+--
+-- Name: drive_marketplace_installation_scopes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_marketplace_installation_scopes (
+    id bigint NOT NULL,
+    installation_id bigint NOT NULL,
+    scope text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: drive_marketplace_installation_scopes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_marketplace_installation_scopes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_marketplace_installation_scopes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_marketplace_installation_scopes_id_seq OWNED BY public.drive_marketplace_installation_scopes.id;
+
+
+--
+-- Name: drive_marketplace_installations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_marketplace_installations (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    app_id bigint NOT NULL,
+    app_version_id bigint NOT NULL,
+    status text DEFAULT 'pending_approval'::text NOT NULL,
+    installed_by_user_id bigint NOT NULL,
+    approved_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_marketplace_installations_status_check CHECK ((status = ANY (ARRAY['pending_approval'::text, 'active'::text, 'rejected'::text, 'uninstalled'::text])))
+);
+
+
+--
+-- Name: drive_marketplace_installations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_marketplace_installations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_marketplace_installations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_marketplace_installations_id_seq OWNED BY public.drive_marketplace_installations.id;
+
+
+--
 -- Name: drive_mobile_offline_operations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1071,6 +1783,124 @@ ALTER TABLE public.drive_object_key_versions ALTER COLUMN id ADD GENERATED ALWAY
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: drive_office_edit_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_office_edit_sessions (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    actor_user_id bigint NOT NULL,
+    provider text NOT NULL,
+    provider_session_id text NOT NULL,
+    access_level text NOT NULL,
+    launch_url text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    revoked_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_office_edit_sessions_access_check CHECK ((access_level = ANY (ARRAY['view'::text, 'edit'::text])))
+);
+
+
+--
+-- Name: drive_office_edit_sessions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_office_edit_sessions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_office_edit_sessions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_office_edit_sessions_id_seq OWNED BY public.drive_office_edit_sessions.id;
+
+
+--
+-- Name: drive_office_provider_files; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_office_provider_files (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    provider text NOT NULL,
+    provider_file_id text NOT NULL,
+    compatibility_state text DEFAULT 'compatible'::text NOT NULL,
+    provider_revision text DEFAULT '1'::text NOT NULL,
+    content_checksum text,
+    last_synced_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_office_provider_files_provider_check CHECK ((btrim(provider) <> ''::text)),
+    CONSTRAINT drive_office_provider_files_state_check CHECK ((compatibility_state = ANY (ARRAY['compatible'::text, 'readonly'::text, 'unsupported'::text, 'error'::text])))
+);
+
+
+--
+-- Name: drive_office_provider_files_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_office_provider_files_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_office_provider_files_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_office_provider_files_id_seq OWNED BY public.drive_office_provider_files.id;
+
+
+--
+-- Name: drive_office_webhook_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_office_webhook_events (
+    id bigint NOT NULL,
+    provider text NOT NULL,
+    provider_event_id text NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint,
+    payload_hash text NOT NULL,
+    provider_revision text,
+    received_at timestamp with time zone DEFAULT now() NOT NULL,
+    processed_at timestamp with time zone,
+    result text,
+    CONSTRAINT drive_office_webhook_events_result_check CHECK (((result IS NULL) OR (result = ANY (ARRAY['accepted'::text, 'duplicate'::text, 'stale'::text, 'rejected'::text]))))
+);
+
+
+--
+-- Name: drive_office_webhook_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_office_webhook_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_office_webhook_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_office_webhook_events_id_seq OWNED BY public.drive_office_webhook_events.id;
 
 
 --
@@ -1443,6 +2273,46 @@ ALTER TABLE public.drive_share_links ALTER COLUMN id ADD GENERATED ALWAYS AS IDE
 
 
 --
+-- Name: drive_storage_gateways; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_storage_gateways (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    workspace_id bigint,
+    name text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    endpoint_url text NOT NULL,
+    certificate_fingerprint text NOT NULL,
+    last_seen_at timestamp with time zone,
+    created_by_user_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_storage_gateways_status_check CHECK ((status = ANY (ARRAY['active'::text, 'disabled'::text, 'disconnected'::text])))
+);
+
+
+--
+-- Name: drive_storage_gateways_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_storage_gateways_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_storage_gateways_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_storage_gateways_id_seq OWNED BY public.drive_storage_gateways.id;
+
+
+--
 -- Name: drive_sync_conflicts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1714,7 +2584,14 @@ CREATE TABLE public.file_objects (
     scanned_at timestamp with time zone,
     dlp_blocked boolean DEFAULT false NOT NULL,
     upload_state text DEFAULT 'active'::text NOT NULL,
+    office_mime_family text,
+    office_coauthoring_enabled boolean DEFAULT false NOT NULL,
+    office_last_revision text,
+    encryption_mode text DEFAULT 'server_managed'::text NOT NULL,
+    e2ee_file_key_public_id uuid,
+    storage_gateway_id bigint,
     CONSTRAINT file_objects_byte_size_check CHECK ((byte_size >= 0)),
+    CONSTRAINT file_objects_encryption_mode_check CHECK ((encryption_mode = ANY (ARRAY['server_managed'::text, 'tenant_managed'::text, 'hsm_managed'::text, 'zero_knowledge'::text]))),
     CONSTRAINT file_objects_purge_attempts_check CHECK ((purge_attempts >= 0)),
     CONSTRAINT file_objects_purpose_check CHECK ((purpose = ANY (ARRAY['attachment'::text, 'avatar'::text, 'import'::text, 'export'::text, 'drive'::text]))),
     CONSTRAINT file_objects_scan_status_check CHECK ((scan_status = ANY (ARRAY['pending'::text, 'clean'::text, 'infected'::text, 'blocked'::text, 'failed'::text, 'skipped'::text]))),
@@ -2376,6 +3253,167 @@ ALTER TABLE public.webhook_endpoints ALTER COLUMN id ADD GENERATED ALWAYS AS IDE
 
 
 --
+-- Name: drive_ai_classifications id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_classifications ALTER COLUMN id SET DEFAULT nextval('public.drive_ai_classifications_id_seq'::regclass);
+
+
+--
+-- Name: drive_ai_jobs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_jobs ALTER COLUMN id SET DEFAULT nextval('public.drive_ai_jobs_id_seq'::regclass);
+
+
+--
+-- Name: drive_ai_summaries id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_summaries ALTER COLUMN id SET DEFAULT nextval('public.drive_ai_summaries_id_seq'::regclass);
+
+
+--
+-- Name: drive_app_webhook_deliveries id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_app_webhook_deliveries ALTER COLUMN id SET DEFAULT nextval('public.drive_app_webhook_deliveries_id_seq'::regclass);
+
+
+--
+-- Name: drive_e2ee_file_keys id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_file_keys ALTER COLUMN id SET DEFAULT nextval('public.drive_e2ee_file_keys_id_seq'::regclass);
+
+
+--
+-- Name: drive_e2ee_key_envelopes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_key_envelopes ALTER COLUMN id SET DEFAULT nextval('public.drive_e2ee_key_envelopes_id_seq'::regclass);
+
+
+--
+-- Name: drive_e2ee_user_keys id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_user_keys ALTER COLUMN id SET DEFAULT nextval('public.drive_e2ee_user_keys_id_seq'::regclass);
+
+
+--
+-- Name: drive_ediscovery_export_items id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_export_items ALTER COLUMN id SET DEFAULT nextval('public.drive_ediscovery_export_items_id_seq'::regclass);
+
+
+--
+-- Name: drive_ediscovery_exports id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_exports ALTER COLUMN id SET DEFAULT nextval('public.drive_ediscovery_exports_id_seq'::regclass);
+
+
+--
+-- Name: drive_ediscovery_provider_connections id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_provider_connections ALTER COLUMN id SET DEFAULT nextval('public.drive_ediscovery_provider_connections_id_seq'::regclass);
+
+
+--
+-- Name: drive_gateway_objects id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_gateway_objects ALTER COLUMN id SET DEFAULT nextval('public.drive_gateway_objects_id_seq'::regclass);
+
+
+--
+-- Name: drive_gateway_transfers id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_gateway_transfers ALTER COLUMN id SET DEFAULT nextval('public.drive_gateway_transfers_id_seq'::regclass);
+
+
+--
+-- Name: drive_hsm_deployments id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_deployments ALTER COLUMN id SET DEFAULT nextval('public.drive_hsm_deployments_id_seq'::regclass);
+
+
+--
+-- Name: drive_hsm_key_bindings id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_key_bindings ALTER COLUMN id SET DEFAULT nextval('public.drive_hsm_key_bindings_id_seq'::regclass);
+
+
+--
+-- Name: drive_hsm_keys id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_keys ALTER COLUMN id SET DEFAULT nextval('public.drive_hsm_keys_id_seq'::regclass);
+
+
+--
+-- Name: drive_marketplace_app_versions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_app_versions ALTER COLUMN id SET DEFAULT nextval('public.drive_marketplace_app_versions_id_seq'::regclass);
+
+
+--
+-- Name: drive_marketplace_apps id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_apps ALTER COLUMN id SET DEFAULT nextval('public.drive_marketplace_apps_id_seq'::regclass);
+
+
+--
+-- Name: drive_marketplace_installation_scopes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_installation_scopes ALTER COLUMN id SET DEFAULT nextval('public.drive_marketplace_installation_scopes_id_seq'::regclass);
+
+
+--
+-- Name: drive_marketplace_installations id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_installations ALTER COLUMN id SET DEFAULT nextval('public.drive_marketplace_installations_id_seq'::regclass);
+
+
+--
+-- Name: drive_office_edit_sessions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_edit_sessions ALTER COLUMN id SET DEFAULT nextval('public.drive_office_edit_sessions_id_seq'::regclass);
+
+
+--
+-- Name: drive_office_provider_files id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_provider_files ALTER COLUMN id SET DEFAULT nextval('public.drive_office_provider_files_id_seq'::regclass);
+
+
+--
+-- Name: drive_office_webhook_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_webhook_events ALTER COLUMN id SET DEFAULT nextval('public.drive_office_webhook_events_id_seq'::regclass);
+
+
+--
+-- Name: drive_storage_gateways id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_storage_gateways ALTER COLUMN id SET DEFAULT nextval('public.drive_storage_gateways_id_seq'::regclass);
+
+
+--
 -- Name: audit_events audit_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2413,6 +3451,38 @@ ALTER TABLE ONLY public.customer_signals
 
 ALTER TABLE ONLY public.drive_admin_content_access_sessions
     ADD CONSTRAINT drive_admin_content_access_sessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_ai_classifications drive_ai_classifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_classifications
+    ADD CONSTRAINT drive_ai_classifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_ai_jobs drive_ai_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_jobs
+    ADD CONSTRAINT drive_ai_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_ai_summaries drive_ai_summaries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_summaries
+    ADD CONSTRAINT drive_ai_summaries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_app_webhook_deliveries drive_app_webhook_deliveries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_app_webhook_deliveries
+    ADD CONSTRAINT drive_app_webhook_deliveries_pkey PRIMARY KEY (id);
 
 
 --
@@ -2488,6 +3558,54 @@ ALTER TABLE ONLY public.drive_clean_rooms
 
 
 --
+-- Name: drive_e2ee_file_keys drive_e2ee_file_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_file_keys
+    ADD CONSTRAINT drive_e2ee_file_keys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_e2ee_key_envelopes drive_e2ee_key_envelopes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_key_envelopes
+    ADD CONSTRAINT drive_e2ee_key_envelopes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_e2ee_user_keys drive_e2ee_user_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_user_keys
+    ADD CONSTRAINT drive_e2ee_user_keys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_ediscovery_export_items drive_ediscovery_export_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_export_items
+    ADD CONSTRAINT drive_ediscovery_export_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_ediscovery_exports drive_ediscovery_exports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_exports
+    ADD CONSTRAINT drive_ediscovery_exports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_ediscovery_provider_connections drive_ediscovery_provider_connections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_provider_connections
+    ADD CONSTRAINT drive_ediscovery_provider_connections_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: drive_edit_locks drive_edit_locks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2536,6 +3654,22 @@ ALTER TABLE ONLY public.drive_folders
 
 
 --
+-- Name: drive_gateway_objects drive_gateway_objects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_gateway_objects
+    ADD CONSTRAINT drive_gateway_objects_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_gateway_transfers drive_gateway_transfers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_gateway_transfers
+    ADD CONSTRAINT drive_gateway_transfers_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: drive_group_external_mappings drive_group_external_mappings_drive_group_id_provider_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2573,6 +3707,30 @@ ALTER TABLE ONLY public.drive_group_members
 
 ALTER TABLE ONLY public.drive_groups
     ADD CONSTRAINT drive_groups_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_hsm_deployments drive_hsm_deployments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_deployments
+    ADD CONSTRAINT drive_hsm_deployments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_hsm_key_bindings drive_hsm_key_bindings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_key_bindings
+    ADD CONSTRAINT drive_hsm_key_bindings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_hsm_keys drive_hsm_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_keys
+    ADD CONSTRAINT drive_hsm_keys_pkey PRIMARY KEY (id);
 
 
 --
@@ -2648,6 +3806,46 @@ ALTER TABLE ONLY public.drive_legal_holds
 
 
 --
+-- Name: drive_marketplace_app_versions drive_marketplace_app_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_app_versions
+    ADD CONSTRAINT drive_marketplace_app_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_marketplace_apps drive_marketplace_apps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_apps
+    ADD CONSTRAINT drive_marketplace_apps_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_marketplace_apps drive_marketplace_apps_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_apps
+    ADD CONSTRAINT drive_marketplace_apps_slug_key UNIQUE (slug);
+
+
+--
+-- Name: drive_marketplace_installation_scopes drive_marketplace_installation_scopes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_installation_scopes
+    ADD CONSTRAINT drive_marketplace_installation_scopes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_marketplace_installations drive_marketplace_installations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_installations
+    ADD CONSTRAINT drive_marketplace_installations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: drive_mobile_offline_operations drive_mobile_offline_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2669,6 +3867,30 @@ ALTER TABLE ONLY public.drive_object_key_versions
 
 ALTER TABLE ONLY public.drive_object_key_versions
     ADD CONSTRAINT drive_object_key_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_office_edit_sessions drive_office_edit_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_edit_sessions
+    ADD CONSTRAINT drive_office_edit_sessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_office_provider_files drive_office_provider_files_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_provider_files
+    ADD CONSTRAINT drive_office_provider_files_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_office_webhook_events drive_office_webhook_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_webhook_events
+    ADD CONSTRAINT drive_office_webhook_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -2765,6 +3987,14 @@ ALTER TABLE ONLY public.drive_share_link_password_attempts
 
 ALTER TABLE ONLY public.drive_share_links
     ADD CONSTRAINT drive_share_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_storage_gateways drive_storage_gateways_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_storage_gateways
+    ADD CONSTRAINT drive_storage_gateways_pkey PRIMARY KEY (id);
 
 
 --
@@ -3219,6 +4449,48 @@ CREATE UNIQUE INDEX drive_admin_content_access_sessions_public_id_key ON public.
 
 
 --
+-- Name: drive_ai_classifications_file_revision_label_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ai_classifications_file_revision_label_key ON public.drive_ai_classifications USING btree (file_object_id, file_revision, label);
+
+
+--
+-- Name: drive_ai_jobs_file_revision_type_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ai_jobs_file_revision_type_key ON public.drive_ai_jobs USING btree (file_object_id, file_revision, job_type);
+
+
+--
+-- Name: drive_ai_jobs_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ai_jobs_public_id_key ON public.drive_ai_jobs USING btree (public_id);
+
+
+--
+-- Name: drive_ai_summaries_file_revision_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ai_summaries_file_revision_key ON public.drive_ai_summaries USING btree (file_object_id, file_revision);
+
+
+--
+-- Name: drive_ai_summaries_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ai_summaries_public_id_key ON public.drive_ai_summaries USING btree (public_id);
+
+
+--
+-- Name: drive_app_webhook_deliveries_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_app_webhook_deliveries_public_id_key ON public.drive_app_webhook_deliveries USING btree (public_id);
+
+
+--
 -- Name: drive_clean_rooms_public_id_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3230,6 +4502,76 @@ CREATE UNIQUE INDEX drive_clean_rooms_public_id_key ON public.drive_clean_rooms 
 --
 
 CREATE INDEX drive_clean_rooms_tenant_status_idx ON public.drive_clean_rooms USING btree (tenant_id, status, created_at DESC);
+
+
+--
+-- Name: drive_e2ee_file_keys_file_version_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_e2ee_file_keys_file_version_key ON public.drive_e2ee_file_keys USING btree (file_object_id, key_version);
+
+
+--
+-- Name: drive_e2ee_file_keys_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_e2ee_file_keys_public_id_key ON public.drive_e2ee_file_keys USING btree (public_id);
+
+
+--
+-- Name: drive_e2ee_key_envelopes_unique_recipient; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_e2ee_key_envelopes_unique_recipient ON public.drive_e2ee_key_envelopes USING btree (file_key_id, recipient_user_id, recipient_key_id);
+
+
+--
+-- Name: drive_e2ee_user_keys_one_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_e2ee_user_keys_one_active ON public.drive_e2ee_user_keys USING btree (tenant_id, user_id) WHERE (status = 'active'::text);
+
+
+--
+-- Name: drive_e2ee_user_keys_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_e2ee_user_keys_public_id_key ON public.drive_e2ee_user_keys USING btree (public_id);
+
+
+--
+-- Name: drive_ediscovery_export_items_export_file_revision_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ediscovery_export_items_export_file_revision_key ON public.drive_ediscovery_export_items USING btree (export_id, file_object_id, file_revision);
+
+
+--
+-- Name: drive_ediscovery_exports_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ediscovery_exports_public_id_key ON public.drive_ediscovery_exports USING btree (public_id);
+
+
+--
+-- Name: drive_ediscovery_exports_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_ediscovery_exports_tenant_status_idx ON public.drive_ediscovery_exports USING btree (tenant_id, status);
+
+
+--
+-- Name: drive_ediscovery_provider_connections_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ediscovery_provider_connections_public_id_key ON public.drive_ediscovery_provider_connections USING btree (public_id);
+
+
+--
+-- Name: drive_ediscovery_provider_connections_tenant_provider_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ediscovery_provider_connections_tenant_provider_key ON public.drive_ediscovery_provider_connections USING btree (tenant_id, provider);
 
 
 --
@@ -3331,6 +4673,27 @@ CREATE INDEX drive_folders_workspace_children_idx ON public.drive_folders USING 
 
 
 --
+-- Name: drive_gateway_objects_file_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_gateway_objects_file_key ON public.drive_gateway_objects USING btree (file_object_id);
+
+
+--
+-- Name: drive_gateway_objects_gateway_object_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_gateway_objects_gateway_object_key ON public.drive_gateway_objects USING btree (gateway_id, gateway_object_key);
+
+
+--
+-- Name: drive_gateway_transfers_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_gateway_transfers_public_id_key ON public.drive_gateway_transfers USING btree (public_id);
+
+
+--
 -- Name: drive_group_members_active_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3363,6 +4726,41 @@ CREATE UNIQUE INDEX drive_groups_public_id_key ON public.drive_groups USING btre
 --
 
 CREATE INDEX drive_groups_tenant_name_idx ON public.drive_groups USING btree (tenant_id, name, id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: drive_hsm_deployments_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_hsm_deployments_public_id_key ON public.drive_hsm_deployments USING btree (public_id);
+
+
+--
+-- Name: drive_hsm_deployments_tenant_provider_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_hsm_deployments_tenant_provider_key ON public.drive_hsm_deployments USING btree (tenant_id, provider);
+
+
+--
+-- Name: drive_hsm_key_bindings_unique_scope; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_hsm_key_bindings_unique_scope ON public.drive_hsm_key_bindings USING btree (tenant_id, binding_scope, COALESCE(workspace_id, (0)::bigint), COALESCE(file_object_id, (0)::bigint));
+
+
+--
+-- Name: drive_hsm_keys_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_hsm_keys_public_id_key ON public.drive_hsm_keys USING btree (public_id);
+
+
+--
+-- Name: drive_hsm_keys_tenant_ref_version_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_hsm_keys_tenant_ref_version_key ON public.drive_hsm_keys USING btree (tenant_id, key_ref, key_version);
 
 
 --
@@ -3412,6 +4810,76 @@ CREATE INDEX drive_legal_cases_tenant_status_idx ON public.drive_legal_cases USI
 --
 
 CREATE INDEX drive_legal_holds_active_idx ON public.drive_legal_holds USING btree (tenant_id, resource_type, resource_id) WHERE (released_at IS NULL);
+
+
+--
+-- Name: drive_marketplace_app_versions_app_version_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_marketplace_app_versions_app_version_key ON public.drive_marketplace_app_versions USING btree (app_id, version);
+
+
+--
+-- Name: drive_marketplace_apps_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_marketplace_apps_public_id_key ON public.drive_marketplace_apps USING btree (public_id);
+
+
+--
+-- Name: drive_marketplace_installation_scopes_scope_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_marketplace_installation_scopes_scope_key ON public.drive_marketplace_installation_scopes USING btree (installation_id, scope);
+
+
+--
+-- Name: drive_marketplace_installations_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_marketplace_installations_public_id_key ON public.drive_marketplace_installations USING btree (public_id);
+
+
+--
+-- Name: drive_marketplace_installations_tenant_app_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_marketplace_installations_tenant_app_key ON public.drive_marketplace_installations USING btree (tenant_id, app_id);
+
+
+--
+-- Name: drive_office_edit_sessions_file_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_office_edit_sessions_file_idx ON public.drive_office_edit_sessions USING btree (tenant_id, file_object_id, revoked_at, expires_at);
+
+
+--
+-- Name: drive_office_edit_sessions_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_office_edit_sessions_public_id_key ON public.drive_office_edit_sessions USING btree (public_id);
+
+
+--
+-- Name: drive_office_provider_files_provider_file_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_office_provider_files_provider_file_key ON public.drive_office_provider_files USING btree (provider, provider_file_id);
+
+
+--
+-- Name: drive_office_provider_files_tenant_file_provider_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_office_provider_files_tenant_file_provider_key ON public.drive_office_provider_files USING btree (tenant_id, file_object_id, provider);
+
+
+--
+-- Name: drive_office_webhook_events_provider_event_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_office_webhook_events_provider_event_key ON public.drive_office_webhook_events USING btree (provider, provider_event_id);
 
 
 --
@@ -3552,6 +5020,20 @@ CREATE INDEX drive_share_links_resource_idx ON public.drive_share_links USING bt
 --
 
 CREATE UNIQUE INDEX drive_share_links_token_hash_key ON public.drive_share_links USING btree (token_hash);
+
+
+--
+-- Name: drive_storage_gateways_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_storage_gateways_public_id_key ON public.drive_storage_gateways USING btree (public_id);
+
+
+--
+-- Name: drive_storage_gateways_tenant_name_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_storage_gateways_tenant_name_key ON public.drive_storage_gateways USING btree (tenant_id, name);
 
 
 --
@@ -4073,6 +5555,78 @@ ALTER TABLE ONLY public.drive_admin_content_access_sessions
 
 
 --
+-- Name: drive_ai_classifications drive_ai_classifications_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_classifications
+    ADD CONSTRAINT drive_ai_classifications_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ai_classifications drive_ai_classifications_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_classifications
+    ADD CONSTRAINT drive_ai_classifications_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ai_jobs drive_ai_jobs_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_jobs
+    ADD CONSTRAINT drive_ai_jobs_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ai_jobs drive_ai_jobs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_jobs
+    ADD CONSTRAINT drive_ai_jobs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: drive_ai_jobs drive_ai_jobs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_jobs
+    ADD CONSTRAINT drive_ai_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ai_summaries drive_ai_summaries_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_summaries
+    ADD CONSTRAINT drive_ai_summaries_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ai_summaries drive_ai_summaries_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ai_summaries
+    ADD CONSTRAINT drive_ai_summaries_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_app_webhook_deliveries drive_app_webhook_deliveries_installation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_app_webhook_deliveries
+    ADD CONSTRAINT drive_app_webhook_deliveries_installation_id_fkey FOREIGN KEY (installation_id) REFERENCES public.drive_marketplace_installations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_app_webhook_deliveries drive_app_webhook_deliveries_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_app_webhook_deliveries
+    ADD CONSTRAINT drive_app_webhook_deliveries_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: drive_chain_of_custody_events drive_chain_of_custody_events_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4265,6 +5819,158 @@ ALTER TABLE ONLY public.drive_clean_rooms
 
 
 --
+-- Name: drive_e2ee_file_keys drive_e2ee_file_keys_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_file_keys
+    ADD CONSTRAINT drive_e2ee_file_keys_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: drive_e2ee_file_keys drive_e2ee_file_keys_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_file_keys
+    ADD CONSTRAINT drive_e2ee_file_keys_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_e2ee_file_keys drive_e2ee_file_keys_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_file_keys
+    ADD CONSTRAINT drive_e2ee_file_keys_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_e2ee_key_envelopes drive_e2ee_key_envelopes_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_key_envelopes
+    ADD CONSTRAINT drive_e2ee_key_envelopes_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: drive_e2ee_key_envelopes drive_e2ee_key_envelopes_file_key_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_key_envelopes
+    ADD CONSTRAINT drive_e2ee_key_envelopes_file_key_id_fkey FOREIGN KEY (file_key_id) REFERENCES public.drive_e2ee_file_keys(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_e2ee_key_envelopes drive_e2ee_key_envelopes_recipient_key_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_key_envelopes
+    ADD CONSTRAINT drive_e2ee_key_envelopes_recipient_key_id_fkey FOREIGN KEY (recipient_key_id) REFERENCES public.drive_e2ee_user_keys(id);
+
+
+--
+-- Name: drive_e2ee_key_envelopes drive_e2ee_key_envelopes_recipient_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_key_envelopes
+    ADD CONSTRAINT drive_e2ee_key_envelopes_recipient_user_id_fkey FOREIGN KEY (recipient_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_e2ee_key_envelopes drive_e2ee_key_envelopes_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_key_envelopes
+    ADD CONSTRAINT drive_e2ee_key_envelopes_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_e2ee_user_keys drive_e2ee_user_keys_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_user_keys
+    ADD CONSTRAINT drive_e2ee_user_keys_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_e2ee_user_keys drive_e2ee_user_keys_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_e2ee_user_keys
+    ADD CONSTRAINT drive_e2ee_user_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ediscovery_export_items drive_ediscovery_export_items_export_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_export_items
+    ADD CONSTRAINT drive_ediscovery_export_items_export_id_fkey FOREIGN KEY (export_id) REFERENCES public.drive_ediscovery_exports(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ediscovery_export_items drive_ediscovery_export_items_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_export_items
+    ADD CONSTRAINT drive_ediscovery_export_items_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id);
+
+
+--
+-- Name: drive_ediscovery_exports drive_ediscovery_exports_approved_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_exports
+    ADD CONSTRAINT drive_ediscovery_exports_approved_by_user_id_fkey FOREIGN KEY (approved_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: drive_ediscovery_exports drive_ediscovery_exports_case_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_exports
+    ADD CONSTRAINT drive_ediscovery_exports_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.drive_legal_cases(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_ediscovery_exports drive_ediscovery_exports_provider_connection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_exports
+    ADD CONSTRAINT drive_ediscovery_exports_provider_connection_id_fkey FOREIGN KEY (provider_connection_id) REFERENCES public.drive_ediscovery_provider_connections(id);
+
+
+--
+-- Name: drive_ediscovery_exports drive_ediscovery_exports_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_exports
+    ADD CONSTRAINT drive_ediscovery_exports_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: drive_ediscovery_exports drive_ediscovery_exports_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_exports
+    ADD CONSTRAINT drive_ediscovery_exports_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ediscovery_provider_connections drive_ediscovery_provider_connections_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_provider_connections
+    ADD CONSTRAINT drive_ediscovery_provider_connections_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: drive_ediscovery_provider_connections drive_ediscovery_provider_connections_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ediscovery_provider_connections
+    ADD CONSTRAINT drive_ediscovery_provider_connections_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: drive_edit_locks drive_edit_locks_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4417,6 +6123,54 @@ ALTER TABLE ONLY public.drive_folders
 
 
 --
+-- Name: drive_gateway_objects drive_gateway_objects_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_gateway_objects
+    ADD CONSTRAINT drive_gateway_objects_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_gateway_objects drive_gateway_objects_gateway_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_gateway_objects
+    ADD CONSTRAINT drive_gateway_objects_gateway_id_fkey FOREIGN KEY (gateway_id) REFERENCES public.drive_storage_gateways(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_gateway_objects drive_gateway_objects_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_gateway_objects
+    ADD CONSTRAINT drive_gateway_objects_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_gateway_transfers drive_gateway_transfers_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_gateway_transfers
+    ADD CONSTRAINT drive_gateway_transfers_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_gateway_transfers drive_gateway_transfers_gateway_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_gateway_transfers
+    ADD CONSTRAINT drive_gateway_transfers_gateway_id_fkey FOREIGN KEY (gateway_id) REFERENCES public.drive_storage_gateways(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_gateway_transfers drive_gateway_transfers_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_gateway_transfers
+    ADD CONSTRAINT drive_gateway_transfers_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: drive_group_external_mappings drive_group_external_mappings_drive_group_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4470,6 +6224,70 @@ ALTER TABLE ONLY public.drive_groups
 
 ALTER TABLE ONLY public.drive_groups
     ADD CONSTRAINT drive_groups_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_hsm_deployments drive_hsm_deployments_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_deployments
+    ADD CONSTRAINT drive_hsm_deployments_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: drive_hsm_deployments drive_hsm_deployments_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_deployments
+    ADD CONSTRAINT drive_hsm_deployments_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_hsm_key_bindings drive_hsm_key_bindings_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_key_bindings
+    ADD CONSTRAINT drive_hsm_key_bindings_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_hsm_key_bindings drive_hsm_key_bindings_hsm_key_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_key_bindings
+    ADD CONSTRAINT drive_hsm_key_bindings_hsm_key_id_fkey FOREIGN KEY (hsm_key_id) REFERENCES public.drive_hsm_keys(id);
+
+
+--
+-- Name: drive_hsm_key_bindings drive_hsm_key_bindings_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_key_bindings
+    ADD CONSTRAINT drive_hsm_key_bindings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_hsm_key_bindings drive_hsm_key_bindings_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_key_bindings
+    ADD CONSTRAINT drive_hsm_key_bindings_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.drive_workspaces(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_hsm_keys drive_hsm_keys_deployment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_keys
+    ADD CONSTRAINT drive_hsm_keys_deployment_id_fkey FOREIGN KEY (deployment_id) REFERENCES public.drive_hsm_deployments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_hsm_keys drive_hsm_keys_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_hsm_keys
+    ADD CONSTRAINT drive_hsm_keys_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -4657,6 +6475,62 @@ ALTER TABLE ONLY public.drive_legal_holds
 
 
 --
+-- Name: drive_marketplace_app_versions drive_marketplace_app_versions_app_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_app_versions
+    ADD CONSTRAINT drive_marketplace_app_versions_app_id_fkey FOREIGN KEY (app_id) REFERENCES public.drive_marketplace_apps(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_marketplace_installation_scopes drive_marketplace_installation_scopes_installation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_installation_scopes
+    ADD CONSTRAINT drive_marketplace_installation_scopes_installation_id_fkey FOREIGN KEY (installation_id) REFERENCES public.drive_marketplace_installations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_marketplace_installations drive_marketplace_installations_app_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_installations
+    ADD CONSTRAINT drive_marketplace_installations_app_id_fkey FOREIGN KEY (app_id) REFERENCES public.drive_marketplace_apps(id);
+
+
+--
+-- Name: drive_marketplace_installations drive_marketplace_installations_app_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_installations
+    ADD CONSTRAINT drive_marketplace_installations_app_version_id_fkey FOREIGN KEY (app_version_id) REFERENCES public.drive_marketplace_app_versions(id);
+
+
+--
+-- Name: drive_marketplace_installations drive_marketplace_installations_approved_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_installations
+    ADD CONSTRAINT drive_marketplace_installations_approved_by_user_id_fkey FOREIGN KEY (approved_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: drive_marketplace_installations drive_marketplace_installations_installed_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_installations
+    ADD CONSTRAINT drive_marketplace_installations_installed_by_user_id_fkey FOREIGN KEY (installed_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: drive_marketplace_installations drive_marketplace_installations_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_marketplace_installations
+    ADD CONSTRAINT drive_marketplace_installations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: drive_mobile_offline_operations drive_mobile_offline_operations_device_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4694,6 +6568,62 @@ ALTER TABLE ONLY public.drive_object_key_versions
 
 ALTER TABLE ONLY public.drive_object_key_versions
     ADD CONSTRAINT drive_object_key_versions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_office_edit_sessions drive_office_edit_sessions_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_edit_sessions
+    ADD CONSTRAINT drive_office_edit_sessions_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_office_edit_sessions drive_office_edit_sessions_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_edit_sessions
+    ADD CONSTRAINT drive_office_edit_sessions_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_office_edit_sessions drive_office_edit_sessions_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_edit_sessions
+    ADD CONSTRAINT drive_office_edit_sessions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_office_provider_files drive_office_provider_files_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_provider_files
+    ADD CONSTRAINT drive_office_provider_files_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_office_provider_files drive_office_provider_files_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_provider_files
+    ADD CONSTRAINT drive_office_provider_files_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_office_webhook_events drive_office_webhook_events_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_webhook_events
+    ADD CONSTRAINT drive_office_webhook_events_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_office_webhook_events drive_office_webhook_events_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_office_webhook_events
+    ADD CONSTRAINT drive_office_webhook_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -4921,6 +6851,30 @@ ALTER TABLE ONLY public.drive_share_links
 
 
 --
+-- Name: drive_storage_gateways drive_storage_gateways_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_storage_gateways
+    ADD CONSTRAINT drive_storage_gateways_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: drive_storage_gateways drive_storage_gateways_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_storage_gateways
+    ADD CONSTRAINT drive_storage_gateways_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_storage_gateways drive_storage_gateways_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_storage_gateways
+    ADD CONSTRAINT drive_storage_gateways_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.drive_workspaces(id) ON DELETE SET NULL;
+
+
+--
 -- Name: drive_sync_conflicts drive_sync_conflicts_device_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5062,6 +7016,14 @@ ALTER TABLE ONLY public.file_objects
 
 ALTER TABLE ONLY public.file_objects
     ADD CONSTRAINT file_objects_locked_by_user_id_fkey FOREIGN KEY (locked_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: file_objects file_objects_storage_gateway_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.file_objects
+    ADD CONSTRAINT file_objects_storage_gateway_id_fkey FOREIGN KEY (storage_gateway_id) REFERENCES public.drive_storage_gateways(id) ON DELETE SET NULL;
 
 
 --

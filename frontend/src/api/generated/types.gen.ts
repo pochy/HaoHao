@@ -253,6 +253,54 @@ export type CustomerSignalSavedFilterRequestBody = {
     query?: string;
 };
 
+export type DriveAiClassificationBody = {
+    confidence: number;
+    createdAt: string;
+    label: string;
+    provider: string;
+};
+
+export type DriveAiClassificationsOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DriveAiClassificationBody> | null;
+};
+
+export type DriveAiJobBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    filePublicId: string;
+    jobType: string;
+    provider: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveAiJobCreateInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    jobType: 'summary' | 'classification';
+};
+
+export type DriveAiSummaryBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    filePublicId: string;
+    provider: string;
+    publicId: string;
+    summaryText: string;
+};
+
 export type DriveCleanRoomBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -343,6 +391,120 @@ export type DriveDeviceRevokeInputBody = {
     reason?: string;
 };
 
+export type DriveE2EeEnvelopeBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    fileKeyPublicId: string;
+    recipientUserId: string;
+    wrapAlgorithm: string;
+    wrappedFileKey: string;
+};
+
+export type DriveE2EeEnvelopeCreateInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    recipientUserPublicId: string;
+    wrapAlgorithm?: string;
+    wrappedFileKey: string;
+};
+
+export type DriveE2EeFileKeyBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    algorithm: string;
+    ciphertextSha256: string;
+    createdAt: string;
+    filePublicId: string;
+    keyVersion: number;
+    publicId: string;
+};
+
+export type DriveE2EeFileKeyCreateInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    algorithm?: string;
+    ciphertextSha256?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    wrapAlgorithm?: string;
+    wrappedFileKey: string;
+};
+
+export type DriveE2EeUserKeyBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    algorithm: string;
+    createdAt: string;
+    publicId: string;
+    status: string;
+    userPublicId: string;
+};
+
+export type DriveE2EeUserKeyCreateInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    algorithm?: string;
+    publicKey?: {
+        [key: string]: unknown;
+    };
+};
+
+export type DriveEDiscoveryConnectionBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    provider: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveEDiscoveryConnectionInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    provider?: string;
+};
+
+export type DriveEDiscoveryExportBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    casePublicId: string;
+    createdAt: string;
+    itemCount: number;
+    manifestHash?: string;
+    providerExportId?: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveEDiscoveryExportInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    casePublicId: string;
+    connectionPublicId: string;
+};
+
 export type DriveEditSaveBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -413,6 +575,57 @@ export type DriveFolderBody = {
     workspacePublicId?: string;
 };
 
+export type DriveGatewayBindInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    filePublicId: string;
+};
+
+export type DriveGatewayBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    certificateFingerprint: string;
+    createdAt: string;
+    endpointUrl: string;
+    lastSeenAt?: string;
+    name: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveGatewayInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    certificateFingerprint?: string;
+    endpointUrl?: string;
+    name?: string;
+};
+
+export type DriveGatewayObjectBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    filePublicId: string;
+    gatewayPublicId: string;
+    manifestHash: string;
+    status: string;
+};
+
+export type DriveGatewayStatusInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    status: 'active' | 'disabled' | 'disconnected';
+};
+
 export type DriveGroupBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -432,6 +645,48 @@ export type DriveGroupListOutputBody = {
      */
     readonly $schema?: string;
     items: Array<DriveGroupBody> | null;
+};
+
+export type DriveHsmBindInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    filePublicId: string;
+    keyPublicId: string;
+};
+
+export type DriveHsmDeploymentBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    attestationHash?: string;
+    createdAt: string;
+    endpointUrl: string;
+    healthStatus: string;
+    keyPublicId: string;
+    keyStatus: string;
+    provider: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveHsmDeploymentInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    endpointUrl?: string;
+    provider?: string;
+};
+
+export type DriveHsmKeyStatusInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    status: 'active' | 'disabled' | 'destroyed' | 'unavailable';
 };
 
 export type DriveIndexRebuildBody = {
@@ -507,6 +762,52 @@ export type DriveLegalExportBody = {
     status: string;
 };
 
+export type DriveMarketplaceAppBody = {
+    name: string;
+    publicId: string;
+    publisherName: string;
+    scopes: Array<string> | null;
+    slug: string;
+    version: string;
+};
+
+export type DriveMarketplaceAppsOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DriveMarketplaceAppBody> | null;
+};
+
+export type DriveMarketplaceInstallBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    appName: string;
+    appSlug: string;
+    createdAt: string;
+    publicId: string;
+    scopes: Array<string> | null;
+    status: string;
+};
+
+export type DriveMarketplaceInstallInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    appSlug: string;
+};
+
+export type DriveMarketplaceScopeOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    allowed: boolean;
+};
+
 export type DriveMobileOfflineOperationBody = {
     baseRevision: number;
     name?: string;
@@ -532,6 +833,51 @@ export type DriveMobileOfflineReplayOutputBody = {
     applied: number;
     conflicted: number;
     denied: number;
+};
+
+export type DriveOfficeSessionBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    accessLevel: string;
+    createdAt: string;
+    expiresAt: string;
+    filePublicId: string;
+    launchUrl: string;
+    provider: string;
+    providerSessionId: string;
+    publicId: string;
+};
+
+export type DriveOfficeSessionCreateInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    accessLevel?: 'view' | 'edit';
+};
+
+export type DriveOfficeWebhookInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    checksum?: string;
+    providerEventId: string;
+    providerFileId: string;
+    revision: string;
+};
+
+export type DriveOfficeWebhookOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    providerEventId: string;
+    providerFileId: string;
+    result: string;
+    revision: string;
 };
 
 export type DrivePermissionBody = {
@@ -1590,6 +1936,31 @@ export type CustomerSignalSavedFilterRequestBodyWritable = {
     query?: string;
 };
 
+export type DriveAiClassificationsOutputBodyWritable = {
+    items: Array<DriveAiClassificationBody> | null;
+};
+
+export type DriveAiJobBodyWritable = {
+    createdAt: string;
+    filePublicId: string;
+    jobType: string;
+    provider: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveAiJobCreateInputBodyWritable = {
+    jobType: 'summary' | 'classification';
+};
+
+export type DriveAiSummaryBodyWritable = {
+    createdAt: string;
+    filePublicId: string;
+    provider: string;
+    publicId: string;
+    summaryText: string;
+};
+
 export type DriveCleanRoomBodyWritable = {
     createdAt: string;
     name: string;
@@ -1644,6 +2015,80 @@ export type DriveDeviceRevokeInputBodyWritable = {
     reason?: string;
 };
 
+export type DriveE2EeEnvelopeBodyWritable = {
+    createdAt: string;
+    fileKeyPublicId: string;
+    recipientUserId: string;
+    wrapAlgorithm: string;
+    wrappedFileKey: string;
+};
+
+export type DriveE2EeEnvelopeCreateInputBodyWritable = {
+    recipientUserPublicId: string;
+    wrapAlgorithm?: string;
+    wrappedFileKey: string;
+};
+
+export type DriveE2EeFileKeyBodyWritable = {
+    algorithm: string;
+    ciphertextSha256: string;
+    createdAt: string;
+    filePublicId: string;
+    keyVersion: number;
+    publicId: string;
+};
+
+export type DriveE2EeFileKeyCreateInputBodyWritable = {
+    algorithm?: string;
+    ciphertextSha256?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    wrapAlgorithm?: string;
+    wrappedFileKey: string;
+};
+
+export type DriveE2EeUserKeyBodyWritable = {
+    algorithm: string;
+    createdAt: string;
+    publicId: string;
+    status: string;
+    userPublicId: string;
+};
+
+export type DriveE2EeUserKeyCreateInputBodyWritable = {
+    algorithm?: string;
+    publicKey?: {
+        [key: string]: unknown;
+    };
+};
+
+export type DriveEDiscoveryConnectionBodyWritable = {
+    createdAt: string;
+    provider: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveEDiscoveryConnectionInputBodyWritable = {
+    provider?: string;
+};
+
+export type DriveEDiscoveryExportBodyWritable = {
+    casePublicId: string;
+    createdAt: string;
+    itemCount: number;
+    manifestHash?: string;
+    providerExportId?: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveEDiscoveryExportInputBodyWritable = {
+    casePublicId: string;
+    connectionPublicId: string;
+};
+
 export type DriveEditSaveBodyWritable = {
     content: string;
     contentType?: string;
@@ -1694,6 +2139,37 @@ export type DriveFolderBodyWritable = {
     workspacePublicId?: string;
 };
 
+export type DriveGatewayBindInputBodyWritable = {
+    filePublicId: string;
+};
+
+export type DriveGatewayBodyWritable = {
+    certificateFingerprint: string;
+    createdAt: string;
+    endpointUrl: string;
+    lastSeenAt?: string;
+    name: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveGatewayInputBodyWritable = {
+    certificateFingerprint?: string;
+    endpointUrl?: string;
+    name?: string;
+};
+
+export type DriveGatewayObjectBodyWritable = {
+    filePublicId: string;
+    gatewayPublicId: string;
+    manifestHash: string;
+    status: string;
+};
+
+export type DriveGatewayStatusInputBodyWritable = {
+    status: 'active' | 'disabled' | 'disconnected';
+};
+
 export type DriveGroupBodyWritable = {
     createdAt: string;
     description: string;
@@ -1705,6 +2181,32 @@ export type DriveGroupBodyWritable = {
 
 export type DriveGroupListOutputBodyWritable = {
     items: Array<DriveGroupBodyWritable> | null;
+};
+
+export type DriveHsmBindInputBodyWritable = {
+    filePublicId: string;
+    keyPublicId: string;
+};
+
+export type DriveHsmDeploymentBodyWritable = {
+    attestationHash?: string;
+    createdAt: string;
+    endpointUrl: string;
+    healthStatus: string;
+    keyPublicId: string;
+    keyStatus: string;
+    provider: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveHsmDeploymentInputBodyWritable = {
+    endpointUrl?: string;
+    provider?: string;
+};
+
+export type DriveHsmKeyStatusInputBodyWritable = {
+    status: 'active' | 'disabled' | 'destroyed' | 'unavailable';
 };
 
 export type DriveIndexRebuildBodyWritable = {
@@ -1752,6 +2254,27 @@ export type DriveLegalExportBodyWritable = {
     status: string;
 };
 
+export type DriveMarketplaceAppsOutputBodyWritable = {
+    items: Array<DriveMarketplaceAppBody> | null;
+};
+
+export type DriveMarketplaceInstallBodyWritable = {
+    appName: string;
+    appSlug: string;
+    createdAt: string;
+    publicId: string;
+    scopes: Array<string> | null;
+    status: string;
+};
+
+export type DriveMarketplaceInstallInputBodyWritable = {
+    appSlug: string;
+};
+
+export type DriveMarketplaceScopeOutputBodyWritable = {
+    allowed: boolean;
+};
+
 export type DriveMobileOfflineReplayInputBodyWritable = {
     operations: Array<DriveMobileOfflineOperationBody> | null;
 };
@@ -1760,6 +2283,35 @@ export type DriveMobileOfflineReplayOutputBodyWritable = {
     applied: number;
     conflicted: number;
     denied: number;
+};
+
+export type DriveOfficeSessionBodyWritable = {
+    accessLevel: string;
+    createdAt: string;
+    expiresAt: string;
+    filePublicId: string;
+    launchUrl: string;
+    provider: string;
+    providerSessionId: string;
+    publicId: string;
+};
+
+export type DriveOfficeSessionCreateInputBodyWritable = {
+    accessLevel?: 'view' | 'edit';
+};
+
+export type DriveOfficeWebhookInputBodyWritable = {
+    checksum?: string;
+    providerEventId: string;
+    providerFileId: string;
+    revision: string;
+};
+
+export type DriveOfficeWebhookOutputBodyWritable = {
+    providerEventId: string;
+    providerFileId: string;
+    result: string;
+    revision: string;
 };
 
 export type DrivePermissionsBodyWritable = {
@@ -2233,6 +2785,33 @@ export type WebhookListOutputBodyWritable = {
     items: Array<WebhookEndpointBodyWritable> | null;
 };
 
+export type AcceptDriveOfficeWebhookData = {
+    body: DriveOfficeWebhookInputBodyWritable;
+    path: {
+        provider: string;
+    };
+    query?: never;
+    url: '/api/office/webhooks/{provider}';
+};
+
+export type AcceptDriveOfficeWebhookErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type AcceptDriveOfficeWebhookError = AcceptDriveOfficeWebhookErrors[keyof AcceptDriveOfficeWebhookErrors];
+
+export type AcceptDriveOfficeWebhookResponses = {
+    /**
+     * OK
+     */
+    200: DriveOfficeWebhookOutputBody;
+};
+
+export type AcceptDriveOfficeWebhookResponse = AcceptDriveOfficeWebhookResponses[keyof AcceptDriveOfficeWebhookResponses];
+
 export type GetPublicDriveShareLinkData = {
     body?: never;
     path: {
@@ -2612,6 +3191,97 @@ export type EndTenantAdminDriveContentAccessSessionResponses = {
 
 export type EndTenantAdminDriveContentAccessSessionResponse = EndTenantAdminDriveContentAccessSessionResponses[keyof EndTenantAdminDriveContentAccessSessionResponses];
 
+export type CreateDriveEDiscoveryConnectionData = {
+    body: DriveEDiscoveryConnectionInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/connections';
+};
+
+export type CreateDriveEDiscoveryConnectionErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveEDiscoveryConnectionError = CreateDriveEDiscoveryConnectionErrors[keyof CreateDriveEDiscoveryConnectionErrors];
+
+export type CreateDriveEDiscoveryConnectionResponses = {
+    /**
+     * OK
+     */
+    200: DriveEDiscoveryConnectionBody;
+};
+
+export type CreateDriveEDiscoveryConnectionResponse = CreateDriveEDiscoveryConnectionResponses[keyof CreateDriveEDiscoveryConnectionResponses];
+
+export type RequestDriveEDiscoveryExportData = {
+    body: DriveEDiscoveryExportInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/exports';
+};
+
+export type RequestDriveEDiscoveryExportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RequestDriveEDiscoveryExportError = RequestDriveEDiscoveryExportErrors[keyof RequestDriveEDiscoveryExportErrors];
+
+export type RequestDriveEDiscoveryExportResponses = {
+    /**
+     * OK
+     */
+    200: DriveEDiscoveryExportBody;
+};
+
+export type RequestDriveEDiscoveryExportResponse = RequestDriveEDiscoveryExportResponses[keyof RequestDriveEDiscoveryExportResponses];
+
+export type ApproveDriveEDiscoveryExportData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        exportPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/exports/{exportPublicId}/approve';
+};
+
+export type ApproveDriveEDiscoveryExportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ApproveDriveEDiscoveryExportError = ApproveDriveEDiscoveryExportErrors[keyof ApproveDriveEDiscoveryExportErrors];
+
+export type ApproveDriveEDiscoveryExportResponses = {
+    /**
+     * OK
+     */
+    200: DriveEDiscoveryExportBody;
+};
+
+export type ApproveDriveEDiscoveryExportResponse = ApproveDriveEDiscoveryExportResponses[keyof ApproveDriveEDiscoveryExportResponses];
+
 export type GetTenantAdminDriveFileMetadataData = {
     body?: never;
     path: {
@@ -2639,6 +3309,189 @@ export type GetTenantAdminDriveFileMetadataResponses = {
 };
 
 export type GetTenantAdminDriveFileMetadataResponse = GetTenantAdminDriveFileMetadataResponses[keyof GetTenantAdminDriveFileMetadataResponses];
+
+export type RegisterDriveGatewayData = {
+    body: DriveGatewayInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/gateways';
+};
+
+export type RegisterDriveGatewayErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RegisterDriveGatewayError = RegisterDriveGatewayErrors[keyof RegisterDriveGatewayErrors];
+
+export type RegisterDriveGatewayResponses = {
+    /**
+     * OK
+     */
+    200: DriveGatewayBody;
+};
+
+export type RegisterDriveGatewayResponse = RegisterDriveGatewayResponses[keyof RegisterDriveGatewayResponses];
+
+export type UpdateDriveGatewayStatusData = {
+    body: DriveGatewayStatusInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        gatewayPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/gateways/{gatewayPublicId}';
+};
+
+export type UpdateDriveGatewayStatusErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateDriveGatewayStatusError = UpdateDriveGatewayStatusErrors[keyof UpdateDriveGatewayStatusErrors];
+
+export type UpdateDriveGatewayStatusResponses = {
+    /**
+     * OK
+     */
+    200: DriveGatewayBody;
+};
+
+export type UpdateDriveGatewayStatusResponse = UpdateDriveGatewayStatusResponses[keyof UpdateDriveGatewayStatusResponses];
+
+export type BindDriveGatewayFileData = {
+    body: DriveGatewayBindInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        gatewayPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/gateways/{gatewayPublicId}/objects';
+};
+
+export type BindDriveGatewayFileErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type BindDriveGatewayFileError = BindDriveGatewayFileErrors[keyof BindDriveGatewayFileErrors];
+
+export type BindDriveGatewayFileResponses = {
+    /**
+     * OK
+     */
+    200: DriveGatewayObjectBody;
+};
+
+export type BindDriveGatewayFileResponse = BindDriveGatewayFileResponses[keyof BindDriveGatewayFileResponses];
+
+export type BindDriveHsmKeyData = {
+    body: DriveHsmBindInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/hsm/bindings';
+};
+
+export type BindDriveHsmKeyErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type BindDriveHsmKeyError = BindDriveHsmKeyErrors[keyof BindDriveHsmKeyErrors];
+
+export type BindDriveHsmKeyResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type BindDriveHsmKeyResponse = BindDriveHsmKeyResponses[keyof BindDriveHsmKeyResponses];
+
+export type CreateDriveHsmDeploymentData = {
+    body: DriveHsmDeploymentInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/hsm/deployments';
+};
+
+export type CreateDriveHsmDeploymentErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveHsmDeploymentError = CreateDriveHsmDeploymentErrors[keyof CreateDriveHsmDeploymentErrors];
+
+export type CreateDriveHsmDeploymentResponses = {
+    /**
+     * OK
+     */
+    200: DriveHsmDeploymentBody;
+};
+
+export type CreateDriveHsmDeploymentResponse = CreateDriveHsmDeploymentResponses[keyof CreateDriveHsmDeploymentResponses];
+
+export type UpdateDriveHsmKeyStatusData = {
+    body: DriveHsmKeyStatusInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        keyPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/hsm/keys/{keyPublicId}';
+};
+
+export type UpdateDriveHsmKeyStatusErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateDriveHsmKeyStatusError = UpdateDriveHsmKeyStatusErrors[keyof UpdateDriveHsmKeyStatusErrors];
+
+export type UpdateDriveHsmKeyStatusResponses = {
+    /**
+     * OK
+     */
+    200: DriveHsmDeploymentBody;
+};
+
+export type UpdateDriveHsmKeyStatusResponse = UpdateDriveHsmKeyStatusResponses[keyof UpdateDriveHsmKeyStatusResponses];
 
 export type ListTenantAdminDriveInvitationsData = {
     body?: never;
@@ -2760,6 +3613,129 @@ export type AddDriveLegalCaseFileResponses = {
 };
 
 export type AddDriveLegalCaseFileResponse = AddDriveLegalCaseFileResponses[keyof AddDriveLegalCaseFileResponses];
+
+export type InstallDriveMarketplaceAppData = {
+    body: DriveMarketplaceInstallInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations';
+};
+
+export type InstallDriveMarketplaceAppErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type InstallDriveMarketplaceAppError = InstallDriveMarketplaceAppErrors[keyof InstallDriveMarketplaceAppErrors];
+
+export type InstallDriveMarketplaceAppResponses = {
+    /**
+     * OK
+     */
+    200: DriveMarketplaceInstallBody;
+};
+
+export type InstallDriveMarketplaceAppResponse = InstallDriveMarketplaceAppResponses[keyof InstallDriveMarketplaceAppResponses];
+
+export type UninstallDriveMarketplaceInstallationData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        installationPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}';
+};
+
+export type UninstallDriveMarketplaceInstallationErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UninstallDriveMarketplaceInstallationError = UninstallDriveMarketplaceInstallationErrors[keyof UninstallDriveMarketplaceInstallationErrors];
+
+export type UninstallDriveMarketplaceInstallationResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UninstallDriveMarketplaceInstallationResponse = UninstallDriveMarketplaceInstallationResponses[keyof UninstallDriveMarketplaceInstallationResponses];
+
+export type ApproveDriveMarketplaceInstallationData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        installationPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}/approve';
+};
+
+export type ApproveDriveMarketplaceInstallationErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ApproveDriveMarketplaceInstallationError = ApproveDriveMarketplaceInstallationErrors[keyof ApproveDriveMarketplaceInstallationErrors];
+
+export type ApproveDriveMarketplaceInstallationResponses = {
+    /**
+     * OK
+     */
+    200: DriveMarketplaceInstallBody;
+};
+
+export type ApproveDriveMarketplaceInstallationResponse = ApproveDriveMarketplaceInstallationResponses[keyof ApproveDriveMarketplaceInstallationResponses];
+
+export type CheckDriveMarketplaceScopeData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+        installationPublicId: string;
+    };
+    query?: {
+        scope?: string;
+        filePublicId?: string;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}/scope-check';
+};
+
+export type CheckDriveMarketplaceScopeErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CheckDriveMarketplaceScopeError = CheckDriveMarketplaceScopeErrors[keyof CheckDriveMarketplaceScopeErrors];
+
+export type CheckDriveMarketplaceScopeResponses = {
+    /**
+     * OK
+     */
+    200: DriveMarketplaceScopeOutputBody;
+};
+
+export type CheckDriveMarketplaceScopeResponse = CheckDriveMarketplaceScopeResponses[keyof CheckDriveMarketplaceScopeResponses];
 
 export type GetTenantAdminDriveOpenFgaDriftData = {
     body?: never;
@@ -4423,6 +5399,34 @@ export type RevokeDriveSyncDeviceResponses = {
 
 export type RevokeDriveSyncDeviceResponse = RevokeDriveSyncDeviceResponses[keyof RevokeDriveSyncDeviceResponses];
 
+export type CreateDriveE2EeUserKeyData = {
+    body: DriveE2EeUserKeyCreateInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/drive/e2ee/user-keys';
+};
+
+export type CreateDriveE2EeUserKeyErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveE2EeUserKeyError = CreateDriveE2EeUserKeyErrors[keyof CreateDriveE2EeUserKeyErrors];
+
+export type CreateDriveE2EeUserKeyResponses = {
+    /**
+     * OK
+     */
+    200: DriveE2EeUserKeyBody;
+};
+
+export type CreateDriveE2EeUserKeyResponse = CreateDriveE2EeUserKeyResponses[keyof CreateDriveE2EeUserKeyResponses];
+
 export type DeleteDriveFileData = {
     body?: never;
     headers: {
@@ -4509,6 +5513,208 @@ export type UpdateDriveFileResponses = {
 };
 
 export type UpdateDriveFileResponse = UpdateDriveFileResponses[keyof UpdateDriveFileResponses];
+
+export type ListDriveAiClassificationsData = {
+    body?: never;
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/ai/classifications';
+};
+
+export type ListDriveAiClassificationsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveAiClassificationsError = ListDriveAiClassificationsErrors[keyof ListDriveAiClassificationsErrors];
+
+export type ListDriveAiClassificationsResponses = {
+    /**
+     * OK
+     */
+    200: DriveAiClassificationsOutputBody;
+};
+
+export type ListDriveAiClassificationsResponse = ListDriveAiClassificationsResponses[keyof ListDriveAiClassificationsResponses];
+
+export type CreateDriveAiJobData = {
+    body: DriveAiJobCreateInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/ai/jobs';
+};
+
+export type CreateDriveAiJobErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveAiJobError = CreateDriveAiJobErrors[keyof CreateDriveAiJobErrors];
+
+export type CreateDriveAiJobResponses = {
+    /**
+     * OK
+     */
+    200: DriveAiJobBody;
+};
+
+export type CreateDriveAiJobResponse = CreateDriveAiJobResponses[keyof CreateDriveAiJobResponses];
+
+export type GetDriveAiSummaryData = {
+    body?: never;
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/ai/summary';
+};
+
+export type GetDriveAiSummaryErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDriveAiSummaryError = GetDriveAiSummaryErrors[keyof GetDriveAiSummaryErrors];
+
+export type GetDriveAiSummaryResponses = {
+    /**
+     * OK
+     */
+    200: DriveAiSummaryBody;
+};
+
+export type GetDriveAiSummaryResponse = GetDriveAiSummaryResponses[keyof GetDriveAiSummaryResponses];
+
+export type GetDriveE2EeEnvelopeData = {
+    body?: never;
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/e2ee/envelope';
+};
+
+export type GetDriveE2EeEnvelopeErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDriveE2EeEnvelopeError = GetDriveE2EeEnvelopeErrors[keyof GetDriveE2EeEnvelopeErrors];
+
+export type GetDriveE2EeEnvelopeResponses = {
+    /**
+     * OK
+     */
+    200: DriveE2EeEnvelopeBody;
+};
+
+export type GetDriveE2EeEnvelopeResponse = GetDriveE2EeEnvelopeResponses[keyof GetDriveE2EeEnvelopeResponses];
+
+export type CreateDriveE2EeEnvelopeData = {
+    body: DriveE2EeEnvelopeCreateInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/e2ee/envelopes';
+};
+
+export type CreateDriveE2EeEnvelopeErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveE2EeEnvelopeError = CreateDriveE2EeEnvelopeErrors[keyof CreateDriveE2EeEnvelopeErrors];
+
+export type CreateDriveE2EeEnvelopeResponses = {
+    /**
+     * OK
+     */
+    200: DriveE2EeEnvelopeBody;
+};
+
+export type CreateDriveE2EeEnvelopeResponse = CreateDriveE2EeEnvelopeResponses[keyof CreateDriveE2EeEnvelopeResponses];
+
+export type RevokeDriveE2EeEnvelopeData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+        recipientUserPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/e2ee/envelopes/{recipientUserPublicId}';
+};
+
+export type RevokeDriveE2EeEnvelopeErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RevokeDriveE2EeEnvelopeError = RevokeDriveE2EeEnvelopeErrors[keyof RevokeDriveE2EeEnvelopeErrors];
+
+export type RevokeDriveE2EeEnvelopeResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RevokeDriveE2EeEnvelopeResponse = RevokeDriveE2EeEnvelopeResponses[keyof RevokeDriveE2EeEnvelopeResponses];
+
+export type CreateDriveE2EeFileKeyData = {
+    body: DriveE2EeFileKeyCreateInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/e2ee/keys';
+};
+
+export type CreateDriveE2EeFileKeyErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveE2EeFileKeyError = CreateDriveE2EeFileKeyErrors[keyof CreateDriveE2EeFileKeyErrors];
+
+export type CreateDriveE2EeFileKeyResponses = {
+    /**
+     * OK
+     */
+    200: DriveE2EeFileKeyBody;
+};
+
+export type CreateDriveE2EeFileKeyResponse = CreateDriveE2EeFileKeyResponses[keyof CreateDriveE2EeFileKeyResponses];
 
 export type StartDriveEditSessionData = {
     body?: never;
@@ -4692,6 +5898,36 @@ export type CreateDriveFileShareInvitationResponses = {
 };
 
 export type CreateDriveFileShareInvitationResponse = CreateDriveFileShareInvitationResponses[keyof CreateDriveFileShareInvitationResponses];
+
+export type CreateDriveOfficeSessionData = {
+    body: DriveOfficeSessionCreateInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/office/sessions';
+};
+
+export type CreateDriveOfficeSessionErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveOfficeSessionError = CreateDriveOfficeSessionErrors[keyof CreateDriveOfficeSessionErrors];
+
+export type CreateDriveOfficeSessionResponses = {
+    /**
+     * OK
+     */
+    200: DriveOfficeSessionBody;
+};
+
+export type CreateDriveOfficeSessionResponse = CreateDriveOfficeSessionResponses[keyof CreateDriveOfficeSessionResponses];
 
 export type GetDriveFilePermissionsData = {
     body?: never;
@@ -5451,6 +6687,61 @@ export type ListDriveItemsResponses = {
 };
 
 export type ListDriveItemsResponse = ListDriveItemsResponses[keyof ListDriveItemsResponses];
+
+export type ListDriveMarketplaceAppsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/drive/marketplace/apps';
+};
+
+export type ListDriveMarketplaceAppsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveMarketplaceAppsError = ListDriveMarketplaceAppsErrors[keyof ListDriveMarketplaceAppsErrors];
+
+export type ListDriveMarketplaceAppsResponses = {
+    /**
+     * OK
+     */
+    200: DriveMarketplaceAppsOutputBody;
+};
+
+export type ListDriveMarketplaceAppsResponse = ListDriveMarketplaceAppsResponses[keyof ListDriveMarketplaceAppsResponses];
+
+export type RevokeDriveOfficeSessionData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        sessionPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/office/sessions/{sessionPublicId}';
+};
+
+export type RevokeDriveOfficeSessionErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RevokeDriveOfficeSessionError = RevokeDriveOfficeSessionErrors[keyof RevokeDriveOfficeSessionErrors];
+
+export type RevokeDriveOfficeSessionResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RevokeDriveOfficeSessionResponse = RevokeDriveOfficeSessionResponses[keyof RevokeDriveOfficeSessionResponses];
 
 export type SearchDriveItemsData = {
     body?: never;

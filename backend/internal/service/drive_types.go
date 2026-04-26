@@ -74,6 +74,7 @@ type DriveFile struct {
 	SHA256Hex          string
 	StorageDriver      string
 	StorageKey         string
+	StorageGatewayID   *int64
 	Status             string
 	ScanStatus         string
 	ScanReason         string
@@ -473,6 +474,7 @@ func driveFileFromDB(row db.FileObject) DriveFile {
 		SHA256Hex:          row.Sha256Hex,
 		StorageDriver:      row.StorageDriver,
 		StorageKey:         row.StorageKey,
+		StorageGatewayID:   optionalPgInt8(row.StorageGatewayID),
 		Status:             row.Status,
 		ScanStatus:         row.ScanStatus,
 		ScanReason:         optionalText(row.ScanReason),

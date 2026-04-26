@@ -63,6 +63,15 @@ const driveDataResidencyEnabled = ref(false)
 const driveLegalDiscoveryEnabled = ref(false)
 const driveCleanRoomEnabled = ref(false)
 const driveCleanRoomRawExportEnabled = ref(false)
+const driveOfficeCoauthoringEnabled = ref(false)
+const driveEDiscoveryProviderExportEnabled = ref(false)
+const driveHsmEnabled = ref(false)
+const driveOnPremGatewayEnabled = ref(false)
+const driveE2eeEnabled = ref(false)
+const driveE2eeZeroKnowledgeRequired = ref(true)
+const driveAiEnabled = ref(false)
+const driveAiTrainingOptOut = ref(true)
+const driveMarketplaceEnabled = ref(false)
 const driveEncryptionMode = ref('service_managed')
 const drivePrimaryRegion = ref('global')
 const driveAllowedRegions = ref('global')
@@ -99,6 +108,9 @@ const drivePolicyRows = computed(() => [
   ['Sync / Mobile', `${driveSyncEnabled.value ? 'Sync on' : 'Sync off'} / ${driveMobileOfflineEnabled.value ? 'Mobile offline on' : 'Mobile offline off'}`],
   ['CMK / Residency', `${driveCmkEnabled.value ? driveEncryptionMode.value : 'CMK off'} / ${driveDataResidencyEnabled.value ? drivePrimaryRegion.value : 'Residency off'}`],
   ['Legal / Clean room', `${driveLegalDiscoveryEnabled.value ? 'Legal on' : 'Legal off'} / ${driveCleanRoomEnabled.value ? 'Clean room on' : 'Clean room off'}`],
+  ['Office / eDiscovery', `${driveOfficeCoauthoringEnabled.value ? 'Office on' : 'Office off'} / ${driveEDiscoveryProviderExportEnabled.value ? 'Provider export on' : 'Provider export off'}`],
+  ['HSM / Gateway', `${driveHsmEnabled.value ? 'HSM on' : 'HSM off'} / ${driveOnPremGatewayEnabled.value ? 'Gateway on' : 'Gateway off'}`],
+  ['E2EE / AI / Apps', `${driveE2eeEnabled.value ? 'E2EE on' : 'E2EE off'} / ${driveAiEnabled.value ? 'AI on' : 'AI off'} / ${driveMarketplaceEnabled.value ? 'Apps on' : 'Apps off'}`],
   ['Max link TTL', `${driveMaxLinkTTLHours.value} hours`],
 ])
 
@@ -236,6 +248,15 @@ function syncCommonForm() {
   driveLegalDiscoveryEnabled.value = Boolean(drive.legalDiscoveryEnabled)
   driveCleanRoomEnabled.value = Boolean(drive.cleanRoomEnabled)
   driveCleanRoomRawExportEnabled.value = Boolean(drive.cleanRoomRawExportEnabled)
+  driveOfficeCoauthoringEnabled.value = Boolean(drive.officeCoauthoringEnabled)
+  driveEDiscoveryProviderExportEnabled.value = Boolean(drive.eDiscoveryProviderExportEnabled)
+  driveHsmEnabled.value = Boolean(drive.hsmEnabled)
+  driveOnPremGatewayEnabled.value = Boolean(drive.onPremGatewayEnabled)
+  driveE2eeEnabled.value = Boolean(drive.e2eeEnabled)
+  driveE2eeZeroKnowledgeRequired.value = drive.e2eeZeroKnowledgeRequired !== false
+  driveAiEnabled.value = Boolean(drive.aiEnabled)
+  driveAiTrainingOptOut.value = drive.aiTrainingOptOut !== false
+  driveMarketplaceEnabled.value = Boolean(drive.marketplaceEnabled)
   driveEncryptionMode.value = typeof drive.encryptionMode === 'string' ? drive.encryptionMode : 'service_managed'
   drivePrimaryRegion.value = typeof drive.primaryRegion === 'string' ? drive.primaryRegion : 'global'
   driveAllowedRegions.value = Array.isArray(drive.allowedRegions) ? drive.allowedRegions.join(', ') : 'global'
@@ -395,6 +416,15 @@ async function saveCommonSettings() {
           legalDiscoveryEnabled: driveLegalDiscoveryEnabled.value,
           cleanRoomEnabled: driveCleanRoomEnabled.value,
           cleanRoomRawExportEnabled: driveCleanRoomRawExportEnabled.value,
+          officeCoauthoringEnabled: driveOfficeCoauthoringEnabled.value,
+          eDiscoveryProviderExportEnabled: driveEDiscoveryProviderExportEnabled.value,
+          hsmEnabled: driveHsmEnabled.value,
+          onPremGatewayEnabled: driveOnPremGatewayEnabled.value,
+          e2eeEnabled: driveE2eeEnabled.value,
+          e2eeZeroKnowledgeRequired: driveE2eeZeroKnowledgeRequired.value,
+          aiEnabled: driveAiEnabled.value,
+          aiTrainingOptOut: driveAiTrainingOptOut.value,
+          marketplaceEnabled: driveMarketplaceEnabled.value,
           encryptionMode: driveEncryptionMode.value,
           primaryRegion: drivePrimaryRegion.value,
           allowedRegions: domainList(driveAllowedRegions.value),
@@ -980,6 +1010,42 @@ async function confirmPendingAction() {
           <label class="checkbox-field">
             <input v-model="driveCleanRoomRawExportEnabled" type="checkbox">
             <span>Clean room raw export enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveOfficeCoauthoringEnabled" type="checkbox">
+            <span>Office co-authoring enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveEDiscoveryProviderExportEnabled" type="checkbox">
+            <span>eDiscovery provider export enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveHsmEnabled" type="checkbox">
+            <span>Dedicated HSM enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveOnPremGatewayEnabled" type="checkbox">
+            <span>On-prem gateway enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveE2eeEnabled" type="checkbox">
+            <span>E2EE zero-knowledge enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveE2eeZeroKnowledgeRequired" type="checkbox">
+            <span>E2EE zero-knowledge required</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveAiEnabled" type="checkbox">
+            <span>AI classification enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveAiTrainingOptOut" type="checkbox">
+            <span>AI provider training opt-out</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveMarketplaceEnabled" type="checkbox">
+            <span>Drive marketplace enabled</span>
           </label>
           <label class="field">
             <span class="field-label">Encryption mode</span>

@@ -655,6 +655,121 @@ components:
       required:
         - name
       type: object
+    DriveAIClassificationBody:
+      additionalProperties: false
+      properties:
+        confidence:
+          format: double
+          type: number
+        createdAt:
+          format: date-time
+          type: string
+        label:
+          type: string
+        provider:
+          type: string
+      required:
+        - label
+        - confidence
+        - provider
+        - createdAt
+      type: object
+    DriveAIClassificationsOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveAIClassificationsOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DriveAIClassificationBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DriveAIJobBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveAIJobBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        filePublicId:
+          type: string
+        jobType:
+          type: string
+        provider:
+          type: string
+        publicId:
+          type: string
+        status:
+          type: string
+      required:
+        - publicId
+        - filePublicId
+        - jobType
+        - provider
+        - status
+        - createdAt
+      type: object
+    DriveAIJobCreateInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveAIJobCreateInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        jobType:
+          enum:
+            - summary
+            - classification
+          type: string
+      required:
+        - jobType
+      type: object
+    DriveAISummaryBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveAISummaryBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        filePublicId:
+          type: string
+        provider:
+          type: string
+        publicId:
+          type: string
+        summaryText:
+          type: string
+      required:
+        - publicId
+        - filePublicId
+        - summaryText
+        - provider
+        - createdAt
+      type: object
     DriveCleanRoomBody:
       additionalProperties: false
       properties:
@@ -851,6 +966,246 @@ components:
         reason:
           type: string
       type: object
+    DriveE2EEEnvelopeBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveE2EEEnvelopeBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        fileKeyPublicId:
+          type: string
+        recipientUserId:
+          type: string
+        wrapAlgorithm:
+          type: string
+        wrappedFileKey:
+          type: string
+      required:
+        - fileKeyPublicId
+        - recipientUserId
+        - wrappedFileKey
+        - wrapAlgorithm
+        - createdAt
+      type: object
+    DriveE2EEEnvelopeCreateInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveE2EEEnvelopeCreateInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        recipientUserPublicId:
+          format: uuid
+          type: string
+        wrapAlgorithm:
+          type: string
+        wrappedFileKey:
+          type: string
+      required:
+        - recipientUserPublicId
+        - wrappedFileKey
+      type: object
+    DriveE2EEFileKeyBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveE2EEFileKeyBody.json
+          format: uri
+          readOnly: true
+          type: string
+        algorithm:
+          type: string
+        ciphertextSha256:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        filePublicId:
+          type: string
+        keyVersion:
+          format: int64
+          type: integer
+        publicId:
+          type: string
+      required:
+        - publicId
+        - filePublicId
+        - keyVersion
+        - algorithm
+        - ciphertextSha256
+        - createdAt
+      type: object
+    DriveE2EEFileKeyCreateInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveE2EEFileKeyCreateInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        algorithm:
+          type: string
+        ciphertextSha256:
+          type: string
+        metadata:
+          additionalProperties: {}
+          type: object
+        wrapAlgorithm:
+          type: string
+        wrappedFileKey:
+          type: string
+      required:
+        - wrappedFileKey
+      type: object
+    DriveE2EEUserKeyBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveE2EEUserKeyBody.json
+          format: uri
+          readOnly: true
+          type: string
+        algorithm:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        publicId:
+          type: string
+        status:
+          type: string
+        userPublicId:
+          type: string
+      required:
+        - publicId
+        - userPublicId
+        - algorithm
+        - status
+        - createdAt
+      type: object
+    DriveE2EEUserKeyCreateInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveE2EEUserKeyCreateInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        algorithm:
+          type: string
+        publicKey:
+          additionalProperties: {}
+          type: object
+      type: object
+    DriveEDiscoveryConnectionBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveEDiscoveryConnectionBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        provider:
+          type: string
+        publicId:
+          type: string
+        status:
+          type: string
+      required:
+        - publicId
+        - provider
+        - status
+        - createdAt
+      type: object
+    DriveEDiscoveryConnectionInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveEDiscoveryConnectionInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        provider:
+          type: string
+      type: object
+    DriveEDiscoveryExportBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveEDiscoveryExportBody.json
+          format: uri
+          readOnly: true
+          type: string
+        casePublicId:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        itemCount:
+          format: int64
+          type: integer
+        manifestHash:
+          type: string
+        providerExportId:
+          type: string
+        publicId:
+          type: string
+        status:
+          type: string
+      required:
+        - publicId
+        - casePublicId
+        - status
+        - itemCount
+        - createdAt
+      type: object
+    DriveEDiscoveryExportInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveEDiscoveryExportInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        casePublicId:
+          format: uuid
+          type: string
+        connectionPublicId:
+          format: uuid
+          type: string
+      required:
+        - connectionPublicId
+        - casePublicId
+      type: object
     DriveEditSaveBody:
       additionalProperties: false
       properties:
@@ -1033,6 +1388,116 @@ components:
         - createdAt
         - updatedAt
       type: object
+    DriveGatewayBindInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveGatewayBindInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        filePublicId:
+          format: uuid
+          type: string
+      required:
+        - filePublicId
+      type: object
+    DriveGatewayBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveGatewayBody.json
+          format: uri
+          readOnly: true
+          type: string
+        certificateFingerprint:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        endpointUrl:
+          type: string
+        lastSeenAt:
+          format: date-time
+          type: string
+        name:
+          type: string
+        publicId:
+          type: string
+        status:
+          type: string
+      required:
+        - publicId
+        - name
+        - status
+        - endpointUrl
+        - certificateFingerprint
+        - createdAt
+      type: object
+    DriveGatewayInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveGatewayInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        certificateFingerprint:
+          type: string
+        endpointUrl:
+          type: string
+        name:
+          type: string
+      type: object
+    DriveGatewayObjectBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveGatewayObjectBody.json
+          format: uri
+          readOnly: true
+          type: string
+        filePublicId:
+          type: string
+        gatewayPublicId:
+          type: string
+        manifestHash:
+          type: string
+        status:
+          type: string
+      required:
+        - gatewayPublicId
+        - filePublicId
+        - manifestHash
+        - status
+      type: object
+    DriveGatewayStatusInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveGatewayStatusInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        status:
+          enum:
+            - active
+            - disabled
+            - disconnected
+          type: string
+      required:
+        - status
+      type: object
     DriveGroupBody:
       additionalProperties: false
       properties:
@@ -1086,6 +1551,100 @@ components:
             - "null"
       required:
         - items
+      type: object
+    DriveHSMBindInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveHSMBindInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        filePublicId:
+          format: uuid
+          type: string
+        keyPublicId:
+          format: uuid
+          type: string
+      required:
+        - filePublicId
+        - keyPublicId
+      type: object
+    DriveHSMDeploymentBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveHSMDeploymentBody.json
+          format: uri
+          readOnly: true
+          type: string
+        attestationHash:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        endpointUrl:
+          type: string
+        healthStatus:
+          type: string
+        keyPublicId:
+          type: string
+        keyStatus:
+          type: string
+        provider:
+          type: string
+        publicId:
+          type: string
+        status:
+          type: string
+      required:
+        - publicId
+        - provider
+        - endpointUrl
+        - status
+        - healthStatus
+        - keyPublicId
+        - keyStatus
+        - createdAt
+      type: object
+    DriveHSMDeploymentInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveHSMDeploymentInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        endpointUrl:
+          type: string
+        provider:
+          type: string
+      type: object
+    DriveHSMKeyStatusInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveHSMKeyStatusInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        status:
+          enum:
+            - active
+            - disabled
+            - destroyed
+            - unavailable
+          type: string
+      required:
+        - status
       type: object
     DriveIndexRebuildBody:
       additionalProperties: false
@@ -1250,6 +1809,117 @@ components:
         - status
         - createdAt
       type: object
+    DriveMarketplaceAppBody:
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        publicId:
+          type: string
+        publisherName:
+          type: string
+        scopes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        slug:
+          type: string
+        version:
+          type: string
+      required:
+        - publicId
+        - slug
+        - name
+        - publisherName
+        - version
+        - scopes
+      type: object
+    DriveMarketplaceAppsOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveMarketplaceAppsOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DriveMarketplaceAppBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DriveMarketplaceInstallBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveMarketplaceInstallBody.json
+          format: uri
+          readOnly: true
+          type: string
+        appName:
+          type: string
+        appSlug:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        publicId:
+          type: string
+        scopes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        status:
+          type: string
+      required:
+        - publicId
+        - appSlug
+        - appName
+        - status
+        - scopes
+        - createdAt
+      type: object
+    DriveMarketplaceInstallInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveMarketplaceInstallInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        appSlug:
+          type: string
+      required:
+        - appSlug
+      type: object
+    DriveMarketplaceScopeOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveMarketplaceScopeOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        allowed:
+          type: boolean
+      required:
+        - allowed
+      type: object
     DriveMobileOfflineOperationBody:
       additionalProperties: false
       properties:
@@ -1315,6 +1985,107 @@ components:
         - applied
         - denied
         - conflicted
+      type: object
+    DriveOfficeSessionBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveOfficeSessionBody.json
+          format: uri
+          readOnly: true
+          type: string
+        accessLevel:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        filePublicId:
+          type: string
+        launchUrl:
+          type: string
+        provider:
+          type: string
+        providerSessionId:
+          type: string
+        publicId:
+          type: string
+      required:
+        - publicId
+        - filePublicId
+        - provider
+        - providerSessionId
+        - accessLevel
+        - launchUrl
+        - expiresAt
+        - createdAt
+      type: object
+    DriveOfficeSessionCreateInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveOfficeSessionCreateInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        accessLevel:
+          enum:
+            - view
+            - edit
+          type: string
+      type: object
+    DriveOfficeWebhookInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveOfficeWebhookInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        checksum:
+          type: string
+        providerEventId:
+          type: string
+        providerFileId:
+          type: string
+        revision:
+          type: string
+      required:
+        - providerEventId
+        - providerFileId
+        - revision
+      type: object
+    DriveOfficeWebhookOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveOfficeWebhookOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        providerEventId:
+          type: string
+        providerFileId:
+          type: string
+        result:
+          type: string
+        revision:
+          type: string
+      required:
+        - providerEventId
+        - providerFileId
+        - revision
+        - result
       type: object
     DrivePermissionBody:
       additionalProperties: false
@@ -4133,6 +4904,37 @@ paths:
       summary: 現在の M2M machine client を返す
       tags:
         - m2m
+  /api/office/webhooks/{provider}:
+    post:
+      operationId: acceptDriveOfficeWebhook
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveOfficeWebhookInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveOfficeWebhookOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Drive Office provider webhook を受け取る
+      tags:
+        - drive-office
   /api/public/drive/share-links/{token}:
     get:
       operationId: getPublicDriveShareLink
@@ -4824,6 +5626,138 @@ paths:
       summary: Drive admin content break-glass session を終了する
       tags:
         - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/connections:
+    post:
+      operationId: createDriveEDiscoveryConnection
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveEDiscoveryConnectionInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveEDiscoveryConnectionBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive eDiscovery provider connection を作成する
+      tags:
+        - drive-ediscovery
+  /api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/exports:
+    post:
+      operationId: requestDriveEDiscoveryExport
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveEDiscoveryExportInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveEDiscoveryExportBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive eDiscovery export を request する
+      tags:
+        - drive-ediscovery
+  /api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/exports/{exportPublicId}/approve:
+    post:
+      operationId: approveDriveEDiscoveryExport
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: exportPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveEDiscoveryExportBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive eDiscovery export を approve する
+      tags:
+        - drive-ediscovery
   /api/v1/admin/tenants/{tenantSlug}/drive/files/{filePublicId}/metadata:
     get:
       operationId: getTenantAdminDriveFileMetadata
@@ -4863,6 +5797,284 @@ paths:
       summary: break-glass session 中に Drive file metadata を返す
       tags:
         - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/gateways:
+    post:
+      operationId: registerDriveGateway
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveGatewayInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveGatewayBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive on-prem gateway を登録する
+      tags:
+        - drive-gateway
+  /api/v1/admin/tenants/{tenantSlug}/drive/gateways/{gatewayPublicId}:
+    patch:
+      operationId: updateDriveGatewayStatus
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: gatewayPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveGatewayStatusInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveGatewayBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive gateway status を更新する
+      tags:
+        - drive-gateway
+  /api/v1/admin/tenants/{tenantSlug}/drive/gateways/{gatewayPublicId}/objects:
+    post:
+      operationId: bindDriveGatewayFile
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: gatewayPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveGatewayBindInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveGatewayObjectBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file を gateway object として bind する
+      tags:
+        - drive-gateway
+  /api/v1/admin/tenants/{tenantSlug}/drive/hsm/bindings:
+    post:
+      operationId: bindDriveHSMKey
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveHSMBindInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive HSM key を file に bind する
+      tags:
+        - drive-hsm
+  /api/v1/admin/tenants/{tenantSlug}/drive/hsm/deployments:
+    post:
+      operationId: createDriveHSMDeployment
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveHSMDeploymentInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveHSMDeploymentBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive HSM deployment を作成する
+      tags:
+        - drive-hsm
+  /api/v1/admin/tenants/{tenantSlug}/drive/hsm/keys/{keyPublicId}:
+    patch:
+      operationId: updateDriveHSMKeyStatus
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: keyPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveHSMKeyStatusInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveHSMDeploymentBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive HSM key status を更新する
+      tags:
+        - drive-hsm
   /api/v1/admin/tenants/{tenantSlug}/drive/invitations:
     get:
       operationId: listTenantAdminDriveInvitations
@@ -5037,6 +6249,184 @@ paths:
       summary: Drive legal case に file hold を追加する
       tags:
         - drive-legal
+  /api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations:
+    post:
+      operationId: installDriveMarketplaceApp
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveMarketplaceInstallInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveMarketplaceInstallBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive marketplace app install を request する
+      tags:
+        - drive-marketplace
+  /api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}:
+    delete:
+      operationId: uninstallDriveMarketplaceInstallation
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: installationPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive marketplace app install を uninstall する
+      tags:
+        - drive-marketplace
+  /api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}/approve:
+    post:
+      operationId: approveDriveMarketplaceInstallation
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: installationPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveMarketplaceInstallBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive marketplace app install を approve する
+      tags:
+        - drive-marketplace
+  /api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}/scope-check:
+    get:
+      operationId: checkDriveMarketplaceScope
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: installationPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - explode: false
+          in: query
+          name: scope
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: filePublicId
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveMarketplaceScopeOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive marketplace scope と OpenFGA permission を確認する
+      tags:
+        - drive-marketplace
   /api/v1/admin/tenants/{tenantSlug}/drive/openfga-sync/drift:
     get:
       operationId: getTenantAdminDriveOpenFGADrift
@@ -7255,6 +8645,43 @@ paths:
       summary: Drive sync device を revoke する
       tags:
         - drive-sync
+  /api/v1/drive/e2ee/user-keys:
+    post:
+      operationId: createDriveE2EEUserKey
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveE2EEUserKeyCreateInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveE2EEUserKeyBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive E2EE public key を登録する
+      tags:
+        - drive-e2ee
   /api/v1/drive/files/{filePublicId}:
     delete:
       operationId: deleteDriveFile
@@ -7358,6 +8785,270 @@ paths:
       summary: Drive file metadata を更新する
       tags:
         - drive
+  /api/v1/drive/files/{filePublicId}/ai/classifications:
+    get:
+      operationId: listDriveAIClassifications
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveAIClassificationsOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive AI classifications を返す
+      tags:
+        - drive-ai
+  /api/v1/drive/files/{filePublicId}/ai/jobs:
+    post:
+      operationId: createDriveAIJob
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveAIJobCreateInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveAIJobBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive AI job を作成する
+      tags:
+        - drive-ai
+  /api/v1/drive/files/{filePublicId}/ai/summary:
+    get:
+      operationId: getDriveAISummary
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveAISummaryBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive AI summary を返す
+      tags:
+        - drive-ai
+  /api/v1/drive/files/{filePublicId}/e2ee/envelope:
+    get:
+      operationId: getDriveE2EEEnvelope
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveE2EEEnvelopeBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive E2EE actor envelope を返す
+      tags:
+        - drive-e2ee
+  /api/v1/drive/files/{filePublicId}/e2ee/envelopes:
+    post:
+      operationId: createDriveE2EEEnvelope
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveE2EEEnvelopeCreateInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveE2EEEnvelopeBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive E2EE recipient envelope を作成する
+      tags:
+        - drive-e2ee
+  /api/v1/drive/files/{filePublicId}/e2ee/envelopes/{recipientUserPublicId}:
+    delete:
+      operationId: revokeDriveE2EEEnvelope
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: recipientUserPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive E2EE recipient envelope を revoke する
+      tags:
+        - drive-e2ee
+  /api/v1/drive/files/{filePublicId}/e2ee/keys:
+    post:
+      operationId: createDriveE2EEFileKey
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveE2EEFileKeyCreateInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveE2EEFileKeyBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive E2EE file key metadata を作成する
+      tags:
+        - drive-e2ee
   /api/v1/drive/files/{filePublicId}/edit-sessions:
     post:
       operationId: startDriveEditSession
@@ -7606,6 +9297,49 @@ paths:
       summary: Drive file external share invitation を作成する
       tags:
         - drive
+  /api/v1/drive/files/{filePublicId}/office/sessions:
+    post:
+      operationId: createDriveOfficeSession
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveOfficeSessionCreateInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveOfficeSessionBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive Office edit session を作成する
+      tags:
+        - drive-office
   /api/v1/drive/files/{filePublicId}/permissions:
     get:
       operationId: getDriveFilePermissions
@@ -8570,6 +10304,65 @@ paths:
       summary: Drive item 一覧を返す
       tags:
         - drive
+  /api/v1/drive/marketplace/apps:
+    get:
+      operationId: listDriveMarketplaceApps
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveMarketplaceAppsOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive marketplace catalog を返す
+      tags:
+        - drive-marketplace
+  /api/v1/drive/office/sessions/{sessionPublicId}:
+    delete:
+      operationId: revokeDriveOfficeSession
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: sessionPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive Office edit session を revoke する
+      tags:
+        - drive-office
   /api/v1/drive/search:
     get:
       operationId: searchDriveItems

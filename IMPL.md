@@ -38,7 +38,7 @@
 
 現在の実装は、`CONCEPT.md` の基本方針である **OpenAPI 3.1 優先 + Monorepo + Go/Huma + Vue + PostgreSQL/sqlc + BFF Cookie 認証** を広い範囲で反映している。
 
-`TUTORIAL.md` の foundation、`TUTORIAL_ZITADEL.md` の Phase 1-6、`TUTORIAL_SINGLE_BINARY.md`、P0-P12、OpenFGA Drive Phase 1-8 の各チュートリアルまで実装済み。HaoHao は、local password login / Zitadel browser login / Cookie session / CSRF / tenant-aware auth / delegated auth / SCIM / M2M / single binary / operability / observability / audit / tenant admin / TODO / Customer Signals / common services / OpenAPI split / Playwright E2E / cross-cutting extensions / tenant rate limit runtime / file lifecycle purge / OpenFGA resource authorization 付き Drive まで持つ状態になっている。
+`TUTORIAL.md` の foundation、`TUTORIAL_ZITADEL.md` の Phase 1-6、`TUTORIAL_SINGLE_BINARY.md`、P0-P12、OpenFGA Drive Phase 1-9 の各チュートリアルまで実装済み。HaoHao は、local password login / Zitadel browser login / Cookie session / CSRF / tenant-aware auth / delegated auth / SCIM / M2M / single binary / operability / observability / audit / tenant admin / TODO / Customer Signals / common services / OpenAPI split / Playwright E2E / cross-cutting extensions / tenant rate limit runtime / file lifecycle purge / OpenFGA resource authorization 付き Drive まで持つ状態になっている。
 
 | Phase | 状態 | 主な実装 |
 | --- | --- | --- |
@@ -58,9 +58,9 @@
 | P10: Cross-cutting Extensions | 実装済み | webhooks、CSV import/export、saved filters、support access、entitlements |
 | P11: Rate Limit Runtime | 実装済み | tenant settings の browser API rate limit override を runtime 反映 |
 | P12: File Physical Purge | 実装済み | local file body purge、retry/lock、audit/metrics、smoke |
-| OpenFGA Drive | 実装済み | OpenFGA Docker/model/bootstrap、Drive DB/sqlc、resource auth service、Drive API、audit/metrics、Vue Drive UI、Phase 8 product/compliance API、OpenFGA enabled E2E |
+| OpenFGA Drive | 実装済み | OpenFGA Docker/model/bootstrap、Drive DB/sqlc、resource auth service、Drive API、audit/metrics、Vue Drive UI、Phase 8/9 product/compliance/provider API、OpenFGA enabled E2E |
 
-現時点で残る大きな領域は、SMTP/provider email sender、DB query tracing、Grafana dashboard、webhook 外部配送 E2E、support access E2E 強化、S3/GCS object storage provider、virus scan provider、実 billing、realtime provider、production HA/DR drill、M2M/external bearer 用の業務 API、Office/eDiscovery/HSM/on-prem/zero-knowledge/AI/marketplace 連携である。
+現時点で残る大きな領域は、SMTP/provider email sender、DB query tracing、Grafana dashboard、webhook 外部配送 E2E、support access E2E 強化、S3/GCS object storage provider、virus scan provider、実 billing、realtime provider、production HA/DR drill、M2M/external bearer 用の業務 API、Office/eDiscovery/HSM/on-prem/zero-knowledge/AI/marketplace の実 provider 連携である。
 
 ## 方針との対応
 
@@ -983,6 +983,50 @@ RUN_DRIVE_SEARCH_SMOKE=1 RUN_DRIVE_COLLAB_SMOKE=1 RUN_DRIVE_DESKTOP_SYNC_SMOKE=1
 - sync bearer endpoint は browser cookie API と別 route にしたが、local MVP の OpenAPI artifact では実装生成を優先し、専用 sync spec 分離は次の外部 client 固定時に残す。
 - E2E は Phase 8 では追加せず、env-gated smoke と frontend build で確認した。外部 provider 実装時に provider fake と実 provider drill を分けて追加する。
 
+## OpenFGA Drive Phase 9
+
+2026-04-26 に `TUTORIAL_OPENFGA_P9_DRIVE_PRODUCT_COMPLETION.md` を実装。
+
+採用判断:
+
+- Phase 9 の外部 provider は local fake / DB-backed MVP で閉じた。Office、eDiscovery、HSM、on-prem gateway、E2EE、AI、marketplace は provider state と API guard を先に固定し、実 provider drill は別扱いにする。
+- OpenFGA は引き続き resource permission のみ担当する。provider session、gateway manifest、AI result、marketplace scope は permission source にしない。
+- zero-knowledge E2EE file は server-side Office / AI / eDiscovery plaintext export を拒否する。
+
+追加済み:
+
+- `0019_openfga_drive_phase9` migration。Office provider file/session/webhook、eDiscovery provider export、HSM deployment/key/binding、gateway/object/transfer、E2EE user/file key/envelope、AI job/classification/summary、marketplace app/version/install/scope/webhook delivery table を追加。
+- Drive policy に Office/eDiscovery provider/HSM/on-prem gateway/E2EE/AI/marketplace flags を追加し、tenant admin UI から保存できるようにした。
+- Office co-authoring fake provider。session 発行は DB guard、scan/DLP guard、OpenFGA `can_view` / `can_edit` 後に行い、webhook は dedupe と stale revision reject を行う。
+- eDiscovery provider export。Phase 8 legal case / hold を fake provider export manifest に接続し、request user と approver の分離を enforced。
+- HSM dedicated deployment。key material は保存せず、deployment/key/binding status と download fail-closed guard を実装。
+- on-prem gateway。gateway registration、manifest binding、disabled/disconnected fail-closed guard を実装。gateway は DB / OpenFGA credential を持たない前提。
+- E2EE zero-knowledge metadata。server は public key、file key metadata、recipient envelope だけを保存し、recipient envelope と OpenFGA permission の両方を確認する。
+- AI fake provider。summary/classification は source file の derived content として保存し、read 時にも OpenFGA `can_view` を再確認する。
+- marketplace fake app。reviewed catalog、install request、別 admin approval、scope upper bound、OpenFGA check、uninstall を実装。
+- smokeに `RUN_DRIVE_OFFICE_SMOKE=1`、`RUN_DRIVE_OFFICE_WEBHOOK_SMOKE=1`、`RUN_DRIVE_EDISCOVERY_PROVIDER_SMOKE=1`、`RUN_DRIVE_HSM_SMOKE=1`、`RUN_DRIVE_HSM_FAIL_CLOSED_SMOKE=1`、`RUN_DRIVE_GATEWAY_SMOKE=1`、`RUN_DRIVE_GATEWAY_DISCONNECT_SMOKE=1`、`RUN_DRIVE_E2EE_SMOKE=1`、`RUN_DRIVE_E2EE_REVOKE_SMOKE=1`、`RUN_DRIVE_AI_SMOKE=1`、`RUN_DRIVE_AI_POLICY_SMOKE=1`、`RUN_DRIVE_MARKETPLACE_SMOKE=1`、`RUN_DRIVE_MARKETPLACE_SCOPE_SMOKE=1` を追加。
+
+検証:
+
+```bash
+make db-up
+make db-schema
+make gen
+go test ./backend/...
+npm --prefix frontend run build
+make binary
+cd openfga && fga model test --tests drive.fga.yaml
+RUN_DRIVE_OFFICE_SMOKE=1 RUN_DRIVE_OFFICE_WEBHOOK_SMOKE=1 RUN_DRIVE_EDISCOVERY_PROVIDER_SMOKE=1 RUN_DRIVE_HSM_SMOKE=1 RUN_DRIVE_HSM_FAIL_CLOSED_SMOKE=1 RUN_DRIVE_GATEWAY_SMOKE=1 RUN_DRIVE_GATEWAY_DISCONNECT_SMOKE=1 RUN_DRIVE_AI_SMOKE=1 RUN_DRIVE_AI_POLICY_SMOKE=1 RUN_DRIVE_E2EE_SMOKE=1 RUN_DRIVE_E2EE_REVOKE_SMOKE=1 RUN_DRIVE_MARKETPLACE_SMOKE=1 RUN_DRIVE_MARKETPLACE_SCOPE_SMOKE=1 make smoke-openfga
+```
+
+さらに P6-P9 の全 smoke flag を同時に有効化して確認した。通常 browser rate limit の 120 requests/min を超えるため、この統合 smoke は一時 server を `RATE_LIMIT_ENABLED=false` で起動して実行した。
+
+注意:
+
+- P9 の frontend は tenant admin Drive policy の feature flag 露出まで。provider-specific rich UI と Playwright E2E は実 provider / browser crypto を固定する段階で追加する。
+- E2EE smoke は ciphertext と wrapped key を opaque payload として扱う。server-side WebCrypto は実装していない。
+- on-prem gateway binary は未実装。backend 側の protocol state、manifest、fail-closed guard を先に固定している。
+
 ## 残課題 / 次アクション
 
 現在の明確な次アクション:
@@ -992,11 +1036,10 @@ RUN_DRIVE_SEARCH_SMOKE=1 RUN_DRIVE_COLLAB_SMOKE=1 RUN_DRIVE_DESKTOP_SYNC_SMOKE=1
 - Grafana dashboard artifact。alert rules は `ops/prometheus/alerts/haohao.rules.yml` にある。
 - webhook delivery の外部実配送 E2E。`RUN_WEBHOOK_SMOKE=1` 用の local receiver を CI へ足す価値がある。
 - support access E2E 強化。banner、actor/impersonated audit、終了 flow を Playwright に追加する。
-- object storage driver。S3 / GCS、signed download、retention/purge policy。
-- file security processing。virus scan、content inspection、async processing。
-- Drive external sharing phase。外部ユーザー直接共有、password link、domain allow/deny、approval flow。
-- Drive admin/audit UI 強化。監査ログ検索、共有状態一覧、pending_sync tuple repair、OpenFGA tuple drift 検出。
-- Drive retention / legal hold / explicit deny。MVP では継承停止と policy deny に寄せている。
+- object storage driver。S3 / GCS、signed download、provider retention/purge policy。
+- file security processing。virus scan provider、content inspection provider、async processing。
+- Drive admin/audit UI 強化。監査ログ検索、共有状態一覧、provider operation queue、OpenFGA tuple drift drill の拡張。
+- Drive provider UX 強化。Office/eDiscovery/HSM/gateway/E2EE/AI/marketplace の rich UI、browser crypto、real provider drill。
 - billing / subscription / invoice。tenant entitlements と pricing plan の接続。
 - realtime notification。SSE/WebSocket は要件が固まってから追加する。
 - multi-region / HA / DR。RPO/RTO、replica、failover、restore drill の拡張。
@@ -1004,6 +1047,6 @@ RUN_DRIVE_SEARCH_SMOKE=1 RUN_DRIVE_COLLAB_SMOKE=1 RUN_DRIVE_DESKTOP_SYNC_SMOKE=1
 
 ## 現在地の要約
 
-HaoHao は、foundation の login/session 縦切りを超えて、Zitadel を中心にした browser login、external bearer API、delegated auth、SCIM provisioning、tenant-aware auth、M2M、single binary 配信、Docker/CI/release、operability、observability、audit、admin UI、tenant 管理、tenant-aware TODO、Customer Signals、Web サービス共通機能、OpenAPI 分割、Playwright E2E、P10 横断拡張、tenant rate limit runtime、file lifecycle physical purge、OpenFGA resource authorization 付き Drive まで到達している。
+HaoHao は、foundation の login/session 縦切りを超えて、Zitadel を中心にした browser login、external bearer API、delegated auth、SCIM provisioning、tenant-aware auth、M2M、single binary 配信、Docker/CI/release、operability、observability、audit、admin UI、tenant 管理、tenant-aware TODO、Customer Signals、Web サービス共通機能、OpenAPI 分割、Playwright E2E、P10 横断拡張、tenant rate limit runtime、file lifecycle physical purge、OpenFGA resource authorization 付き Drive と Phase 9 provider/compliance 境界まで到達している。
 
-現時点では、B2B SaaS や社内向け multi-tenant 業務 CRUD アプリの土台として、認証・認可・tenant・運用・監査・観測・管理・業務 CRUD・共通サービス・横断機能・Drive 型ファイル共有の主要な縦切りが動作確認済みである。次の優先は、具体サービス要件に合わせて email provider、dashboard、外部配送 E2E、object storage、Drive の外部共有/retention、billing、HA/DR を追加することである。
+現時点では、B2B SaaS や社内向け multi-tenant 業務 CRUD アプリの土台として、認証・認可・tenant・運用・監査・観測・管理・業務 CRUD・共通サービス・横断機能・Drive 型ファイル共有の主要な縦切りが動作確認済みである。次の優先は、具体サービス要件に合わせて email provider、dashboard、外部配送 E2E、object storage provider、provider-specific Drive UX、billing、HA/DR を追加することである。

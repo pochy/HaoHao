@@ -427,6 +427,18 @@ func (s *DriveService) ensureFileDownloadAllowed(ctx context.Context, actor Driv
 		})
 		return ErrDrivePolicyDenied
 	}
+	if file.StorageDriver == "onprem_gateway" {
+		gatewayID := int64(0)
+		if file.StorageGatewayID != nil {
+			gatewayID = *file.StorageGatewayID
+		}
+		if err := s.ensureDriveGatewayAvailable(ctx, file.TenantID, gatewayID); err != nil {
+			s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.gateway.download.denied", "drive_file", file.PublicID, map[string]any{
+				"operation": action,
+			})
+			return err
+		}
+	}
 	return nil
 }
 

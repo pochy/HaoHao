@@ -473,6 +473,44 @@ ON CONFLICT DO NOTHING;
 SQL
 fi
 
+if [[ "${RUN_DRIVE_OFFICE_SMOKE:-0}" == "1" || "${RUN_DRIVE_OFFICE_WEBHOOK_SMOKE:-0}" == "1" || "${RUN_DRIVE_EDISCOVERY_PROVIDER_SMOKE:-0}" == "1" || "${RUN_DRIVE_HSM_SMOKE:-0}" == "1" || "${RUN_DRIVE_HSM_FAIL_CLOSED_SMOKE:-0}" == "1" || "${RUN_DRIVE_GATEWAY_SMOKE:-0}" == "1" || "${RUN_DRIVE_GATEWAY_DISCONNECT_SMOKE:-0}" == "1" || "${RUN_DRIVE_E2EE_SMOKE:-0}" == "1" || "${RUN_DRIVE_E2EE_REVOKE_SMOKE:-0}" == "1" || "${RUN_DRIVE_AI_SMOKE:-0}" == "1" || "${RUN_DRIVE_AI_POLICY_SMOKE:-0}" == "1" || "${RUN_DRIVE_MARKETPLACE_SMOKE:-0}" == "1" || "${RUN_DRIVE_MARKETPLACE_SCOPE_SMOKE:-0}" == "1" ]]; then
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO roles (code)
+VALUES
+  ('tenant_admin'),
+  ('drive_office_admin'),
+  ('drive_legal_discovery_admin'),
+  ('drive_hsm_admin'),
+  ('drive_gateway_admin'),
+  ('drive_ai_admin'),
+  ('drive_marketplace_admin'),
+  ('legal_admin'),
+  ('legal_exporter'),
+  ('legal_reviewer'),
+  ('drive_security_admin')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u
+JOIN roles r ON r.code IN (
+  'tenant_admin',
+  'drive_office_admin',
+  'drive_legal_discovery_admin',
+  'drive_hsm_admin',
+  'drive_gateway_admin',
+  'drive_ai_admin',
+  'drive_marketplace_admin',
+  'legal_admin',
+  'legal_exporter',
+  'legal_reviewer',
+  'drive_security_admin'
+)
+WHERE u.email IN ('$OWNER_EMAIL', '$EDITOR_EMAIL')
+ON CONFLICT DO NOTHING;
+SQL
+fi
+
 if [[ "${RUN_DRIVE_SEARCH_SMOKE:-0}" == "1" ]]; then
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
 INSERT INTO tenant_settings (tenant_id, file_quota_bytes, notifications_enabled, features)
@@ -701,6 +739,307 @@ SQL
     -H "X-CSRF-Token: $owner_csrf" \
     -d '{"rawDatasetExport":true}' \
     "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/clean-rooms/$clean_room_id/exports" | rg '"status":"denied"' >/dev/null
+fi
+
+if [[ "${RUN_DRIVE_OFFICE_SMOKE:-0}" == "1" || "${RUN_DRIVE_OFFICE_WEBHOOK_SMOKE:-0}" == "1" ]]; then
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO tenant_settings (tenant_id, file_quota_bytes, notifications_enabled, features)
+SELECT id, 104857600, true, '{"drive":{"linkSharingEnabled":true,"publicLinksEnabled":true,"officeCoauthoringEnabled":true,"maxShareLinkTTLHours":168,"viewerDownloadEnabled":true}}'::jsonb
+FROM tenants
+WHERE slug = '$TENANT_SLUG'
+ON CONFLICT (tenant_id) DO UPDATE
+SET features = EXCLUDED.features,
+    updated_at = now();
+SQL
+  office_file="$(mktemp)"
+  printf 'fake docx payload\n' > "$office_file"
+  office_upload_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -F "parentFolderPublicId=$folder_id" \
+    -F "file=@$office_file;filename=$RUN_ID.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
+    "$BASE_URL/api/v1/drive/files")"
+  rm -f "$office_file"
+  office_file_id="$(printf '%s' "$office_upload_response" | extract_json_string publicId)"
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"subjectType\":\"user\",\"subjectPublicId\":\"$viewer_public_id\",\"role\":\"viewer\"}" \
+    "$BASE_URL/api/v1/drive/files/$office_file_id/shares" >/dev/null
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d '{"accessLevel":"edit"}' \
+    "$BASE_URL/api/v1/drive/files/$office_file_id/office/sessions" | rg '"accessLevel":"edit"' >/dev/null
+  curl -fsS -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $viewer_csrf" \
+    -d '{"accessLevel":"view"}' \
+    "$BASE_URL/api/v1/drive/files/$office_file_id/office/sessions" | rg '"accessLevel":"view"' >/dev/null
+  expect_status 403 -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $viewer_csrf" \
+    -d '{"accessLevel":"edit"}' \
+    "$BASE_URL/api/v1/drive/files/$office_file_id/office/sessions"
+  if [[ "${RUN_DRIVE_OFFICE_WEBHOOK_SMOKE:-0}" == "1" ]]; then
+    office_provider_file_id="fake-office-file-$office_file_id"
+    curl -fsS -H 'Content-Type: application/json' \
+      -d "{\"providerEventId\":\"$RUN_ID-office-1\",\"providerFileId\":\"$office_provider_file_id\",\"revision\":\"2\",\"checksum\":\"abc\"}" \
+      "$BASE_URL/api/office/webhooks/fake" | rg '"result":"accepted"' >/dev/null
+    curl -fsS -H 'Content-Type: application/json' \
+      -d "{\"providerEventId\":\"$RUN_ID-office-1\",\"providerFileId\":\"$office_provider_file_id\",\"revision\":\"2\",\"checksum\":\"abc\"}" \
+      "$BASE_URL/api/office/webhooks/fake" | rg '"result":"duplicate"' >/dev/null
+    curl -fsS -H 'Content-Type: application/json' \
+      -d "{\"providerEventId\":\"$RUN_ID-office-2\",\"providerFileId\":\"$office_provider_file_id\",\"revision\":\"1\",\"checksum\":\"old\"}" \
+      "$BASE_URL/api/office/webhooks/fake" | rg '"result":"stale"' >/dev/null
+  fi
+fi
+
+if [[ "${RUN_DRIVE_EDISCOVERY_PROVIDER_SMOKE:-0}" == "1" ]]; then
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO tenant_settings (tenant_id, file_quota_bytes, notifications_enabled, features)
+SELECT id, 104857600, true, '{"drive":{"linkSharingEnabled":true,"publicLinksEnabled":true,"legalDiscoveryEnabled":true,"eDiscoveryProviderExportEnabled":true,"maxShareLinkTTLHours":168,"viewerDownloadEnabled":true}}'::jsonb
+FROM tenants
+WHERE slug = '$TENANT_SLUG'
+ON CONFLICT (tenant_id) DO UPDATE
+SET features = EXCLUDED.features,
+    updated_at = now();
+SQL
+  ediscovery_case_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"name\":\"$RUN_ID ediscovery\",\"description\":\"provider smoke\"}" \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/legal/cases")"
+  ediscovery_case_id="$(printf '%s' "$ediscovery_case_response" | extract_json_string publicId)"
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"filePublicId\":\"$file_id\",\"reason\":\"provider smoke\"}" \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/legal/cases/$ediscovery_case_id/files" >/dev/null
+  ediscovery_connection_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d '{"provider":"fake"}' \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/ediscovery/connections")"
+  ediscovery_connection_id="$(printf '%s' "$ediscovery_connection_response" | extract_json_string publicId)"
+  ediscovery_export_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"connectionPublicId\":\"$ediscovery_connection_id\",\"casePublicId\":\"$ediscovery_case_id\"}" \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/ediscovery/exports")"
+  ediscovery_export_id="$(printf '%s' "$ediscovery_export_response" | extract_json_string publicId)"
+  printf '%s' "$ediscovery_export_response" | rg '"status":"pending_approval"' >/dev/null
+  expect_status 403 -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -X POST \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/ediscovery/exports/$ediscovery_export_id/approve"
+  curl -fsS -c "$EDITOR_COOKIE" -b "$EDITOR_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $editor_csrf" \
+    -X POST \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/ediscovery/exports/$ediscovery_export_id/approve" | rg '"status":"exported"' >/dev/null
+fi
+
+if [[ "${RUN_DRIVE_HSM_SMOKE:-0}" == "1" || "${RUN_DRIVE_HSM_FAIL_CLOSED_SMOKE:-0}" == "1" ]]; then
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO tenant_settings (tenant_id, file_quota_bytes, notifications_enabled, features)
+SELECT id, 104857600, true, '{"drive":{"linkSharingEnabled":true,"publicLinksEnabled":true,"hsmEnabled":true,"maxShareLinkTTLHours":168,"viewerDownloadEnabled":true}}'::jsonb
+FROM tenants
+WHERE slug = '$TENANT_SLUG'
+ON CONFLICT (tenant_id) DO UPDATE
+SET features = EXCLUDED.features,
+    updated_at = now();
+SQL
+  hsm_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"provider\":\"fake\",\"endpointUrl\":\"https://hsm.local/$RUN_ID\"}" \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/hsm/deployments")"
+  hsm_key_id="$(printf '%s' "$hsm_response" | extract_json_string keyPublicId)"
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"filePublicId\":\"$file_id\",\"keyPublicId\":\"$hsm_key_id\"}" \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/hsm/bindings" >/dev/null
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" "$BASE_URL/api/v1/drive/files/$file_id/content" >/dev/null
+  if [[ "${RUN_DRIVE_HSM_FAIL_CLOSED_SMOKE:-0}" == "1" ]]; then
+    curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+      -H 'Content-Type: application/json' \
+      -H "X-CSRF-Token: $owner_csrf" \
+      -X PATCH \
+      -d '{"status":"unavailable"}' \
+      "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/hsm/keys/$hsm_key_id" | rg '"keyStatus":"unavailable"' >/dev/null
+    expect_status 403 -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" "$BASE_URL/api/v1/drive/files/$file_id/content"
+    curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+      -H 'Content-Type: application/json' \
+      -H "X-CSRF-Token: $owner_csrf" \
+      -X PATCH \
+      -d '{"status":"active"}' \
+      "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/hsm/keys/$hsm_key_id" | rg '"keyStatus":"active"' >/dev/null
+  fi
+fi
+
+if [[ "${RUN_DRIVE_GATEWAY_SMOKE:-0}" == "1" || "${RUN_DRIVE_GATEWAY_DISCONNECT_SMOKE:-0}" == "1" ]]; then
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO tenant_settings (tenant_id, file_quota_bytes, notifications_enabled, features)
+SELECT id, 104857600, true, '{"drive":{"linkSharingEnabled":true,"publicLinksEnabled":true,"onPremGatewayEnabled":true,"maxShareLinkTTLHours":168,"viewerDownloadEnabled":true}}'::jsonb
+FROM tenants
+WHERE slug = '$TENANT_SLUG'
+ON CONFLICT (tenant_id) DO UPDATE
+SET features = EXCLUDED.features,
+    updated_at = now();
+SQL
+  gateway_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"name\":\"$RUN_ID gateway\",\"endpointUrl\":\"https://gateway.local/$RUN_ID\",\"certificateFingerprint\":\"$RUN_ID\"}" \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/gateways")"
+  gateway_id="$(printf '%s' "$gateway_response" | extract_json_string publicId)"
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"filePublicId\":\"$group_file_id\"}" \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/gateways/$gateway_id/objects" | rg '"status":"active"' >/dev/null
+  curl -fsS -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" "$BASE_URL/api/v1/drive/files/$group_file_id/content" | rg 'group inherited access' >/dev/null
+  if [[ "${RUN_DRIVE_GATEWAY_DISCONNECT_SMOKE:-0}" == "1" ]]; then
+    curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+      -H 'Content-Type: application/json' \
+      -H "X-CSRF-Token: $owner_csrf" \
+      -X PATCH \
+      -d '{"status":"disabled"}' \
+      "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/gateways/$gateway_id" | rg '"status":"disabled"' >/dev/null
+    expect_status 403 -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" "$BASE_URL/api/v1/drive/files/$group_file_id/content"
+    curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+      -H 'Content-Type: application/json' \
+      -H "X-CSRF-Token: $owner_csrf" \
+      -X PATCH \
+      -d '{"status":"active"}' \
+      "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/gateways/$gateway_id" | rg '"status":"active"' >/dev/null
+  fi
+fi
+
+if [[ "${RUN_DRIVE_AI_SMOKE:-0}" == "1" || "${RUN_DRIVE_AI_POLICY_SMOKE:-0}" == "1" ]]; then
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO tenant_settings (tenant_id, file_quota_bytes, notifications_enabled, features)
+SELECT id, 104857600, true, '{"drive":{"linkSharingEnabled":true,"publicLinksEnabled":true,"aiEnabled":true,"aiTrainingOptOut":true,"maxShareLinkTTLHours":168,"viewerDownloadEnabled":true}}'::jsonb
+FROM tenants
+WHERE slug = '$TENANT_SLUG'
+ON CONFLICT (tenant_id) DO UPDATE
+SET features = EXCLUDED.features,
+    updated_at = now();
+UPDATE file_objects
+SET encryption_mode = 'server_managed'
+WHERE public_id = '$file_id'::uuid;
+SQL
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d '{"jobType":"summary"}' \
+    "$BASE_URL/api/v1/drive/files/$file_id/ai/jobs" | rg '"status":"completed"' >/dev/null
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d '{"jobType":"classification"}' \
+    "$BASE_URL/api/v1/drive/files/$file_id/ai/jobs" | rg '"status":"completed"' >/dev/null
+  curl -fsS -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" \
+    "$BASE_URL/api/v1/drive/files/$file_id/ai/summary" | rg 'Fake summary' >/dev/null
+  curl -fsS -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" \
+    "$BASE_URL/api/v1/drive/files/$file_id/ai/classifications" | rg '"label":' >/dev/null
+  if [[ "${RUN_DRIVE_AI_POLICY_SMOKE:-0}" == "1" ]]; then
+    curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+      -H "X-CSRF-Token: $owner_csrf" \
+      -X DELETE \
+      "$BASE_URL/api/v1/drive/files/$file_id/shares/$share_id" >/dev/null
+    expect_status 403 -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" \
+      "$BASE_URL/api/v1/drive/files/$file_id/ai/summary"
+  fi
+fi
+
+if [[ "${RUN_DRIVE_E2EE_SMOKE:-0}" == "1" || "${RUN_DRIVE_E2EE_REVOKE_SMOKE:-0}" == "1" ]]; then
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO tenant_settings (tenant_id, file_quota_bytes, notifications_enabled, features)
+SELECT id, 104857600, true, '{"drive":{"linkSharingEnabled":true,"publicLinksEnabled":true,"e2eeEnabled":true,"e2eeZeroKnowledgeRequired":true,"maxShareLinkTTLHours":168,"viewerDownloadEnabled":true}}'::jsonb
+FROM tenants
+WHERE slug = '$TENANT_SLUG'
+ON CONFLICT (tenant_id) DO UPDATE
+SET features = EXCLUDED.features,
+    updated_at = now();
+SQL
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d '{"algorithm":"X25519+A256GCM","publicKey":{"kty":"OKP","crv":"X25519","x":"owner"}}' \
+    "$BASE_URL/api/v1/drive/e2ee/user-keys" | rg '"status":"active"' >/dev/null
+  curl -fsS -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $viewer_csrf" \
+    -d '{"algorithm":"X25519+A256GCM","publicKey":{"kty":"OKP","crv":"X25519","x":"viewer"}}' \
+    "$BASE_URL/api/v1/drive/e2ee/user-keys" | rg '"status":"active"' >/dev/null
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d '{"wrappedFileKey":"c21va2Uta2V5","wrapAlgorithm":"fake-wrap"}' \
+    "$BASE_URL/api/v1/drive/files/$group_file_id/e2ee/keys" | rg '"keyVersion":' >/dev/null
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"recipientUserPublicId\":\"$viewer_public_id\",\"wrappedFileKey\":\"dmlld2VyLWtleQ==\",\"wrapAlgorithm\":\"fake-wrap\"}" \
+    "$BASE_URL/api/v1/drive/files/$group_file_id/e2ee/envelopes" | rg "\"recipientUserId\":\"$viewer_public_id\"" >/dev/null
+  curl -fsS -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" \
+    "$BASE_URL/api/v1/drive/files/$group_file_id/e2ee/envelope" | rg '"wrappedFileKey":' >/dev/null
+  if [[ "${RUN_DRIVE_E2EE_REVOKE_SMOKE:-0}" == "1" ]]; then
+    curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+      -H "X-CSRF-Token: $owner_csrf" \
+      -X DELETE \
+      "$BASE_URL/api/v1/drive/files/$group_file_id/e2ee/envelopes/$viewer_public_id" >/dev/null
+    expect_status 403 -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" \
+      "$BASE_URL/api/v1/drive/files/$group_file_id/e2ee/envelope"
+    expect_status 403 -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+      -H 'Content-Type: application/json' \
+      -H "X-CSRF-Token: $owner_csrf" \
+      -d '{"jobType":"summary"}' \
+      "$BASE_URL/api/v1/drive/files/$group_file_id/ai/jobs"
+  fi
+fi
+
+if [[ "${RUN_DRIVE_MARKETPLACE_SMOKE:-0}" == "1" || "${RUN_DRIVE_MARKETPLACE_SCOPE_SMOKE:-0}" == "1" ]]; then
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO tenant_settings (tenant_id, file_quota_bytes, notifications_enabled, features)
+SELECT id, 104857600, true, '{"drive":{"linkSharingEnabled":true,"publicLinksEnabled":true,"marketplaceEnabled":true,"maxShareLinkTTLHours":168,"viewerDownloadEnabled":true}}'::jsonb
+FROM tenants
+WHERE slug = '$TENANT_SLUG'
+ON CONFLICT (tenant_id) DO UPDATE
+SET features = EXCLUDED.features,
+    updated_at = now();
+SQL
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    "$BASE_URL/api/v1/drive/marketplace/apps" | rg '"slug":"fake-drive-app"' >/dev/null
+  marketplace_install_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d '{"appSlug":"fake-drive-app"}' \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/marketplace/installations")"
+  marketplace_install_id="$(printf '%s' "$marketplace_install_response" | extract_json_string publicId)"
+  expect_status 403 -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -X POST \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/marketplace/installations/$marketplace_install_id/approve"
+  curl -fsS -c "$EDITOR_COOKIE" -b "$EDITOR_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $editor_csrf" \
+    -X POST \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/marketplace/installations/$marketplace_install_id/approve" | rg '"status":"active"' >/dev/null
+  if [[ "${RUN_DRIVE_MARKETPLACE_SCOPE_SMOKE:-0}" == "1" ]]; then
+    curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+      "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/marketplace/installations/$marketplace_install_id/scope-check?scope=drive.file.read&filePublicId=$file_id" | rg '"allowed":true' >/dev/null
+    expect_status 403 -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+      "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/marketplace/installations/$marketplace_install_id/scope-check?scope=drive.file.write&filePublicId=$file_id"
+  fi
+  curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -X DELETE \
+    "$BASE_URL/api/v1/admin/tenants/$TENANT_SLUG/drive/marketplace/installations/$marketplace_install_id" >/dev/null
 fi
 
 curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
