@@ -1309,6 +1309,9 @@ components:
         createdAt:
           format: date-time
           type: string
+        deletedAt:
+          format: date-time
+          type: string
         dlpBlocked:
           type: boolean
         inheritanceEnabled:
@@ -1364,6 +1367,9 @@ components:
           readOnly: true
           type: string
         createdAt:
+          format: date-time
+          type: string
+        deletedAt:
           format: date-time
           type: string
         inheritanceEnabled:
@@ -3130,6 +3136,19 @@ components:
           $ref: "#/components/schemas/DriveShareLinkBody"
       required:
         - link
+      type: object
+    RestoreDriveResourceBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/RestoreDriveResourceBody.json
+          format: uri
+          readOnly: true
+          type: string
+        parentFolderPublicId:
+          type: string
       type: object
     SCIMGroupBody:
       additionalProperties: false
@@ -9371,6 +9390,48 @@ paths:
       summary: Drive file permissions を返す
       tags:
         - drive
+  /api/v1/drive/files/{filePublicId}/restore:
+    post:
+      operationId: restoreDriveFile
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreDriveResourceBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveFileBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file を trash から復元する
+      tags:
+        - drive
   /api/v1/drive/files/{filePublicId}/share-links:
     post:
       operationId: createDriveFileShareLink
@@ -9785,6 +9846,48 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive folder permissions を返す
+      tags:
+        - drive
+  /api/v1/drive/folders/{folderPublicId}/restore:
+    post:
+      operationId: restoreDriveFolder
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: folderPublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreDriveResourceBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveFolderBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive folder を trash から復元する
       tags:
         - drive
   /api/v1/drive/folders/{folderPublicId}/share-links:
@@ -10520,6 +10623,39 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive share link を更新する
+      tags:
+        - drive
+  /api/v1/drive/trash:
+    get:
+      operationId: listDriveTrashItems
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveItemListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive trash item 一覧を返す
       tags:
         - drive
   /api/v1/drive/workspaces:

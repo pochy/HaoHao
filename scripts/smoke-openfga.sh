@@ -208,6 +208,43 @@ SET locked_at = NULL,
 WHERE public_id = '$file_id'::uuid;
 SQL
 
+trash_folder_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+  -H 'Content-Type: application/json' \
+  -H "X-CSRF-Token: $owner_csrf" \
+  -d "{\"name\":\"$RUN_ID trash folder\"}" \
+  "$BASE_URL/api/v1/drive/folders")"
+trash_folder_id="$(printf '%s' "$trash_folder_response" | extract_json_string publicId)"
+if [[ -z "$trash_folder_id" ]]; then
+  echo "missing trash folder id: $trash_folder_response" >&2
+  exit 1
+fi
+curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+  -H "X-CSRF-Token: $owner_csrf" \
+  -X DELETE \
+  "$BASE_URL/api/v1/drive/folders/$trash_folder_id" >/dev/null
+curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+  "$BASE_URL/api/v1/drive/trash" | rg "\"publicId\":\"$trash_folder_id\"" >/dev/null
+curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+  -H 'Content-Type: application/json' \
+  -H "X-CSRF-Token: $owner_csrf" \
+  -d '{}' \
+  "$BASE_URL/api/v1/drive/folders/$trash_folder_id/restore" | rg "\"publicId\":\"$trash_folder_id\"" >/dev/null
+
+curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+  -H "X-CSRF-Token: $owner_csrf" \
+  -X DELETE \
+  "$BASE_URL/api/v1/drive/files/$file_id" >/dev/null
+expect_status 404 -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" "$BASE_URL/api/v1/drive/files/$file_id/content"
+curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+  "$BASE_URL/api/v1/drive/trash" | rg "\"publicId\":\"$file_id\"" >/dev/null
+curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+  -H 'Content-Type: application/json' \
+  -H "X-CSRF-Token: $owner_csrf" \
+  -d '{}' \
+  "$BASE_URL/api/v1/drive/files/$file_id/restore" | rg "\"publicId\":\"$file_id\"" >/dev/null
+curl -fsS -c "$VIEWER_COOKIE" -b "$VIEWER_COOKIE" \
+  "$BASE_URL/api/v1/drive/files/$file_id/content" | rg 'overwritten by editor' >/dev/null
+
 group_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
   -H 'Content-Type: application/json' \
   -H "X-CSRF-Token: $owner_csrf" \

@@ -548,6 +548,7 @@ export type DriveFileBody = {
     byteSize: number;
     contentType: string;
     createdAt: string;
+    deletedAt?: string;
     dlpBlocked: boolean;
     inheritanceEnabled: boolean;
     lockReason?: string;
@@ -568,6 +569,7 @@ export type DriveFolderBody = {
      */
     readonly $schema?: string;
     createdAt: string;
+    deletedAt?: string;
     inheritanceEnabled: boolean;
     name: string;
     publicId: string;
@@ -1256,6 +1258,14 @@ export type PublicDriveShareLinkOutputBody = {
     file?: DriveFileBody;
     folder?: DriveFolderBody;
     link: DriveShareLinkBody;
+};
+
+export type RestoreDriveResourceBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    parentFolderPublicId?: string;
 };
 
 export type SelectTenantInputBody = {
@@ -2116,6 +2126,7 @@ export type DriveFileBodyWritable = {
     byteSize: number;
     contentType: string;
     createdAt: string;
+    deletedAt?: string;
     dlpBlocked: boolean;
     inheritanceEnabled: boolean;
     lockReason?: string;
@@ -2132,6 +2143,7 @@ export type DriveFileBodyWritable = {
 
 export type DriveFolderBodyWritable = {
     createdAt: string;
+    deletedAt?: string;
     inheritanceEnabled: boolean;
     name: string;
     publicId: string;
@@ -2506,6 +2518,10 @@ export type PublicDriveShareLinkOutputBodyWritable = {
     file?: DriveFileBodyWritable;
     folder?: DriveFolderBodyWritable;
     link: DriveShareLinkBodyWritable;
+};
+
+export type RestoreDriveResourceBodyWritable = {
+    parentFolderPublicId?: string;
 };
 
 export type SelectTenantInputBodyWritable = {
@@ -5956,6 +5972,36 @@ export type GetDriveFilePermissionsResponses = {
 
 export type GetDriveFilePermissionsResponse = GetDriveFilePermissionsResponses[keyof GetDriveFilePermissionsResponses];
 
+export type RestoreDriveFileData = {
+    body: RestoreDriveResourceBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/restore';
+};
+
+export type RestoreDriveFileErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RestoreDriveFileError = RestoreDriveFileErrors[keyof RestoreDriveFileErrors];
+
+export type RestoreDriveFileResponses = {
+    /**
+     * OK
+     */
+    200: DriveFileBody;
+};
+
+export type RestoreDriveFileResponse = RestoreDriveFileResponses[keyof RestoreDriveFileResponses];
+
 export type CreateDriveFileShareLinkData = {
     body: CreateDriveShareLinkBodyWritable;
     headers: {
@@ -6278,6 +6324,36 @@ export type GetDriveFolderPermissionsResponses = {
 };
 
 export type GetDriveFolderPermissionsResponse = GetDriveFolderPermissionsResponses[keyof GetDriveFolderPermissionsResponses];
+
+export type RestoreDriveFolderData = {
+    body: RestoreDriveResourceBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        folderPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/folders/{folderPublicId}/restore';
+};
+
+export type RestoreDriveFolderErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RestoreDriveFolderError = RestoreDriveFolderErrors[keyof RestoreDriveFolderErrors];
+
+export type RestoreDriveFolderResponses = {
+    /**
+     * OK
+     */
+    200: DriveFolderBody;
+};
+
+export type RestoreDriveFolderResponse = RestoreDriveFolderResponses[keyof RestoreDriveFolderResponses];
 
 export type CreateDriveFolderShareLinkData = {
     body: CreateDriveShareLinkBodyWritable;
@@ -6860,6 +6936,33 @@ export type UpdateDriveShareLinkResponses = {
 };
 
 export type UpdateDriveShareLinkResponse = UpdateDriveShareLinkResponses[keyof UpdateDriveShareLinkResponses];
+
+export type ListDriveTrashItemsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/drive/trash';
+};
+
+export type ListDriveTrashItemsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveTrashItemsError = ListDriveTrashItemsErrors[keyof ListDriveTrashItemsErrors];
+
+export type ListDriveTrashItemsResponses = {
+    /**
+     * OK
+     */
+    200: DriveItemListOutputBody;
+};
+
+export type ListDriveTrashItemsResponse = ListDriveTrashItemsResponses[keyof ListDriveTrashItemsResponses];
 
 export type ListDriveWorkspacesData = {
     body?: never;

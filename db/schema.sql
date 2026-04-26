@@ -4666,6 +4666,13 @@ CREATE INDEX drive_folders_retention_idx ON public.drive_folders USING btree (te
 
 
 --
+-- Name: drive_folders_trash_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_folders_trash_idx ON public.drive_folders USING btree (tenant_id, deleted_at DESC, id DESC) WHERE (deleted_at IS NOT NULL);
+
+
+--
 -- Name: drive_folders_workspace_children_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5132,6 +5139,13 @@ CREATE INDEX file_objects_drive_retention_idx ON public.file_objects USING btree
 --
 
 CREATE INDEX file_objects_drive_scan_idx ON public.file_objects USING btree (tenant_id, scan_status, dlp_blocked) WHERE ((purpose = 'drive'::text) AND (deleted_at IS NULL));
+
+
+--
+-- Name: file_objects_drive_trash_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX file_objects_drive_trash_idx ON public.file_objects USING btree (tenant_id, deleted_at DESC, id DESC) WHERE ((purpose = 'drive'::text) AND (deleted_at IS NOT NULL) AND (purged_at IS NULL));
 
 
 --

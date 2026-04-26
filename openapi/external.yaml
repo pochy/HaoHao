@@ -69,6 +69,9 @@ components:
         createdAt:
           format: date-time
           type: string
+        deletedAt:
+          format: date-time
+          type: string
         dlpBlocked:
           type: boolean
         inheritanceEnabled:
@@ -124,6 +127,9 @@ components:
           readOnly: true
           type: string
         createdAt:
+          format: date-time
+          type: string
+        deletedAt:
           format: date-time
           type: string
         inheritanceEnabled:

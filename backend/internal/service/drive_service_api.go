@@ -200,6 +200,63 @@ func (s *DriveService) Search(ctx context.Context, input DriveSearchInput, audit
 	return items, nil
 }
 
+func (s *DriveService) ListTrash(ctx context.Context, input DriveListTrashInput, auditCtx AuditContext) ([]DriveItem, error) {
+	if err := s.ensureConfigured(false); err != nil {
+		return nil, err
+	}
+	actor, err := s.actor(ctx, input.TenantID, input.ActorUserID)
+	if err != nil {
+		return nil, err
+	}
+	limit := input.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+
+	folderRows, err := s.queries.ListDeletedDriveFolders(ctx, db.ListDeletedDriveFoldersParams{
+		TenantID:   input.TenantID,
+		LimitCount: limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list deleted drive folders: %w", err)
+	}
+	fileRows, err := s.queries.ListDeletedDriveFiles(ctx, db.ListDeletedDriveFilesParams{
+		TenantID:   input.TenantID,
+		LimitCount: limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list deleted drive files: %w", err)
+	}
+
+	items := make([]DriveItem, 0, len(folderRows)+len(fileRows))
+	for _, row := range folderRows {
+		folder := driveFolderFromDB(row)
+		if err := s.authz.CanRestoreFolder(ctx, actor, folder); err != nil {
+			if errors.Is(err, ErrDrivePermissionDenied) || errors.Is(err, ErrDriveNotFound) {
+				continue
+			}
+			s.auditDenied(ctx, actor, "drive.trash.list", "drive_folder", folder.PublicID, err, auditCtx)
+			return nil, err
+		}
+		items = append(items, DriveItem{Type: DriveItemTypeFolder, Folder: &folder})
+	}
+	for _, row := range fileRows {
+		file := driveFileFromDB(row)
+		if err := s.authz.CanRestoreFile(ctx, actor, file); err != nil {
+			if errors.Is(err, ErrDrivePermissionDenied) || errors.Is(err, ErrDriveNotFound) {
+				continue
+			}
+			s.auditDenied(ctx, actor, "drive.trash.list", "drive_file", file.PublicID, err, auditCtx)
+			return nil, err
+		}
+		items = append(items, DriveItem{Type: DriveItemTypeFile, File: &file})
+	}
+	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.trash.list", "drive", "trash", map[string]any{
+		"count": len(items),
+	})
+	return items, nil
+}
+
 func (s *DriveService) UpdateFolder(ctx context.Context, input DriveUpdateFolderInput, auditCtx AuditContext) (DriveFolder, error) {
 	if err := s.ensureConfigured(false); err != nil {
 		return DriveFolder{}, err
@@ -303,6 +360,72 @@ func (s *DriveService) DeleteFolder(ctx context.Context, tenantID, actorUserID i
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.folder.delete", "drive_folder", folder.PublicID, nil)
 	s.recordDriveSyncEventBestEffort(ctx, folder.ResourceRef(), "folder.deleted", "", map[string]any{"name": folder.Name})
 	return nil
+}
+
+func (s *DriveService) RestoreFolder(ctx context.Context, input DriveRestoreResourceInput, auditCtx AuditContext) (DriveFolder, error) {
+	if err := s.ensureConfigured(false); err != nil {
+		return DriveFolder{}, err
+	}
+	actor, err := s.actor(ctx, input.TenantID, input.ActorUserID)
+	if err != nil {
+		return DriveFolder{}, err
+	}
+	publicID, err := uuid.Parse(strings.TrimSpace(input.ResourcePublicID))
+	if err != nil {
+		return DriveFolder{}, ErrDriveNotFound
+	}
+	row, err := s.queries.GetDeletedDriveFolderByPublicIDForTenant(ctx, db.GetDeletedDriveFolderByPublicIDForTenantParams{
+		PublicID: publicID,
+		TenantID: input.TenantID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DriveFolder{}, ErrDriveNotFound
+	}
+	if err != nil {
+		return DriveFolder{}, fmt.Errorf("get deleted drive folder: %w", err)
+	}
+	folder := driveFolderFromDB(row)
+	if err := s.authz.CanRestoreFolder(ctx, actor, folder); err != nil {
+		s.auditDenied(ctx, actor, "drive.folder.restore", "drive_folder", folder.PublicID, err, auditCtx)
+		return DriveFolder{}, err
+	}
+
+	previousParentID := row.ParentFolderID
+	if !previousParentID.Valid {
+		previousParentID = row.DeletedParentFolderID
+	}
+	placement, err := s.resolveDriveRestorePlacement(ctx, actor, input.ParentFolderPublicID, previousParentID, row.WorkspaceID)
+	if err != nil {
+		return DriveFolder{}, err
+	}
+	resource := folder.ResourceRef()
+	if err := s.applyDriveRestoreTuples(ctx, resource, placement); err != nil {
+		s.rollbackDriveRestoreTuples(context.Background(), resource, placement)
+		return DriveFolder{}, err
+	}
+
+	restored, err := s.queries.RestoreDriveFolder(ctx, db.RestoreDriveFolderParams{
+		ParentFolderID: placement.parentID,
+		WorkspaceID:    placement.workspaceID,
+		ID:             folder.ID,
+		TenantID:       input.TenantID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		s.rollbackDriveRestoreTuples(context.Background(), resource, placement)
+		return DriveFolder{}, ErrDriveNotFound
+	}
+	if isUniqueViolation(err) {
+		s.rollbackDriveRestoreTuples(context.Background(), resource, placement)
+		return DriveFolder{}, fmt.Errorf("%w: active folder with this name already exists", ErrDriveInvalidInput)
+	}
+	if err != nil {
+		s.rollbackDriveRestoreTuples(context.Background(), resource, placement)
+		return DriveFolder{}, fmt.Errorf("restore drive folder: %w", err)
+	}
+	result := driveFolderFromDB(restored)
+	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.folder.restore", "drive_folder", result.PublicID, nil)
+	s.recordDriveSyncEventBestEffort(ctx, result.ResourceRef(), "folder.restored", "", map[string]any{"name": result.Name})
+	return result, nil
 }
 
 func (s *DriveService) GetFile(ctx context.Context, tenantID, actorUserID int64, filePublicID string, auditCtx AuditContext) (DriveFile, error) {
@@ -557,6 +680,69 @@ func (s *DriveService) DeleteFile(ctx context.Context, tenantID, actorUserID int
 	_ = s.queries.DeleteDriveSearchDocument(ctx, db.DeleteDriveSearchDocumentParams{TenantID: tenantID, FileObjectID: file.ID})
 	s.recordDriveSyncEventBestEffort(ctx, file.ResourceRef(), "file.deleted", file.SHA256Hex, map[string]any{"filename": file.OriginalFilename})
 	return nil
+}
+
+func (s *DriveService) RestoreFile(ctx context.Context, input DriveRestoreResourceInput, auditCtx AuditContext) (DriveFile, error) {
+	if err := s.ensureConfigured(false); err != nil {
+		return DriveFile{}, err
+	}
+	actor, err := s.actor(ctx, input.TenantID, input.ActorUserID)
+	if err != nil {
+		return DriveFile{}, err
+	}
+	publicID, err := uuid.Parse(strings.TrimSpace(input.ResourcePublicID))
+	if err != nil {
+		return DriveFile{}, ErrDriveNotFound
+	}
+	row, err := s.queries.GetDeletedDriveFileByPublicIDForTenant(ctx, db.GetDeletedDriveFileByPublicIDForTenantParams{
+		PublicID: publicID,
+		TenantID: input.TenantID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DriveFile{}, ErrDriveNotFound
+	}
+	if err != nil {
+		return DriveFile{}, fmt.Errorf("get deleted drive file: %w", err)
+	}
+	file := driveFileFromDB(row)
+	if err := s.authz.CanRestoreFile(ctx, actor, file); err != nil {
+		s.auditDenied(ctx, actor, "drive.file.restore", "drive_file", file.PublicID, err, auditCtx)
+		return DriveFile{}, err
+	}
+
+	previousParentID := row.DriveFolderID
+	if !previousParentID.Valid {
+		previousParentID = row.DeletedParentFolderID
+	}
+	placement, err := s.resolveDriveRestorePlacement(ctx, actor, input.ParentFolderPublicID, previousParentID, row.WorkspaceID)
+	if err != nil {
+		return DriveFile{}, err
+	}
+	resource := file.ResourceRef()
+	if err := s.applyDriveRestoreTuples(ctx, resource, placement); err != nil {
+		s.rollbackDriveRestoreTuples(context.Background(), resource, placement)
+		return DriveFile{}, err
+	}
+
+	restored, err := s.queries.RestoreDriveFile(ctx, db.RestoreDriveFileParams{
+		DriveFolderID: placement.parentID,
+		WorkspaceID:   placement.workspaceID,
+		ID:            file.ID,
+		TenantID:      input.TenantID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		s.rollbackDriveRestoreTuples(context.Background(), resource, placement)
+		return DriveFile{}, ErrDriveNotFound
+	}
+	if err != nil {
+		s.rollbackDriveRestoreTuples(context.Background(), resource, placement)
+		return DriveFile{}, fmt.Errorf("restore drive file: %w", err)
+	}
+	result := driveFileFromDB(restored)
+	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.file.restore", "drive_file", result.PublicID, nil)
+	s.indexDriveFileBestEffort(ctx, result, "file_restored")
+	s.recordDriveSyncEventBestEffort(ctx, result.ResourceRef(), "file.restored", result.SHA256Hex, map[string]any{"filename": result.OriginalFilename})
+	return result, nil
 }
 
 func (s *DriveService) ListPermissions(ctx context.Context, tenantID, actorUserID int64, resource DriveResourceRef, auditCtx AuditContext) (DrivePermissions, error) {
@@ -1157,6 +1343,196 @@ func (s *DriveService) resolveShareSubjectID(ctx context.Context, tenantID int64
 	default:
 		return 0, fmt.Errorf("%w: unsupported share subject type", ErrDriveInvalidInput)
 	}
+}
+
+type driveRestorePlacement struct {
+	parentID     pgtype.Int8
+	workspaceID  pgtype.Int8
+	oldParent    *DriveResourceRef
+	newParent    *DriveResourceRef
+	oldWorkspace *DriveWorkspace
+	newWorkspace *DriveWorkspace
+}
+
+func (s *DriveService) resolveDriveRestorePlacement(ctx context.Context, actor DriveActor, parentFolderPublicID *string, previousParentID, previousWorkspaceID pgtype.Int8) (driveRestorePlacement, error) {
+	oldParent, err := s.driveFolderRefByIDIncludingDeleted(ctx, actor.TenantID, previousParentID)
+	if err != nil {
+		return driveRestorePlacement{}, err
+	}
+	oldWorkspace, err := s.driveWorkspaceByIDIncludingDeleted(ctx, actor.TenantID, previousWorkspaceID)
+	if err != nil {
+		return driveRestorePlacement{}, err
+	}
+	placement := driveRestorePlacement{
+		oldParent:    oldParent,
+		oldWorkspace: oldWorkspace,
+	}
+
+	if parentFolderPublicID != nil {
+		parentPublicID := strings.TrimSpace(*parentFolderPublicID)
+		if parentPublicID != "" && parentPublicID != "root" {
+			parent, err := s.getDriveFolder(ctx, actor.TenantID, DriveResourceRef{Type: DriveResourceTypeFolder, PublicID: parentPublicID})
+			if err != nil {
+				return driveRestorePlacement{}, err
+			}
+			return s.driveRestorePlacementForParent(ctx, actor, parent, placement)
+		}
+		workspace, err := s.driveRestoreWorkspaceForRoot(ctx, actor, previousWorkspaceID)
+		if err != nil {
+			return driveRestorePlacement{}, err
+		}
+		placement.workspaceID = pgtype.Int8{Int64: workspace.ID, Valid: true}
+		placement.newWorkspace = &workspace
+		return placement, nil
+	}
+
+	if previousParentID.Valid {
+		parent, err := s.getFolderByID(ctx, actor.TenantID, previousParentID.Int64)
+		if err == nil {
+			if err := s.authz.CanEditFolder(ctx, actor, parent); err == nil {
+				return s.driveRestorePlacementForParent(ctx, actor, parent, placement)
+			} else if !errors.Is(err, ErrDrivePermissionDenied) && !errors.Is(err, ErrDriveNotFound) {
+				return driveRestorePlacement{}, err
+			}
+		} else if !errors.Is(err, ErrDriveNotFound) {
+			return driveRestorePlacement{}, err
+		}
+	}
+
+	workspace, err := s.driveRestoreWorkspaceForRoot(ctx, actor, previousWorkspaceID)
+	if err != nil {
+		return driveRestorePlacement{}, err
+	}
+	placement.workspaceID = pgtype.Int8{Int64: workspace.ID, Valid: true}
+	placement.newWorkspace = &workspace
+	return placement, nil
+}
+
+func (s *DriveService) driveRestorePlacementForParent(ctx context.Context, actor DriveActor, parent DriveFolder, placement driveRestorePlacement) (driveRestorePlacement, error) {
+	if err := s.authz.CanEditFolder(ctx, actor, parent); err != nil {
+		return driveRestorePlacement{}, err
+	}
+	workspace, err := s.driveRestoreWorkspaceForParent(ctx, actor, parent)
+	if err != nil {
+		return driveRestorePlacement{}, err
+	}
+	parentRef := parent.ResourceRef()
+	placement.parentID = pgtype.Int8{Int64: parent.ID, Valid: true}
+	placement.workspaceID = pgtype.Int8{Int64: workspace.ID, Valid: true}
+	placement.newParent = &parentRef
+	placement.newWorkspace = &workspace
+	return placement, nil
+}
+
+func (s *DriveService) driveRestoreWorkspaceForParent(ctx context.Context, actor DriveActor, parent DriveFolder) (DriveWorkspace, error) {
+	if parent.WorkspaceID != nil {
+		return s.getWorkspaceByID(ctx, actor.TenantID, *parent.WorkspaceID)
+	}
+	return s.ensureDefaultWorkspace(ctx, actor.TenantID, actor)
+}
+
+func (s *DriveService) driveRestoreWorkspaceForRoot(ctx context.Context, actor DriveActor, previousWorkspaceID pgtype.Int8) (DriveWorkspace, error) {
+	if previousWorkspaceID.Valid {
+		workspace, err := s.getWorkspaceByID(ctx, actor.TenantID, previousWorkspaceID.Int64)
+		if err == nil {
+			return workspace, nil
+		}
+		if !errors.Is(err, ErrDriveNotFound) {
+			return DriveWorkspace{}, err
+		}
+	}
+	return s.ensureDefaultWorkspace(ctx, actor.TenantID, actor)
+}
+
+func (s *DriveService) applyDriveRestoreTuples(ctx context.Context, resource DriveResourceRef, placement driveRestorePlacement) error {
+	if !sameDriveResourceRef(placement.oldParent, placement.newParent) {
+		if placement.oldParent != nil {
+			if err := s.authz.DeleteResourceParent(ctx, resource, *placement.oldParent); err != nil {
+				return err
+			}
+		}
+		if placement.newParent != nil {
+			if err := s.authz.WriteResourceParent(ctx, resource, *placement.newParent); err != nil {
+				return err
+			}
+		}
+	}
+	if !sameDriveWorkspace(placement.oldWorkspace, placement.newWorkspace) {
+		if placement.oldWorkspace != nil {
+			if err := s.authz.DeleteResourceWorkspace(ctx, resource, *placement.oldWorkspace); err != nil {
+				return err
+			}
+		}
+		if placement.newWorkspace != nil {
+			if err := s.authz.WriteResourceWorkspace(ctx, resource, *placement.newWorkspace); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *DriveService) rollbackDriveRestoreTuples(ctx context.Context, resource DriveResourceRef, placement driveRestorePlacement) {
+	if !sameDriveWorkspace(placement.oldWorkspace, placement.newWorkspace) {
+		if placement.newWorkspace != nil {
+			_ = s.authz.DeleteResourceWorkspace(ctx, resource, *placement.newWorkspace)
+		}
+		if placement.oldWorkspace != nil {
+			_ = s.authz.WriteResourceWorkspace(ctx, resource, *placement.oldWorkspace)
+		}
+	}
+	if !sameDriveResourceRef(placement.oldParent, placement.newParent) {
+		if placement.newParent != nil {
+			_ = s.authz.DeleteResourceParent(ctx, resource, *placement.newParent)
+		}
+		if placement.oldParent != nil {
+			_ = s.authz.WriteResourceParent(ctx, resource, *placement.oldParent)
+		}
+	}
+}
+
+func (s *DriveService) driveFolderRefByIDIncludingDeleted(ctx context.Context, tenantID int64, folderID pgtype.Int8) (*DriveResourceRef, error) {
+	if !folderID.Valid {
+		return nil, nil
+	}
+	var publicID uuid.UUID
+	err := s.pool.QueryRow(ctx, `SELECT public_id FROM drive_folders WHERE id = $1 AND tenant_id = $2`, folderID.Int64, tenantID).Scan(&publicID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get drive folder restore tuple ref: %w", err)
+	}
+	return &DriveResourceRef{Type: DriveResourceTypeFolder, ID: folderID.Int64, PublicID: publicID.String(), TenantID: tenantID}, nil
+}
+
+func (s *DriveService) driveWorkspaceByIDIncludingDeleted(ctx context.Context, tenantID int64, workspaceID pgtype.Int8) (*DriveWorkspace, error) {
+	if !workspaceID.Valid {
+		return nil, nil
+	}
+	var publicID uuid.UUID
+	err := s.pool.QueryRow(ctx, `SELECT public_id FROM drive_workspaces WHERE id = $1 AND tenant_id = $2`, workspaceID.Int64, tenantID).Scan(&publicID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get drive workspace restore tuple ref: %w", err)
+	}
+	return &DriveWorkspace{ID: workspaceID.Int64, PublicID: publicID.String(), TenantID: tenantID}, nil
+}
+
+func sameDriveResourceRef(left, right *DriveResourceRef) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return left.Type == right.Type && left.PublicID == right.PublicID
+}
+
+func sameDriveWorkspace(left, right *DriveWorkspace) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return left.PublicID == right.PublicID
 }
 
 func pgTimestampPtr(value *time.Time) pgtype.Timestamptz {

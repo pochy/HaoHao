@@ -27,7 +27,10 @@ import {
   listDriveGroups,
   listDriveItems,
   listDriveShareInvitations,
+  listDriveTrashItems,
   listDriveWorkspaces,
+  restoreDriveFile,
+  restoreDriveFolder,
   revokeDriveShareInvitation,
   searchDriveItems,
   updateDriveFile,
@@ -52,6 +55,7 @@ import type {
   DriveShareLinkBody,
   DriveWorkspaceBody,
   PublicDriveShareLinkOutputBody,
+  RestoreDriveResourceBodyWritable,
   UpdateDriveFileBodyWritable,
   UpdateDriveFolderBodyWritable,
   UpdateDriveShareLinkBodyWritable,
@@ -185,6 +189,11 @@ export async function searchDriveItemsByKeyword(query: string, contentType = '')
   return data.items ?? []
 }
 
+export async function fetchDriveTrashItems(): Promise<DriveItemBody[]> {
+  const data = await listDriveTrashItems() as unknown as { items: DriveItemBody[] | null }
+  return data.items ?? []
+}
+
 export async function createDriveFolderItem(body: CreateDriveFolderBodyWritable): Promise<DriveFolderBody> {
   return createDriveFolder({
     headers: csrfHeaders(),
@@ -205,6 +214,17 @@ export async function deleteDriveFolderItem(folderPublicId: string): Promise<voi
     headers: csrfHeaders(),
     path: { folderPublicId },
   })
+}
+
+export async function restoreDriveFolderItem(folderPublicId: string, parentFolderPublicId = ''): Promise<DriveFolderBody> {
+  const body: RestoreDriveResourceBodyWritable = parentFolderPublicId
+    ? { parentFolderPublicId }
+    : {}
+  return restoreDriveFolder({
+    headers: csrfHeaders(),
+    path: { folderPublicId },
+    body,
+  }) as unknown as Promise<DriveFolderBody>
 }
 
 export async function uploadDriveFileItem(file: File, parentFolderPublicId = '', workspacePublicId = ''): Promise<DriveFileBody> {
@@ -263,6 +283,17 @@ export async function deleteDriveFileItem(filePublicId: string): Promise<void> {
     headers: csrfHeaders(),
     path: { filePublicId },
   })
+}
+
+export async function restoreDriveFileItem(filePublicId: string, parentFolderPublicId = ''): Promise<DriveFileBody> {
+  const body: RestoreDriveResourceBodyWritable = parentFolderPublicId
+    ? { parentFolderPublicId }
+    : {}
+  return restoreDriveFile({
+    headers: csrfHeaders(),
+    path: { filePublicId },
+    body,
+  }) as unknown as Promise<DriveFileBody>
 }
 
 export async function fetchDrivePermissions(resource: DriveResourceRef): Promise<DrivePermissionsBody> {

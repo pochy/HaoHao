@@ -52,6 +52,25 @@ WHERE id = sqlc.arg(id)
   AND purpose = 'drive'
   AND deleted_at IS NULL;
 
+-- name: GetDeletedDriveFileByPublicIDForTenant :one
+SELECT *
+FROM file_objects
+WHERE public_id = sqlc.arg(public_id)
+  AND tenant_id = sqlc.arg(tenant_id)
+  AND purpose = 'drive'
+  AND deleted_at IS NOT NULL
+  AND purged_at IS NULL;
+
+-- name: ListDeletedDriveFiles :many
+SELECT *
+FROM file_objects
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND purpose = 'drive'
+  AND deleted_at IS NOT NULL
+  AND purged_at IS NULL
+ORDER BY deleted_at DESC, id DESC
+LIMIT sqlc.arg(limit_count);
+
 -- name: ListDriveChildFiles :many
 SELECT *
 FROM file_objects
@@ -148,6 +167,26 @@ WHERE id = sqlc.arg(id)
   AND tenant_id = sqlc.arg(tenant_id)
   AND purpose = 'drive'
   AND deleted_at IS NULL
+RETURNING *;
+
+-- name: RestoreDriveFile :one
+UPDATE file_objects
+SET
+    status = 'active',
+    drive_folder_id = sqlc.narg(drive_folder_id),
+    workspace_id = sqlc.narg(workspace_id),
+    deleted_at = NULL,
+    deleted_by_user_id = NULL,
+    deleted_parent_folder_id = NULL,
+    purge_locked_at = NULL,
+    purge_locked_by = NULL,
+    last_purge_error = NULL,
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+  AND tenant_id = sqlc.arg(tenant_id)
+  AND purpose = 'drive'
+  AND deleted_at IS NOT NULL
+  AND purged_at IS NULL
 RETURNING *;
 
 -- name: SearchDriveFileCandidates :many

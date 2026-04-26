@@ -30,6 +30,21 @@ WHERE id = sqlc.arg(id)
   AND tenant_id = sqlc.arg(tenant_id)
   AND deleted_at IS NULL;
 
+-- name: GetDeletedDriveFolderByPublicIDForTenant :one
+SELECT *
+FROM drive_folders
+WHERE public_id = sqlc.arg(public_id)
+  AND tenant_id = sqlc.arg(tenant_id)
+  AND deleted_at IS NOT NULL;
+
+-- name: ListDeletedDriveFolders :many
+SELECT *
+FROM drive_folders
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND deleted_at IS NOT NULL
+ORDER BY deleted_at DESC, id DESC
+LIMIT sqlc.arg(limit_count);
+
 -- name: ListDriveChildFolders :many
 SELECT *
 FROM drive_folders
@@ -94,6 +109,20 @@ SET
 WHERE id = sqlc.arg(id)
   AND tenant_id = sqlc.arg(tenant_id)
   AND deleted_at IS NULL
+RETURNING *;
+
+-- name: RestoreDriveFolder :one
+UPDATE drive_folders
+SET
+    parent_folder_id = sqlc.narg(parent_folder_id),
+    workspace_id = sqlc.narg(workspace_id),
+    deleted_at = NULL,
+    deleted_by_user_id = NULL,
+    deleted_parent_folder_id = NULL,
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+  AND tenant_id = sqlc.arg(tenant_id)
+  AND deleted_at IS NOT NULL
 RETURNING *;
 
 -- name: IsDriveFolderDescendant :one

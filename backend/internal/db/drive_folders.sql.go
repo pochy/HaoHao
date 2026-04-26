@@ -73,6 +73,45 @@ func (q *Queries) CreateDriveFolder(ctx context.Context, arg CreateDriveFolderPa
 	return i, err
 }
 
+const getDeletedDriveFolderByPublicIDForTenant = `-- name: GetDeletedDriveFolderByPublicIDForTenant :one
+SELECT id, public_id, tenant_id, parent_folder_id, name, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id
+FROM drive_folders
+WHERE public_id = $1
+  AND tenant_id = $2
+  AND deleted_at IS NOT NULL
+`
+
+type GetDeletedDriveFolderByPublicIDForTenantParams struct {
+	PublicID uuid.UUID `json:"public_id"`
+	TenantID int64     `json:"tenant_id"`
+}
+
+func (q *Queries) GetDeletedDriveFolderByPublicIDForTenant(ctx context.Context, arg GetDeletedDriveFolderByPublicIDForTenantParams) (DriveFolder, error) {
+	row := q.db.QueryRow(ctx, getDeletedDriveFolderByPublicIDForTenant, arg.PublicID, arg.TenantID)
+	var i DriveFolder
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.ParentFolderID,
+		&i.Name,
+		&i.CreatedByUserID,
+		&i.InheritanceEnabled,
+		&i.DeletedAt,
+		&i.DeletedByUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
+		&i.WorkspaceID,
+	)
+	return i, err
+}
+
 const getDriveFolderByIDForTenant = `-- name: GetDriveFolderByIDForTenant :one
 SELECT id, public_id, tenant_id, parent_folder_id, name, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id
 FROM drive_folders
@@ -186,6 +225,59 @@ func (q *Queries) IsDriveFolderDescendant(ctx context.Context, arg IsDriveFolder
 	var is_descendant bool
 	err := row.Scan(&is_descendant)
 	return is_descendant, err
+}
+
+const listDeletedDriveFolders = `-- name: ListDeletedDriveFolders :many
+SELECT id, public_id, tenant_id, parent_folder_id, name, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id
+FROM drive_folders
+WHERE tenant_id = $1
+  AND deleted_at IS NOT NULL
+ORDER BY deleted_at DESC, id DESC
+LIMIT $2
+`
+
+type ListDeletedDriveFoldersParams struct {
+	TenantID   int64 `json:"tenant_id"`
+	LimitCount int32 `json:"limit_count"`
+}
+
+func (q *Queries) ListDeletedDriveFolders(ctx context.Context, arg ListDeletedDriveFoldersParams) ([]DriveFolder, error) {
+	rows, err := q.db.Query(ctx, listDeletedDriveFolders, arg.TenantID, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DriveFolder
+	for rows.Next() {
+		var i DriveFolder
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.ParentFolderID,
+			&i.Name,
+			&i.CreatedByUserID,
+			&i.InheritanceEnabled,
+			&i.DeletedAt,
+			&i.DeletedByUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedParentFolderID,
+			&i.RetentionUntil,
+			&i.LegalHoldAt,
+			&i.LegalHoldByUserID,
+			&i.LegalHoldReason,
+			&i.PurgeBlockReason,
+			&i.WorkspaceID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDriveChildFolders = `-- name: ListDriveChildFolders :many
@@ -325,6 +417,59 @@ type RenameDriveFolderParams struct {
 
 func (q *Queries) RenameDriveFolder(ctx context.Context, arg RenameDriveFolderParams) (DriveFolder, error) {
 	row := q.db.QueryRow(ctx, renameDriveFolder, arg.Name, arg.ID, arg.TenantID)
+	var i DriveFolder
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.ParentFolderID,
+		&i.Name,
+		&i.CreatedByUserID,
+		&i.InheritanceEnabled,
+		&i.DeletedAt,
+		&i.DeletedByUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
+		&i.WorkspaceID,
+	)
+	return i, err
+}
+
+const restoreDriveFolder = `-- name: RestoreDriveFolder :one
+UPDATE drive_folders
+SET
+    parent_folder_id = $1,
+    workspace_id = $2,
+    deleted_at = NULL,
+    deleted_by_user_id = NULL,
+    deleted_parent_folder_id = NULL,
+    updated_at = now()
+WHERE id = $3
+  AND tenant_id = $4
+  AND deleted_at IS NOT NULL
+RETURNING id, public_id, tenant_id, parent_folder_id, name, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id
+`
+
+type RestoreDriveFolderParams struct {
+	ParentFolderID pgtype.Int8 `json:"parent_folder_id"`
+	WorkspaceID    pgtype.Int8 `json:"workspace_id"`
+	ID             int64       `json:"id"`
+	TenantID       int64       `json:"tenant_id"`
+}
+
+func (q *Queries) RestoreDriveFolder(ctx context.Context, arg RestoreDriveFolderParams) (DriveFolder, error) {
+	row := q.db.QueryRow(ctx, restoreDriveFolder,
+		arg.ParentFolderID,
+		arg.WorkspaceID,
+		arg.ID,
+		arg.TenantID,
+	)
 	var i DriveFolder
 	err := row.Scan(
 		&i.ID,

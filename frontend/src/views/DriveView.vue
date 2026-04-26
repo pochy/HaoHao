@@ -27,6 +27,7 @@ const pendingDelete = ref<DriveItemBody | null>(null)
 const pendingOverwriteFile = ref<DriveFileBody | null>(null)
 const overwriteInput = ref<HTMLInputElement | null>(null)
 const searchMode = ref(false)
+const trashMode = ref(false)
 
 const routeFolderPublicId = computed(() => {
   const raw = route.params.folderPublicId
@@ -39,10 +40,21 @@ const activeTenantLabel = computed(() => (
     : 'None'
 ))
 
-const visibleItems = computed(() => (searchMode.value ? driveStore.searchResults : driveStore.children))
+const visibleItems = computed(() => {
+  if (trashMode.value) {
+    return driveStore.trashItems
+  }
+  return searchMode.value ? driveStore.searchResults : driveStore.children
+})
 const selectedLabel = computed(() => (driveStore.selectedItem ? labelFromDriveItem(driveStore.selectedItem) : 'Drive item'))
 const selectedResource = computed(() => driveStore.selectedResource)
 const currentWorkspaceId = computed(() => driveStore.currentWorkspace?.publicId ?? '')
+const driveTitle = computed(() => {
+  if (trashMode.value) {
+    return 'Drive Trash'
+  }
+  return searchMode.value ? 'Search Drive' : 'Drive Browser'
+})
 const deleteTitle = computed(() => (
   pendingDelete.value?.type === 'folder' ? 'Delete folder' : 'Delete file'
 ))
@@ -67,8 +79,14 @@ watch(
     actionErrorMessage.value = ''
     shareDialogOpen.value = false
     searchMode.value = route.name === 'drive-search'
+    trashMode.value = route.name === 'drive-trash'
 
     if (!slug) {
+      return
+    }
+
+    if (trashMode.value) {
+      await driveStore.loadTrash()
       return
     }
 
@@ -221,6 +239,15 @@ async function confirmDelete() {
   }
 }
 
+async function restoreItem(item: DriveItemBody) {
+  try {
+    await driveStore.restoreItem(item)
+    actionMessage.value = '復元しました。'
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
 async function openShareDialog(item: DriveItemBody) {
   actionErrorMessage.value = ''
   try {
@@ -329,6 +356,14 @@ async function search(query: string) {
   searchMode.value = true
   await driveStore.search(query)
 }
+
+async function refreshDrive() {
+  if (trashMode.value) {
+    await driveStore.loadTrash()
+    return
+  }
+  await driveStore.refreshCurrent()
+}
 </script>
 
 <template>
@@ -336,14 +371,22 @@ async function search(query: string) {
     <div class="section-header">
       <div>
         <span class="status-pill">Drive</span>
-        <h2>{{ searchMode ? 'Search Drive' : 'Drive Browser' }}</h2>
+        <h2>{{ driveTitle }}</h2>
       </div>
-      <RouterLink class="secondary-button link-button" to="/drive/groups">
-        Groups
-      </RouterLink>
+      <div class="action-row">
+        <RouterLink v-if="trashMode || searchMode" class="secondary-button link-button compact-button" to="/drive">
+          Drive
+        </RouterLink>
+        <RouterLink v-if="!trashMode" class="secondary-button link-button compact-button" to="/drive/trash">
+          Trash
+        </RouterLink>
+        <RouterLink class="secondary-button link-button compact-button" to="/drive/groups">
+          Groups
+        </RouterLink>
+      </div>
     </div>
 
-    <div v-if="!searchMode" class="action-row">
+    <div v-if="!searchMode && !trashMode" class="action-row">
       <label class="field compact-field">
         <span class="field-label">Workspace</span>
         <select class="field-input" :value="currentWorkspaceId" :disabled="driveStore.isBusy" @change="selectWorkspace">
@@ -368,11 +411,11 @@ async function search(query: string) {
       </div>
       <div>
         <dt>Current folder</dt>
-        <dd>{{ driveStore.currentFolder.name }}</dd>
+        <dd>{{ trashMode ? 'Trash' : driveStore.currentFolder.name }}</dd>
       </div>
     </dl>
 
-    <DriveBreadcrumbs v-if="!searchMode" :current-folder="driveStore.currentFolder" />
+    <DriveBreadcrumbs v-if="!searchMode && !trashMode" :current-folder="driveStore.currentFolder" />
 
     <p v-if="tenantStore.status === 'empty'" class="warning-message">
       Active tenant がありません。tenant selector で tenant を選択してください。
@@ -384,13 +427,23 @@ async function search(query: string) {
     <p v-if="actionMessage" class="notice-message">{{ actionMessage }}</p>
 
     <DriveToolbar
+      v-if="!trashMode"
       :busy="driveStore.isBusy"
       :disabled="!tenantStore.activeTenant"
       @create-folder="createFolder"
       @upload-file="uploadFile"
       @search="search"
-      @refresh="driveStore.refreshCurrent()"
+      @refresh="refreshDrive"
     />
+
+    <div v-else class="action-row">
+      <RouterLink class="secondary-button link-button compact-button" to="/drive">
+        Back to Drive
+      </RouterLink>
+      <button class="secondary-button compact-button" type="button" :disabled="driveStore.isBusy" @click="refreshDrive">
+        Refresh
+      </button>
+    </div>
 
     <div v-if="driveStore.status === 'forbidden'" class="empty-state">
       <p>Drive authorization が有効でない、またはこの tenant で Drive を表示する権限がありません。</p>
@@ -409,10 +462,12 @@ async function search(query: string) {
       @overwrite-file="requestOverwrite"
       @delete-item="askDelete"
       @share-item="openShareDialog"
+      @restore-item="restoreItem"
+      :trash-mode="trashMode"
     />
 
     <div v-else class="empty-state">
-      <p>{{ searchMode ? '検索結果はありません。' : 'この folder にはまだ item がありません。' }}</p>
+      <p>{{ trashMode ? 'ゴミ箱は空です。' : searchMode ? '検索結果はありません。' : 'この folder にはまだ item がありません。' }}</p>
       <button v-if="searchMode" class="secondary-button compact-button" type="button" @click="router.push('/drive')">
         Back to Drive
       </button>

@@ -12,12 +12,13 @@ import (
 )
 
 type DriveFolderBody struct {
-	PublicID           string    `json:"publicId" example:"018f2f05-c6c9-7a49-b32d-04f4dd84ef4a"`
-	WorkspacePublicID  string    `json:"workspacePublicId,omitempty"`
-	Name               string    `json:"name" example:"Project"`
-	InheritanceEnabled bool      `json:"inheritanceEnabled"`
-	CreatedAt          time.Time `json:"createdAt" format:"date-time"`
-	UpdatedAt          time.Time `json:"updatedAt" format:"date-time"`
+	PublicID           string     `json:"publicId" example:"018f2f05-c6c9-7a49-b32d-04f4dd84ef4a"`
+	WorkspacePublicID  string     `json:"workspacePublicId,omitempty"`
+	Name               string     `json:"name" example:"Project"`
+	InheritanceEnabled bool       `json:"inheritanceEnabled"`
+	CreatedAt          time.Time  `json:"createdAt" format:"date-time"`
+	UpdatedAt          time.Time  `json:"updatedAt" format:"date-time"`
+	DeletedAt          *time.Time `json:"deletedAt,omitempty" format:"date-time"`
 }
 
 type DriveFileBody struct {
@@ -36,6 +37,7 @@ type DriveFileBody struct {
 	CreatedAt          time.Time  `json:"createdAt" format:"date-time"`
 	UpdatedAt          time.Time  `json:"updatedAt" format:"date-time"`
 	LockedAt           *time.Time `json:"lockedAt,omitempty" format:"date-time"`
+	DeletedAt          *time.Time `json:"deletedAt,omitempty" format:"date-time"`
 }
 
 type DriveWorkspaceBody struct {
@@ -163,6 +165,7 @@ func toDriveFolderBody(item service.DriveFolder) DriveFolderBody {
 		InheritanceEnabled: item.InheritanceEnabled,
 		CreatedAt:          item.CreatedAt,
 		UpdatedAt:          item.UpdatedAt,
+		DeletedAt:          item.DeletedAt,
 	}
 }
 
@@ -183,6 +186,7 @@ func toDriveFileBody(item service.DriveFile) DriveFileBody {
 		CreatedAt:          item.CreatedAt,
 		UpdatedAt:          item.UpdatedAt,
 		LockedAt:           item.LockedAt,
+		DeletedAt:          item.DeletedAt,
 	}
 }
 

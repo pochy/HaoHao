@@ -7,6 +7,7 @@ defineProps<{
   loading: boolean
   busyResourceId: string
   deletingResourceId: string
+  trashMode?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -17,6 +18,7 @@ const emit = defineEmits<{
   overwriteFile: [file: DriveFileBody]
   deleteItem: [item: DriveItemBody]
   shareItem: [item: DriveItemBody]
+  restoreItem: [item: DriveItemBody]
 }>()
 
 function itemPublicId(item: DriveItemBody) {
@@ -25,6 +27,10 @@ function itemPublicId(item: DriveItemBody) {
 
 function itemUpdatedAt(item: DriveItemBody) {
   return item.file?.updatedAt ?? item.folder?.updatedAt ?? ''
+}
+
+function itemDeletedAt(item: DriveItemBody) {
+  return item.file?.deletedAt ?? item.folder?.deletedAt ?? ''
 }
 
 function formatDate(value: string) {
@@ -69,27 +75,39 @@ function formatSize(value?: number) {
         <tr v-for="item in items" v-else :key="itemPublicId(item)">
           <td>
             <button
-              v-if="item.folder"
+              v-if="item.folder && !trashMode"
               class="drive-name-button"
               type="button"
               @click="emit('openFolder', item.folder.publicId)"
             >
               {{ item.folder.name }}
             </button>
+            <span v-else-if="item.folder" class="drive-file-name">{{ item.folder.name }}</span>
             <span v-else class="drive-file-name">{{ labelFromDriveItem(item) }}</span>
             <span class="cell-subtle monospace-cell">{{ itemPublicId(item) }}</span>
           </td>
           <td>{{ item.type }}</td>
           <td class="tabular-cell">{{ formatSize(item.file?.byteSize) }}</td>
           <td>
-            <span v-if="item.file?.locked" class="status-pill danger">Locked</span>
+            <span v-if="trashMode" class="status-pill danger">Deleted</span>
+            <span v-else-if="item.file?.locked" class="status-pill danger">Locked</span>
             <span v-else-if="item.file" class="status-pill">File</span>
             <span v-else class="status-pill">Folder</span>
             <span v-if="item.file?.status" class="cell-subtle">{{ item.file.status }}</span>
           </td>
-          <td class="tabular-cell">{{ formatDate(itemUpdatedAt(item)) }}</td>
+          <td class="tabular-cell">{{ formatDate(trashMode ? itemDeletedAt(item) : itemUpdatedAt(item)) }}</td>
           <td class="drive-actions-cell">
-            <div class="drive-row-actions">
+            <div v-if="trashMode" class="drive-row-actions">
+              <button
+                class="secondary-button compact-button"
+                type="button"
+                :disabled="busyResourceId === itemPublicId(item)"
+                @click="emit('restoreItem', item)"
+              >
+                Restore
+              </button>
+            </div>
+            <div v-else class="drive-row-actions">
               <button
                 v-if="item.file"
                 class="secondary-button compact-button"

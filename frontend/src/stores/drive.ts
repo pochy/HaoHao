@@ -16,10 +16,13 @@ import {
   fetchDriveGroup,
   fetchDriveGroups,
   fetchDriveItems,
+  fetchDriveTrashItems,
   fetchDriveWorkspaces,
   fetchDrivePermissions,
   overwriteDriveFileItem,
   removeDriveGroupMemberItem,
+  restoreDriveFileItem,
+  restoreDriveFolderItem,
   revokeDriveShareItem,
   searchDriveItemsByKeyword,
   updateDriveFileItem,
@@ -83,6 +86,7 @@ export const useDriveStore = defineStore('drive', {
     currentWorkspace: null as DriveWorkspaceBody | null,
     children: [] as DriveItemBody[],
     searchResults: [] as DriveItemBody[],
+    trashItems: [] as DriveItemBody[],
     selectedItem: null as DriveItemBody | null,
     selectedResource: null as DriveResourceRef | null,
     permissions: null as DrivePermissionsBody | null,
@@ -140,6 +144,19 @@ export const useDriveStore = defineStore('drive', {
 
     async refreshCurrent() {
       await this.loadFolder(this.currentFolder.publicId)
+    },
+
+    async loadTrash() {
+      this.status = 'loading'
+      this.errorMessage = ''
+      this.resetSelection()
+      try {
+        this.trashItems = await fetchDriveTrashItems()
+        this.status = this.trashItems.length > 0 ? 'ready' : 'empty'
+      } catch (error) {
+        this.trashItems = []
+        this.setError(error)
+      }
     },
 
     async selectWorkspace(workspacePublicId: string) {
@@ -347,6 +364,29 @@ export const useDriveStore = defineStore('drive', {
         throw error
       } finally {
         this.deletingResourceId = ''
+      }
+    },
+
+    async restoreItem(item: DriveItemBody) {
+      const resource = resourceFromDriveItem(item)
+      if (!resource) {
+        return
+      }
+
+      this.busyResourceId = resource.publicId
+      this.errorMessage = ''
+      try {
+        const restored = resource.type === 'file'
+          ? await restoreDriveFileItem(resource.publicId)
+          : await restoreDriveFolderItem(resource.publicId)
+        this.trashItems = this.trashItems.filter((child) => resourceFromDriveItem(child)?.publicId !== resource.publicId)
+        this.status = this.trashItems.length > 0 ? 'ready' : 'empty'
+        return restored
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.busyResourceId = ''
       }
     },
 

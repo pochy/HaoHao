@@ -75,6 +75,13 @@ func (s *DriveAuthorizationService) CanDeleteFile(ctx context.Context, actor Dri
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
 
+func (s *DriveAuthorizationService) CanRestoreFile(ctx context.Context, actor DriveActor, file DriveFile) error {
+	if err := validateDriveActorResourceForDeleted(actor, file.ResourceRef()); err != nil {
+		return err
+	}
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFile(file.PublicID), "file", s.currentTimeContext())
+}
+
 func (s *DriveAuthorizationService) CanShareFile(ctx context.Context, actor DriveActor, file DriveFile) error {
 	if err := validateDriveActorResource(actor, file.ResourceRef(), file.DeletedAt); err != nil {
 		return err
@@ -101,6 +108,13 @@ func (s *DriveAuthorizationService) CanEditFolder(ctx context.Context, actor Dri
 
 func (s *DriveAuthorizationService) CanDeleteFolder(ctx context.Context, actor DriveActor, folder DriveFolder) error {
 	if err := validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt); err != nil {
+		return err
+	}
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
+}
+
+func (s *DriveAuthorizationService) CanRestoreFolder(ctx context.Context, actor DriveActor, folder DriveFolder) error {
+	if err := validateDriveActorResourceForDeleted(actor, folder.ResourceRef()); err != nil {
 		return err
 	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
@@ -489,6 +503,19 @@ func validateDriveActorResource(actor DriveActor, resource DriveResourceRef, del
 		return ErrDriveNotFound
 	}
 	if strings.TrimSpace(resource.PublicID) == "" || deletedAt != nil {
+		return ErrDriveNotFound
+	}
+	return nil
+}
+
+func validateDriveActorResourceForDeleted(actor DriveActor, resource DriveResourceRef) error {
+	if actor.UserID <= 0 || actor.TenantID <= 0 || strings.TrimSpace(actor.PublicID) == "" {
+		return ErrDrivePermissionDenied
+	}
+	if resource.TenantID <= 0 || actor.TenantID != resource.TenantID {
+		return ErrDriveNotFound
+	}
+	if strings.TrimSpace(resource.PublicID) == "" {
 		return ErrDriveNotFound
 	}
 	return nil

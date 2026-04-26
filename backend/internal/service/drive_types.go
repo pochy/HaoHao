@@ -310,6 +310,13 @@ type DriveUpdateFileInput struct {
 	ParentFolderPublicID *string
 }
 
+type DriveRestoreResourceInput struct {
+	TenantID             int64
+	ActorUserID          int64
+	ResourcePublicID     string
+	ParentFolderPublicID *string
+}
+
 type DriveOverwriteFileInput struct {
 	TenantID     int64
 	ActorUserID  int64
@@ -325,6 +332,12 @@ type DriveListChildrenInput struct {
 	WorkspacePublicID    string
 	ParentFolderPublicID string
 	Limit                int32
+}
+
+type DriveListTrashInput struct {
+	TenantID    int64
+	ActorUserID int64
+	Limit       int32
 }
 
 type DriveSearchInput struct {

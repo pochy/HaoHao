@@ -88,6 +88,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/drive/trash',
+      name: 'drive-trash',
+      component: DriveView,
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/drive/groups',
       name: 'drive-groups',
       component: DriveGroupsView,
