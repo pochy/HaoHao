@@ -103,18 +103,88 @@ type DriveShare struct {
 }
 
 type DriveShareLink struct {
-	ID              int64
-	PublicID        string
-	TenantID        int64
-	Resource        DriveResourceRef
-	Role            DriveRole
-	CanDownload     bool
-	ExpiresAt       time.Time
-	Status          string
-	CreatedByUserID int64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	RawToken        string
+	ID               int64
+	PublicID         string
+	TenantID         int64
+	Resource         DriveResourceRef
+	Role             DriveRole
+	CanDownload      bool
+	PasswordRequired bool
+	ExpiresAt        time.Time
+	Status           string
+	CreatedByUserID  int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	RawToken         string
+}
+
+type DriveShareInvitation struct {
+	ID                 int64
+	PublicID           string
+	TenantID           int64
+	Resource           DriveResourceRef
+	InviteeEmailDomain string
+	MaskedInviteeEmail string
+	InviteeUserID      *int64
+	Role               DriveRole
+	Status             string
+	ExpiresAt          time.Time
+	ApprovedByUserID   *int64
+	ApprovedAt         *time.Time
+	AcceptedAt         *time.Time
+	CreatedByUserID    int64
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	RawAcceptToken     string
+}
+
+type DriveAdminShareState struct {
+	PublicID         string
+	ResourceType     string
+	ResourcePublicID string
+	ResourceName     string
+	SubjectType      string
+	SubjectPublicID  string
+	Role             string
+	Status           string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type DriveAdminShareLinkState struct {
+	PublicID         string
+	ResourceType     string
+	ResourcePublicID string
+	ResourceName     string
+	CanDownload      bool
+	PasswordRequired bool
+	Status           string
+	ExpiresAt        time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type DriveAdminAuditEvent struct {
+	PublicID   string
+	ActorType  string
+	Action     string
+	TargetType string
+	TargetID   string
+	Metadata   map[string]any
+	OccurredAt time.Time
+}
+
+type DriveOpenFGASyncItem struct {
+	Kind     string
+	PublicID string
+	Status   string
+	Action   string
+	Error    string
+}
+
+type DriveOpenFGASyncResult struct {
+	DryRun bool
+	Items  []DriveOpenFGASyncItem
 }
 
 type DriveItemType string
@@ -236,6 +306,29 @@ type DriveCreateShareLinkInput struct {
 	Resource    DriveResourceRef
 	CanDownload bool
 	ExpiresAt   time.Time
+	Password    string
+}
+
+type DriveCreateShareInvitationInput struct {
+	TenantID            int64
+	ActorUserID         int64
+	Resource            DriveResourceRef
+	InviteeEmail        string
+	InviteeUserPublicID string
+	Role                DriveRole
+	ExpiresAt           time.Time
+}
+
+type DriveAcceptShareInvitationInput struct {
+	ActorUserID        int64
+	InvitationPublicID string
+	AcceptToken        string
+}
+
+type DriveRevokeShareInvitationInput struct {
+	TenantID           int64
+	ActorUserID        int64
+	InvitationPublicID string
 }
 
 type DriveUpdateShareLinkInput struct {

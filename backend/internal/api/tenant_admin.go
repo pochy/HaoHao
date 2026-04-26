@@ -263,6 +263,8 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		}
 		return &TenantAdminNoContentOutput{}, nil
 	})
+
+	registerTenantAdminDriveRoutes(api, deps)
 }
 
 func requireTenantAdmin(ctx context.Context, deps Dependencies, sessionID, csrfToken string) (service.CurrentSession, error) {

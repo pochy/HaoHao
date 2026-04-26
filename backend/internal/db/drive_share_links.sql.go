@@ -34,7 +34,7 @@ INSERT INTO drive_share_links (
     $7,
     $8
 )
-RETURNING id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at, password_hash, password_required, password_updated_at
 `
 
 type CreateDriveShareLinkParams struct {
@@ -76,6 +76,9 @@ func (q *Queries) CreateDriveShareLink(ctx context.Context, arg CreateDriveShare
 		&i.DisabledAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordHash,
+		&i.PasswordRequired,
+		&i.PasswordUpdatedAt,
 	)
 	return i, err
 }
@@ -90,7 +93,7 @@ SET
 WHERE public_id = $2
   AND tenant_id = $3
   AND status <> 'disabled'
-RETURNING id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at, password_hash, password_required, password_updated_at
 `
 
 type DisableDriveShareLinkParams struct {
@@ -118,12 +121,15 @@ func (q *Queries) DisableDriveShareLink(ctx context.Context, arg DisableDriveSha
 		&i.DisabledAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordHash,
+		&i.PasswordRequired,
+		&i.PasswordUpdatedAt,
 	)
 	return i, err
 }
 
 const getDriveShareLinkByPublicIDForTenant = `-- name: GetDriveShareLinkByPublicIDForTenant :one
-SELECT id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at
+SELECT id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at, password_hash, password_required, password_updated_at
 FROM drive_share_links
 WHERE public_id = $1
   AND tenant_id = $2
@@ -153,12 +159,15 @@ func (q *Queries) GetDriveShareLinkByPublicIDForTenant(ctx context.Context, arg 
 		&i.DisabledAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordHash,
+		&i.PasswordRequired,
+		&i.PasswordUpdatedAt,
 	)
 	return i, err
 }
 
 const listDriveShareLinksByResource = `-- name: ListDriveShareLinksByResource :many
-SELECT id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at
+SELECT id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at, password_hash, password_required, password_updated_at
 FROM drive_share_links
 WHERE tenant_id = $1
   AND resource_type = $2
@@ -198,6 +207,9 @@ func (q *Queries) ListDriveShareLinksByResource(ctx context.Context, arg ListDri
 			&i.DisabledAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PasswordHash,
+			&i.PasswordRequired,
+			&i.PasswordUpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -210,7 +222,7 @@ func (q *Queries) ListDriveShareLinksByResource(ctx context.Context, arg ListDri
 }
 
 const lookupActiveDriveShareLinkByTokenHash = `-- name: LookupActiveDriveShareLinkByTokenHash :one
-SELECT id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at
+SELECT id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at, password_hash, password_required, password_updated_at
 FROM drive_share_links
 WHERE token_hash = $1
   AND status = 'active'
@@ -236,6 +248,9 @@ func (q *Queries) LookupActiveDriveShareLinkByTokenHash(ctx context.Context, tok
 		&i.DisabledAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordHash,
+		&i.PasswordRequired,
+		&i.PasswordUpdatedAt,
 	)
 	return i, err
 }
@@ -248,7 +263,7 @@ SET
 WHERE id = $1
   AND tenant_id = $2
   AND status <> 'disabled'
-RETURNING id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at, password_hash, password_required, password_updated_at
 `
 
 type MarkDriveShareLinkPendingSyncParams struct {
@@ -275,6 +290,9 @@ func (q *Queries) MarkDriveShareLinkPendingSync(ctx context.Context, arg MarkDri
 		&i.DisabledAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordHash,
+		&i.PasswordRequired,
+		&i.PasswordUpdatedAt,
 	)
 	return i, err
 }
@@ -288,7 +306,7 @@ SET
 WHERE public_id = $3
   AND tenant_id = $4
   AND status <> 'disabled'
-RETURNING id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at, password_hash, password_required, password_updated_at
 `
 
 type UpdateDriveShareLinkParams struct {
@@ -322,6 +340,9 @@ func (q *Queries) UpdateDriveShareLink(ctx context.Context, arg UpdateDriveShare
 		&i.DisabledAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordHash,
+		&i.PasswordRequired,
+		&i.PasswordUpdatedAt,
 	)
 	return i, err
 }

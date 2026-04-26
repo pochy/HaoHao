@@ -193,6 +193,9 @@ func (s *DriveService) UpdateFolder(ctx context.Context, input DriveUpdateFolder
 	if err != nil {
 		return DriveFolder{}, err
 	}
+	if err := s.ensureFolderMutationAllowed(ctx, input.TenantID, folder.ID); err != nil {
+		return DriveFolder{}, err
+	}
 	if err := s.authz.CanEditFolder(ctx, actor, folder); err != nil {
 		s.auditDenied(ctx, actor, "drive.folder.update", "drive_folder", folder.PublicID, err, auditCtx)
 		return DriveFolder{}, err
@@ -241,6 +244,9 @@ func (s *DriveService) DeleteFolder(ctx context.Context, tenantID, actorUserID i
 	if err != nil {
 		return err
 	}
+	if err := s.ensureFolderMutationAllowed(ctx, tenantID, folder.ID); err != nil {
+		return err
+	}
 	if err := s.authz.CanDeleteFolder(ctx, actor, folder); err != nil {
 		s.auditDenied(ctx, actor, "drive.folder.delete", "drive_folder", folder.PublicID, err, auditCtx)
 		return err
@@ -264,6 +270,7 @@ func (s *DriveService) DeleteFolder(ctx context.Context, tenantID, actorUserID i
 	if len(childFolders) > 0 || len(childFiles) > 0 {
 		return fmt.Errorf("%w: folder must be empty before delete", ErrDriveInvalidInput)
 	}
+	_, _ = s.pool.Exec(ctx, `UPDATE drive_folders SET deleted_parent_folder_id = parent_folder_id WHERE id = $1 AND tenant_id = $2`, folder.ID, tenantID)
 	if _, err := s.queries.SoftDeleteDriveFolder(ctx, db.SoftDeleteDriveFolderParams{
 		DeletedByUserID: pgtype.Int8{Int64: actor.UserID, Valid: true},
 		ID:              folder.ID,
@@ -343,6 +350,9 @@ func (s *DriveService) UpdateFile(ctx context.Context, input DriveUpdateFileInpu
 		return DriveFile{}, err
 	}
 	file := driveFileFromDB(row)
+	if err := s.ensureFileMutationAllowed(ctx, input.TenantID, file.ID); err != nil {
+		return DriveFile{}, err
+	}
 	if err := s.authz.CanEditFile(ctx, actor, file); err != nil {
 		s.auditDenied(ctx, actor, "drive.file.update", "drive_file", file.PublicID, err, auditCtx)
 		return DriveFile{}, err
@@ -392,6 +402,9 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 		return DriveFile{}, err
 	}
 	file := driveFileFromDB(row)
+	if err := s.ensureFileMutationAllowed(ctx, input.TenantID, file.ID); err != nil {
+		return DriveFile{}, err
+	}
 	if err := s.authz.CanEditFile(ctx, actor, file); err != nil {
 		s.auditDenied(ctx, actor, "drive.file.update", "drive_file", file.PublicID, err, auditCtx)
 		return DriveFile{}, err
@@ -483,10 +496,14 @@ func (s *DriveService) DeleteFile(ctx context.Context, tenantID, actorUserID int
 		return err
 	}
 	file := driveFileFromDB(row)
+	if err := s.ensureFileMutationAllowed(ctx, tenantID, file.ID); err != nil {
+		return err
+	}
 	if err := s.authz.CanDeleteFile(ctx, actor, file); err != nil {
 		s.auditDenied(ctx, actor, "drive.file.delete", "drive_file", file.PublicID, err, auditCtx)
 		return err
 	}
+	_, _ = s.pool.Exec(ctx, `UPDATE file_objects SET deleted_parent_folder_id = drive_folder_id WHERE id = $1 AND tenant_id = $2 AND purpose = 'drive'`, file.ID, tenantID)
 	if _, err := s.queries.SoftDeleteDriveFile(ctx, db.SoftDeleteDriveFileParams{
 		DeletedByUserID: pgtype.Int8{Int64: actor.UserID, Valid: true},
 		ID:              file.ID,
@@ -700,7 +717,7 @@ func (s *DriveService) UpdateShareLink(ctx context.Context, input DriveUpdateSha
 	link := driveShareLinkFromDB(row, resource)
 	canDownload := link.CanDownload
 	if input.CanDownload != nil {
-		canDownload = *input.CanDownload && policy.ShareLinkDownloadEnabled
+		canDownload = *input.CanDownload && policy.ViewerDownloadEnabled
 	}
 	expiresAt := link.ExpiresAt
 	if input.ExpiresAt != nil {
@@ -709,7 +726,7 @@ func (s *DriveService) UpdateShareLink(ctx context.Context, input DriveUpdateSha
 	if expiresAt.IsZero() || !expiresAt.After(s.now()) {
 		return DriveShareLink{}, fmt.Errorf("%w: share link expiry must be in the future", ErrDriveInvalidInput)
 	}
-	if policy.MaxLinkTTLHours > 0 && expiresAt.After(s.now().Add(time.Duration(policy.MaxLinkTTLHours)*time.Hour)) {
+	if policy.MaxShareLinkTTLHours > 0 && expiresAt.After(s.now().Add(time.Duration(policy.MaxShareLinkTTLHours)*time.Hour)) {
 		return DriveShareLink{}, ErrDrivePolicyDenied
 	}
 	if err := s.authz.DeleteShareLinkTuple(ctx, link); err != nil {
@@ -745,6 +762,7 @@ func (s *DriveService) PublicShareLinkMetadata(ctx context.Context, token string
 	if err != nil {
 		return DriveShareLink{}, nil, nil, err
 	}
+	s.hydrateShareLinkPasswordState(ctx, &link)
 	s.recordPublicLinkAudit(ctx, link, "drive.share_link.access", map[string]any{
 		"resourceType": link.Resource.Type,
 	})
@@ -752,22 +770,7 @@ func (s *DriveService) PublicShareLinkMetadata(ctx context.Context, token string
 }
 
 func (s *DriveService) PublicShareLinkContent(ctx context.Context, token string) (DriveFileDownload, error) {
-	link, file, _, err := s.resolvePublicShareLink(ctx, token, true)
-	if err != nil {
-		return DriveFileDownload{}, err
-	}
-	if file == nil {
-		return DriveFileDownload{}, ErrDriveInvalidInput
-	}
-	body, err := s.storage.Open(ctx, file.StorageKey)
-	if err != nil {
-		return DriveFileDownload{}, err
-	}
-	s.recordPublicLinkAudit(ctx, link, "drive.share_link.access", map[string]any{
-		"resourceType": "file",
-		"content":      true,
-	})
-	return DriveFileDownload{File: *file, Body: body}, nil
+	return s.PublicShareLinkContentWithVerification(ctx, token, "")
 }
 
 func (s *DriveService) moveFolder(ctx context.Context, actor DriveActor, folder DriveFolder, parentPublicID string) (DriveFolder, error) {
@@ -999,7 +1002,7 @@ func (s *DriveService) resolvePublicShareLink(ctx context.Context, token string,
 	if err != nil {
 		return DriveShareLink{}, nil, nil, err
 	}
-	if !policy.LinkSharingEnabled || !policy.AnonymousLinksEnabled {
+	if !policy.LinkSharingEnabled || !policy.PublicLinksEnabled {
 		return DriveShareLink{}, nil, nil, ErrDrivePolicyDenied
 	}
 	if requireDownload && !row.CanDownload {

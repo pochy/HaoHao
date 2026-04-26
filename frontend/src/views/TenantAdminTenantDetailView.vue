@@ -30,6 +30,16 @@ const invitationRoleCode = ref('todo_user')
 const fileQuotaBytes = ref(104857600)
 const browserRateLimit = ref<number | null>(null)
 const notificationsEnabled = ref(true)
+const driveExternalSharingEnabled = ref(false)
+const driveRequireApproval = ref(false)
+const drivePublicLinksEnabled = ref(true)
+const drivePasswordLinksEnabled = ref(false)
+const driveRequireLinkPassword = ref(false)
+const driveAllowedDomains = ref('')
+const driveBlockedDomains = ref('')
+const driveMaxLinkTTLHours = ref(168)
+const driveViewerDownloadEnabled = ref(true)
+const driveExternalDownloadEnabled = ref(false)
 const webhookName = ref('')
 const webhookUrl = ref('')
 const webhookEvents = ref('customer_signal.created')
@@ -50,12 +60,13 @@ const tenantSlug = computed(() => {
 const tenant = computed(() => store.current?.tenant ?? null)
 const memberships = computed(() => store.current?.memberships ?? [])
 const tenantRoleOptions = ['customer_signal_user', 'docs_reader', 'todo_user']
-const drivePolicyRows = [
-  ['Resource authz', 'OpenFGA decides file/folder/group/share-link access per resource.'],
-  ['Tenant admin boundary', 'tenant_admin can manage tenant settings and audit, but does not get file body access by default.'],
-  ['Link sharing', 'Drive share links are owner-controlled. Raw tokens are shown only at creation time.'],
-  ['Download policy', 'can_download=false blocks the public content endpoint and hides download UI.'],
-]
+const drivePolicyRows = computed(() => [
+  ['Public links', drivePublicLinksEnabled.value ? 'Enabled' : 'Disabled'],
+  ['External sharing', driveExternalSharingEnabled.value ? 'Enabled' : 'Disabled'],
+  ['External approval', driveRequireApproval.value ? 'Required' : 'Not required'],
+  ['Password links', drivePasswordLinksEnabled.value ? 'Enabled' : 'Disabled'],
+  ['Max link TTL', `${driveMaxLinkTTLHours.value} hours`],
+])
 
 const canSaveSettings = computed(() => (
   Boolean(tenant.value) &&
@@ -130,6 +141,7 @@ async function loadCurrent() {
     return
   }
   await store.loadOne(tenantSlug.value)
+  await store.loadDriveState(tenantSlug.value)
   await commonStore.load(tenantSlug.value)
   syncForm()
   syncCommonForm()
@@ -156,6 +168,17 @@ function syncCommonForm() {
   fileQuotaBytes.value = commonStore.settings.fileQuotaBytes
   browserRateLimit.value = commonStore.settings.rateLimitBrowserApiPerMinute ?? null
   notificationsEnabled.value = commonStore.settings.notificationsEnabled
+  const drive = (commonStore.settings.features?.drive ?? {}) as Record<string, unknown>
+  driveExternalSharingEnabled.value = Boolean(drive.externalUserSharingEnabled)
+  driveRequireApproval.value = Boolean(drive.requireExternalShareApproval)
+  drivePublicLinksEnabled.value = drive.publicLinksEnabled !== false
+  drivePasswordLinksEnabled.value = Boolean(drive.passwordProtectedLinksEnabled)
+  driveRequireLinkPassword.value = Boolean(drive.requireShareLinkPassword)
+  driveAllowedDomains.value = Array.isArray(drive.allowedExternalDomains) ? drive.allowedExternalDomains.join(', ') : ''
+  driveBlockedDomains.value = Array.isArray(drive.blockedExternalDomains) ? drive.blockedExternalDomains.join(', ') : ''
+  driveMaxLinkTTLHours.value = typeof drive.maxShareLinkTTLHours === 'number' ? drive.maxShareLinkTTLHours : 168
+  driveViewerDownloadEnabled.value = drive.viewerDownloadEnabled !== false
+  driveExternalDownloadEnabled.value = Boolean(drive.externalDownloadEnabled)
 }
 
 function formatDate(value?: string) {
@@ -175,6 +198,10 @@ function userLabel(member: TenantAdminMembershipBody) {
 
 function roleSourceClass(role: TenantAdminRoleBindingBody) {
   return ['source-chip', role.source === 'local_override' ? 'local' : '', role.active ? '' : 'inactive']
+}
+
+function domainList(value: string) {
+  return value.split(',').map((item) => item.trim()).filter(Boolean)
 }
 
 async function saveSettings() {
@@ -267,9 +294,68 @@ async function saveCommonSettings() {
       fileQuotaBytes: fileQuotaBytes.value,
       rateLimitBrowserApiPerMinute: browserRateLimit.value ?? undefined,
       notificationsEnabled: notificationsEnabled.value,
-      features: commonStore.settings?.features ?? {},
+      features: {
+        ...(commonStore.settings?.features ?? {}),
+        drive: {
+          linkSharingEnabled: true,
+          publicLinksEnabled: drivePublicLinksEnabled.value,
+          externalUserSharingEnabled: driveExternalSharingEnabled.value,
+          passwordProtectedLinksEnabled: drivePasswordLinksEnabled.value,
+          requireShareLinkPassword: driveRequireLinkPassword.value,
+          requireExternalShareApproval: driveRequireApproval.value,
+          allowedExternalDomains: domainList(driveAllowedDomains.value),
+          blockedExternalDomains: domainList(driveBlockedDomains.value),
+          maxShareLinkTTLHours: driveMaxLinkTTLHours.value,
+          viewerDownloadEnabled: driveViewerDownloadEnabled.value,
+          externalDownloadEnabled: driveExternalDownloadEnabled.value,
+          editorCanReshare: false,
+          editorCanDelete: false,
+        },
+      },
     })
     message.value = 'Tenant common settings を更新しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function approveDriveInvitation(publicId: string) {
+  if (!tenant.value) {
+    return
+  }
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    await store.approveDriveInvitation(tenant.value.slug, publicId)
+    message.value = 'Drive invitation を承認しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function rejectDriveInvitation(publicId: string) {
+  if (!tenant.value) {
+    return
+  }
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    await store.rejectDriveInvitation(tenant.value.slug, publicId)
+    message.value = 'Drive invitation を拒否しました。'
+  } catch (error) {
+    errorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function repairDriveSync() {
+  if (!tenant.value) {
+    return
+  }
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    await store.repairDriveSync(tenant.value.slug)
+    message.value = 'Drive OpenFGA sync repair を実行しました。'
   } catch (error) {
     errorMessage.value = toApiErrorMessage(error)
   }
@@ -695,6 +781,54 @@ async function confirmPendingAction() {
           </div>
         </div>
 
+        <form class="admin-form" @submit.prevent="saveCommonSettings">
+          <label class="checkbox-field">
+            <input v-model="drivePublicLinksEnabled" type="checkbox">
+            <span>Public links enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveExternalSharingEnabled" type="checkbox">
+            <span>External user sharing enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveRequireApproval" type="checkbox">
+            <span>External share approval required</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="drivePasswordLinksEnabled" type="checkbox">
+            <span>Password protected links enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveRequireLinkPassword" type="checkbox">
+            <span>Require share link password</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveViewerDownloadEnabled" type="checkbox">
+            <span>Viewer download enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveExternalDownloadEnabled" type="checkbox">
+            <span>External download enabled</span>
+          </label>
+          <label class="field">
+            <span class="field-label">Max link TTL hours</span>
+            <input v-model.number="driveMaxLinkTTLHours" class="field-input" min="1" max="2160" type="number">
+          </label>
+          <label class="field">
+            <span class="field-label">Allowed external domains</span>
+            <input v-model="driveAllowedDomains" class="field-input" autocomplete="off" placeholder="example.com, partner.example">
+          </label>
+          <label class="field">
+            <span class="field-label">Blocked external domains</span>
+            <input v-model="driveBlockedDomains" class="field-input" autocomplete="off" placeholder="blocked.example">
+          </label>
+          <div class="action-row form-span">
+            <button class="primary-button" :disabled="commonStore.saving" type="submit">
+              Save Drive policy
+            </button>
+          </div>
+        </form>
+
         <div class="admin-table">
           <table>
             <thead>
@@ -716,6 +850,113 @@ async function confirmPendingAction() {
           Audit は <code>drive.file.*</code>, <code>drive.folder.*</code>, <code>drive.share.*</code>, <code>drive.share_link.*</code>, <code>drive.authz.denied</code> を記録します。
           この画面には Drive file body の閲覧導線を置きません。
         </p>
+      </div>
+
+      <div class="stack">
+        <div class="section-header">
+          <div>
+            <span class="status-pill">Drive Admin</span>
+            <h2>Share State</h2>
+          </div>
+          <button class="secondary-button compact-button" type="button" :disabled="store.saving" @click="store.loadDriveState(tenant.slug)">
+            Reload
+          </button>
+        </div>
+
+        <div v-if="store.driveApprovals.length > 0" class="list-stack">
+          <article v-for="item in store.driveApprovals" :key="item.publicId" class="list-item">
+            <div>
+              <strong>{{ item.resourceType }} / {{ item.role }} / {{ item.status }}</strong>
+              <span class="cell-subtle">{{ item.maskedInviteeEmail || item.inviteeEmailDomain }}</span>
+              <span class="cell-subtle">Expires {{ formatDate(item.expiresAt) }}</span>
+            </div>
+            <div class="action-row">
+              <button class="primary-button compact-button" type="button" :disabled="store.saving" @click="approveDriveInvitation(item.publicId)">
+                Approve
+              </button>
+              <button class="secondary-button danger-button compact-button" type="button" :disabled="store.saving" @click="rejectDriveInvitation(item.publicId)">
+                Reject
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <div class="admin-table">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Resource</th>
+                <th scope="col">Subject</th>
+                <th scope="col">Role</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in store.driveShares" :key="item.publicId">
+                <td>{{ item.resourceName || item.resourcePublicId }}<span class="cell-subtle">{{ item.resourceType }}</span></td>
+                <td>{{ item.subjectPublicId }}<span class="cell-subtle">{{ item.subjectType }}</span></td>
+                <td>{{ item.role }}</td>
+                <td>{{ item.status }}</td>
+              </tr>
+              <tr v-if="store.driveShares.length === 0">
+                <td colspan="4">Drive share はありません。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="admin-table">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Link</th>
+                <th scope="col">Resource</th>
+                <th scope="col">Download</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in store.driveShareLinks" :key="item.publicId">
+                <td>{{ item.publicId }}<span class="cell-subtle">Password {{ item.passwordRequired ? 'required' : 'not required' }}</span></td>
+                <td>{{ item.resourceName || item.resourcePublicId }}</td>
+                <td>{{ item.canDownload ? 'Allowed' : 'Blocked' }}</td>
+                <td>{{ item.status }}<span class="cell-subtle">Expires {{ formatDate(item.expiresAt) }}</span></td>
+              </tr>
+              <tr v-if="store.driveShareLinks.length === 0">
+                <td colspan="4">Drive share link はありません。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-header">
+          <div>
+            <span class="status-pill">OpenFGA</span>
+            <h2>Sync Status</h2>
+          </div>
+          <button class="secondary-button compact-button" type="button" :disabled="store.saving" @click="repairDriveSync">
+            Repair
+          </button>
+        </div>
+        <div class="list-stack">
+          <article v-for="item in store.driveSync?.items ?? []" :key="`${item.kind}:${item.publicId}:${item.action}`" class="list-item">
+            <div>
+              <strong>{{ item.kind }} / {{ item.action }}</strong>
+              <span class="cell-subtle">{{ item.publicId }} / {{ item.status }}</span>
+              <span v-if="item.error" class="cell-subtle">{{ item.error }}</span>
+            </div>
+          </article>
+        </div>
+
+        <div v-if="store.driveAuditEvents.length > 0" class="list-stack">
+          <article v-for="item in store.driveAuditEvents" :key="item.publicId" class="list-item">
+            <div>
+              <strong>{{ item.action }}</strong>
+              <span class="cell-subtle">{{ item.targetType }} / {{ item.targetId }}</span>
+              <span class="cell-subtle">{{ formatDate(item.occurredAt) }}</span>
+            </div>
+          </article>
+        </div>
       </div>
 
       <form class="admin-form" @submit.prevent="saveEntitlements">

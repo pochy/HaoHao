@@ -25,7 +25,8 @@ const emit = defineEmits<{
   close: []
   createUserShare: [subjectPublicId: string, role: string]
   createGroupShare: [groupPublicId: string, role: string]
-  createShareLink: [expiresAt: string, canDownload: boolean]
+  createExternalInvitation: [inviteeEmail: string, role: string]
+  createShareLink: [expiresAt: string, canDownload: boolean, password: string]
   revokeShare: [permission: DrivePermissionBody]
   disableLink: [permission: DrivePermissionBody]
   reloadPermissions: []
@@ -33,12 +34,15 @@ const emit = defineEmits<{
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const userPublicId = ref('')
+const externalEmail = ref('')
 const groupPublicId = ref('')
 const shareRole = ref('viewer')
 const linkExpiresAt = ref('')
 const linkCanDownload = ref(true)
+const linkPassword = ref('')
 
 const canCreateUserShare = computed(() => Boolean(props.resource) && userPublicId.value.trim() !== '')
+const canCreateExternalInvitation = computed(() => Boolean(props.resource) && externalEmail.value.trim() !== '')
 const canCreateGroupShare = computed(() => Boolean(props.resource) && groupPublicId.value !== '')
 const canCreateShareLink = computed(() => Boolean(props.resource) && linkExpiresAt.value !== '')
 const rawLinkURL = computed(() => (
@@ -114,11 +118,20 @@ function createGroupShare() {
   emit('createGroupShare', groupPublicId.value, shareRole.value)
 }
 
+function createExternalInvitation() {
+  if (!canCreateExternalInvitation.value) {
+    return
+  }
+  emit('createExternalInvitation', externalEmail.value.trim(), shareRole.value)
+  externalEmail.value = ''
+}
+
 function createShareLink() {
   if (!canCreateShareLink.value) {
     return
   }
-  emit('createShareLink', linkExpiresAt.value, linkCanDownload.value)
+  emit('createShareLink', linkExpiresAt.value, linkCanDownload.value, linkPassword.value)
+  linkPassword.value = ''
 }
 </script>
 
@@ -188,6 +201,28 @@ function createShareLink() {
         </div>
       </form>
 
+      <form class="admin-form" @submit.prevent="createExternalInvitation">
+        <div class="form-span">
+          <h3>External invitation</h3>
+        </div>
+        <label class="field">
+          <span class="field-label">Invitee email</span>
+          <input v-model="externalEmail" class="field-input" autocomplete="email" type="email" :disabled="busy">
+        </label>
+        <label class="field">
+          <span class="field-label">Role</span>
+          <select v-model="shareRole" class="field-input" :disabled="busy">
+            <option value="viewer">Viewer</option>
+            <option value="editor">Editor</option>
+          </select>
+        </label>
+        <div class="action-row form-span">
+          <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateExternalInvitation">
+            Invite external user
+          </button>
+        </div>
+      </form>
+
       <form class="admin-form" @submit.prevent="createShareLink">
         <div class="form-span">
           <h3>Share link</h3>
@@ -202,6 +237,10 @@ function createShareLink() {
         <label class="checkbox-field">
           <input v-model="linkCanDownload" type="checkbox" :disabled="busy">
           <span>Allow download</span>
+        </label>
+        <label class="field form-span">
+          <span class="field-label">Password</span>
+          <input v-model="linkPassword" class="field-input" autocomplete="new-password" type="password" :disabled="busy">
         </label>
         <div class="action-row form-span">
           <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateShareLink">

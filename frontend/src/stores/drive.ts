@@ -4,6 +4,7 @@ import {
   addDriveGroupMemberItem,
   createDriveFolderItem,
   createDriveGroupItem,
+  createDriveShareInvitationItem,
   createDriveShareItem,
   createDriveShareLinkItem,
   deleteDriveFileItem,
@@ -33,6 +34,7 @@ import type {
   DriveItemBody,
   DrivePermissionsBody,
   DriveShareBody,
+  DriveShareInvitationBody,
   DriveShareLinkBody,
 } from '../api/generated/types.gen'
 
@@ -81,6 +83,7 @@ export const useDriveStore = defineStore('drive', {
     permissions: null as DrivePermissionsBody | null,
     groups: [] as DriveGroupBody[],
     currentGroup: null as DriveGroupBody | null,
+    invitations: [] as DriveShareInvitationBody[],
     errorMessage: '',
     lastRawShareLink: null as DriveShareLinkBody | null,
     deletingResourceId: '',
@@ -381,6 +384,22 @@ export const useDriveStore = defineStore('drive', {
       }
     },
 
+    async createExternalInvitation(resource: DriveResourceRef, inviteeEmail: string, role: string): Promise<DriveShareInvitationBody> {
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        return await createDriveShareInvitationItem(resource, {
+          inviteeEmail: inviteeEmail.trim(),
+          role: role as DriveRole,
+        })
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+
     async revokeShare(resource: DriveResourceRef, sharePublicId: string) {
       this.actionStatus = 'working'
       this.errorMessage = ''
@@ -395,13 +414,14 @@ export const useDriveStore = defineStore('drive', {
       }
     },
 
-    async createShareLink(resource: DriveResourceRef, expiresAt: string, canDownload: boolean) {
+    async createShareLink(resource: DriveResourceRef, expiresAt: string, canDownload: boolean, password = '') {
       this.actionStatus = 'working'
       this.errorMessage = ''
       try {
         const link = await createDriveShareLinkItem(resource, {
           expiresAt: new Date(expiresAt).toISOString(),
           canDownload,
+          password: password.trim() || undefined,
         })
         this.lastRawShareLink = link
         await this.loadPermissions(resource)

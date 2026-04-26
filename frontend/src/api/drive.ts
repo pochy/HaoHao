@@ -1,9 +1,12 @@
 import {
+  acceptDriveShareInvitation,
   addDriveGroupMember,
   createDriveFileShare,
+  createDriveFileShareInvitation,
   createDriveFileShareLink,
   createDriveFolder,
   createDriveFolderShare,
+  createDriveFolderShareInvitation,
   createDriveFolderShareLink,
   createDriveGroup,
   deleteDriveFile,
@@ -20,8 +23,10 @@ import {
   getDriveFolderPermissions,
   getDriveGroup,
   getPublicDriveShareLink,
+  listDriveShareInvitations,
   listDriveGroups,
   listDriveItems,
+  revokeDriveShareInvitation,
   searchDriveItems,
   updateDriveFile,
   updateDriveFolder,
@@ -31,6 +36,7 @@ import {
 import type {
   CreateDriveFolderBodyWritable,
   CreateDriveGroupBodyWritable,
+  CreateDriveShareInvitationBodyWritable,
   CreateDriveShareBodyWritable,
   CreateDriveShareLinkBodyWritable,
   DriveFileBody,
@@ -39,6 +45,7 @@ import type {
   DriveItemBody,
   DrivePermissionsBody,
   DriveShareBody,
+  DriveShareInvitationBody,
   DriveShareLinkBody,
   PublicDriveShareLinkOutputBody,
   UpdateDriveFileBodyWritable,
@@ -262,6 +269,24 @@ export async function createDriveShareItem(resource: DriveResourceRef, body: Cre
   }) as unknown as Promise<DriveShareBody>
 }
 
+export async function createDriveShareInvitationItem(
+  resource: DriveResourceRef,
+  body: CreateDriveShareInvitationBodyWritable,
+): Promise<DriveShareInvitationBody> {
+  if (resource.type === 'file') {
+    return createDriveFileShareInvitation({
+      headers: csrfHeaders(),
+      path: { filePublicId: resource.publicId },
+      body,
+    }) as unknown as Promise<DriveShareInvitationBody>
+  }
+  return createDriveFolderShareInvitation({
+    headers: csrfHeaders(),
+    path: { folderPublicId: resource.publicId },
+    body,
+  }) as unknown as Promise<DriveShareInvitationBody>
+}
+
 export async function revokeDriveShareItem(resource: DriveResourceRef, sharePublicId: string): Promise<void> {
   if (resource.type === 'file') {
     await deleteDriveFileShare({
@@ -315,6 +340,26 @@ export async function disableDriveShareLinkItem(shareLinkPublicId: string): Prom
   await deleteDriveShareLink({
     headers: csrfHeaders(),
     path: { shareLinkPublicId },
+  })
+}
+
+export async function fetchDriveShareInvitations(): Promise<DriveShareInvitationBody[]> {
+  const data = await listDriveShareInvitations() as unknown as { items: DriveShareInvitationBody[] | null }
+  return data.items ?? []
+}
+
+export async function acceptDriveShareInvitationItem(invitationPublicId: string, acceptToken: string): Promise<DriveShareBody> {
+  return acceptDriveShareInvitation({
+    headers: csrfHeaders(),
+    path: { invitationPublicId },
+    body: { acceptToken },
+  }) as unknown as Promise<DriveShareBody>
+}
+
+export async function revokeDriveShareInvitationItem(invitationPublicId: string): Promise<void> {
+  await revokeDriveShareInvitation({
+    headers: csrfHeaders(),
+    path: { invitationPublicId },
   })
 }
 
@@ -373,4 +418,12 @@ export async function fetchPublicDriveShareLink(token: string): Promise<PublicDr
   return getPublicDriveShareLink({
     path: { token },
   }) as unknown as Promise<PublicDriveShareLinkOutputBody>
+}
+
+export async function verifyPublicDriveShareLinkPassword(token: string, password: string): Promise<void> {
+  await driveFetch(`/api/public/drive/share-links/${encodePath(token)}/password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  })
 }

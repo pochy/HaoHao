@@ -865,6 +865,41 @@ scripts/smoke-rate-limit-runtime.sh
 - local root `.env` が `AUTH_MODE=zitadel` の場合、demo password login は無効になるため、local smoke では起動時に `AUTH_MODE=local ENABLE_LOCAL_PASSWORD_LOGIN=true` を上書きする。
 - ローカル Docker CLI は環境によって `docker compose` ではなく `docker-compose` の場合がある。CI は `docker compose` を使う。
 
+## OpenFGA Drive Phase 6
+
+2026-04-26 に `TUTORIAL_OPENFGA_P6_REMAINING_TASKS.md` を実装。
+
+追加済み:
+
+- Drive tenant policy を `tenant_settings.features.drive` の typed policy として正規化。P6キーは `publicLinksEnabled`、`externalUserSharingEnabled`、`passwordProtectedLinksEnabled`、`requireShareLinkPassword`、`requireExternalShareApproval`、domain allow/block、`maxShareLinkTTLHours`。
+- 外部ユーザー向け Drive invitation API。tenant membership は作らず、accept token + invitee email/user照合後に `drive_resource_shares` と OpenFGA tuple を作る。
+- domain allow/block と tenant admin approval flow。承認待ちは tuple を書かず fail-closed。
+- password付き public share link。password hashはbcrypt、短命verification cookie、IP+token hash単位の失敗回数blockを使う。
+- tenant admin Drive policy / share state / share link / invitation / approval / audit / OpenFGA drift / repair UI と API。
+- `pending_sync` / active tuple drift の dry-run と repair。OpenFGA tuple はDBから再構築する派生stateとして扱う。
+- expired share link / invitation cleanup helper と SCIM group external mapping table。
+- file/folder の legal hold / retention / purge guard 用DB列と edit/delete guard。
+- smokeに `RUN_DRIVE_PASSWORD_LINK_SMOKE=1` と `RUN_OPENFGA_EXTERNAL_SHARE_SMOKE=1` を追加。
+
+検証:
+
+```bash
+make gen
+go test ./backend/...
+npm --prefix frontend run build
+make binary
+cd openfga && fga model test --tests drive.fga.yaml
+make smoke-openfga
+RUN_DRIVE_PASSWORD_LINK_SMOKE=1 RUN_OPENFGA_EXTERNAL_SHARE_SMOKE=1 make smoke-openfga
+```
+
+注意:
+
+- `make smoke-openfga` はAPIサーバーを起動しない。今回の確認では `make db-up` 後、`./bin/haohao` を一時起動して実行した。
+- `tenant_admin` は共有状態とauditを見られるが、Drive file body閲覧導線は追加していない。
+- external invitationのaccept token、share link raw token、password、password hash、storage keyはaudit/API一覧に返さない。
+- Owner移譲、Commenter/Uploader、explicit deny、external bearer/M2M Drive full surface はPhase 7以降の採用判断枠に残す。
+
 ## 残課題 / 次アクション
 
 現在の明確な次アクション:

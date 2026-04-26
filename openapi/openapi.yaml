@@ -1,5 +1,20 @@
 components:
   schemas:
+    AcceptDriveShareInvitationBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/AcceptDriveShareInvitationBody.json
+          format: uri
+          readOnly: true
+          type: string
+        acceptToken:
+          type: string
+      required:
+        - acceptToken
+      type: object
     AcceptTenantInvitationRequestBody:
       additionalProperties: false
       properties:
@@ -233,6 +248,34 @@ components:
         - subjectPublicId
         - role
       type: object
+    CreateDriveShareInvitationBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateDriveShareInvitationBody.json
+          format: uri
+          readOnly: true
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        inviteeEmail:
+          format: email
+          type: string
+        inviteeUserPublicId:
+          type: string
+        role:
+          enum:
+            - owner
+            - editor
+            - viewer
+          type: string
+      required:
+        - inviteeEmail
+        - role
+      type: object
     CreateDriveShareLinkBody:
       additionalProperties: false
       properties:
@@ -247,6 +290,9 @@ components:
           type: boolean
         expiresAt:
           format: date-time
+          type: string
+        password:
+          maxLength: 256
           type: string
       required:
         - canDownload
@@ -888,6 +934,70 @@ components:
         - createdAt
         - updatedAt
       type: object
+    DriveShareInvitationBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveShareInvitationBody.json
+          format: uri
+          readOnly: true
+          type: string
+        acceptToken:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        inviteeEmailDomain:
+          type: string
+        maskedInviteeEmail:
+          type: string
+        publicId:
+          type: string
+        resourcePublicId:
+          type: string
+        resourceType:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - resourceType
+        - inviteeEmailDomain
+        - role
+        - status
+        - expiresAt
+        - createdAt
+        - updatedAt
+      type: object
+    DriveShareInvitationListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveShareInvitationListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DriveShareInvitationBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
     DriveShareLinkBody:
       additionalProperties: false
       properties:
@@ -906,6 +1016,8 @@ components:
         expiresAt:
           format: date-time
           type: string
+        passwordRequired:
+          type: boolean
         publicId:
           type: string
         resourcePublicId:
@@ -931,6 +1043,7 @@ components:
         - resourcePublicId
         - role
         - canDownload
+        - passwordRequired
         - expiresAt
         - status
         - createdAt
@@ -1833,6 +1946,226 @@ components:
           type: boolean
       required:
         - active
+      type: object
+    TenantAdminDriveAuditEventBody:
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+        actorType:
+          type: string
+        metadata:
+          additionalProperties: {}
+          type: object
+        occurredAt:
+          format: date-time
+          type: string
+        publicId:
+          type: string
+        targetId:
+          type: string
+        targetType:
+          type: string
+      required:
+        - publicId
+        - actorType
+        - action
+        - targetType
+        - targetId
+        - metadata
+        - occurredAt
+      type: object
+    TenantAdminDriveAuditOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDriveAuditOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/TenantAdminDriveAuditEventBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    TenantAdminDriveInvitationsOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDriveInvitationsOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DriveShareInvitationBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    TenantAdminDriveShareLinkStateBody:
+      additionalProperties: false
+      properties:
+        canDownload:
+          type: boolean
+        createdAt:
+          format: date-time
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        passwordRequired:
+          type: boolean
+        publicId:
+          type: string
+        resourceName:
+          type: string
+        resourcePublicId:
+          type: string
+        resourceType:
+          type: string
+        status:
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - resourceType
+        - resourcePublicId
+        - resourceName
+        - canDownload
+        - passwordRequired
+        - status
+        - expiresAt
+        - createdAt
+        - updatedAt
+      type: object
+    TenantAdminDriveShareLinksOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDriveShareLinksOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/TenantAdminDriveShareLinkStateBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    TenantAdminDriveShareStateBody:
+      additionalProperties: false
+      properties:
+        createdAt:
+          format: date-time
+          type: string
+        publicId:
+          type: string
+        resourceName:
+          type: string
+        resourcePublicId:
+          type: string
+        resourceType:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        subjectPublicId:
+          type: string
+        subjectType:
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - resourceType
+        - resourcePublicId
+        - resourceName
+        - subjectType
+        - subjectPublicId
+        - role
+        - status
+        - createdAt
+        - updatedAt
+      type: object
+    TenantAdminDriveSharesOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDriveSharesOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/TenantAdminDriveShareStateBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    TenantAdminDriveSyncItemBody:
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+        error:
+          type: string
+        kind:
+          type: string
+        publicId:
+          type: string
+        status:
+          type: string
+      required:
+        - kind
+        - publicId
+        - status
+        - action
+      type: object
+    TenantAdminDriveSyncOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDriveSyncOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        dryRun:
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/TenantAdminDriveSyncItemBody"
+          type:
+            - array
+            - "null"
+      required:
+        - dryRun
+        - items
       type: object
     TenantAdminMembershipBody:
       additionalProperties: false
@@ -3147,6 +3480,364 @@ paths:
       summary: tenant を更新する
       tags:
         - tenant-admin
+  /api/v1/admin/tenants/{tenantSlug}/drive/audit-events:
+    get:
+      operationId: listTenantAdminDriveAuditEvents
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveAuditOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant admin 用 Drive audit events を返す
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/invitations:
+    get:
+      operationId: listTenantAdminDriveInvitations
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveInvitationsOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant admin 用 Drive invitations を返す
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/openfga-sync/drift:
+    get:
+      operationId: getTenantAdminDriveOpenFGADrift
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveSyncOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive OpenFGA drift dry-run を返す
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/openfga-sync/repair:
+    post:
+      operationId: repairTenantAdminDriveOpenFGASync
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveSyncOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive OpenFGA pending sync を修復する
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/share-approvals:
+    get:
+      operationId: listTenantAdminDriveShareApprovals
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveInvitationsOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant admin 用 Drive share approvals を返す
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/share-approvals/{invitationPublicId}/approve:
+    post:
+      operationId: approveTenantAdminDriveShareApproval
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: invitationPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive external share approval を承認する
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/share-approvals/{invitationPublicId}/reject:
+    post:
+      operationId: rejectTenantAdminDriveShareApproval
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: invitationPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive external share approval を拒否する
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/share-links:
+    get:
+      operationId: listTenantAdminDriveShareLinks
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveShareLinksOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant admin 用 Drive share link state を返す
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/shares:
+    get:
+      operationId: listTenantAdminDriveShares
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveSharesOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant admin 用 Drive share state を返す
+      tags:
+        - tenant-admin-drive
   /api/v1/admin/tenants/{tenantSlug}/entitlements:
     get:
       operationId: listTenantEntitlements
@@ -4717,6 +5408,48 @@ paths:
       summary: Drive file inheritance を更新する
       tags:
         - drive
+  /api/v1/drive/files/{filePublicId}/invitations:
+    post:
+      operationId: createDriveFileShareInvitation
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDriveShareInvitationBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveShareInvitationBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file external share invitation を作成する
+      tags:
+        - drive
   /api/v1/drive/files/{filePublicId}/permissions:
     get:
       operationId: getDriveFilePermissions
@@ -5083,6 +5816,48 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive folder inheritance を更新する
+      tags:
+        - drive
+  /api/v1/drive/folders/{folderPublicId}/invitations:
+    post:
+      operationId: createDriveFolderShareInvitation
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: folderPublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDriveShareInvitationBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveShareInvitationBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive folder external share invitation を作成する
       tags:
         - drive
   /api/v1/drive/folders/{folderPublicId}/permissions:
@@ -5482,6 +6257,106 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive group member を削除する
+      tags:
+        - drive
+  /api/v1/drive/invitations:
+    get:
+      operationId: listDriveShareInvitations
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveShareInvitationListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: ログイン user 宛の Drive invitation を返す
+      tags:
+        - drive
+  /api/v1/drive/invitations/{invitationPublicId}/accept:
+    post:
+      operationId: acceptDriveShareInvitation
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: invitationPublicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptDriveShareInvitationBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveShareBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive invitation を受諾する
+      tags:
+        - drive
+  /api/v1/drive/invitations/{invitationPublicId}/revoke:
+    post:
+      operationId: revokeDriveShareInvitation
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: invitationPublicId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive invitation を revoke する
       tags:
         - drive
   /api/v1/drive/items:

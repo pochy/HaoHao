@@ -121,6 +121,16 @@ func (s *DriveAuthorizationService) CanViewWithShareLink(ctx context.Context, li
 	return s.checkResource(ctx, openFGAShareLink(link.PublicID), "can_view", openFGAResourceObject(link.Resource), "share_link", s.currentTimeContext())
 }
 
+func (s *DriveAuthorizationService) CheckShareTuple(ctx context.Context, share DriveShare) error {
+	tuple := shareTuple(share)
+	return s.checkResource(ctx, tuple.User, tuple.Relation, tuple.Object, string(share.Resource.Type), s.currentTimeContext())
+}
+
+func (s *DriveAuthorizationService) CheckShareLinkTuple(ctx context.Context, link DriveShareLink) error {
+	tuple := shareLinkTuple(link)
+	return s.checkResource(ctx, tuple.User, tuple.Relation, tuple.Object, "share_link", s.currentTimeContext())
+}
+
 func (s *DriveAuthorizationService) FilterViewableFiles(ctx context.Context, actor DriveActor, files []DriveFile) ([]DriveFile, error) {
 	if len(files) == 0 {
 		return nil, nil

@@ -84,14 +84,11 @@ func TestDrivePolicyFromFeaturesDefaults(t *testing.T) {
 	if !got.LinkSharingEnabled {
 		t.Fatal("LinkSharingEnabled = false")
 	}
-	if !got.AnonymousLinksEnabled {
-		t.Fatal("AnonymousLinksEnabled = false")
+	if !got.PublicLinksEnabled {
+		t.Fatal("PublicLinksEnabled = false")
 	}
-	if !got.LinkExpiresRequired {
-		t.Fatal("LinkExpiresRequired = false")
-	}
-	if got.MaxLinkTTLHours != 720 {
-		t.Fatalf("MaxLinkTTLHours = %d, want 720", got.MaxLinkTTLHours)
+	if got.MaxShareLinkTTLHours != 168 {
+		t.Fatalf("MaxShareLinkTTLHours = %d, want 168", got.MaxShareLinkTTLHours)
 	}
 	if got.EditorCanReshare {
 		t.Fatal("EditorCanReshare = true")
@@ -107,35 +104,36 @@ func TestDrivePolicyFromFeaturesDefaults(t *testing.T) {
 func TestDrivePolicyFromFeaturesOverrides(t *testing.T) {
 	got := drivePolicyFromFeatures(map[string]any{
 		"drive": map[string]any{
-			"linkSharingEnabled":         false,
-			"anonymousLinksEnabled":      false,
-			"linkExpiresRequired":        false,
-			"maxLinkTtlHours":            float64(24),
-			"viewerDownloadEnabled":      false,
-			"shareLinkDownloadEnabled":   false,
-			"editorCanReshare":           true,
-			"editorCanDelete":            true,
-			"externalUserSharingEnabled": true,
+			"linkSharingEnabled":            false,
+			"publicLinksEnabled":            false,
+			"maxShareLinkTTLHours":          float64(24),
+			"viewerDownloadEnabled":         false,
+			"externalDownloadEnabled":       true,
+			"editorCanReshare":              true,
+			"editorCanDelete":               true,
+			"externalUserSharingEnabled":    true,
+			"passwordProtectedLinksEnabled": true,
+			"requireShareLinkPassword":      true,
+			"requireExternalShareApproval":  true,
+			"allowedExternalDomains":        []any{"@Example.com", "sub.Example.com."},
+			"blockedExternalDomains":        []any{"blocked.example.com"},
 		},
 	})
 
 	if got.LinkSharingEnabled {
 		t.Fatal("LinkSharingEnabled = true")
 	}
-	if got.AnonymousLinksEnabled {
-		t.Fatal("AnonymousLinksEnabled = true")
+	if got.PublicLinksEnabled {
+		t.Fatal("PublicLinksEnabled = true")
 	}
-	if got.LinkExpiresRequired {
-		t.Fatal("LinkExpiresRequired = true")
-	}
-	if got.MaxLinkTTLHours != 24 {
-		t.Fatalf("MaxLinkTTLHours = %d, want 24", got.MaxLinkTTLHours)
+	if got.MaxShareLinkTTLHours != 24 {
+		t.Fatalf("MaxShareLinkTTLHours = %d, want 24", got.MaxShareLinkTTLHours)
 	}
 	if got.ViewerDownloadEnabled {
 		t.Fatal("ViewerDownloadEnabled = true")
 	}
-	if got.ShareLinkDownloadEnabled {
-		t.Fatal("ShareLinkDownloadEnabled = true")
+	if !got.ExternalDownloadEnabled {
+		t.Fatal("ExternalDownloadEnabled = false")
 	}
 	if !got.EditorCanReshare {
 		t.Fatal("EditorCanReshare = false")
@@ -145,5 +143,28 @@ func TestDrivePolicyFromFeaturesOverrides(t *testing.T) {
 	}
 	if !got.ExternalUserSharingEnabled {
 		t.Fatal("ExternalUserSharingEnabled = false")
+	}
+	if !got.PasswordProtectedLinksEnabled || !got.RequireShareLinkPassword || !got.RequireExternalShareApproval {
+		t.Fatal("password or approval policy override was not applied")
+	}
+	if len(got.AllowedExternalDomains) != 2 || got.AllowedExternalDomains[0] != "example.com" || got.AllowedExternalDomains[1] != "sub.example.com" {
+		t.Fatalf("AllowedExternalDomains = %#v", got.AllowedExternalDomains)
+	}
+	if len(got.BlockedExternalDomains) != 1 || got.BlockedExternalDomains[0] != "blocked.example.com" {
+		t.Fatalf("BlockedExternalDomains = %#v", got.BlockedExternalDomains)
+	}
+}
+
+func TestNormalizeDrivePolicyForSaveValidation(t *testing.T) {
+	_, err := normalizeDrivePolicyForSave(DrivePolicy{
+		LinkSharingEnabled:            true,
+		PublicLinksEnabled:            true,
+		RequireShareLinkPassword:      true,
+		PasswordProtectedLinksEnabled: false,
+		MaxShareLinkTTLHours:          168,
+		AdminContentAccessMode:        "disabled",
+	})
+	if err == nil {
+		t.Fatal("normalizeDrivePolicyForSave() error = nil, want password dependency error")
 	}
 }

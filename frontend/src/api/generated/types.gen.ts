@@ -4,6 +4,14 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type AcceptDriveShareInvitationBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    acceptToken: string;
+};
+
 export type AcceptTenantInvitationRequestBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -88,6 +96,17 @@ export type CreateDriveShareBody = {
     subjectType: 'user' | 'group';
 };
 
+export type CreateDriveShareInvitationBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    expiresAt?: string;
+    inviteeEmail: string;
+    inviteeUserPublicId?: string;
+    role: 'owner' | 'editor' | 'viewer';
+};
+
 export type CreateDriveShareLinkBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -95,6 +114,7 @@ export type CreateDriveShareLinkBody = {
     readonly $schema?: string;
     canDownload: boolean;
     expiresAt?: string;
+    password?: string;
 };
 
 export type CreateTenantDataExportRequestBody = {
@@ -333,6 +353,32 @@ export type DriveShareBody = {
     updatedAt: string;
 };
 
+export type DriveShareInvitationBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    acceptToken?: string;
+    createdAt: string;
+    expiresAt: string;
+    inviteeEmailDomain: string;
+    maskedInviteeEmail?: string;
+    publicId: string;
+    resourcePublicId?: string;
+    resourceType: string;
+    role: string;
+    status: string;
+    updatedAt: string;
+};
+
+export type DriveShareInvitationListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DriveShareInvitationBody> | null;
+};
+
 export type DriveShareLinkBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -341,6 +387,7 @@ export type DriveShareLinkBody = {
     canDownload: boolean;
     createdAt: string;
     expiresAt: string;
+    passwordRequired: boolean;
     publicId: string;
     resourcePublicId: string;
     resourceType: string;
@@ -629,6 +676,93 @@ export type SupportAccessOutputBody = {
     readonly $schema?: string;
     access?: SupportAccessBody;
     active: boolean;
+};
+
+export type TenantAdminDriveAuditEventBody = {
+    action: string;
+    actorType: string;
+    metadata: {
+        [key: string]: unknown;
+    };
+    occurredAt: string;
+    publicId: string;
+    targetId: string;
+    targetType: string;
+};
+
+export type TenantAdminDriveAuditOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<TenantAdminDriveAuditEventBody> | null;
+};
+
+export type TenantAdminDriveInvitationsOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DriveShareInvitationBody> | null;
+};
+
+export type TenantAdminDriveShareLinkStateBody = {
+    canDownload: boolean;
+    createdAt: string;
+    expiresAt: string;
+    passwordRequired: boolean;
+    publicId: string;
+    resourceName: string;
+    resourcePublicId: string;
+    resourceType: string;
+    status: string;
+    updatedAt: string;
+};
+
+export type TenantAdminDriveShareLinksOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<TenantAdminDriveShareLinkStateBody> | null;
+};
+
+export type TenantAdminDriveShareStateBody = {
+    createdAt: string;
+    publicId: string;
+    resourceName: string;
+    resourcePublicId: string;
+    resourceType: string;
+    role: string;
+    status: string;
+    subjectPublicId: string;
+    subjectType: string;
+    updatedAt: string;
+};
+
+export type TenantAdminDriveSharesOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<TenantAdminDriveShareStateBody> | null;
+};
+
+export type TenantAdminDriveSyncItemBody = {
+    action: string;
+    error?: string;
+    kind: string;
+    publicId: string;
+    status: string;
+};
+
+export type TenantAdminDriveSyncOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    dryRun: boolean;
+    items: Array<TenantAdminDriveSyncItemBody> | null;
 };
 
 export type TenantAdminMembershipBody = {
@@ -940,6 +1074,10 @@ export type ZitadelSettingsBody = {
     issuer: string;
 };
 
+export type AcceptDriveShareInvitationBodyWritable = {
+    acceptToken: string;
+};
+
 export type AcceptTenantInvitationRequestBodyWritable = {
     token: string;
 };
@@ -979,9 +1117,17 @@ export type CreateDriveShareBodyWritable = {
     subjectType: 'user' | 'group';
 };
 
+export type CreateDriveShareInvitationBodyWritable = {
+    expiresAt?: string;
+    inviteeEmail: string;
+    inviteeUserPublicId?: string;
+    role: 'owner' | 'editor' | 'viewer';
+};
+
 export type CreateDriveShareLinkBodyWritable = {
     canDownload: boolean;
     expiresAt?: string;
+    password?: string;
 };
 
 export type CreateTenantDataExportRequestBodyWritable = {
@@ -1130,10 +1276,29 @@ export type DriveShareBodyWritable = {
     updatedAt: string;
 };
 
+export type DriveShareInvitationBodyWritable = {
+    acceptToken?: string;
+    createdAt: string;
+    expiresAt: string;
+    inviteeEmailDomain: string;
+    maskedInviteeEmail?: string;
+    publicId: string;
+    resourcePublicId?: string;
+    resourceType: string;
+    role: string;
+    status: string;
+    updatedAt: string;
+};
+
+export type DriveShareInvitationListOutputBodyWritable = {
+    items: Array<DriveShareInvitationBodyWritable> | null;
+};
+
 export type DriveShareLinkBodyWritable = {
     canDownload: boolean;
     createdAt: string;
     expiresAt: string;
+    passwordRequired: boolean;
     publicId: string;
     resourcePublicId: string;
     resourceType: string;
@@ -1272,6 +1437,27 @@ export type StartSupportAccessBodyWritable = {
 export type SupportAccessOutputBodyWritable = {
     access?: SupportAccessBody;
     active: boolean;
+};
+
+export type TenantAdminDriveAuditOutputBodyWritable = {
+    items: Array<TenantAdminDriveAuditEventBody> | null;
+};
+
+export type TenantAdminDriveInvitationsOutputBodyWritable = {
+    items: Array<DriveShareInvitationBodyWritable> | null;
+};
+
+export type TenantAdminDriveShareLinksOutputBodyWritable = {
+    items: Array<TenantAdminDriveShareLinkStateBody> | null;
+};
+
+export type TenantAdminDriveSharesOutputBodyWritable = {
+    items: Array<TenantAdminDriveShareStateBody> | null;
+};
+
+export type TenantAdminDriveSyncOutputBodyWritable = {
+    dryRun: boolean;
+    items: Array<TenantAdminDriveSyncItemBody> | null;
 };
 
 export type TenantAdminMembershipRequestBodyWritable = {
@@ -1619,6 +1805,272 @@ export type UpdateTenantAdminTenantResponses = {
 };
 
 export type UpdateTenantAdminTenantResponse = UpdateTenantAdminTenantResponses[keyof UpdateTenantAdminTenantResponses];
+
+export type ListTenantAdminDriveAuditEventsData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/audit-events';
+};
+
+export type ListTenantAdminDriveAuditEventsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminDriveAuditEventsError = ListTenantAdminDriveAuditEventsErrors[keyof ListTenantAdminDriveAuditEventsErrors];
+
+export type ListTenantAdminDriveAuditEventsResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveAuditOutputBody;
+};
+
+export type ListTenantAdminDriveAuditEventsResponse = ListTenantAdminDriveAuditEventsResponses[keyof ListTenantAdminDriveAuditEventsResponses];
+
+export type ListTenantAdminDriveInvitationsData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/invitations';
+};
+
+export type ListTenantAdminDriveInvitationsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminDriveInvitationsError = ListTenantAdminDriveInvitationsErrors[keyof ListTenantAdminDriveInvitationsErrors];
+
+export type ListTenantAdminDriveInvitationsResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveInvitationsOutputBody;
+};
+
+export type ListTenantAdminDriveInvitationsResponse = ListTenantAdminDriveInvitationsResponses[keyof ListTenantAdminDriveInvitationsResponses];
+
+export type GetTenantAdminDriveOpenFgaDriftData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/openfga-sync/drift';
+};
+
+export type GetTenantAdminDriveOpenFgaDriftErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetTenantAdminDriveOpenFgaDriftError = GetTenantAdminDriveOpenFgaDriftErrors[keyof GetTenantAdminDriveOpenFgaDriftErrors];
+
+export type GetTenantAdminDriveOpenFgaDriftResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveSyncOutputBody;
+};
+
+export type GetTenantAdminDriveOpenFgaDriftResponse = GetTenantAdminDriveOpenFgaDriftResponses[keyof GetTenantAdminDriveOpenFgaDriftResponses];
+
+export type RepairTenantAdminDriveOpenFgaSyncData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/openfga-sync/repair';
+};
+
+export type RepairTenantAdminDriveOpenFgaSyncErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RepairTenantAdminDriveOpenFgaSyncError = RepairTenantAdminDriveOpenFgaSyncErrors[keyof RepairTenantAdminDriveOpenFgaSyncErrors];
+
+export type RepairTenantAdminDriveOpenFgaSyncResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveSyncOutputBody;
+};
+
+export type RepairTenantAdminDriveOpenFgaSyncResponse = RepairTenantAdminDriveOpenFgaSyncResponses[keyof RepairTenantAdminDriveOpenFgaSyncResponses];
+
+export type ListTenantAdminDriveShareApprovalsData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/share-approvals';
+};
+
+export type ListTenantAdminDriveShareApprovalsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminDriveShareApprovalsError = ListTenantAdminDriveShareApprovalsErrors[keyof ListTenantAdminDriveShareApprovalsErrors];
+
+export type ListTenantAdminDriveShareApprovalsResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveInvitationsOutputBody;
+};
+
+export type ListTenantAdminDriveShareApprovalsResponse = ListTenantAdminDriveShareApprovalsResponses[keyof ListTenantAdminDriveShareApprovalsResponses];
+
+export type ApproveTenantAdminDriveShareApprovalData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        invitationPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/share-approvals/{invitationPublicId}/approve';
+};
+
+export type ApproveTenantAdminDriveShareApprovalErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ApproveTenantAdminDriveShareApprovalError = ApproveTenantAdminDriveShareApprovalErrors[keyof ApproveTenantAdminDriveShareApprovalErrors];
+
+export type ApproveTenantAdminDriveShareApprovalResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type ApproveTenantAdminDriveShareApprovalResponse = ApproveTenantAdminDriveShareApprovalResponses[keyof ApproveTenantAdminDriveShareApprovalResponses];
+
+export type RejectTenantAdminDriveShareApprovalData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        invitationPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/share-approvals/{invitationPublicId}/reject';
+};
+
+export type RejectTenantAdminDriveShareApprovalErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RejectTenantAdminDriveShareApprovalError = RejectTenantAdminDriveShareApprovalErrors[keyof RejectTenantAdminDriveShareApprovalErrors];
+
+export type RejectTenantAdminDriveShareApprovalResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RejectTenantAdminDriveShareApprovalResponse = RejectTenantAdminDriveShareApprovalResponses[keyof RejectTenantAdminDriveShareApprovalResponses];
+
+export type ListTenantAdminDriveShareLinksData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/share-links';
+};
+
+export type ListTenantAdminDriveShareLinksErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminDriveShareLinksError = ListTenantAdminDriveShareLinksErrors[keyof ListTenantAdminDriveShareLinksErrors];
+
+export type ListTenantAdminDriveShareLinksResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveShareLinksOutputBody;
+};
+
+export type ListTenantAdminDriveShareLinksResponse = ListTenantAdminDriveShareLinksResponses[keyof ListTenantAdminDriveShareLinksResponses];
+
+export type ListTenantAdminDriveSharesData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/shares';
+};
+
+export type ListTenantAdminDriveSharesErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminDriveSharesError = ListTenantAdminDriveSharesErrors[keyof ListTenantAdminDriveSharesErrors];
+
+export type ListTenantAdminDriveSharesResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveSharesOutputBody;
+};
+
+export type ListTenantAdminDriveSharesResponse = ListTenantAdminDriveSharesResponses[keyof ListTenantAdminDriveSharesResponses];
 
 export type ListTenantEntitlementsData = {
     body?: never;
@@ -2807,6 +3259,36 @@ export type UpdateDriveFileInheritanceResponses = {
 
 export type UpdateDriveFileInheritanceResponse = UpdateDriveFileInheritanceResponses[keyof UpdateDriveFileInheritanceResponses];
 
+export type CreateDriveFileShareInvitationData = {
+    body: CreateDriveShareInvitationBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/invitations';
+};
+
+export type CreateDriveFileShareInvitationErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveFileShareInvitationError = CreateDriveFileShareInvitationErrors[keyof CreateDriveFileShareInvitationErrors];
+
+export type CreateDriveFileShareInvitationResponses = {
+    /**
+     * OK
+     */
+    200: DriveShareInvitationBody;
+};
+
+export type CreateDriveFileShareInvitationResponse = CreateDriveFileShareInvitationResponses[keyof CreateDriveFileShareInvitationResponses];
+
 export type GetDriveFilePermissionsData = {
     body?: never;
     path: {
@@ -3098,6 +3580,36 @@ export type UpdateDriveFolderInheritanceResponses = {
 };
 
 export type UpdateDriveFolderInheritanceResponse = UpdateDriveFolderInheritanceResponses[keyof UpdateDriveFolderInheritanceResponses];
+
+export type CreateDriveFolderShareInvitationData = {
+    body: CreateDriveShareInvitationBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        folderPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/folders/{folderPublicId}/invitations';
+};
+
+export type CreateDriveFolderShareInvitationErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveFolderShareInvitationError = CreateDriveFolderShareInvitationErrors[keyof CreateDriveFolderShareInvitationErrors];
+
+export type CreateDriveFolderShareInvitationResponses = {
+    /**
+     * OK
+     */
+    200: DriveShareInvitationBody;
+};
+
+export type CreateDriveFolderShareInvitationResponse = CreateDriveFolderShareInvitationResponses[keyof CreateDriveFolderShareInvitationResponses];
 
 export type GetDriveFolderPermissionsData = {
     body?: never;
@@ -3419,6 +3931,91 @@ export type DeleteDriveGroupMemberResponses = {
 };
 
 export type DeleteDriveGroupMemberResponse = DeleteDriveGroupMemberResponses[keyof DeleteDriveGroupMemberResponses];
+
+export type ListDriveShareInvitationsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/drive/invitations';
+};
+
+export type ListDriveShareInvitationsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveShareInvitationsError = ListDriveShareInvitationsErrors[keyof ListDriveShareInvitationsErrors];
+
+export type ListDriveShareInvitationsResponses = {
+    /**
+     * OK
+     */
+    200: DriveShareInvitationListOutputBody;
+};
+
+export type ListDriveShareInvitationsResponse = ListDriveShareInvitationsResponses[keyof ListDriveShareInvitationsResponses];
+
+export type AcceptDriveShareInvitationData = {
+    body: AcceptDriveShareInvitationBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        invitationPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/invitations/{invitationPublicId}/accept';
+};
+
+export type AcceptDriveShareInvitationErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type AcceptDriveShareInvitationError = AcceptDriveShareInvitationErrors[keyof AcceptDriveShareInvitationErrors];
+
+export type AcceptDriveShareInvitationResponses = {
+    /**
+     * OK
+     */
+    200: DriveShareBody;
+};
+
+export type AcceptDriveShareInvitationResponse = AcceptDriveShareInvitationResponses[keyof AcceptDriveShareInvitationResponses];
+
+export type RevokeDriveShareInvitationData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        invitationPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/invitations/{invitationPublicId}/revoke';
+};
+
+export type RevokeDriveShareInvitationErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RevokeDriveShareInvitationError = RevokeDriveShareInvitationErrors[keyof RevokeDriveShareInvitationErrors];
+
+export type RevokeDriveShareInvitationResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RevokeDriveShareInvitationResponse = RevokeDriveShareInvitationResponses[keyof RevokeDriveShareInvitationResponses];
 
 export type ListDriveItemsData = {
     body?: never;

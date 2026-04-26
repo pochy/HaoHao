@@ -87,6 +87,7 @@ type DriveShareLinkBody struct {
 	ResourcePublicID string    `json:"resourcePublicId"`
 	Role             string    `json:"role" example:"viewer"`
 	CanDownload      bool      `json:"canDownload"`
+	PasswordRequired bool      `json:"passwordRequired"`
 	ExpiresAt        time.Time `json:"expiresAt" format:"date-time"`
 	Status           string    `json:"status"`
 	CreatedAt        time.Time `json:"createdAt" format:"date-time"`
@@ -244,6 +245,7 @@ func toDriveShareLinkBody(item service.DriveShareLink, includeToken bool) DriveS
 		ResourcePublicID: item.Resource.PublicID,
 		Role:             string(item.Role),
 		CanDownload:      item.CanDownload,
+		PasswordRequired: item.PasswordRequired,
 		ExpiresAt:        item.ExpiresAt,
 		Status:           item.Status,
 		CreatedAt:        item.CreatedAt,

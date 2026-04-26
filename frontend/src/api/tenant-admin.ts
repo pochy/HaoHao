@@ -1,14 +1,28 @@
 import { readCookie } from './client'
 import {
+  approveTenantAdminDriveShareApproval,
   createTenantAdminTenant,
   deactivateTenantAdminTenant,
+  getTenantAdminDriveOpenFgaDrift,
   getTenantAdminTenant,
   grantTenantAdminRole,
+  listTenantAdminDriveAuditEvents,
+  listTenantAdminDriveInvitations,
+  listTenantAdminDriveShareApprovals,
+  listTenantAdminDriveShareLinks,
+  listTenantAdminDriveShares,
   listTenantAdminTenants,
+  rejectTenantAdminDriveShareApproval,
+  repairTenantAdminDriveOpenFgaSync,
   revokeTenantAdminRole,
   updateTenantAdminTenant,
 } from './generated/sdk.gen'
 import type {
+  DriveShareInvitationBody,
+  TenantAdminDriveAuditEventBody,
+  TenantAdminDriveShareLinkStateBody,
+  TenantAdminDriveShareStateBody,
+  TenantAdminDriveSyncOutputBody,
   TenantAdminMembershipRequestBody,
   TenantAdminTenantBody,
   TenantAdminTenantDetailBody,
@@ -19,6 +33,86 @@ function csrfHeaders() {
   return {
     'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
   }
+}
+
+export async function fetchTenantAdminDriveShares(tenantSlug: string): Promise<TenantAdminDriveShareStateBody[]> {
+  const data = await listTenantAdminDriveShares({
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: TenantAdminDriveShareStateBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchTenantAdminDriveShareLinks(tenantSlug: string): Promise<TenantAdminDriveShareLinkStateBody[]> {
+  const data = await listTenantAdminDriveShareLinks({
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: TenantAdminDriveShareLinkStateBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchTenantAdminDriveInvitations(tenantSlug: string): Promise<DriveShareInvitationBody[]> {
+  const data = await listTenantAdminDriveInvitations({
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: DriveShareInvitationBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchTenantAdminDriveApprovals(tenantSlug: string): Promise<DriveShareInvitationBody[]> {
+  const data = await listTenantAdminDriveShareApprovals({
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: DriveShareInvitationBody[] | null }
+  return data.items ?? []
+}
+
+export async function approveTenantAdminDriveApproval(tenantSlug: string, invitationPublicId: string): Promise<void> {
+  await approveTenantAdminDriveShareApproval({
+    headers: csrfHeaders(),
+    path: { tenantSlug, invitationPublicId },
+    responseStyle: 'data',
+    throwOnError: true,
+  })
+}
+
+export async function rejectTenantAdminDriveApproval(tenantSlug: string, invitationPublicId: string): Promise<void> {
+  await rejectTenantAdminDriveShareApproval({
+    headers: csrfHeaders(),
+    path: { tenantSlug, invitationPublicId },
+    responseStyle: 'data',
+    throwOnError: true,
+  })
+}
+
+export async function fetchTenantAdminDriveAuditEvents(tenantSlug: string): Promise<TenantAdminDriveAuditEventBody[]> {
+  const data = await listTenantAdminDriveAuditEvents({
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: TenantAdminDriveAuditEventBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchTenantAdminDriveDrift(tenantSlug: string): Promise<TenantAdminDriveSyncOutputBody> {
+  return getTenantAdminDriveOpenFgaDrift({
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<TenantAdminDriveSyncOutputBody>
+}
+
+export async function repairTenantAdminDriveSync(tenantSlug: string): Promise<TenantAdminDriveSyncOutputBody> {
+  return repairTenantAdminDriveOpenFgaSync({
+    headers: csrfHeaders(),
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<TenantAdminDriveSyncOutputBody>
 }
 
 export async function fetchTenantAdminTenants(): Promise<TenantAdminTenantBody[]> {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"example.com/haohao/backend/internal/auth"
 	"example.com/haohao/backend/internal/service"
@@ -242,13 +243,40 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 			c.JSON(http.StatusServiceUnavailable, gin.H{"title": "drive service is not configured"})
 			return
 		}
-		download, err := deps.DriveService.PublicShareLinkContent(c.Request.Context(), c.Param("token"))
+		verificationCookie, _ := c.Cookie(service.DriveShareLinkPasswordCookieName)
+		download, err := deps.DriveService.PublicShareLinkContentWithVerification(c.Request.Context(), c.Param("token"), verificationCookie)
 		if err != nil {
 			writeRawDriveError(c, err)
 			return
 		}
 		defer download.Body.Close()
 		writeDriveDownload(c, download)
+	})
+
+	router.POST("/api/public/drive/share-links/:token/password", func(c *gin.Context) {
+		if deps.DriveService == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"title": "drive service is not configured"})
+			return
+		}
+		var body struct {
+			Password string `json:"password"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"title": "invalid drive input"})
+			return
+		}
+		verification, err := deps.DriveService.VerifyPublicShareLinkPassword(c.Request.Context(), c.Param("token"), body.Password, c.ClientIP())
+		if err != nil {
+			writeRawDriveError(c, err)
+			return
+		}
+		maxAge := int(time.Until(verification.ExpiresAt).Seconds())
+		if maxAge < 0 {
+			maxAge = 0
+		}
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie(verification.CookieName, verification.CookieValue, maxAge, "/api/public/drive/share-links/"+c.Param("token"), "", false, true)
+		c.JSON(http.StatusOK, gin.H{"verified": true, "expiresAt": verification.ExpiresAt})
 	})
 }
 

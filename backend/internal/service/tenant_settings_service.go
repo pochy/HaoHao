@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	db "example.com/haohao/backend/internal/db"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"golang.org/x/net/idna"
 )
 
 var ErrInvalidTenantSettings = errors.New("invalid tenant settings")
@@ -43,15 +45,23 @@ type RateLimitDefaults struct {
 }
 
 type DrivePolicy struct {
-	LinkSharingEnabled         bool
-	AnonymousLinksEnabled      bool
-	LinkExpiresRequired        bool
-	MaxLinkTTLHours            int
-	ViewerDownloadEnabled      bool
-	ShareLinkDownloadEnabled   bool
-	EditorCanReshare           bool
-	EditorCanDelete            bool
-	ExternalUserSharingEnabled bool
+	LinkSharingEnabled                  bool
+	PublicLinksEnabled                  bool
+	ExternalUserSharingEnabled          bool
+	PasswordProtectedLinksEnabled       bool
+	RequireShareLinkPassword            bool
+	RequireExternalShareApproval        bool
+	AllowedExternalDomains              []string
+	BlockedExternalDomains              []string
+	MaxShareLinkTTLHours                int
+	ViewerDownloadEnabled               bool
+	ExternalDownloadEnabled             bool
+	EditorCanReshare                    bool
+	EditorCanDelete                     bool
+	AdminContentAccessMode              string
+	AnonymousEditorLinksEnabled         bool
+	AnonymousEditorLinksRequirePassword bool
+	AnonymousEditorLinkMaxTTLMinutes    int
 }
 
 type TenantSettingsService struct {
@@ -144,7 +154,10 @@ func (s *TenantSettingsService) UpdateDrivePolicy(ctx context.Context, tenantID 
 	if err != nil {
 		return DrivePolicy{}, err
 	}
-	policy := normalizeDrivePolicy(input)
+	policy, err := normalizeDrivePolicyForSave(input)
+	if err != nil {
+		return DrivePolicy{}, err
+	}
 	features := cloneFeatureMap(settings.Features)
 	features["drive"] = drivePolicyToFeatureMap(policy)
 
@@ -228,6 +241,15 @@ func normalizeTenantSettingsInput(input TenantSettingsInput, defaultFileQuotaByt
 	if input.Features == nil {
 		input.Features = map[string]any{}
 	}
+	if _, ok := input.Features["drive"]; ok {
+		policy := drivePolicyFromFeatures(input.Features)
+		normalized, err := normalizeDrivePolicyForSave(policy)
+		if err != nil {
+			return TenantSettingsInput{}, err
+		}
+		input.Features = cloneFeatureMap(input.Features)
+		input.Features["drive"] = drivePolicyToFeatureMap(normalized)
+	}
 	return input, nil
 }
 
@@ -244,15 +266,23 @@ func defaultRateLimitForPolicy(policy string, defaults RateLimitDefaults) int {
 
 func defaultDrivePolicy() DrivePolicy {
 	return DrivePolicy{
-		LinkSharingEnabled:         true,
-		AnonymousLinksEnabled:      true,
-		LinkExpiresRequired:        true,
-		MaxLinkTTLHours:            720,
-		ViewerDownloadEnabled:      true,
-		ShareLinkDownloadEnabled:   true,
-		EditorCanReshare:           false,
-		EditorCanDelete:            false,
-		ExternalUserSharingEnabled: false,
+		LinkSharingEnabled:                  true,
+		PublicLinksEnabled:                  true,
+		ExternalUserSharingEnabled:          false,
+		PasswordProtectedLinksEnabled:       false,
+		RequireShareLinkPassword:            false,
+		RequireExternalShareApproval:        false,
+		AllowedExternalDomains:              []string{},
+		BlockedExternalDomains:              []string{},
+		MaxShareLinkTTLHours:                168,
+		ViewerDownloadEnabled:               true,
+		ExternalDownloadEnabled:             false,
+		EditorCanReshare:                    false,
+		EditorCanDelete:                     false,
+		AdminContentAccessMode:              "disabled",
+		AnonymousEditorLinksEnabled:         false,
+		AnonymousEditorLinksRequirePassword: true,
+		AnonymousEditorLinkMaxTTLMinutes:    60,
 	}
 }
 
@@ -264,37 +294,81 @@ func drivePolicyFromFeatures(features map[string]any) DrivePolicy {
 	}
 
 	policy.LinkSharingEnabled = featureBool(raw, "linkSharingEnabled", policy.LinkSharingEnabled)
-	policy.AnonymousLinksEnabled = featureBool(raw, "anonymousLinksEnabled", policy.AnonymousLinksEnabled)
-	policy.LinkExpiresRequired = featureBool(raw, "linkExpiresRequired", policy.LinkExpiresRequired)
-	policy.MaxLinkTTLHours = featureInt(raw, "maxLinkTtlHours", policy.MaxLinkTTLHours)
+	policy.PublicLinksEnabled = featureBool(raw, "publicLinksEnabled", featureBool(raw, "anonymousLinksEnabled", policy.PublicLinksEnabled))
+	policy.ExternalUserSharingEnabled = featureBool(raw, "externalUserSharingEnabled", policy.ExternalUserSharingEnabled)
+	policy.PasswordProtectedLinksEnabled = featureBool(raw, "passwordProtectedLinksEnabled", policy.PasswordProtectedLinksEnabled)
+	policy.RequireShareLinkPassword = featureBool(raw, "requireShareLinkPassword", policy.RequireShareLinkPassword)
+	policy.RequireExternalShareApproval = featureBool(raw, "requireExternalShareApproval", policy.RequireExternalShareApproval)
+	policy.AllowedExternalDomains = featureStringSlice(raw, "allowedExternalDomains", policy.AllowedExternalDomains)
+	policy.BlockedExternalDomains = featureStringSlice(raw, "blockedExternalDomains", policy.BlockedExternalDomains)
+	policy.MaxShareLinkTTLHours = featureInt(raw, "maxShareLinkTTLHours", featureInt(raw, "maxLinkTtlHours", policy.MaxShareLinkTTLHours))
 	policy.ViewerDownloadEnabled = featureBool(raw, "viewerDownloadEnabled", policy.ViewerDownloadEnabled)
-	policy.ShareLinkDownloadEnabled = featureBool(raw, "shareLinkDownloadEnabled", policy.ShareLinkDownloadEnabled)
+	policy.ExternalDownloadEnabled = featureBool(raw, "externalDownloadEnabled", featureBool(raw, "shareLinkDownloadEnabled", policy.ExternalDownloadEnabled))
 	policy.EditorCanReshare = featureBool(raw, "editorCanReshare", policy.EditorCanReshare)
 	policy.EditorCanDelete = featureBool(raw, "editorCanDelete", policy.EditorCanDelete)
-	policy.ExternalUserSharingEnabled = featureBool(raw, "externalUserSharingEnabled", policy.ExternalUserSharingEnabled)
+	policy.AdminContentAccessMode = featureString(raw, "adminContentAccessMode", policy.AdminContentAccessMode)
+	policy.AnonymousEditorLinksEnabled = featureBool(raw, "anonymousEditorLinksEnabled", policy.AnonymousEditorLinksEnabled)
+	policy.AnonymousEditorLinksRequirePassword = featureBool(raw, "anonymousEditorLinksRequirePassword", policy.AnonymousEditorLinksRequirePassword)
+	policy.AnonymousEditorLinkMaxTTLMinutes = featureInt(raw, "anonymousEditorLinkMaxTTLMinutes", policy.AnonymousEditorLinkMaxTTLMinutes)
 
 	return normalizeDrivePolicy(policy)
 }
 
 func normalizeDrivePolicy(policy DrivePolicy) DrivePolicy {
-	if policy.MaxLinkTTLHours <= 0 {
-		policy.MaxLinkTTLHours = defaultDrivePolicy().MaxLinkTTLHours
+	defaults := defaultDrivePolicy()
+	if policy.MaxShareLinkTTLHours <= 0 {
+		policy.MaxShareLinkTTLHours = defaults.MaxShareLinkTTLHours
+	}
+	if policy.AnonymousEditorLinkMaxTTLMinutes <= 0 {
+		policy.AnonymousEditorLinkMaxTTLMinutes = defaults.AnonymousEditorLinkMaxTTLMinutes
+	}
+	policy.AllowedExternalDomains = normalizeDomainList(policy.AllowedExternalDomains)
+	policy.BlockedExternalDomains = normalizeDomainList(policy.BlockedExternalDomains)
+	if strings.TrimSpace(policy.AdminContentAccessMode) == "" {
+		policy.AdminContentAccessMode = defaults.AdminContentAccessMode
 	}
 	return policy
+}
+
+func normalizeDrivePolicyForSave(policy DrivePolicy) (DrivePolicy, error) {
+	policy = normalizeDrivePolicy(policy)
+	if policy.MaxShareLinkTTLHours < 1 || policy.MaxShareLinkTTLHours > 2160 {
+		return DrivePolicy{}, fmt.Errorf("%w: maxShareLinkTTLHours must be between 1 and 2160", ErrInvalidTenantSettings)
+	}
+	if policy.RequireShareLinkPassword && !policy.PasswordProtectedLinksEnabled {
+		return DrivePolicy{}, fmt.Errorf("%w: requireShareLinkPassword requires passwordProtectedLinksEnabled", ErrInvalidTenantSettings)
+	}
+	switch policy.AdminContentAccessMode {
+	case "disabled", "break_glass":
+	default:
+		return DrivePolicy{}, fmt.Errorf("%w: unsupported adminContentAccessMode", ErrInvalidTenantSettings)
+	}
+	if policy.AnonymousEditorLinkMaxTTLMinutes < 1 || policy.AnonymousEditorLinkMaxTTLMinutes > 1440 {
+		return DrivePolicy{}, fmt.Errorf("%w: anonymousEditorLinkMaxTTLMinutes must be between 1 and 1440", ErrInvalidTenantSettings)
+	}
+	return policy, nil
 }
 
 func drivePolicyToFeatureMap(policy DrivePolicy) map[string]any {
 	policy = normalizeDrivePolicy(policy)
 	return map[string]any{
-		"linkSharingEnabled":         policy.LinkSharingEnabled,
-		"anonymousLinksEnabled":      policy.AnonymousLinksEnabled,
-		"linkExpiresRequired":        policy.LinkExpiresRequired,
-		"maxLinkTtlHours":            policy.MaxLinkTTLHours,
-		"viewerDownloadEnabled":      policy.ViewerDownloadEnabled,
-		"shareLinkDownloadEnabled":   policy.ShareLinkDownloadEnabled,
-		"editorCanReshare":           policy.EditorCanReshare,
-		"editorCanDelete":            policy.EditorCanDelete,
-		"externalUserSharingEnabled": policy.ExternalUserSharingEnabled,
+		"linkSharingEnabled":                  policy.LinkSharingEnabled,
+		"publicLinksEnabled":                  policy.PublicLinksEnabled,
+		"externalUserSharingEnabled":          policy.ExternalUserSharingEnabled,
+		"passwordProtectedLinksEnabled":       policy.PasswordProtectedLinksEnabled,
+		"requireShareLinkPassword":            policy.RequireShareLinkPassword,
+		"requireExternalShareApproval":        policy.RequireExternalShareApproval,
+		"allowedExternalDomains":              policy.AllowedExternalDomains,
+		"blockedExternalDomains":              policy.BlockedExternalDomains,
+		"maxShareLinkTTLHours":                policy.MaxShareLinkTTLHours,
+		"viewerDownloadEnabled":               policy.ViewerDownloadEnabled,
+		"externalDownloadEnabled":             policy.ExternalDownloadEnabled,
+		"editorCanReshare":                    policy.EditorCanReshare,
+		"editorCanDelete":                     policy.EditorCanDelete,
+		"adminContentAccessMode":              policy.AdminContentAccessMode,
+		"anonymousEditorLinksEnabled":         policy.AnonymousEditorLinksEnabled,
+		"anonymousEditorLinksRequirePassword": policy.AnonymousEditorLinksRequirePassword,
+		"anonymousEditorLinkMaxTTLMinutes":    policy.AnonymousEditorLinkMaxTTLMinutes,
 	}
 }
 
@@ -334,6 +408,74 @@ func featureInt(values map[string]any, key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+func featureString(values map[string]any, key string, fallback string) string {
+	value, ok := values[key].(string)
+	if !ok {
+		return fallback
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func featureStringSlice(values map[string]any, key string, fallback []string) []string {
+	value, ok := values[key]
+	if !ok {
+		return fallback
+	}
+	switch items := value.(type) {
+	case []string:
+		return append([]string{}, items...)
+	case []any:
+		out := make([]string, 0, len(items))
+		for _, item := range items {
+			if text, ok := item.(string); ok {
+				out = append(out, text)
+			}
+		}
+		return out
+	default:
+		return fallback
+	}
+}
+
+func normalizeDomainList(values []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		domain := normalizeExternalDomain(value)
+		if domain == "" {
+			continue
+		}
+		if _, ok := seen[domain]; ok {
+			continue
+		}
+		seen[domain] = struct{}{}
+		out = append(out, domain)
+	}
+	return out
+}
+
+func normalizeExternalDomain(value string) string {
+	domain := strings.ToLower(strings.TrimSpace(value))
+	domain = strings.TrimPrefix(domain, "@")
+	domain = strings.TrimSuffix(domain, ".")
+	if domain == "" || strings.ContainsAny(domain, " /\\") {
+		return ""
+	}
+	ascii, err := idna.Lookup.ToASCII(domain)
+	if err != nil {
+		return ""
+	}
+	ascii = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(ascii), "."))
+	if ascii == "" || strings.ContainsAny(ascii, " /\\") {
+		return ""
+	}
+	return ascii
 }
 
 func tenantSettingsFromDB(row db.TenantSetting) TenantSettings {

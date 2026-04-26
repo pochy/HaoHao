@@ -456,20 +456,23 @@ func (s *DriveService) CreateShareLink(ctx context.Context, input DriveCreateSha
 	if err != nil {
 		return DriveShareLink{}, err
 	}
-	if !policy.LinkSharingEnabled || !policy.AnonymousLinksEnabled {
+	if !policy.LinkSharingEnabled || !policy.PublicLinksEnabled {
 		return DriveShareLink{}, ErrDrivePolicyDenied
 	}
-	if input.ExpiresAt.IsZero() && policy.LinkExpiresRequired {
-		return DriveShareLink{}, fmt.Errorf("%w: share link expiry is required", ErrDriveInvalidInput)
+	if policy.RequireShareLinkPassword && strings.TrimSpace(input.Password) == "" {
+		return DriveShareLink{}, fmt.Errorf("%w: share link password is required", ErrDriveInvalidInput)
+	}
+	if strings.TrimSpace(input.Password) != "" && !policy.PasswordProtectedLinksEnabled {
+		return DriveShareLink{}, ErrDrivePolicyDenied
 	}
 	if input.ExpiresAt.IsZero() {
-		ttlHours := policy.MaxLinkTTLHours
+		ttlHours := policy.MaxShareLinkTTLHours
 		if ttlHours <= 0 {
-			ttlHours = 720
+			ttlHours = defaultDrivePolicy().MaxShareLinkTTLHours
 		}
 		input.ExpiresAt = s.now().Add(time.Duration(ttlHours) * time.Hour)
 	}
-	if !input.ExpiresAt.IsZero() && policy.MaxLinkTTLHours > 0 && input.ExpiresAt.After(s.now().Add(time.Duration(policy.MaxLinkTTLHours)*time.Hour)) {
+	if !input.ExpiresAt.IsZero() && policy.MaxShareLinkTTLHours > 0 && input.ExpiresAt.After(s.now().Add(time.Duration(policy.MaxShareLinkTTLHours)*time.Hour)) {
 		return DriveShareLink{}, ErrDrivePolicyDenied
 	}
 	resource, err := s.resolveShareableResource(ctx, actor, input.Resource)
@@ -480,7 +483,7 @@ func (s *DriveService) CreateShareLink(ctx context.Context, input DriveCreateSha
 	if err != nil {
 		return DriveShareLink{}, err
 	}
-	canDownload := input.CanDownload && policy.ShareLinkDownloadEnabled
+	canDownload := input.CanDownload && policy.ViewerDownloadEnabled
 	row, err := s.queries.CreateDriveShareLink(ctx, db.CreateDriveShareLinkParams{
 		TenantID:        input.TenantID,
 		ResourceType:    string(resource.Type),
@@ -496,15 +499,22 @@ func (s *DriveService) CreateShareLink(ctx context.Context, input DriveCreateSha
 	}
 	link := driveShareLinkFromDB(row, resource)
 	link.RawToken = rawToken
+	if strings.TrimSpace(input.Password) != "" {
+		if err := s.setShareLinkPassword(ctx, link.ID, link.TenantID, input.Password); err != nil {
+			return DriveShareLink{}, err
+		}
+		link.PasswordRequired = true
+	}
 	if err := s.authz.WriteShareLinkTuple(ctx, link); err != nil {
 		_, _ = s.queries.MarkDriveShareLinkPendingSync(context.Background(), db.MarkDriveShareLinkPendingSyncParams{ID: link.ID, TenantID: link.TenantID})
 		s.auditFailed(ctx, actor, "drive.share_link.create", "drive_share_link", link.PublicID, err, auditCtx)
 		return DriveShareLink{}, err
 	}
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.share_link.create", "drive_share_link", link.PublicID, map[string]any{
-		"resourceType": resource.Type,
-		"canDownload":  canDownload,
-		"expiresAt":    link.ExpiresAt,
+		"resourceType":     resource.Type,
+		"canDownload":      canDownload,
+		"passwordRequired": link.PasswordRequired,
+		"expiresAt":        link.ExpiresAt,
 	})
 	return link, nil
 }

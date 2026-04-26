@@ -42,7 +42,7 @@ INSERT INTO file_objects (
     $9,
     $10
 )
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 `
 
 type CreateDriveFileObjectParams struct {
@@ -101,12 +101,18 @@ func (q *Queries) CreateDriveFileObject(ctx context.Context, arg CreateDriveFile
 		&i.LockReason,
 		&i.InheritanceEnabled,
 		&i.DeletedByUserID,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
 	)
 	return i, err
 }
 
 const getDriveFileByIDForTenant = `-- name: GetDriveFileByIDForTenant :one
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 FROM file_objects
 WHERE id = $1
   AND tenant_id = $2
@@ -151,12 +157,18 @@ func (q *Queries) GetDriveFileByIDForTenant(ctx context.Context, arg GetDriveFil
 		&i.LockReason,
 		&i.InheritanceEnabled,
 		&i.DeletedByUserID,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
 	)
 	return i, err
 }
 
 const getDriveFileByPublicIDForTenant = `-- name: GetDriveFileByPublicIDForTenant :one
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 FROM file_objects
 WHERE public_id = $1
   AND tenant_id = $2
@@ -201,12 +213,18 @@ func (q *Queries) GetDriveFileByPublicIDForTenant(ctx context.Context, arg GetDr
 		&i.LockReason,
 		&i.InheritanceEnabled,
 		&i.DeletedByUserID,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
 	)
 	return i, err
 }
 
 const listDriveChildFiles = `-- name: ListDriveChildFiles :many
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 FROM file_objects
 WHERE tenant_id = $1
   AND drive_folder_id IS NOT DISTINCT FROM $2::bigint
@@ -260,6 +278,12 @@ func (q *Queries) ListDriveChildFiles(ctx context.Context, arg ListDriveChildFil
 			&i.LockReason,
 			&i.InheritanceEnabled,
 			&i.DeletedByUserID,
+			&i.DeletedParentFolderID,
+			&i.RetentionUntil,
+			&i.LegalHoldAt,
+			&i.LegalHoldByUserID,
+			&i.LegalHoldReason,
+			&i.PurgeBlockReason,
 		); err != nil {
 			return nil, err
 		}
@@ -282,7 +306,7 @@ WHERE id = $3
   AND tenant_id = $4
   AND purpose = 'drive'
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 `
 
 type LockDriveFileParams struct {
@@ -329,6 +353,12 @@ func (q *Queries) LockDriveFile(ctx context.Context, arg LockDriveFileParams) (F
 		&i.LockReason,
 		&i.InheritanceEnabled,
 		&i.DeletedByUserID,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
 	)
 	return i, err
 }
@@ -343,7 +373,7 @@ WHERE id = $3
   AND tenant_id = $4
   AND purpose = 'drive'
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 `
 
 type MoveDriveFileParams struct {
@@ -390,6 +420,12 @@ func (q *Queries) MoveDriveFile(ctx context.Context, arg MoveDriveFileParams) (F
 		&i.LockReason,
 		&i.InheritanceEnabled,
 		&i.DeletedByUserID,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
 	)
 	return i, err
 }
@@ -403,7 +439,7 @@ WHERE id = $2
   AND tenant_id = $3
   AND purpose = 'drive'
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 `
 
 type RenameDriveFileParams struct {
@@ -444,12 +480,18 @@ func (q *Queries) RenameDriveFile(ctx context.Context, arg RenameDriveFileParams
 		&i.LockReason,
 		&i.InheritanceEnabled,
 		&i.DeletedByUserID,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
 	)
 	return i, err
 }
 
 const searchDriveFileCandidates = `-- name: SearchDriveFileCandidates :many
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 FROM file_objects
 WHERE tenant_id = $1
   AND purpose = 'drive'
@@ -528,6 +570,12 @@ func (q *Queries) SearchDriveFileCandidates(ctx context.Context, arg SearchDrive
 			&i.LockReason,
 			&i.InheritanceEnabled,
 			&i.DeletedByUserID,
+			&i.DeletedParentFolderID,
+			&i.RetentionUntil,
+			&i.LegalHoldAt,
+			&i.LegalHoldByUserID,
+			&i.LegalHoldReason,
+			&i.PurgeBlockReason,
 		); err != nil {
 			return nil, err
 		}
@@ -550,7 +598,7 @@ WHERE id = $2
   AND tenant_id = $3
   AND purpose = 'drive'
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 `
 
 type SoftDeleteDriveFileParams struct {
@@ -591,6 +639,12 @@ func (q *Queries) SoftDeleteDriveFile(ctx context.Context, arg SoftDeleteDriveFi
 		&i.LockReason,
 		&i.InheritanceEnabled,
 		&i.DeletedByUserID,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
 	)
 	return i, err
 }
@@ -606,7 +660,7 @@ WHERE id = $1
   AND tenant_id = $2
   AND purpose = 'drive'
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 `
 
 type UnlockDriveFileParams struct {
@@ -646,6 +700,12 @@ func (q *Queries) UnlockDriveFile(ctx context.Context, arg UnlockDriveFileParams
 		&i.LockReason,
 		&i.InheritanceEnabled,
 		&i.DeletedByUserID,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
 	)
 	return i, err
 }
@@ -663,7 +723,7 @@ WHERE id = $6
   AND tenant_id = $7
   AND purpose = 'drive'
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason
 `
 
 type UpdateDriveFileObjectMetadataParams struct {
@@ -716,6 +776,12 @@ func (q *Queries) UpdateDriveFileObjectMetadata(ctx context.Context, arg UpdateD
 		&i.LockReason,
 		&i.InheritanceEnabled,
 		&i.DeletedByUserID,
+		&i.DeletedParentFolderID,
+		&i.RetentionUntil,
+		&i.LegalHoldAt,
+		&i.LegalHoldByUserID,
+		&i.LegalHoldReason,
+		&i.PurgeBlockReason,
 	)
 	return i, err
 }

@@ -20,11 +20,12 @@ RUN_ID="openfga-smoke-$(date +%s)-$$"
 OWNER_COOKIE="$(mktemp)"
 VIEWER_COOKIE="$(mktemp)"
 EDITOR_COOKIE="$(mktemp)"
+PUBLIC_COOKIE="$(mktemp)"
 UPLOAD_FILE="$(mktemp)"
 OVERWRITE_FILE="$(mktemp)"
 GROUP_FILE="$(mktemp)"
 BODY_FILE="$(mktemp)"
-trap 'rm -f "$OWNER_COOKIE" "$VIEWER_COOKIE" "$EDITOR_COOKIE" "$UPLOAD_FILE" "$OVERWRITE_FILE" "$GROUP_FILE" "$BODY_FILE"' EXIT
+trap 'rm -f "$OWNER_COOKIE" "$VIEWER_COOKIE" "$EDITOR_COOKIE" "$PUBLIC_COOKIE" "$UPLOAD_FILE" "$OVERWRITE_FILE" "$GROUP_FILE" "$BODY_FILE"' EXIT
 
 command -v psql >/dev/null
 command -v curl >/dev/null
@@ -261,6 +262,65 @@ fi
 
 curl -fsS "$BASE_URL/api/public/drive/share-links/$link_token" | rg "\"publicId\":\"$file_id\"" >/dev/null
 expect_status 403 "$BASE_URL/api/public/drive/share-links/$link_token/content"
+
+if [[ "${RUN_DRIVE_PASSWORD_LINK_SMOKE:-0}" == "1" ]]; then
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO tenant_settings (tenant_id, file_quota_bytes, notifications_enabled, features)
+SELECT id, 104857600, true, '{"drive":{"linkSharingEnabled":true,"publicLinksEnabled":true,"passwordProtectedLinksEnabled":true,"requireShareLinkPassword":true,"maxShareLinkTTLHours":168,"viewerDownloadEnabled":true}}'::jsonb
+FROM tenants
+WHERE slug = '$TENANT_SLUG'
+ON CONFLICT (tenant_id) DO UPDATE
+SET features = EXCLUDED.features,
+    updated_at = now();
+SQL
+  password_link_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"canDownload\":true,\"expiresAt\":\"$expires_at\",\"password\":\"$PASSWORD\"}" \
+    "$BASE_URL/api/v1/drive/files/$file_id/share-links")"
+  password_link_token="$(printf '%s' "$password_link_response" | extract_json_string token)"
+  if [[ -z "$password_link_token" ]]; then
+    echo "missing password share link token" >&2
+    exit 1
+  fi
+  curl -fsS "$BASE_URL/api/public/drive/share-links/$password_link_token" | rg '"passwordRequired":true' >/dev/null
+  expect_status 403 "$BASE_URL/api/public/drive/share-links/$password_link_token/content"
+  curl -fsS -c "$PUBLIC_COOKIE" -b "$PUBLIC_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -d "{\"password\":\"$PASSWORD\"}" \
+    "$BASE_URL/api/public/drive/share-links/$password_link_token/password" | rg '"verified":true' >/dev/null
+  curl -fsS -c "$PUBLIC_COOKIE" -b "$PUBLIC_COOKIE" \
+    "$BASE_URL/api/public/drive/share-links/$password_link_token/content" | rg 'overwritten by editor' >/dev/null
+fi
+
+if [[ "${RUN_OPENFGA_EXTERNAL_SHARE_SMOKE:-0}" == "1" ]]; then
+  expect_status 403 -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"inviteeEmail\":\"external@example.com\",\"role\":\"viewer\"}" \
+    "$BASE_URL/api/v1/drive/files/$file_id/invitations"
+
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO tenant_settings (tenant_id, file_quota_bytes, notifications_enabled, features)
+SELECT id, 104857600, true, '{"drive":{"linkSharingEnabled":true,"publicLinksEnabled":true,"externalUserSharingEnabled":true,"allowedExternalDomains":["example.com"],"blockedExternalDomains":["blocked.example.com"],"requireExternalShareApproval":true,"maxShareLinkTTLHours":168,"viewerDownloadEnabled":true}}'::jsonb
+FROM tenants
+WHERE slug = '$TENANT_SLUG'
+ON CONFLICT (tenant_id) DO UPDATE
+SET features = EXCLUDED.features,
+    updated_at = now();
+SQL
+  expect_status 403 -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"inviteeEmail\":\"person@blocked.example.com\",\"role\":\"viewer\"}" \
+    "$BASE_URL/api/v1/drive/files/$file_id/invitations"
+  approval_response="$(curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
+    -H 'Content-Type: application/json' \
+    -H "X-CSRF-Token: $owner_csrf" \
+    -d "{\"inviteeEmail\":\"person@example.com\",\"role\":\"viewer\"}" \
+    "$BASE_URL/api/v1/drive/files/$file_id/invitations")"
+  printf '%s' "$approval_response" | rg '"status":"pending_approval"' >/dev/null
+fi
 
 curl -fsS -c "$OWNER_COOKIE" -b "$OWNER_COOKIE" \
   -H "X-CSRF-Token: $owner_csrf" \

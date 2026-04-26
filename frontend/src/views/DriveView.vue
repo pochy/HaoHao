@@ -233,12 +233,26 @@ async function createGroupShare(groupPublicId: string, role: string) {
   }
 }
 
-async function createShareLink(expiresAt: string, canDownload: boolean) {
+async function createExternalInvitation(inviteeEmail: string, role: string) {
   if (!selectedResource.value) {
     return
   }
   try {
-    await driveStore.createShareLink(selectedResource.value, expiresAt, canDownload)
+    const invitation = await driveStore.createExternalInvitation(selectedResource.value, inviteeEmail, role)
+    actionMessage.value = invitation.acceptToken
+      ? `External invitation を作成しました。Accept token: ${invitation.acceptToken}`
+      : 'External invitation を作成しました。'
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
+async function createShareLink(expiresAt: string, canDownload: boolean, password: string) {
+  if (!selectedResource.value) {
+    return
+  }
+  try {
+    await driveStore.createShareLink(selectedResource.value, expiresAt, canDownload, password)
     actionMessage.value = 'Share link を作成しました。'
   } catch (error) {
     actionErrorMessage.value = toApiErrorMessage(error)
@@ -378,6 +392,7 @@ async function search(query: string) {
     @close="shareDialogOpen = false"
     @create-user-share="createUserShare"
     @create-group-share="createGroupShare"
+    @create-external-invitation="createExternalInvitation"
     @create-share-link="createShareLink"
     @revoke-share="revokeShare"
     @disable-link="disableShareLink"

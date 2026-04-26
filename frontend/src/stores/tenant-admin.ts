@@ -3,6 +3,11 @@ import { defineStore } from 'pinia'
 import { isApiForbidden, toApiErrorMessage } from '../api/client'
 import type {
   TenantAdminMembershipRequestBody,
+  DriveShareInvitationBody,
+  TenantAdminDriveAuditEventBody,
+  TenantAdminDriveShareLinkStateBody,
+  TenantAdminDriveShareStateBody,
+  TenantAdminDriveSyncOutputBody,
   TenantAdminTenantBody,
   TenantAdminTenantDetailBody,
   TenantAdminTenantRequestBody,
@@ -10,9 +15,18 @@ import type {
 import {
   createTenantFromForm,
   deactivateTenant,
+  approveTenantAdminDriveApproval,
   fetchTenantAdminTenant,
   fetchTenantAdminTenants,
+  fetchTenantAdminDriveApprovals,
+  fetchTenantAdminDriveAuditEvents,
+  fetchTenantAdminDriveDrift,
+  fetchTenantAdminDriveInvitations,
+  fetchTenantAdminDriveShareLinks,
+  fetchTenantAdminDriveShares,
   grantTenantRole,
+  rejectTenantAdminDriveApproval,
+  repairTenantAdminDriveSync,
   revokeTenantRole,
   updateTenantFromForm,
 } from '../api/tenant-admin'
@@ -24,6 +38,12 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
     status: 'idle' as TenantAdminStatus,
     items: [] as TenantAdminTenantBody[],
     current: null as TenantAdminTenantDetailBody | null,
+    driveShares: [] as TenantAdminDriveShareStateBody[],
+    driveShareLinks: [] as TenantAdminDriveShareLinkStateBody[],
+    driveInvitations: [] as DriveShareInvitationBody[],
+    driveApprovals: [] as DriveShareInvitationBody[],
+    driveAuditEvents: [] as TenantAdminDriveAuditEventBody[],
+    driveSync: null as TenantAdminDriveSyncOutputBody | null,
     errorMessage: '',
     saving: false,
   }),
@@ -53,6 +73,28 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
       } catch (error) {
         this.current = null
         this.status = isApiForbidden(error) ? 'forbidden' : 'error'
+        this.errorMessage = toApiErrorMessage(error)
+      }
+    },
+
+    async loadDriveState(tenantSlug: string) {
+      this.errorMessage = ''
+      try {
+        const [shares, links, invitations, approvals, auditEvents, sync] = await Promise.all([
+          fetchTenantAdminDriveShares(tenantSlug),
+          fetchTenantAdminDriveShareLinks(tenantSlug),
+          fetchTenantAdminDriveInvitations(tenantSlug),
+          fetchTenantAdminDriveApprovals(tenantSlug),
+          fetchTenantAdminDriveAuditEvents(tenantSlug),
+          fetchTenantAdminDriveDrift(tenantSlug).catch(() => null),
+        ])
+        this.driveShares = shares
+        this.driveShareLinks = links
+        this.driveInvitations = invitations
+        this.driveApprovals = approvals
+        this.driveAuditEvents = auditEvents
+        this.driveSync = sync
+      } catch (error) {
         this.errorMessage = toApiErrorMessage(error)
       }
     },
@@ -154,6 +196,48 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
         if (isApiForbidden(error)) {
           this.status = 'forbidden'
         }
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async approveDriveInvitation(tenantSlug: string, invitationPublicId: string) {
+      this.saving = true
+      this.errorMessage = ''
+      try {
+        await approveTenantAdminDriveApproval(tenantSlug, invitationPublicId)
+        await this.loadDriveState(tenantSlug)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async rejectDriveInvitation(tenantSlug: string, invitationPublicId: string) {
+      this.saving = true
+      this.errorMessage = ''
+      try {
+        await rejectTenantAdminDriveApproval(tenantSlug, invitationPublicId)
+        await this.loadDriveState(tenantSlug)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async repairDriveSync(tenantSlug: string) {
+      this.saving = true
+      this.errorMessage = ''
+      try {
+        this.driveSync = await repairTenantAdminDriveSync(tenantSlug)
+        await this.loadDriveState(tenantSlug)
+      } catch (error) {
         this.errorMessage = toApiErrorMessage(error)
         throw error
       } finally {

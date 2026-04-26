@@ -25,6 +25,7 @@ type PublicDriveShareLinkOutput struct {
 type CreateDriveShareLinkBody struct {
 	CanDownload bool       `json:"canDownload"`
 	ExpiresAt   *time.Time `json:"expiresAt,omitempty" format:"date-time"`
+	Password    string     `json:"password,omitempty" maxLength:"256"`
 }
 
 type CreateDriveFileShareLinkInput struct {
@@ -82,6 +83,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 			Resource:    service.DriveResourceRef{Type: service.DriveResourceTypeFile, PublicID: input.FilePublicID, TenantID: tenant.ID},
 			CanDownload: input.Body.CanDownload,
 			ExpiresAt:   optionalTime(input.Body.ExpiresAt),
+			Password:    input.Body.Password,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toDriveHTTPError(err)
@@ -107,6 +109,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 			Resource:    service.DriveResourceRef{Type: service.DriveResourceTypeFolder, PublicID: input.FolderPublicID, TenantID: tenant.ID},
 			CanDownload: input.Body.CanDownload,
 			ExpiresAt:   optionalTime(input.Body.ExpiresAt),
+			Password:    input.Body.Password,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toDriveHTTPError(err)

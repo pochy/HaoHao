@@ -214,6 +214,12 @@ CREATE TABLE public.drive_folders (
     deleted_by_user_id bigint,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_parent_folder_id bigint,
+    retention_until timestamp with time zone,
+    legal_hold_at timestamp with time zone,
+    legal_hold_by_user_id bigint,
+    legal_hold_reason text,
+    purge_block_reason text,
     CONSTRAINT drive_folders_name_check CHECK ((btrim(name) <> ''::text))
 );
 
@@ -224,6 +230,38 @@ CREATE TABLE public.drive_folders (
 
 ALTER TABLE public.drive_folders ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.drive_folders_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_group_external_mappings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_group_external_mappings (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    drive_group_id bigint NOT NULL,
+    provider text NOT NULL,
+    external_group_id text NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_group_external_mappings_external_group_id_check CHECK ((btrim(external_group_id) <> ''::text)),
+    CONSTRAINT drive_group_external_mappings_provider_check CHECK ((btrim(provider) <> ''::text))
+);
+
+
+--
+-- Name: drive_group_external_mappings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_group_external_mappings ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_group_external_mappings_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -334,6 +372,86 @@ ALTER TABLE public.drive_resource_shares ALTER COLUMN id ADD GENERATED ALWAYS AS
 
 
 --
+-- Name: drive_share_invitations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_share_invitations (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    invitee_email_hash text NOT NULL,
+    invitee_email_domain text NOT NULL,
+    invitee_user_id bigint,
+    role text NOT NULL,
+    status text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    approved_by_user_id bigint,
+    approved_at timestamp with time zone,
+    accepted_at timestamp with time zone,
+    revoked_by_user_id bigint,
+    revoked_at timestamp with time zone,
+    created_by_user_id bigint NOT NULL,
+    accept_token_hash text,
+    accept_token_expires_at timestamp with time zone,
+    masked_invitee_email text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_share_invitations_invitee_email_domain_check CHECK ((btrim(invitee_email_domain) <> ''::text)),
+    CONSTRAINT drive_share_invitations_invitee_email_hash_check CHECK ((btrim(invitee_email_hash) <> ''::text)),
+    CONSTRAINT drive_share_invitations_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text]))),
+    CONSTRAINT drive_share_invitations_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'editor'::text, 'viewer'::text]))),
+    CONSTRAINT drive_share_invitations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'pending_approval'::text, 'accepted'::text, 'expired'::text, 'revoked'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: drive_share_invitations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_share_invitations ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_share_invitations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_share_link_password_attempts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_share_link_password_attempts (
+    id bigint NOT NULL,
+    token_hash text NOT NULL,
+    requester_key text NOT NULL,
+    failed_count integer DEFAULT 0 NOT NULL,
+    blocked_until timestamp with time zone,
+    last_failed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_share_link_password_attempts_failed_count_check CHECK ((failed_count >= 0))
+);
+
+
+--
+-- Name: drive_share_link_password_attempts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_share_link_password_attempts ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_share_link_password_attempts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: drive_share_links; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -353,6 +471,9 @@ CREATE TABLE public.drive_share_links (
     disabled_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    password_hash text,
+    password_required boolean DEFAULT false NOT NULL,
+    password_updated_at timestamp with time zone,
     CONSTRAINT drive_share_links_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text]))),
     CONSTRAINT drive_share_links_role_check CHECK ((role = 'viewer'::text)),
     CONSTRAINT drive_share_links_status_check CHECK ((status = ANY (ARRAY['active'::text, 'disabled'::text, 'expired'::text, 'pending_sync'::text]))),
@@ -424,6 +545,12 @@ CREATE TABLE public.file_objects (
     lock_reason text,
     inheritance_enabled boolean DEFAULT true NOT NULL,
     deleted_by_user_id bigint,
+    deleted_parent_folder_id bigint,
+    retention_until timestamp with time zone,
+    legal_hold_at timestamp with time zone,
+    legal_hold_by_user_id bigint,
+    legal_hold_reason text,
+    purge_block_reason text,
     CONSTRAINT file_objects_byte_size_check CHECK ((byte_size >= 0)),
     CONSTRAINT file_objects_purge_attempts_check CHECK ((purge_attempts >= 0)),
     CONSTRAINT file_objects_purpose_check CHECK ((purpose = ANY (ARRAY['attachment'::text, 'avatar'::text, 'import'::text, 'export'::text, 'drive'::text]))),
@@ -1124,6 +1251,30 @@ ALTER TABLE ONLY public.drive_folders
 
 
 --
+-- Name: drive_group_external_mappings drive_group_external_mappings_drive_group_id_provider_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_group_external_mappings
+    ADD CONSTRAINT drive_group_external_mappings_drive_group_id_provider_key UNIQUE (drive_group_id, provider);
+
+
+--
+-- Name: drive_group_external_mappings drive_group_external_mappings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_group_external_mappings
+    ADD CONSTRAINT drive_group_external_mappings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_group_external_mappings drive_group_external_mappings_tenant_id_provider_external_g_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_group_external_mappings
+    ADD CONSTRAINT drive_group_external_mappings_tenant_id_provider_external_g_key UNIQUE (tenant_id, provider, external_group_id);
+
+
+--
 -- Name: drive_group_members drive_group_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1145,6 +1296,30 @@ ALTER TABLE ONLY public.drive_groups
 
 ALTER TABLE ONLY public.drive_resource_shares
     ADD CONSTRAINT drive_resource_shares_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_share_invitations drive_share_invitations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_share_invitations
+    ADD CONSTRAINT drive_share_invitations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_share_link_password_attempts drive_share_link_password_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_share_link_password_attempts
+    ADD CONSTRAINT drive_share_link_password_attempts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_share_link_password_attempts drive_share_link_password_attempts_token_hash_requester_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_share_link_password_attempts
+    ADD CONSTRAINT drive_share_link_password_attempts_token_hash_requester_key_key UNIQUE (token_hash, requester_key);
 
 
 --
@@ -1543,6 +1718,13 @@ CREATE INDEX drive_folders_children_idx ON public.drive_folders USING btree (ten
 
 
 --
+-- Name: drive_folders_legal_hold_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_folders_legal_hold_idx ON public.drive_folders USING btree (tenant_id, legal_hold_at) WHERE (legal_hold_at IS NOT NULL);
+
+
+--
 -- Name: drive_folders_parent_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1554,6 +1736,13 @@ CREATE INDEX drive_folders_parent_idx ON public.drive_folders USING btree (paren
 --
 
 CREATE UNIQUE INDEX drive_folders_public_id_key ON public.drive_folders USING btree (public_id);
+
+
+--
+-- Name: drive_folders_retention_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_folders_retention_idx ON public.drive_folders USING btree (tenant_id, retention_until) WHERE (retention_until IS NOT NULL);
 
 
 --
@@ -1620,10 +1809,59 @@ CREATE INDEX drive_resource_shares_subject_idx ON public.drive_resource_shares U
 
 
 --
+-- Name: drive_share_invitations_accept_token_hash_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_share_invitations_accept_token_hash_key ON public.drive_share_invitations USING btree (accept_token_hash) WHERE (accept_token_hash IS NOT NULL);
+
+
+--
+-- Name: drive_share_invitations_invitee_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_share_invitations_invitee_idx ON public.drive_share_invitations USING btree (invitee_email_hash, status, expires_at);
+
+
+--
+-- Name: drive_share_invitations_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_share_invitations_public_id_key ON public.drive_share_invitations USING btree (public_id);
+
+
+--
+-- Name: drive_share_invitations_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_share_invitations_tenant_status_idx ON public.drive_share_invitations USING btree (tenant_id, status, created_at DESC);
+
+
+--
+-- Name: drive_share_invitations_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_share_invitations_user_idx ON public.drive_share_invitations USING btree (invitee_user_id, status, expires_at) WHERE (invitee_user_id IS NOT NULL);
+
+
+--
+-- Name: drive_share_link_password_attempts_block_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_share_link_password_attempts_block_idx ON public.drive_share_link_password_attempts USING btree (blocked_until) WHERE (blocked_until IS NOT NULL);
+
+
+--
 -- Name: drive_share_links_active_lookup_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX drive_share_links_active_lookup_idx ON public.drive_share_links USING btree (token_hash, expires_at) WHERE (status = 'active'::text);
+
+
+--
+-- Name: drive_share_links_password_required_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_share_links_password_required_idx ON public.drive_share_links USING btree (tenant_id, password_required, status) WHERE (status = 'active'::text);
 
 
 --
@@ -1666,6 +1904,20 @@ CREATE INDEX file_objects_drive_children_idx ON public.file_objects USING btree 
 --
 
 CREATE INDEX file_objects_drive_folder_idx ON public.file_objects USING btree (drive_folder_id) WHERE ((deleted_at IS NULL) AND (purpose = 'drive'::text));
+
+
+--
+-- Name: file_objects_drive_legal_hold_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX file_objects_drive_legal_hold_idx ON public.file_objects USING btree (tenant_id, legal_hold_at) WHERE ((purpose = 'drive'::text) AND (legal_hold_at IS NOT NULL));
+
+
+--
+-- Name: file_objects_drive_retention_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX file_objects_drive_retention_idx ON public.file_objects USING btree (tenant_id, retention_until) WHERE ((purpose = 'drive'::text) AND (retention_until IS NOT NULL));
 
 
 --
@@ -2082,6 +2334,22 @@ ALTER TABLE ONLY public.drive_folders
 
 
 --
+-- Name: drive_folders drive_folders_deleted_parent_folder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_folders
+    ADD CONSTRAINT drive_folders_deleted_parent_folder_id_fkey FOREIGN KEY (deleted_parent_folder_id) REFERENCES public.drive_folders(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_folders drive_folders_legal_hold_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_folders
+    ADD CONSTRAINT drive_folders_legal_hold_by_user_id_fkey FOREIGN KEY (legal_hold_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: drive_folders drive_folders_parent_folder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2095,6 +2363,22 @@ ALTER TABLE ONLY public.drive_folders
 
 ALTER TABLE ONLY public.drive_folders
     ADD CONSTRAINT drive_folders_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_group_external_mappings drive_group_external_mappings_drive_group_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_group_external_mappings
+    ADD CONSTRAINT drive_group_external_mappings_drive_group_id_fkey FOREIGN KEY (drive_group_id) REFERENCES public.drive_groups(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_group_external_mappings drive_group_external_mappings_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_group_external_mappings
+    ADD CONSTRAINT drive_group_external_mappings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -2162,6 +2446,46 @@ ALTER TABLE ONLY public.drive_resource_shares
 
 
 --
+-- Name: drive_share_invitations drive_share_invitations_approved_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_share_invitations
+    ADD CONSTRAINT drive_share_invitations_approved_by_user_id_fkey FOREIGN KEY (approved_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_share_invitations drive_share_invitations_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_share_invitations
+    ADD CONSTRAINT drive_share_invitations_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_share_invitations drive_share_invitations_invitee_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_share_invitations
+    ADD CONSTRAINT drive_share_invitations_invitee_user_id_fkey FOREIGN KEY (invitee_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_share_invitations drive_share_invitations_revoked_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_share_invitations
+    ADD CONSTRAINT drive_share_invitations_revoked_by_user_id_fkey FOREIGN KEY (revoked_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_share_invitations drive_share_invitations_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_share_invitations
+    ADD CONSTRAINT drive_share_invitations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: drive_share_links drive_share_links_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2194,11 +2518,27 @@ ALTER TABLE ONLY public.file_objects
 
 
 --
+-- Name: file_objects file_objects_deleted_parent_folder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.file_objects
+    ADD CONSTRAINT file_objects_deleted_parent_folder_id_fkey FOREIGN KEY (deleted_parent_folder_id) REFERENCES public.drive_folders(id) ON DELETE SET NULL;
+
+
+--
 -- Name: file_objects file_objects_drive_folder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.file_objects
     ADD CONSTRAINT file_objects_drive_folder_id_fkey FOREIGN KEY (drive_folder_id) REFERENCES public.drive_folders(id) ON DELETE SET NULL;
+
+
+--
+-- Name: file_objects file_objects_legal_hold_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.file_objects
+    ADD CONSTRAINT file_objects_legal_hold_by_user_id_fkey FOREIGN KEY (legal_hold_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --
