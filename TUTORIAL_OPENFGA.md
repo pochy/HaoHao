@@ -58,6 +58,26 @@ OpenFGA Drive は範囲が広いため、フェーズ別ファイルに分割し
 | Phase 3 | `TUTORIAL_OPENFGA_P3_BACKEND_SERVICES.md` | OpenFGA client wrapper、DriveAuthorizationService、DriveService |
 | Phase 4 | `TUTORIAL_OPENFGA_P4_API_AUDIT_SMOKE.md` | Drive API、audit、metrics、readiness、smoke |
 | Phase 5 | `TUTORIAL_OPENFGA_P5_UI_E2E.md` | Vue Drive UI、tenant admin 導線、E2E |
+| Phase 6 | `TUTORIAL_OPENFGA_P6_REMAINING_TASKS.md` | 残タスク、外部共有、管理 UI、整合性運用、次フェーズ設計 |
+| Phase 7 | `TUTORIAL_OPENFGA_P7_ADVANCED_DRIVE_OPERATIONS.md` | 高度な管理閲覧、workspace、object storage、DLP、billing、HA/DR、M2M Drive API |
+| Phase 8 | `TUTORIAL_OPENFGA_P8_DRIVE_PRODUCT_EXPANSION.md` | full text search、collaborative editing、sync client、CMK、data residency、legal discovery、data clean room |
+| Phase 9 | `TUTORIAL_OPENFGA_P9_DRIVE_PRODUCT_COMPLETION.md` | Office co-authoring、eDiscovery provider、dedicated HSM、on-prem gateway、E2EE、AI、marketplace |
+
+## 読み方と Phase gate
+
+Phase 1-5 は、browser 向け Drive MVP を repo に入れるための連続した実装手順です。Phase 6 以降は、すべてを一度に入れる前提ではなく、production hardening と product expansion の backlog として読みます。
+
+各 Phase の開始前に、次の gate を満たしていることを確認します。
+
+| 開始する Phase | 必須 gate | 進め方 |
+| --- | --- | --- |
+| Phase 1-5 | 既存 auth / file / audit / OpenAPI / frontend build が通る | 1つの MVP 導入として連続実装する |
+| Phase 6 | Phase 1-5 の smoke / E2E が通り、Drive MVP が feature flag で運用できる | 共有拡張、admin UI、repair を小さな PR に分ける |
+| Phase 7 | Phase 6 の外部共有、password link、drift repair が運用できる | 危険機能は default disabled のまま、採用判断と guard を先に入れる |
+| Phase 8 | Phase 7 の workspace / storage / DLP / M2M 境界が固まっている | 外部 service 依存ごとに個別 product backlog として進める |
+| Phase 9 | Phase 8 の search / sync / CMK / residency / legal / clean room 境界が固まっている | provider fake、real drill、rollback を各 feature の PR に含める |
+
+Phase 6 以降で `openfga/drive.fga` を変更する Step は、DB/API/UI の通常変更と同じ PR に混ぜません。model test、bootstrap、`OPENFGA_AUTHORIZATION_MODEL_ID` 更新、rollback 手順を同じ単位にまとめます。
 
 ## 実装順の全体像
 
@@ -135,9 +155,9 @@ tenant mismatch は `404 Not Found` を返して存在を隠します。
 
 生成物は直接編集しません。`make gen` または既存の生成コマンドで更新します。
 
-## 最終確認コマンド
+## 初期導入の最終確認コマンド
 
-全フェーズ完了後は次を通します。
+Phase 1-5 の OpenFGA Drive 初期導入が完了したら、次を通します。Phase 6 の残タスクを実装する場合は、追加の外部共有 / password link / repair / admin UI 確認を `TUTORIAL_OPENFGA_P6_REMAINING_TASKS.md` の Step 11 に従って増やします。
 
 ```bash
 make gen
@@ -158,15 +178,20 @@ OPENFGA_AUTHORIZATION_MODEL_ID=...
 OPENFGA_FAIL_CLOSED=true
 ```
 
-## このチュートリアルで初期導入しないもの
+## 初期導入後の残タスク
 
-次は `DRIVE_OPENFGA_PERMISSIONS_SPEC.md` の要件として残しますが、初期 OpenFGA Drive 導入では実装しません。
+Phase 1-5 では、Drive/OpenFGA の browser 向け MVP を実装します。次の領域は `DRIVE_OPENFGA_PERMISSIONS_SPEC.md` の要件として残し、`TUTORIAL_OPENFGA_P6_REMAINING_TASKS.md` で実装順に分けて扱います。
 
 - 外部ユーザーへの直接共有
 - 未登録メールアドレス招待
 - パスワード付き share link
 - domain allow / deny
 - 管理者承認フロー
+- Drive audit / 共有状態 admin UI
+- pending_sync repair
+- OpenFGA tuple drift 検出
+- deactivated user cleanup
+- SCIM group to Drive group sync
 - explicit deny
 - Owner 移譲
 - 完全削除
@@ -176,3 +201,10 @@ OPENFGA_FAIL_CLOSED=true
 - workspace table の新設
 - external bearer / M2M からの Drive 操作
 
+残タスクを処理するときは、各 Step の最後に `IMPL.md` へ次を短く残します。
+
+- 実装した feature flag / tenant policy
+- 追加した DB state と migration 名
+- 追加または変更した OpenFGA relation
+- 追加した smoke / E2E env
+- まだ default disabled のまま残した機能
