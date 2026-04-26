@@ -721,6 +721,10 @@ func (s *DriveService) PublicShareLinkContentWithVerification(ctx context.Contex
 		})
 		return DriveFileDownload{}, ErrDrivePolicyDenied
 	}
+	if err := s.ensureDriveEncryptionAvailable(ctx, file.TenantID, file.ID); err != nil {
+		s.recordPublicLinkAudit(ctx, link, "drive.file.download_denied_encryption", map[string]any{"reason": "key_unavailable"})
+		return DriveFileDownload{}, err
+	}
 	body, err := s.storage.Open(ctx, file.StorageKey)
 	if err != nil {
 		return DriveFileDownload{}, err

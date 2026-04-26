@@ -129,6 +129,7 @@ func (s *DriveService) CreateFolder(ctx context.Context, input DriveCreateFolder
 		s.auditFailed(ctx, actor, "drive.folder.create", "drive_folder", folder.PublicID, err, auditCtx)
 		return DriveFolder{}, err
 	}
+	s.recordDriveSyncEventBestEffort(ctx, folder.ResourceRef(), "folder.created", "", map[string]any{"name": folder.Name})
 	return folder, nil
 }
 
@@ -261,6 +262,8 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 		s.auditFailed(ctx, actor, "drive.file.create", "drive_file", file.PublicID, err, auditCtx)
 		return DriveFile{}, err
 	}
+	s.indexDriveFileBestEffort(ctx, file, "file_created")
+	s.recordDriveSyncEventBestEffort(ctx, file.ResourceRef(), "file.created", file.SHA256Hex, map[string]any{"filename": file.OriginalFilename})
 	return file, nil
 }
 

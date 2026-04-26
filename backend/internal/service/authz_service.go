@@ -222,9 +222,15 @@ func (s *AuthzService) AuthContextFromBearerWithTenant(ctx context.Context, prov
 
 var supportedGlobalRoles = map[string]struct{}{
 	"customer_signal_user": {},
+	"clean_room_admin":     {},
 	"docs_reader":          {},
 	"drive_content_admin":  {},
+	"drive_security_admin": {},
+	"drive_sync_admin":     {},
 	"external_api_user":    {},
+	"legal_admin":          {},
+	"legal_exporter":       {},
+	"legal_reviewer":       {},
 	"machine_client_admin": {},
 	"support_agent":        {},
 	"tenant_admin":         {},

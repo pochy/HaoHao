@@ -129,6 +129,27 @@ func (s *DriveAuthorizationService) CanEditWithShareLink(ctx context.Context, li
 	return s.checkResource(ctx, openFGAShareLink(link.PublicID), "can_edit", openFGAResourceObject(link.Resource), "share_link", s.currentTimeContext())
 }
 
+func (s *DriveAuthorizationService) CanViewCleanRoom(ctx context.Context, actor DriveActor, cleanRoomPublicID string) error {
+	if actor.UserID <= 0 || actor.TenantID <= 0 || strings.TrimSpace(actor.PublicID) == "" || strings.TrimSpace(cleanRoomPublicID) == "" {
+		return ErrDrivePermissionDenied
+	}
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_view", openFGACleanRoom(cleanRoomPublicID), "clean_room", s.currentTimeContext())
+}
+
+func (s *DriveAuthorizationService) CanSubmitCleanRoomDataset(ctx context.Context, actor DriveActor, cleanRoomPublicID string) error {
+	if actor.UserID <= 0 || actor.TenantID <= 0 || strings.TrimSpace(actor.PublicID) == "" || strings.TrimSpace(cleanRoomPublicID) == "" {
+		return ErrDrivePermissionDenied
+	}
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_submit_dataset", openFGACleanRoom(cleanRoomPublicID), "clean_room", s.currentTimeContext())
+}
+
+func (s *DriveAuthorizationService) CanApproveCleanRoomExport(ctx context.Context, actor DriveActor, cleanRoomPublicID string) error {
+	if actor.UserID <= 0 || actor.TenantID <= 0 || strings.TrimSpace(actor.PublicID) == "" || strings.TrimSpace(cleanRoomPublicID) == "" {
+		return ErrDrivePermissionDenied
+	}
+	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_approve_export", openFGACleanRoom(cleanRoomPublicID), "clean_room", s.currentTimeContext())
+}
+
 func (s *DriveAuthorizationService) CheckShareTuple(ctx context.Context, share DriveShare) error {
 	tuple := shareTuple(share)
 	return s.checkResource(ctx, tuple.User, tuple.Relation, tuple.Object, string(share.Resource.Type), s.currentTimeContext())
@@ -330,6 +351,23 @@ func (s *DriveAuthorizationService) DeleteShareLinkTuple(ctx context.Context, li
 	return s.deleteTuples(ctx, []OpenFGATuple{shareLinkTuple(link)})
 }
 
+func (s *DriveAuthorizationService) WriteCleanRoomTuple(ctx context.Context, cleanRoomPublicID, userPublicID, role string) error {
+	role = strings.ToLower(strings.TrimSpace(role))
+	switch role {
+	case "owner", "participant", "reviewer":
+	default:
+		return ErrDriveInvalidInput
+	}
+	if strings.TrimSpace(cleanRoomPublicID) == "" || strings.TrimSpace(userPublicID) == "" {
+		return ErrDriveInvalidInput
+	}
+	return s.writeTuples(ctx, []OpenFGATuple{{
+		User:     openFGAUser(userPublicID),
+		Relation: role,
+		Object:   openFGACleanRoom(cleanRoomPublicID),
+	}})
+}
+
 func (s *DriveAuthorizationService) check(ctx context.Context, user, relation, object string, contextMap map[string]any) error {
 	if err := s.ensureReady(); err != nil {
 		if !s.failClosed {
@@ -462,6 +500,8 @@ func openFGAResourceObject(resource DriveResourceRef) string {
 		return openFGAFile(resource.PublicID)
 	case DriveResourceTypeFolder:
 		return openFGAFolder(resource.PublicID)
+	case DriveResourceTypeCleanRoom:
+		return openFGACleanRoom(resource.PublicID)
 	default:
 		return openFGAObject(string(resource.Type), resource.PublicID)
 	}

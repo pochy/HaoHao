@@ -53,6 +53,19 @@ const driveMaxFileSizeBytes = ref(10485760)
 const driveMaxWorkspaceCount = ref(25)
 const driveMaxPublicLinkCount = ref(1000)
 const driveM2MApiEnabled = ref(false)
+const driveSearchEnabled = ref(true)
+const driveCollaborationEnabled = ref(false)
+const driveSyncEnabled = ref(false)
+const driveMobileOfflineEnabled = ref(false)
+const driveOfflineCacheAllowed = ref(false)
+const driveCmkEnabled = ref(false)
+const driveDataResidencyEnabled = ref(false)
+const driveLegalDiscoveryEnabled = ref(false)
+const driveCleanRoomEnabled = ref(false)
+const driveCleanRoomRawExportEnabled = ref(false)
+const driveEncryptionMode = ref('service_managed')
+const drivePrimaryRegion = ref('global')
+const driveAllowedRegions = ref('global')
 const webhookName = ref('')
 const webhookUrl = ref('')
 const webhookEvents = ref('customer_signal.created')
@@ -82,6 +95,10 @@ const drivePolicyRows = computed(() => [
   ['Anonymous editor links', driveAnonymousEditorLinksEnabled.value ? 'Enabled' : 'Disabled'],
   ['Scan/DLP', `${driveContentScanEnabled.value ? 'Scan on' : 'Scan off'} / ${driveDlpEnabled.value ? 'DLP on' : 'DLP off'}`],
   ['Plan', drivePlanCode.value],
+  ['Search / Collab', `${driveSearchEnabled.value ? 'Search on' : 'Search off'} / ${driveCollaborationEnabled.value ? 'Collab on' : 'Collab off'}`],
+  ['Sync / Mobile', `${driveSyncEnabled.value ? 'Sync on' : 'Sync off'} / ${driveMobileOfflineEnabled.value ? 'Mobile offline on' : 'Mobile offline off'}`],
+  ['CMK / Residency', `${driveCmkEnabled.value ? driveEncryptionMode.value : 'CMK off'} / ${driveDataResidencyEnabled.value ? drivePrimaryRegion.value : 'Residency off'}`],
+  ['Legal / Clean room', `${driveLegalDiscoveryEnabled.value ? 'Legal on' : 'Legal off'} / ${driveCleanRoomEnabled.value ? 'Clean room on' : 'Clean room off'}`],
   ['Max link TTL', `${driveMaxLinkTTLHours.value} hours`],
 ])
 
@@ -209,6 +226,19 @@ function syncCommonForm() {
   driveMaxWorkspaceCount.value = typeof drive.maxWorkspaceCount === 'number' ? drive.maxWorkspaceCount : 25
   driveMaxPublicLinkCount.value = typeof drive.maxPublicLinkCount === 'number' ? drive.maxPublicLinkCount : 1000
   driveM2MApiEnabled.value = Boolean(drive.m2mDriveAPIEnabled)
+  driveSearchEnabled.value = drive.searchEnabled !== false
+  driveCollaborationEnabled.value = Boolean(drive.collaborationEnabled)
+  driveSyncEnabled.value = Boolean(drive.syncEnabled)
+  driveMobileOfflineEnabled.value = Boolean(drive.mobileOfflineEnabled)
+  driveOfflineCacheAllowed.value = Boolean(drive.offlineCacheAllowed)
+  driveCmkEnabled.value = Boolean(drive.cmkEnabled)
+  driveDataResidencyEnabled.value = Boolean(drive.dataResidencyEnabled)
+  driveLegalDiscoveryEnabled.value = Boolean(drive.legalDiscoveryEnabled)
+  driveCleanRoomEnabled.value = Boolean(drive.cleanRoomEnabled)
+  driveCleanRoomRawExportEnabled.value = Boolean(drive.cleanRoomRawExportEnabled)
+  driveEncryptionMode.value = typeof drive.encryptionMode === 'string' ? drive.encryptionMode : 'service_managed'
+  drivePrimaryRegion.value = typeof drive.primaryRegion === 'string' ? drive.primaryRegion : 'global'
+  driveAllowedRegions.value = Array.isArray(drive.allowedRegions) ? drive.allowedRegions.join(', ') : 'global'
 }
 
 function formatDate(value?: string) {
@@ -355,6 +385,19 @@ async function saveCommonSettings() {
           passwordLinksPlanEnabled: true,
           dlpPlanEnabled: true,
           m2mDriveAPIEnabled: driveM2MApiEnabled.value,
+          searchEnabled: driveSearchEnabled.value,
+          collaborationEnabled: driveCollaborationEnabled.value,
+          syncEnabled: driveSyncEnabled.value,
+          mobileOfflineEnabled: driveMobileOfflineEnabled.value,
+          offlineCacheAllowed: driveOfflineCacheAllowed.value,
+          cmkEnabled: driveCmkEnabled.value,
+          dataResidencyEnabled: driveDataResidencyEnabled.value,
+          legalDiscoveryEnabled: driveLegalDiscoveryEnabled.value,
+          cleanRoomEnabled: driveCleanRoomEnabled.value,
+          cleanRoomRawExportEnabled: driveCleanRoomRawExportEnabled.value,
+          encryptionMode: driveEncryptionMode.value,
+          primaryRegion: drivePrimaryRegion.value,
+          allowedRegions: domainList(driveAllowedRegions.value),
         },
       },
     })
@@ -897,6 +940,61 @@ async function confirmPendingAction() {
           <label class="checkbox-field">
             <input v-model="driveM2MApiEnabled" type="checkbox">
             <span>M2M Drive API enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveSearchEnabled" type="checkbox">
+            <span>Search index enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveCollaborationEnabled" type="checkbox">
+            <span>Collaboration enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveSyncEnabled" type="checkbox">
+            <span>Desktop sync enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveMobileOfflineEnabled" type="checkbox">
+            <span>Mobile offline enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveOfflineCacheAllowed" type="checkbox">
+            <span>Offline cache allowed</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveCmkEnabled" type="checkbox">
+            <span>Customer managed keys enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveDataResidencyEnabled" type="checkbox">
+            <span>Data residency enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveLegalDiscoveryEnabled" type="checkbox">
+            <span>Legal discovery enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveCleanRoomEnabled" type="checkbox">
+            <span>Clean room enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveCleanRoomRawExportEnabled" type="checkbox">
+            <span>Clean room raw export enabled</span>
+          </label>
+          <label class="field">
+            <span class="field-label">Encryption mode</span>
+            <select v-model="driveEncryptionMode" class="field-input">
+              <option value="service_managed">Service managed</option>
+              <option value="tenant_managed">Tenant managed</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Primary region</span>
+            <input v-model="drivePrimaryRegion" class="field-input" autocomplete="off" placeholder="ap-northeast-1">
+          </label>
+          <label class="field">
+            <span class="field-label">Allowed regions</span>
+            <input v-model="driveAllowedRegions" class="field-input" autocomplete="off" placeholder="ap-northeast-1, us-east-1">
           </label>
           <label class="field">
             <span class="field-label">Max link TTL hours</span>

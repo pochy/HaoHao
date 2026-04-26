@@ -220,3 +220,34 @@ tests:
         assertions:
           can_view: true
           can_edit: false
+
+  - name: clean room participant and reviewer
+    tuples:
+      - user: user:room-owner
+        relation: owner
+        object: clean_room:joint-analysis
+      - user: user:room-participant
+        relation: participant
+        object: clean_room:joint-analysis
+      - user: user:room-reviewer
+        relation: reviewer
+        object: clean_room:joint-analysis
+    check:
+      - user: user:room-owner
+        object: clean_room:joint-analysis
+        assertions:
+          can_view: true
+          can_submit_dataset: true
+          can_approve_export: true
+      - user: user:room-participant
+        object: clean_room:joint-analysis
+        assertions:
+          can_view: true
+          can_submit_dataset: true
+          can_approve_export: false
+      - user: user:room-reviewer
+        object: clean_room:joint-analysis
+        assertions:
+          can_view: true
+          can_submit_dataset: false
+          can_approve_export: true

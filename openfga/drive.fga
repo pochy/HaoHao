@@ -19,6 +19,15 @@ type workspace
     define can_delete: owner
     define can_share: owner
 
+type clean_room
+  relations
+    define owner: [user, group#member]
+    define participant: [user, group#member] or owner
+    define reviewer: [user, group#member] or owner
+    define can_view: participant or reviewer
+    define can_submit_dataset: participant
+    define can_approve_export: reviewer
+
 type folder
   relations
     define workspace: [workspace]

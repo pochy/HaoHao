@@ -96,6 +96,7 @@ func registerDriveRoutes(api huma.API, deps Dependencies) {
 	registerDriveGroupRoutes(api, deps)
 	registerDriveShareLinkRoutes(api, deps)
 	registerDriveInvitationRoutes(api, deps)
+	registerDrivePhase8Routes(api, deps)
 }
 
 func registerDriveFolderRoutes(api huma.API, deps Dependencies) {

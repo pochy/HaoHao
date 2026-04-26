@@ -38,7 +38,7 @@
 
 現在の実装は、`CONCEPT.md` の基本方針である **OpenAPI 3.1 優先 + Monorepo + Go/Huma + Vue + PostgreSQL/sqlc + BFF Cookie 認証** を広い範囲で反映している。
 
-`TUTORIAL.md` の foundation、`TUTORIAL_ZITADEL.md` の Phase 1-6、`TUTORIAL_SINGLE_BINARY.md`、P0-P12、OpenFGA Drive Phase 1-5 の各チュートリアルまで実装済み。HaoHao は、local password login / Zitadel browser login / Cookie session / CSRF / tenant-aware auth / delegated auth / SCIM / M2M / single binary / operability / observability / audit / tenant admin / TODO / Customer Signals / common services / OpenAPI split / Playwright E2E / cross-cutting extensions / tenant rate limit runtime / file lifecycle purge / OpenFGA resource authorization 付き Drive まで持つ状態になっている。
+`TUTORIAL.md` の foundation、`TUTORIAL_ZITADEL.md` の Phase 1-6、`TUTORIAL_SINGLE_BINARY.md`、P0-P12、OpenFGA Drive Phase 1-8 の各チュートリアルまで実装済み。HaoHao は、local password login / Zitadel browser login / Cookie session / CSRF / tenant-aware auth / delegated auth / SCIM / M2M / single binary / operability / observability / audit / tenant admin / TODO / Customer Signals / common services / OpenAPI split / Playwright E2E / cross-cutting extensions / tenant rate limit runtime / file lifecycle purge / OpenFGA resource authorization 付き Drive まで持つ状態になっている。
 
 | Phase | 状態 | 主な実装 |
 | --- | --- | --- |
@@ -58,9 +58,9 @@
 | P10: Cross-cutting Extensions | 実装済み | webhooks、CSV import/export、saved filters、support access、entitlements |
 | P11: Rate Limit Runtime | 実装済み | tenant settings の browser API rate limit override を runtime 反映 |
 | P12: File Physical Purge | 実装済み | local file body purge、retry/lock、audit/metrics、smoke |
-| OpenFGA Drive | 実装済み | OpenFGA Docker/model/bootstrap、Drive DB/sqlc、resource auth service、Drive API、audit/metrics、Vue Drive UI、OpenFGA enabled E2E |
+| OpenFGA Drive | 実装済み | OpenFGA Docker/model/bootstrap、Drive DB/sqlc、resource auth service、Drive API、audit/metrics、Vue Drive UI、Phase 8 product/compliance API、OpenFGA enabled E2E |
 
-現時点で残る大きな領域は、SMTP/provider email sender、DB query tracing、Grafana dashboard、webhook 外部配送 E2E、support access E2E 強化、object storage / virus scan、Drive の外部ユーザー共有・password link・domain policy、billing、realtime、HA/DR、M2M/external bearer 用の業務 API である。
+現時点で残る大きな領域は、SMTP/provider email sender、DB query tracing、Grafana dashboard、webhook 外部配送 E2E、support access E2E 強化、S3/GCS object storage provider、virus scan provider、実 billing、realtime provider、production HA/DR drill、M2M/external bearer 用の業務 API、Office/eDiscovery/HSM/on-prem/zero-knowledge/AI/marketplace 連携である。
 
 ## 方針との対応
 
@@ -87,7 +87,7 @@
 | File lifecycle | 実装済み。soft delete 後の local file body physical purge と DB tombstone がある |
 | OpenFGA | 実装済み。専用 PostgreSQL 付き Docker runtime、repo 管理 authorization model、bootstrap script、model test、readiness probe がある |
 | Drive resource auth | 実装済み。OpenFGA は File/Folder/Group/Share Link の resource authorization に限定し、login/global role/tenant role/active tenant は既存 `AuthzService` が担当する |
-| Drive product surface | 実装済み。folder/file CRUD、user/group share、期限付き Viewer link、download 禁止、inheritance stop/resume、permissions panel、public link metadata/content がある |
+| Drive product surface | 実装済み。folder/file CRUD、user/group share、期限付き Viewer link、download 禁止、inheritance stop/resume、permissions panel、public link metadata/content、workspace、search、lock-based collaboration、sync/mobile、CMK/residency/legal discovery/clean room の管理境界がある |
 | E2E | 実装済み。single binary に対する Playwright Chromium E2E がある |
 | Docker / CI / release | 実装済み。`docker/Dockerfile`、`.dockerignore`、CI の embedded binary / Docker build、release asset upload がある |
 
@@ -939,6 +939,49 @@ RUN_DRIVE_SCAN_SMOKE=1 RUN_DRIVE_PLAN_ENFORCEMENT_SMOKE=1 RUN_DRIVE_DRIFT_SMOKE=
 
 - local storage driverはsigned URLを発行せず、API proxy streamを使う。S3 compatible driverは次Phase以降のdriver実装として残す。
 - M2M Drive APIはpolicy/scope/tenant境界を用意したが、machine clientをOpenFGA userとして扱うには service account provisioning が必要。
+
+## OpenFGA Drive Phase 8
+
+2026-04-26 に `TUTORIAL_OPENFGA_P8_DRIVE_PRODUCT_EXPANSION.md` を実装。
+
+採用判断:
+
+- Phase 8 の外部依存は local fake / DB-backed MVP で閉じた。検索は Postgres FTS、共同編集は lock-based session、KMS は鍵メタデータと利用可否 guard、sync は device-bound token hash + DB cursor を使う。
+- OpenFGA は引き続き permission source だけに限定。検索 index、sync cursor、legal case、clean room job は permission の正本にしない。
+- legal discovery と clean room は通常 Drive UI へ混ぜず、tenant admin API / policy / dedicated role / audit を必須にした。
+
+追加済み:
+
+- Drive search document/index job table と DB-backed full text search。検索候補は DB guard、scan/DLP guard、OpenFGA `can_view` filtering 後に返す。
+- edit session / lock / presence / revision save API。save 時に revision と `can_edit` を再確認する。
+- desktop sync device registration、hashed device token、delta cursor、conflict table、remote revoke / wipe request。
+- mobile offline replay。offline rename は server-side permission を再判定してから適用する。
+- tenant CMK policy、key status、object key version、key rotation job table。tenant-managed key unavailable 時の download は fail-closed。
+- data residency policy、workspace region override、migration / placement event table と tenant admin policy API。
+- legal case、file legal hold、export request、export item、chain-of-custody event。
+- clean room、participant、dataset、job/export/policy decision table と OpenFGA `clean_room` type。raw export は default deny。
+- tenant admin Drive policy UI に Phase 8 flags と encryption/region 設定を追加。
+- smokeに `RUN_DRIVE_SEARCH_SMOKE=1`、`RUN_DRIVE_COLLAB_SMOKE=1`、`RUN_DRIVE_DESKTOP_SYNC_SMOKE=1`、`RUN_DRIVE_MOBILE_OFFLINE_SMOKE=1`、`RUN_DRIVE_CMK_SMOKE=1`、`RUN_DRIVE_RESIDENCY_SMOKE=1`、`RUN_DRIVE_LEGAL_DISCOVERY_SMOKE=1`、`RUN_DRIVE_CLEAN_ROOM_SMOKE=1` を追加。
+
+検証:
+
+```bash
+make db-up
+make db-schema
+make gen
+go test ./backend/...
+npm --prefix frontend run build
+make binary
+cd openfga && fga model test --tests drive.fga.yaml
+make smoke-openfga
+RUN_DRIVE_SEARCH_SMOKE=1 RUN_DRIVE_COLLAB_SMOKE=1 RUN_DRIVE_DESKTOP_SYNC_SMOKE=1 RUN_DRIVE_MOBILE_OFFLINE_SMOKE=1 RUN_DRIVE_CMK_SMOKE=1 RUN_DRIVE_RESIDENCY_SMOKE=1 RUN_DRIVE_LEGAL_DISCOVERY_SMOKE=1 RUN_DRIVE_CLEAN_ROOM_SMOKE=1 make smoke-openfga
+```
+
+注意:
+
+- smoke は一時 server に対して `BASE_URL`、`OPENFGA_STORE_ID`、`OPENFGA_AUTHORIZATION_MODEL_ID` を明示して実行した。
+- sync bearer endpoint は browser cookie API と別 route にしたが、local MVP の OpenAPI artifact では実装生成を優先し、専用 sync spec 分離は次の外部 client 固定時に残す。
+- E2E は Phase 8 では追加せず、env-gated smoke と frontend build で確認した。外部 provider 実装時に provider fake と実 provider drill を分けて追加する。
 
 ## 残課題 / 次アクション
 

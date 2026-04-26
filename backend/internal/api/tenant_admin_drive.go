@@ -148,6 +148,8 @@ type TenantAdminDriveAdminContentFileInput struct {
 }
 
 func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
+	registerTenantAdminDrivePhase8Routes(api, deps)
+
 	huma.Register(api, huma.Operation{
 		OperationID: "listTenantAdminDriveShares",
 		Method:      http.MethodGet,

@@ -73,6 +73,23 @@ type DrivePolicy struct {
 	PasswordLinksPlanEnabled            bool
 	DLPPlanEnabled                      bool
 	M2MDriveAPIEnabled                  bool
+	SearchEnabled                       bool
+	CollaborationEnabled                bool
+	SyncEnabled                         bool
+	MobileOfflineEnabled                bool
+	OfflineCacheAllowed                 bool
+	OfflineCacheMaxBytes                int64
+	OfflineCacheMaxDays                 int
+	MobileDownloadRequiresBiometric     bool
+	MobileRemoteWipeRequired            bool
+	CMKEnabled                          bool
+	DataResidencyEnabled                bool
+	LegalDiscoveryEnabled               bool
+	CleanRoomEnabled                    bool
+	CleanRoomRawExportEnabled           bool
+	EncryptionMode                      string
+	PrimaryRegion                       string
+	AllowedRegions                      []string
 }
 
 type TenantSettingsService struct {
@@ -305,6 +322,23 @@ func defaultDrivePolicy() DrivePolicy {
 		PasswordLinksPlanEnabled:            true,
 		DLPPlanEnabled:                      true,
 		M2MDriveAPIEnabled:                  false,
+		SearchEnabled:                       true,
+		CollaborationEnabled:                false,
+		SyncEnabled:                         false,
+		MobileOfflineEnabled:                false,
+		OfflineCacheAllowed:                 false,
+		OfflineCacheMaxBytes:                100 * 1024 * 1024,
+		OfflineCacheMaxDays:                 30,
+		MobileDownloadRequiresBiometric:     false,
+		MobileRemoteWipeRequired:            true,
+		CMKEnabled:                          false,
+		DataResidencyEnabled:                false,
+		LegalDiscoveryEnabled:               false,
+		CleanRoomEnabled:                    false,
+		CleanRoomRawExportEnabled:           false,
+		EncryptionMode:                      "service_managed",
+		PrimaryRegion:                       "global",
+		AllowedRegions:                      []string{"global"},
 	}
 }
 
@@ -343,6 +377,23 @@ func drivePolicyFromFeatures(features map[string]any) DrivePolicy {
 	policy.PasswordLinksPlanEnabled = featureBool(raw, "passwordLinksPlanEnabled", policy.PasswordLinksPlanEnabled)
 	policy.DLPPlanEnabled = featureBool(raw, "dlpPlanEnabled", policy.DLPPlanEnabled)
 	policy.M2MDriveAPIEnabled = featureBool(raw, "m2mDriveAPIEnabled", policy.M2MDriveAPIEnabled)
+	policy.SearchEnabled = featureBool(raw, "searchEnabled", policy.SearchEnabled)
+	policy.CollaborationEnabled = featureBool(raw, "collaborationEnabled", policy.CollaborationEnabled)
+	policy.SyncEnabled = featureBool(raw, "syncEnabled", policy.SyncEnabled)
+	policy.MobileOfflineEnabled = featureBool(raw, "mobileOfflineEnabled", policy.MobileOfflineEnabled)
+	policy.OfflineCacheAllowed = featureBool(raw, "offlineCacheAllowed", policy.OfflineCacheAllowed)
+	policy.OfflineCacheMaxBytes = int64(featureInt(raw, "offlineCacheMaxBytes", int(policy.OfflineCacheMaxBytes)))
+	policy.OfflineCacheMaxDays = featureInt(raw, "offlineCacheMaxDays", policy.OfflineCacheMaxDays)
+	policy.MobileDownloadRequiresBiometric = featureBool(raw, "mobileDownloadRequiresBiometric", policy.MobileDownloadRequiresBiometric)
+	policy.MobileRemoteWipeRequired = featureBool(raw, "mobileRemoteWipeRequired", policy.MobileRemoteWipeRequired)
+	policy.CMKEnabled = featureBool(raw, "cmkEnabled", policy.CMKEnabled)
+	policy.DataResidencyEnabled = featureBool(raw, "dataResidencyEnabled", policy.DataResidencyEnabled)
+	policy.LegalDiscoveryEnabled = featureBool(raw, "legalDiscoveryEnabled", policy.LegalDiscoveryEnabled)
+	policy.CleanRoomEnabled = featureBool(raw, "cleanRoomEnabled", policy.CleanRoomEnabled)
+	policy.CleanRoomRawExportEnabled = featureBool(raw, "cleanRoomRawExportEnabled", policy.CleanRoomRawExportEnabled)
+	policy.EncryptionMode = featureString(raw, "encryptionMode", policy.EncryptionMode)
+	policy.PrimaryRegion = featureString(raw, "primaryRegion", policy.PrimaryRegion)
+	policy.AllowedRegions = featureStringSlice(raw, "allowedRegions", policy.AllowedRegions)
 
 	return normalizeDrivePolicy(policy)
 }
@@ -373,6 +424,24 @@ func normalizeDrivePolicy(policy DrivePolicy) DrivePolicy {
 	if policy.MaxPublicLinkCount <= 0 {
 		policy.MaxPublicLinkCount = defaults.MaxPublicLinkCount
 	}
+	if policy.OfflineCacheMaxBytes <= 0 {
+		policy.OfflineCacheMaxBytes = defaults.OfflineCacheMaxBytes
+	}
+	if policy.OfflineCacheMaxDays <= 0 {
+		policy.OfflineCacheMaxDays = defaults.OfflineCacheMaxDays
+	}
+	policy.EncryptionMode = strings.ToLower(strings.TrimSpace(policy.EncryptionMode))
+	if policy.EncryptionMode == "" {
+		policy.EncryptionMode = defaults.EncryptionMode
+	}
+	policy.PrimaryRegion = strings.ToLower(strings.TrimSpace(policy.PrimaryRegion))
+	if policy.PrimaryRegion == "" {
+		policy.PrimaryRegion = defaults.PrimaryRegion
+	}
+	policy.AllowedRegions = normalizeRegionList(policy.AllowedRegions)
+	if len(policy.AllowedRegions) == 0 {
+		policy.AllowedRegions = defaults.AllowedRegions
+	}
 	policy = applyDrivePlanCaps(policy)
 	return policy
 }
@@ -401,6 +470,17 @@ func normalizeDrivePolicyForSave(policy DrivePolicy) (DrivePolicy, error) {
 	}
 	if policy.MaxPublicLinkCount < 1 || policy.MaxPublicLinkCount > 100000 {
 		return DrivePolicy{}, fmt.Errorf("%w: maxPublicLinkCount must be between 1 and 100000", ErrInvalidTenantSettings)
+	}
+	if policy.OfflineCacheMaxBytes < 1 {
+		return DrivePolicy{}, fmt.Errorf("%w: offlineCacheMaxBytes must be positive", ErrInvalidTenantSettings)
+	}
+	if policy.OfflineCacheMaxDays < 1 || policy.OfflineCacheMaxDays > 365 {
+		return DrivePolicy{}, fmt.Errorf("%w: offlineCacheMaxDays must be between 1 and 365", ErrInvalidTenantSettings)
+	}
+	switch policy.EncryptionMode {
+	case "service_managed", "tenant_managed", "workspace_managed", "file_managed":
+	default:
+		return DrivePolicy{}, fmt.Errorf("%w: unsupported encryptionMode", ErrInvalidTenantSettings)
 	}
 	return policy, nil
 }
@@ -436,6 +516,23 @@ func drivePolicyToFeatureMap(policy DrivePolicy) map[string]any {
 		"passwordLinksPlanEnabled":            policy.PasswordLinksPlanEnabled,
 		"dlpPlanEnabled":                      policy.DLPPlanEnabled,
 		"m2mDriveAPIEnabled":                  policy.M2MDriveAPIEnabled,
+		"searchEnabled":                       policy.SearchEnabled,
+		"collaborationEnabled":                policy.CollaborationEnabled,
+		"syncEnabled":                         policy.SyncEnabled,
+		"mobileOfflineEnabled":                policy.MobileOfflineEnabled,
+		"offlineCacheAllowed":                 policy.OfflineCacheAllowed,
+		"offlineCacheMaxBytes":                policy.OfflineCacheMaxBytes,
+		"offlineCacheMaxDays":                 policy.OfflineCacheMaxDays,
+		"mobileDownloadRequiresBiometric":     policy.MobileDownloadRequiresBiometric,
+		"mobileRemoteWipeRequired":            policy.MobileRemoteWipeRequired,
+		"cmkEnabled":                          policy.CMKEnabled,
+		"dataResidencyEnabled":                policy.DataResidencyEnabled,
+		"legalDiscoveryEnabled":               policy.LegalDiscoveryEnabled,
+		"cleanRoomEnabled":                    policy.CleanRoomEnabled,
+		"cleanRoomRawExportEnabled":           policy.CleanRoomRawExportEnabled,
+		"encryptionMode":                      policy.EncryptionMode,
+		"primaryRegion":                       policy.PrimaryRegion,
+		"allowedRegions":                      policy.AllowedRegions,
 	}
 }
 
@@ -560,6 +657,23 @@ func normalizeDomainList(values []string) []string {
 		}
 		seen[domain] = struct{}{}
 		out = append(out, domain)
+	}
+	return out
+}
+
+func normalizeRegionList(values []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		region := strings.ToLower(strings.TrimSpace(value))
+		if region == "" || strings.ContainsAny(region, " /\\") {
+			continue
+		}
+		if _, ok := seen[region]; ok {
+			continue
+		}
+		seen[region] = struct{}{}
+		out = append(out, region)
 	}
 	return out
 }

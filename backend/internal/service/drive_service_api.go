@@ -136,6 +136,13 @@ func (s *DriveService) Search(ctx context.Context, input DriveSearchInput, audit
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
+	policy, err := s.drivePolicy(ctx, input.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	if !policy.SearchEnabled {
+		return nil, ErrDrivePolicyDenied
+	}
 	query := pgText(strings.TrimSpace(input.Query))
 	contentType := pgText(normalizeContentType(input.ContentType))
 	if strings.TrimSpace(input.ContentType) == "" {
@@ -152,7 +159,7 @@ func (s *DriveService) Search(ctx context.Context, input DriveSearchInput, audit
 	if err != nil {
 		return nil, fmt.Errorf("search drive folders: %w", err)
 	}
-	fileRows, err := s.queries.SearchDriveFileCandidates(ctx, db.SearchDriveFileCandidatesParams{
+	fileRows, err := s.queries.SearchDriveIndexedFileCandidates(ctx, db.SearchDriveIndexedFileCandidatesParams{
 		TenantID:      input.TenantID,
 		Query:         query,
 		ContentType:   contentType,
@@ -241,6 +248,7 @@ func (s *DriveService) UpdateFolder(ctx context.Context, input DriveUpdateFolder
 	}
 
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.folder.update", "drive_folder", folder.PublicID, nil)
+	s.recordDriveSyncEventBestEffort(ctx, folder.ResourceRef(), "folder.updated", "", map[string]any{"name": folder.Name})
 	return folder, nil
 }
 
@@ -293,6 +301,7 @@ func (s *DriveService) DeleteFolder(ctx context.Context, tenantID, actorUserID i
 		return fmt.Errorf("delete drive folder: %w", err)
 	}
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.folder.delete", "drive_folder", folder.PublicID, nil)
+	s.recordDriveSyncEventBestEffort(ctx, folder.ResourceRef(), "folder.deleted", "", map[string]any{"name": folder.Name})
 	return nil
 }
 
@@ -339,6 +348,10 @@ func (s *DriveService) DownloadFile(ctx context.Context, tenantID, actorUserID i
 		return DriveFileDownload{}, err
 	}
 	if err := s.ensureFileDownloadAllowed(ctx, actor, file, auditCtx, "drive.file.download"); err != nil {
+		return DriveFileDownload{}, err
+	}
+	if err := s.ensureDriveEncryptionAvailable(ctx, file.TenantID, file.ID); err != nil {
+		s.auditDenied(ctx, actor, "drive.file.download", "drive_file", file.PublicID, err, auditCtx)
 		return DriveFileDownload{}, err
 	}
 	body, err := s.storage.Open(ctx, file.StorageKey)
@@ -401,6 +414,8 @@ func (s *DriveService) UpdateFile(ctx context.Context, input DriveUpdateFileInpu
 	}
 
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.file.update", "drive_file", file.PublicID, nil)
+	s.indexDriveFileBestEffort(ctx, file, "metadata_changed")
+	s.recordDriveSyncEventBestEffort(ctx, file.ResourceRef(), "file.metadata_updated", file.SHA256Hex, map[string]any{"filename": file.OriginalFilename})
 	return file, nil
 }
 
@@ -503,6 +518,8 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 		"contentType": result.ContentType,
 		"byteSize":    result.ByteSize,
 	})
+	s.indexDriveFileBestEffort(ctx, result, "content_updated")
+	s.recordDriveSyncEventBestEffort(ctx, result.ResourceRef(), "file.updated", result.SHA256Hex, map[string]any{"filename": result.OriginalFilename})
 	return result, nil
 }
 
@@ -537,6 +554,8 @@ func (s *DriveService) DeleteFile(ctx context.Context, tenantID, actorUserID int
 		return fmt.Errorf("delete drive file: %w", err)
 	}
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.file.delete", "drive_file", file.PublicID, nil)
+	_ = s.queries.DeleteDriveSearchDocument(ctx, db.DeleteDriveSearchDocumentParams{TenantID: tenantID, FileObjectID: file.ID})
+	s.recordDriveSyncEventBestEffort(ctx, file.ResourceRef(), "file.deleted", file.SHA256Hex, map[string]any{"filename": file.OriginalFilename})
 	return nil
 }
 

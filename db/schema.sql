@@ -232,6 +232,342 @@ ALTER TABLE public.drive_admin_content_access_sessions ALTER COLUMN id ADD GENER
 
 
 --
+-- Name: drive_chain_of_custody_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_chain_of_custody_events (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    case_id bigint,
+    export_id bigint,
+    actor_user_id bigint,
+    action text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_chain_of_custody_events_action_check CHECK ((btrim(action) <> ''::text))
+);
+
+
+--
+-- Name: drive_chain_of_custody_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_chain_of_custody_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_chain_of_custody_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_clean_room_datasets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_clean_room_datasets (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    clean_room_id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    source_file_object_id bigint NOT NULL,
+    submitted_by_user_id bigint NOT NULL,
+    status text DEFAULT 'submitted'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_clean_room_datasets_status_check CHECK ((status = ANY (ARRAY['submitted'::text, 'accepted'::text, 'rejected'::text, 'removed'::text])))
+);
+
+
+--
+-- Name: drive_clean_room_datasets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_clean_room_datasets ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_clean_room_datasets_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_clean_room_exports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_clean_room_exports (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    clean_room_id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    job_id bigint,
+    requested_by_user_id bigint NOT NULL,
+    approved_by_user_id bigint,
+    status text DEFAULT 'pending_approval'::text NOT NULL,
+    raw_dataset_export boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_clean_room_exports_status_check CHECK ((status = ANY (ARRAY['pending_approval'::text, 'approved'::text, 'ready'::text, 'denied'::text])))
+);
+
+
+--
+-- Name: drive_clean_room_exports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_clean_room_exports ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_clean_room_exports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_clean_room_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_clean_room_jobs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    clean_room_id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    job_type text DEFAULT 'local_fake'::text NOT NULL,
+    status text DEFAULT 'queued'::text NOT NULL,
+    result_metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_clean_room_jobs_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'running'::text, 'ready'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: drive_clean_room_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_clean_room_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_clean_room_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_clean_room_participants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_clean_room_participants (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    clean_room_id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    participant_tenant_id bigint NOT NULL,
+    user_id bigint,
+    role text DEFAULT 'participant'::text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_clean_room_participants_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'participant'::text, 'reviewer'::text]))),
+    CONSTRAINT drive_clean_room_participants_status_check CHECK ((status = ANY (ARRAY['active'::text, 'revoked'::text])))
+);
+
+
+--
+-- Name: drive_clean_room_participants_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_clean_room_participants ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_clean_room_participants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_clean_room_policy_decisions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_clean_room_policy_decisions (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    clean_room_id bigint,
+    tenant_id bigint NOT NULL,
+    actor_tenant_id bigint,
+    resource_tenant_id bigint,
+    decision text NOT NULL,
+    reason text DEFAULT ''::text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_clean_room_policy_decisions_decision_check CHECK ((decision = ANY (ARRAY['allow'::text, 'deny'::text])))
+);
+
+
+--
+-- Name: drive_clean_room_policy_decisions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_clean_room_policy_decisions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_clean_room_policy_decisions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_clean_rooms; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_clean_rooms (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    name text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    policy jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by_user_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_clean_rooms_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT drive_clean_rooms_status_check CHECK ((status = ANY (ARRAY['active'::text, 'closed'::text, 'archived'::text])))
+);
+
+
+--
+-- Name: drive_clean_rooms_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_clean_rooms ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_clean_rooms_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_edit_locks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_edit_locks (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    actor_user_id bigint NOT NULL,
+    session_id bigint NOT NULL,
+    base_revision bigint DEFAULT 0 NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    last_heartbeat_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_edit_locks_base_revision_check CHECK ((base_revision >= 0))
+);
+
+
+--
+-- Name: drive_edit_locks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_edit_locks ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_edit_locks_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_edit_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_edit_sessions (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    actor_user_id bigint NOT NULL,
+    provider text DEFAULT 'lock_based'::text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    base_revision bigint DEFAULT 0 NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    ended_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_edit_sessions_base_revision_check CHECK ((base_revision >= 0)),
+    CONSTRAINT drive_edit_sessions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'ended'::text, 'expired'::text, 'conflicted'::text])))
+);
+
+
+--
+-- Name: drive_edit_sessions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_edit_sessions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_edit_sessions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_encryption_policies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_encryption_policies (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    scope text DEFAULT 'tenant'::text NOT NULL,
+    mode text DEFAULT 'service_managed'::text NOT NULL,
+    kms_key_id bigint,
+    status text DEFAULT 'active'::text NOT NULL,
+    key_loss_policy text DEFAULT 'fail_closed'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_encryption_policies_mode_check CHECK ((mode = ANY (ARRAY['service_managed'::text, 'tenant_managed'::text, 'workspace_managed'::text, 'file_managed'::text]))),
+    CONSTRAINT drive_encryption_policies_scope_check CHECK ((scope = ANY (ARRAY['tenant'::text, 'workspace'::text, 'file'::text]))),
+    CONSTRAINT drive_encryption_policies_status_check CHECK ((status = ANY (ARRAY['active'::text, 'disabled'::text])))
+);
+
+
+--
+-- Name: drive_encryption_policies_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_encryption_policies ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_encryption_policies_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: drive_file_revisions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -403,6 +739,509 @@ ALTER TABLE public.drive_groups ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
+-- Name: drive_index_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_index_jobs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    reason text DEFAULT 'metadata_changed'::text NOT NULL,
+    status text DEFAULT 'queued'::text NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    last_error text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_index_jobs_attempts_check CHECK ((attempts >= 0)),
+    CONSTRAINT drive_index_jobs_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'running'::text, 'succeeded'::text, 'failed'::text, 'skipped'::text])))
+);
+
+
+--
+-- Name: drive_index_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_index_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_index_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_key_rotation_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_key_rotation_jobs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    old_kms_key_id bigint,
+    new_kms_key_id bigint,
+    status text DEFAULT 'queued'::text NOT NULL,
+    progress_count bigint DEFAULT 0 NOT NULL,
+    failure_reason text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_key_rotation_jobs_progress_count_check CHECK ((progress_count >= 0)),
+    CONSTRAINT drive_key_rotation_jobs_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'running'::text, 'succeeded'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: drive_key_rotation_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_key_rotation_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_key_rotation_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_kms_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_kms_keys (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    provider text DEFAULT 'external'::text NOT NULL,
+    key_ref text NOT NULL,
+    masked_key_ref text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    last_verified_at timestamp with time zone,
+    created_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_kms_keys_key_ref_check CHECK ((btrim(key_ref) <> ''::text)),
+    CONSTRAINT drive_kms_keys_status_check CHECK ((status = ANY (ARRAY['active'::text, 'disabled'::text, 'unavailable'::text, 'deleted'::text])))
+);
+
+
+--
+-- Name: drive_kms_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_kms_keys ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_kms_keys_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_legal_case_resources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_legal_case_resources (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    case_id bigint NOT NULL,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    hold_enabled boolean DEFAULT true NOT NULL,
+    added_by_user_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_legal_case_resources_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text, 'workspace'::text])))
+);
+
+
+--
+-- Name: drive_legal_case_resources_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_legal_case_resources ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_legal_case_resources_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_legal_cases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_legal_cases (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_by_user_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_legal_cases_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT drive_legal_cases_status_check CHECK ((status = ANY (ARRAY['active'::text, 'closed'::text, 'archived'::text])))
+);
+
+
+--
+-- Name: drive_legal_cases_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_legal_cases ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_legal_cases_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_legal_export_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_legal_export_items (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    export_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    status text DEFAULT 'queued'::text NOT NULL,
+    denial_reason text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_legal_export_items_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'included'::text, 'denied'::text])))
+);
+
+
+--
+-- Name: drive_legal_export_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_legal_export_items ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_legal_export_items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_legal_exports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_legal_exports (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    case_id bigint NOT NULL,
+    requested_by_user_id bigint NOT NULL,
+    approved_by_user_id bigint,
+    status text DEFAULT 'pending_approval'::text NOT NULL,
+    package_storage_key text,
+    expires_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_legal_exports_status_check CHECK ((status = ANY (ARRAY['pending_approval'::text, 'approved'::text, 'running'::text, 'ready'::text, 'denied'::text, 'expired'::text])))
+);
+
+
+--
+-- Name: drive_legal_exports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_legal_exports ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_legal_exports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_legal_holds; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_legal_holds (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    case_id bigint NOT NULL,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    reason text NOT NULL,
+    created_by_user_id bigint NOT NULL,
+    released_by_user_id bigint,
+    released_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_legal_holds_reason_check CHECK ((btrim(reason) <> ''::text)),
+    CONSTRAINT drive_legal_holds_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text])))
+);
+
+
+--
+-- Name: drive_legal_holds_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_legal_holds ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_legal_holds_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_mobile_offline_operations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_mobile_offline_operations (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    device_id bigint NOT NULL,
+    operation_type text NOT NULL,
+    resource_type text NOT NULL,
+    resource_public_id uuid NOT NULL,
+    base_revision bigint DEFAULT 0 NOT NULL,
+    status text DEFAULT 'queued'::text NOT NULL,
+    failure_reason text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    applied_at timestamp with time zone,
+    CONSTRAINT drive_mobile_offline_operations_base_revision_check CHECK ((base_revision >= 0)),
+    CONSTRAINT drive_mobile_offline_operations_operation_type_check CHECK ((btrim(operation_type) <> ''::text)),
+    CONSTRAINT drive_mobile_offline_operations_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text]))),
+    CONSTRAINT drive_mobile_offline_operations_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'applied'::text, 'denied'::text, 'conflicted'::text])))
+);
+
+
+--
+-- Name: drive_mobile_offline_operations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_mobile_offline_operations ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_mobile_offline_operations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_object_key_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_object_key_versions (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    kms_key_id bigint,
+    key_version text DEFAULT 'service-managed'::text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_object_key_versions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'rotating'::text, 'stale'::text])))
+);
+
+
+--
+-- Name: drive_object_key_versions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_object_key_versions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_object_key_versions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_presence_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_presence_sessions (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    actor_user_id bigint NOT NULL,
+    session_id bigint,
+    status text DEFAULT 'active'::text NOT NULL,
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_presence_sessions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'away'::text, 'ended'::text])))
+);
+
+
+--
+-- Name: drive_presence_sessions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_presence_sessions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_presence_sessions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_region_migration_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_region_migration_jobs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    workspace_id bigint,
+    source_region text NOT NULL,
+    target_region text NOT NULL,
+    dry_run boolean DEFAULT true NOT NULL,
+    status text DEFAULT 'queued'::text NOT NULL,
+    rollback_plan text,
+    created_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_region_migration_jobs_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'running'::text, 'requires_approval'::text, 'succeeded'::text, 'failed'::text, 'rolled_back'::text])))
+);
+
+
+--
+-- Name: drive_region_migration_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_region_migration_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_region_migration_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_region_placement_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_region_placement_events (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    workspace_id bigint,
+    file_object_id bigint,
+    subsystem text NOT NULL,
+    region text NOT NULL,
+    decision text DEFAULT 'allowed'::text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_region_placement_events_region_check CHECK ((btrim(region) <> ''::text)),
+    CONSTRAINT drive_region_placement_events_subsystem_check CHECK ((btrim(subsystem) <> ''::text))
+);
+
+
+--
+-- Name: drive_region_placement_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_region_placement_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_region_placement_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_region_policies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_region_policies (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    primary_region text DEFAULT 'global'::text NOT NULL,
+    allowed_regions text[] DEFAULT ARRAY['global'::text] NOT NULL,
+    replication_mode text DEFAULT 'none'::text NOT NULL,
+    index_region text DEFAULT 'same_as_primary'::text NOT NULL,
+    backup_region text DEFAULT 'same_jurisdiction'::text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_region_policies_status_check CHECK ((status = ANY (ARRAY['active'::text, 'pending_migration'::text, 'disabled'::text])))
+);
+
+
+--
+-- Name: drive_region_policies_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_region_policies ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_region_policies_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_remote_wipe_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_remote_wipe_requests (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    device_id bigint NOT NULL,
+    requested_by_user_id bigint,
+    reason text DEFAULT 'manual'::text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    acknowledged_at timestamp with time zone,
+    CONSTRAINT drive_remote_wipe_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'acknowledged'::text, 'expired'::text])))
+);
+
+
+--
+-- Name: drive_remote_wipe_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_remote_wipe_requests ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_remote_wipe_requests_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: drive_resource_shares; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -434,6 +1273,43 @@ CREATE TABLE public.drive_resource_shares (
 
 ALTER TABLE public.drive_resource_shares ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.drive_resource_shares_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_search_documents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_search_documents (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    workspace_id bigint,
+    file_object_id bigint NOT NULL,
+    title text DEFAULT ''::text NOT NULL,
+    content_type text DEFAULT ''::text NOT NULL,
+    extracted_text text DEFAULT ''::text NOT NULL,
+    snippet text DEFAULT ''::text NOT NULL,
+    content_sha256 text,
+    object_updated_at timestamp with time zone,
+    indexed_at timestamp with time zone DEFAULT now() NOT NULL,
+    search_vector tsvector GENERATED ALWAYS AS ((setweight(to_tsvector('simple'::regconfig, COALESCE(title, ''::text)), 'A'::"char") || setweight(to_tsvector('simple'::regconfig, COALESCE(extracted_text, ''::text)), 'B'::"char"))) STORED,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: drive_search_documents_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_search_documents ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_search_documents_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -558,6 +1434,176 @@ CREATE TABLE public.drive_share_links (
 
 ALTER TABLE public.drive_share_links ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.drive_share_links_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_sync_conflicts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_sync_conflicts (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    device_id bigint,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    reason text NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    resolution text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_sync_conflicts_reason_check CHECK ((btrim(reason) <> ''::text)),
+    CONSTRAINT drive_sync_conflicts_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text]))),
+    CONSTRAINT drive_sync_conflicts_status_check CHECK ((status = ANY (ARRAY['open'::text, 'resolved'::text, 'discarded'::text])))
+);
+
+
+--
+-- Name: drive_sync_conflicts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_sync_conflicts ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_sync_conflicts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_sync_cursors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_sync_cursors (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    device_id bigint NOT NULL,
+    cursor_value bigint DEFAULT 0 NOT NULL,
+    last_issued_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_sync_cursors_cursor_value_check CHECK ((cursor_value >= 0))
+);
+
+
+--
+-- Name: drive_sync_cursors_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_sync_cursors ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_sync_cursors_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_sync_devices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_sync_devices (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    device_name text NOT NULL,
+    platform text DEFAULT 'desktop'::text NOT NULL,
+    token_hash text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    last_seen_at timestamp with time zone,
+    last_ip text,
+    last_user_agent text,
+    remote_wipe_required boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_sync_devices_device_name_check CHECK ((btrim(device_name) <> ''::text)),
+    CONSTRAINT drive_sync_devices_platform_check CHECK ((platform = ANY (ARRAY['desktop'::text, 'mobile'::text, 'web'::text]))),
+    CONSTRAINT drive_sync_devices_status_check CHECK ((status = ANY (ARRAY['active'::text, 'revoked'::text, 'lost'::text])))
+);
+
+
+--
+-- Name: drive_sync_devices_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_sync_devices ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_sync_devices_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_sync_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_sync_events (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    workspace_id bigint,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    action text NOT NULL,
+    object_version text,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_sync_events_action_check CHECK ((btrim(action) <> ''::text)),
+    CONSTRAINT drive_sync_events_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text, 'workspace'::text])))
+);
+
+
+--
+-- Name: drive_sync_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_sync_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_sync_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_workspace_region_overrides; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_workspace_region_overrides (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    workspace_id bigint NOT NULL,
+    primary_region text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_workspace_region_overrides_status_check CHECK ((status = ANY (ARRAY['active'::text, 'pending_migration'::text, 'disabled'::text])))
+);
+
+
+--
+-- Name: drive_workspace_region_overrides_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_workspace_region_overrides ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_workspace_region_overrides_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -1370,6 +2416,110 @@ ALTER TABLE ONLY public.drive_admin_content_access_sessions
 
 
 --
+-- Name: drive_chain_of_custody_events drive_chain_of_custody_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_chain_of_custody_events
+    ADD CONSTRAINT drive_chain_of_custody_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_clean_room_datasets drive_clean_room_datasets_clean_room_id_source_file_object__key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_datasets
+    ADD CONSTRAINT drive_clean_room_datasets_clean_room_id_source_file_object__key UNIQUE (clean_room_id, source_file_object_id);
+
+
+--
+-- Name: drive_clean_room_datasets drive_clean_room_datasets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_datasets
+    ADD CONSTRAINT drive_clean_room_datasets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_clean_room_exports drive_clean_room_exports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_exports
+    ADD CONSTRAINT drive_clean_room_exports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_clean_room_jobs drive_clean_room_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_jobs
+    ADD CONSTRAINT drive_clean_room_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_clean_room_participants drive_clean_room_participants_clean_room_id_participant_ten_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_participants
+    ADD CONSTRAINT drive_clean_room_participants_clean_room_id_participant_ten_key UNIQUE (clean_room_id, participant_tenant_id, user_id, role);
+
+
+--
+-- Name: drive_clean_room_participants drive_clean_room_participants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_participants
+    ADD CONSTRAINT drive_clean_room_participants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_clean_room_policy_decisions drive_clean_room_policy_decisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_policy_decisions
+    ADD CONSTRAINT drive_clean_room_policy_decisions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_clean_rooms drive_clean_rooms_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_rooms
+    ADD CONSTRAINT drive_clean_rooms_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_edit_locks drive_edit_locks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_edit_locks
+    ADD CONSTRAINT drive_edit_locks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_edit_sessions drive_edit_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_edit_sessions
+    ADD CONSTRAINT drive_edit_sessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_encryption_policies drive_encryption_policies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_encryption_policies
+    ADD CONSTRAINT drive_encryption_policies_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_encryption_policies drive_encryption_policies_tenant_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_encryption_policies
+    ADD CONSTRAINT drive_encryption_policies_tenant_id_key UNIQUE (tenant_id);
+
+
+--
 -- Name: drive_file_revisions drive_file_revisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1426,11 +2576,163 @@ ALTER TABLE ONLY public.drive_groups
 
 
 --
+-- Name: drive_index_jobs drive_index_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_index_jobs
+    ADD CONSTRAINT drive_index_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_key_rotation_jobs drive_key_rotation_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_key_rotation_jobs
+    ADD CONSTRAINT drive_key_rotation_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_kms_keys drive_kms_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_kms_keys
+    ADD CONSTRAINT drive_kms_keys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_legal_case_resources drive_legal_case_resources_case_id_resource_type_resource_i_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_case_resources
+    ADD CONSTRAINT drive_legal_case_resources_case_id_resource_type_resource_i_key UNIQUE (case_id, resource_type, resource_id);
+
+
+--
+-- Name: drive_legal_case_resources drive_legal_case_resources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_case_resources
+    ADD CONSTRAINT drive_legal_case_resources_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_legal_cases drive_legal_cases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_cases
+    ADD CONSTRAINT drive_legal_cases_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_legal_export_items drive_legal_export_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_export_items
+    ADD CONSTRAINT drive_legal_export_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_legal_exports drive_legal_exports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_exports
+    ADD CONSTRAINT drive_legal_exports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_legal_holds drive_legal_holds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_holds
+    ADD CONSTRAINT drive_legal_holds_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_mobile_offline_operations drive_mobile_offline_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_mobile_offline_operations
+    ADD CONSTRAINT drive_mobile_offline_operations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_object_key_versions drive_object_key_versions_file_object_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_object_key_versions
+    ADD CONSTRAINT drive_object_key_versions_file_object_id_key UNIQUE (file_object_id);
+
+
+--
+-- Name: drive_object_key_versions drive_object_key_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_object_key_versions
+    ADD CONSTRAINT drive_object_key_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_presence_sessions drive_presence_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_presence_sessions
+    ADD CONSTRAINT drive_presence_sessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_region_migration_jobs drive_region_migration_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_migration_jobs
+    ADD CONSTRAINT drive_region_migration_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_region_placement_events drive_region_placement_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_placement_events
+    ADD CONSTRAINT drive_region_placement_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_region_policies drive_region_policies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_policies
+    ADD CONSTRAINT drive_region_policies_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_region_policies drive_region_policies_tenant_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_policies
+    ADD CONSTRAINT drive_region_policies_tenant_id_key UNIQUE (tenant_id);
+
+
+--
+-- Name: drive_remote_wipe_requests drive_remote_wipe_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_remote_wipe_requests
+    ADD CONSTRAINT drive_remote_wipe_requests_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: drive_resource_shares drive_resource_shares_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.drive_resource_shares
     ADD CONSTRAINT drive_resource_shares_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_search_documents drive_search_documents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_search_documents
+    ADD CONSTRAINT drive_search_documents_pkey PRIMARY KEY (id);
 
 
 --
@@ -1463,6 +2765,62 @@ ALTER TABLE ONLY public.drive_share_link_password_attempts
 
 ALTER TABLE ONLY public.drive_share_links
     ADD CONSTRAINT drive_share_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_sync_conflicts drive_sync_conflicts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_conflicts
+    ADD CONSTRAINT drive_sync_conflicts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_sync_cursors drive_sync_cursors_device_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_cursors
+    ADD CONSTRAINT drive_sync_cursors_device_id_key UNIQUE (device_id);
+
+
+--
+-- Name: drive_sync_cursors drive_sync_cursors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_cursors
+    ADD CONSTRAINT drive_sync_cursors_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_sync_devices drive_sync_devices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_devices
+    ADD CONSTRAINT drive_sync_devices_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_sync_events drive_sync_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_events
+    ADD CONSTRAINT drive_sync_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_workspace_region_overrides drive_workspace_region_overrides_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_workspace_region_overrides
+    ADD CONSTRAINT drive_workspace_region_overrides_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_workspace_region_overrides drive_workspace_region_overrides_workspace_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_workspace_region_overrides
+    ADD CONSTRAINT drive_workspace_region_overrides_workspace_id_key UNIQUE (workspace_id);
 
 
 --
@@ -1861,6 +3219,55 @@ CREATE UNIQUE INDEX drive_admin_content_access_sessions_public_id_key ON public.
 
 
 --
+-- Name: drive_clean_rooms_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_clean_rooms_public_id_key ON public.drive_clean_rooms USING btree (public_id);
+
+
+--
+-- Name: drive_clean_rooms_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_clean_rooms_tenant_status_idx ON public.drive_clean_rooms USING btree (tenant_id, status, created_at DESC);
+
+
+--
+-- Name: drive_edit_locks_active_file_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_edit_locks_active_file_key ON public.drive_edit_locks USING btree (file_object_id);
+
+
+--
+-- Name: drive_edit_locks_expiry_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_edit_locks_expiry_idx ON public.drive_edit_locks USING btree (expires_at);
+
+
+--
+-- Name: drive_edit_locks_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_edit_locks_public_id_key ON public.drive_edit_locks USING btree (public_id);
+
+
+--
+-- Name: drive_edit_sessions_file_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_edit_sessions_file_idx ON public.drive_edit_sessions USING btree (file_object_id, status, expires_at);
+
+
+--
+-- Name: drive_edit_sessions_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_edit_sessions_public_id_key ON public.drive_edit_sessions USING btree (public_id);
+
+
+--
 -- Name: drive_file_revisions_file_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1959,6 +3366,62 @@ CREATE INDEX drive_groups_tenant_name_idx ON public.drive_groups USING btree (te
 
 
 --
+-- Name: drive_index_jobs_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_index_jobs_public_id_key ON public.drive_index_jobs USING btree (public_id);
+
+
+--
+-- Name: drive_index_jobs_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_index_jobs_tenant_status_idx ON public.drive_index_jobs USING btree (tenant_id, status, created_at);
+
+
+--
+-- Name: drive_kms_keys_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_kms_keys_public_id_key ON public.drive_kms_keys USING btree (public_id);
+
+
+--
+-- Name: drive_kms_keys_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_kms_keys_tenant_status_idx ON public.drive_kms_keys USING btree (tenant_id, status);
+
+
+--
+-- Name: drive_legal_cases_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_legal_cases_public_id_key ON public.drive_legal_cases USING btree (public_id);
+
+
+--
+-- Name: drive_legal_cases_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_legal_cases_tenant_status_idx ON public.drive_legal_cases USING btree (tenant_id, status, created_at DESC);
+
+
+--
+-- Name: drive_legal_holds_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_legal_holds_active_idx ON public.drive_legal_holds USING btree (tenant_id, resource_type, resource_id) WHERE (released_at IS NULL);
+
+
+--
+-- Name: drive_presence_sessions_file_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_presence_sessions_file_idx ON public.drive_presence_sessions USING btree (file_object_id, status, last_seen_at DESC);
+
+
+--
 -- Name: drive_resource_shares_active_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1984,6 +3447,34 @@ CREATE INDEX drive_resource_shares_resource_idx ON public.drive_resource_shares 
 --
 
 CREATE INDEX drive_resource_shares_subject_idx ON public.drive_resource_shares USING btree (tenant_id, subject_type, subject_id) WHERE (status = 'active'::text);
+
+
+--
+-- Name: drive_search_documents_file_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_search_documents_file_key ON public.drive_search_documents USING btree (file_object_id);
+
+
+--
+-- Name: drive_search_documents_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_search_documents_public_id_key ON public.drive_search_documents USING btree (public_id);
+
+
+--
+-- Name: drive_search_documents_tenant_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_search_documents_tenant_idx ON public.drive_search_documents USING btree (tenant_id, indexed_at DESC);
+
+
+--
+-- Name: drive_search_documents_vector_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_search_documents_vector_idx ON public.drive_search_documents USING gin (search_vector);
 
 
 --
@@ -2061,6 +3552,41 @@ CREATE INDEX drive_share_links_resource_idx ON public.drive_share_links USING bt
 --
 
 CREATE UNIQUE INDEX drive_share_links_token_hash_key ON public.drive_share_links USING btree (token_hash);
+
+
+--
+-- Name: drive_sync_devices_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_sync_devices_public_id_key ON public.drive_sync_devices USING btree (public_id);
+
+
+--
+-- Name: drive_sync_devices_tenant_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_sync_devices_tenant_user_idx ON public.drive_sync_devices USING btree (tenant_id, user_id, status);
+
+
+--
+-- Name: drive_sync_devices_token_hash_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_sync_devices_token_hash_key ON public.drive_sync_devices USING btree (token_hash);
+
+
+--
+-- Name: drive_sync_events_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_sync_events_public_id_key ON public.drive_sync_events USING btree (public_id);
+
+
+--
+-- Name: drive_sync_events_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_sync_events_tenant_id_idx ON public.drive_sync_events USING btree (tenant_id, id);
 
 
 --
@@ -2547,6 +4073,270 @@ ALTER TABLE ONLY public.drive_admin_content_access_sessions
 
 
 --
+-- Name: drive_chain_of_custody_events drive_chain_of_custody_events_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_chain_of_custody_events
+    ADD CONSTRAINT drive_chain_of_custody_events_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_chain_of_custody_events drive_chain_of_custody_events_case_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_chain_of_custody_events
+    ADD CONSTRAINT drive_chain_of_custody_events_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.drive_legal_cases(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_chain_of_custody_events drive_chain_of_custody_events_export_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_chain_of_custody_events
+    ADD CONSTRAINT drive_chain_of_custody_events_export_id_fkey FOREIGN KEY (export_id) REFERENCES public.drive_legal_exports(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_chain_of_custody_events drive_chain_of_custody_events_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_chain_of_custody_events
+    ADD CONSTRAINT drive_chain_of_custody_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_datasets drive_clean_room_datasets_clean_room_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_datasets
+    ADD CONSTRAINT drive_clean_room_datasets_clean_room_id_fkey FOREIGN KEY (clean_room_id) REFERENCES public.drive_clean_rooms(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_datasets drive_clean_room_datasets_source_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_datasets
+    ADD CONSTRAINT drive_clean_room_datasets_source_file_object_id_fkey FOREIGN KEY (source_file_object_id) REFERENCES public.file_objects(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_clean_room_datasets drive_clean_room_datasets_submitted_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_datasets
+    ADD CONSTRAINT drive_clean_room_datasets_submitted_by_user_id_fkey FOREIGN KEY (submitted_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_clean_room_datasets drive_clean_room_datasets_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_datasets
+    ADD CONSTRAINT drive_clean_room_datasets_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_exports drive_clean_room_exports_approved_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_exports
+    ADD CONSTRAINT drive_clean_room_exports_approved_by_user_id_fkey FOREIGN KEY (approved_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_clean_room_exports drive_clean_room_exports_clean_room_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_exports
+    ADD CONSTRAINT drive_clean_room_exports_clean_room_id_fkey FOREIGN KEY (clean_room_id) REFERENCES public.drive_clean_rooms(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_exports drive_clean_room_exports_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_exports
+    ADD CONSTRAINT drive_clean_room_exports_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.drive_clean_room_jobs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_clean_room_exports drive_clean_room_exports_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_exports
+    ADD CONSTRAINT drive_clean_room_exports_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_clean_room_exports drive_clean_room_exports_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_exports
+    ADD CONSTRAINT drive_clean_room_exports_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_jobs drive_clean_room_jobs_clean_room_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_jobs
+    ADD CONSTRAINT drive_clean_room_jobs_clean_room_id_fkey FOREIGN KEY (clean_room_id) REFERENCES public.drive_clean_rooms(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_jobs drive_clean_room_jobs_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_jobs
+    ADD CONSTRAINT drive_clean_room_jobs_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_clean_room_jobs drive_clean_room_jobs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_jobs
+    ADD CONSTRAINT drive_clean_room_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_participants drive_clean_room_participants_clean_room_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_participants
+    ADD CONSTRAINT drive_clean_room_participants_clean_room_id_fkey FOREIGN KEY (clean_room_id) REFERENCES public.drive_clean_rooms(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_participants drive_clean_room_participants_participant_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_participants
+    ADD CONSTRAINT drive_clean_room_participants_participant_tenant_id_fkey FOREIGN KEY (participant_tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_participants drive_clean_room_participants_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_participants
+    ADD CONSTRAINT drive_clean_room_participants_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_participants drive_clean_room_participants_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_participants
+    ADD CONSTRAINT drive_clean_room_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_policy_decisions drive_clean_room_policy_decisions_clean_room_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_policy_decisions
+    ADD CONSTRAINT drive_clean_room_policy_decisions_clean_room_id_fkey FOREIGN KEY (clean_room_id) REFERENCES public.drive_clean_rooms(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_room_policy_decisions drive_clean_room_policy_decisions_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_room_policy_decisions
+    ADD CONSTRAINT drive_clean_room_policy_decisions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_clean_rooms drive_clean_rooms_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_rooms
+    ADD CONSTRAINT drive_clean_rooms_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_clean_rooms drive_clean_rooms_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_clean_rooms
+    ADD CONSTRAINT drive_clean_rooms_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_edit_locks drive_edit_locks_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_edit_locks
+    ADD CONSTRAINT drive_edit_locks_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_edit_locks drive_edit_locks_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_edit_locks
+    ADD CONSTRAINT drive_edit_locks_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_edit_locks drive_edit_locks_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_edit_locks
+    ADD CONSTRAINT drive_edit_locks_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.drive_edit_sessions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_edit_locks drive_edit_locks_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_edit_locks
+    ADD CONSTRAINT drive_edit_locks_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_edit_sessions drive_edit_sessions_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_edit_sessions
+    ADD CONSTRAINT drive_edit_sessions_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_edit_sessions drive_edit_sessions_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_edit_sessions
+    ADD CONSTRAINT drive_edit_sessions_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_edit_sessions drive_edit_sessions_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_edit_sessions
+    ADD CONSTRAINT drive_edit_sessions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_encryption_policies drive_encryption_policies_kms_key_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_encryption_policies
+    ADD CONSTRAINT drive_encryption_policies_kms_key_id_fkey FOREIGN KEY (kms_key_id) REFERENCES public.drive_kms_keys(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_encryption_policies drive_encryption_policies_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_encryption_policies
+    ADD CONSTRAINT drive_encryption_policies_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: drive_file_revisions drive_file_revisions_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2683,6 +4473,342 @@ ALTER TABLE ONLY public.drive_groups
 
 
 --
+-- Name: drive_index_jobs drive_index_jobs_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_index_jobs
+    ADD CONSTRAINT drive_index_jobs_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_index_jobs drive_index_jobs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_index_jobs
+    ADD CONSTRAINT drive_index_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_key_rotation_jobs drive_key_rotation_jobs_new_kms_key_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_key_rotation_jobs
+    ADD CONSTRAINT drive_key_rotation_jobs_new_kms_key_id_fkey FOREIGN KEY (new_kms_key_id) REFERENCES public.drive_kms_keys(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_key_rotation_jobs drive_key_rotation_jobs_old_kms_key_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_key_rotation_jobs
+    ADD CONSTRAINT drive_key_rotation_jobs_old_kms_key_id_fkey FOREIGN KEY (old_kms_key_id) REFERENCES public.drive_kms_keys(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_key_rotation_jobs drive_key_rotation_jobs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_key_rotation_jobs
+    ADD CONSTRAINT drive_key_rotation_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_kms_keys drive_kms_keys_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_kms_keys
+    ADD CONSTRAINT drive_kms_keys_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_kms_keys drive_kms_keys_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_kms_keys
+    ADD CONSTRAINT drive_kms_keys_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_legal_case_resources drive_legal_case_resources_added_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_case_resources
+    ADD CONSTRAINT drive_legal_case_resources_added_by_user_id_fkey FOREIGN KEY (added_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_legal_case_resources drive_legal_case_resources_case_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_case_resources
+    ADD CONSTRAINT drive_legal_case_resources_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.drive_legal_cases(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_legal_case_resources drive_legal_case_resources_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_case_resources
+    ADD CONSTRAINT drive_legal_case_resources_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_legal_cases drive_legal_cases_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_cases
+    ADD CONSTRAINT drive_legal_cases_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_legal_cases drive_legal_cases_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_cases
+    ADD CONSTRAINT drive_legal_cases_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_legal_export_items drive_legal_export_items_export_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_export_items
+    ADD CONSTRAINT drive_legal_export_items_export_id_fkey FOREIGN KEY (export_id) REFERENCES public.drive_legal_exports(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_legal_export_items drive_legal_export_items_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_export_items
+    ADD CONSTRAINT drive_legal_export_items_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_legal_export_items drive_legal_export_items_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_export_items
+    ADD CONSTRAINT drive_legal_export_items_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_legal_exports drive_legal_exports_approved_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_exports
+    ADD CONSTRAINT drive_legal_exports_approved_by_user_id_fkey FOREIGN KEY (approved_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_legal_exports drive_legal_exports_case_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_exports
+    ADD CONSTRAINT drive_legal_exports_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.drive_legal_cases(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_legal_exports drive_legal_exports_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_exports
+    ADD CONSTRAINT drive_legal_exports_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_legal_exports drive_legal_exports_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_exports
+    ADD CONSTRAINT drive_legal_exports_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_legal_holds drive_legal_holds_case_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_holds
+    ADD CONSTRAINT drive_legal_holds_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.drive_legal_cases(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_legal_holds drive_legal_holds_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_holds
+    ADD CONSTRAINT drive_legal_holds_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_legal_holds drive_legal_holds_released_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_holds
+    ADD CONSTRAINT drive_legal_holds_released_by_user_id_fkey FOREIGN KEY (released_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_legal_holds drive_legal_holds_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_legal_holds
+    ADD CONSTRAINT drive_legal_holds_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_mobile_offline_operations drive_mobile_offline_operations_device_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_mobile_offline_operations
+    ADD CONSTRAINT drive_mobile_offline_operations_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.drive_sync_devices(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_mobile_offline_operations drive_mobile_offline_operations_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_mobile_offline_operations
+    ADD CONSTRAINT drive_mobile_offline_operations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_object_key_versions drive_object_key_versions_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_object_key_versions
+    ADD CONSTRAINT drive_object_key_versions_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_object_key_versions drive_object_key_versions_kms_key_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_object_key_versions
+    ADD CONSTRAINT drive_object_key_versions_kms_key_id_fkey FOREIGN KEY (kms_key_id) REFERENCES public.drive_kms_keys(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_object_key_versions drive_object_key_versions_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_object_key_versions
+    ADD CONSTRAINT drive_object_key_versions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_presence_sessions drive_presence_sessions_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_presence_sessions
+    ADD CONSTRAINT drive_presence_sessions_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_presence_sessions drive_presence_sessions_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_presence_sessions
+    ADD CONSTRAINT drive_presence_sessions_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_presence_sessions drive_presence_sessions_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_presence_sessions
+    ADD CONSTRAINT drive_presence_sessions_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.drive_edit_sessions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_presence_sessions drive_presence_sessions_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_presence_sessions
+    ADD CONSTRAINT drive_presence_sessions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_region_migration_jobs drive_region_migration_jobs_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_migration_jobs
+    ADD CONSTRAINT drive_region_migration_jobs_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_region_migration_jobs drive_region_migration_jobs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_migration_jobs
+    ADD CONSTRAINT drive_region_migration_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_region_migration_jobs drive_region_migration_jobs_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_migration_jobs
+    ADD CONSTRAINT drive_region_migration_jobs_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.drive_workspaces(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_region_placement_events drive_region_placement_events_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_placement_events
+    ADD CONSTRAINT drive_region_placement_events_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_region_placement_events drive_region_placement_events_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_placement_events
+    ADD CONSTRAINT drive_region_placement_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_region_placement_events drive_region_placement_events_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_placement_events
+    ADD CONSTRAINT drive_region_placement_events_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.drive_workspaces(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_region_policies drive_region_policies_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_region_policies
+    ADD CONSTRAINT drive_region_policies_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_remote_wipe_requests drive_remote_wipe_requests_device_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_remote_wipe_requests
+    ADD CONSTRAINT drive_remote_wipe_requests_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.drive_sync_devices(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_remote_wipe_requests drive_remote_wipe_requests_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_remote_wipe_requests
+    ADD CONSTRAINT drive_remote_wipe_requests_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_remote_wipe_requests drive_remote_wipe_requests_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_remote_wipe_requests
+    ADD CONSTRAINT drive_remote_wipe_requests_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: drive_resource_shares drive_resource_shares_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2704,6 +4830,30 @@ ALTER TABLE ONLY public.drive_resource_shares
 
 ALTER TABLE ONLY public.drive_resource_shares
     ADD CONSTRAINT drive_resource_shares_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_search_documents drive_search_documents_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_search_documents
+    ADD CONSTRAINT drive_search_documents_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_search_documents drive_search_documents_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_search_documents
+    ADD CONSTRAINT drive_search_documents_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_search_documents drive_search_documents_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_search_documents
+    ADD CONSTRAINT drive_search_documents_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.drive_workspaces(id) ON DELETE CASCADE;
 
 
 --
@@ -2768,6 +4918,86 @@ ALTER TABLE ONLY public.drive_share_links
 
 ALTER TABLE ONLY public.drive_share_links
     ADD CONSTRAINT drive_share_links_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_sync_conflicts drive_sync_conflicts_device_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_conflicts
+    ADD CONSTRAINT drive_sync_conflicts_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.drive_sync_devices(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_sync_conflicts drive_sync_conflicts_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_conflicts
+    ADD CONSTRAINT drive_sync_conflicts_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_sync_cursors drive_sync_cursors_device_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_cursors
+    ADD CONSTRAINT drive_sync_cursors_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.drive_sync_devices(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_sync_cursors drive_sync_cursors_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_cursors
+    ADD CONSTRAINT drive_sync_cursors_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_sync_devices drive_sync_devices_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_devices
+    ADD CONSTRAINT drive_sync_devices_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_sync_devices drive_sync_devices_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_devices
+    ADD CONSTRAINT drive_sync_devices_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_sync_events drive_sync_events_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_events
+    ADD CONSTRAINT drive_sync_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_sync_events drive_sync_events_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_sync_events
+    ADD CONSTRAINT drive_sync_events_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.drive_workspaces(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_workspace_region_overrides drive_workspace_region_overrides_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_workspace_region_overrides
+    ADD CONSTRAINT drive_workspace_region_overrides_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_workspace_region_overrides drive_workspace_region_overrides_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_workspace_region_overrides
+    ADD CONSTRAINT drive_workspace_region_overrides_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.drive_workspaces(id) ON DELETE CASCADE;
 
 
 --

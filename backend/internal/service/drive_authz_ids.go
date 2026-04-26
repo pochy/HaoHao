@@ -9,6 +9,7 @@ const (
 	openFGATypeFolder    = "folder"
 	openFGATypeFile      = "file"
 	openFGATypeShareLink = "share_link"
+	openFGATypeCleanRoom = "clean_room"
 )
 
 func openFGAUser(publicID string) string {
@@ -33,6 +34,10 @@ func openFGAFile(publicID string) string {
 
 func openFGAShareLink(publicID string) string {
 	return openFGAObject(openFGATypeShareLink, publicID)
+}
+
+func openFGACleanRoom(publicID string) string {
+	return openFGAObject(openFGATypeCleanRoom, publicID)
 }
 
 func openFGAGroupMember(publicID string) string {

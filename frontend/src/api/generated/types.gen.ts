@@ -253,6 +253,131 @@ export type CustomerSignalSavedFilterRequestBody = {
     query?: string;
 };
 
+export type DriveCleanRoomBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    name: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveCleanRoomCreateInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    name: string;
+};
+
+export type DriveCleanRoomDatasetBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    cleanRoomPublicId: string;
+    createdAt: string;
+    publicId: string;
+    sourceFilePublicId: string;
+    status: string;
+};
+
+export type DriveCleanRoomDatasetInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    filePublicId: string;
+};
+
+export type DriveCleanRoomExportBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    deniedReason?: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveCleanRoomExportInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    rawDatasetExport: boolean;
+};
+
+export type DriveCleanRoomParticipantInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    role: 'participant' | 'reviewer' | 'owner';
+    userPublicId: string;
+};
+
+export type DriveDeviceBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    deviceName: string;
+    lastSeenAt?: string;
+    platform: string;
+    publicId: string;
+    remoteWipeRequired: boolean;
+    status: string;
+    token?: string;
+};
+
+export type DriveDeviceRevokeInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    reason?: string;
+};
+
+export type DriveEditSaveBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    content: string;
+    contentType?: string;
+    expectedRevision: number;
+    filename?: string;
+};
+
+export type DriveEditSaveOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    conflict: boolean;
+    file: DriveFileBody;
+    revision: number;
+};
+
+export type DriveEditSessionBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    baseRevision: number;
+    createdAt: string;
+    expiresAt: string;
+    filePublicId: string;
+    provider: string;
+    publicId: string;
+    status: string;
+};
+
 export type DriveFileBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -309,6 +434,16 @@ export type DriveGroupListOutputBody = {
     items: Array<DriveGroupBody> | null;
 };
 
+export type DriveIndexRebuildBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    failed: number;
+    indexed: number;
+    skipped: number;
+};
+
 export type DriveInheritanceBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -329,6 +464,74 @@ export type DriveItemListOutputBody = {
      */
     readonly $schema?: string;
     items: Array<DriveItemBody> | null;
+};
+
+export type DriveLegalCaseBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    description: string;
+    name: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveLegalCaseCreateInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    description?: string;
+    name: string;
+};
+
+export type DriveLegalCaseFileInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    filePublicId: string;
+    reason?: string;
+};
+
+export type DriveLegalExportBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    casePublicId: string;
+    createdAt: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveMobileOfflineOperationBody = {
+    baseRevision: number;
+    name?: string;
+    operationId?: string;
+    operationType: string;
+    resourcePublicId: string;
+    resourceType: string;
+};
+
+export type DriveMobileOfflineReplayInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    operations: Array<DriveMobileOfflineOperationBody> | null;
+};
+
+export type DriveMobileOfflineReplayOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    applied: number;
+    conflicted: number;
+    denied: number;
 };
 
 export type DrivePermissionBody = {
@@ -352,6 +555,29 @@ export type DrivePermissionsBody = {
     readonly $schema?: string;
     direct: Array<DrivePermissionBody> | null;
     inherited: Array<DrivePermissionBody> | null;
+};
+
+export type DriveRegisterDeviceBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    deviceName: string;
+    platform?: 'desktop' | 'mobile' | 'web';
+};
+
+export type DriveSearchResultBody = {
+    indexedAt?: string;
+    item: DriveItemBody;
+    snippet?: string;
+};
+
+export type DriveSearchResultOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DriveSearchResultBody> | null;
 };
 
 export type DriveShareBody = {
@@ -413,6 +639,31 @@ export type DriveShareLinkBody = {
     status: string;
     token?: string;
     updatedAt: string;
+};
+
+export type DriveSyncDeltaEventBody = {
+    action: string;
+    createdAt: string;
+    id: number;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    objectVersion?: string;
+    publicId: string;
+    resourcePublicId?: string;
+    resourceType: string;
+};
+
+export type DriveSyncDeltaOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    cursor: string;
+    deniedCount: number;
+    events: Array<DriveSyncDeltaEventBody> | null;
+    fullResync: boolean;
+    remoteWipe: boolean;
 };
 
 export type DriveWorkspaceBody = {
@@ -759,12 +1010,44 @@ export type TenantAdminDriveAuditOutputBody = {
     items: Array<TenantAdminDriveAuditEventBody> | null;
 };
 
+export type TenantAdminDriveEncryptionPolicyBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    keyPublicId?: string;
+    keyStatus: string;
+    maskedKeyRef?: string;
+    mode: string;
+    provider?: string;
+    scope: string;
+    updatedAt?: string;
+};
+
+export type TenantAdminDriveEncryptionPolicyInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    keyRef?: string;
+    mode: 'service_managed' | 'tenant_managed';
+    provider?: string;
+};
+
 export type TenantAdminDriveInvitationsOutputBody = {
     /**
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
     items: Array<DriveShareInvitationBody> | null;
+};
+
+export type TenantAdminDriveKmsKeyStatusInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    status: 'active' | 'disabled' | 'unavailable' | 'deleted';
 };
 
 export type TenantAdminDriveOperationsHealthBody = {
@@ -779,6 +1062,20 @@ export type TenantAdminDriveOperationsHealthBody = {
     storageOrphanCheckState: string;
     tenantId: number;
     workspaceCount: number;
+};
+
+export type TenantAdminDriveResidencyPolicyBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    allowedRegions: Array<string> | null;
+    backupRegion: string;
+    indexRegion: string;
+    primaryRegion: string;
+    replicationMode: string;
+    status: string;
+    updatedAt?: string;
 };
 
 export type TenantAdminDriveShareLinkStateBody = {
@@ -1293,6 +1590,83 @@ export type CustomerSignalSavedFilterRequestBodyWritable = {
     query?: string;
 };
 
+export type DriveCleanRoomBodyWritable = {
+    createdAt: string;
+    name: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveCleanRoomCreateInputBodyWritable = {
+    name: string;
+};
+
+export type DriveCleanRoomDatasetBodyWritable = {
+    cleanRoomPublicId: string;
+    createdAt: string;
+    publicId: string;
+    sourceFilePublicId: string;
+    status: string;
+};
+
+export type DriveCleanRoomDatasetInputBodyWritable = {
+    filePublicId: string;
+};
+
+export type DriveCleanRoomExportBodyWritable = {
+    createdAt: string;
+    deniedReason?: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveCleanRoomExportInputBodyWritable = {
+    rawDatasetExport: boolean;
+};
+
+export type DriveCleanRoomParticipantInputBodyWritable = {
+    role: 'participant' | 'reviewer' | 'owner';
+    userPublicId: string;
+};
+
+export type DriveDeviceBodyWritable = {
+    createdAt: string;
+    deviceName: string;
+    lastSeenAt?: string;
+    platform: string;
+    publicId: string;
+    remoteWipeRequired: boolean;
+    status: string;
+    token?: string;
+};
+
+export type DriveDeviceRevokeInputBodyWritable = {
+    reason?: string;
+};
+
+export type DriveEditSaveBodyWritable = {
+    content: string;
+    contentType?: string;
+    expectedRevision: number;
+    filename?: string;
+};
+
+export type DriveEditSaveOutputBodyWritable = {
+    conflict: boolean;
+    file: DriveFileBodyWritable;
+    revision: number;
+};
+
+export type DriveEditSessionBodyWritable = {
+    baseRevision: number;
+    createdAt: string;
+    expiresAt: string;
+    filePublicId: string;
+    provider: string;
+    publicId: string;
+    status: string;
+};
+
 export type DriveFileBodyWritable = {
     byteSize: number;
     contentType: string;
@@ -1333,6 +1707,12 @@ export type DriveGroupListOutputBodyWritable = {
     items: Array<DriveGroupBodyWritable> | null;
 };
 
+export type DriveIndexRebuildBodyWritable = {
+    failed: number;
+    indexed: number;
+    skipped: number;
+};
+
 export type DriveInheritanceBodyWritable = {
     enabled: boolean;
 };
@@ -1347,9 +1727,59 @@ export type DriveItemListOutputBodyWritable = {
     items: Array<DriveItemBodyWritable> | null;
 };
 
+export type DriveLegalCaseBodyWritable = {
+    createdAt: string;
+    description: string;
+    name: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveLegalCaseCreateInputBodyWritable = {
+    description?: string;
+    name: string;
+};
+
+export type DriveLegalCaseFileInputBodyWritable = {
+    filePublicId: string;
+    reason?: string;
+};
+
+export type DriveLegalExportBodyWritable = {
+    casePublicId: string;
+    createdAt: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveMobileOfflineReplayInputBodyWritable = {
+    operations: Array<DriveMobileOfflineOperationBody> | null;
+};
+
+export type DriveMobileOfflineReplayOutputBodyWritable = {
+    applied: number;
+    conflicted: number;
+    denied: number;
+};
+
 export type DrivePermissionsBodyWritable = {
     direct: Array<DrivePermissionBody> | null;
     inherited: Array<DrivePermissionBody> | null;
+};
+
+export type DriveRegisterDeviceBodyWritable = {
+    deviceName: string;
+    platform?: 'desktop' | 'mobile' | 'web';
+};
+
+export type DriveSearchResultBodyWritable = {
+    indexedAt?: string;
+    item: DriveItemBodyWritable;
+    snippet?: string;
+};
+
+export type DriveSearchResultOutputBodyWritable = {
+    items: Array<DriveSearchResultBodyWritable> | null;
 };
 
 export type DriveShareBodyWritable = {
@@ -1395,6 +1825,14 @@ export type DriveShareLinkBodyWritable = {
     status: string;
     token?: string;
     updatedAt: string;
+};
+
+export type DriveSyncDeltaOutputBodyWritable = {
+    cursor: string;
+    deniedCount: number;
+    events: Array<DriveSyncDeltaEventBody> | null;
+    fullResync: boolean;
+    remoteWipe: boolean;
 };
 
 export type DriveWorkspaceBodyWritable = {
@@ -1559,8 +1997,28 @@ export type TenantAdminDriveAuditOutputBodyWritable = {
     items: Array<TenantAdminDriveAuditEventBody> | null;
 };
 
+export type TenantAdminDriveEncryptionPolicyBodyWritable = {
+    keyPublicId?: string;
+    keyStatus: string;
+    maskedKeyRef?: string;
+    mode: string;
+    provider?: string;
+    scope: string;
+    updatedAt?: string;
+};
+
+export type TenantAdminDriveEncryptionPolicyInputBodyWritable = {
+    keyRef?: string;
+    mode: 'service_managed' | 'tenant_managed';
+    provider?: string;
+};
+
 export type TenantAdminDriveInvitationsOutputBodyWritable = {
     items: Array<DriveShareInvitationBodyWritable> | null;
+};
+
+export type TenantAdminDriveKmsKeyStatusInputBodyWritable = {
+    status: 'active' | 'disabled' | 'unavailable' | 'deleted';
 };
 
 export type TenantAdminDriveOperationsHealthBodyWritable = {
@@ -1571,6 +2029,16 @@ export type TenantAdminDriveOperationsHealthBodyWritable = {
     storageOrphanCheckState: string;
     tenantId: number;
     workspaceCount: number;
+};
+
+export type TenantAdminDriveResidencyPolicyBodyWritable = {
+    allowedRegions: Array<string> | null;
+    backupRegion: string;
+    indexRegion: string;
+    primaryRegion: string;
+    replicationMode: string;
+    status: string;
+    updatedAt?: string;
 };
 
 export type TenantAdminDriveShareLinksOutputBodyWritable = {
@@ -1961,6 +2429,129 @@ export type ListTenantAdminDriveAuditEventsResponses = {
 
 export type ListTenantAdminDriveAuditEventsResponse = ListTenantAdminDriveAuditEventsResponses[keyof ListTenantAdminDriveAuditEventsResponses];
 
+export type CreateDriveCleanRoomData = {
+    body: DriveCleanRoomCreateInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms';
+};
+
+export type CreateDriveCleanRoomErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveCleanRoomError = CreateDriveCleanRoomErrors[keyof CreateDriveCleanRoomErrors];
+
+export type CreateDriveCleanRoomResponses = {
+    /**
+     * OK
+     */
+    200: DriveCleanRoomBody;
+};
+
+export type CreateDriveCleanRoomResponse = CreateDriveCleanRoomResponses[keyof CreateDriveCleanRoomResponses];
+
+export type SubmitDriveCleanRoomDatasetData = {
+    body: DriveCleanRoomDatasetInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        roomPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms/{roomPublicId}/datasets';
+};
+
+export type SubmitDriveCleanRoomDatasetErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type SubmitDriveCleanRoomDatasetError = SubmitDriveCleanRoomDatasetErrors[keyof SubmitDriveCleanRoomDatasetErrors];
+
+export type SubmitDriveCleanRoomDatasetResponses = {
+    /**
+     * OK
+     */
+    200: DriveCleanRoomDatasetBody;
+};
+
+export type SubmitDriveCleanRoomDatasetResponse = SubmitDriveCleanRoomDatasetResponses[keyof SubmitDriveCleanRoomDatasetResponses];
+
+export type RequestDriveCleanRoomExportData = {
+    body: DriveCleanRoomExportInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        roomPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms/{roomPublicId}/exports';
+};
+
+export type RequestDriveCleanRoomExportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RequestDriveCleanRoomExportError = RequestDriveCleanRoomExportErrors[keyof RequestDriveCleanRoomExportErrors];
+
+export type RequestDriveCleanRoomExportResponses = {
+    /**
+     * OK
+     */
+    200: DriveCleanRoomExportBody;
+};
+
+export type RequestDriveCleanRoomExportResponse = RequestDriveCleanRoomExportResponses[keyof RequestDriveCleanRoomExportResponses];
+
+export type AddDriveCleanRoomParticipantData = {
+    body: DriveCleanRoomParticipantInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        roomPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms/{roomPublicId}/participants';
+};
+
+export type AddDriveCleanRoomParticipantErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type AddDriveCleanRoomParticipantError = AddDriveCleanRoomParticipantErrors[keyof AddDriveCleanRoomParticipantErrors];
+
+export type AddDriveCleanRoomParticipantResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type AddDriveCleanRoomParticipantResponse = AddDriveCleanRoomParticipantResponses[keyof AddDriveCleanRoomParticipantResponses];
+
 export type StartTenantAdminDriveContentAccessSessionData = {
     body: TenantAdminDriveAdminContentSessionInputBodyWritable;
     headers: {
@@ -2077,6 +2668,98 @@ export type ListTenantAdminDriveInvitationsResponses = {
 };
 
 export type ListTenantAdminDriveInvitationsResponse = ListTenantAdminDriveInvitationsResponses[keyof ListTenantAdminDriveInvitationsResponses];
+
+export type CreateDriveLegalCaseData = {
+    body: DriveLegalCaseCreateInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/legal/cases';
+};
+
+export type CreateDriveLegalCaseErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveLegalCaseError = CreateDriveLegalCaseErrors[keyof CreateDriveLegalCaseErrors];
+
+export type CreateDriveLegalCaseResponses = {
+    /**
+     * OK
+     */
+    200: DriveLegalCaseBody;
+};
+
+export type CreateDriveLegalCaseResponse = CreateDriveLegalCaseResponses[keyof CreateDriveLegalCaseResponses];
+
+export type CreateDriveLegalExportData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        casePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/legal/cases/{casePublicId}/exports';
+};
+
+export type CreateDriveLegalExportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveLegalExportError = CreateDriveLegalExportErrors[keyof CreateDriveLegalExportErrors];
+
+export type CreateDriveLegalExportResponses = {
+    /**
+     * OK
+     */
+    200: DriveLegalExportBody;
+};
+
+export type CreateDriveLegalExportResponse = CreateDriveLegalExportResponses[keyof CreateDriveLegalExportResponses];
+
+export type AddDriveLegalCaseFileData = {
+    body: DriveLegalCaseFileInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        casePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/legal/cases/{casePublicId}/files';
+};
+
+export type AddDriveLegalCaseFileErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type AddDriveLegalCaseFileError = AddDriveLegalCaseFileErrors[keyof AddDriveLegalCaseFileErrors];
+
+export type AddDriveLegalCaseFileResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type AddDriveLegalCaseFileResponse = AddDriveLegalCaseFileResponses[keyof AddDriveLegalCaseFileResponses];
 
 export type GetTenantAdminDriveOpenFgaDriftData = {
     body?: never;
@@ -2225,6 +2908,185 @@ export type RepairTenantAdminDriveOperationsResponses = {
 };
 
 export type RepairTenantAdminDriveOperationsResponse = RepairTenantAdminDriveOperationsResponses[keyof RepairTenantAdminDriveOperationsResponses];
+
+export type GetTenantAdminDriveResidencyPolicyData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/residency-policy';
+};
+
+export type GetTenantAdminDriveResidencyPolicyErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetTenantAdminDriveResidencyPolicyError = GetTenantAdminDriveResidencyPolicyErrors[keyof GetTenantAdminDriveResidencyPolicyErrors];
+
+export type GetTenantAdminDriveResidencyPolicyResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveResidencyPolicyBody;
+};
+
+export type GetTenantAdminDriveResidencyPolicyResponse = GetTenantAdminDriveResidencyPolicyResponses[keyof GetTenantAdminDriveResidencyPolicyResponses];
+
+export type UpdateTenantAdminDriveResidencyPolicyData = {
+    body: TenantAdminDriveResidencyPolicyBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/residency-policy';
+};
+
+export type UpdateTenantAdminDriveResidencyPolicyErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateTenantAdminDriveResidencyPolicyError = UpdateTenantAdminDriveResidencyPolicyErrors[keyof UpdateTenantAdminDriveResidencyPolicyErrors];
+
+export type UpdateTenantAdminDriveResidencyPolicyResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveResidencyPolicyBody;
+};
+
+export type UpdateTenantAdminDriveResidencyPolicyResponse = UpdateTenantAdminDriveResidencyPolicyResponses[keyof UpdateTenantAdminDriveResidencyPolicyResponses];
+
+export type RebuildTenantAdminDriveSearchIndexData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/search/index/rebuild';
+};
+
+export type RebuildTenantAdminDriveSearchIndexErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RebuildTenantAdminDriveSearchIndexError = RebuildTenantAdminDriveSearchIndexErrors[keyof RebuildTenantAdminDriveSearchIndexErrors];
+
+export type RebuildTenantAdminDriveSearchIndexResponses = {
+    /**
+     * OK
+     */
+    200: DriveIndexRebuildBody;
+};
+
+export type RebuildTenantAdminDriveSearchIndexResponse = RebuildTenantAdminDriveSearchIndexResponses[keyof RebuildTenantAdminDriveSearchIndexResponses];
+
+export type GetTenantAdminDriveEncryptionPolicyData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/security/encryption-policy';
+};
+
+export type GetTenantAdminDriveEncryptionPolicyErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetTenantAdminDriveEncryptionPolicyError = GetTenantAdminDriveEncryptionPolicyErrors[keyof GetTenantAdminDriveEncryptionPolicyErrors];
+
+export type GetTenantAdminDriveEncryptionPolicyResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveEncryptionPolicyBody;
+};
+
+export type GetTenantAdminDriveEncryptionPolicyResponse = GetTenantAdminDriveEncryptionPolicyResponses[keyof GetTenantAdminDriveEncryptionPolicyResponses];
+
+export type UpdateTenantAdminDriveEncryptionPolicyData = {
+    body: TenantAdminDriveEncryptionPolicyInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/security/encryption-policy';
+};
+
+export type UpdateTenantAdminDriveEncryptionPolicyErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateTenantAdminDriveEncryptionPolicyError = UpdateTenantAdminDriveEncryptionPolicyErrors[keyof UpdateTenantAdminDriveEncryptionPolicyErrors];
+
+export type UpdateTenantAdminDriveEncryptionPolicyResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveEncryptionPolicyBody;
+};
+
+export type UpdateTenantAdminDriveEncryptionPolicyResponse = UpdateTenantAdminDriveEncryptionPolicyResponses[keyof UpdateTenantAdminDriveEncryptionPolicyResponses];
+
+export type UpdateTenantAdminDriveKmsKeyStatusData = {
+    body: TenantAdminDriveKmsKeyStatusInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+        keyPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/security/kms-keys/{keyPublicId}';
+};
+
+export type UpdateTenantAdminDriveKmsKeyStatusErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateTenantAdminDriveKmsKeyStatusError = UpdateTenantAdminDriveKmsKeyStatusErrors[keyof UpdateTenantAdminDriveKmsKeyStatusErrors];
+
+export type UpdateTenantAdminDriveKmsKeyStatusResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveEncryptionPolicyBody;
+};
+
+export type UpdateTenantAdminDriveKmsKeyStatusResponse = UpdateTenantAdminDriveKmsKeyStatusResponses[keyof UpdateTenantAdminDriveKmsKeyStatusResponses];
 
 export type ListTenantAdminDriveShareApprovalsData = {
     body?: never;
@@ -3445,6 +4307,122 @@ export type UpdateCustomerSignalResponses = {
 
 export type UpdateCustomerSignalResponse = UpdateCustomerSignalResponses[keyof UpdateCustomerSignalResponses];
 
+export type ReplayDriveMobileOfflineOperationsData = {
+    body: DriveMobileOfflineReplayInputBodyWritable;
+    headers: {
+        Authorization: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/drive-mobile/offline/replay';
+};
+
+export type ReplayDriveMobileOfflineOperationsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ReplayDriveMobileOfflineOperationsError = ReplayDriveMobileOfflineOperationsErrors[keyof ReplayDriveMobileOfflineOperationsErrors];
+
+export type ReplayDriveMobileOfflineOperationsResponses = {
+    /**
+     * OK
+     */
+    200: DriveMobileOfflineReplayOutputBody;
+};
+
+export type ReplayDriveMobileOfflineOperationsResponse = ReplayDriveMobileOfflineOperationsResponses[keyof ReplayDriveMobileOfflineOperationsResponses];
+
+export type GetDriveSyncDeltaData = {
+    body?: never;
+    headers: {
+        Authorization: string;
+    };
+    path?: never;
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/drive-sync/delta';
+};
+
+export type GetDriveSyncDeltaErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDriveSyncDeltaError = GetDriveSyncDeltaErrors[keyof GetDriveSyncDeltaErrors];
+
+export type GetDriveSyncDeltaResponses = {
+    /**
+     * OK
+     */
+    200: DriveSyncDeltaOutputBody;
+};
+
+export type GetDriveSyncDeltaResponse = GetDriveSyncDeltaResponses[keyof GetDriveSyncDeltaResponses];
+
+export type RegisterDriveSyncDeviceData = {
+    body: DriveRegisterDeviceBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/drive-sync/devices/register';
+};
+
+export type RegisterDriveSyncDeviceErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RegisterDriveSyncDeviceError = RegisterDriveSyncDeviceErrors[keyof RegisterDriveSyncDeviceErrors];
+
+export type RegisterDriveSyncDeviceResponses = {
+    /**
+     * OK
+     */
+    200: DriveDeviceBody;
+};
+
+export type RegisterDriveSyncDeviceResponse = RegisterDriveSyncDeviceResponses[keyof RegisterDriveSyncDeviceResponses];
+
+export type RevokeDriveSyncDeviceData = {
+    body: DriveDeviceRevokeInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        devicePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive-sync/devices/{devicePublicId}/revoke';
+};
+
+export type RevokeDriveSyncDeviceErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RevokeDriveSyncDeviceError = RevokeDriveSyncDeviceErrors[keyof RevokeDriveSyncDeviceErrors];
+
+export type RevokeDriveSyncDeviceResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RevokeDriveSyncDeviceResponse = RevokeDriveSyncDeviceResponses[keyof RevokeDriveSyncDeviceResponses];
+
 export type DeleteDriveFileData = {
     body?: never;
     headers: {
@@ -3531,6 +4509,129 @@ export type UpdateDriveFileResponses = {
 };
 
 export type UpdateDriveFileResponse = UpdateDriveFileResponses[keyof UpdateDriveFileResponses];
+
+export type StartDriveEditSessionData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/edit-sessions';
+};
+
+export type StartDriveEditSessionErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type StartDriveEditSessionError = StartDriveEditSessionErrors[keyof StartDriveEditSessionErrors];
+
+export type StartDriveEditSessionResponses = {
+    /**
+     * OK
+     */
+    200: DriveEditSessionBody;
+};
+
+export type StartDriveEditSessionResponse = StartDriveEditSessionResponses[keyof StartDriveEditSessionResponses];
+
+export type EndDriveEditSessionData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+        sessionPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/edit-sessions/{sessionPublicId}';
+};
+
+export type EndDriveEditSessionErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type EndDriveEditSessionError = EndDriveEditSessionErrors[keyof EndDriveEditSessionErrors];
+
+export type EndDriveEditSessionResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type EndDriveEditSessionResponse = EndDriveEditSessionResponses[keyof EndDriveEditSessionResponses];
+
+export type SaveDriveEditSessionContentData = {
+    body: DriveEditSaveBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+        sessionPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/edit-sessions/{sessionPublicId}/content';
+};
+
+export type SaveDriveEditSessionContentErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type SaveDriveEditSessionContentError = SaveDriveEditSessionContentErrors[keyof SaveDriveEditSessionContentErrors];
+
+export type SaveDriveEditSessionContentResponses = {
+    /**
+     * OK
+     */
+    200: DriveEditSaveOutputBody;
+};
+
+export type SaveDriveEditSessionContentResponse = SaveDriveEditSessionContentResponses[keyof SaveDriveEditSessionContentResponses];
+
+export type HeartbeatDriveEditSessionData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+        sessionPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/edit-sessions/{sessionPublicId}/heartbeat';
+};
+
+export type HeartbeatDriveEditSessionErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type HeartbeatDriveEditSessionError = HeartbeatDriveEditSessionErrors[keyof HeartbeatDriveEditSessionErrors];
+
+export type HeartbeatDriveEditSessionResponses = {
+    /**
+     * OK
+     */
+    200: DriveEditSessionBody;
+};
+
+export type HeartbeatDriveEditSessionResponse = HeartbeatDriveEditSessionResponses[keyof HeartbeatDriveEditSessionResponses];
 
 export type UpdateDriveFileInheritanceData = {
     body: DriveInheritanceBodyWritable;
@@ -4379,6 +5480,35 @@ export type SearchDriveItemsResponses = {
 };
 
 export type SearchDriveItemsResponse = SearchDriveItemsResponses[keyof SearchDriveItemsResponses];
+
+export type SearchDriveDocumentsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        q?: string;
+        contentType?: string;
+        limit?: number;
+    };
+    url: '/api/v1/drive/search/documents';
+};
+
+export type SearchDriveDocumentsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type SearchDriveDocumentsError = SearchDriveDocumentsErrors[keyof SearchDriveDocumentsErrors];
+
+export type SearchDriveDocumentsResponses = {
+    /**
+     * OK
+     */
+    200: DriveSearchResultOutputBody;
+};
+
+export type SearchDriveDocumentsResponse = SearchDriveDocumentsResponses[keyof SearchDriveDocumentsResponses];
 
 export type DeleteDriveShareLinkData = {
     body?: never;

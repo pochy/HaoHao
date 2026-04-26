@@ -258,6 +258,9 @@ func (s *DriveService) AdminDriveFileContent(ctx context.Context, tenantID, acto
 	if err := s.ensureFileDownloadAllowed(ctx, actor, file, auditCtx, "drive.admin_content_access.content_viewed"); err != nil {
 		return DriveFileDownload{}, err
 	}
+	if err := s.ensureDriveEncryptionAvailable(ctx, file.TenantID, file.ID); err != nil {
+		return DriveFileDownload{}, err
+	}
 	body, err := s.storage.Open(ctx, file.StorageKey)
 	if err != nil {
 		return DriveFileDownload{}, err
@@ -367,6 +370,8 @@ func (s *DriveService) PublicShareLinkOverwriteContentWithVerification(ctx conte
 		_ = s.storage.Delete(ctx, stored.Key)
 		return DriveFile{}, fmt.Errorf("commit public editor overwrite transaction: %w", err)
 	}
+	s.indexDriveFileBestEffort(ctx, updated, "public_editor_overwrite")
+	s.recordDriveSyncEventBestEffort(ctx, updated.ResourceRef(), "file.updated", updated.SHA256Hex, map[string]any{"source": "public_editor"})
 	return updated, nil
 }
 

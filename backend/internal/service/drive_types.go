@@ -14,6 +14,7 @@ const (
 	DriveResourceTypeFile      DriveResourceType = "file"
 	DriveResourceTypeFolder    DriveResourceType = "folder"
 	DriveResourceTypeWorkspace DriveResourceType = "workspace"
+	DriveResourceTypeCleanRoom DriveResourceType = "clean_room"
 )
 
 type DriveRole string
