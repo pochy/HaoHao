@@ -8,6 +8,7 @@ import type {
   DriveShareLinkBody,
 } from '../api/generated/types.gen'
 import type { DriveResourceRef } from '../api/drive'
+import DriveShareAccessSummary from './DriveShareAccessSummary.vue'
 import DrivePermissionsPanel from './DrivePermissionsPanel.vue'
 
 const props = defineProps<{
@@ -41,6 +42,7 @@ const linkExpiresAt = ref('')
 const linkCanDownload = ref(true)
 const linkPassword = ref('')
 const linkRole = ref('viewer')
+const copied = ref(false)
 
 const canCreateUserShare = computed(() => Boolean(props.resource) && userPublicId.value.trim() !== '')
 const canCreateExternalInvitation = computed(() => Boolean(props.resource) && externalEmail.value.trim() !== '')
@@ -133,6 +135,21 @@ function createShareLink() {
   }
   emit('createShareLink', linkExpiresAt.value, linkCanDownload.value, linkPassword.value, linkRole.value)
   linkPassword.value = ''
+  copied.value = false
+}
+
+async function copyRawLink() {
+  if (!rawLinkURL.value) {
+    return
+  }
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(rawLinkURL.value)
+    }
+  } catch {
+    // The URL remains selected in the readonly field; copying can be retried manually.
+  }
+  copied.value = true
 }
 </script>
 
@@ -143,6 +160,7 @@ function createShareLink() {
         <div>
           <span class="status-pill">Share</span>
           <h2>{{ label }}</h2>
+          <p class="cell-subtle">Current access, people, groups, and link sharing for this Drive item.</p>
         </div>
         <button class="secondary-button compact-button" type="button" @click="close">
           Close
@@ -151,119 +169,135 @@ function createShareLink() {
 
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
-      <form class="admin-form" @submit.prevent="createUserShare">
-        <div class="form-span">
-          <h3>User share</h3>
-        </div>
-        <label class="field">
-          <span class="field-label">User public ID</span>
-          <input v-model="userPublicId" class="field-input" autocomplete="off" :disabled="busy">
-        </label>
-        <label class="field">
-          <span class="field-label">Role</span>
-          <select v-model="shareRole" class="field-input" :disabled="busy">
-            <option value="viewer">Viewer</option>
-            <option value="editor">Editor</option>
-          </select>
-        </label>
-        <div class="action-row form-span">
-          <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateUserShare">
-            Share with user
-          </button>
-        </div>
-      </form>
+      <DriveShareAccessSummary :permissions="permissions" />
 
-      <form class="admin-form" @submit.prevent="createGroupShare">
-        <div class="form-span">
-          <h3>Group share</h3>
+      <section class="drive-share-section">
+        <div>
+          <h3>Add people and groups</h3>
+          <p class="cell-subtle">Owner transfer is intentionally not exposed in this UI.</p>
         </div>
-        <label class="field">
-          <span class="field-label">Drive group</span>
-          <select v-model="groupPublicId" class="field-input" :disabled="busy || groups.length === 0">
-            <option v-for="group in groups" :key="group.publicId" :value="group.publicId">
-              {{ group.name }}
-            </option>
-          </select>
-        </label>
-        <label class="field">
-          <span class="field-label">Role</span>
-          <select v-model="shareRole" class="field-input" :disabled="busy">
-            <option value="viewer">Viewer</option>
-            <option value="editor">Editor</option>
-          </select>
-        </label>
-        <div class="action-row form-span">
-          <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateGroupShare">
-            Share with group
-          </button>
-          <RouterLink class="secondary-button compact-button link-button" to="/drive/groups">
-            Manage groups
-          </RouterLink>
-        </div>
-      </form>
 
-      <form class="admin-form" @submit.prevent="createExternalInvitation">
-        <div class="form-span">
-          <h3>External invitation</h3>
-        </div>
-        <label class="field">
-          <span class="field-label">Invitee email</span>
-          <input v-model="externalEmail" class="field-input" autocomplete="email" type="email" :disabled="busy">
-        </label>
-        <label class="field">
-          <span class="field-label">Role</span>
-          <select v-model="shareRole" class="field-input" :disabled="busy">
-            <option value="viewer">Viewer</option>
-            <option value="editor">Editor</option>
-          </select>
-        </label>
-        <div class="action-row form-span">
-          <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateExternalInvitation">
-            Invite external user
-          </button>
-        </div>
-      </form>
+        <form class="admin-form" @submit.prevent="createUserShare">
+          <div class="form-span">
+            <h4>User share</h4>
+          </div>
+          <label class="field">
+            <span class="field-label">User public ID</span>
+            <input v-model="userPublicId" class="field-input" autocomplete="off" :disabled="busy">
+          </label>
+          <label class="field">
+            <span class="field-label">Role</span>
+            <select v-model="shareRole" class="field-input" :disabled="busy">
+              <option value="viewer">Viewer</option>
+              <option value="editor">Editor</option>
+            </select>
+          </label>
+          <div class="action-row form-span">
+            <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateUserShare">
+              Share with user
+            </button>
+          </div>
+        </form>
 
-      <form class="admin-form" @submit.prevent="createShareLink">
-        <div class="form-span">
-          <h3>Share link</h3>
-          <p class="cell-subtle">
-            Download 禁止は操作上の制限であり、スクリーンショット等を完全には防止できません。
-          </p>
-        </div>
-        <label class="field">
-          <span class="field-label">Expires at</span>
-          <input v-model="linkExpiresAt" class="field-input" type="datetime-local" :disabled="busy">
-        </label>
-        <label class="field">
-          <span class="field-label">Role</span>
-          <select v-model="linkRole" class="field-input" :disabled="busy">
-            <option value="viewer">Viewer</option>
-            <option value="editor">Editor</option>
-          </select>
-        </label>
-        <label class="checkbox-field">
-          <input v-model="linkCanDownload" type="checkbox" :disabled="busy || linkRole === 'editor'">
-          <span>Allow download</span>
-        </label>
-        <label class="field form-span">
-          <span class="field-label">Password</span>
-          <input v-model="linkPassword" class="field-input" autocomplete="new-password" type="password" :disabled="busy">
-        </label>
-        <div class="action-row form-span">
-          <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateShareLink">
-            Create link
-          </button>
-        </div>
-      </form>
+        <form class="admin-form" @submit.prevent="createGroupShare">
+          <div class="form-span">
+            <h4>Group share</h4>
+          </div>
+          <label class="field">
+            <span class="field-label">Drive group</span>
+            <select v-model="groupPublicId" class="field-input" :disabled="busy || groups.length === 0">
+              <option v-for="group in groups" :key="group.publicId" :value="group.publicId">
+                {{ group.name }}
+              </option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Role</span>
+            <select v-model="shareRole" class="field-input" :disabled="busy">
+              <option value="viewer">Viewer</option>
+              <option value="editor">Editor</option>
+            </select>
+          </label>
+          <div class="action-row form-span">
+            <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateGroupShare">
+              Share with group
+            </button>
+            <RouterLink class="secondary-button compact-button link-button" to="/drive/groups">
+              Manage groups
+            </RouterLink>
+          </div>
+        </form>
 
-      <div v-if="rawLinkURL" class="drive-raw-link">
-        <label class="field">
-          <span class="field-label">New link URL</span>
-          <input :value="rawLinkURL" class="field-input monospace-cell" readonly>
-        </label>
-        <p class="cell-subtle">この URL は作成直後だけ表示されます。</p>
-      </div>
+        <form class="admin-form" @submit.prevent="createExternalInvitation">
+          <div class="form-span">
+            <h4>External invitation</h4>
+          </div>
+          <label class="field">
+            <span class="field-label">Invitee email</span>
+            <input v-model="externalEmail" class="field-input" autocomplete="email" type="email" :disabled="busy">
+          </label>
+          <label class="field">
+            <span class="field-label">Role</span>
+            <select v-model="shareRole" class="field-input" :disabled="busy">
+              <option value="viewer">Viewer</option>
+              <option value="editor">Editor</option>
+            </select>
+          </label>
+          <div class="action-row form-span">
+            <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateExternalInvitation">
+              Invite external user
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="drive-share-section">
+        <form class="admin-form" @submit.prevent="createShareLink">
+          <div class="form-span">
+            <h3>Share link</h3>
+            <p class="cell-subtle">
+              Download 禁止は操作上の制限であり、スクリーンショット等を完全には防止できません。
+            </p>
+          </div>
+          <label class="field">
+            <span class="field-label">Expires at</span>
+            <input v-model="linkExpiresAt" class="field-input" type="datetime-local" :disabled="busy">
+          </label>
+          <label class="field">
+            <span class="field-label">Role</span>
+            <select v-model="linkRole" class="field-input" :disabled="busy">
+              <option value="viewer">Viewer</option>
+              <option value="editor">Editor</option>
+            </select>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="linkCanDownload" type="checkbox" :disabled="busy || linkRole === 'editor'">
+            <span>Allow download</span>
+          </label>
+          <label class="field form-span">
+            <span class="field-label">Password</span>
+            <input v-model="linkPassword" class="field-input" autocomplete="new-password" type="password" :disabled="busy">
+          </label>
+          <div class="action-row form-span">
+            <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateShareLink">
+              Create link
+            </button>
+          </div>
+        </form>
+
+        <div v-if="rawLinkURL" class="drive-raw-link">
+          <label class="field">
+            <span class="field-label">New link URL</span>
+            <input :value="rawLinkURL" class="field-input monospace-cell" readonly>
+          </label>
+          <div class="action-row">
+            <button class="secondary-button compact-button" type="button" @click="copyRawLink">
+              {{ copied ? 'Copied' : 'Copy link' }}
+            </button>
+            <p class="cell-subtle">この URL は作成直後だけ表示されます。</p>
+          </div>
+        </div>
+      </section>
 
       <div class="section-header">
         <div>

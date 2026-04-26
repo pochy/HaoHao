@@ -47,6 +47,13 @@ import type {
 type DriveStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
 type DriveActionStatus = 'idle' | 'working'
 type DriveRole = 'owner' | 'editor' | 'viewer'
+export type DriveViewMode = 'grid' | 'list'
+export type DriveTypeFilter = 'all' | 'folder' | 'document' | 'image' | 'archive' | 'other'
+export type DriveOwnerFilter = 'all' | 'owned_by_me' | 'shared_with_me'
+export type DriveModifiedFilter = 'any' | 'today' | 'last_7_days' | 'last_30_days'
+export type DriveSourceFilter = 'all' | 'uploaded' | 'external'
+export type DriveSortKey = 'updated_at' | 'name' | 'size' | 'type'
+export type DriveSortDirection = 'asc' | 'desc'
 
 const rootFolder: DriveFolderBody = {
   publicId: 'root',
@@ -97,6 +104,14 @@ export const useDriveStore = defineStore('drive', {
     lastRawShareLink: null as DriveShareLinkBody | null,
     deletingResourceId: '',
     busyResourceId: '',
+    viewMode: 'grid' as DriveViewMode,
+    query: '',
+    typeFilter: 'all' as DriveTypeFilter,
+    ownerFilter: 'all' as DriveOwnerFilter,
+    modifiedFilter: 'any' as DriveModifiedFilter,
+    sourceFilter: 'all' as DriveSourceFilter,
+    sortKey: 'updated_at' as DriveSortKey,
+    sortDirection: 'desc' as DriveSortDirection,
   }),
 
   getters: {
@@ -109,6 +124,47 @@ export const useDriveStore = defineStore('drive', {
       this.selectedResource = null
       this.permissions = null
       this.lastRawShareLink = null
+    },
+
+    setViewMode(mode: DriveViewMode) {
+      this.viewMode = mode
+    },
+
+    setQuery(query: string) {
+      this.query = query
+    },
+
+    setTypeFilter(filter: DriveTypeFilter) {
+      this.typeFilter = filter
+    },
+
+    setOwnerFilter(filter: DriveOwnerFilter) {
+      this.ownerFilter = filter
+    },
+
+    setModifiedFilter(filter: DriveModifiedFilter) {
+      this.modifiedFilter = filter
+    },
+
+    setSourceFilter(filter: DriveSourceFilter) {
+      this.sourceFilter = filter
+    },
+
+    setSort(key: DriveSortKey) {
+      if (this.sortKey === key) {
+        this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc'
+        return
+      }
+      this.sortKey = key
+      this.sortDirection = key === 'name' ? 'asc' : 'desc'
+    },
+
+    clearFilters() {
+      this.query = ''
+      this.typeFilter = 'all'
+      this.ownerFilter = 'all'
+      this.modifiedFilter = 'any'
+      this.sourceFilter = 'all'
     },
 
     setError(error: unknown) {

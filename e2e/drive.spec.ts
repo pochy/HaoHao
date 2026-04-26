@@ -22,8 +22,10 @@ test.describe('P5 Drive UI', () => {
     await page.getByRole('link', { name: 'Drive' }).click()
     await expect(page.getByRole('heading', { name: 'Drive Browser' })).toBeVisible()
 
-    await page.getByLabel('New folder').fill(folderName)
-    await page.getByRole('button', { name: 'Create' }).click()
+    await page.getByRole('button', { name: 'New folder' }).click()
+    const folderDialog = page.locator('dialog').filter({ hasText: 'New folder' })
+    await folderDialog.getByLabel('Folder name').fill(folderName)
+    await folderDialog.getByRole('button', { name: 'Create folder' }).click()
     await expect(page.getByRole('button', { name: folderName })).toBeVisible()
 
     await page.getByRole('button', { name: folderName }).click()
@@ -32,24 +34,31 @@ test.describe('P5 Drive UI', () => {
     await page.locator('input[type="file"]').first().setInputFiles(uploadPath)
     await expect(page.getByText(originalName)).toBeVisible()
 
+    await page.getByRole('button', { name: 'List view' }).click()
     const row = page.getByRole('row').filter({ hasText: originalName })
     const downloadPromise = page.waitForEvent('download')
-    await row.getByRole('button', { name: 'Download' }).click()
+    await row.getByLabel(`Actions for ${originalName}`).click()
+    await row.getByRole('menuitem', { name: 'Download' }).click()
     const download = await downloadPromise
     expect(download.suggestedFilename()).toBe(originalName)
 
-    await row.getByRole('button', { name: 'Rename' }).click()
+    await row.getByLabel(`Actions for ${originalName}`).click()
+    await row.getByRole('menuitem', { name: 'Rename' }).click()
     const renameDialog = page.locator('dialog').filter({ hasText: 'Rename item' })
     await renameDialog.getByLabel('New name').fill(renamedName)
     await renameDialog.getByRole('button', { name: 'Rename' }).click()
     await expect(page.getByText(renamedName)).toBeVisible()
 
-    await page.getByRole('row').filter({ hasText: renamedName }).getByRole('button', { name: 'Share' }).click()
+    const renamedRow = page.getByRole('row').filter({ hasText: renamedName })
+    await renamedRow.getByLabel(`Actions for ${renamedName}`).click()
+    await renamedRow.getByRole('menuitem', { name: 'Share' }).click()
     await expect(page.getByRole('heading', { name: renamedName })).toBeVisible()
     await page.getByLabel('Allow download').uncheck()
     await page.getByRole('button', { name: 'Create link' }).click()
     const rawURL = await page.getByLabel('New link URL').inputValue()
     expect(rawURL).toContain('/public/drive/share-links/')
+    await page.getByRole('button', { name: 'Copy link' }).click()
+    await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible()
 
     const publicPage = await context.newPage()
     await publicPage.goto(rawURL)
