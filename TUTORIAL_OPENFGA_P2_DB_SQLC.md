@@ -45,13 +45,23 @@ db/migrations/0015_openfga_drive.down.sql
 db/migrations/0015_openfga_drive.up.sql
 ```
 
-### 追加する column
+### 既存 `purpose` と追加 column
 
-既存 `file_objects` は file body の source of truth として残します。Drive file 用に次を追加します。
+既存 `file_objects` はすでに `purpose` を持っています。Drive file 用には `purpose` column を追加し直さず、既存 check constraint に `drive` を追加します。
 
 ```sql
 ALTER TABLE file_objects
-  ADD COLUMN purpose TEXT NOT NULL DEFAULT 'attachment',
+  DROP CONSTRAINT file_objects_purpose_check;
+
+ALTER TABLE file_objects
+  ADD CONSTRAINT file_objects_purpose_check
+  CHECK (purpose IN ('attachment', 'avatar', 'import', 'export', 'drive'));
+```
+
+Drive file 用に次の metadata column を追加します。
+
+```sql
+ALTER TABLE file_objects
   ADD COLUMN drive_folder_id BIGINT,
   ADD COLUMN locked_at TIMESTAMPTZ,
   ADD COLUMN locked_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
@@ -60,7 +70,7 @@ ALTER TABLE file_objects
   ADD COLUMN deleted_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
 ```
 
-`drive_folder_id` は `drive_folders` 作成後に FK を張ります。
+`drive_folder_id` は `drive_folders` 作成後に FK を張ります。実装時は `drive_folders` table を先に作り、その後 `file_objects` に `drive_folder_id` を追加すると migration が単純です。
 
 ```sql
 ALTER TABLE file_objects
@@ -68,7 +78,7 @@ ALTER TABLE file_objects
   FOREIGN KEY (drive_folder_id) REFERENCES drive_folders(id) ON DELETE SET NULL;
 ```
 
-既存 row は `purpose='attachment'` として扱います。既存 API は Drive file を返さないよう、query 側で `purpose <> 'drive'` または既存 purpose 条件を明示します。
+既存 row は現在の `purpose` を維持します。既存 attachment/import/export API は Drive file を返さないよう、query 側で `purpose <> 'drive'` または既存 purpose 条件を明示します。既存 `FileService.Upload` から `purpose='drive'` を作れると Drive API / OpenFGA を迂回できるため、既存 FileService では `drive` purpose を拒否します。
 
 ### index
 
@@ -107,7 +117,7 @@ CREATE UNIQUE INDEX drive_folders_public_id_key
   ON drive_folders(public_id);
 
 CREATE UNIQUE INDEX drive_folders_active_name_key
-  ON drive_folders(tenant_id, parent_folder_id, lower(name))
+  ON drive_folders(tenant_id, COALESCE(parent_folder_id, 0), lower(name))
   WHERE deleted_at IS NULL;
 
 CREATE INDEX drive_folders_children_idx
@@ -115,7 +125,7 @@ CREATE INDEX drive_folders_children_idx
   WHERE deleted_at IS NULL;
 ```
 
-PostgreSQL の partial unique index では `parent_folder_id IS NULL` の扱いに注意します。root folder 名を tenant 内で重複禁止にしたい場合は、`COALESCE(parent_folder_id, 0)` を使う expression index を検討します。
+PostgreSQL の unique index は `NULL` を重複として扱わないため、root folder 名を tenant 内で重複禁止にするには `COALESCE(parent_folder_id, 0)` を使います。
 
 ## Step 4. group table を追加する
 
@@ -142,13 +152,13 @@ CREATE UNIQUE INDEX drive_groups_active_name_key
   WHERE deleted_at IS NULL;
 
 CREATE TABLE drive_group_members (
+  id BIGSERIAL PRIMARY KEY,
   group_id BIGINT NOT NULL REFERENCES drive_groups(id) ON DELETE CASCADE,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   added_by_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (group_id, user_id)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE UNIQUE INDEX drive_group_members_active_key
@@ -157,6 +167,8 @@ CREATE UNIQUE INDEX drive_group_members_active_key
 ```
 
 Drive group は HaoHao app-managed group です。Zitadel group claim から自動同期しません。
+
+`drive_group_members` は soft delete 後に同じ user を再追加できる必要があるため、`(group_id, user_id)` を primary key にしません。`id` primary key と active row partial unique index を使います。
 
 ## Step 5. share table を追加する
 
@@ -369,9 +381,11 @@ make sqlc
 
 ```bash
 make db-up
+make db-down
+make db-up
 make db-schema
 make sqlc
-go test ./backend/internal/db ./backend/internal/service
+go test ./backend/...
 ```
 
 確認観点:
@@ -380,6 +394,6 @@ go test ./backend/internal/db ./backend/internal/service
 - `db/schema.sql` が更新される
 - sqlc generated code が更新される
 - 既存 file attachment query が Drive file を返さない
+- 既存 FileService が `purpose='drive'` upload を拒否する
 - `drive_share_links.token_hash` が unique で lookup できる
 - folder children list が tenant / parent / deleted で絞れる
-

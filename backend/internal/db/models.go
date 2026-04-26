@@ -77,6 +77,77 @@ type CustomerSignalSavedFilter struct {
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type DriveFolder struct {
+	ID                 int64              `json:"id"`
+	PublicID           uuid.UUID          `json:"public_id"`
+	TenantID           int64              `json:"tenant_id"`
+	ParentFolderID     pgtype.Int8        `json:"parent_folder_id"`
+	Name               string             `json:"name"`
+	CreatedByUserID    int64              `json:"created_by_user_id"`
+	InheritanceEnabled bool               `json:"inheritance_enabled"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID    pgtype.Int8        `json:"deleted_by_user_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveGroup struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	TenantID        int64              `json:"tenant_id"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description"`
+	CreatedByUserID int64              `json:"created_by_user_id"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveGroupMember struct {
+	ID            int64              `json:"id"`
+	GroupID       int64              `json:"group_id"`
+	UserID        int64              `json:"user_id"`
+	AddedByUserID int64              `json:"added_by_user_id"`
+	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveResourceShare struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	TenantID        int64              `json:"tenant_id"`
+	ResourceType    string             `json:"resource_type"`
+	ResourceID      int64              `json:"resource_id"`
+	SubjectType     string             `json:"subject_type"`
+	SubjectID       int64              `json:"subject_id"`
+	Role            string             `json:"role"`
+	Status          string             `json:"status"`
+	CreatedByUserID int64              `json:"created_by_user_id"`
+	RevokedByUserID pgtype.Int8        `json:"revoked_by_user_id"`
+	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveShareLink struct {
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	TenantID         int64              `json:"tenant_id"`
+	ResourceType     string             `json:"resource_type"`
+	ResourceID       int64              `json:"resource_id"`
+	TokenHash        string             `json:"token_hash"`
+	Role             string             `json:"role"`
+	CanDownload      bool               `json:"can_download"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	Status           string             `json:"status"`
+	CreatedByUserID  int64              `json:"created_by_user_id"`
+	DisabledByUserID pgtype.Int8        `json:"disabled_by_user_id"`
+	DisabledAt       pgtype.Timestamptz `json:"disabled_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type FeatureDefinition struct {
 	Code           string             `json:"code"`
 	DisplayName    string             `json:"display_name"`
@@ -88,28 +159,34 @@ type FeatureDefinition struct {
 }
 
 type FileObject struct {
-	ID               int64              `json:"id"`
-	PublicID         uuid.UUID          `json:"public_id"`
-	TenantID         int64              `json:"tenant_id"`
-	UploadedByUserID pgtype.Int8        `json:"uploaded_by_user_id"`
-	Purpose          string             `json:"purpose"`
-	AttachedToType   pgtype.Text        `json:"attached_to_type"`
-	AttachedToID     pgtype.Text        `json:"attached_to_id"`
-	OriginalFilename string             `json:"original_filename"`
-	ContentType      string             `json:"content_type"`
-	ByteSize         int64              `json:"byte_size"`
-	Sha256Hex        string             `json:"sha256_hex"`
-	StorageDriver    string             `json:"storage_driver"`
-	StorageKey       string             `json:"storage_key"`
-	Status           string             `json:"status"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	PurgedAt         pgtype.Timestamptz `json:"purged_at"`
-	PurgeAttempts    int32              `json:"purge_attempts"`
-	PurgeLockedAt    pgtype.Timestamptz `json:"purge_locked_at"`
-	PurgeLockedBy    pgtype.Text        `json:"purge_locked_by"`
-	LastPurgeError   pgtype.Text        `json:"last_purge_error"`
+	ID                 int64              `json:"id"`
+	PublicID           uuid.UUID          `json:"public_id"`
+	TenantID           int64              `json:"tenant_id"`
+	UploadedByUserID   pgtype.Int8        `json:"uploaded_by_user_id"`
+	Purpose            string             `json:"purpose"`
+	AttachedToType     pgtype.Text        `json:"attached_to_type"`
+	AttachedToID       pgtype.Text        `json:"attached_to_id"`
+	OriginalFilename   string             `json:"original_filename"`
+	ContentType        string             `json:"content_type"`
+	ByteSize           int64              `json:"byte_size"`
+	Sha256Hex          string             `json:"sha256_hex"`
+	StorageDriver      string             `json:"storage_driver"`
+	StorageKey         string             `json:"storage_key"`
+	Status             string             `json:"status"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	PurgedAt           pgtype.Timestamptz `json:"purged_at"`
+	PurgeAttempts      int32              `json:"purge_attempts"`
+	PurgeLockedAt      pgtype.Timestamptz `json:"purge_locked_at"`
+	PurgeLockedBy      pgtype.Text        `json:"purge_locked_by"`
+	LastPurgeError     pgtype.Text        `json:"last_purge_error"`
+	DriveFolderID      pgtype.Int8        `json:"drive_folder_id"`
+	LockedAt           pgtype.Timestamptz `json:"locked_at"`
+	LockedByUserID     pgtype.Int8        `json:"locked_by_user_id"`
+	LockReason         pgtype.Text        `json:"lock_reason"`
+	InheritanceEnabled bool               `json:"inheritance_enabled"`
+	DeletedByUserID    pgtype.Int8        `json:"deleted_by_user_id"`
 }
 
 type IdempotencyKey struct {

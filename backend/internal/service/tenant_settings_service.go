@@ -42,6 +42,18 @@ type RateLimitDefaults struct {
 	ExternalAPIPerMinute int
 }
 
+type DrivePolicy struct {
+	LinkSharingEnabled         bool
+	AnonymousLinksEnabled      bool
+	LinkExpiresRequired        bool
+	MaxLinkTTLHours            int
+	ViewerDownloadEnabled      bool
+	ShareLinkDownloadEnabled   bool
+	EditorCanReshare           bool
+	EditorCanDelete            bool
+	ExternalUserSharingEnabled bool
+}
+
 type TenantSettingsService struct {
 	queries               *db.Queries
 	audit                 AuditRecorder
@@ -119,6 +131,45 @@ func (s *TenantSettingsService) ResolveEffectiveRateLimit(ctx context.Context, t
 	return effectiveRateLimitForSettings(settings, policy, defaults), nil
 }
 
+func (s *TenantSettingsService) GetDrivePolicy(ctx context.Context, tenantID int64) (DrivePolicy, error) {
+	settings, err := s.Get(ctx, tenantID)
+	if err != nil {
+		return defaultDrivePolicy(), err
+	}
+	return drivePolicyFromFeatures(settings.Features), nil
+}
+
+func (s *TenantSettingsService) UpdateDrivePolicy(ctx context.Context, tenantID int64, input DrivePolicy, auditCtx AuditContext) (DrivePolicy, error) {
+	settings, err := s.Get(ctx, tenantID)
+	if err != nil {
+		return DrivePolicy{}, err
+	}
+	policy := normalizeDrivePolicy(input)
+	features := cloneFeatureMap(settings.Features)
+	features["drive"] = drivePolicyToFeatureMap(policy)
+
+	_, err = s.Update(ctx, tenantID, TenantSettingsInput{
+		FileQuotaBytes:                settings.FileQuotaBytes,
+		RateLimitLoginPerMinute:       settings.RateLimitLoginPerMinute,
+		RateLimitBrowserAPIPerMinute:  settings.RateLimitBrowserAPIPerMinute,
+		RateLimitExternalAPIPerMinute: settings.RateLimitExternalAPIPerMinute,
+		NotificationsEnabled:          settings.NotificationsEnabled,
+		Features:                      features,
+	}, auditCtx)
+	if err != nil {
+		return DrivePolicy{}, err
+	}
+	if s.audit != nil {
+		s.audit.RecordBestEffort(ctx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "tenant_settings.drive_policy.update",
+			TargetType:   "tenant",
+			TargetID:     fmt.Sprintf("%d", tenantID),
+		})
+	}
+	return policy, nil
+}
+
 func effectiveRateLimitForSettings(settings TenantSettings, policy string, defaults RateLimitDefaults) int {
 	switch policy {
 	case "login":
@@ -189,6 +240,100 @@ func defaultRateLimitForPolicy(policy string, defaults RateLimitDefaults) int {
 	default:
 		return defaults.BrowserAPIPerMinute
 	}
+}
+
+func defaultDrivePolicy() DrivePolicy {
+	return DrivePolicy{
+		LinkSharingEnabled:         true,
+		AnonymousLinksEnabled:      true,
+		LinkExpiresRequired:        true,
+		MaxLinkTTLHours:            720,
+		ViewerDownloadEnabled:      true,
+		ShareLinkDownloadEnabled:   true,
+		EditorCanReshare:           false,
+		EditorCanDelete:            false,
+		ExternalUserSharingEnabled: false,
+	}
+}
+
+func drivePolicyFromFeatures(features map[string]any) DrivePolicy {
+	policy := defaultDrivePolicy()
+	raw, ok := features["drive"].(map[string]any)
+	if !ok {
+		return policy
+	}
+
+	policy.LinkSharingEnabled = featureBool(raw, "linkSharingEnabled", policy.LinkSharingEnabled)
+	policy.AnonymousLinksEnabled = featureBool(raw, "anonymousLinksEnabled", policy.AnonymousLinksEnabled)
+	policy.LinkExpiresRequired = featureBool(raw, "linkExpiresRequired", policy.LinkExpiresRequired)
+	policy.MaxLinkTTLHours = featureInt(raw, "maxLinkTtlHours", policy.MaxLinkTTLHours)
+	policy.ViewerDownloadEnabled = featureBool(raw, "viewerDownloadEnabled", policy.ViewerDownloadEnabled)
+	policy.ShareLinkDownloadEnabled = featureBool(raw, "shareLinkDownloadEnabled", policy.ShareLinkDownloadEnabled)
+	policy.EditorCanReshare = featureBool(raw, "editorCanReshare", policy.EditorCanReshare)
+	policy.EditorCanDelete = featureBool(raw, "editorCanDelete", policy.EditorCanDelete)
+	policy.ExternalUserSharingEnabled = featureBool(raw, "externalUserSharingEnabled", policy.ExternalUserSharingEnabled)
+
+	return normalizeDrivePolicy(policy)
+}
+
+func normalizeDrivePolicy(policy DrivePolicy) DrivePolicy {
+	if policy.MaxLinkTTLHours <= 0 {
+		policy.MaxLinkTTLHours = defaultDrivePolicy().MaxLinkTTLHours
+	}
+	return policy
+}
+
+func drivePolicyToFeatureMap(policy DrivePolicy) map[string]any {
+	policy = normalizeDrivePolicy(policy)
+	return map[string]any{
+		"linkSharingEnabled":         policy.LinkSharingEnabled,
+		"anonymousLinksEnabled":      policy.AnonymousLinksEnabled,
+		"linkExpiresRequired":        policy.LinkExpiresRequired,
+		"maxLinkTtlHours":            policy.MaxLinkTTLHours,
+		"viewerDownloadEnabled":      policy.ViewerDownloadEnabled,
+		"shareLinkDownloadEnabled":   policy.ShareLinkDownloadEnabled,
+		"editorCanReshare":           policy.EditorCanReshare,
+		"editorCanDelete":            policy.EditorCanDelete,
+		"externalUserSharingEnabled": policy.ExternalUserSharingEnabled,
+	}
+}
+
+func cloneFeatureMap(features map[string]any) map[string]any {
+	cloned := make(map[string]any, len(features)+1)
+	for key, value := range features {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func featureBool(values map[string]any, key string, fallback bool) bool {
+	value, ok := values[key].(bool)
+	if !ok {
+		return fallback
+	}
+	return value
+}
+
+func featureInt(values map[string]any, key string, fallback int) int {
+	switch value := values[key].(type) {
+	case int:
+		if value > 0 {
+			return value
+		}
+	case int32:
+		if value > 0 {
+			return int(value)
+		}
+	case int64:
+		if value > 0 {
+			return int(value)
+		}
+	case float64:
+		if value > 0 {
+			return int(value)
+		}
+	}
+	return fallback
 }
 
 func tenantSettingsFromDB(row db.TenantSetting) TenantSettings {

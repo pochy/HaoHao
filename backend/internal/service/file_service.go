@@ -408,6 +408,9 @@ func (s *FileService) normalizeUploadInput(input FileUploadInput) (FileUploadInp
 	if input.Purpose == "" {
 		input.Purpose = "attachment"
 	}
+	if input.Purpose == "drive" {
+		return FileUploadInput{}, fmt.Errorf("%w: drive files must use drive service", ErrInvalidFileInput)
+	}
 	input.AttachedToType = strings.ToLower(strings.TrimSpace(input.AttachedToType))
 	input.AttachedToID = strings.TrimSpace(input.AttachedToID)
 	input.OriginalFilename = filepath.Base(strings.TrimSpace(input.OriginalFilename))

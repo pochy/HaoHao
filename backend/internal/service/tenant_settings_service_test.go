@@ -78,3 +78,72 @@ func TestResolveEffectiveRateLimitFallsBackToDefaultOnLookupError(t *testing.T) 
 		t.Fatalf("ResolveEffectiveRateLimit() = %d, want %d", got, defaults.BrowserAPIPerMinute)
 	}
 }
+
+func TestDrivePolicyFromFeaturesDefaults(t *testing.T) {
+	got := drivePolicyFromFeatures(nil)
+	if !got.LinkSharingEnabled {
+		t.Fatal("LinkSharingEnabled = false")
+	}
+	if !got.AnonymousLinksEnabled {
+		t.Fatal("AnonymousLinksEnabled = false")
+	}
+	if !got.LinkExpiresRequired {
+		t.Fatal("LinkExpiresRequired = false")
+	}
+	if got.MaxLinkTTLHours != 720 {
+		t.Fatalf("MaxLinkTTLHours = %d, want 720", got.MaxLinkTTLHours)
+	}
+	if got.EditorCanReshare {
+		t.Fatal("EditorCanReshare = true")
+	}
+	if got.EditorCanDelete {
+		t.Fatal("EditorCanDelete = true")
+	}
+	if got.ExternalUserSharingEnabled {
+		t.Fatal("ExternalUserSharingEnabled = true")
+	}
+}
+
+func TestDrivePolicyFromFeaturesOverrides(t *testing.T) {
+	got := drivePolicyFromFeatures(map[string]any{
+		"drive": map[string]any{
+			"linkSharingEnabled":         false,
+			"anonymousLinksEnabled":      false,
+			"linkExpiresRequired":        false,
+			"maxLinkTtlHours":            float64(24),
+			"viewerDownloadEnabled":      false,
+			"shareLinkDownloadEnabled":   false,
+			"editorCanReshare":           true,
+			"editorCanDelete":            true,
+			"externalUserSharingEnabled": true,
+		},
+	})
+
+	if got.LinkSharingEnabled {
+		t.Fatal("LinkSharingEnabled = true")
+	}
+	if got.AnonymousLinksEnabled {
+		t.Fatal("AnonymousLinksEnabled = true")
+	}
+	if got.LinkExpiresRequired {
+		t.Fatal("LinkExpiresRequired = true")
+	}
+	if got.MaxLinkTTLHours != 24 {
+		t.Fatalf("MaxLinkTTLHours = %d, want 24", got.MaxLinkTTLHours)
+	}
+	if got.ViewerDownloadEnabled {
+		t.Fatal("ViewerDownloadEnabled = true")
+	}
+	if got.ShareLinkDownloadEnabled {
+		t.Fatal("ShareLinkDownloadEnabled = true")
+	}
+	if !got.EditorCanReshare {
+		t.Fatal("EditorCanReshare = false")
+	}
+	if !got.EditorCanDelete {
+		t.Fatal("EditorCanDelete = false")
+	}
+	if !got.ExternalUserSharingEnabled {
+		t.Fatal("ExternalUserSharingEnabled = false")
+	}
+}

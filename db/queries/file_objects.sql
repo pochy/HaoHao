@@ -21,6 +21,7 @@ SELECT *
 FROM file_objects
 WHERE public_id = $1
   AND tenant_id = $2
+  AND purpose <> 'drive'
   AND deleted_at IS NULL;
 
 -- name: GetFileObjectByIDForTenant :one
@@ -28,6 +29,7 @@ SELECT *
 FROM file_objects
 WHERE id = $1
   AND tenant_id = $2
+  AND purpose <> 'drive'
   AND deleted_at IS NULL;
 
 -- name: ListFileObjectsForAttachment :many
@@ -36,6 +38,7 @@ FROM file_objects
 WHERE tenant_id = $1
   AND attached_to_type = $2
   AND attached_to_id = $3
+  AND purpose <> 'drive'
   AND deleted_at IS NULL
 ORDER BY created_at DESC, id DESC;
 
@@ -43,6 +46,7 @@ ORDER BY created_at DESC, id DESC;
 SELECT *
 FROM file_objects
 WHERE tenant_id = $1
+  AND purpose <> 'drive'
   AND deleted_at IS NULL
 ORDER BY created_at DESC, id DESC
 LIMIT $2;
@@ -55,6 +59,7 @@ SET
     updated_at = now()
 WHERE public_id = $1
   AND tenant_id = $2
+  AND purpose <> 'drive'
   AND deleted_at IS NULL
 RETURNING *;
 
