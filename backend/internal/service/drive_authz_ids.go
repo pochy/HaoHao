@@ -5,6 +5,7 @@ import "strings"
 const (
 	openFGATypeUser      = "user"
 	openFGATypeGroup     = "group"
+	openFGATypeWorkspace = "workspace"
 	openFGATypeFolder    = "folder"
 	openFGATypeFile      = "file"
 	openFGATypeShareLink = "share_link"
@@ -16,6 +17,10 @@ func openFGAUser(publicID string) string {
 
 func openFGAGroup(publicID string) string {
 	return openFGAObject(openFGATypeGroup, publicID)
+}
+
+func openFGAWorkspace(publicID string) string {
+	return openFGAObject(openFGATypeWorkspace, publicID)
 }
 
 func openFGAFolder(publicID string) string {

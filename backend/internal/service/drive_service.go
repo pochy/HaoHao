@@ -63,6 +63,7 @@ func (s *DriveService) CreateFolder(ctx context.Context, input DriveCreateFolder
 	}
 
 	var parentRef *DriveResourceRef
+	var parentFolderForWorkspace *DriveFolder
 	parentID := pgtype.Int8{}
 	parentPublicIDInput := strings.TrimSpace(input.ParentFolderPublicID)
 	if input.ParentFolderID != nil || (parentPublicIDInput != "" && parentPublicIDInput != "root") {
@@ -82,7 +83,12 @@ func (s *DriveService) CreateFolder(ctx context.Context, input DriveCreateFolder
 		}
 		ref := parent.ResourceRef()
 		parentRef = &ref
+		parentFolderForWorkspace = &parent
 		parentID = pgtype.Int8{Int64: parent.ID, Valid: true}
+	}
+	workspace, err := s.resolveWorkspaceForCreate(ctx, input.TenantID, actor, input.WorkspacePublicID, parentFolderForWorkspace)
+	if err != nil {
+		return DriveFolder{}, err
 	}
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -95,6 +101,7 @@ func (s *DriveService) CreateFolder(ctx context.Context, input DriveCreateFolder
 	qtx := s.queries.WithTx(tx)
 	row, err := qtx.CreateDriveFolder(ctx, db.CreateDriveFolderParams{
 		TenantID:           input.TenantID,
+		WorkspaceID:        pgtype.Int8{Int64: workspace.ID, Valid: true},
 		ParentFolderID:     parentID,
 		Name:               name,
 		CreatedByUserID:    actor.UserID,
@@ -113,7 +120,7 @@ func (s *DriveService) CreateFolder(ctx context.Context, input DriveCreateFolder
 		return DriveFolder{}, fmt.Errorf("commit drive folder transaction: %w", err)
 	}
 
-	if err := s.authz.WriteResourceCreateTuples(ctx, actor, folder.ResourceRef(), parentRef); err != nil {
+	if err := s.authz.WriteResourceCreateTuplesWithWorkspace(ctx, actor, folder.ResourceRef(), parentRef, &workspace); err != nil {
 		_, _ = s.queries.SoftDeleteDriveFolder(context.Background(), db.SoftDeleteDriveFolderParams{
 			DeletedByUserID: pgtype.Int8{Int64: actor.UserID, Valid: true},
 			ID:              folder.ID,
@@ -142,6 +149,7 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 	}
 
 	var parentRef *DriveResourceRef
+	var parentFolderForWorkspace *DriveFolder
 	parentID := pgtype.Int8{}
 	parentPublicIDInput := strings.TrimSpace(input.ParentFolderPublicID)
 	if input.ParentFolderID != nil || (parentPublicIDInput != "" && parentPublicIDInput != "root") {
@@ -161,13 +169,25 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 		}
 		ref := parent.ResourceRef()
 		parentRef = &ref
+		parentFolderForWorkspace = &parent
 		parentID = pgtype.Int8{Int64: parent.ID, Valid: true}
+	}
+	workspace, err := s.resolveWorkspaceForCreate(ctx, input.TenantID, actor, input.WorkspacePublicID, parentFolderForWorkspace)
+	if err != nil {
+		return DriveFile{}, err
 	}
 
 	contentType := normalizeContentType(input.ContentType)
 	maxBytes := int64(10 * 1024 * 1024)
 	if s.files != nil && s.files.maxBytes > 0 {
 		maxBytes = s.files.maxBytes
+	}
+	policy, err := s.drivePolicy(ctx, input.TenantID)
+	if err != nil {
+		return DriveFile{}, err
+	}
+	if policy.MaxFileSizeBytes > 0 && policy.MaxFileSizeBytes < maxBytes {
+		maxBytes = policy.MaxFileSizeBytes
 	}
 	storageKey := fmt.Sprintf("tenants/%d/drive/%s", input.TenantID, uuid.NewString())
 	stored, err := s.storage.Save(ctx, storageKey, input.Body, maxBytes)
@@ -204,6 +224,7 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 	row, err := qtx.CreateDriveFileObject(ctx, db.CreateDriveFileObjectParams{
 		TenantID:           input.TenantID,
 		UploadedByUserID:   pgtype.Int8{Int64: actor.UserID, Valid: true},
+		WorkspaceID:        pgtype.Int8{Int64: workspace.ID, Valid: true},
 		DriveFolderID:      parentID,
 		OriginalFilename:   filename,
 		ContentType:        contentType,
@@ -211,6 +232,7 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 		Sha256Hex:          stored.SHA256Hex,
 		StorageDriver:      "local",
 		StorageKey:         stored.Key,
+		ScanStatus:         driveInitialScanStatus(policy),
 		InheritanceEnabled: true,
 	})
 	if err != nil {
@@ -230,7 +252,7 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 		return DriveFile{}, fmt.Errorf("commit drive file transaction: %w", err)
 	}
 
-	if err := s.authz.WriteResourceCreateTuples(ctx, actor, file.ResourceRef(), parentRef); err != nil {
+	if err := s.authz.WriteResourceCreateTuplesWithWorkspace(ctx, actor, file.ResourceRef(), parentRef, &workspace); err != nil {
 		_, _ = s.queries.SoftDeleteDriveFile(context.Background(), db.SoftDeleteDriveFileParams{
 			DeletedByUserID: pgtype.Int8{Int64: actor.UserID, Valid: true},
 			ID:              file.ID,
@@ -252,6 +274,9 @@ func (s *DriveService) CreateShare(ctx context.Context, input DriveCreateShareIn
 	}
 	resource, err := s.resolveShareableResource(ctx, actor, input.Resource)
 	if err != nil {
+		return DriveShare{}, err
+	}
+	if err := s.ensureResourceShareAllowed(ctx, actor, resource, auditCtx); err != nil {
 		return DriveShare{}, err
 	}
 	role := normalizeDriveRole(input.Role)
@@ -459,6 +484,27 @@ func (s *DriveService) CreateShareLink(ctx context.Context, input DriveCreateSha
 	if !policy.LinkSharingEnabled || !policy.PublicLinksEnabled {
 		return DriveShareLink{}, ErrDrivePolicyDenied
 	}
+	role := normalizeDriveRole(input.Role)
+	if role == "" {
+		role = DriveRoleViewer
+	}
+	if role == DriveRoleOwner {
+		return DriveShareLink{}, fmt.Errorf("%w: share link role is not supported", ErrDriveInvalidInput)
+	}
+	if role == DriveRoleEditor {
+		if !policy.AnonymousEditorLinksEnabled {
+			return DriveShareLink{}, ErrDrivePolicyDenied
+		}
+		if input.Resource.Type != DriveResourceTypeFile {
+			return DriveShareLink{}, fmt.Errorf("%w: editor links are file-only", ErrDriveInvalidInput)
+		}
+		if policy.AnonymousEditorLinksRequirePassword && strings.TrimSpace(input.Password) == "" {
+			return DriveShareLink{}, fmt.Errorf("%w: editor link password is required", ErrDriveInvalidInput)
+		}
+		if input.ExpiresAt.IsZero() || input.ExpiresAt.After(s.now().Add(time.Duration(policy.AnonymousEditorLinkMaxTTLMinutes)*time.Minute)) {
+			return DriveShareLink{}, ErrDrivePolicyDenied
+		}
+	}
 	if policy.RequireShareLinkPassword && strings.TrimSpace(input.Password) == "" {
 		return DriveShareLink{}, fmt.Errorf("%w: share link password is required", ErrDriveInvalidInput)
 	}
@@ -479,16 +525,31 @@ func (s *DriveService) CreateShareLink(ctx context.Context, input DriveCreateSha
 	if err != nil {
 		return DriveShareLink{}, err
 	}
+	if err := s.ensureResourceShareAllowed(ctx, actor, resource, auditCtx); err != nil {
+		return DriveShareLink{}, err
+	}
+	var activeLinkCount int64
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM drive_share_links WHERE tenant_id = $1 AND status = 'active'`, input.TenantID).Scan(&activeLinkCount); err != nil {
+		return DriveShareLink{}, fmt.Errorf("count drive share links: %w", err)
+	}
+	if policy.MaxPublicLinkCount > 0 && int(activeLinkCount) >= policy.MaxPublicLinkCount {
+		s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.policy.enforcement_denied", "drive_share_link", "new", map[string]any{
+			"feature": "public_link_count",
+			"plan":    policy.PlanCode,
+		})
+		return DriveShareLink{}, ErrDrivePolicyDenied
+	}
 	rawToken, tokenHash, err := newDriveShareLinkToken()
 	if err != nil {
 		return DriveShareLink{}, err
 	}
-	canDownload := input.CanDownload && policy.ViewerDownloadEnabled
+	canDownload := input.CanDownload && policy.ViewerDownloadEnabled && role == DriveRoleViewer
 	row, err := s.queries.CreateDriveShareLink(ctx, db.CreateDriveShareLinkParams{
 		TenantID:        input.TenantID,
 		ResourceType:    string(resource.Type),
 		ResourceID:      resource.ID,
 		TokenHash:       tokenHash,
+		Role:            string(role),
 		CanDownload:     canDownload,
 		ExpiresAt:       pgTimestamp(input.ExpiresAt),
 		Status:          "active",
@@ -512,6 +573,7 @@ func (s *DriveService) CreateShareLink(ctx context.Context, input DriveCreateSha
 	}
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.share_link.create", "drive_share_link", link.PublicID, map[string]any{
 		"resourceType":     resource.Type,
+		"role":             role,
 		"canDownload":      canDownload,
 		"passwordRequired": link.PasswordRequired,
 		"expiresAt":        link.ExpiresAt,
@@ -795,8 +857,13 @@ func (s *DriveService) resolveResourceAndParent(ctx context.Context, actor Drive
 func (s *DriveService) updateInheritanceFlag(ctx context.Context, tenantID int64, resource, parent DriveResourceRef, enabled bool) (DriveResourceRef, error) {
 	switch resource.Type {
 	case DriveResourceTypeFile:
+		parentFolder, err := s.getFolderByID(ctx, tenantID, parent.ID)
+		if err != nil {
+			return DriveResourceRef{}, err
+		}
 		row, err := s.queries.MoveDriveFile(ctx, db.MoveDriveFileParams{
 			DriveFolderID:      pgtype.Int8{Int64: parent.ID, Valid: true},
+			WorkspaceID:        pgInt8(parentFolder.WorkspaceID),
 			InheritanceEnabled: enabled,
 			ID:                 resource.ID,
 			TenantID:           tenantID,
@@ -809,8 +876,13 @@ func (s *DriveService) updateInheritanceFlag(ctx context.Context, tenantID int64
 		}
 		return driveFileFromDB(row).ResourceRef(), nil
 	case DriveResourceTypeFolder:
+		parentFolder, err := s.getFolderByID(ctx, tenantID, parent.ID)
+		if err != nil {
+			return DriveResourceRef{}, err
+		}
 		row, err := s.queries.MoveDriveFolder(ctx, db.MoveDriveFolderParams{
 			ParentFolderID:     pgtype.Int8{Int64: parent.ID, Valid: true},
+			WorkspaceID:        pgInt8(parentFolder.WorkspaceID),
 			InheritanceEnabled: enabled,
 			ID:                 resource.ID,
 			TenantID:           tenantID,

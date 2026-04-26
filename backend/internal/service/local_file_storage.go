@@ -10,9 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var ErrFileTooLarge = errors.New("file is too large")
+var ErrSignedURLUnsupported = errors.New("signed object URL is not supported by this storage driver")
 
 type LocalFileStorage struct {
 	root string
@@ -27,6 +29,10 @@ func NewLocalFileStorage(root string) *LocalFileStorage {
 }
 
 func (s *LocalFileStorage) Save(ctx context.Context, key string, reader io.Reader, maxBytes int64) (StoredFile, error) {
+	return s.PutObject(ctx, key, reader, maxBytes, ObjectPutOptions{})
+}
+
+func (s *LocalFileStorage) PutObject(ctx context.Context, key string, reader io.Reader, maxBytes int64, _ ObjectPutOptions) (StoredFile, error) {
 	if s == nil {
 		return StoredFile{}, fmt.Errorf("file storage is not configured")
 	}
@@ -77,10 +83,15 @@ func (s *LocalFileStorage) Save(ctx context.Context, key string, reader io.Reade
 		Key:       key,
 		Size:      written,
 		SHA256Hex: hex.EncodeToString(hasher.Sum(nil)),
+		ETag:      hex.EncodeToString(hasher.Sum(nil)),
 	}, nil
 }
 
 func (s *LocalFileStorage) Open(ctx context.Context, key string) (FileReadCloser, error) {
+	return s.GetObject(ctx, key)
+}
+
+func (s *LocalFileStorage) GetObject(ctx context.Context, key string) (FileReadCloser, error) {
 	if s == nil {
 		return FileReadCloser{}, fmt.Errorf("file storage is not configured")
 	}
@@ -106,6 +117,10 @@ func (s *LocalFileStorage) Open(ctx context.Context, key string) (FileReadCloser
 }
 
 func (s *LocalFileStorage) Delete(ctx context.Context, key string) error {
+	return s.DeleteObject(ctx, key)
+}
+
+func (s *LocalFileStorage) DeleteObject(ctx context.Context, key string) error {
 	if s == nil {
 		return nil
 	}
@@ -122,6 +137,38 @@ func (s *LocalFileStorage) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("delete file body: %w", err)
 	}
 	return nil
+}
+
+func (s *LocalFileStorage) CreateDownloadURL(context.Context, string, time.Duration) (SignedObjectURL, error) {
+	return SignedObjectURL{}, ErrSignedURLUnsupported
+}
+
+func (s *LocalFileStorage) CreateUploadURL(context.Context, string, time.Duration, string) (SignedObjectURL, error) {
+	return SignedObjectURL{}, ErrSignedURLUnsupported
+}
+
+func (s *LocalFileStorage) HeadObject(ctx context.Context, key string) (ObjectHead, error) {
+	if s == nil {
+		return ObjectHead{}, fmt.Errorf("file storage is not configured")
+	}
+	path, err := s.pathForKey(key)
+	if err != nil {
+		return ObjectHead{}, err
+	}
+	select {
+	case <-ctx.Done():
+		return ObjectHead{}, ctx.Err()
+	default:
+	}
+	stat, err := os.Stat(path)
+	if err != nil {
+		return ObjectHead{}, fmt.Errorf("head file body: %w", err)
+	}
+	return ObjectHead{
+		Key:       key,
+		Size:      stat.Size(),
+		UpdatedAt: stat.ModTime(),
+	}, nil
 }
 
 func (s *LocalFileStorage) pathForKey(key string) (string, error) {

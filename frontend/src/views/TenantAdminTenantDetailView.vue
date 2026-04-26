@@ -40,6 +40,19 @@ const driveBlockedDomains = ref('')
 const driveMaxLinkTTLHours = ref(168)
 const driveViewerDownloadEnabled = ref(true)
 const driveExternalDownloadEnabled = ref(false)
+const driveAdminContentAccessMode = ref('disabled')
+const driveAnonymousEditorLinksEnabled = ref(false)
+const driveAnonymousEditorLinksRequirePassword = ref(true)
+const driveAnonymousEditorLinkMaxTTLMinutes = ref(60)
+const driveContentScanEnabled = ref(false)
+const driveBlockDownloadUntilScanComplete = ref(true)
+const driveBlockShareUntilScanComplete = ref(true)
+const driveDlpEnabled = ref(false)
+const drivePlanCode = ref('standard')
+const driveMaxFileSizeBytes = ref(10485760)
+const driveMaxWorkspaceCount = ref(25)
+const driveMaxPublicLinkCount = ref(1000)
+const driveM2MApiEnabled = ref(false)
 const webhookName = ref('')
 const webhookUrl = ref('')
 const webhookEvents = ref('customer_signal.created')
@@ -65,6 +78,10 @@ const drivePolicyRows = computed(() => [
   ['External sharing', driveExternalSharingEnabled.value ? 'Enabled' : 'Disabled'],
   ['External approval', driveRequireApproval.value ? 'Required' : 'Not required'],
   ['Password links', drivePasswordLinksEnabled.value ? 'Enabled' : 'Disabled'],
+  ['Admin content access', driveAdminContentAccessMode.value],
+  ['Anonymous editor links', driveAnonymousEditorLinksEnabled.value ? 'Enabled' : 'Disabled'],
+  ['Scan/DLP', `${driveContentScanEnabled.value ? 'Scan on' : 'Scan off'} / ${driveDlpEnabled.value ? 'DLP on' : 'DLP off'}`],
+  ['Plan', drivePlanCode.value],
   ['Max link TTL', `${driveMaxLinkTTLHours.value} hours`],
 ])
 
@@ -179,6 +196,19 @@ function syncCommonForm() {
   driveMaxLinkTTLHours.value = typeof drive.maxShareLinkTTLHours === 'number' ? drive.maxShareLinkTTLHours : 168
   driveViewerDownloadEnabled.value = drive.viewerDownloadEnabled !== false
   driveExternalDownloadEnabled.value = Boolean(drive.externalDownloadEnabled)
+  driveAdminContentAccessMode.value = typeof drive.adminContentAccessMode === 'string' ? drive.adminContentAccessMode : 'disabled'
+  driveAnonymousEditorLinksEnabled.value = Boolean(drive.anonymousEditorLinksEnabled)
+  driveAnonymousEditorLinksRequirePassword.value = drive.anonymousEditorLinksRequirePassword !== false
+  driveAnonymousEditorLinkMaxTTLMinutes.value = typeof drive.anonymousEditorLinkMaxTTLMinutes === 'number' ? drive.anonymousEditorLinkMaxTTLMinutes : 60
+  driveContentScanEnabled.value = Boolean(drive.contentScanEnabled)
+  driveBlockDownloadUntilScanComplete.value = drive.blockDownloadUntilScanComplete !== false
+  driveBlockShareUntilScanComplete.value = drive.blockShareUntilScanComplete !== false
+  driveDlpEnabled.value = Boolean(drive.dlpEnabled)
+  drivePlanCode.value = typeof drive.planCode === 'string' ? drive.planCode : 'standard'
+  driveMaxFileSizeBytes.value = typeof drive.maxFileSizeBytes === 'number' ? drive.maxFileSizeBytes : 10485760
+  driveMaxWorkspaceCount.value = typeof drive.maxWorkspaceCount === 'number' ? drive.maxWorkspaceCount : 25
+  driveMaxPublicLinkCount.value = typeof drive.maxPublicLinkCount === 'number' ? drive.maxPublicLinkCount : 1000
+  driveM2MApiEnabled.value = Boolean(drive.m2mDriveAPIEnabled)
 }
 
 function formatDate(value?: string) {
@@ -310,6 +340,21 @@ async function saveCommonSettings() {
           externalDownloadEnabled: driveExternalDownloadEnabled.value,
           editorCanReshare: false,
           editorCanDelete: false,
+          adminContentAccessMode: driveAdminContentAccessMode.value,
+          anonymousEditorLinksEnabled: driveAnonymousEditorLinksEnabled.value,
+          anonymousEditorLinksRequirePassword: driveAnonymousEditorLinksRequirePassword.value,
+          anonymousEditorLinkMaxTTLMinutes: driveAnonymousEditorLinkMaxTTLMinutes.value,
+          contentScanEnabled: driveContentScanEnabled.value,
+          blockDownloadUntilScanComplete: driveBlockDownloadUntilScanComplete.value,
+          blockShareUntilScanComplete: driveBlockShareUntilScanComplete.value,
+          dlpEnabled: driveDlpEnabled.value,
+          planCode: drivePlanCode.value,
+          maxFileSizeBytes: driveMaxFileSizeBytes.value,
+          maxWorkspaceCount: driveMaxWorkspaceCount.value,
+          maxPublicLinkCount: driveMaxPublicLinkCount.value,
+          passwordLinksPlanEnabled: true,
+          dlpPlanEnabled: true,
+          m2mDriveAPIEnabled: driveM2MApiEnabled.value,
         },
       },
     })
@@ -811,8 +856,67 @@ async function confirmPendingAction() {
             <span>External download enabled</span>
           </label>
           <label class="field">
+            <span class="field-label">Admin content access</span>
+            <select v-model="driveAdminContentAccessMode" class="field-input">
+              <option value="disabled">Disabled</option>
+              <option value="break_glass">Break-glass</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Drive plan</span>
+            <select v-model="drivePlanCode" class="field-input">
+              <option value="free">Free</option>
+              <option value="standard">Standard</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveAnonymousEditorLinksEnabled" type="checkbox">
+            <span>Anonymous editor links enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveAnonymousEditorLinksRequirePassword" type="checkbox">
+            <span>Anonymous editor links require password</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveContentScanEnabled" type="checkbox">
+            <span>Content scan enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveDlpEnabled" type="checkbox">
+            <span>DLP enabled</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveBlockDownloadUntilScanComplete" type="checkbox">
+            <span>Block download until scan complete</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveBlockShareUntilScanComplete" type="checkbox">
+            <span>Block share until scan complete</span>
+          </label>
+          <label class="checkbox-field">
+            <input v-model="driveM2MApiEnabled" type="checkbox">
+            <span>M2M Drive API enabled</span>
+          </label>
+          <label class="field">
             <span class="field-label">Max link TTL hours</span>
             <input v-model.number="driveMaxLinkTTLHours" class="field-input" min="1" max="2160" type="number">
+          </label>
+          <label class="field">
+            <span class="field-label">Anonymous editor TTL minutes</span>
+            <input v-model.number="driveAnonymousEditorLinkMaxTTLMinutes" class="field-input" min="1" max="1440" type="number">
+          </label>
+          <label class="field">
+            <span class="field-label">Max file size bytes</span>
+            <input v-model.number="driveMaxFileSizeBytes" class="field-input" min="1" type="number">
+          </label>
+          <label class="field">
+            <span class="field-label">Max workspaces</span>
+            <input v-model.number="driveMaxWorkspaceCount" class="field-input" min="1" max="1000" type="number">
+          </label>
+          <label class="field">
+            <span class="field-label">Max public links</span>
+            <input v-model.number="driveMaxPublicLinkCount" class="field-input" min="1" max="100000" type="number">
           </label>
           <label class="field">
             <span class="field-label">Allowed external domains</span>
@@ -844,6 +948,25 @@ async function confirmPendingAction() {
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div v-if="store.driveHealth" class="metadata-grid">
+          <div>
+            <dt>Workspaces</dt>
+            <dd>{{ store.driveHealth.workspaceCount }}</dd>
+          </div>
+          <div>
+            <dt>Missing workspace bindings</dt>
+            <dd>{{ store.driveHealth.missingWorkspaceCount }}</dd>
+          </div>
+          <div>
+            <dt>OpenFGA drift</dt>
+            <dd>{{ store.driveHealth.openfgaDriftCount }}</dd>
+          </div>
+          <div>
+            <dt>Storage missing sample</dt>
+            <dd>{{ store.driveHealth.storageMissingCount }}</dd>
+          </div>
         </div>
 
         <p class="cell-subtle">

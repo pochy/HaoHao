@@ -51,6 +51,7 @@ func (s *DriveService) ListChildren(ctx context.Context, input DriveListChildren
 	}
 
 	parentID := pgtype.Int8{}
+	workspaceID := pgtype.Int8{}
 	if parentPublicID := strings.TrimSpace(input.ParentFolderPublicID); parentPublicID != "" && parentPublicID != "root" {
 		parent, err := s.getDriveFolder(ctx, input.TenantID, DriveResourceRef{Type: DriveResourceTypeFolder, PublicID: input.ParentFolderPublicID})
 		if err != nil {
@@ -61,10 +62,20 @@ func (s *DriveService) ListChildren(ctx context.Context, input DriveListChildren
 			return nil, err
 		}
 		parentID = pgtype.Int8{Int64: parent.ID, Valid: true}
+		if parent.WorkspaceID != nil {
+			workspaceID = pgtype.Int8{Int64: *parent.WorkspaceID, Valid: true}
+		}
+	} else {
+		workspace, err := s.resolveWorkspaceForCreate(ctx, input.TenantID, actor, input.WorkspacePublicID, nil)
+		if err != nil {
+			return nil, err
+		}
+		workspaceID = pgtype.Int8{Int64: workspace.ID, Valid: true}
 	}
 
 	folderRows, err := s.queries.ListDriveChildFolders(ctx, db.ListDriveChildFoldersParams{
 		TenantID:       input.TenantID,
+		WorkspaceID:    workspaceID,
 		ParentFolderID: parentID,
 		LimitCount:     limit,
 	})
@@ -73,6 +84,7 @@ func (s *DriveService) ListChildren(ctx context.Context, input DriveListChildren
 	}
 	fileRows, err := s.queries.ListDriveChildFiles(ctx, db.ListDriveChildFilesParams{
 		TenantID:      input.TenantID,
+		WorkspaceID:   workspaceID,
 		DriveFolderID: parentID,
 		LimitCount:    limit,
 	})
@@ -326,6 +338,9 @@ func (s *DriveService) DownloadFile(ctx context.Context, tenantID, actorUserID i
 		s.auditDenied(ctx, actor, "drive.file.download", "drive_file", file.PublicID, err, auditCtx)
 		return DriveFileDownload{}, err
 	}
+	if err := s.ensureFileDownloadAllowed(ctx, actor, file, auditCtx, "drive.file.download"); err != nil {
+		return DriveFileDownload{}, err
+	}
 	body, err := s.storage.Open(ctx, file.StorageKey)
 	if err != nil {
 		return DriveFileDownload{}, err
@@ -426,6 +441,13 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 	if s.files != nil && s.files.maxBytes > 0 {
 		maxBytes = s.files.maxBytes
 	}
+	policy, err := s.drivePolicy(ctx, input.TenantID)
+	if err != nil {
+		return DriveFile{}, err
+	}
+	if policy.MaxFileSizeBytes > 0 && policy.MaxFileSizeBytes < maxBytes {
+		maxBytes = policy.MaxFileSizeBytes
+	}
 	stored, err := s.storage.Save(ctx, storageKey, input.Body, maxBytes)
 	if err != nil {
 		if errors.Is(err, ErrFileTooLarge) {
@@ -453,6 +475,7 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 		Sha256Hex:     stored.SHA256Hex,
 		StorageDriver: "local",
 		StorageKey:    stored.Key,
+		ScanStatus:    driveInitialScanStatus(policy),
 		ID:            file.ID,
 		TenantID:      input.TenantID,
 	})
@@ -776,6 +799,7 @@ func (s *DriveService) PublicShareLinkContent(ctx context.Context, token string)
 func (s *DriveService) moveFolder(ctx context.Context, actor DriveActor, folder DriveFolder, parentPublicID string) (DriveFolder, error) {
 	parentPublicID = strings.TrimSpace(parentPublicID)
 	parentID := pgtype.Int8{}
+	workspaceID := pgInt8(folder.WorkspaceID)
 	var newParent *DriveFolder
 	var newParentRef *DriveResourceRef
 	if parentPublicID != "" && parentPublicID != "root" {
@@ -801,6 +825,7 @@ func (s *DriveService) moveFolder(ctx context.Context, actor DriveActor, folder 
 			return DriveFolder{}, err
 		}
 		newParent = &parent
+		workspaceID = pgInt8(parent.WorkspaceID)
 		ref := parent.ResourceRef()
 		newParentRef = &ref
 		parentID = pgtype.Int8{Int64: parent.ID, Valid: true}
@@ -821,6 +846,7 @@ func (s *DriveService) moveFolder(ctx context.Context, actor DriveActor, folder 
 	}
 	row, err := s.queries.MoveDriveFolder(ctx, db.MoveDriveFolderParams{
 		ParentFolderID:     parentID,
+		WorkspaceID:        workspaceID,
 		InheritanceEnabled: newParent != nil,
 		ID:                 folder.ID,
 		TenantID:           actor.TenantID,
@@ -839,6 +865,7 @@ func (s *DriveService) moveFolder(ctx context.Context, actor DriveActor, folder 
 func (s *DriveService) moveFile(ctx context.Context, actor DriveActor, file DriveFile, parentPublicID string) (DriveFile, error) {
 	parentPublicID = strings.TrimSpace(parentPublicID)
 	parentID := pgtype.Int8{}
+	workspaceID := pgInt8(file.WorkspaceID)
 	var newParent *DriveFolder
 	var newParentRef *DriveResourceRef
 	if parentPublicID != "" && parentPublicID != "root" {
@@ -850,6 +877,7 @@ func (s *DriveService) moveFile(ctx context.Context, actor DriveActor, file Driv
 			return DriveFile{}, err
 		}
 		newParent = &parent
+		workspaceID = pgInt8(parent.WorkspaceID)
 		ref := parent.ResourceRef()
 		newParentRef = &ref
 		parentID = pgtype.Int8{Int64: parent.ID, Valid: true}
@@ -870,6 +898,7 @@ func (s *DriveService) moveFile(ctx context.Context, actor DriveActor, file Driv
 	}
 	row, err := s.queries.MoveDriveFile(ctx, db.MoveDriveFileParams{
 		DriveFolderID:      parentID,
+		WorkspaceID:        workspaceID,
 		InheritanceEnabled: newParent != nil,
 		ID:                 file.ID,
 		TenantID:           actor.TenantID,

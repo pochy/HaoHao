@@ -42,6 +42,7 @@ const activeTenantLabel = computed(() => (
 const visibleItems = computed(() => (searchMode.value ? driveStore.searchResults : driveStore.children))
 const selectedLabel = computed(() => (driveStore.selectedItem ? labelFromDriveItem(driveStore.selectedItem) : 'Drive item'))
 const selectedResource = computed(() => driveStore.selectedResource)
+const currentWorkspaceId = computed(() => driveStore.currentWorkspace?.publicId ?? '')
 const deleteTitle = computed(() => (
   pendingDelete.value?.type === 'folder' ? 'Delete folder' : 'Delete file'
 ))
@@ -84,6 +85,28 @@ watch(
 
 function navigateFolder(folderPublicId: string) {
   router.push({ name: 'drive-folder', params: { folderPublicId } })
+}
+
+async function selectWorkspace(event: Event) {
+  const workspacePublicId = (event.target as HTMLSelectElement).value
+  await driveStore.selectWorkspace(workspacePublicId)
+  if (route.name !== 'drive') {
+    await router.push('/drive')
+  }
+}
+
+async function createWorkspace() {
+  const name = window.prompt('Workspace name', '')
+  if (!name?.trim()) {
+    return
+  }
+  try {
+    await driveStore.createWorkspace(name)
+    actionMessage.value = 'Workspace を作成しました。'
+    await router.push('/drive')
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
 }
 
 async function createFolder(name: string) {
@@ -247,12 +270,12 @@ async function createExternalInvitation(inviteeEmail: string, role: string) {
   }
 }
 
-async function createShareLink(expiresAt: string, canDownload: boolean, password: string) {
+async function createShareLink(expiresAt: string, canDownload: boolean, password: string, role: string) {
   if (!selectedResource.value) {
     return
   }
   try {
-    await driveStore.createShareLink(selectedResource.value, expiresAt, canDownload, password)
+    await driveStore.createShareLink(selectedResource.value, expiresAt, canDownload, password, role)
     actionMessage.value = 'Share link を作成しました。'
   } catch (error) {
     actionErrorMessage.value = toApiErrorMessage(error)
@@ -320,10 +343,28 @@ async function search(query: string) {
       </RouterLink>
     </div>
 
+    <div v-if="!searchMode" class="action-row">
+      <label class="field compact-field">
+        <span class="field-label">Workspace</span>
+        <select class="field-input" :value="currentWorkspaceId" :disabled="driveStore.isBusy" @change="selectWorkspace">
+          <option v-for="workspace in driveStore.workspaces" :key="workspace.publicId" :value="workspace.publicId">
+            {{ workspace.name }}
+          </option>
+        </select>
+      </label>
+      <button class="secondary-button compact-button" type="button" :disabled="driveStore.isBusy || !tenantStore.activeTenant" @click="createWorkspace">
+        New workspace
+      </button>
+    </div>
+
     <dl class="metadata-grid">
       <div>
         <dt>Active tenant</dt>
         <dd>{{ activeTenantLabel }}</dd>
+      </div>
+      <div>
+        <dt>Workspace</dt>
+        <dd>{{ driveStore.currentWorkspace?.name ?? 'Default' }}</dd>
       </div>
       <div>
         <dt>Current folder</dt>

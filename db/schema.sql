@@ -199,6 +199,76 @@ ALTER TABLE public.customer_signals ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
 
 
 --
+-- Name: drive_admin_content_access_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_admin_content_access_sessions (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    actor_user_id bigint NOT NULL,
+    reason text NOT NULL,
+    reason_category text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    ended_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_admin_content_access_sessions_reason_category_check CHECK ((reason_category = ANY (ARRAY['manual'::text, 'incident'::text, 'legal'::text, 'security'::text]))),
+    CONSTRAINT drive_admin_content_access_sessions_reason_check CHECK ((btrim(reason) <> ''::text))
+);
+
+
+--
+-- Name: drive_admin_content_access_sessions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_admin_content_access_sessions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_admin_content_access_sessions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_file_revisions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_file_revisions (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    created_by_user_id bigint,
+    actor_type text DEFAULT 'user'::text NOT NULL,
+    previous_original_filename text NOT NULL,
+    previous_content_type text NOT NULL,
+    previous_byte_size bigint NOT NULL,
+    previous_sha256_hex text NOT NULL,
+    previous_storage_driver text NOT NULL,
+    previous_storage_key text NOT NULL,
+    reason text DEFAULT 'overwrite'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_file_revisions_previous_byte_size_check CHECK ((previous_byte_size >= 0))
+);
+
+
+--
+-- Name: drive_file_revisions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_file_revisions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_file_revisions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: drive_folders; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -220,6 +290,7 @@ CREATE TABLE public.drive_folders (
     legal_hold_by_user_id bigint,
     legal_hold_reason text,
     purge_block_reason text,
+    workspace_id bigint,
     CONSTRAINT drive_folders_name_check CHECK ((btrim(name) <> ''::text))
 );
 
@@ -475,7 +546,7 @@ CREATE TABLE public.drive_share_links (
     password_required boolean DEFAULT false NOT NULL,
     password_updated_at timestamp with time zone,
     CONSTRAINT drive_share_links_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text]))),
-    CONSTRAINT drive_share_links_role_check CHECK ((role = 'viewer'::text)),
+    CONSTRAINT drive_share_links_role_check CHECK ((role = ANY (ARRAY['viewer'::text, 'editor'::text]))),
     CONSTRAINT drive_share_links_status_check CHECK ((status = ANY (ARRAY['active'::text, 'disabled'::text, 'expired'::text, 'pending_sync'::text]))),
     CONSTRAINT drive_share_links_token_hash_check CHECK ((btrim(token_hash) <> ''::text))
 );
@@ -487,6 +558,41 @@ CREATE TABLE public.drive_share_links (
 
 ALTER TABLE public.drive_share_links ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.drive_share_links_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_workspaces; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_workspaces (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    name text NOT NULL,
+    root_folder_id bigint,
+    created_by_user_id bigint,
+    storage_quota_bytes bigint,
+    policy_override jsonb DEFAULT '{}'::jsonb NOT NULL,
+    deleted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_workspaces_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT drive_workspaces_storage_quota_bytes_check CHECK (((storage_quota_bytes IS NULL) OR (storage_quota_bytes >= 0)))
+);
+
+
+--
+-- Name: drive_workspaces_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_workspaces ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_workspaces_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -551,10 +657,23 @@ CREATE TABLE public.file_objects (
     legal_hold_by_user_id bigint,
     legal_hold_reason text,
     purge_block_reason text,
+    workspace_id bigint,
+    storage_bucket text,
+    storage_version text,
+    content_sha256 text,
+    etag text,
+    scan_status text DEFAULT 'skipped'::text NOT NULL,
+    scan_reason text,
+    scan_engine text,
+    scanned_at timestamp with time zone,
+    dlp_blocked boolean DEFAULT false NOT NULL,
+    upload_state text DEFAULT 'active'::text NOT NULL,
     CONSTRAINT file_objects_byte_size_check CHECK ((byte_size >= 0)),
     CONSTRAINT file_objects_purge_attempts_check CHECK ((purge_attempts >= 0)),
     CONSTRAINT file_objects_purpose_check CHECK ((purpose = ANY (ARRAY['attachment'::text, 'avatar'::text, 'import'::text, 'export'::text, 'drive'::text]))),
-    CONSTRAINT file_objects_status_check CHECK ((status = ANY (ARRAY['active'::text, 'deleted'::text])))
+    CONSTRAINT file_objects_scan_status_check CHECK ((scan_status = ANY (ARRAY['pending'::text, 'clean'::text, 'infected'::text, 'blocked'::text, 'failed'::text, 'skipped'::text]))),
+    CONSTRAINT file_objects_status_check CHECK ((status = ANY (ARRAY['active'::text, 'deleted'::text]))),
+    CONSTRAINT file_objects_upload_state_check CHECK ((upload_state = ANY (ARRAY['reserved'::text, 'uploading'::text, 'active'::text, 'failed'::text])))
 );
 
 
@@ -1243,6 +1362,22 @@ ALTER TABLE ONLY public.customer_signals
 
 
 --
+-- Name: drive_admin_content_access_sessions drive_admin_content_access_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_admin_content_access_sessions
+    ADD CONSTRAINT drive_admin_content_access_sessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_file_revisions drive_file_revisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_file_revisions
+    ADD CONSTRAINT drive_file_revisions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: drive_folders drive_folders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1328,6 +1463,14 @@ ALTER TABLE ONLY public.drive_share_link_password_attempts
 
 ALTER TABLE ONLY public.drive_share_links
     ADD CONSTRAINT drive_share_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_workspaces drive_workspaces_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_workspaces
+    ADD CONSTRAINT drive_workspaces_pkey PRIMARY KEY (id);
 
 
 --
@@ -1704,6 +1847,34 @@ CREATE INDEX customer_signals_tenant_status_created_at_idx ON public.customer_si
 
 
 --
+-- Name: drive_admin_content_access_sessions_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_admin_content_access_sessions_active_idx ON public.drive_admin_content_access_sessions USING btree (tenant_id, actor_user_id, expires_at) WHERE (ended_at IS NULL);
+
+
+--
+-- Name: drive_admin_content_access_sessions_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_admin_content_access_sessions_public_id_key ON public.drive_admin_content_access_sessions USING btree (public_id);
+
+
+--
+-- Name: drive_file_revisions_file_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_file_revisions_file_idx ON public.drive_file_revisions USING btree (file_object_id, created_at DESC);
+
+
+--
+-- Name: drive_file_revisions_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_file_revisions_public_id_key ON public.drive_file_revisions USING btree (public_id);
+
+
+--
 -- Name: drive_folders_active_name_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1743,6 +1914,13 @@ CREATE UNIQUE INDEX drive_folders_public_id_key ON public.drive_folders USING bt
 --
 
 CREATE INDEX drive_folders_retention_idx ON public.drive_folders USING btree (tenant_id, retention_until) WHERE (retention_until IS NOT NULL);
+
+
+--
+-- Name: drive_folders_workspace_children_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_folders_workspace_children_idx ON public.drive_folders USING btree (workspace_id, parent_folder_id, name, id) WHERE (deleted_at IS NULL);
 
 
 --
@@ -1886,6 +2064,27 @@ CREATE UNIQUE INDEX drive_share_links_token_hash_key ON public.drive_share_links
 
 
 --
+-- Name: drive_workspaces_active_name_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_workspaces_active_name_key ON public.drive_workspaces USING btree (tenant_id, lower(name)) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: drive_workspaces_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_workspaces_public_id_key ON public.drive_workspaces USING btree (public_id);
+
+
+--
+-- Name: drive_workspaces_tenant_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_workspaces_tenant_idx ON public.drive_workspaces USING btree (tenant_id, name, id) WHERE (deleted_at IS NULL);
+
+
+--
 -- Name: file_objects_attachment_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1918,6 +2117,20 @@ CREATE INDEX file_objects_drive_legal_hold_idx ON public.file_objects USING btre
 --
 
 CREATE INDEX file_objects_drive_retention_idx ON public.file_objects USING btree (tenant_id, retention_until) WHERE ((purpose = 'drive'::text) AND (retention_until IS NOT NULL));
+
+
+--
+-- Name: file_objects_drive_scan_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX file_objects_drive_scan_idx ON public.file_objects USING btree (tenant_id, scan_status, dlp_blocked) WHERE ((purpose = 'drive'::text) AND (deleted_at IS NULL));
+
+
+--
+-- Name: file_objects_drive_workspace_children_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX file_objects_drive_workspace_children_idx ON public.file_objects USING btree (workspace_id, drive_folder_id, original_filename, id) WHERE ((purpose = 'drive'::text) AND (deleted_at IS NULL));
 
 
 --
@@ -2318,6 +2531,46 @@ ALTER TABLE ONLY public.customer_signals
 
 
 --
+-- Name: drive_admin_content_access_sessions drive_admin_content_access_sessions_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_admin_content_access_sessions
+    ADD CONSTRAINT drive_admin_content_access_sessions_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_admin_content_access_sessions drive_admin_content_access_sessions_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_admin_content_access_sessions
+    ADD CONSTRAINT drive_admin_content_access_sessions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_file_revisions drive_file_revisions_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_file_revisions
+    ADD CONSTRAINT drive_file_revisions_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_file_revisions drive_file_revisions_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_file_revisions
+    ADD CONSTRAINT drive_file_revisions_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_file_revisions drive_file_revisions_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_file_revisions
+    ADD CONSTRAINT drive_file_revisions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: drive_folders drive_folders_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2363,6 +2616,14 @@ ALTER TABLE ONLY public.drive_folders
 
 ALTER TABLE ONLY public.drive_folders
     ADD CONSTRAINT drive_folders_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_folders drive_folders_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_folders
+    ADD CONSTRAINT drive_folders_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.drive_workspaces(id) ON DELETE RESTRICT;
 
 
 --
@@ -2510,6 +2771,30 @@ ALTER TABLE ONLY public.drive_share_links
 
 
 --
+-- Name: drive_workspaces drive_workspaces_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_workspaces
+    ADD CONSTRAINT drive_workspaces_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_workspaces drive_workspaces_root_folder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_workspaces
+    ADD CONSTRAINT drive_workspaces_root_folder_id_fkey FOREIGN KEY (root_folder_id) REFERENCES public.drive_folders(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_workspaces drive_workspaces_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_workspaces
+    ADD CONSTRAINT drive_workspaces_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: file_objects file_objects_deleted_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2563,6 +2848,14 @@ ALTER TABLE ONLY public.file_objects
 
 ALTER TABLE ONLY public.file_objects
     ADD CONSTRAINT file_objects_uploaded_by_user_id_fkey FOREIGN KEY (uploaded_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: file_objects file_objects_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.file_objects
+    ADD CONSTRAINT file_objects_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.drive_workspaces(id) ON DELETE RESTRICT;
 
 
 --

@@ -900,6 +900,46 @@ RUN_DRIVE_PASSWORD_LINK_SMOKE=1 RUN_OPENFGA_EXTERNAL_SHARE_SMOKE=1 make smoke-op
 - external invitationのaccept token、share link raw token、password、password hash、storage keyはaudit/API一覧に返さない。
 - Owner移譲、Commenter/Uploader、explicit deny、external bearer/M2M Drive full surface はPhase 7以降の採用判断枠に残す。
 
+## OpenFGA Drive Phase 7
+
+2026-04-26 に `TUTORIAL_OPENFGA_P7_ADVANCED_DRIVE_OPERATIONS.md` を実装。
+
+採用判断:
+
+- tenant admin file body閲覧は default disabled。`adminContentAccessMode=break_glass`、global role `tenant_admin` + `drive_content_admin`、短命session、reason、audit が揃った場合だけ専用admin endpointで許可する。
+- 匿名 editor link は default disabled。採用時も file限定、password必須、短TTL、revision保存、scan/lifecycle guard付き。
+- OpenFGA は workspace/folder/file/share_link の relationだけを持ち、scan/plan/storage/approval state はDBで持つ。
+
+追加済み:
+
+- `drive_workspaces` と file/folder `workspace_id`。Drive UIに workspace selector と作成導線を追加。
+- OpenFGA model に `workspace` type と folder/file workspace inheritance、share_link editor relationを追加。
+- object storage driver contractを `FileStorage` に拡張し、local driverは proxied stream + `HeadObject` を実装。signed URL未対応は明示error。
+- scan/DLP state列と download/share/public link guard。pending/blocked/infected/DLP blocked はpolicyに従って拒否する。
+- plan-derived effective Drive policy。file size、workspace数、public link数、password link/DLP/M2M flagsを保存・表示・enforce。
+- break-glass admin content access session API、metadata endpoint、raw content endpoint、audit event。
+- external bearer Drive APIを browser API と分離して追加。user bearer + `X-Tenant-ID` + `drive:*` scopeを要求する。
+- operations health / drift-check / repair endpoint と `docs/runbooks/drive-openfga-dr.md`。
+- smokeに Phase 7 env flags を追加。
+
+検証予定/実行コマンド:
+
+```bash
+make gen
+go test ./backend/...
+npm --prefix frontend run build
+make binary
+cd openfga && fga model test --tests drive.fga.yaml
+make smoke-openfga
+RUN_DRIVE_ADMIN_CONTENT_ACCESS_SMOKE=1 RUN_OPENFGA_PUBLIC_EDITOR_LINK_SMOKE=1 RUN_OPENFGA_WORKSPACE_SMOKE=1 make smoke-openfga
+RUN_DRIVE_SCAN_SMOKE=1 RUN_DRIVE_PLAN_ENFORCEMENT_SMOKE=1 RUN_DRIVE_DRIFT_SMOKE=1 RUN_DRIVE_STORAGE_CONSISTENCY_SMOKE=1 make smoke-openfga
+```
+
+注意:
+
+- local storage driverはsigned URLを発行せず、API proxy streamを使う。S3 compatible driverは次Phase以降のdriver実装として残す。
+- M2M Drive APIはpolicy/scope/tenant境界を用意したが、machine clientをOpenFGA userとして扱うには service account provisioning が必要。
+
 ## 残課題 / 次アクション
 
 現在の明確な次アクション:

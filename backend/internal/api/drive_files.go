@@ -173,6 +173,7 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 		item, err := deps.DriveService.UploadFile(c.Request.Context(), service.DriveUploadFileInput{
 			TenantID:             tenant.ID,
 			ActorUserID:          current.User.ID,
+			WorkspacePublicID:    c.PostForm("workspacePublicId"),
 			ParentFolderPublicID: c.PostForm("parentFolderPublicId"),
 			Filename:             header.Filename,
 			ContentType:          contentType,
@@ -278,6 +279,142 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 		c.SetCookie(verification.CookieName, verification.CookieValue, maxAge, "/api/public/drive/share-links/"+c.Param("token"), "", false, true)
 		c.JSON(http.StatusOK, gin.H{"verified": true, "expiresAt": verification.ExpiresAt})
 	})
+
+	router.PUT("/api/public/drive/share-links/:token/content", func(c *gin.Context) {
+		if deps.DriveService == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"title": "drive service is not configured"})
+			return
+		}
+		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"title": "invalid multipart form"})
+			return
+		}
+		header, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"title": "file is required"})
+			return
+		}
+		file, err := header.Open()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"title": "file is invalid"})
+			return
+		}
+		defer file.Close()
+		contentType := strings.TrimSpace(header.Header.Get("Content-Type"))
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		verificationCookie, _ := c.Cookie(service.DriveShareLinkPasswordCookieName)
+		item, err := deps.DriveService.PublicShareLinkOverwriteContentWithVerification(c.Request.Context(), service.DrivePublicEditorOverwriteInput{
+			Token:              c.Param("token"),
+			VerificationCookie: verificationCookie,
+			Filename:           header.Filename,
+			ContentType:        contentType,
+			Body:               file,
+		})
+		if err != nil {
+			writeRawDriveError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, toDriveFileBody(item))
+	})
+
+	router.GET("/api/v1/admin/tenants/:tenantSlug/drive/files/:filePublicId/content", func(c *gin.Context) {
+		if deps.DriveService == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"title": "drive service is not configured"})
+			return
+		}
+		cookie, err := c.Cookie(auth.SessionCookieName)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"title": "missing or expired session"})
+			return
+		}
+		current, tenant, requireErr := requireAdminTenantID(c.Request.Context(), deps, cookie, "", c.Param("tenantSlug"))
+		if requireErr != nil {
+			var statusErr huma.StatusError
+			if errors.As(requireErr, &statusErr) {
+				c.JSON(statusErr.GetStatus(), gin.H{"title": statusErr.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"title": "internal server error"})
+			}
+			return
+		}
+		download, err := deps.DriveService.AdminDriveFileContent(c.Request.Context(), tenant.ID, current.User.ID, c.Param("filePublicId"), sessionAuditContext(c.Request.Context(), current, &tenant.ID))
+		if err != nil {
+			writeRawDriveError(c, err)
+			return
+		}
+		defer download.Body.Close()
+		writeDriveDownload(c, download)
+	})
+
+	router.GET("/api/external/v1/drive/files/:fileId/content", func(c *gin.Context) {
+		authCtx, tenant, ok := rawExternalDriveUser(c, "drive:read")
+		if !ok {
+			return
+		}
+		download, err := deps.DriveService.DownloadFile(c.Request.Context(), tenant.ID, authCtx.User.ID, c.Param("fileId"), externalDriveAuditContext(authCtx, tenant.ID))
+		if err != nil {
+			writeRawDriveError(c, err)
+			return
+		}
+		defer download.Body.Close()
+		writeDriveDownload(c, download)
+	})
+
+	router.POST("/api/external/v1/drive/files", func(c *gin.Context) {
+		authCtx, tenant, ok := rawExternalDriveUser(c, "drive:write")
+		if !ok {
+			return
+		}
+		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"title": "invalid multipart form"})
+			return
+		}
+		header, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"title": "file is required"})
+			return
+		}
+		file, err := header.Open()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"title": "file is invalid"})
+			return
+		}
+		defer file.Close()
+		contentType := strings.TrimSpace(header.Header.Get("Content-Type"))
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		item, err := deps.DriveService.UploadFile(c.Request.Context(), service.DriveUploadFileInput{
+			TenantID:             tenant.ID,
+			ActorUserID:          authCtx.User.ID,
+			WorkspacePublicID:    c.PostForm("workspacePublicId"),
+			ParentFolderPublicID: c.PostForm("parentFolderPublicId"),
+			Filename:             header.Filename,
+			ContentType:          contentType,
+			Body:                 file,
+		}, externalDriveAuditContext(authCtx, tenant.ID))
+		if err != nil {
+			writeRawDriveError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, toDriveFileBody(item))
+	})
+}
+
+func rawExternalDriveUser(c *gin.Context, scope string) (service.AuthContext, service.TenantAccess, bool) {
+	authCtx, tenant, err := requireExternalDriveUser(c.Request.Context(), scope)
+	if err != nil {
+		var statusErr huma.StatusError
+		if errors.As(err, &statusErr) {
+			c.JSON(statusErr.GetStatus(), gin.H{"title": statusErr.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"title": "internal server error"})
+		}
+		return service.AuthContext{}, service.TenantAccess{}, false
+	}
+	return authCtx, tenant, true
 }
 
 func rawDriveActiveTenant(c *gin.Context, deps Dependencies, csrf bool) (service.CurrentSession, service.TenantAccess, bool) {

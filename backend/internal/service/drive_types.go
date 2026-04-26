@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"io"
 	"time"
 
@@ -10,8 +11,9 @@ import (
 type DriveResourceType string
 
 const (
-	DriveResourceTypeFile   DriveResourceType = "file"
-	DriveResourceTypeFolder DriveResourceType = "folder"
+	DriveResourceTypeFile      DriveResourceType = "file"
+	DriveResourceTypeFolder    DriveResourceType = "folder"
+	DriveResourceTypeWorkspace DriveResourceType = "workspace"
 )
 
 type DriveRole string
@@ -46,6 +48,8 @@ type DriveFolder struct {
 	ID                 int64
 	PublicID           string
 	TenantID           int64
+	WorkspaceID        *int64
+	WorkspacePublicID  string
 	ParentFolderID     *int64
 	Name               string
 	CreatedByUserID    int64
@@ -59,6 +63,8 @@ type DriveFile struct {
 	ID                 int64
 	PublicID           string
 	TenantID           int64
+	WorkspaceID        *int64
+	WorkspacePublicID  string
 	UploadedByUserID   *int64
 	DriveFolderID      *int64
 	OriginalFilename   string
@@ -68,12 +74,32 @@ type DriveFile struct {
 	StorageDriver      string
 	StorageKey         string
 	Status             string
+	ScanStatus         string
+	ScanReason         string
+	ScanEngine         string
+	ScannedAt          *time.Time
+	DLPBlocked         bool
+	UploadState        string
 	InheritanceEnabled bool
 	LockedAt           *time.Time
 	LockReason         string
 	DeletedAt          *time.Time
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+}
+
+type DriveWorkspace struct {
+	ID                int64
+	PublicID          string
+	TenantID          int64
+	Name              string
+	RootFolderID      *int64
+	CreatedByUserID   *int64
+	StorageQuotaBytes *int64
+	PolicyOverride    map[string]any
+	DeletedAt         *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 type DriveGroup struct {
@@ -224,9 +250,32 @@ type DriveFileDownload struct {
 	Body FileReadCloser
 }
 
+type DriveAdminContentAccessSession struct {
+	ID             int64
+	PublicID       string
+	TenantID       int64
+	ActorUserID    int64
+	Reason         string
+	ReasonCategory string
+	ExpiresAt      time.Time
+	EndedAt        *time.Time
+	CreatedAt      time.Time
+}
+
+type DriveOperationsHealth struct {
+	TenantID                int64
+	WorkspaceCount          int64
+	MissingWorkspaceCount   int64
+	OpenFGADriftCount       int
+	StorageMissingCount     int
+	StorageOrphanCheckState string
+	CheckedAt               time.Time
+}
+
 type DriveCreateFolderInput struct {
 	TenantID             int64
 	ActorUserID          int64
+	WorkspacePublicID    string
 	ParentFolderID       *int64
 	ParentFolderPublicID string
 	Name                 string
@@ -243,6 +292,7 @@ type DriveUpdateFolderInput struct {
 type DriveUploadFileInput struct {
 	TenantID             int64
 	ActorUserID          int64
+	WorkspacePublicID    string
 	ParentFolderID       *int64
 	ParentFolderPublicID string
 	Filename             string
@@ -270,6 +320,7 @@ type DriveOverwriteFileInput struct {
 type DriveListChildrenInput struct {
 	TenantID             int64
 	ActorUserID          int64
+	WorkspacePublicID    string
 	ParentFolderPublicID string
 	Limit                int32
 }
@@ -304,9 +355,43 @@ type DriveCreateShareLinkInput struct {
 	TenantID    int64
 	ActorUserID int64
 	Resource    DriveResourceRef
+	Role        DriveRole
 	CanDownload bool
 	ExpiresAt   time.Time
 	Password    string
+}
+
+type DriveCreateWorkspaceInput struct {
+	TenantID           int64
+	ActorUserID        int64
+	Name               string
+	StorageQuotaBytes  *int64
+	PolicyOverrideJSON []byte
+}
+
+type DriveUpdateWorkspaceInput struct {
+	TenantID           int64
+	ActorUserID        int64
+	WorkspacePublicID  string
+	Name               string
+	StorageQuotaBytes  *int64
+	PolicyOverrideJSON []byte
+}
+
+type DriveStartAdminContentAccessInput struct {
+	TenantID       int64
+	ActorUserID    int64
+	Reason         string
+	ReasonCategory string
+	TTL            time.Duration
+}
+
+type DrivePublicEditorOverwriteInput struct {
+	Token              string
+	VerificationCookie string
+	Filename           string
+	ContentType        string
+	Body               io.Reader
 }
 
 type DriveCreateShareInvitationInput struct {
@@ -353,11 +438,16 @@ func (f DriveFile) ResourceRef() DriveResourceRef {
 	return DriveResourceRef{Type: DriveResourceTypeFile, ID: f.ID, PublicID: f.PublicID, TenantID: f.TenantID}
 }
 
+func (w DriveWorkspace) ResourceRef() DriveResourceRef {
+	return DriveResourceRef{Type: DriveResourceTypeWorkspace, ID: w.ID, PublicID: w.PublicID, TenantID: w.TenantID}
+}
+
 func driveFolderFromDB(row db.DriveFolder) DriveFolder {
 	return DriveFolder{
 		ID:                 row.ID,
 		PublicID:           row.PublicID.String(),
 		TenantID:           row.TenantID,
+		WorkspaceID:        optionalPgInt8(row.WorkspaceID),
 		ParentFolderID:     optionalPgInt8(row.ParentFolderID),
 		Name:               row.Name,
 		CreatedByUserID:    row.CreatedByUserID,
@@ -373,6 +463,7 @@ func driveFileFromDB(row db.FileObject) DriveFile {
 		ID:                 row.ID,
 		PublicID:           row.PublicID.String(),
 		TenantID:           row.TenantID,
+		WorkspaceID:        optionalPgInt8(row.WorkspaceID),
 		UploadedByUserID:   optionalPgInt8(row.UploadedByUserID),
 		DriveFolderID:      optionalPgInt8(row.DriveFolderID),
 		OriginalFilename:   row.OriginalFilename,
@@ -382,12 +473,38 @@ func driveFileFromDB(row db.FileObject) DriveFile {
 		StorageDriver:      row.StorageDriver,
 		StorageKey:         row.StorageKey,
 		Status:             row.Status,
+		ScanStatus:         row.ScanStatus,
+		ScanReason:         optionalText(row.ScanReason),
+		ScanEngine:         optionalText(row.ScanEngine),
+		ScannedAt:          optionalPgTime(row.ScannedAt),
+		DLPBlocked:         row.DlpBlocked,
+		UploadState:        row.UploadState,
 		InheritanceEnabled: row.InheritanceEnabled,
 		LockedAt:           optionalPgTime(row.LockedAt),
 		LockReason:         optionalText(row.LockReason),
 		DeletedAt:          optionalPgTime(row.DeletedAt),
 		CreatedAt:          row.CreatedAt.Time,
 		UpdatedAt:          row.UpdatedAt.Time,
+	}
+}
+
+func driveWorkspaceFromDB(row db.DriveWorkspace) DriveWorkspace {
+	override := map[string]any{}
+	if len(row.PolicyOverride) > 0 {
+		_ = json.Unmarshal(row.PolicyOverride, &override)
+	}
+	return DriveWorkspace{
+		ID:                row.ID,
+		PublicID:          row.PublicID.String(),
+		TenantID:          row.TenantID,
+		Name:              row.Name,
+		RootFolderID:      optionalPgInt8(row.RootFolderID),
+		CreatedByUserID:   optionalPgInt8(row.CreatedByUserID),
+		StorageQuotaBytes: optionalPgInt8(row.StorageQuotaBytes),
+		PolicyOverride:    override,
+		DeletedAt:         optionalPgTime(row.DeletedAt),
+		CreatedAt:         row.CreatedAt.Time,
+		UpdatedAt:         row.UpdatedAt.Time,
 	}
 }
 

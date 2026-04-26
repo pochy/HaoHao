@@ -31,6 +31,8 @@ type GetExternalMeOutput struct {
 }
 
 func registerExternalRoutes(api huma.API, deps Dependencies) {
+	registerExternalDriveRoutes(api, deps)
+
 	huma.Register(api, huma.Operation{
 		OperationID: "getExternalMe",
 		Method:      http.MethodGet,

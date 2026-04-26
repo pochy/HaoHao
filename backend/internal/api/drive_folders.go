@@ -22,6 +22,7 @@ type DriveItemListOutput struct {
 
 type CreateDriveFolderBody struct {
 	Name                 string `json:"name" maxLength:"255"`
+	WorkspacePublicID    string `json:"workspacePublicId,omitempty" format:"uuid"`
 	ParentFolderPublicID string `json:"parentFolderPublicId,omitempty"`
 }
 
@@ -55,9 +56,10 @@ type DeleteDriveFolderInput struct {
 }
 
 type ListDriveChildrenInput struct {
-	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
-	FolderPublicID string      `path:"folderPublicId"`
-	Limit          int32       `query:"limit" default:"100"`
+	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
+	FolderPublicID    string      `path:"folderPublicId"`
+	WorkspacePublicID string      `query:"workspacePublicId" format:"uuid"`
+	Limit             int32       `query:"limit" default:"100"`
 }
 
 type DriveInheritanceBody struct {
@@ -73,6 +75,7 @@ type UpdateDriveFolderInheritanceInput struct {
 
 type ListDriveItemsInput struct {
 	SessionCookie        http.Cookie `cookie:"SESSION_ID"`
+	WorkspacePublicID    string      `query:"workspacePublicId" format:"uuid"`
 	FolderPublicID       string      `query:"folderPublicId"`
 	ParentFolderPublicID string      `query:"parentFolderPublicId"`
 	Limit                int32       `query:"limit" default:"100"`
@@ -86,6 +89,7 @@ type SearchDriveItemsInput struct {
 }
 
 func registerDriveRoutes(api huma.API, deps Dependencies) {
+	registerDriveWorkspaceRoutes(api, deps)
 	registerDriveFolderRoutes(api, deps)
 	registerDriveFileRoutes(api, deps)
 	registerDriveShareRoutes(api, deps)
@@ -110,6 +114,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		folder, err := deps.DriveService.CreateFolder(ctx, service.DriveCreateFolderInput{
 			TenantID:             tenant.ID,
 			ActorUserID:          current.User.ID,
+			WorkspacePublicID:    input.Body.WorkspacePublicID,
 			ParentFolderPublicID: input.Body.ParentFolderPublicID,
 			Name:                 input.Body.Name,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
@@ -207,6 +212,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		items, err := deps.DriveService.ListChildren(ctx, service.DriveListChildrenInput{
 			TenantID:             tenant.ID,
 			ActorUserID:          current.User.ID,
+			WorkspacePublicID:    input.WorkspacePublicID,
 			ParentFolderPublicID: input.FolderPublicID,
 			Limit:                input.Limit,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
@@ -259,6 +265,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		items, err := deps.DriveService.ListChildren(ctx, service.DriveListChildrenInput{
 			TenantID:             tenant.ID,
 			ActorUserID:          current.User.ID,
+			WorkspacePublicID:    input.WorkspacePublicID,
 			ParentFolderPublicID: parentID,
 			Limit:                input.Limit,
 		}, sessionAuditContext(ctx, current, &tenant.ID))

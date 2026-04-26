@@ -53,6 +53,9 @@ func (s *DriveService) CreateShareInvitation(ctx context.Context, input DriveCre
 	if err != nil {
 		return DriveShareInvitation{}, err
 	}
+	if err := s.ensureResourceShareAllowed(ctx, actor, resource, auditCtx); err != nil {
+		return DriveShareInvitation{}, err
+	}
 	role := normalizeDriveRole(input.Role)
 	if role == "" {
 		return DriveShareInvitation{}, fmt.Errorf("%w: invitation role is required", ErrDriveInvalidInput)
@@ -707,6 +710,17 @@ func (s *DriveService) PublicShareLinkContentWithVerification(ctx context.Contex
 	if file == nil {
 		return DriveFileDownload{}, ErrDriveInvalidInput
 	}
+	policy, err := s.drivePolicy(ctx, file.TenantID)
+	if err != nil {
+		return DriveFileDownload{}, err
+	}
+	if file.DLPBlocked || file.ScanStatus == "infected" || file.ScanStatus == "blocked" || (policy.ContentScanEnabled && policy.BlockDownloadUntilScanComplete && file.ScanStatus == "pending") {
+		s.recordPublicLinkAudit(ctx, link, "drive.file.download_denied_scan", map[string]any{
+			"scanStatus": file.ScanStatus,
+			"dlpBlocked": file.DLPBlocked,
+		})
+		return DriveFileDownload{}, ErrDrivePolicyDenied
+	}
 	body, err := s.storage.Open(ctx, file.StorageKey)
 	if err != nil {
 		return DriveFileDownload{}, err
@@ -955,7 +969,7 @@ LIMIT $2`, tenantID, limit)
 }
 
 func (s *DriveService) OpenFGADrift(ctx context.Context, tenantID int64) (DriveOpenFGASyncResult, error) {
-	return s.openFGASync(ctx, tenantID, true, AuditContext{})
+	return s.openFGASync(ctx, tenantID, true, AuditContext{ActorType: AuditActorSystem, TenantID: &tenantID})
 }
 
 func (s *DriveService) RepairOpenFGASync(ctx context.Context, tenantID, actorUserID int64, auditCtx AuditContext) (DriveOpenFGASyncResult, error) {

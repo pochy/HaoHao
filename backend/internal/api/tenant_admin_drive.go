@@ -54,6 +54,36 @@ type TenantAdminDriveSyncItemBody struct {
 	Error    string `json:"error,omitempty"`
 }
 
+type TenantAdminDriveOperationsHealthBody struct {
+	TenantID                int64     `json:"tenantId"`
+	WorkspaceCount          int64     `json:"workspaceCount"`
+	MissingWorkspaceCount   int64     `json:"missingWorkspaceCount"`
+	OpenFGADriftCount       int       `json:"openfgaDriftCount"`
+	StorageMissingCount     int       `json:"storageMissingCount"`
+	StorageOrphanCheckState string    `json:"storageOrphanCheckState"`
+	CheckedAt               time.Time `json:"checkedAt" format:"date-time"`
+}
+
+type TenantAdminDriveAdminContentSessionBody struct {
+	PublicID       string    `json:"publicId"`
+	ReasonCategory string    `json:"reasonCategory"`
+	ExpiresAt      time.Time `json:"expiresAt" format:"date-time"`
+	CreatedAt      time.Time `json:"createdAt" format:"date-time"`
+}
+
+type TenantAdminDriveAdminContentSessionInputBody struct {
+	Reason         string `json:"reason" maxLength:"2000"`
+	ReasonCategory string `json:"reasonCategory,omitempty" enum:"manual,incident,legal,security"`
+}
+
+type TenantAdminDriveOperationsHealthOutput struct {
+	Body TenantAdminDriveOperationsHealthBody
+}
+
+type TenantAdminDriveAdminContentSessionOutput struct {
+	Body TenantAdminDriveAdminContentSessionBody
+}
+
 type TenantAdminDriveSyncOutput struct {
 	Body struct {
 		DryRun bool                           `json:"dryRun"`
@@ -102,6 +132,19 @@ type TenantAdminDriveApprovalInput struct {
 	CSRFToken          string      `header:"X-CSRF-Token" required:"true"`
 	TenantSlug         string      `path:"tenantSlug" minLength:"3" maxLength:"64"`
 	InvitationPublicID string      `path:"invitationPublicId" format:"uuid"`
+}
+
+type TenantAdminDriveAdminContentSessionInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
+	TenantSlug    string      `path:"tenantSlug" minLength:"3" maxLength:"64"`
+	Body          TenantAdminDriveAdminContentSessionInputBody
+}
+
+type TenantAdminDriveAdminContentFileInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	TenantSlug    string      `path:"tenantSlug" minLength:"3" maxLength:"64"`
+	FilePublicID  string      `path:"filePublicId" format:"uuid"`
 }
 
 func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
@@ -293,6 +336,125 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		return toTenantAdminDriveSyncOutput(result), nil
 	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getTenantAdminDriveOperationsHealth",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/operations/health",
+		Tags:        []string{"tenant-admin-drive"},
+		Summary:     "Drive / OpenFGA / storage operations health を返す",
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveOperationsHealthOutput, error) {
+		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+		health, err := deps.DriveService.DriveOperationsHealth(ctx, tenant.ID)
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		return &TenantAdminDriveOperationsHealthOutput{Body: toTenantAdminDriveOperationsHealthBody(health)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "checkTenantAdminDriveOperationsDrift",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/operations/drift-check",
+		Tags:        []string{"tenant-admin-drive"},
+		Summary:     "Drive OpenFGA drift dry-run を operation endpoint から実行する",
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *TenantAdminDriveMutationInput) (*TenantAdminDriveSyncOutput, error) {
+		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+		result, err := deps.DriveService.OpenFGADrift(ctx, tenant.ID)
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		return toTenantAdminDriveSyncOutput(result), nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "repairTenantAdminDriveOperations",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/operations/repair",
+		Tags:        []string{"tenant-admin-drive"},
+		Summary:     "Drive OpenFGA pending sync repair を operation endpoint から実行する",
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *TenantAdminDriveMutationInput) (*TenantAdminDriveSyncOutput, error) {
+		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+		result, err := deps.DriveService.RepairOpenFGASync(ctx, tenant.ID, current.User.ID, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		return toTenantAdminDriveSyncOutput(result), nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "startTenantAdminDriveContentAccessSession",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/content-access-sessions",
+		Tags:        []string{"tenant-admin-drive"},
+		Summary:     "Drive admin content break-glass session を開始する",
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *TenantAdminDriveAdminContentSessionInput) (*TenantAdminDriveAdminContentSessionOutput, error) {
+		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+		session, err := deps.DriveService.StartAdminContentAccessSession(ctx, service.DriveStartAdminContentAccessInput{
+			TenantID:       tenant.ID,
+			ActorUserID:    current.User.ID,
+			Reason:         input.Body.Reason,
+			ReasonCategory: input.Body.ReasonCategory,
+		}, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		return &TenantAdminDriveAdminContentSessionOutput{Body: toTenantAdminDriveAdminContentSessionBody(session)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "endTenantAdminDriveContentAccessSession",
+		Method:        http.MethodDelete,
+		Path:          "/api/v1/admin/tenants/{tenantSlug}/drive/content-access-sessions/current",
+		Tags:          []string{"tenant-admin-drive"},
+		Summary:       "Drive admin content break-glass session を終了する",
+		DefaultStatus: http.StatusNoContent,
+		Security:      []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *TenantAdminDriveMutationInput) (*TenantAdminNoContentOutput, error) {
+		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+		if err := deps.DriveService.EndAdminContentAccessSession(ctx, tenant.ID, current.User.ID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		return &TenantAdminNoContentOutput{}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getTenantAdminDriveFileMetadata",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/files/{filePublicId}/metadata",
+		Tags:        []string{"tenant-admin-drive"},
+		Summary:     "break-glass session 中に Drive file metadata を返す",
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *TenantAdminDriveAdminContentFileInput) (*DriveFileOutput, error) {
+		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+		file, err := deps.DriveService.GetAdminDriveFileMetadata(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		return &DriveFileOutput{Body: toDriveFileBody(file)}, nil
+	})
 }
 
 func toTenantAdminDriveShareStateBody(item service.DriveAdminShareState) TenantAdminDriveShareStateBody {
@@ -334,6 +496,27 @@ func toTenantAdminDriveAuditEventBody(item service.DriveAdminAuditEvent) TenantA
 		TargetID:   item.TargetID,
 		Metadata:   item.Metadata,
 		OccurredAt: item.OccurredAt,
+	}
+}
+
+func toTenantAdminDriveOperationsHealthBody(item service.DriveOperationsHealth) TenantAdminDriveOperationsHealthBody {
+	return TenantAdminDriveOperationsHealthBody{
+		TenantID:                item.TenantID,
+		WorkspaceCount:          item.WorkspaceCount,
+		MissingWorkspaceCount:   item.MissingWorkspaceCount,
+		OpenFGADriftCount:       item.OpenFGADriftCount,
+		StorageMissingCount:     item.StorageMissingCount,
+		StorageOrphanCheckState: item.StorageOrphanCheckState,
+		CheckedAt:               item.CheckedAt,
+	}
+}
+
+func toTenantAdminDriveAdminContentSessionBody(item service.DriveAdminContentAccessSession) TenantAdminDriveAdminContentSessionBody {
+	return TenantAdminDriveAdminContentSessionBody{
+		PublicID:       item.PublicID,
+		ReasonCategory: item.ReasonCategory,
+		ExpiresAt:      item.ExpiresAt,
+		CreatedAt:      item.CreatedAt,
 	}
 }
 

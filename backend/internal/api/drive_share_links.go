@@ -24,6 +24,7 @@ type PublicDriveShareLinkOutput struct {
 
 type CreateDriveShareLinkBody struct {
 	CanDownload bool       `json:"canDownload"`
+	Role        string     `json:"role,omitempty" enum:"viewer,editor"`
 	ExpiresAt   *time.Time `json:"expiresAt,omitempty" format:"date-time"`
 	Password    string     `json:"password,omitempty" maxLength:"256"`
 }
@@ -81,6 +82,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 			TenantID:    tenant.ID,
 			ActorUserID: current.User.ID,
 			Resource:    service.DriveResourceRef{Type: service.DriveResourceTypeFile, PublicID: input.FilePublicID, TenantID: tenant.ID},
+			Role:        service.DriveRole(input.Body.Role),
 			CanDownload: input.Body.CanDownload,
 			ExpiresAt:   optionalTime(input.Body.ExpiresAt),
 			Password:    input.Body.Password,
@@ -107,6 +109,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 			TenantID:    tenant.ID,
 			ActorUserID: current.User.ID,
 			Resource:    service.DriveResourceRef{Type: service.DriveResourceTypeFolder, PublicID: input.FolderPublicID, TenantID: tenant.ID},
+			Role:        service.DriveRole(input.Body.Role),
 			CanDownload: input.Body.CanDownload,
 			ExpiresAt:   optionalTime(input.Body.ExpiresAt),
 			Password:    input.Body.Password,

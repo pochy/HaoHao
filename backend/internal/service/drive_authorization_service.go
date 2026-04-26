@@ -121,6 +121,14 @@ func (s *DriveAuthorizationService) CanViewWithShareLink(ctx context.Context, li
 	return s.checkResource(ctx, openFGAShareLink(link.PublicID), "can_view", openFGAResourceObject(link.Resource), "share_link", s.currentTimeContext())
 }
 
+func (s *DriveAuthorizationService) CanEditWithShareLink(ctx context.Context, link DriveShareLink) error {
+	if link.Status != "active" || !link.ExpiresAt.After(s.now()) || link.Role != DriveRoleEditor {
+		s.recordDenied("can_edit", "share_link")
+		return ErrDrivePermissionDenied
+	}
+	return s.checkResource(ctx, openFGAShareLink(link.PublicID), "can_edit", openFGAResourceObject(link.Resource), "share_link", s.currentTimeContext())
+}
+
 func (s *DriveAuthorizationService) CheckShareTuple(ctx context.Context, share DriveShare) error {
 	tuple := shareTuple(share)
 	return s.checkResource(ctx, tuple.User, tuple.Relation, tuple.Object, string(share.Resource.Type), s.currentTimeContext())
@@ -235,6 +243,14 @@ func (s *DriveAuthorizationService) WriteResourceParent(ctx context.Context, chi
 	return s.writeTuples(ctx, []OpenFGATuple{parentTuple(child, parent)})
 }
 
+func (s *DriveAuthorizationService) WriteResourceWorkspace(ctx context.Context, resource DriveResourceRef, workspace DriveWorkspace) error {
+	return s.writeTuples(ctx, []OpenFGATuple{workspaceTuple(resource, workspace.ResourceRef())})
+}
+
+func (s *DriveAuthorizationService) DeleteResourceWorkspace(ctx context.Context, resource DriveResourceRef, workspace DriveWorkspace) error {
+	return s.deleteTuples(ctx, []OpenFGATuple{workspaceTuple(resource, workspace.ResourceRef())})
+}
+
 func (s *DriveAuthorizationService) DeleteResourceParent(ctx context.Context, child, parent DriveResourceRef) error {
 	return s.deleteTuples(ctx, []OpenFGATuple{parentTuple(child, parent)})
 }
@@ -255,6 +271,29 @@ func (s *DriveAuthorizationService) WriteResourceCreateTuples(ctx context.Contex
 	}}
 	if parent != nil {
 		tuples = append(tuples, parentTuple(resource, *parent))
+	}
+	return s.writeTuples(ctx, tuples)
+}
+
+func (s *DriveAuthorizationService) WriteWorkspaceOwner(ctx context.Context, actor DriveActor, workspace DriveWorkspace) error {
+	return s.writeTuples(ctx, []OpenFGATuple{{
+		User:     openFGAUser(actor.PublicID),
+		Relation: "owner",
+		Object:   openFGAWorkspace(workspace.PublicID),
+	}})
+}
+
+func (s *DriveAuthorizationService) WriteResourceCreateTuplesWithWorkspace(ctx context.Context, actor DriveActor, resource DriveResourceRef, parent *DriveResourceRef, workspace *DriveWorkspace) error {
+	tuples := []OpenFGATuple{{
+		User:     openFGAUser(actor.PublicID),
+		Relation: "owner",
+		Object:   openFGAResourceObject(resource),
+	}}
+	if parent != nil {
+		tuples = append(tuples, parentTuple(resource, *parent))
+	}
+	if workspace != nil {
+		tuples = append(tuples, workspaceTuple(resource, workspace.ResourceRef()))
 	}
 	return s.writeTuples(ctx, tuples)
 }
@@ -449,9 +488,13 @@ func shareTuple(share DriveShare) OpenFGATuple {
 }
 
 func shareLinkTuple(link DriveShareLink) OpenFGATuple {
+	role := link.Role
+	if role == "" {
+		role = DriveRoleViewer
+	}
 	return OpenFGATuple{
 		User:     openFGAShareLink(link.PublicID),
-		Relation: "viewer",
+		Relation: string(role),
 		Object:   openFGAResourceObject(link.Resource),
 		Condition: &OpenFGACondition{
 			Name: "not_expired",
@@ -459,6 +502,14 @@ func shareLinkTuple(link DriveShareLink) OpenFGATuple {
 				"expires_at": link.ExpiresAt.UTC(),
 			},
 		},
+	}
+}
+
+func workspaceTuple(resource DriveResourceRef, workspace DriveResourceRef) OpenFGATuple {
+	return OpenFGATuple{
+		User:     openFGAResourceObject(workspace),
+		Relation: "workspace",
+		Object:   openFGAResourceObject(resource),
 	}
 }
 

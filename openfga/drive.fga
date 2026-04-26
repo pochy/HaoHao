@@ -9,12 +9,23 @@ type group
 
 type share_link
 
+type workspace
+  relations
+    define owner: [user, group#member]
+    define editor: [user, group#member] or owner
+    define viewer: [user, group#member] or editor
+    define can_view: viewer
+    define can_edit: editor
+    define can_delete: owner
+    define can_share: owner
+
 type folder
   relations
+    define workspace: [workspace]
     define parent: [folder]
-    define owner: [user, group#member] or owner from parent
-    define editor: [user, group#member] or owner or editor from parent
-    define viewer: [user, group#member, share_link with not_expired] or editor or viewer from parent
+    define owner: [user, group#member] or owner from parent or owner from workspace
+    define editor: [user, group#member] or owner or editor from parent or editor from workspace
+    define viewer: [user, group#member, share_link with not_expired] or editor or viewer from parent or viewer from workspace
     define can_view: viewer
     define can_edit: editor
     define can_delete: owner
@@ -22,10 +33,11 @@ type folder
 
 type file
   relations
+    define workspace: [workspace]
     define parent: [folder]
-    define owner: [user, group#member] or owner from parent
-    define editor: [user, group#member] or owner or editor from parent
-    define viewer: [user, group#member, share_link with not_expired] or editor or viewer from parent
+    define owner: [user, group#member] or owner from parent or owner from workspace
+    define editor: [user, group#member, share_link with not_expired] or owner or editor from parent or editor from workspace
+    define viewer: [user, group#member, share_link with not_expired] or editor or viewer from parent or viewer from workspace
     define can_view: viewer
     define can_download: viewer
     define can_edit: editor

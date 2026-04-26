@@ -28,11 +28,11 @@ INSERT INTO drive_share_links (
     $2,
     $3,
     $4,
-    'viewer',
     $5,
     $6,
     $7,
-    $8
+    $8,
+    $9
 )
 RETURNING id, public_id, tenant_id, resource_type, resource_id, token_hash, role, can_download, expires_at, status, created_by_user_id, disabled_by_user_id, disabled_at, created_at, updated_at, password_hash, password_required, password_updated_at
 `
@@ -42,6 +42,7 @@ type CreateDriveShareLinkParams struct {
 	ResourceType    string             `json:"resource_type"`
 	ResourceID      int64              `json:"resource_id"`
 	TokenHash       string             `json:"token_hash"`
+	Role            string             `json:"role"`
 	CanDownload     bool               `json:"can_download"`
 	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
 	Status          string             `json:"status"`
@@ -54,6 +55,7 @@ func (q *Queries) CreateDriveShareLink(ctx context.Context, arg CreateDriveShare
 		arg.ResourceType,
 		arg.ResourceID,
 		arg.TokenHash,
+		arg.Role,
 		arg.CanDownload,
 		arg.ExpiresAt,
 		arg.Status,

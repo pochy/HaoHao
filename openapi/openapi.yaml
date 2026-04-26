@@ -198,6 +198,9 @@ components:
           type: string
         parentFolderPublicId:
           type: string
+        workspacePublicId:
+          format: uuid
+          type: string
       required:
         - name
       type: object
@@ -294,8 +297,35 @@ components:
         password:
           maxLength: 256
           type: string
+        role:
+          enum:
+            - viewer
+            - editor
+          type: string
       required:
         - canDownload
+      type: object
+    CreateDriveWorkspaceBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateDriveWorkspaceBody.json
+          format: uri
+          readOnly: true
+          type: string
+        name:
+          maxLength: 255
+          type: string
+        policyOverride:
+          additionalProperties: {}
+          type: object
+        storageQuotaBytes:
+          format: int64
+          type: integer
+      required:
+        - name
       type: object
     CreateTenantDataExportRequestBody:
       additionalProperties: false
@@ -645,6 +675,8 @@ components:
         createdAt:
           format: date-time
           type: string
+        dlpBlocked:
+          type: boolean
         inheritanceEnabled:
           type: boolean
         lockReason:
@@ -662,12 +694,16 @@ components:
           examples:
             - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
+        scanStatus:
+          type: string
         sha256Hex:
           type: string
         status:
           type: string
         updatedAt:
           format: date-time
+          type: string
+        workspacePublicId:
           type: string
       required:
         - publicId
@@ -676,6 +712,8 @@ components:
         - byteSize
         - sha256Hex
         - status
+        - scanStatus
+        - dlpBlocked
         - inheritanceEnabled
         - locked
         - createdAt
@@ -706,6 +744,8 @@ components:
           type: string
         updatedAt:
           format: date-time
+          type: string
+        workspacePublicId:
           type: string
       required:
         - publicId
@@ -1048,6 +1088,57 @@ components:
         - status
         - createdAt
         - updatedAt
+      type: object
+    DriveWorkspaceBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveWorkspaceBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        name:
+          type: string
+        policyOverride:
+          additionalProperties: {}
+          type: object
+        publicId:
+          type: string
+        storageQuotaBytes:
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - name
+        - createdAt
+        - updatedAt
+      type: object
+    DriveWorkspaceListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveWorkspaceListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DriveWorkspaceBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
       type: object
     EntitlementBody:
       additionalProperties: false
@@ -1947,6 +2038,55 @@ components:
       required:
         - active
       type: object
+    TenantAdminDriveAdminContentSessionBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDriveAdminContentSessionBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        publicId:
+          type: string
+        reasonCategory:
+          type: string
+      required:
+        - publicId
+        - reasonCategory
+        - expiresAt
+        - createdAt
+      type: object
+    TenantAdminDriveAdminContentSessionInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDriveAdminContentSessionInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        reason:
+          maxLength: 2000
+          type: string
+        reasonCategory:
+          enum:
+            - manual
+            - incident
+            - legal
+            - security
+          type: string
+      required:
+        - reason
+      type: object
     TenantAdminDriveAuditEventBody:
       additionalProperties: false
       properties:
@@ -2012,6 +2152,45 @@ components:
             - "null"
       required:
         - items
+      type: object
+    TenantAdminDriveOperationsHealthBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDriveOperationsHealthBody.json
+          format: uri
+          readOnly: true
+          type: string
+        checkedAt:
+          format: date-time
+          type: string
+        missingWorkspaceCount:
+          format: int64
+          type: integer
+        openfgaDriftCount:
+          format: int64
+          type: integer
+        storageMissingCount:
+          format: int64
+          type: integer
+        storageOrphanCheckState:
+          type: string
+        tenantId:
+          format: int64
+          type: integer
+        workspaceCount:
+          format: int64
+          type: integer
+      required:
+        - tenantId
+        - workspaceCount
+        - missingWorkspaceCount
+        - openfgaDriftCount
+        - storageMissingCount
+        - storageOrphanCheckState
+        - checkedAt
       type: object
     TenantAdminDriveShareLinkStateBody:
       additionalProperties: false
@@ -3046,6 +3225,179 @@ info:
   version: 0.1.0
 openapi: 3.1.0
 paths:
+  /api/external/v1/drive/files/{fileId}:
+    delete:
+      operationId: deleteExternalDriveFile
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: fileId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: external bearer Drive file を削除する
+      tags:
+        - external-drive
+  /api/external/v1/drive/files/{fileId}/metadata:
+    get:
+      operationId: getExternalDriveFileMetadata
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: fileId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveFileBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: external bearer Drive file metadata を返す
+      tags:
+        - external-drive
+  /api/external/v1/drive/files/{fileId}/shares:
+    post:
+      operationId: createExternalDriveFileShare
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: fileId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDriveShareBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveShareBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: external bearer Drive file share を作成する
+      tags:
+        - external-drive
+  /api/external/v1/drive/folders:
+    post:
+      operationId: createExternalDriveFolder
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDriveFolderBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveFolderBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: external bearer Drive folder を作成する
+      tags:
+        - external-drive
+  /api/external/v1/drive/folders/{folderId}/children:
+    get:
+      operationId: listExternalDriveFolderChildren
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: folderId
+          required: true
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveItemListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: external bearer Drive folder children を返す
+      tags:
+        - external-drive
   /api/external/v1/me:
     get:
       operationId: getExternalMe
@@ -3520,6 +3872,123 @@ paths:
       summary: tenant admin 用 Drive audit events を返す
       tags:
         - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/content-access-sessions:
+    post:
+      operationId: startTenantAdminDriveContentAccessSession
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantAdminDriveAdminContentSessionInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveAdminContentSessionBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive admin content break-glass session を開始する
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/content-access-sessions/current:
+    delete:
+      operationId: endTenantAdminDriveContentAccessSession
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive admin content break-glass session を終了する
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/files/{filePublicId}/metadata:
+    get:
+      operationId: getTenantAdminDriveFileMetadata
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveFileBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: break-glass session 中に Drive file metadata を返す
+      tags:
+        - tenant-admin-drive
   /api/v1/admin/tenants/{tenantSlug}/drive/invitations:
     get:
       operationId: listTenantAdminDriveInvitations
@@ -3636,6 +4105,122 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive OpenFGA pending sync を修復する
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/operations/drift-check:
+    post:
+      operationId: checkTenantAdminDriveOperationsDrift
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveSyncOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive OpenFGA drift dry-run を operation endpoint から実行する
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/operations/health:
+    get:
+      operationId: getTenantAdminDriveOperationsHealth
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveOperationsHealthBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive / OpenFGA / storage operations health を返す
+      tags:
+        - tenant-admin-drive
+  /api/v1/admin/tenants/{tenantSlug}/drive/operations/repair:
+    post:
+      operationId: repairTenantAdminDriveOperations
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveSyncOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive OpenFGA pending sync repair を operation endpoint から実行する
       tags:
         - tenant-admin-drive
   /api/v1/admin/tenants/{tenantSlug}/drive/share-approvals:
@@ -5757,6 +6342,12 @@ paths:
             type: string
         - explode: false
           in: query
+          name: workspacePublicId
+          schema:
+            format: uuid
+            type: string
+        - explode: false
+          in: query
           name: limit
           schema:
             default: 100
@@ -6369,6 +6960,12 @@ paths:
             $ref: "#/components/schemas/Cookie"
         - explode: false
           in: query
+          name: workspacePublicId
+          schema:
+            format: uuid
+            type: string
+        - explode: false
+          in: query
           name: folderPublicId
           schema:
             type: string
@@ -6516,6 +7113,150 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive share link を更新する
+      tags:
+        - drive
+  /api/v1/drive/workspaces:
+    get:
+      operationId: listDriveWorkspaces
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveWorkspaceListOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive workspace 一覧を返す
+      tags:
+        - drive
+    post:
+      operationId: createDriveWorkspace
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDriveWorkspaceBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveWorkspaceBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive workspace を作成する
+      tags:
+        - drive
+  /api/v1/drive/workspaces/{workspacePublicId}:
+    delete:
+      operationId: deleteDriveWorkspace
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: workspacePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive workspace を削除する
+      tags:
+        - drive
+    patch:
+      operationId: updateDriveWorkspace
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: workspacePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDriveWorkspaceBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveWorkspaceBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive workspace を更新する
       tags:
         - drive
   /api/v1/files:

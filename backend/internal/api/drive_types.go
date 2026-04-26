@@ -13,6 +13,7 @@ import (
 
 type DriveFolderBody struct {
 	PublicID           string    `json:"publicId" example:"018f2f05-c6c9-7a49-b32d-04f4dd84ef4a"`
+	WorkspacePublicID  string    `json:"workspacePublicId,omitempty"`
 	Name               string    `json:"name" example:"Project"`
 	InheritanceEnabled bool      `json:"inheritanceEnabled"`
 	CreatedAt          time.Time `json:"createdAt" format:"date-time"`
@@ -21,17 +22,29 @@ type DriveFolderBody struct {
 
 type DriveFileBody struct {
 	PublicID           string     `json:"publicId" example:"018f2f05-c6c9-7a49-b32d-04f4dd84ef4a"`
+	WorkspacePublicID  string     `json:"workspacePublicId,omitempty"`
 	OriginalFilename   string     `json:"originalFilename" example:"spec.md"`
 	ContentType        string     `json:"contentType" example:"text/markdown"`
 	ByteSize           int64      `json:"byteSize"`
 	SHA256Hex          string     `json:"sha256Hex"`
 	Status             string     `json:"status"`
+	ScanStatus         string     `json:"scanStatus"`
+	DLPBlocked         bool       `json:"dlpBlocked"`
 	InheritanceEnabled bool       `json:"inheritanceEnabled"`
 	Locked             bool       `json:"locked"`
 	LockReason         string     `json:"lockReason,omitempty"`
 	CreatedAt          time.Time  `json:"createdAt" format:"date-time"`
 	UpdatedAt          time.Time  `json:"updatedAt" format:"date-time"`
 	LockedAt           *time.Time `json:"lockedAt,omitempty" format:"date-time"`
+}
+
+type DriveWorkspaceBody struct {
+	PublicID          string         `json:"publicId"`
+	Name              string         `json:"name"`
+	StorageQuotaBytes *int64         `json:"storageQuotaBytes,omitempty"`
+	PolicyOverride    map[string]any `json:"policyOverride,omitempty"`
+	CreatedAt         time.Time      `json:"createdAt" format:"date-time"`
+	UpdatedAt         time.Time      `json:"updatedAt" format:"date-time"`
 }
 
 type DriveItemBody struct {
@@ -145,6 +158,7 @@ func driveStatusCode(err error) int {
 func toDriveFolderBody(item service.DriveFolder) DriveFolderBody {
 	return DriveFolderBody{
 		PublicID:           item.PublicID,
+		WorkspacePublicID:  item.WorkspacePublicID,
 		Name:               item.Name,
 		InheritanceEnabled: item.InheritanceEnabled,
 		CreatedAt:          item.CreatedAt,
@@ -155,17 +169,31 @@ func toDriveFolderBody(item service.DriveFolder) DriveFolderBody {
 func toDriveFileBody(item service.DriveFile) DriveFileBody {
 	return DriveFileBody{
 		PublicID:           item.PublicID,
+		WorkspacePublicID:  item.WorkspacePublicID,
 		OriginalFilename:   item.OriginalFilename,
 		ContentType:        item.ContentType,
 		ByteSize:           item.ByteSize,
 		SHA256Hex:          item.SHA256Hex,
 		Status:             item.Status,
+		ScanStatus:         item.ScanStatus,
+		DLPBlocked:         item.DLPBlocked,
 		InheritanceEnabled: item.InheritanceEnabled,
 		Locked:             item.LockedAt != nil,
 		LockReason:         item.LockReason,
 		CreatedAt:          item.CreatedAt,
 		UpdatedAt:          item.UpdatedAt,
 		LockedAt:           item.LockedAt,
+	}
+}
+
+func toDriveWorkspaceBody(item service.DriveWorkspace) DriveWorkspaceBody {
+	return DriveWorkspaceBody{
+		PublicID:          item.PublicID,
+		Name:              item.Name,
+		StorageQuotaBytes: item.StorageQuotaBytes,
+		PolicyOverride:    item.PolicyOverride,
+		CreatedAt:         item.CreatedAt,
+		UpdatedAt:         item.UpdatedAt,
 	}
 }
 

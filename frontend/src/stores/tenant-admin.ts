@@ -8,6 +8,7 @@ import type {
   TenantAdminDriveShareLinkStateBody,
   TenantAdminDriveShareStateBody,
   TenantAdminDriveSyncOutputBody,
+  TenantAdminDriveOperationsHealthBody,
   TenantAdminTenantBody,
   TenantAdminTenantDetailBody,
   TenantAdminTenantRequestBody,
@@ -22,6 +23,7 @@ import {
   fetchTenantAdminDriveAuditEvents,
   fetchTenantAdminDriveDrift,
   fetchTenantAdminDriveInvitations,
+  fetchTenantAdminDriveOperationsHealth,
   fetchTenantAdminDriveShareLinks,
   fetchTenantAdminDriveShares,
   grantTenantRole,
@@ -44,6 +46,7 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
     driveApprovals: [] as DriveShareInvitationBody[],
     driveAuditEvents: [] as TenantAdminDriveAuditEventBody[],
     driveSync: null as TenantAdminDriveSyncOutputBody | null,
+    driveHealth: null as TenantAdminDriveOperationsHealthBody | null,
     errorMessage: '',
     saving: false,
   }),
@@ -80,13 +83,14 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
     async loadDriveState(tenantSlug: string) {
       this.errorMessage = ''
       try {
-        const [shares, links, invitations, approvals, auditEvents, sync] = await Promise.all([
+        const [shares, links, invitations, approvals, auditEvents, sync, health] = await Promise.all([
           fetchTenantAdminDriveShares(tenantSlug),
           fetchTenantAdminDriveShareLinks(tenantSlug),
           fetchTenantAdminDriveInvitations(tenantSlug),
           fetchTenantAdminDriveApprovals(tenantSlug),
           fetchTenantAdminDriveAuditEvents(tenantSlug),
           fetchTenantAdminDriveDrift(tenantSlug).catch(() => null),
+          fetchTenantAdminDriveOperationsHealth(tenantSlug).catch(() => null),
         ])
         this.driveShares = shares
         this.driveShareLinks = links
@@ -94,6 +98,7 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
         this.driveApprovals = approvals
         this.driveAuditEvents = auditEvents
         this.driveSync = sync
+        this.driveHealth = health
       } catch (error) {
         this.errorMessage = toApiErrorMessage(error)
       }

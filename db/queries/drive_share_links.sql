@@ -14,7 +14,7 @@ INSERT INTO drive_share_links (
     sqlc.arg(resource_type),
     sqlc.arg(resource_id),
     sqlc.arg(token_hash),
-    'viewer',
+    sqlc.arg(role),
     sqlc.arg(can_download),
     sqlc.arg(expires_at),
     sqlc.arg(status),

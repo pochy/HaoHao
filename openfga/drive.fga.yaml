@@ -151,3 +151,72 @@ tests:
         assertions:
           can_view: false
           can_download: false
+
+  - name: workspace inheritance
+    tuples:
+      - user: user:workspace-owner
+        relation: owner
+        object: workspace:product
+      - user: user:workspace-viewer
+        relation: viewer
+        object: workspace:product
+      - user: workspace:product
+        relation: workspace
+        object: folder:workspace-root
+      - user: workspace:product
+        relation: workspace
+        object: file:workspace-doc
+      - user: folder:workspace-root
+        relation: parent
+        object: file:workspace-child-doc
+    check:
+      - user: user:workspace-owner
+        object: folder:workspace-root
+        assertions:
+          can_view: true
+          can_edit: true
+          can_share: true
+      - user: user:workspace-viewer
+        object: file:workspace-doc
+        assertions:
+          can_view: true
+          can_download: true
+          can_edit: false
+      - user: user:workspace-viewer
+        object: file:workspace-child-doc
+        assertions:
+          can_view: true
+          can_edit: false
+
+  - name: anonymous editor share link
+    tuples:
+      - user: share_link:editor-link
+        relation: editor
+        object: file:public-edit-doc
+        condition:
+          name: not_expired
+          context:
+            expires_at: "2026-05-01T00:00:00Z"
+      - user: share_link:viewer-link
+        relation: viewer
+        object: file:public-edit-doc
+        condition:
+          name: not_expired
+          context:
+            expires_at: "2026-05-01T00:00:00Z"
+    check:
+      - user: share_link:editor-link
+        object: file:public-edit-doc
+        context:
+          current_time: "2026-04-26T00:00:00Z"
+        assertions:
+          can_view: true
+          can_download: true
+          can_edit: true
+      - user: share_link:viewer-link
+        object: file:public-edit-doc
+        context:
+          current_time: "2026-04-26T00:00:00Z"
+        assertions:
+          can_view: true
+          can_edit: false

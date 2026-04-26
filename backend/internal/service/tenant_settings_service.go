@@ -62,6 +62,17 @@ type DrivePolicy struct {
 	AnonymousEditorLinksEnabled         bool
 	AnonymousEditorLinksRequirePassword bool
 	AnonymousEditorLinkMaxTTLMinutes    int
+	ContentScanEnabled                  bool
+	BlockDownloadUntilScanComplete      bool
+	BlockShareUntilScanComplete         bool
+	DLPEnabled                          bool
+	PlanCode                            string
+	MaxFileSizeBytes                    int64
+	MaxWorkspaceCount                   int
+	MaxPublicLinkCount                  int
+	PasswordLinksPlanEnabled            bool
+	DLPPlanEnabled                      bool
+	M2MDriveAPIEnabled                  bool
 }
 
 type TenantSettingsService struct {
@@ -283,6 +294,17 @@ func defaultDrivePolicy() DrivePolicy {
 		AnonymousEditorLinksEnabled:         false,
 		AnonymousEditorLinksRequirePassword: true,
 		AnonymousEditorLinkMaxTTLMinutes:    60,
+		ContentScanEnabled:                  false,
+		BlockDownloadUntilScanComplete:      true,
+		BlockShareUntilScanComplete:         true,
+		DLPEnabled:                          false,
+		PlanCode:                            "standard",
+		MaxFileSizeBytes:                    10 * 1024 * 1024,
+		MaxWorkspaceCount:                   25,
+		MaxPublicLinkCount:                  1000,
+		PasswordLinksPlanEnabled:            true,
+		DLPPlanEnabled:                      true,
+		M2MDriveAPIEnabled:                  false,
 	}
 }
 
@@ -310,6 +332,17 @@ func drivePolicyFromFeatures(features map[string]any) DrivePolicy {
 	policy.AnonymousEditorLinksEnabled = featureBool(raw, "anonymousEditorLinksEnabled", policy.AnonymousEditorLinksEnabled)
 	policy.AnonymousEditorLinksRequirePassword = featureBool(raw, "anonymousEditorLinksRequirePassword", policy.AnonymousEditorLinksRequirePassword)
 	policy.AnonymousEditorLinkMaxTTLMinutes = featureInt(raw, "anonymousEditorLinkMaxTTLMinutes", policy.AnonymousEditorLinkMaxTTLMinutes)
+	policy.ContentScanEnabled = featureBool(raw, "contentScanEnabled", policy.ContentScanEnabled)
+	policy.BlockDownloadUntilScanComplete = featureBool(raw, "blockDownloadUntilScanComplete", policy.BlockDownloadUntilScanComplete)
+	policy.BlockShareUntilScanComplete = featureBool(raw, "blockShareUntilScanComplete", policy.BlockShareUntilScanComplete)
+	policy.DLPEnabled = featureBool(raw, "dlpEnabled", policy.DLPEnabled)
+	policy.PlanCode = featureString(raw, "planCode", policy.PlanCode)
+	policy.MaxFileSizeBytes = int64(featureInt(raw, "maxFileSizeBytes", int(policy.MaxFileSizeBytes)))
+	policy.MaxWorkspaceCount = featureInt(raw, "maxWorkspaceCount", policy.MaxWorkspaceCount)
+	policy.MaxPublicLinkCount = featureInt(raw, "maxPublicLinkCount", policy.MaxPublicLinkCount)
+	policy.PasswordLinksPlanEnabled = featureBool(raw, "passwordLinksPlanEnabled", policy.PasswordLinksPlanEnabled)
+	policy.DLPPlanEnabled = featureBool(raw, "dlpPlanEnabled", policy.DLPPlanEnabled)
+	policy.M2MDriveAPIEnabled = featureBool(raw, "m2mDriveAPIEnabled", policy.M2MDriveAPIEnabled)
 
 	return normalizeDrivePolicy(policy)
 }
@@ -327,6 +360,20 @@ func normalizeDrivePolicy(policy DrivePolicy) DrivePolicy {
 	if strings.TrimSpace(policy.AdminContentAccessMode) == "" {
 		policy.AdminContentAccessMode = defaults.AdminContentAccessMode
 	}
+	policy.PlanCode = strings.ToLower(strings.TrimSpace(policy.PlanCode))
+	if policy.PlanCode == "" {
+		policy.PlanCode = defaults.PlanCode
+	}
+	if policy.MaxFileSizeBytes <= 0 {
+		policy.MaxFileSizeBytes = defaults.MaxFileSizeBytes
+	}
+	if policy.MaxWorkspaceCount <= 0 {
+		policy.MaxWorkspaceCount = defaults.MaxWorkspaceCount
+	}
+	if policy.MaxPublicLinkCount <= 0 {
+		policy.MaxPublicLinkCount = defaults.MaxPublicLinkCount
+	}
+	policy = applyDrivePlanCaps(policy)
 	return policy
 }
 
@@ -345,6 +392,15 @@ func normalizeDrivePolicyForSave(policy DrivePolicy) (DrivePolicy, error) {
 	}
 	if policy.AnonymousEditorLinkMaxTTLMinutes < 1 || policy.AnonymousEditorLinkMaxTTLMinutes > 1440 {
 		return DrivePolicy{}, fmt.Errorf("%w: anonymousEditorLinkMaxTTLMinutes must be between 1 and 1440", ErrInvalidTenantSettings)
+	}
+	if policy.MaxFileSizeBytes < 1 {
+		return DrivePolicy{}, fmt.Errorf("%w: maxFileSizeBytes must be positive", ErrInvalidTenantSettings)
+	}
+	if policy.MaxWorkspaceCount < 1 || policy.MaxWorkspaceCount > 1000 {
+		return DrivePolicy{}, fmt.Errorf("%w: maxWorkspaceCount must be between 1 and 1000", ErrInvalidTenantSettings)
+	}
+	if policy.MaxPublicLinkCount < 1 || policy.MaxPublicLinkCount > 100000 {
+		return DrivePolicy{}, fmt.Errorf("%w: maxPublicLinkCount must be between 1 and 100000", ErrInvalidTenantSettings)
 	}
 	return policy, nil
 }
@@ -369,7 +425,55 @@ func drivePolicyToFeatureMap(policy DrivePolicy) map[string]any {
 		"anonymousEditorLinksEnabled":         policy.AnonymousEditorLinksEnabled,
 		"anonymousEditorLinksRequirePassword": policy.AnonymousEditorLinksRequirePassword,
 		"anonymousEditorLinkMaxTTLMinutes":    policy.AnonymousEditorLinkMaxTTLMinutes,
+		"contentScanEnabled":                  policy.ContentScanEnabled,
+		"blockDownloadUntilScanComplete":      policy.BlockDownloadUntilScanComplete,
+		"blockShareUntilScanComplete":         policy.BlockShareUntilScanComplete,
+		"dlpEnabled":                          policy.DLPEnabled,
+		"planCode":                            policy.PlanCode,
+		"maxFileSizeBytes":                    policy.MaxFileSizeBytes,
+		"maxWorkspaceCount":                   policy.MaxWorkspaceCount,
+		"maxPublicLinkCount":                  policy.MaxPublicLinkCount,
+		"passwordLinksPlanEnabled":            policy.PasswordLinksPlanEnabled,
+		"dlpPlanEnabled":                      policy.DLPPlanEnabled,
+		"m2mDriveAPIEnabled":                  policy.M2MDriveAPIEnabled,
 	}
+}
+
+func applyDrivePlanCaps(policy DrivePolicy) DrivePolicy {
+	switch policy.PlanCode {
+	case "free":
+		if policy.MaxFileSizeBytes > 5*1024*1024 {
+			policy.MaxFileSizeBytes = 5 * 1024 * 1024
+		}
+		if policy.MaxWorkspaceCount > 1 {
+			policy.MaxWorkspaceCount = 1
+		}
+		if policy.MaxPublicLinkCount > 5 {
+			policy.MaxPublicLinkCount = 5
+		}
+		policy.PasswordLinksPlanEnabled = false
+		policy.DLPPlanEnabled = false
+		policy.DLPEnabled = false
+		policy.M2MDriveAPIEnabled = false
+	case "enterprise":
+		if policy.MaxFileSizeBytes < 50*1024*1024 {
+			policy.MaxFileSizeBytes = 50 * 1024 * 1024
+		}
+		policy.PasswordLinksPlanEnabled = true
+		policy.DLPPlanEnabled = true
+	default:
+		policy.PlanCode = "standard"
+		policy.PasswordLinksPlanEnabled = true
+		policy.DLPPlanEnabled = true
+	}
+	if !policy.PasswordLinksPlanEnabled {
+		policy.PasswordProtectedLinksEnabled = false
+		policy.RequireShareLinkPassword = false
+	}
+	if !policy.DLPPlanEnabled {
+		policy.DLPEnabled = false
+	}
+	return policy
 }
 
 func cloneFeatureMap(features map[string]any) map[string]any {

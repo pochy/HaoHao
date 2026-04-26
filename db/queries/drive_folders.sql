@@ -1,12 +1,14 @@
 -- name: CreateDriveFolder :one
 INSERT INTO drive_folders (
     tenant_id,
+    workspace_id,
     parent_folder_id,
     name,
     created_by_user_id,
     inheritance_enabled
 ) VALUES (
     sqlc.arg(tenant_id),
+    sqlc.narg(workspace_id),
     sqlc.narg(parent_folder_id),
     sqlc.arg(name),
     sqlc.arg(created_by_user_id),
@@ -33,6 +35,10 @@ SELECT *
 FROM drive_folders
 WHERE tenant_id = sqlc.arg(tenant_id)
   AND parent_folder_id IS NOT DISTINCT FROM sqlc.narg(parent_folder_id)::bigint
+  AND (
+      sqlc.narg(workspace_id)::bigint IS NULL
+      OR workspace_id = sqlc.narg(workspace_id)::bigint
+  )
   AND deleted_at IS NULL
 ORDER BY name ASC, id ASC
 LIMIT sqlc.arg(limit_count);
@@ -71,6 +77,7 @@ RETURNING *;
 UPDATE drive_folders
 SET
     parent_folder_id = sqlc.narg(parent_folder_id),
+    workspace_id = sqlc.narg(workspace_id),
     inheritance_enabled = sqlc.arg(inheritance_enabled),
     updated_at = now()
 WHERE id = sqlc.arg(id)

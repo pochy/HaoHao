@@ -5,13 +5,16 @@ INSERT INTO file_objects (
     purpose,
     attached_to_type,
     attached_to_id,
+    workspace_id,
     drive_folder_id,
     original_filename,
     content_type,
     byte_size,
     sha256_hex,
+    content_sha256,
     storage_driver,
     storage_key,
+    scan_status,
     inheritance_enabled
 ) VALUES (
     sqlc.arg(tenant_id),
@@ -19,13 +22,16 @@ INSERT INTO file_objects (
     'drive',
     NULL,
     NULL,
+    sqlc.narg(workspace_id),
     sqlc.narg(drive_folder_id),
     sqlc.arg(original_filename),
     sqlc.arg(content_type),
     sqlc.arg(byte_size),
     sqlc.arg(sha256_hex),
+    NULLIF(sqlc.arg(sha256_hex), ''),
     sqlc.arg(storage_driver),
     sqlc.arg(storage_key),
+    sqlc.arg(scan_status),
     sqlc.arg(inheritance_enabled)
 )
 RETURNING *;
@@ -51,6 +57,10 @@ SELECT *
 FROM file_objects
 WHERE tenant_id = sqlc.arg(tenant_id)
   AND drive_folder_id IS NOT DISTINCT FROM sqlc.narg(drive_folder_id)::bigint
+  AND (
+      sqlc.narg(workspace_id)::bigint IS NULL
+      OR workspace_id = sqlc.narg(workspace_id)::bigint
+  )
   AND purpose = 'drive'
   AND deleted_at IS NULL
 ORDER BY original_filename ASC, id ASC
@@ -71,6 +81,7 @@ RETURNING *;
 UPDATE file_objects
 SET
     drive_folder_id = sqlc.narg(drive_folder_id),
+    workspace_id = sqlc.narg(workspace_id),
     inheritance_enabled = sqlc.arg(inheritance_enabled),
     updated_at = now()
 WHERE id = sqlc.arg(id)
@@ -87,6 +98,12 @@ SET
     sha256_hex = sqlc.arg(sha256_hex),
     storage_driver = sqlc.arg(storage_driver),
     storage_key = sqlc.arg(storage_key),
+    content_sha256 = NULLIF(sqlc.arg(sha256_hex), ''),
+    scan_status = sqlc.arg(scan_status),
+    scan_reason = NULL,
+    scan_engine = NULL,
+    scanned_at = NULL,
+    dlp_blocked = false,
     updated_at = now()
 WHERE id = sqlc.arg(id)
   AND tenant_id = sqlc.arg(tenant_id)

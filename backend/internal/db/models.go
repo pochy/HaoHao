@@ -77,6 +77,35 @@ type CustomerSignalSavedFilter struct {
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type DriveAdminContentAccessSession struct {
+	ID             int64              `json:"id"`
+	PublicID       uuid.UUID          `json:"public_id"`
+	TenantID       int64              `json:"tenant_id"`
+	ActorUserID    int64              `json:"actor_user_id"`
+	Reason         string             `json:"reason"`
+	ReasonCategory string             `json:"reason_category"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	EndedAt        pgtype.Timestamptz `json:"ended_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveFileRevision struct {
+	ID                       int64              `json:"id"`
+	PublicID                 uuid.UUID          `json:"public_id"`
+	TenantID                 int64              `json:"tenant_id"`
+	FileObjectID             int64              `json:"file_object_id"`
+	CreatedByUserID          pgtype.Int8        `json:"created_by_user_id"`
+	ActorType                string             `json:"actor_type"`
+	PreviousOriginalFilename string             `json:"previous_original_filename"`
+	PreviousContentType      string             `json:"previous_content_type"`
+	PreviousByteSize         int64              `json:"previous_byte_size"`
+	PreviousSha256Hex        string             `json:"previous_sha256_hex"`
+	PreviousStorageDriver    string             `json:"previous_storage_driver"`
+	PreviousStorageKey       string             `json:"previous_storage_key"`
+	Reason                   string             `json:"reason"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+}
+
 type DriveFolder struct {
 	ID                    int64              `json:"id"`
 	PublicID              uuid.UUID          `json:"public_id"`
@@ -95,6 +124,7 @@ type DriveFolder struct {
 	LegalHoldByUserID     pgtype.Int8        `json:"legal_hold_by_user_id"`
 	LegalHoldReason       pgtype.Text        `json:"legal_hold_reason"`
 	PurgeBlockReason      pgtype.Text        `json:"purge_block_reason"`
+	WorkspaceID           pgtype.Int8        `json:"workspace_id"`
 }
 
 type DriveGroup struct {
@@ -204,6 +234,20 @@ type DriveShareLinkPasswordAttempt struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DriveWorkspace struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	Name              string             `json:"name"`
+	RootFolderID      pgtype.Int8        `json:"root_folder_id"`
+	CreatedByUserID   pgtype.Int8        `json:"created_by_user_id"`
+	StorageQuotaBytes pgtype.Int8        `json:"storage_quota_bytes"`
+	PolicyOverride    []byte             `json:"policy_override"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type FeatureDefinition struct {
 	Code           string             `json:"code"`
 	DisplayName    string             `json:"display_name"`
@@ -249,6 +293,17 @@ type FileObject struct {
 	LegalHoldByUserID     pgtype.Int8        `json:"legal_hold_by_user_id"`
 	LegalHoldReason       pgtype.Text        `json:"legal_hold_reason"`
 	PurgeBlockReason      pgtype.Text        `json:"purge_block_reason"`
+	WorkspaceID           pgtype.Int8        `json:"workspace_id"`
+	StorageBucket         pgtype.Text        `json:"storage_bucket"`
+	StorageVersion        pgtype.Text        `json:"storage_version"`
+	ContentSha256         pgtype.Text        `json:"content_sha256"`
+	Etag                  pgtype.Text        `json:"etag"`
+	ScanStatus            string             `json:"scan_status"`
+	ScanReason            pgtype.Text        `json:"scan_reason"`
+	ScanEngine            pgtype.Text        `json:"scan_engine"`
+	ScannedAt             pgtype.Timestamptz `json:"scanned_at"`
+	DlpBlocked            bool               `json:"dlp_blocked"`
+	UploadState           string             `json:"upload_state"`
 }
 
 type IdempotencyKey struct {

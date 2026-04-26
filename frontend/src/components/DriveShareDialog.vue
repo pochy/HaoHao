@@ -26,7 +26,7 @@ const emit = defineEmits<{
   createUserShare: [subjectPublicId: string, role: string]
   createGroupShare: [groupPublicId: string, role: string]
   createExternalInvitation: [inviteeEmail: string, role: string]
-  createShareLink: [expiresAt: string, canDownload: boolean, password: string]
+  createShareLink: [expiresAt: string, canDownload: boolean, password: string, role: string]
   revokeShare: [permission: DrivePermissionBody]
   disableLink: [permission: DrivePermissionBody]
   reloadPermissions: []
@@ -40,6 +40,7 @@ const shareRole = ref('viewer')
 const linkExpiresAt = ref('')
 const linkCanDownload = ref(true)
 const linkPassword = ref('')
+const linkRole = ref('viewer')
 
 const canCreateUserShare = computed(() => Boolean(props.resource) && userPublicId.value.trim() !== '')
 const canCreateExternalInvitation = computed(() => Boolean(props.resource) && externalEmail.value.trim() !== '')
@@ -130,7 +131,7 @@ function createShareLink() {
   if (!canCreateShareLink.value) {
     return
   }
-  emit('createShareLink', linkExpiresAt.value, linkCanDownload.value, linkPassword.value)
+  emit('createShareLink', linkExpiresAt.value, linkCanDownload.value, linkPassword.value, linkRole.value)
   linkPassword.value = ''
 }
 </script>
@@ -234,8 +235,15 @@ function createShareLink() {
           <span class="field-label">Expires at</span>
           <input v-model="linkExpiresAt" class="field-input" type="datetime-local" :disabled="busy">
         </label>
+        <label class="field">
+          <span class="field-label">Role</span>
+          <select v-model="linkRole" class="field-input" :disabled="busy">
+            <option value="viewer">Viewer</option>
+            <option value="editor">Editor</option>
+          </select>
+        </label>
         <label class="checkbox-field">
-          <input v-model="linkCanDownload" type="checkbox" :disabled="busy">
+          <input v-model="linkCanDownload" type="checkbox" :disabled="busy || linkRole === 'editor'">
           <span>Allow download</span>
         </label>
         <label class="field form-span">

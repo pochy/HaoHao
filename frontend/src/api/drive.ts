@@ -9,6 +9,7 @@ import {
   createDriveFolderShareInvitation,
   createDriveFolderShareLink,
   createDriveGroup,
+  createDriveWorkspace,
   deleteDriveFile,
   deleteDriveFileShare,
   deleteDriveFolder,
@@ -23,9 +24,10 @@ import {
   getDriveFolderPermissions,
   getDriveGroup,
   getPublicDriveShareLink,
-  listDriveShareInvitations,
   listDriveGroups,
   listDriveItems,
+  listDriveShareInvitations,
+  listDriveWorkspaces,
   revokeDriveShareInvitation,
   searchDriveItems,
   updateDriveFile,
@@ -36,9 +38,10 @@ import {
 import type {
   CreateDriveFolderBodyWritable,
   CreateDriveGroupBodyWritable,
-  CreateDriveShareInvitationBodyWritable,
   CreateDriveShareBodyWritable,
+  CreateDriveShareInvitationBodyWritable,
   CreateDriveShareLinkBodyWritable,
+  CreateDriveWorkspaceBodyWritable,
   DriveFileBody,
   DriveFolderBody,
   DriveGroupBody,
@@ -47,6 +50,7 @@ import type {
   DriveShareBody,
   DriveShareInvitationBody,
   DriveShareLinkBody,
+  DriveWorkspaceBody,
   PublicDriveShareLinkOutputBody,
   UpdateDriveFileBodyWritable,
   UpdateDriveFolderBodyWritable,
@@ -149,9 +153,24 @@ export async function fetchDriveFolder(folderPublicId: string): Promise<DriveFol
   }) as unknown as Promise<DriveFolderBody>
 }
 
-export async function fetchDriveItems(parentFolderPublicId = ''): Promise<DriveItemBody[]> {
+export async function fetchDriveWorkspaces(): Promise<DriveWorkspaceBody[]> {
+  const data = await listDriveWorkspaces() as unknown as { items: DriveWorkspaceBody[] | null }
+  return data.items ?? []
+}
+
+export async function createDriveWorkspaceItem(body: CreateDriveWorkspaceBodyWritable): Promise<DriveWorkspaceBody> {
+  return createDriveWorkspace({
+    headers: csrfHeaders(),
+    body,
+  }) as unknown as Promise<DriveWorkspaceBody>
+}
+
+export async function fetchDriveItems(parentFolderPublicId = '', workspacePublicId = ''): Promise<DriveItemBody[]> {
   const data = await listDriveItems({
-    query: parentFolderPublicId ? { parentFolderPublicId } : undefined,
+    query: {
+      ...(parentFolderPublicId ? { parentFolderPublicId } : {}),
+      ...(workspacePublicId ? { workspacePublicId } : {}),
+    },
   }) as unknown as { items: DriveItemBody[] | null }
   return data.items ?? []
 }
@@ -188,8 +207,11 @@ export async function deleteDriveFolderItem(folderPublicId: string): Promise<voi
   })
 }
 
-export async function uploadDriveFileItem(file: File, parentFolderPublicId = ''): Promise<DriveFileBody> {
+export async function uploadDriveFileItem(file: File, parentFolderPublicId = '', workspacePublicId = ''): Promise<DriveFileBody> {
   const form = new FormData()
+  if (workspacePublicId) {
+    form.append('workspacePublicId', workspacePublicId)
+  }
   if (parentFolderPublicId && parentFolderPublicId !== 'root') {
     form.append('parentFolderPublicId', parentFolderPublicId)
   }

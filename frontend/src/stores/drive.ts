@@ -7,6 +7,7 @@ import {
   createDriveShareInvitationItem,
   createDriveShareItem,
   createDriveShareLinkItem,
+  createDriveWorkspaceItem,
   deleteDriveFileItem,
   deleteDriveFolderItem,
   disableDriveShareLinkItem,
@@ -15,6 +16,7 @@ import {
   fetchDriveGroup,
   fetchDriveGroups,
   fetchDriveItems,
+  fetchDriveWorkspaces,
   fetchDrivePermissions,
   overwriteDriveFileItem,
   removeDriveGroupMemberItem,
@@ -36,6 +38,7 @@ import type {
   DriveShareBody,
   DriveShareInvitationBody,
   DriveShareLinkBody,
+  DriveWorkspaceBody,
 } from '../api/generated/types.gen'
 
 type DriveStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
@@ -76,6 +79,8 @@ export const useDriveStore = defineStore('drive', {
     status: 'idle' as DriveStatus,
     actionStatus: 'idle' as DriveActionStatus,
     currentFolder: rootFolder as DriveFolderBody,
+    workspaces: [] as DriveWorkspaceBody[],
+    currentWorkspace: null as DriveWorkspaceBody | null,
     children: [] as DriveItemBody[],
     searchResults: [] as DriveItemBody[],
     selectedItem: null as DriveItemBody | null,
@@ -116,8 +121,15 @@ export const useDriveStore = defineStore('drive', {
       this.errorMessage = ''
       this.resetSelection()
       try {
+        if (this.workspaces.length === 0) {
+          this.workspaces = await fetchDriveWorkspaces()
+          this.currentWorkspace = this.workspaces[0] ?? null
+        }
         this.currentFolder = folderPublicId === 'root' ? rootFolder : await fetchDriveFolder(folderPublicId)
-        this.children = await fetchDriveItems(folderPublicId === 'root' ? '' : folderPublicId)
+        this.children = await fetchDriveItems(
+          folderPublicId === 'root' ? '' : folderPublicId,
+          folderPublicId === 'root' ? this.currentWorkspace?.publicId ?? '' : '',
+        )
         this.status = this.children.length > 0 ? 'ready' : 'empty'
       } catch (error) {
         this.currentFolder = rootFolder
@@ -128,6 +140,33 @@ export const useDriveStore = defineStore('drive', {
 
     async refreshCurrent() {
       await this.loadFolder(this.currentFolder.publicId)
+    },
+
+    async selectWorkspace(workspacePublicId: string) {
+      const workspace = this.workspaces.find((item) => item.publicId === workspacePublicId) ?? null
+      this.currentWorkspace = workspace
+      await this.loadFolder('root')
+    },
+
+    async createWorkspace(name: string) {
+      const trimmed = name.trim()
+      if (!trimmed) {
+        return
+      }
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        const workspace = await createDriveWorkspaceItem({ name: trimmed })
+        this.workspaces = [...this.workspaces, workspace].sort((a, b) => a.name.localeCompare(b.name))
+        this.currentWorkspace = workspace
+        await this.loadFolder('root')
+        return workspace
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
     },
 
     async createFolder(name: string) {
@@ -141,6 +180,7 @@ export const useDriveStore = defineStore('drive', {
       try {
         const folder = await createDriveFolderItem({
           name: trimmed,
+          workspacePublicId: this.currentFolder.publicId === 'root' ? this.currentWorkspace?.publicId : undefined,
           parentFolderPublicId: this.currentFolder.publicId === 'root' ? undefined : this.currentFolder.publicId,
         })
         this.children = [{ type: 'folder', folder }, ...this.children]
@@ -161,6 +201,7 @@ export const useDriveStore = defineStore('drive', {
         const uploaded = await uploadDriveFileItem(
           file,
           this.currentFolder.publicId === 'root' ? '' : this.currentFolder.publicId,
+          this.currentFolder.publicId === 'root' ? this.currentWorkspace?.publicId ?? '' : '',
         )
         this.children = [{ type: 'file', file: uploaded }, ...this.children]
         this.status = 'ready'
@@ -414,7 +455,7 @@ export const useDriveStore = defineStore('drive', {
       }
     },
 
-    async createShareLink(resource: DriveResourceRef, expiresAt: string, canDownload: boolean, password = '') {
+    async createShareLink(resource: DriveResourceRef, expiresAt: string, canDownload: boolean, password = '', role = 'viewer') {
       this.actionStatus = 'working'
       this.errorMessage = ''
       try {
@@ -422,6 +463,7 @@ export const useDriveStore = defineStore('drive', {
           expiresAt: new Date(expiresAt).toISOString(),
           canDownload,
           password: password.trim() || undefined,
+          role: (role === 'editor' ? 'editor' : 'viewer') as 'editor' | 'viewer',
         })
         this.lastRawShareLink = link
         await this.loadPermissions(resource)

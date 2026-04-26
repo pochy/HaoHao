@@ -75,6 +75,7 @@ export type CreateDriveFolderBody = {
     readonly $schema?: string;
     name: string;
     parentFolderPublicId?: string;
+    workspacePublicId?: string;
 };
 
 export type CreateDriveGroupBody = {
@@ -115,6 +116,19 @@ export type CreateDriveShareLinkBody = {
     canDownload: boolean;
     expiresAt?: string;
     password?: string;
+    role?: 'viewer' | 'editor';
+};
+
+export type CreateDriveWorkspaceBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    name: string;
+    policyOverride?: {
+        [key: string]: unknown;
+    };
+    storageQuotaBytes?: number;
 };
 
 export type CreateTenantDataExportRequestBody = {
@@ -247,15 +261,18 @@ export type DriveFileBody = {
     byteSize: number;
     contentType: string;
     createdAt: string;
+    dlpBlocked: boolean;
     inheritanceEnabled: boolean;
     lockReason?: string;
     locked: boolean;
     lockedAt?: string;
     originalFilename: string;
     publicId: string;
+    scanStatus: string;
     sha256Hex: string;
     status: string;
     updatedAt: string;
+    workspacePublicId?: string;
 };
 
 export type DriveFolderBody = {
@@ -268,6 +285,7 @@ export type DriveFolderBody = {
     name: string;
     publicId: string;
     updatedAt: string;
+    workspacePublicId?: string;
 };
 
 export type DriveGroupBody = {
@@ -395,6 +413,29 @@ export type DriveShareLinkBody = {
     status: string;
     token?: string;
     updatedAt: string;
+};
+
+export type DriveWorkspaceBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    name: string;
+    policyOverride?: {
+        [key: string]: unknown;
+    };
+    publicId: string;
+    storageQuotaBytes?: number;
+    updatedAt: string;
+};
+
+export type DriveWorkspaceListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DriveWorkspaceBody> | null;
 };
 
 export type EntitlementBody = {
@@ -678,6 +719,26 @@ export type SupportAccessOutputBody = {
     active: boolean;
 };
 
+export type TenantAdminDriveAdminContentSessionBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    expiresAt: string;
+    publicId: string;
+    reasonCategory: string;
+};
+
+export type TenantAdminDriveAdminContentSessionInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    reason: string;
+    reasonCategory?: 'manual' | 'incident' | 'legal' | 'security';
+};
+
 export type TenantAdminDriveAuditEventBody = {
     action: string;
     actorType: string;
@@ -704,6 +765,20 @@ export type TenantAdminDriveInvitationsOutputBody = {
      */
     readonly $schema?: string;
     items: Array<DriveShareInvitationBody> | null;
+};
+
+export type TenantAdminDriveOperationsHealthBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    checkedAt: string;
+    missingWorkspaceCount: number;
+    openfgaDriftCount: number;
+    storageMissingCount: number;
+    storageOrphanCheckState: string;
+    tenantId: number;
+    workspaceCount: number;
 };
 
 export type TenantAdminDriveShareLinkStateBody = {
@@ -1104,6 +1179,7 @@ export type CreateCustomerSignalBodyWritable = {
 export type CreateDriveFolderBodyWritable = {
     name: string;
     parentFolderPublicId?: string;
+    workspacePublicId?: string;
 };
 
 export type CreateDriveGroupBodyWritable = {
@@ -1128,6 +1204,15 @@ export type CreateDriveShareLinkBodyWritable = {
     canDownload: boolean;
     expiresAt?: string;
     password?: string;
+    role?: 'viewer' | 'editor';
+};
+
+export type CreateDriveWorkspaceBodyWritable = {
+    name: string;
+    policyOverride?: {
+        [key: string]: unknown;
+    };
+    storageQuotaBytes?: number;
 };
 
 export type CreateTenantDataExportRequestBodyWritable = {
@@ -1212,15 +1297,18 @@ export type DriveFileBodyWritable = {
     byteSize: number;
     contentType: string;
     createdAt: string;
+    dlpBlocked: boolean;
     inheritanceEnabled: boolean;
     lockReason?: string;
     locked: boolean;
     lockedAt?: string;
     originalFilename: string;
     publicId: string;
+    scanStatus: string;
     sha256Hex: string;
     status: string;
     updatedAt: string;
+    workspacePublicId?: string;
 };
 
 export type DriveFolderBodyWritable = {
@@ -1229,6 +1317,7 @@ export type DriveFolderBodyWritable = {
     name: string;
     publicId: string;
     updatedAt: string;
+    workspacePublicId?: string;
 };
 
 export type DriveGroupBodyWritable = {
@@ -1306,6 +1395,21 @@ export type DriveShareLinkBodyWritable = {
     status: string;
     token?: string;
     updatedAt: string;
+};
+
+export type DriveWorkspaceBodyWritable = {
+    createdAt: string;
+    name: string;
+    policyOverride?: {
+        [key: string]: unknown;
+    };
+    publicId: string;
+    storageQuotaBytes?: number;
+    updatedAt: string;
+};
+
+export type DriveWorkspaceListOutputBodyWritable = {
+    items: Array<DriveWorkspaceBodyWritable> | null;
 };
 
 export type EntitlementListOutputBodyWritable = {
@@ -1439,12 +1543,34 @@ export type SupportAccessOutputBodyWritable = {
     active: boolean;
 };
 
+export type TenantAdminDriveAdminContentSessionBodyWritable = {
+    createdAt: string;
+    expiresAt: string;
+    publicId: string;
+    reasonCategory: string;
+};
+
+export type TenantAdminDriveAdminContentSessionInputBodyWritable = {
+    reason: string;
+    reasonCategory?: 'manual' | 'incident' | 'legal' | 'security';
+};
+
 export type TenantAdminDriveAuditOutputBodyWritable = {
     items: Array<TenantAdminDriveAuditEventBody> | null;
 };
 
 export type TenantAdminDriveInvitationsOutputBodyWritable = {
     items: Array<DriveShareInvitationBodyWritable> | null;
+};
+
+export type TenantAdminDriveOperationsHealthBodyWritable = {
+    checkedAt: string;
+    missingWorkspaceCount: number;
+    openfgaDriftCount: number;
+    storageMissingCount: number;
+    storageOrphanCheckState: string;
+    tenantId: number;
+    workspaceCount: number;
 };
 
 export type TenantAdminDriveShareLinksOutputBodyWritable = {
@@ -1835,6 +1961,94 @@ export type ListTenantAdminDriveAuditEventsResponses = {
 
 export type ListTenantAdminDriveAuditEventsResponse = ListTenantAdminDriveAuditEventsResponses[keyof ListTenantAdminDriveAuditEventsResponses];
 
+export type StartTenantAdminDriveContentAccessSessionData = {
+    body: TenantAdminDriveAdminContentSessionInputBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/content-access-sessions';
+};
+
+export type StartTenantAdminDriveContentAccessSessionErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type StartTenantAdminDriveContentAccessSessionError = StartTenantAdminDriveContentAccessSessionErrors[keyof StartTenantAdminDriveContentAccessSessionErrors];
+
+export type StartTenantAdminDriveContentAccessSessionResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveAdminContentSessionBody;
+};
+
+export type StartTenantAdminDriveContentAccessSessionResponse = StartTenantAdminDriveContentAccessSessionResponses[keyof StartTenantAdminDriveContentAccessSessionResponses];
+
+export type EndTenantAdminDriveContentAccessSessionData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/content-access-sessions/current';
+};
+
+export type EndTenantAdminDriveContentAccessSessionErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type EndTenantAdminDriveContentAccessSessionError = EndTenantAdminDriveContentAccessSessionErrors[keyof EndTenantAdminDriveContentAccessSessionErrors];
+
+export type EndTenantAdminDriveContentAccessSessionResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type EndTenantAdminDriveContentAccessSessionResponse = EndTenantAdminDriveContentAccessSessionResponses[keyof EndTenantAdminDriveContentAccessSessionResponses];
+
+export type GetTenantAdminDriveFileMetadataData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/files/{filePublicId}/metadata';
+};
+
+export type GetTenantAdminDriveFileMetadataErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetTenantAdminDriveFileMetadataError = GetTenantAdminDriveFileMetadataErrors[keyof GetTenantAdminDriveFileMetadataErrors];
+
+export type GetTenantAdminDriveFileMetadataResponses = {
+    /**
+     * OK
+     */
+    200: DriveFileBody;
+};
+
+export type GetTenantAdminDriveFileMetadataResponse = GetTenantAdminDriveFileMetadataResponses[keyof GetTenantAdminDriveFileMetadataResponses];
+
 export type ListTenantAdminDriveInvitationsData = {
     body?: never;
     path: {
@@ -1922,6 +2136,95 @@ export type RepairTenantAdminDriveOpenFgaSyncResponses = {
 };
 
 export type RepairTenantAdminDriveOpenFgaSyncResponse = RepairTenantAdminDriveOpenFgaSyncResponses[keyof RepairTenantAdminDriveOpenFgaSyncResponses];
+
+export type CheckTenantAdminDriveOperationsDriftData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/operations/drift-check';
+};
+
+export type CheckTenantAdminDriveOperationsDriftErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CheckTenantAdminDriveOperationsDriftError = CheckTenantAdminDriveOperationsDriftErrors[keyof CheckTenantAdminDriveOperationsDriftErrors];
+
+export type CheckTenantAdminDriveOperationsDriftResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveSyncOutputBody;
+};
+
+export type CheckTenantAdminDriveOperationsDriftResponse = CheckTenantAdminDriveOperationsDriftResponses[keyof CheckTenantAdminDriveOperationsDriftResponses];
+
+export type GetTenantAdminDriveOperationsHealthData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/operations/health';
+};
+
+export type GetTenantAdminDriveOperationsHealthErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetTenantAdminDriveOperationsHealthError = GetTenantAdminDriveOperationsHealthErrors[keyof GetTenantAdminDriveOperationsHealthErrors];
+
+export type GetTenantAdminDriveOperationsHealthResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveOperationsHealthBody;
+};
+
+export type GetTenantAdminDriveOperationsHealthResponse = GetTenantAdminDriveOperationsHealthResponses[keyof GetTenantAdminDriveOperationsHealthResponses];
+
+export type RepairTenantAdminDriveOperationsData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/operations/repair';
+};
+
+export type RepairTenantAdminDriveOperationsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RepairTenantAdminDriveOperationsError = RepairTenantAdminDriveOperationsErrors[keyof RepairTenantAdminDriveOperationsErrors];
+
+export type RepairTenantAdminDriveOperationsResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveSyncOutputBody;
+};
+
+export type RepairTenantAdminDriveOperationsResponse = RepairTenantAdminDriveOperationsResponses[keyof RepairTenantAdminDriveOperationsResponses];
 
 export type ListTenantAdminDriveShareApprovalsData = {
     body?: never;
@@ -3528,6 +3831,7 @@ export type ListDriveFolderChildrenData = {
         folderPublicId: string;
     };
     query?: {
+        workspacePublicId?: string;
         limit?: number;
     };
     url: '/api/v1/drive/folders/{folderPublicId}/children';
@@ -4021,6 +4325,7 @@ export type ListDriveItemsData = {
     body?: never;
     path?: never;
     query?: {
+        workspacePublicId?: string;
         folderPublicId?: string;
         parentFolderPublicId?: string;
         limit?: number;
@@ -4134,6 +4439,121 @@ export type UpdateDriveShareLinkResponses = {
 };
 
 export type UpdateDriveShareLinkResponse = UpdateDriveShareLinkResponses[keyof UpdateDriveShareLinkResponses];
+
+export type ListDriveWorkspacesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/drive/workspaces';
+};
+
+export type ListDriveWorkspacesErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveWorkspacesError = ListDriveWorkspacesErrors[keyof ListDriveWorkspacesErrors];
+
+export type ListDriveWorkspacesResponses = {
+    /**
+     * OK
+     */
+    200: DriveWorkspaceListOutputBody;
+};
+
+export type ListDriveWorkspacesResponse = ListDriveWorkspacesResponses[keyof ListDriveWorkspacesResponses];
+
+export type CreateDriveWorkspaceData = {
+    body: CreateDriveWorkspaceBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/drive/workspaces';
+};
+
+export type CreateDriveWorkspaceErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveWorkspaceError = CreateDriveWorkspaceErrors[keyof CreateDriveWorkspaceErrors];
+
+export type CreateDriveWorkspaceResponses = {
+    /**
+     * OK
+     */
+    200: DriveWorkspaceBody;
+};
+
+export type CreateDriveWorkspaceResponse = CreateDriveWorkspaceResponses[keyof CreateDriveWorkspaceResponses];
+
+export type DeleteDriveWorkspaceData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        workspacePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/workspaces/{workspacePublicId}';
+};
+
+export type DeleteDriveWorkspaceErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeleteDriveWorkspaceError = DeleteDriveWorkspaceErrors[keyof DeleteDriveWorkspaceErrors];
+
+export type DeleteDriveWorkspaceResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteDriveWorkspaceResponse = DeleteDriveWorkspaceResponses[keyof DeleteDriveWorkspaceResponses];
+
+export type UpdateDriveWorkspaceData = {
+    body: CreateDriveWorkspaceBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        workspacePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/workspaces/{workspacePublicId}';
+};
+
+export type UpdateDriveWorkspaceErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UpdateDriveWorkspaceError = UpdateDriveWorkspaceErrors[keyof UpdateDriveWorkspaceErrors];
+
+export type UpdateDriveWorkspaceResponses = {
+    /**
+     * OK
+     */
+    200: DriveWorkspaceBody;
+};
+
+export type UpdateDriveWorkspaceResponse = UpdateDriveWorkspaceResponses[keyof UpdateDriveWorkspaceResponses];
 
 export type ListFilesData = {
     body?: never;
