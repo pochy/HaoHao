@@ -72,6 +72,12 @@ binary: frontend-build
 docker-build:
 	docker build -t haohao:dev -f docker/Dockerfile .
 
+openfga-bootstrap:
+	bash scripts/openfga-bootstrap.sh
+
+test-openfga-model:
+	cd openfga && fga model test --tests drive.fga.yaml
+
 smoke-operability:
 	bash scripts/smoke-operability.sh
 

@@ -16,6 +16,9 @@ type ReadinessChecker struct {
 	RedisPing     PingFunc
 	ZitadelIssuer string
 	CheckZitadel  bool
+	OpenFGAURL    string
+	OpenFGAToken  string
+	CheckOpenFGA  bool
 	HTTPClient    *http.Client
 	Metrics       *Metrics
 }
@@ -52,6 +55,22 @@ func (c ReadinessChecker) Check(ctx context.Context) ReadinessResult {
 				c.Metrics.ObserveDependencyPing("zitadel", time.Since(startedAt), nil)
 			}
 			result.Checks["zitadel"] = ReadinessCheck{Status: "ok"}
+		}
+	}
+
+	if c.CheckOpenFGA {
+		startedAt := time.Now()
+		if err := c.checkOpenFGA(ctx); err != nil {
+			if c.Metrics != nil {
+				c.Metrics.ObserveDependencyPing("openfga", time.Since(startedAt), err)
+			}
+			result.Status = "error"
+			result.Checks["openfga"] = ReadinessCheck{Status: "error", Error: err.Error()}
+		} else {
+			if c.Metrics != nil {
+				c.Metrics.ObserveDependencyPing("openfga", time.Since(startedAt), nil)
+			}
+			result.Checks["openfga"] = ReadinessCheck{Status: "ok"}
 		}
 	}
 
@@ -117,6 +136,38 @@ func (c ReadinessChecker) checkZitadel(ctx context.Context) error {
 	}
 	if body["issuer"] == nil {
 		return fmt.Errorf("discovery response missing issuer")
+	}
+
+	return nil
+}
+
+func (c ReadinessChecker) checkOpenFGA(ctx context.Context) error {
+	baseURL := strings.TrimRight(strings.TrimSpace(c.OpenFGAURL), "/")
+	if baseURL == "" {
+		return fmt.Errorf("OPENFGA_API_URL is empty")
+	}
+
+	client := c.HTTPClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/healthz", nil)
+	if err != nil {
+		return err
+	}
+	if token := strings.TrimSpace(c.OpenFGAToken); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("healthz returned %d", resp.StatusCode)
 	}
 
 	return nil

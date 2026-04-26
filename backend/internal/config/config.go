@@ -97,6 +97,17 @@ type Config struct {
 	CookieSecure                  bool
 	DocsAuthRequired              bool
 	EnableLocalPasswordLogin      bool
+	OpenFGA                       OpenFGAConfig
+}
+
+type OpenFGAConfig struct {
+	Enabled              bool
+	APIURL               string
+	StoreID              string
+	AuthorizationModelID string
+	APIToken             string
+	Timeout              time.Duration
+	FailClosed           bool
 }
 
 func Load() (Config, error) {
@@ -121,6 +132,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	readinessTimeout, err := getEnvPositiveDuration("READINESS_TIMEOUT", "2s")
+	if err != nil {
+		return Config{}, err
+	}
+	openFGATimeout, err := getEnvPositiveDuration("OPENFGA_TIMEOUT", "2s")
 	if err != nil {
 		return Config{}, err
 	}
@@ -190,6 +205,18 @@ func Load() (Config, error) {
 	zitadelPostLogoutRedirectURI := resolveZitadelPostLogoutRedirectURI(frontendBaseURL, getEnv("ZITADEL_POST_LOGOUT_REDIRECT_URI", defaultZitadelPostLogoutRedirectURI(frontendBaseURL)), frontendEmbedded)
 	metricsPath := normalizePath(getEnv("METRICS_PATH", "/metrics"), "/metrics")
 	otelTraceSampleRatio := clampFloat64(getEnvFloat64("OTEL_TRACES_SAMPLER_RATIO", 0.1), 0, 1)
+	openFGAConfig := OpenFGAConfig{
+		Enabled:              getEnvBool("OPENFGA_ENABLED", false),
+		APIURL:               strings.TrimRight(strings.TrimSpace(getEnv("OPENFGA_API_URL", "http://127.0.0.1:8088")), "/"),
+		StoreID:              strings.TrimSpace(getEnv("OPENFGA_STORE_ID", "")),
+		AuthorizationModelID: strings.TrimSpace(getEnv("OPENFGA_AUTHORIZATION_MODEL_ID", "")),
+		APIToken:             strings.TrimSpace(getEnv("OPENFGA_API_TOKEN", "")),
+		Timeout:              openFGATimeout,
+		FailClosed:           getEnvBool("OPENFGA_FAIL_CLOSED", true),
+	}
+	if err := validateOpenFGAConfig(openFGAConfig); err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		AppName:                       getEnv("APP_NAME", "HaoHao API"),
@@ -280,7 +307,28 @@ func Load() (Config, error) {
 		CookieSecure:                  getEnvBool("COOKIE_SECURE", false),
 		DocsAuthRequired:              getEnvBool("DOCS_AUTH_REQUIRED", false),
 		EnableLocalPasswordLogin:      getEnvBool("ENABLE_LOCAL_PASSWORD_LOGIN", true),
+		OpenFGA:                       openFGAConfig,
 	}, nil
+}
+
+func validateOpenFGAConfig(cfg OpenFGAConfig) error {
+	if !cfg.Enabled {
+		return nil
+	}
+	if cfg.APIURL == "" {
+		return fmt.Errorf("OPENFGA_API_URL is required when OPENFGA_ENABLED=true")
+	}
+	if cfg.StoreID == "" {
+		return fmt.Errorf("OPENFGA_STORE_ID is required when OPENFGA_ENABLED=true")
+	}
+	if cfg.AuthorizationModelID == "" {
+		return fmt.Errorf("OPENFGA_AUTHORIZATION_MODEL_ID is required when OPENFGA_ENABLED=true")
+	}
+	if cfg.Timeout <= 0 {
+		return fmt.Errorf("OPENFGA_TIMEOUT must be positive")
+	}
+
+	return nil
 }
 
 func getEnv(key, fallback string) string {

@@ -1,0 +1,153 @@
+name: HaoHao Drive Model Tests
+model_file: ./drive.fga
+
+tests:
+  - name: direct owner editor viewer permissions
+    tuples:
+      - user: user:owner
+        relation: owner
+        object: file:owner-doc
+      - user: user:editor
+        relation: editor
+        object: file:editor-doc
+      - user: user:viewer
+        relation: viewer
+        object: file:viewer-doc
+    check:
+      - user: user:owner
+        object: file:owner-doc
+        assertions:
+          owner: true
+          editor: true
+          viewer: true
+          can_view: true
+          can_download: true
+          can_edit: true
+          can_delete: true
+          can_share: true
+      - user: user:editor
+        object: file:editor-doc
+        assertions:
+          owner: false
+          editor: true
+          viewer: true
+          can_view: true
+          can_download: true
+          can_edit: true
+          can_delete: false
+          can_share: false
+      - user: user:viewer
+        object: file:viewer-doc
+        assertions:
+          owner: false
+          editor: false
+          viewer: true
+          can_view: true
+          can_download: true
+          can_edit: false
+          can_delete: false
+          can_share: false
+
+  - name: folder inheritance
+    tuples:
+      - user: user:folder-viewer
+        relation: viewer
+        object: folder:root
+      - user: user:folder-editor
+        relation: editor
+        object: folder:root
+      - user: folder:root
+        relation: parent
+        object: folder:child
+      - user: folder:child
+        relation: parent
+        object: file:child-doc
+    check:
+      - user: user:folder-viewer
+        object: folder:child
+        assertions:
+          can_view: true
+          can_edit: false
+      - user: user:folder-viewer
+        object: file:child-doc
+        assertions:
+          can_view: true
+          can_edit: false
+      - user: user:folder-editor
+        object: folder:child
+        assertions:
+          can_view: true
+          can_edit: true
+      - user: user:folder-editor
+        object: file:child-doc
+        assertions:
+          can_view: true
+          can_edit: true
+
+  - name: inheritance stops without parent tuple
+    tuples:
+      - user: user:root-viewer
+        relation: viewer
+        object: folder:root
+      - user: folder:child
+        relation: parent
+        object: file:child-doc
+    check:
+      - user: user:root-viewer
+        object: file:child-doc
+        assertions:
+          can_view: false
+          can_edit: false
+
+  - name: group member share
+    tuples:
+      - user: user:engineer
+        relation: member
+        object: group:engineering
+      - user: group:engineering#member
+        relation: editor
+        object: folder:shared-project
+      - user: folder:shared-project
+        relation: parent
+        object: file:spec
+    check:
+      - user: user:engineer
+        object: file:spec
+        assertions:
+          can_view: true
+          can_download: true
+          can_edit: true
+          can_delete: false
+          can_share: false
+
+  - name: expiring share link
+    tuples:
+      - user: share_link:live-link
+        relation: viewer
+        object: file:linked-doc
+        condition:
+          name: not_expired
+          context:
+            expires_at: "2026-05-01T00:00:00Z"
+      - user: share_link:expired-link
+        relation: viewer
+        object: file:linked-doc
+        condition:
+          name: not_expired
+          context:
+            expires_at: "2026-04-01T00:00:00Z"
+    check:
+      - user: share_link:live-link
+        object: file:linked-doc
+        context:
+          current_time: "2026-04-26T00:00:00Z"
+        assertions:
+          can_view: true
+          can_download: true
+      - user: share_link:expired-link
+        object: file:linked-doc
+        context:
+          current_time: "2026-04-26T00:00:00Z"
+        assertions:
+          can_view: false
+          can_download: false

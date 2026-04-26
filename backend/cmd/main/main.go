@@ -199,6 +199,9 @@ func main() {
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },
 		ZitadelIssuer: cfg.ZitadelIssuer,
 		CheckZitadel:  cfg.ReadinessCheckZitadel,
+		OpenFGAURL:    cfg.OpenFGA.APIURL,
+		OpenFGAToken:  cfg.OpenFGA.APIToken,
+		CheckOpenFGA:  cfg.OpenFGA.Enabled,
 		HTTPClient:    platform.ReadinessTimeoutClient(cfg.ReadinessTimeout),
 		Metrics:       metrics,
 	}, cfg.ReadinessTimeout)
