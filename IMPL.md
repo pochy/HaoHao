@@ -22,6 +22,13 @@
 - `TUTORIAL_P10_CROSS_CUTTING_EXTENSIONS.md`
 - `TUTORIAL_P11_TENANT_RATE_LIMIT_RUNTIME.md`
 - `TUTORIAL_P12_FILE_LIFECYCLE_PHYSICAL_DELETE.md`
+- `OPENFGA_IMPLEMENTATION_PLAN.md`
+- `TUTORIAL_OPENFGA.md`
+- `TUTORIAL_OPENFGA_P1_INFRA_MODEL.md`
+- `TUTORIAL_OPENFGA_P2_DB_SQLC.md`
+- `TUTORIAL_OPENFGA_P3_BACKEND_SERVICES.md`
+- `TUTORIAL_OPENFGA_P4_API_AUDIT_SMOKE.md`
+- `TUTORIAL_OPENFGA_P5_UI_E2E.md`
 - `RUNBOOK_OPERABILITY.md`
 - `RUNBOOK_OBSERVABILITY.md`
 - `RUNBOOK_DEPLOYMENT.md`
@@ -31,7 +38,7 @@
 
 現在の実装は、`CONCEPT.md` の基本方針である **OpenAPI 3.1 優先 + Monorepo + Go/Huma + Vue + PostgreSQL/sqlc + BFF Cookie 認証** を広い範囲で反映している。
 
-`TUTORIAL.md` の foundation、`TUTORIAL_ZITADEL.md` の Phase 1-6、`TUTORIAL_SINGLE_BINARY.md`、P0-P12 の各チュートリアルまで実装済み。HaoHao は、local password login / Zitadel browser login / Cookie session / CSRF / tenant-aware auth / delegated auth / SCIM / M2M / single binary / operability / observability / audit / tenant admin / TODO / Customer Signals / common services / OpenAPI split / Playwright E2E / cross-cutting extensions / tenant rate limit runtime / file lifecycle purge まで持つ状態になっている。
+`TUTORIAL.md` の foundation、`TUTORIAL_ZITADEL.md` の Phase 1-6、`TUTORIAL_SINGLE_BINARY.md`、P0-P12、OpenFGA Drive Phase 1-5 の各チュートリアルまで実装済み。HaoHao は、local password login / Zitadel browser login / Cookie session / CSRF / tenant-aware auth / delegated auth / SCIM / M2M / single binary / operability / observability / audit / tenant admin / TODO / Customer Signals / common services / OpenAPI split / Playwright E2E / cross-cutting extensions / tenant rate limit runtime / file lifecycle purge / OpenFGA resource authorization 付き Drive まで持つ状態になっている。
 
 | Phase | 状態 | 主な実装 |
 | --- | --- | --- |
@@ -51,8 +58,9 @@
 | P10: Cross-cutting Extensions | 実装済み | webhooks、CSV import/export、saved filters、support access、entitlements |
 | P11: Rate Limit Runtime | 実装済み | tenant settings の browser API rate limit override を runtime 反映 |
 | P12: File Physical Purge | 実装済み | local file body purge、retry/lock、audit/metrics、smoke |
+| OpenFGA Drive | 実装済み | OpenFGA Docker/model/bootstrap、Drive DB/sqlc、resource auth service、Drive API、audit/metrics、Vue Drive UI、OpenFGA enabled E2E |
 
-現時点で残る大きな領域は、SMTP/provider email sender、DB query tracing、Grafana dashboard、webhook 外部配送 E2E、support access E2E 強化、object storage / virus scan、billing、realtime、HA/DR、M2M/external bearer 用の業務 API である。
+現時点で残る大きな領域は、SMTP/provider email sender、DB query tracing、Grafana dashboard、webhook 外部配送 E2E、support access E2E 強化、object storage / virus scan、Drive の外部ユーザー共有・password link・domain policy、billing、realtime、HA/DR、M2M/external bearer 用の業務 API である。
 
 ## 方針との対応
 
@@ -77,6 +85,9 @@
 | Cross-cutting extensions | 実装済み。webhooks、Customer Signals import/export、saved filters、support access、entitlements がある |
 | Runtime policies | 実装済み。tenant settings の browser API rate limit override を middleware が参照する |
 | File lifecycle | 実装済み。soft delete 後の local file body physical purge と DB tombstone がある |
+| OpenFGA | 実装済み。専用 PostgreSQL 付き Docker runtime、repo 管理 authorization model、bootstrap script、model test、readiness probe がある |
+| Drive resource auth | 実装済み。OpenFGA は File/Folder/Group/Share Link の resource authorization に限定し、login/global role/tenant role/active tenant は既存 `AuthzService` が担当する |
+| Drive product surface | 実装済み。folder/file CRUD、user/group share、期限付き Viewer link、download 禁止、inheritance stop/resume、permissions panel、public link metadata/content がある |
 | E2E | 実装済み。single binary に対する Playwright Chromium E2E がある |
 | Docker / CI / release | 実装済み。`docker/Dockerfile`、`.dockerignore`、CI の embedded binary / Docker build、release asset upload がある |
 
@@ -85,12 +96,14 @@
 実装済み:
 
 - `go.work` は Go `1.26.0`、`use ./backend`。
-- `compose.yaml` は PostgreSQL `18` と Redis `7.4` を起動する。
-- `Makefile` に `up`, `down`, `db-up`, `db-down`, `db-schema`, `seed-demo-user`, `sqlc`, `openapi`, `gen`, `backend-dev`, `frontend-dev`, `frontend-build`, `binary`, `docker-build`, `e2e` がある。
-- smoke target は `smoke-operability`, `smoke-observability`, `smoke-tenant-admin`, `smoke-customer-signals`, `smoke-common-services`, `smoke-p10`, `smoke-rate-limit-runtime`, `smoke-file-purge`, `smoke-backup-restore`。
+- `compose.yaml` は PostgreSQL `18`、Redis `7.4`、OpenFGA `v1.11.6`、OpenFGA 専用 PostgreSQL を起動する。
+- `Makefile` に `up`, `down`, `db-up`, `db-down`, `db-schema`, `seed-demo-user`, `sqlc`, `openapi`, `gen`, `backend-dev`, `frontend-dev`, `frontend-build`, `binary`, `docker-build`, `e2e`, `openfga-bootstrap`, `test-openfga-model` がある。
+- smoke target は `smoke-operability`, `smoke-observability`, `smoke-tenant-admin`, `smoke-customer-signals`, `smoke-common-services`, `smoke-p10`, `smoke-rate-limit-runtime`, `smoke-file-purge`, `smoke-openfga`, `smoke-backup-restore`。
 - `scripts/gen.sh` は sqlc generate、full/browser/external OpenAPI export、frontend SDK 生成をまとめて実行する。
-- `.env.example` には local / Zitadel / external bearer / M2M / downstream delegated auth / SCIM / readiness / reconcile scheduler / cookie / docs auth / metrics / tracing / security / outbox / idempotency / email / file / rate limit / tenant quota / data lifecycle / webhook / support access の設定がある。
+- `.env.example` には local / Zitadel / external bearer / M2M / downstream delegated auth / SCIM / OpenFGA / readiness / reconcile scheduler / cookie / docs auth / metrics / tracing / security / outbox / idempotency / email / file / rate limit / tenant quota / data lifecycle / webhook / support access の設定がある。
 - `dev/zitadel/` に self-hosted dev 用 Zitadel compose と `.env.example` がある。`make zitadel-up` 系の入口もある。
+- `openfga/drive.fga` に Drive 用 OpenFGA model、`openfga/drive.fga.yaml` に model test がある。
+- `scripts/openfga-bootstrap.sh` は `fga` CLI で store 作成または既存 store への model 登録を行い、`.env` に設定する `OPENFGA_STORE_ID` と `OPENFGA_AUTHORIZATION_MODEL_ID` を stdout に出す。
 - `docker/Dockerfile` は Node builder、Go builder、`scratch` runtime の multi-stage build。
 - `.github/workflows/ci.yml` は backend test、frontend build、embedded binary build、Playwright E2E、generated drift、DB schema drift、OpenAPI validate、Zitadel compose config、Docker build を確認する。
 - `.github/workflows/release.yml` は OpenAPI artifacts と embedded Linux amd64 binary tarball を GitHub Release に upload する。
@@ -104,10 +117,13 @@
 - `make backend-dev` は引き続き `.env` を source してから起動する。
 - `make smoke-*` の多くは server を起動しない。既に動いている `BASE_URL`、既定では `http://127.0.0.1:8080`、に対して確認する。
 - `make e2e` と `make smoke-file-purge` は single binary を作り、一時 server を起動して確認する。
+- `make test-openfga-model` は OpenFGA CLI が必要。`cd openfga && fga model test --tests drive.fga.yaml` を実行する。
+- OpenFGA を有効にする場合、backend 起動前に store/model を bootstrap し、`OPENFGA_ENABLED=true`, `OPENFGA_STORE_ID`, `OPENFGA_AUTHORIZATION_MODEL_ID` を設定する。runtime は store/model を自動作成・自動更新しない。
+- production では `OPENFGA_PLAYGROUND_ENABLED=false` にする想定。local では `127.0.0.1:8088` で OpenFGA HTTP API / playground を確認できる。
 
 ## Database / sqlc
 
-現在の migration は `0001` から `0014` まである。
+現在の migration は `0001` から `0015` まである。
 
 | migration | 内容 |
 | --- | --- |
@@ -125,22 +141,27 @@
 | `0012_web_service_common` | outbox、idempotency、notifications、tenant invitations、file objects、tenant settings、tenant data exports |
 | `0013_p10_cross_cutting_extensions` | `support_agent` role、feature definitions、tenant entitlements、webhooks、deliveries、Customer Signal import jobs、saved filters、support access sessions |
 | `0014_file_lifecycle_physical_delete` | `file_objects` の `purged_at`、purge attempts、lock、last error |
+| `0015_openfga_drive` | `file_objects` の Drive 用拡張、`drive_folders`, `drive_groups`, `drive_group_members`, `drive_resource_shares`, `drive_share_links` |
 
 sqlc:
 
 - `backend/sqlc.yaml` は `db/schema.sql` と `db/queries/` を入力にする。
 - 生成先は `backend/internal/db/`。
 - `uuid` は `github.com/google/uuid.UUID` に override されている。
-- `db/queries/` は users, identities, roles, tenants, downstream grants, provisioning, machine clients, todos, audit events, tenant admin, customer signals, outbox, idempotency, notifications, tenant invitations, file objects, tenant settings, tenant data exports, entitlements, webhooks, customer signal imports, saved filters, support access を持つ。
+- `db/queries/` は users, identities, roles, tenants, downstream grants, provisioning, machine clients, todos, audit events, tenant admin, customer signals, outbox, idempotency, notifications, tenant invitations, file objects, tenant settings, tenant data exports, entitlements, webhooks, customer signal imports, saved filters, support access, Drive folders/files/groups/shares/share links を持つ。
 
 設計上の注意点:
 
 - tenant-aware table は `tenant_id` で絞る。tenant 外 record の存在は基本的に `404` として隠す。
 - soft delete 対象は `deleted_at` や status を使い、通常 list/get では除外する。
 - file body purge は DB row を hard delete せず、tombstone として `file_objects` row を残す。
+- 既存 attachment/import/export file は `file_objects.purpose != 'drive'` として互換維持する。Drive API は `purpose = 'drive'` の row だけを扱う。
+- Drive folder/file/share/link/group metadata は PostgreSQL を source of truth とし、OpenFGA tuple は resource authorization の判定材料として同期する。
+- Drive tenant 境界は OpenFGA object ID ではなく DB の `tenant_id` と active tenant check で保証する。tenant mismatch は resource 存在を隠すため基本的に `404`。
+- Drive 継承停止は DB の親子関係を残し、OpenFGA の `parent` tuple を削除する方式。
 - outbox claim と file purge claim は `FOR UPDATE SKIP LOCKED` を使う。
 - metrics label には tenant id、user id、email、public id、idempotency key、raw path、storage key、webhook URL を入れない。
-- audit metadata には secret、token、webhook signature、raw idempotency key を入れない。
+- audit metadata には secret、token、webhook signature、raw idempotency key、Drive share link raw token、storage key を入れない。
 
 ## Backend
 
@@ -151,8 +172,8 @@ sqlc:
 - `backend/cmd/main/main.go`: runtime 起動、PostgreSQL/Redis 接続、service wiring、worker 起動、HTTP server。
 - `backend/cmd/openapi/main.go`: Huma API から full/browser/external OpenAPI YAML を出力。
 - `backend/internal/app/app.go`: Gin engine、middleware、Huma config、security schemes、route registration、rate limit resolver。
-- `backend/internal/api/`: Huma operation と request / response model。file upload/download の一部は raw Gin route。
-- `backend/internal/service/`: session, OIDC login, identity, authz, delegation, provisioning, machine client, TODO, audit, tenant admin, Customer Signals, outbox, idempotency, notification, invitation, file, tenant settings, tenant export, entitlement, webhook, import, saved filter, support access。
+- `backend/internal/api/`: Huma operation と request / response model。file / Drive upload/download の一部は raw Gin route。
+- `backend/internal/service/`: session, OIDC login, identity, authz, delegation, provisioning, machine client, TODO, audit, tenant admin, Customer Signals, outbox, idempotency, notification, invitation, file, tenant settings, tenant export, entitlement, webhook, import, saved filter, support access, OpenFGA client, Drive authorization, Drive domain。
 - `backend/internal/auth/`: Cookie、Redis stores、OIDC/OAuth client、JWT bearer verifier、M2M verifier、refresh token encryption、generic secret box。
 - `backend/internal/middleware/`: request id、request logger、docs auth、external CORS/auth、SCIM auth、M2M auth、tracing、security headers、body limit、browser CORS、rate limit。
 - `backend/internal/platform/`: logger、readiness、metrics、tracing。
@@ -216,9 +237,14 @@ P8 により、OpenAPI は 3 artifact に分割済み。
   - `haohao_dependency_ping_duration_seconds`
   - readiness failure counter
 - scheduler / auth / outbox / rate limit / data lifecycle / file quota metrics。
+- OpenFGA SDK call metrics:
+  - `haohao_openfga_requests_total`
+  - `haohao_openfga_request_duration_seconds`
+- Drive authz denied metrics:
+  - `haohao_drive_authz_denied_total`
 - OpenTelemetry tracing は default off。`OTEL_TRACING_ENABLED=true` と OTLP endpoint で有効化する。
 - request log には tracing 有効時に `trace_id` / `span_id` を出せる。
-- `ops/prometheus/alerts/haohao.rules.yml` に scrape down、5xx、latency、readiness、dependency ping、SCIM reconcile、auth failure の初期 alert rules がある。
+- `ops/prometheus/alerts/haohao.rules.yml` に scrape down、5xx、latency、readiness、dependency ping、SCIM reconcile、auth failure、OpenFGA failure/latency、Drive authz denied spike の初期 alert rules がある。
 - `RUNBOOK_OBSERVABILITY.md` は各 alert の初動手順を持つ。
 
 注意点:
@@ -249,6 +275,7 @@ P8 により、OpenAPI は 3 artifact に分割済み。
 - P7 common: `tenant_invitation.create`, `tenant_invitation.accept`, `tenant_invitation.revoke`, `tenant_settings.update`, `tenant_data_export.create`, `file.upload`, `file.delete`, `notification.read`
 - P10: `tenant_entitlement.update`, `webhook.create`, `webhook.update`, `webhook.secret_rotate`, `webhook.delete`, `webhook.delivery_retry`, `customer_signal_import.create`, `customer_signal_saved_filter.*`, `support_access.start`, `support_access.end`
 - P12: `file.purge`
+- Drive/OpenFGA: `drive.file.*`, `drive.folder.*`, `drive.share.*`, `drive.group.*`, `drive.group_member.*`, `drive.share_link.*`, `drive.inheritance.*`, `drive.authz.denied`, `tenant_settings.drive_policy.update`
 
 ### Auth / tenant / M2M
 
@@ -267,12 +294,17 @@ P8 により、OpenAPI は 3 artifact に分割済み。
 - SCIM user provisioning。
 - machine client CRUD と M2M bearer middleware。
 - global role `support_agent` による support access。
+- `AuthzService` は login 後の global role、tenant role、active tenant 判定を担当し続ける。
+- OpenFGA は Drive file / folder / group / share link の resource-level authorization だけを担当する。
+- Drive API では Zitadel subject を OpenFGA tuple に直接入れず、local `users.public_id` に正規化した `user:<public_id>` を使う。
 
 注意点:
 
 - tenant selector はログイン中 user が所属する active tenant 候補だけを扱う。
 - tenant 自体の管理は `/api/v1/admin/tenants` 以下と tenant admin UI に分離している。
 - M2M / external bearer 用の TODO / Customer Signals API はまだない。
+- M2M / external bearer / SCIM / downstream delegated auth からの Drive resource 操作はまだ追加していない。
+- `tenant_admin` は Drive policy と監査導線の管理者であり、tenant 内の Drive file body を自動閲覧できない。
 
 ### P2 TODO
 
@@ -468,6 +500,95 @@ P8 により、OpenAPI は 3 artifact に分割済み。
 - S3 / GCS driver はまだない。対象は `storage_driver = 'local'`。
 - purge dead-letter UI はまだない。失敗時は `last_purge_error` を残して retry する。
 
+### OpenFGA Drive
+
+実装済み:
+
+- OpenFGA runtime:
+  - `compose.yaml` に `openfga-postgres`, `openfga-migrate`, `openfga`
+  - OpenFGA image は `openfga/openfga:v1.11.6`
+  - local HTTP API は `127.0.0.1:8088`
+  - `OPENFGA_PLAYGROUND_ENABLED` で playground を制御
+- backend config:
+  - `OPENFGA_ENABLED`
+  - `OPENFGA_API_URL`
+  - `OPENFGA_STORE_ID`
+  - `OPENFGA_AUTHORIZATION_MODEL_ID`
+  - `OPENFGA_API_TOKEN`
+  - `OPENFGA_TIMEOUT`
+  - `OPENFGA_FAIL_CLOSED`
+- readiness:
+  - `OPENFGA_ENABLED=true` のとき `/readyz` が OpenFGA `/healthz` を `openfga` check として確認する
+  - OpenFGA API token が設定されている場合だけ bearer header を付与する
+- OpenFGA model:
+  - `openfga/drive.fga`
+  - `user`, `group`, `share_link`, `folder`, `file`
+  - Owner / Editor / Viewer
+  - folder から child folder / file への parent 継承
+  - `not_expired` condition による期限付き share link
+  - `can_view`, `can_download`, `can_edit`, `can_delete`, `can_share`
+- bootstrap:
+  - `scripts/openfga-bootstrap.sh`
+  - `make openfga-bootstrap`
+  - `.env` は自動編集せず、store/model ID を stdout に出す
+- model test:
+  - `openfga/drive.fga.yaml`
+  - `make test-openfga-model`
+- DB/sqlc:
+  - `file_objects.purpose = 'drive'`
+  - `drive_folder_id`, `locked_at`, `locked_by_user_id`, `lock_reason`, `inheritance_enabled`, `deleted_by_user_id`
+  - `drive_folders`, `drive_groups`, `drive_group_members`, `drive_resource_shares`, `drive_share_links`
+  - active row partial index、share link token hash unique index、folder child listing index
+- backend services:
+  - `OpenFGAClient` interface と `OpenFGASDKClient`
+  - `DriveAuthorizationService`
+  - `DriveService`
+  - OpenFGA SDK は API handler から直接呼ばず service 層に閉じる
+- Drive API:
+  - folder CRUD、folder children、inheritance stop/resume
+  - Drive file upload/download/metadata update/overwrite/delete/inheritance stop/resume
+  - user/group share create/revoke
+  - group CRUD/member add/remove
+  - share link create/update/disable
+  - public share link metadata/content
+  - permissions list
+  - items list/search
+- Drive policy:
+  - tenant settings の `features.drive` に保存
+  - link sharing、public link、download、max link TTL、editor reshare/delete などの初期 policy を扱う
+- fail-closed:
+  - OpenFGA disabled / timeout / error は Drive protected operation を許可しない
+  - API は authorization unavailable を `503`、OpenFGA denied を `403`、tenant mismatch を `404` に寄せる
+- Drive UI:
+  - `/drive`
+  - `/drive/folders/:folderPublicId`
+  - `/drive/search`
+  - `/drive/groups`
+  - `/public/drive/share-links/:token`
+  - folder list、upload、download、delete、share dialog、group share、link 作成/無効化、permissions panel、public no-download 表示
+- tenant admin UI:
+  - Drive policy と audit 入口の説明を表示
+  - file body 閲覧導線は置かない
+- smoke/E2E:
+  - `scripts/smoke-openfga.sh`
+  - `e2e/drive.spec.ts` は `E2E_OPENFGA_ENABLED=true` のときだけ実行
+
+担当境界:
+
+- Zitadel は authentication、browser login、subject/email/profile claim、provider group による tenant/global role 同期を担当する。
+- 既存 `AuthzService` は global role、tenant role、active tenant、deactivated user 判定を担当する。
+- OpenFGA は Drive resource relation の判定だけを担当する。
+- PostgreSQL は tenant 境界、resource metadata、policy、lock/delete/share/link 状態の source of truth。
+- Drive group は HaoHao app-managed group。Zitadel group claim から Drive group member へ自動同期しない。
+
+注意点:
+
+- OpenFGA object ID には tenant ID を埋め込まない。OpenFGA check の前に DB で tenant / active tenant / deleted / locked / policy を必ず見る。
+- Runtime は OpenFGA store/model を自動作成・自動更新しない。
+- `tenant_admin` は file body viewer ではない。
+- 初期導入では Editor による再共有・削除を許可しない。`can_share` と `can_delete` は Owner のみ。
+- 外部ユーザー直接共有、password link、domain allow/deny、承認フロー、明示的 deny、legal hold/retention、SCIM group to Drive group sync は次フェーズ。
+
 ## API surface
 
 `openapi/openapi.yaml` に出ている主な endpoint:
@@ -531,6 +652,37 @@ P8 により、OpenAPI は 3 artifact に分割済み。
   - `/api/v1/support/access/start`
   - `/api/v1/support/access/current`
   - `/api/v1/support/access/end`
+- Drive:
+  - `GET /api/v1/drive/items`
+  - `GET /api/v1/drive/search`
+  - `POST /api/v1/drive/folders`
+  - `GET /api/v1/drive/folders/{folderPublicId}`
+  - `PATCH /api/v1/drive/folders/{folderPublicId}`
+  - `DELETE /api/v1/drive/folders/{folderPublicId}`
+  - `GET /api/v1/drive/folders/{folderPublicId}/children`
+  - `PATCH /api/v1/drive/folders/{folderPublicId}/inheritance`
+  - `GET /api/v1/drive/folders/{folderPublicId}/permissions`
+  - `POST /api/v1/drive/folders/{folderPublicId}/shares`
+  - `DELETE /api/v1/drive/folders/{folderPublicId}/shares/{sharePublicId}`
+  - `POST /api/v1/drive/folders/{folderPublicId}/share-links`
+  - `GET /api/v1/drive/files/{filePublicId}`
+  - `PATCH /api/v1/drive/files/{filePublicId}`
+  - `DELETE /api/v1/drive/files/{filePublicId}`
+  - `PATCH /api/v1/drive/files/{filePublicId}/inheritance`
+  - `GET /api/v1/drive/files/{filePublicId}/permissions`
+  - `POST /api/v1/drive/files/{filePublicId}/shares`
+  - `DELETE /api/v1/drive/files/{filePublicId}/shares/{sharePublicId}`
+  - `POST /api/v1/drive/files/{filePublicId}/share-links`
+  - `GET /api/v1/drive/groups`
+  - `POST /api/v1/drive/groups`
+  - `GET /api/v1/drive/groups/{groupPublicId}`
+  - `PATCH /api/v1/drive/groups/{groupPublicId}`
+  - `DELETE /api/v1/drive/groups/{groupPublicId}`
+  - `POST /api/v1/drive/groups/{groupPublicId}/members`
+  - `DELETE /api/v1/drive/groups/{groupPublicId}/members/{userPublicId}`
+  - `PATCH /api/v1/drive/share-links/{shareLinkPublicId}`
+  - `DELETE /api/v1/drive/share-links/{shareLinkPublicId}`
+  - `GET /api/public/drive/share-links/{token}`
 - M2M:
   - `GET /api/m2m/v1/self`
 
@@ -541,13 +693,17 @@ OpenAPI には出ないが runtime に存在する endpoint:
 - `GET /metrics`
 - raw multipart upload `POST /api/v1/files`
 - raw file download `GET /api/v1/files/:filePublicId`
+- raw Drive multipart upload `POST /api/v1/drive/files`
+- raw Drive file download `GET /api/v1/drive/files/:filePublicId/content`
+- raw Drive file overwrite `PUT /api/v1/drive/files/:filePublicId/content`
+- raw public Drive share link content `GET /api/public/drive/share-links/:token/content`
 
 ## Frontend
 
 実装済み:
 
 - Vue 3 + Vite + TypeScript。
-- Pinia store は session、tenant、machine clients、TODO、tenant admin、Customer Signals、files、notifications、tenant common settings/invitation/export/import/entitlement/webhook を管理する。
+- Pinia store は session、tenant、machine clients、TODO、tenant admin、Customer Signals、files、notifications、tenant common settings/invitation/export/import/entitlement/webhook、Drive を管理する。
 - Vue Router route:
   - `/`
   - `/login`
@@ -563,6 +719,11 @@ OpenAPI には出ないが runtime に存在する endpoint:
   - `/machine-clients`
   - `/machine-clients/new`
   - `/machine-clients/:id`
+  - `/drive`
+  - `/drive/folders/:folderPublicId`
+  - `/drive/search`
+  - `/drive/groups`
+  - `/public/drive/share-links/:token`
 - generated SDK は `frontend/src/api/generated/`。入力は `openapi/browser.yaml`。
 - `frontend/src/api/client.ts` が generated client の共通 transport 設定を持つ。
 - fetch は `credentials: 'include'` で Cookie を送る。
@@ -576,12 +737,16 @@ OpenAPI には出ないが runtime に存在する endpoint:
 - TODO 画面は tenant-aware list/create/update/delete を扱う。
 - Customer Signals 画面は list/search/cursor/create/saved filters、detail/update/delete、attachment upload/download/delete、CSV export request を扱う。
 - Tenant Admin 画面は tenant list/create/detail/update/deactivate、role grant/revoke、invitation、tenant settings、entitlements、support access、webhooks、import/export を扱う。
+- Tenant Admin detail 画面は Drive authorization/policy の境界を説明し、file body 閲覧導線は持たない。
+- Drive 画面は folder 作成/list/breadcrumb、file upload/download/rename/overwrite/delete、search、share dialog、permissions panel、user/group share、期限付き share link、download 禁止 link を扱う。
+- Drive Groups 画面は Drive group create/update/delete、member add/remove を扱う。
+- Public Drive Share 画面は token 付き link metadata と content download を扱う。`canDownload=false` の link では download button を出さない。
 - Notifications 画面は list と mark read を扱う。
 - Invitation accept 画面は token から invite accept を行う。
 - `AdminAccessDenied` は role 不足時の 403 を画面内で表示する。
 - `ConfirmActionDialog` は destructive action の確認に使う。
 - logout 時に tenant store を reset し、次 user に古い tenant state が残らないようにしている。
-- Vite dev server は `/api`, `/openapi`, `/docs` を backend `127.0.0.1:8080` に proxy する。
+- Vite dev server は `/api`, `/api/public`, `/openapi`, `/docs` を backend `127.0.0.1:8080` に proxy する。
 - production build output は `backend/web/dist` に出力され、`embed_frontend` build tag 付き Go binary に埋め込まれる。
 
 注意点:
@@ -617,6 +782,13 @@ OpenAPI には出ないが runtime に存在する endpoint:
 - `e2e/access-and-fallback.spec.ts`
   - limited user の role-specific access denied UI
   - single binary SPA fallback と API/assets 404 boundary
+- `e2e/drive.spec.ts`
+  - `E2E_OPENFGA_ENABLED=true` のときだけ実行
+  - Drive folder 作成
+  - Drive file upload / rename / download
+  - share link 作成
+  - public no-download link の UI 確認
+  - share link 無効化
 
 ## Single binary / SPA 配信
 
@@ -625,8 +797,8 @@ OpenAPI には出ないが runtime に存在する endpoint:
 - `npm --prefix frontend run build` は Vue production build を `backend/web/dist/` に出力する。
 - `make binary` は frontend build 後に `CGO_ENABLED=0 go build -buildvcs=false -trimpath -tags "embed_frontend nomsgpack" -ldflags "-s -w -buildid=" -o ./bin/haohao ./backend/cmd/main` を実行する。
 - build tag なしの `go test ./backend/...` や `go run ./backend/cmd/openapi` は frontend dist 不在でも壊れない。
-- `/`, `/login`, `/integrations`, `/notifications`, `/invitations/accept`, `/todos`, `/customer-signals`, `/tenant-admin`, `/machine-clients` などの SPA route は `index.html` に fallback する。
-- `/api/*`, `/docs`, `/schemas/*`, `/openapi.yaml`, `/openapi.json`, `/openapi-3.0.yaml`, `/openapi-3.0.json`, `/healthz`, `/readyz`, `/metrics` は SPA fallback しない。
+- `/`, `/login`, `/integrations`, `/notifications`, `/invitations/accept`, `/todos`, `/customer-signals`, `/tenant-admin`, `/machine-clients`, `/drive`, `/drive/folders/:folderPublicId`, `/drive/search`, `/drive/groups`, `/public/drive/share-links/:token` などの SPA route は `index.html` に fallback する。
+- `/api/*`, `/api/public/*`, `/docs`, `/schemas/*`, `/openapi.yaml`, `/openapi.json`, `/openapi-3.0.yaml`, `/openapi-3.0.json`, `/healthz`, `/readyz`, `/metrics` は SPA fallback しない。
 - 存在しない `/assets/*` や拡張子付き path は `index.html` ではなく `404` を返す。
 
 ## 生成物
@@ -658,10 +830,10 @@ commit しない local artifact:
 ```bash
 go test ./backend/...
 npm --prefix frontend run build
-go run ./backend/cmd/openapi -surface=full
-go run ./backend/cmd/openapi -surface=browser
-go run ./backend/cmd/openapi -surface=external
+make gen
+cd openfga && fga model test --tests drive.fga.yaml
 make e2e
+E2E_OPENFGA_ENABLED=true OPENFGA_ENABLED=true OPENFGA_API_URL=http://127.0.0.1:8088 OPENFGA_STORE_ID=<temp> OPENFGA_AUTHORIZATION_MODEL_ID=<temp> OPENFGA_FAIL_CLOSED=true bash scripts/e2e-single-binary.sh
 make smoke-file-purge
 ```
 
@@ -677,9 +849,11 @@ scripts/smoke-rate-limit-runtime.sh
 
 - backend test は成功。
 - frontend build は成功。
-- full / browser / external OpenAPI 再生成結果は tracked artifact と差分なし。
+- `make gen` は成功し、sqlc / full browser external OpenAPI / frontend SDK の再生成結果は tracked artifact と差分なし。
+- OpenFGA model test は 5/5 tests、43/43 checks 成功。
 - embedded binary build は `make e2e` と `make smoke-file-purge` の中で成功。
-- `make e2e` は Playwright 3 tests passed。
+- `make e2e` は通常 E2E 3 tests passed。OpenFGA Drive E2E は env 未設定時に skip。
+- OpenFGA を有効化した一時 store/model 付き single binary E2E は 4 tests passed。
 - `make smoke-file-purge` は upload -> soft delete -> retention -> body deletion -> `purged_at` 記録を確認して成功。
 - common services / P10 / rate limit runtime smoke は成功。
 - `git diff --check` は成功。
@@ -702,13 +876,16 @@ scripts/smoke-rate-limit-runtime.sh
 - support access E2E 強化。banner、actor/impersonated audit、終了 flow を Playwright に追加する。
 - object storage driver。S3 / GCS、signed download、retention/purge policy。
 - file security processing。virus scan、content inspection、async processing。
+- Drive external sharing phase。外部ユーザー直接共有、password link、domain allow/deny、approval flow。
+- Drive admin/audit UI 強化。監査ログ検索、共有状態一覧、pending_sync tuple repair、OpenFGA tuple drift 検出。
+- Drive retention / legal hold / explicit deny。MVP では継承停止と policy deny に寄せている。
 - billing / subscription / invoice。tenant entitlements と pricing plan の接続。
 - realtime notification。SSE/WebSocket は要件が固まってから追加する。
 - multi-region / HA / DR。RPO/RTO、replica、failover、restore drill の拡張。
-- M2M / external bearer 用の TODO / Customer Signals API。scope / tenant 解決方針を決めてから追加する。
+- M2M / external bearer 用の TODO / Customer Signals / Drive API。scope / tenant 解決方針を決めてから追加する。
 
 ## 現在地の要約
 
-HaoHao は、foundation の login/session 縦切りを超えて、Zitadel を中心にした browser login、external bearer API、delegated auth、SCIM provisioning、tenant-aware auth、M2M、single binary 配信、Docker/CI/release、operability、observability、audit、admin UI、tenant 管理、tenant-aware TODO、Customer Signals、Web サービス共通機能、OpenAPI 分割、Playwright E2E、P10 横断拡張、tenant rate limit runtime、file lifecycle physical purge まで到達している。
+HaoHao は、foundation の login/session 縦切りを超えて、Zitadel を中心にした browser login、external bearer API、delegated auth、SCIM provisioning、tenant-aware auth、M2M、single binary 配信、Docker/CI/release、operability、observability、audit、admin UI、tenant 管理、tenant-aware TODO、Customer Signals、Web サービス共通機能、OpenAPI 分割、Playwright E2E、P10 横断拡張、tenant rate limit runtime、file lifecycle physical purge、OpenFGA resource authorization 付き Drive まで到達している。
 
-現時点では、B2B SaaS や社内向け multi-tenant 業務 CRUD アプリの土台として、認証・認可・tenant・運用・監査・観測・管理・業務 CRUD・共通サービス・横断機能の主要な縦切りが動作確認済みである。次の優先は、具体サービス要件に合わせて email provider、dashboard、外部配送 E2E、object storage、billing、HA/DR を追加することである。
+現時点では、B2B SaaS や社内向け multi-tenant 業務 CRUD アプリの土台として、認証・認可・tenant・運用・監査・観測・管理・業務 CRUD・共通サービス・横断機能・Drive 型ファイル共有の主要な縦切りが動作確認済みである。次の優先は、具体サービス要件に合わせて email provider、dashboard、外部配送 E2E、object storage、Drive の外部共有/retention、billing、HA/DR を追加することである。

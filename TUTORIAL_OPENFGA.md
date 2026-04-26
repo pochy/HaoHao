@@ -160,7 +160,7 @@ OPENFGA_FAIL_CLOSED=true
 
 ## このチュートリアルで初期導入しないもの
 
-次は `FILE_SHARE_SPEC.md` の要件として残しますが、初期 OpenFGA Drive 導入では実装しません。
+次は `DRIVE_OPENFGA_PERMISSIONS_SPEC.md` の要件として残しますが、初期 OpenFGA Drive 導入では実装しません。
 
 - 外部ユーザーへの直接共有
 - 未登録メールアドレス招待

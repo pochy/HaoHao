@@ -232,7 +232,7 @@ Zitadel と OpenFGA はどちらも認可に関わるが、運用上は別コン
 
 `tenant_admin` は共有設定、ポリシー、監査ログを扱えるが、明示的に共有されていないファイル本文は閲覧できない。
 
-初期導入では、FILE_SHARE_SPEC の `Organization / Tenant / Workspace` のうち既存 project の `tenant` を organization/workspace 境界として扱う。独立した `workspace` resource は、複数 workspace が必要になった段階で追加する。
+初期導入では、DRIVE_OPENFGA_PERMISSIONS_SPEC の `Organization / Tenant / Workspace` のうち既存 project の `tenant` を organization/workspace 境界として扱う。独立した `workspace` resource は、複数 workspace が必要になった段階で追加する。
 
 ## 3. OpenFGA 運用
 
@@ -488,7 +488,7 @@ index:
 
 ### 5.6 Tenant Drive Policy
 
-FILE_SHARE_SPEC の組織ポリシーは、初期導入では既存 `tenant_settings.features` の `drive` object に保存する。
+DRIVE_OPENFGA_PERMISSIONS_SPEC の組織ポリシーは、初期導入では既存 `tenant_settings.features` の `drive` object に保存する。
 
 初期 policy:
 
@@ -996,9 +996,9 @@ make e2e
 - Editor による再共有・削除は初期では許可しない。`can_share` と `can_delete` は Owner のみから開始する。
 - 参考情報は OpenFGA Google Drive modeling、parent-child、conditions、Docker setup、production recommendations を使う。
 
-## 13. FILE_SHARE_SPEC 対応状況
+## 13. DRIVE_OPENFGA_PERMISSIONS_SPEC 対応状況
 
-FILE_SHARE_SPEC の要件は、初期導入で実装するもの、アプリ層で制御するもの、次フェーズへ送るものに分ける。
+DRIVE_OPENFGA_PERMISSIONS_SPEC の要件は、初期導入で実装するもの、アプリ層で制御するもの、次フェーズへ送るものに分ける。
 
 初期導入で含める。
 

@@ -48,7 +48,7 @@ OpenAPI 3.1 優先 + Monorepo + 単一バイナリ配信を基本方針とした
 
 ### 仕様・計画
 
-- [ファイル共有仕様](FILE_SHARE_SPEC.md)
+- [ファイル共有仕様](DRIVE_OPENFGA_PERMISSIONS_SPEC.md)
 - [OpenFGA 実装計画](OPENFGA_IMPLEMENTATION_PLAN.md)
 
 ### 手順
