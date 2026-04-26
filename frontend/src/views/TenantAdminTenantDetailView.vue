@@ -50,6 +50,12 @@ const tenantSlug = computed(() => {
 const tenant = computed(() => store.current?.tenant ?? null)
 const memberships = computed(() => store.current?.memberships ?? [])
 const tenantRoleOptions = ['customer_signal_user', 'docs_reader', 'todo_user']
+const drivePolicyRows = [
+  ['Resource authz', 'OpenFGA decides file/folder/group/share-link access per resource.'],
+  ['Tenant admin boundary', 'tenant_admin can manage tenant settings and audit, but does not get file body access by default.'],
+  ['Link sharing', 'Drive share links are owner-controlled. Raw tokens are shown only at creation time.'],
+  ['Download policy', 'can_download=false blocks the public content endpoint and hides download UI.'],
+]
 
 const canSaveSettings = computed(() => (
   Boolean(tenant.value) &&
@@ -680,6 +686,37 @@ async function confirmPendingAction() {
           </button>
         </div>
       </form>
+
+      <div class="stack">
+        <div class="section-header">
+          <div>
+            <span class="status-pill">Drive Policy</span>
+            <h2>Drive Authorization</h2>
+          </div>
+        </div>
+
+        <div class="admin-table">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Policy</th>
+                <th scope="col">Current Phase</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in drivePolicyRows" :key="row[0]">
+                <td>{{ row[0] }}</td>
+                <td>{{ row[1] }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="cell-subtle">
+          Audit は <code>drive.file.*</code>, <code>drive.folder.*</code>, <code>drive.share.*</code>, <code>drive.share_link.*</code>, <code>drive.authz.denied</code> を記録します。
+          この画面には Drive file body の閲覧導線を置きません。
+        </p>
+      </div>
 
       <form class="admin-form" @submit.prevent="saveEntitlements">
         <div class="form-span">

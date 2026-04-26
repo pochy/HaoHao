@@ -1,0 +1,493 @@
+import { defineStore } from 'pinia'
+
+import {
+  addDriveGroupMemberItem,
+  createDriveFolderItem,
+  createDriveGroupItem,
+  createDriveShareItem,
+  createDriveShareLinkItem,
+  deleteDriveFileItem,
+  deleteDriveFolderItem,
+  disableDriveShareLinkItem,
+  downloadDriveFileItem,
+  fetchDriveFolder,
+  fetchDriveGroup,
+  fetchDriveGroups,
+  fetchDriveItems,
+  fetchDrivePermissions,
+  overwriteDriveFileItem,
+  removeDriveGroupMemberItem,
+  revokeDriveShareItem,
+  searchDriveItemsByKeyword,
+  updateDriveFileItem,
+  updateDriveFolderItem,
+  uploadDriveFileItem,
+  type DriveDownloadedFile,
+  type DriveResourceRef,
+} from '../api/drive'
+import { toApiErrorMessage } from '../api/client'
+import type {
+  DriveFileBody,
+  DriveFolderBody,
+  DriveGroupBody,
+  DriveItemBody,
+  DrivePermissionsBody,
+  DriveShareBody,
+  DriveShareLinkBody,
+} from '../api/generated/types.gen'
+
+type DriveStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
+type DriveActionStatus = 'idle' | 'working'
+type DriveRole = 'owner' | 'editor' | 'viewer'
+
+const rootFolder: DriveFolderBody = {
+  publicId: 'root',
+  name: 'Root',
+  inheritanceEnabled: true,
+  createdAt: new Date(0).toISOString(),
+  updatedAt: new Date(0).toISOString(),
+}
+
+function statusFromError(error: unknown): DriveStatus {
+  return /permission|forbidden|authorization|authz/i.test(toApiErrorMessage(error)) ? 'forbidden' : 'error'
+}
+
+export function resourceFromDriveItem(item: DriveItemBody): DriveResourceRef | null {
+  if (item.type === 'file' && item.file) {
+    return { type: 'file', publicId: item.file.publicId }
+  }
+  if (item.type === 'folder' && item.folder) {
+    return { type: 'folder', publicId: item.folder.publicId }
+  }
+  return null
+}
+
+export function labelFromDriveItem(item: DriveItemBody) {
+  if (item.type === 'file') {
+    return item.file?.originalFilename ?? 'Untitled file'
+  }
+  return item.folder?.name ?? 'Untitled folder'
+}
+
+export const useDriveStore = defineStore('drive', {
+  state: () => ({
+    status: 'idle' as DriveStatus,
+    actionStatus: 'idle' as DriveActionStatus,
+    currentFolder: rootFolder as DriveFolderBody,
+    children: [] as DriveItemBody[],
+    searchResults: [] as DriveItemBody[],
+    selectedItem: null as DriveItemBody | null,
+    selectedResource: null as DriveResourceRef | null,
+    permissions: null as DrivePermissionsBody | null,
+    groups: [] as DriveGroupBody[],
+    currentGroup: null as DriveGroupBody | null,
+    errorMessage: '',
+    lastRawShareLink: null as DriveShareLinkBody | null,
+    deletingResourceId: '',
+    busyResourceId: '',
+  }),
+
+  getters: {
+    isBusy: (state) => state.actionStatus === 'working' || state.status === 'loading',
+  },
+
+  actions: {
+    resetSelection() {
+      this.selectedItem = null
+      this.selectedResource = null
+      this.permissions = null
+      this.lastRawShareLink = null
+    },
+
+    setError(error: unknown) {
+      this.errorMessage = toApiErrorMessage(error)
+      this.status = statusFromError(error)
+    },
+
+    async loadRoot() {
+      await this.loadFolder('root')
+    },
+
+    async loadFolder(folderPublicId: string) {
+      this.status = 'loading'
+      this.errorMessage = ''
+      this.resetSelection()
+      try {
+        this.currentFolder = folderPublicId === 'root' ? rootFolder : await fetchDriveFolder(folderPublicId)
+        this.children = await fetchDriveItems(folderPublicId === 'root' ? '' : folderPublicId)
+        this.status = this.children.length > 0 ? 'ready' : 'empty'
+      } catch (error) {
+        this.currentFolder = rootFolder
+        this.children = []
+        this.setError(error)
+      }
+    },
+
+    async refreshCurrent() {
+      await this.loadFolder(this.currentFolder.publicId)
+    },
+
+    async createFolder(name: string) {
+      const trimmed = name.trim()
+      if (!trimmed) {
+        return
+      }
+
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        const folder = await createDriveFolderItem({
+          name: trimmed,
+          parentFolderPublicId: this.currentFolder.publicId === 'root' ? undefined : this.currentFolder.publicId,
+        })
+        this.children = [{ type: 'folder', folder }, ...this.children]
+        this.status = 'ready'
+        return folder
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+
+    async uploadFile(file: File) {
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        const uploaded = await uploadDriveFileItem(
+          file,
+          this.currentFolder.publicId === 'root' ? '' : this.currentFolder.publicId,
+        )
+        this.children = [{ type: 'file', file: uploaded }, ...this.children]
+        this.status = 'ready'
+        return uploaded
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+
+    async downloadFile(file: DriveFileBody): Promise<DriveDownloadedFile> {
+      this.busyResourceId = file.publicId
+      this.errorMessage = ''
+      try {
+        return await downloadDriveFileItem(file)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.busyResourceId = ''
+      }
+    },
+
+    async renameFile(file: DriveFileBody, originalFilename: string) {
+      const name = originalFilename.trim()
+      if (!name || name === file.originalFilename) {
+        return file
+      }
+      this.busyResourceId = file.publicId
+      this.errorMessage = ''
+      try {
+        const updated = await updateDriveFileItem(file.publicId, { originalFilename: name })
+        this.children = this.children.map((item) => (
+          item.file?.publicId === updated.publicId ? { ...item, file: updated } : item
+        ))
+        return updated
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.busyResourceId = ''
+      }
+    },
+
+    async moveFile(file: DriveFileBody, targetFolderPublicId: string) {
+      this.busyResourceId = file.publicId
+      this.errorMessage = ''
+      try {
+        const updated = await updateDriveFileItem(file.publicId, {
+          parentFolderPublicId: targetFolderPublicId.trim() || 'root',
+        })
+        this.children = this.children.filter((item) => item.file?.publicId !== updated.publicId)
+        this.status = this.children.length > 0 ? 'ready' : 'empty'
+        return updated
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.busyResourceId = ''
+      }
+    },
+
+    async overwriteFile(file: DriveFileBody, body: File) {
+      this.busyResourceId = file.publicId
+      this.errorMessage = ''
+      try {
+        const updated = await overwriteDriveFileItem(file.publicId, body)
+        this.children = this.children.map((item) => (
+          item.file?.publicId === updated.publicId ? { ...item, file: updated } : item
+        ))
+        return updated
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.busyResourceId = ''
+      }
+    },
+
+    async renameFolder(folder: DriveFolderBody, name: string) {
+      const trimmed = name.trim()
+      if (!trimmed || trimmed === folder.name) {
+        return folder
+      }
+      this.busyResourceId = folder.publicId
+      this.errorMessage = ''
+      try {
+        const updated = await updateDriveFolderItem(folder.publicId, { name: trimmed })
+        if (this.currentFolder.publicId === updated.publicId) {
+          this.currentFolder = updated
+        }
+        this.children = this.children.map((item) => (
+          item.folder?.publicId === updated.publicId ? { ...item, folder: updated } : item
+        ))
+        return updated
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.busyResourceId = ''
+      }
+    },
+
+    async moveFolder(folder: DriveFolderBody, targetFolderPublicId: string) {
+      this.busyResourceId = folder.publicId
+      this.errorMessage = ''
+      try {
+        const updated = await updateDriveFolderItem(folder.publicId, {
+          parentFolderPublicId: targetFolderPublicId.trim() || 'root',
+        })
+        this.children = this.children.filter((item) => item.folder?.publicId !== updated.publicId)
+        this.status = this.children.length > 0 ? 'ready' : 'empty'
+        return updated
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.busyResourceId = ''
+      }
+    },
+
+    async deleteItem(item: DriveItemBody) {
+      const resource = resourceFromDriveItem(item)
+      if (!resource) {
+        return
+      }
+
+      this.deletingResourceId = resource.publicId
+      this.errorMessage = ''
+      try {
+        if (resource.type === 'file') {
+          await deleteDriveFileItem(resource.publicId)
+          this.children = this.children.filter((child) => child.file?.publicId !== resource.publicId)
+        } else {
+          await deleteDriveFolderItem(resource.publicId)
+          this.children = this.children.filter((child) => child.folder?.publicId !== resource.publicId)
+        }
+        this.status = this.children.length > 0 ? 'ready' : 'empty'
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.deletingResourceId = ''
+      }
+    },
+
+    async search(query: string, contentType = '') {
+      this.status = 'loading'
+      this.errorMessage = ''
+      try {
+        this.searchResults = await searchDriveItemsByKeyword(query, contentType)
+        this.status = this.searchResults.length > 0 ? 'ready' : 'empty'
+      } catch (error) {
+        this.searchResults = []
+        this.setError(error)
+      }
+    },
+
+    async selectItem(item: DriveItemBody) {
+      const resource = resourceFromDriveItem(item)
+      this.selectedItem = item
+      this.selectedResource = resource
+      this.lastRawShareLink = null
+      if (resource) {
+        await this.loadPermissions(resource)
+      }
+    },
+
+    async loadPermissions(resource?: DriveResourceRef | null) {
+      const target = resource ?? this.selectedResource
+      if (!target) {
+        this.permissions = null
+        return
+      }
+      this.errorMessage = ''
+      try {
+        this.permissions = await fetchDrivePermissions(target)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      }
+    },
+
+    async createUserShare(resource: DriveResourceRef, subjectPublicId: string, role: string): Promise<DriveShareBody> {
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        const share = await createDriveShareItem(resource, {
+          subjectType: 'user',
+          subjectPublicId: subjectPublicId.trim(),
+          role: role as DriveRole,
+        })
+        await this.loadPermissions(resource)
+        return share
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+
+    async createGroupShare(resource: DriveResourceRef, groupPublicId: string, role: string): Promise<DriveShareBody> {
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        const share = await createDriveShareItem(resource, {
+          subjectType: 'group',
+          subjectPublicId: groupPublicId,
+          role: role as DriveRole,
+        })
+        await this.loadPermissions(resource)
+        return share
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+
+    async revokeShare(resource: DriveResourceRef, sharePublicId: string) {
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        await revokeDriveShareItem(resource, sharePublicId)
+        await this.loadPermissions(resource)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+
+    async createShareLink(resource: DriveResourceRef, expiresAt: string, canDownload: boolean) {
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        const link = await createDriveShareLinkItem(resource, {
+          expiresAt: new Date(expiresAt).toISOString(),
+          canDownload,
+        })
+        this.lastRawShareLink = link
+        await this.loadPermissions(resource)
+        return link
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+
+    async disableShareLink(resource: DriveResourceRef, shareLinkPublicId: string) {
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        await disableDriveShareLinkItem(shareLinkPublicId)
+        if (this.lastRawShareLink?.publicId === shareLinkPublicId) {
+          this.lastRawShareLink = null
+        }
+        await this.loadPermissions(resource)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+
+    async loadGroups() {
+      this.errorMessage = ''
+      try {
+        this.groups = await fetchDriveGroups()
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      }
+    },
+
+    async loadGroup(groupPublicId: string) {
+      this.errorMessage = ''
+      this.currentGroup = await fetchDriveGroup(groupPublicId)
+      return this.currentGroup
+    },
+
+    async createGroup(name: string, description = '') {
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        const group = await createDriveGroupItem({ name: name.trim(), description: description.trim() })
+        this.groups = [group, ...this.groups]
+        return group
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+
+    async addGroupMember(group: DriveGroupBody, userPublicId: string) {
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        await addDriveGroupMemberItem(group.publicId, userPublicId.trim())
+        await this.loadGroup(group.publicId)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+
+    async removeGroupMember(group: DriveGroupBody, userPublicId: string) {
+      this.actionStatus = 'working'
+      this.errorMessage = ''
+      try {
+        await removeDriveGroupMemberItem(group.publicId, userPublicId)
+        await this.loadGroup(group.publicId)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionStatus = 'idle'
+      }
+    },
+  },
+})

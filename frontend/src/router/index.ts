@@ -11,10 +11,13 @@ import InvitationAcceptView from '../views/InvitationAcceptView.vue'
 import NotificationsView from '../views/NotificationsView.vue'
 import CustomerSignalDetailView from '../views/CustomerSignalDetailView.vue'
 import CustomerSignalsView from '../views/CustomerSignalsView.vue'
+import DriveGroupsView from '../views/DriveGroupsView.vue'
+import DriveView from '../views/DriveView.vue'
 import TenantAdminTenantDetailView from '../views/TenantAdminTenantDetailView.vue'
 import TenantAdminTenantFormView from '../views/TenantAdminTenantFormView.vue'
 import TenantAdminTenantsView from '../views/TenantAdminTenantsView.vue'
 import TodosView from '../views/TodosView.vue'
+import PublicDriveShareView from '../views/PublicDriveShareView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -65,6 +68,35 @@ const router = createRouter({
       name: 'customer-signal-detail',
       component: CustomerSignalDetailView,
       meta: { requiresAuth: true },
+    },
+    {
+      path: '/drive',
+      name: 'drive',
+      component: DriveView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/drive/folders/:folderPublicId',
+      name: 'drive-folder',
+      component: DriveView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/drive/search',
+      name: 'drive-search',
+      component: DriveView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/drive/groups',
+      name: 'drive-groups',
+      component: DriveGroupsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/public/drive/share-links/:token',
+      name: 'public-drive-share-link',
+      component: PublicDriveShareView,
     },
     {
       path: '/tenant-admin',
