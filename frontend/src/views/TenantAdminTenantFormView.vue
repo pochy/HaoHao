@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { toApiErrorMessage } from '../api/client'
@@ -8,6 +9,7 @@ import { useTenantAdminStore } from '../stores/tenant-admin'
 
 const router = useRouter()
 const store = useTenantAdminStore()
+const { t } = useI18n()
 
 const slug = ref('')
 const displayName = ref('')
@@ -42,30 +44,30 @@ async function submit() {
 <template>
   <AdminAccessDenied
     v-if="store.status === 'forbidden'"
-    title="Tenant admin role required"
-    message="この画面を使うには global role tenant_admin が必要です。"
+    :title="t('tenantAdmin.accessRequiredTitle')"
+    :message="t('tenantAdmin.accessRequiredMessage')"
     role-label="tenant_admin"
   />
 
   <section v-else class="panel stack">
     <div class="section-header">
       <div>
-        <span class="status-pill">New Tenant</span>
-        <h2>New Tenant</h2>
+        <span class="status-pill">{{ t('tenantAdmin.actions.newTenant') }}</span>
+        <h2>{{ t('tenantAdmin.actions.newTenant') }}</h2>
       </div>
       <RouterLink class="secondary-button link-button" to="/tenant-admin">
-        Back
+        {{ t('common.back') }}
       </RouterLink>
     </div>
 
     <form class="admin-form" @submit.prevent="submit">
       <label class="field">
-        <span class="field-label">Slug</span>
+        <span class="field-label">{{ t('tenantAdmin.fields.slug') }}</span>
         <input v-model="slug" class="field-input" autocomplete="off" required>
       </label>
 
       <label class="field">
-        <span class="field-label">Display name</span>
+        <span class="field-label">{{ t('tenantAdmin.fields.displayName') }}</span>
         <input v-model="displayName" class="field-input" autocomplete="off" required>
       </label>
 
@@ -75,10 +77,10 @@ async function submit() {
 
       <div class="action-row form-span">
         <button class="primary-button" :disabled="!canSubmit" type="submit">
-          {{ store.saving ? 'Saving...' : 'Create' }}
+          {{ store.saving ? t('common.saving') : t('tenantAdmin.actions.create') }}
         </button>
         <RouterLink class="secondary-button link-button" to="/tenant-admin">
-          Cancel
+          {{ t('tenantAdmin.actions.cancel') }}
         </RouterLink>
       </div>
     </form>

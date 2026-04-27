@@ -39,30 +39,35 @@ test.describe.serial('P9 browser journey', () => {
     await expect(page.getByText(`attachment-${id}.txt`)).toBeVisible()
 
     await page.goto('/tenant-admin/acme')
+    await expect(page).toHaveURL(/\/tenant-admin\/acme\/overview$/)
     await expect(page.getByRole('heading', { name: 'Tenant Detail' })).toBeVisible()
 
+    await page.goto('/tenant-admin/acme/settings')
     await page.getByTestId('tenant-file-quota').fill('104857600')
     await page.getByTestId('tenant-browser-rate-limit').fill('120')
     await page.getByRole('button', { name: 'Save common settings' }).click()
-    await expect(page.getByText('Tenant common settings を更新しました。')).toBeVisible()
+    await expect(page.getByText('Tenant common settings updated.')).toBeVisible()
 
+    await page.goto('/tenant-admin/acme/entitlements')
     await page.getByLabel('webhooks.enabled').check()
     await page.getByLabel('customer_signals.import_export').check()
     await page.getByLabel('customer_signals.saved_filters').check()
     await page.getByRole('button', { name: 'Save entitlements' }).click()
-    await expect(page.getByText('Entitlements を更新しました。')).toBeVisible()
+    await expect(page.getByText('Entitlements updated.')).toBeVisible()
 
+    await page.goto('/tenant-admin/acme/invitations')
     await page.getByTestId('tenant-invitation-email').fill('demo@example.com')
     await page.getByTestId('tenant-invitation-role').selectOption('todo_user')
     await page.getByRole('button', { name: 'Invite' }).click()
-    await expect(page.getByText('Invitation を作成しました')).toBeVisible()
+    await expect(page.getByText('Invitation created')).toBeVisible()
 
+    await page.goto('/tenant-admin/acme/data')
     await page.getByTestId('tenant-request-export').click()
-    await expect(page.getByText('Tenant data export を request しました。')).toBeVisible()
+    await expect(page.getByText('Tenant data export requested.')).toBeVisible()
     await expect(page.getByText(/json \/ (processing|ready)/i).first()).toBeVisible()
 
     await page.getByRole('button', { name: 'Request CSV' }).click()
-    await expect(page.getByText('Customer Signals CSV export を request しました。')).toBeVisible()
+    await expect(page.getByText('Customer Signals CSV export requested.')).toBeVisible()
     await expect(page.getByText(/csv \/ (processing|ready)/i).first()).toBeVisible()
 
     await writeFile(importPath, [
@@ -72,7 +77,7 @@ test.describe.serial('P9 browser journey', () => {
     ].join('\n'))
     await page.getByLabel('CSV file').setInputFiles(importPath)
     await page.getByRole('button', { name: 'Upload and import' }).click()
-    await expect(page.getByText('CSV import job を作成しました。')).toBeVisible()
+    await expect(page.getByText('CSV import job created.')).toBeVisible()
 
     await page.getByRole('link', { name: 'Notifications' }).click()
     await expect(page.getByRole('heading', { name: 'Notification Center' })).toBeVisible()

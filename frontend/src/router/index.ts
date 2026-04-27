@@ -13,9 +13,19 @@ import CustomerSignalDetailView from '../views/CustomerSignalDetailView.vue'
 import CustomerSignalsView from '../views/CustomerSignalsView.vue'
 import DriveGroupsView from '../views/DriveGroupsView.vue'
 import DriveView from '../views/DriveView.vue'
-import TenantAdminTenantDetailView from '../views/TenantAdminTenantDetailView.vue'
 import TenantAdminTenantFormView from '../views/TenantAdminTenantFormView.vue'
 import TenantAdminTenantsView from '../views/TenantAdminTenantsView.vue'
+import TenantAdminTenantDataView from '../views/tenant-admin/TenantAdminTenantDataView.vue'
+import TenantAdminTenantDriveOperationsView from '../views/tenant-admin/TenantAdminTenantDriveOperationsView.vue'
+import TenantAdminTenantDrivePolicyView from '../views/tenant-admin/TenantAdminTenantDrivePolicyView.vue'
+import TenantAdminTenantEntitlementsView from '../views/tenant-admin/TenantAdminTenantEntitlementsView.vue'
+import TenantAdminTenantInvitationsView from '../views/tenant-admin/TenantAdminTenantInvitationsView.vue'
+import TenantAdminTenantMembersView from '../views/tenant-admin/TenantAdminTenantMembersView.vue'
+import TenantAdminTenantOverviewView from '../views/tenant-admin/TenantAdminTenantOverviewView.vue'
+import TenantAdminTenantSettingsView from '../views/tenant-admin/TenantAdminTenantSettingsView.vue'
+import TenantAdminTenantShellView from '../views/tenant-admin/TenantAdminTenantShellView.vue'
+import TenantAdminTenantSupportView from '../views/tenant-admin/TenantAdminTenantSupportView.vue'
+import TenantAdminTenantWebhooksView from '../views/tenant-admin/TenantAdminTenantWebhooksView.vue'
 import TodosView from '../views/TodosView.vue'
 import PublicDriveShareView from '../views/PublicDriveShareView.vue'
 
@@ -272,8 +282,7 @@ const router = createRouter({
     },
     {
       path: '/tenant-admin/:tenantSlug',
-      name: 'tenant-admin-detail',
-      component: TenantAdminTenantDetailView,
+      component: TenantAdminTenantShellView,
       meta: {
         requiresAuth: true,
         title: 'Tenant Detail',
@@ -281,6 +290,66 @@ const router = createRouter({
         titleKey: 'routes.tenantDetail',
         groupKey: 'nav.groups.admin',
       },
+      children: [
+        {
+          path: '',
+          name: 'tenant-admin-detail',
+          redirect: (to) => ({
+            name: 'tenant-admin-detail-overview',
+            params: to.params,
+          }),
+        },
+        {
+          path: 'overview',
+          name: 'tenant-admin-detail-overview',
+          component: TenantAdminTenantOverviewView,
+        },
+        {
+          path: 'members',
+          name: 'tenant-admin-detail-members',
+          component: TenantAdminTenantMembersView,
+        },
+        {
+          path: 'invitations',
+          name: 'tenant-admin-detail-invitations',
+          component: TenantAdminTenantInvitationsView,
+        },
+        {
+          path: 'settings',
+          name: 'tenant-admin-detail-settings',
+          component: TenantAdminTenantSettingsView,
+        },
+        {
+          path: 'drive-policy',
+          name: 'tenant-admin-detail-drive-policy',
+          component: TenantAdminTenantDrivePolicyView,
+        },
+        {
+          path: 'drive-operations',
+          name: 'tenant-admin-detail-drive-operations',
+          component: TenantAdminTenantDriveOperationsView,
+        },
+        {
+          path: 'entitlements',
+          name: 'tenant-admin-detail-entitlements',
+          component: TenantAdminTenantEntitlementsView,
+        },
+        {
+          path: 'support',
+          name: 'tenant-admin-detail-support',
+          component: TenantAdminTenantSupportView,
+        },
+        {
+          path: 'webhooks',
+          name: 'tenant-admin-detail-webhooks',
+          component: TenantAdminTenantWebhooksView,
+        },
+        {
+          path: 'data',
+          name: 'tenant-admin-detail-data',
+          component: TenantAdminTenantDataView,
+        },
+      ],
     },
     {
       path: '/machine-clients',

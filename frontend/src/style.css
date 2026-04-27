@@ -1278,6 +1278,24 @@ code {
   grid-template-columns: 220px minmax(0, 1fr) minmax(260px, 320px);
 }
 
+.tenant-detail-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.tenant-detail-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.tenant-detail-content {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
 .drive-workspace-main {
   display: grid;
   gap: 14px;
@@ -1369,7 +1387,8 @@ code {
 }
 
 .drive-side-nav,
-.drive-details-panel {
+.drive-details-panel,
+.section-side-nav {
   position: sticky;
   top: 88px;
   display: grid;
@@ -1385,7 +1404,8 @@ code {
 
 .drive-create-stack,
 .drive-local-nav,
-.drive-folder-tree {
+.drive-folder-tree,
+.section-local-nav {
   display: grid;
   gap: 8px;
   min-width: 0;
@@ -1397,7 +1417,8 @@ code {
 }
 
 .drive-local-link,
-.drive-tree-row {
+.drive-tree-row,
+.section-local-link {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -1411,6 +1432,12 @@ code {
   background: transparent;
   text-align: left;
   text-decoration: none;
+}
+
+.section-local-link {
+  align-items: start;
+  min-height: 44px;
+  padding: 9px 10px;
 }
 
 .drive-tree-row {
@@ -1457,12 +1484,14 @@ code {
 }
 
 .drive-local-link:hover,
-.drive-tree-row:hover {
+.drive-tree-row:hover,
+.section-local-link:hover {
   background: var(--surface-muted);
 }
 
 .drive-local-link.active,
-.drive-tree-row.active {
+.drive-tree-row.active,
+.section-local-link.active {
   color: var(--accent-strong);
   background: #eff6ff;
   font-weight: 700;
@@ -1478,6 +1507,71 @@ code {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.section-local-link > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.section-local-link strong,
+.section-local-link small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-local-link small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.section-side-nav-header {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.section-side-nav-header strong,
+.section-side-nav-header span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-side-nav-header span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.section-side-nav-footer {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.section-side-nav-footer div {
+  min-width: 0;
+}
+
+.section-side-nav-footer dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.section-side-nav-footer dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .drive-side-heading {
@@ -2136,18 +2230,21 @@ code {
   }
 
   .drive-workspace-layout,
-  .drive-workspace-layout.details-open {
+  .drive-workspace-layout.details-open,
+  .tenant-detail-layout {
     grid-template-columns: 1fr;
   }
 
   .drive-side-nav,
-  .drive-details-panel {
+  .drive-details-panel,
+  .section-side-nav {
     position: static;
     max-height: none;
   }
 
   .drive-local-nav,
-  .drive-folder-tree {
+  .drive-folder-tree,
+  .section-local-nav {
     display: flex;
     gap: 6px;
     overflow-x: auto;
@@ -2155,9 +2252,19 @@ code {
   }
 
   .drive-local-link,
-  .drive-tree-row {
+  .drive-tree-row,
+  .section-local-link {
     flex: 0 0 auto;
     width: auto;
+  }
+
+  .section-local-link {
+    align-items: center;
+  }
+
+  .section-local-link small,
+  .section-side-nav-footer {
+    display: none;
   }
 
   .drive-storage-summary {
