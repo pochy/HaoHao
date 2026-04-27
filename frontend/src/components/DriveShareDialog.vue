@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type {
   DriveGroupBody,
@@ -37,6 +38,7 @@ const emit = defineEmits<{
   reloadPermissions: []
 }>()
 
+const { t } = useI18n()
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const userPublicId = ref('')
 const targetQuery = ref('')
@@ -212,12 +214,12 @@ async function copyRawLink() {
     <div class="drive-dialog-panel stack">
       <div class="section-header">
         <div>
-          <span class="status-pill">Share</span>
+          <span class="status-pill">{{ t('driveShare.share') }}</span>
           <h2>{{ label }}</h2>
-          <p class="cell-subtle">Current access, people, groups, and link sharing for this Drive item.</p>
+          <p class="cell-subtle">{{ t('driveShare.description') }}</p>
         </div>
         <button class="secondary-button compact-button" type="button" @click="close">
-          Close
+          {{ t('driveShare.close') }}
         </button>
       </div>
 
@@ -227,25 +229,25 @@ async function copyRawLink() {
 
       <section class="drive-share-section">
         <div>
-          <h3>Add people and groups</h3>
-          <p class="cell-subtle">Search tenant users and Drive groups, then choose the role to grant.</p>
+          <h3>{{ t('driveShare.addPeopleTitle') }}</h3>
+          <p class="cell-subtle">{{ t('driveShare.addPeopleDescription') }}</p>
         </div>
 
         <form class="admin-form" @submit.prevent="searchTargets">
           <label class="field form-span">
-            <span class="field-label">Search users and groups</span>
-            <input v-model="targetQuery" class="field-input" autocomplete="off" :disabled="busy" placeholder="Name, email, or public ID">
+            <span class="field-label">{{ t('driveShare.searchUsersGroups') }}</span>
+            <input v-model="targetQuery" class="field-input" autocomplete="off" :disabled="busy" :placeholder="t('driveShare.searchPlaceholder')">
           </label>
           <label class="field">
-            <span class="field-label">Role</span>
+            <span class="field-label">{{ t('driveShare.role') }}</span>
             <select v-model="shareRole" class="field-input" :disabled="busy">
-              <option value="viewer">Viewer</option>
-              <option value="editor">Editor</option>
+              <option value="viewer">{{ t('driveShare.viewer') }}</option>
+              <option value="editor">{{ t('driveShare.editor') }}</option>
             </select>
           </label>
           <div class="action-row form-span">
             <button class="secondary-button compact-button" type="submit" :disabled="busy">
-              Search targets
+              {{ t('driveShare.searchTargets') }}
             </button>
           </div>
           <p v-if="targetSearchError" class="error-message form-span">{{ targetSearchError }}</p>
@@ -269,32 +271,32 @@ async function copyRawLink() {
 
         <form class="admin-form" @submit.prevent="createUserShare">
           <div class="form-span">
-            <h4>User share</h4>
+            <h4>{{ t('driveShare.userShare') }}</h4>
           </div>
           <label class="field">
-            <span class="field-label">User public ID</span>
+            <span class="field-label">{{ t('driveShare.userPublicId') }}</span>
             <input v-model="userPublicId" class="field-input" autocomplete="off" :disabled="busy">
           </label>
           <label class="field">
-            <span class="field-label">Role</span>
+            <span class="field-label">{{ t('driveShare.role') }}</span>
             <select v-model="shareRole" class="field-input" :disabled="busy">
-              <option value="viewer">Viewer</option>
-              <option value="editor">Editor</option>
+              <option value="viewer">{{ t('driveShare.viewer') }}</option>
+              <option value="editor">{{ t('driveShare.editor') }}</option>
             </select>
           </label>
           <div class="action-row form-span">
             <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateUserShare">
-              Share with user
+              {{ t('driveShare.shareWithUser') }}
             </button>
           </div>
         </form>
 
         <form class="admin-form" @submit.prevent="createGroupShare">
           <div class="form-span">
-            <h4>Group share</h4>
+            <h4>{{ t('driveShare.groupShare') }}</h4>
           </div>
           <label class="field">
-            <span class="field-label">Drive group</span>
+            <span class="field-label">{{ t('driveShare.driveGroup') }}</span>
             <select v-model="groupPublicId" class="field-input" :disabled="busy || groups.length === 0">
               <option v-for="group in groups" :key="group.publicId" :value="group.publicId">
                 {{ group.name }}
@@ -302,40 +304,40 @@ async function copyRawLink() {
             </select>
           </label>
           <label class="field">
-            <span class="field-label">Role</span>
+            <span class="field-label">{{ t('driveShare.role') }}</span>
             <select v-model="shareRole" class="field-input" :disabled="busy">
-              <option value="viewer">Viewer</option>
-              <option value="editor">Editor</option>
+              <option value="viewer">{{ t('driveShare.viewer') }}</option>
+              <option value="editor">{{ t('driveShare.editor') }}</option>
             </select>
           </label>
           <div class="action-row form-span">
             <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateGroupShare">
-              Share with group
+              {{ t('driveShare.shareWithGroup') }}
             </button>
             <RouterLink class="secondary-button compact-button link-button" to="/drive/groups">
-              Manage groups
+              {{ t('driveShare.manageGroups') }}
             </RouterLink>
           </div>
         </form>
 
         <form class="admin-form" @submit.prevent="createExternalInvitation">
           <div class="form-span">
-            <h4>External invitation</h4>
+            <h4>{{ t('driveShare.externalInvitation') }}</h4>
           </div>
           <label class="field">
-            <span class="field-label">Invitee email</span>
+            <span class="field-label">{{ t('driveShare.inviteeEmail') }}</span>
             <input v-model="externalEmail" class="field-input" autocomplete="email" type="email" :disabled="busy">
           </label>
           <label class="field">
-            <span class="field-label">Role</span>
+            <span class="field-label">{{ t('driveShare.role') }}</span>
             <select v-model="shareRole" class="field-input" :disabled="busy">
-              <option value="viewer">Viewer</option>
-              <option value="editor">Editor</option>
+              <option value="viewer">{{ t('driveShare.viewer') }}</option>
+              <option value="editor">{{ t('driveShare.editor') }}</option>
             </select>
           </label>
           <div class="action-row form-span">
             <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateExternalInvitation">
-              Invite external user
+              {{ t('driveShare.inviteExternalUser') }}
             </button>
           </div>
         </form>
@@ -343,18 +345,18 @@ async function copyRawLink() {
 
       <section class="drive-share-section">
         <div>
-          <h3>Owner transfer</h3>
-          <p class="cell-subtle">Transfer ownership to another tenant user. This action requires owner access and confirmation.</p>
+          <h3>{{ t('driveShare.ownerTransfer') }}</h3>
+          <p class="cell-subtle">{{ t('driveShare.ownerTransferDescription') }}</p>
         </div>
 
         <form class="admin-form" @submit.prevent="searchOwnerTargets">
           <label class="field form-span">
-            <span class="field-label">Search users</span>
-            <input v-model="ownerTargetQuery" class="field-input" autocomplete="off" :disabled="busy" placeholder="Name, email, or public ID">
+            <span class="field-label">{{ t('driveShare.searchUsers') }}</span>
+            <input v-model="ownerTargetQuery" class="field-input" autocomplete="off" :disabled="busy" :placeholder="t('driveShare.searchPlaceholder')">
           </label>
           <div class="action-row form-span">
             <button class="secondary-button compact-button" type="submit" :disabled="busy">
-              Search users
+              {{ t('driveShare.searchUsers') }}
             </button>
           </div>
           <p v-if="ownerTargetSearchError" class="error-message form-span">{{ ownerTargetSearchError }}</p>
@@ -371,23 +373,23 @@ async function copyRawLink() {
                 <strong>{{ target.displayName }}</strong>
                 <small>{{ target.secondary || target.publicId }}</small>
               </span>
-              <span class="status-pill">Owner</span>
+              <span class="status-pill">{{ t('driveShare.owner') }}</span>
             </button>
           </div>
         </form>
 
         <form class="admin-form" @submit.prevent="transferOwner">
           <label class="field">
-            <span class="field-label">New owner user public ID</span>
+            <span class="field-label">{{ t('driveShare.newOwnerUserPublicId') }}</span>
             <input v-model="ownerTransferUserPublicId" class="field-input" autocomplete="off" :disabled="busy">
           </label>
           <label class="checkbox-field">
             <input v-model="revokePreviousOwnerAccess" type="checkbox" :disabled="busy">
-            <span>Revoke previous owner access after transfer</span>
+            <span>{{ t('driveShare.revokePreviousOwner') }}</span>
           </label>
           <div class="action-row form-span">
             <button class="secondary-button compact-button" type="submit" :disabled="busy || !canTransferOwner">
-              Transfer owner
+              {{ t('driveShare.transferOwner') }}
             </button>
           </div>
         </form>
@@ -396,58 +398,58 @@ async function copyRawLink() {
       <section class="drive-share-section">
         <form class="admin-form" @submit.prevent="createShareLink">
           <div class="form-span">
-            <h3>Share link</h3>
+            <h3>{{ t('driveShare.shareLink') }}</h3>
             <p class="cell-subtle">
-              Download 禁止は操作上の制限であり、スクリーンショット等を完全には防止できません。
+              {{ t('driveShare.shareLinkDescription') }}
             </p>
           </div>
           <label class="field">
-            <span class="field-label">Expires at</span>
+            <span class="field-label">{{ t('driveShare.expiresAt') }}</span>
             <input v-model="linkExpiresAt" class="field-input" type="datetime-local" :disabled="busy">
           </label>
           <label class="field">
-            <span class="field-label">Role</span>
+            <span class="field-label">{{ t('driveShare.role') }}</span>
             <select v-model="linkRole" class="field-input" :disabled="busy">
-              <option value="viewer">Viewer</option>
-              <option value="editor">Editor</option>
+              <option value="viewer">{{ t('driveShare.viewer') }}</option>
+              <option value="editor">{{ t('driveShare.editor') }}</option>
             </select>
           </label>
           <label class="checkbox-field">
             <input v-model="linkCanDownload" type="checkbox" :disabled="busy || linkRole === 'editor'">
-            <span>Allow download</span>
+            <span>{{ t('driveShare.allowDownload') }}</span>
           </label>
           <label class="field form-span">
-            <span class="field-label">Password</span>
+            <span class="field-label">{{ t('driveShare.password') }}</span>
             <input v-model="linkPassword" class="field-input" autocomplete="new-password" type="password" :disabled="busy">
           </label>
           <div class="action-row form-span">
             <button class="primary-button compact-button" type="submit" :disabled="busy || !canCreateShareLink">
-              Create link
+              {{ t('driveShare.createLink') }}
             </button>
           </div>
         </form>
 
         <div v-if="rawLinkURL" class="drive-raw-link">
           <label class="field">
-            <span class="field-label">New link URL</span>
+            <span class="field-label">{{ t('driveShare.newLinkURL') }}</span>
             <input :value="rawLinkURL" class="field-input monospace-cell" readonly>
           </label>
           <div class="action-row">
             <button class="secondary-button compact-button" type="button" @click="copyRawLink">
-              {{ copied ? 'Copied' : 'Copy link' }}
+              {{ copied ? t('driveShare.copied') : t('driveShare.copyLink') }}
             </button>
-            <p class="cell-subtle">この URL は作成直後だけ表示されます。</p>
+            <p class="cell-subtle">{{ t('driveShare.linkShownOnce') }}</p>
           </div>
         </div>
       </section>
 
       <div class="section-header">
         <div>
-          <span class="status-pill">Permissions</span>
-          <h3>Current permissions</h3>
+          <span class="status-pill">{{ t('driveShare.permissions') }}</span>
+          <h3>{{ t('driveShare.currentPermissions') }}</h3>
         </div>
         <button class="secondary-button compact-button" type="button" :disabled="busy" @click="emit('reloadPermissions')">
-          Reload
+          {{ t('driveShare.reload') }}
         </button>
       </div>
 

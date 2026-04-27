@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 import { toApiErrorMessage } from '../api/client'
 import { refreshCurrentSession } from '../api/session'
@@ -13,10 +14,11 @@ import { useSessionStore } from '../stores/session'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
+const { t } = useI18n()
 
 const userJson = computed(() => JSON.stringify(sessionStore.user, null, 2))
-const userEmail = computed(() => sessionStore.user?.email ?? 'No email')
-const userId = computed(() => sessionStore.user?.publicId ?? 'Anonymous')
+const userEmail = computed(() => sessionStore.user?.email ?? t('common.noEmail'))
+const userId = computed(() => sessionStore.user?.publicId ?? t('auth.status.anonymous'))
 const refreshing = ref(false)
 const refreshMessage = ref('')
 const refreshErrorMessage = ref('')
@@ -41,7 +43,7 @@ async function rotateSession() {
 
   try {
     await refreshCurrentSession()
-    refreshMessage.value = 'Session ID と CSRF token を再発行しました。'
+    refreshMessage.value = t('home.refreshSuccess')
   } catch (error) {
     refreshErrorMessage.value = toApiErrorMessage(error)
   } finally {
@@ -53,35 +55,35 @@ async function rotateSession() {
 <template>
   <section class="stack">
     <PageHeader
-      eyebrow="Workspace"
-      title="Session"
-      description="Cookie session、active identity、generated SDK の接続状態を確認します。"
+      :eyebrow="t('home.eyebrow')"
+      :title="t('home.title')"
+      :description="t('home.description')"
     >
       <template #actions>
         <button class="secondary-button" :disabled="refreshing" type="button" @click="rotateSession">
-          {{ refreshing ? 'Refreshing...' : 'Refresh Session' }}
+          {{ refreshing ? t('common.refreshing') : t('home.refreshSession') }}
         </button>
         <button class="secondary-button" type="button" @click="signOut">
-          Logout
+          {{ t('home.logout') }}
         </button>
       </template>
     </PageHeader>
 
     <div class="metric-grid">
-      <MetricTile label="Status" :value="sessionStore.status" hint="Current browser session" />
-      <MetricTile label="User" :value="sessionStore.user?.displayName ?? 'Guest'" :hint="userEmail" />
-      <MetricTile label="User public ID" :value="userId" hint="API subject" />
-      <MetricTile label="Support access" :value="sessionStore.supportAccess ? 'Active' : 'Off'" hint="Impersonation state" />
+      <MetricTile :label="t('common.status')" :value="sessionStore.status" :hint="t('home.statusHint')" />
+      <MetricTile :label="t('common.user')" :value="sessionStore.user?.displayName ?? t('auth.guest')" :hint="userEmail" />
+      <MetricTile :label="t('common.userPublicId')" :value="userId" :hint="t('home.userPublicIdHint')" />
+      <MetricTile :label="t('home.supportAccess')" :value="sessionStore.supportAccess ? t('common.active') : t('common.off')" :hint="t('home.supportAccessHint')" />
     </div>
 
     <div class="split-grid">
-      <DataCard title="Current Session" subtitle="現在の user payload を API から取得しています。">
-        <StatusBadge tone="success">Authenticated</StatusBadge>
+      <DataCard :title="t('home.currentSession')" :subtitle="t('home.currentSessionSubtitle')">
+        <StatusBadge tone="success">{{ t('auth.status.authenticated') }}</StatusBadge>
         <pre class="json-card">{{ userJson }}</pre>
 
         <div class="action-row">
           <RouterLink class="secondary-button link-button" to="/todos">
-            Open TODO
+            {{ t('home.openTodo') }}
           </RouterLink>
           <DocsLink />
         </div>
@@ -95,12 +97,12 @@ async function rotateSession() {
         </p>
       </DataCard>
 
-      <DataCard title="Verification" subtitle="frontend、session API、OpenAPI docs の疎通確認です。">
+      <DataCard :title="t('home.verification')" :subtitle="t('home.verificationSubtitle')">
         <ul class="check-list">
-          <li>Cookie が browser に保存される</li>
-          <li><code>/api/v1/session</code> が 200 を返す</li>
-          <li><code>POST /api/v1/session/refresh</code> が Cookie を rotate する</li>
-          <li><code>/docs</code> で OpenAPI 由来の docs を確認できる</li>
+          <li>{{ t('home.verificationItems.cookie') }}</li>
+          <li>{{ t('home.verificationItems.session') }}</li>
+          <li>{{ t('home.verificationItems.refresh') }}</li>
+          <li>{{ t('home.verificationItems.docs') }}</li>
         </ul>
       </DataCard>
     </div>

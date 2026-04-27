@@ -11,6 +11,7 @@ import {
   Upload,
 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { DriveFolderBody, DriveFolderTreeBody, DriveFolderTreeNodeBody, DriveItemBody, DriveStorageUsageBody } from '../api/generated/types.gen'
 import {
@@ -29,6 +30,8 @@ const props = defineProps<{
   disabled: boolean
   busy: boolean
 }>()
+
+const { n, t } = useI18n()
 
 const emit = defineEmits<{
   createFolder: []
@@ -64,7 +67,10 @@ const treeRows = computed(() => [
 const storageLabel = computed(() => {
   const used = props.storageUsage?.usedBytes ?? 0
   const count = props.storageUsage?.fileCount ?? 0
-  return `${new Intl.NumberFormat(undefined, { notation: 'compact' }).format(used)} bytes / ${count} files`
+  return t('drive.storageLabel', {
+    bytes: n(used, 'integer'),
+    count,
+  })
 })
 
 watch(
@@ -118,15 +124,15 @@ function hasChildren(row: FolderTreeRow) {
 </script>
 
 <template>
-  <aside class="drive-side-nav" aria-label="Drive navigation">
+  <aside class="drive-side-nav" :aria-label="t('drive.navigation')">
     <div class="drive-create-stack">
       <button class="primary-button drive-new-button" type="button" :disabled="disabled || busy" @click="emit('createFolder')">
         <Plus :size="18" stroke-width="2" aria-hidden="true" />
-        New folder
+        {{ t('drive.newFolder') }}
       </button>
       <label class="secondary-button compact-button drive-upload-button">
         <Upload :size="16" stroke-width="1.8" aria-hidden="true" />
-        <span>Upload file</span>
+        <span>{{ t('drive.uploadFile') }}</span>
         <input class="drive-hidden-input" type="file" multiple :disabled="disabled || busy" @change="onFileChange">
       </label>
     </div>
@@ -134,41 +140,41 @@ function hasChildren(row: FolderTreeRow) {
     <nav class="drive-local-nav">
       <RouterLink class="drive-local-link" :class="{ active: activeView === 'my-drive' }" to="/drive">
         <HardDrive :size="17" stroke-width="1.9" aria-hidden="true" />
-        My Drive
+        {{ t('drive.myDrive') }}
       </RouterLink>
       <RouterLink class="drive-local-link" :class="{ active: activeView === 'recent' }" to="/drive/recent">
         <Clock3 :size="17" stroke-width="1.9" aria-hidden="true" />
-        Recent
+        {{ t('drive.recent') }}
       </RouterLink>
       <RouterLink class="drive-local-link" :class="{ active: activeView === 'shared' }" to="/drive/shared">
         <Share2 :size="17" stroke-width="1.9" aria-hidden="true" />
-        Shared with me
+        {{ t('drive.sharedWithMe') }}
       </RouterLink>
       <RouterLink class="drive-local-link" :class="{ active: activeView === 'starred' }" to="/drive/starred">
         <Star :size="17" stroke-width="1.9" aria-hidden="true" />
-        Starred
+        {{ t('drive.starred') }}
       </RouterLink>
       <RouterLink class="drive-local-link" :class="{ active: activeView === 'search' }" to="/drive/search">
         <Clock3 :size="17" stroke-width="1.9" aria-hidden="true" />
-        Search
+        {{ t('common.search') }}
       </RouterLink>
       <RouterLink class="drive-local-link" :class="{ active: activeView === 'trash' }" to="/drive/trash">
         <Trash2 :size="17" stroke-width="1.9" aria-hidden="true" />
-        Trash
+        {{ t('drive.trash') }}
       </RouterLink>
     </nav>
 
-    <section class="drive-folder-tree" aria-label="Drive folder tree">
+    <section class="drive-folder-tree" :aria-label="t('drive.folderTree')">
       <div class="drive-side-heading">
         <FolderTree :size="15" stroke-width="1.9" aria-hidden="true" />
         <span>{{ workspaceName }}</span>
       </div>
       <button class="drive-tree-row active" type="button" @click="emit('openFolder', currentFolder.publicId)">
         <DriveFileTypeIcon kind="folder" :size="16" />
-        <span>{{ currentFolder.publicId === 'root' ? 'Root' : currentFolder.name }}</span>
+        <span>{{ currentFolder.publicId === 'root' ? t('drive.root') : currentFolder.name }}</span>
       </button>
       <template v-if="treeRows.length > 0">
-        <div class="drive-tree-section-label">Owned folders</div>
+        <div class="drive-tree-section-label">{{ t('drive.ownedFolders') }}</div>
         <div
           v-for="row in treeRows.filter((item) => item.section === 'owned')"
           :key="`owned:${row.publicId}`"
@@ -179,7 +185,7 @@ function hasChildren(row: FolderTreeRow) {
           <button
             class="drive-tree-expander"
             type="button"
-            :aria-label="`${expandedIds.has(row.publicId) ? 'Collapse' : 'Expand'} ${row.name}`"
+            :aria-label="expandedIds.has(row.publicId) ? t('drive.collapseFolder', { name: row.name }) : t('drive.expandFolder', { name: row.name })"
             :disabled="!hasChildren(row)"
             @click="toggleTreeFolder(row.publicId)"
           >
@@ -190,7 +196,7 @@ function hasChildren(row: FolderTreeRow) {
             <span>{{ row.name }}</span>
           </button>
         </div>
-        <div v-if="treeRows.some((item) => item.section === 'shared')" class="drive-tree-section-label">Shared roots</div>
+        <div v-if="treeRows.some((item) => item.section === 'shared')" class="drive-tree-section-label">{{ t('drive.sharedRoots') }}</div>
         <div
           v-for="row in treeRows.filter((item) => item.section === 'shared')"
           :key="`shared:${row.publicId}`"
@@ -201,7 +207,7 @@ function hasChildren(row: FolderTreeRow) {
           <button
             class="drive-tree-expander"
             type="button"
-            :aria-label="`${expandedIds.has(row.publicId) ? 'Collapse' : 'Expand'} ${row.name}`"
+            :aria-label="expandedIds.has(row.publicId) ? t('drive.collapseFolder', { name: row.name }) : t('drive.expandFolder', { name: row.name })"
             :disabled="!hasChildren(row)"
             @click="toggleTreeFolder(row.publicId)"
           >
@@ -226,16 +232,16 @@ function hasChildren(row: FolderTreeRow) {
         </button>
       </template>
       <p v-if="folderItems.length === 0" class="cell-subtle">
-        No child folders in this view.
+        {{ t('drive.noChildFolders') }}
       </p>
     </section>
 
     <RouterLink class="drive-storage-summary" :class="{ active: activeView === 'storage' }" to="/drive/storage">
       <div>
-        <strong>Storage</strong>
+        <strong>{{ t('drive.storage') }}</strong>
         <span>{{ storageLabel }}</span>
       </div>
-      <div class="drive-storage-bar" :aria-label="`${storagePercent}% used`">
+      <div class="drive-storage-bar" :aria-label="t('drive.storageUsed', { percent: storagePercent })">
         <span :style="{ width: `${storagePercent}%` }" />
       </div>
     </RouterLink>

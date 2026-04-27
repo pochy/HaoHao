@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 import { toApiErrorMessage } from '../api/client'
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
@@ -18,6 +19,7 @@ const router = useRouter()
 const tenantStore = useTenantStore()
 const signalStore = useCustomerSignalStore()
 const fileStore = useFileStore()
+const { d, t } = useI18n()
 
 const customerName = ref('')
 const title = ref('')
@@ -41,7 +43,7 @@ const signal = computed(() => signalStore.current)
 const activeTenantLabel = computed(() => (
   tenantStore.activeTenant
     ? `${tenantStore.activeTenant.displayName} / ${tenantStore.activeTenant.slug}`
-    : 'None'
+    : t('common.none')
 ))
 
 const canSave = computed(() => (
@@ -52,7 +54,7 @@ const canSave = computed(() => (
 ))
 
 const deleteMessage = computed(() => (
-  `Customer Signal "${signal.value?.title ?? signalPublicId.value}" を削除します。record は soft delete され、audit event は残ります。`
+  t('signals.deleteMessage', { name: signal.value?.title ?? signalPublicId.value })
 ))
 
 onMounted(async () => {
@@ -103,17 +105,22 @@ function syncForm() {
 
 function formatDate(value?: string) {
   if (!value) {
-    return 'Never'
+    return t('common.never')
   }
 
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return d(new Date(value), 'long')
 }
 
 function sourceLabel(value: string) {
-  return value.replaceAll('_', ' ')
+  return t(`signals.options.source.${value}`)
+}
+
+function priorityLabel(value: string) {
+  return t(`signals.options.priority.${value}`)
+}
+
+function statusLabel(value: string) {
+  return t(`signals.options.status.${value}`)
 }
 
 async function saveSignal() {
@@ -133,7 +140,7 @@ async function saveSignal() {
       priority: priority.value,
       status: status.value,
     })
-    message.value = 'Customer Signal を更新しました。'
+    message.value = t('signals.saveSuccess')
   } catch (error) {
     errorMessage.value = toApiErrorMessage(error)
   }
@@ -166,7 +173,7 @@ async function uploadAttachment() {
     if (fileInput.value) {
       fileInput.value.value = ''
     }
-    message.value = 'File を upload しました。'
+    message.value = t('signals.uploadSuccess')
   } catch (error) {
     errorMessage.value = toApiErrorMessage(error)
   }
@@ -177,7 +184,7 @@ async function removeAttachment(publicId: string) {
   errorMessage.value = ''
   try {
     await fileStore.remove(publicId)
-    message.value = 'File を削除しました。'
+    message.value = t('signals.removeFileSuccess')
   } catch (error) {
     errorMessage.value = toApiErrorMessage(error)
   }
@@ -214,24 +221,24 @@ async function confirmDelete() {
 <template>
   <AdminAccessDenied
     v-if="signalStore.status === 'forbidden'"
-    title="Customer Signal role required"
-    message="この画面を使うには active tenant の customer_signal_user role が必要です。"
+    :title="t('access.signalTitle')"
+    :message="t('access.signalMessage')"
     role-label="customer_signal_user"
   />
 
   <section v-else class="panel stack">
     <div class="section-header">
       <div>
-        <span class="status-pill">Customer Signals</span>
-        <h2>Signal Detail</h2>
+        <span class="status-pill">{{ t('signals.eyebrow') }}</span>
+        <h2>{{ t('signals.detailTitle') }}</h2>
       </div>
       <RouterLink class="secondary-button link-button" to="/customer-signals">
-        Back
+        {{ t('signals.back') }}
       </RouterLink>
     </div>
 
     <p v-if="signalStore.status === 'loading'">
-      Loading customer signal...
+      {{ t('signals.loadingDetail') }}
     </p>
     <p v-if="errorMessage || signalStore.errorMessage" class="error-message">
       {{ errorMessage || signalStore.errorMessage }}
@@ -243,36 +250,36 @@ async function confirmDelete() {
     <template v-if="signal">
       <dl class="metadata-grid">
         <div>
-          <dt>Active tenant</dt>
+          <dt>{{ t('common.activeTenant') }}</dt>
           <dd>{{ activeTenantLabel }}</dd>
         </div>
         <div>
-          <dt>Public ID</dt>
+          <dt>{{ t('common.publicId') }}</dt>
           <dd>{{ signal.publicId }}</dd>
         </div>
         <div>
-          <dt>Created</dt>
+          <dt>{{ t('common.created') }}</dt>
           <dd>{{ formatDate(signal.createdAt) }}</dd>
         </div>
         <div>
-          <dt>Updated</dt>
+          <dt>{{ t('common.updated') }}</dt>
           <dd>{{ formatDate(signal.updatedAt) }}</dd>
         </div>
       </dl>
 
       <form class="admin-form" @submit.prevent="saveSignal">
         <label class="field">
-          <span class="field-label">Customer</span>
+          <span class="field-label">{{ t('signals.customer') }}</span>
           <input v-model="customerName" class="field-input" autocomplete="organization" maxlength="120" required>
         </label>
 
         <label class="field">
-          <span class="field-label">Title</span>
+          <span class="field-label">{{ t('common.title') }}</span>
           <input v-model="title" class="field-input" autocomplete="off" maxlength="200" required>
         </label>
 
         <label class="field">
-          <span class="field-label">Source</span>
+          <span class="field-label">{{ t('signals.source') }}</span>
           <select v-model="source" class="field-input">
             <option v-for="item in sourceOptions" :key="item" :value="item">
               {{ sourceLabel(item) }}
@@ -281,31 +288,31 @@ async function confirmDelete() {
         </label>
 
         <label class="field">
-          <span class="field-label">Priority</span>
+          <span class="field-label">{{ t('signals.priority') }}</span>
           <select v-model="priority" class="field-input">
             <option v-for="item in priorityOptions" :key="item" :value="item">
-              {{ item }}
+              {{ priorityLabel(item) }}
             </option>
           </select>
         </label>
 
         <label class="field">
-          <span class="field-label">Status</span>
+          <span class="field-label">{{ t('signals.status') }}</span>
           <select v-model="status" class="field-input">
             <option v-for="item in statusOptions" :key="item" :value="item">
-              {{ item }}
+              {{ statusLabel(item) }}
             </option>
           </select>
         </label>
 
         <label class="field form-span">
-          <span class="field-label">Details</span>
+          <span class="field-label">{{ t('signals.details') }}</span>
           <textarea v-model="body" class="field-input textarea-input signal-detail-body" maxlength="4000" />
         </label>
 
         <div class="action-row form-span">
           <button class="primary-button" :disabled="!canSave" type="submit">
-            {{ signalStore.updating ? 'Saving...' : 'Save' }}
+            {{ signalStore.updating ? t('common.saving') : t('common.save') }}
           </button>
           <button
             class="secondary-button danger-button"
@@ -313,7 +320,7 @@ async function confirmDelete() {
             type="button"
             @click="askDelete"
           >
-            {{ signalStore.deletingPublicId === signal.publicId ? 'Deleting...' : 'Delete' }}
+            {{ signalStore.deletingPublicId === signal.publicId ? t('common.deleting') : t('common.delete') }}
           </button>
         </div>
       </form>
@@ -321,23 +328,23 @@ async function confirmDelete() {
       <div class="stack">
         <div class="section-header">
           <div>
-            <span class="status-pill">Files</span>
-            <h2>Attachments</h2>
+            <span class="status-pill">{{ t('signals.filesBadge') }}</span>
+            <h2>{{ t('signals.attachments') }}</h2>
           </div>
           <button class="secondary-button compact-button" type="button" @click="loadFiles">
-            Refresh
+            {{ t('common.refresh') }}
           </button>
         </div>
 
         <form class="admin-form" @submit.prevent="uploadAttachment">
           <label class="field form-span">
-            <span class="field-label">File</span>
+            <span class="field-label">{{ t('signals.file') }}</span>
             <input ref="fileInput" class="field-input" type="file">
           </label>
 
           <div class="action-row form-span">
             <button class="primary-button" :disabled="fileStore.uploading" type="submit">
-              {{ fileStore.uploading ? 'Uploading...' : 'Upload' }}
+              {{ fileStore.uploading ? t('common.uploading') : t('common.upload') }}
             </button>
           </div>
         </form>
@@ -355,7 +362,7 @@ async function confirmDelete() {
             </div>
             <div class="action-row">
               <a class="secondary-button compact-button link-button" :href="`/api/v1/files/${file.publicId}`">
-                Download
+                {{ t('common.download') }}
               </a>
               <button
                 class="secondary-button danger-button compact-button"
@@ -363,28 +370,28 @@ async function confirmDelete() {
                 type="button"
                 @click="removeAttachment(file.publicId)"
               >
-                Delete
+                {{ t('common.delete') }}
               </button>
             </div>
           </article>
         </div>
 
         <div v-else class="empty-state">
-          <p>添付 file はありません。</p>
+          <p>{{ t('signals.noAttachments') }}</p>
         </div>
       </div>
     </template>
 
     <div v-else-if="signalStore.status === 'error'" class="empty-state">
-      <p>Customer Signal を読み込めませんでした。</p>
+      <p>{{ t('signals.loadError') }}</p>
     </div>
   </section>
 
   <ConfirmActionDialog
     :open="confirmingDelete"
-    title="Delete customer signal"
+    :title="t('signals.deleteTitle')"
     :message="deleteMessage"
-    confirm-label="Delete"
+    :confirm-label="t('common.delete')"
     @cancel="cancelDelete"
     @confirm="confirmDelete"
   />

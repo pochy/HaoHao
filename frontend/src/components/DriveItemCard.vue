@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
 import type { DriveFileBody, DriveItemBody } from '../api/generated/types.gen'
 import {
   driveItemKind,
@@ -39,6 +41,8 @@ const emit = defineEmits<{
   toggleSelect: [item: DriveItemBody]
   permanentlyDeleteItem: [item: DriveItemBody]
 }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -47,7 +51,7 @@ const emit = defineEmits<{
       <input
         type="checkbox"
         :checked="selectedForArchive"
-        :aria-label="`Select ${driveItemName(item)} for archive download`"
+        :aria-label="t('drive.selectForArchive', { name: driveItemName(item) })"
         @change="emit('toggleSelect', item)"
       >
     </label>
@@ -70,14 +74,14 @@ const emit = defineEmits<{
     <DriveFileThumbnail v-if="item.file" :item="item" />
     <div v-else class="drive-folder-card-body">
       <DriveFileTypeIcon :kind="driveItemKind(item)" :size="34" />
-      <span>{{ trashMode ? 'Deleted folder' : 'Folder' }}</span>
+      <span>{{ trashMode ? t('drive.deletedFolder') : t('drive.folder') }}</span>
     </div>
 
     <footer class="drive-item-card-meta">
       <span>{{ formatDriveDate(driveItemUpdatedAt(item)) }}</span>
-      <span>{{ item.file ? formatDriveSize(item.file.byteSize) : 'Folder' }}</span>
-      <span v-if="item.file?.locked" class="status-pill danger">Locked</span>
-      <span v-else-if="item.starredByMe" class="status-pill">Starred</span>
+      <span>{{ item.file ? formatDriveSize(item.file.byteSize) : t('drive.folder') }}</span>
+      <span v-if="item.file?.locked" class="status-pill danger">{{ t('drive.locked') }}</span>
+      <span v-else-if="item.starredByMe" class="status-pill">{{ t('drive.starred') }}</span>
       <span v-else-if="item.file?.status" class="status-pill">{{ item.file.status }}</span>
     </footer>
 

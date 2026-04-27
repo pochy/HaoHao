@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { TodoBody } from '../api/generated/types.gen'
 import { toApiErrorMessage } from '../api/client'
@@ -9,6 +10,7 @@ import { useTodoStore } from '../stores/todos'
 
 const tenantStore = useTenantStore()
 const todoStore = useTodoStore()
+const { d, t } = useI18n()
 
 const newTitle = ref('')
 const drafts = ref<Record<string, string>>({})
@@ -17,7 +19,7 @@ const actionErrorMessage = ref('')
 const activeTenantLabel = computed(() => (
   tenantStore.activeTenant
     ? `${tenantStore.activeTenant.displayName} / ${tenantStore.activeTenant.slug}`
-    : 'None'
+    : t('todos.noTenantLabel')
 ))
 
 const canCreate = computed(() => (
@@ -59,10 +61,7 @@ watch(
 )
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return d(new Date(value), 'long')
 }
 
 async function createTodo() {
@@ -121,16 +120,16 @@ async function removeTodo(item: TodoBody) {
 <template>
   <AdminAccessDenied
     v-if="todoStore.status === 'forbidden'"
-    title="TODO role required"
-    message="この画面を使うには active tenant の todo_user role が必要です。"
+    :title="t('access.todoTitle')"
+    :message="t('access.todoMessage')"
     role-label="todo_user"
   />
 
   <section v-else class="panel stack">
     <div class="section-header">
       <div>
-        <span class="status-pill">Tenant TODO</span>
-        <h2>TODO</h2>
+        <span class="status-pill">{{ t('todos.badge') }}</span>
+        <h2>{{ t('todos.title') }}</h2>
       </div>
       <button
         class="secondary-button"
@@ -138,23 +137,23 @@ async function removeTodo(item: TodoBody) {
         type="button"
         @click="todoStore.load()"
       >
-        {{ todoStore.status === 'loading' ? 'Refreshing...' : 'Refresh' }}
+        {{ todoStore.status === 'loading' ? t('common.refreshing') : t('common.refresh') }}
       </button>
     </div>
 
     <dl class="metadata-grid">
       <div>
-        <dt>Active tenant</dt>
+        <dt>{{ t('todos.activeTenant') }}</dt>
         <dd>{{ activeTenantLabel }}</dd>
       </div>
       <div>
-        <dt>Items</dt>
+        <dt>{{ t('todos.items') }}</dt>
         <dd>{{ todoStore.items.length }}</dd>
       </div>
     </dl>
 
     <p v-if="tenantStore.status === 'empty'" class="warning-message">
-      Active tenant がありません。tenant membership を seed してから再ログインしてください。
+      {{ t('todos.noTenantMessage') }}
     </p>
     <p v-if="tenantStore.status === 'error'" class="error-message">
       {{ tenantStore.errorMessage }}
@@ -165,23 +164,23 @@ async function removeTodo(item: TodoBody) {
 
     <form class="todo-form" @submit.prevent="createTodo">
       <label class="field todo-title-field">
-        <span class="field-label">New TODO</span>
+        <span class="field-label">{{ t('todos.newTodo') }}</span>
         <input
           v-model="newTitle"
           class="field-input"
           autocomplete="off"
           maxlength="200"
-          placeholder="Follow up with customer"
+          :placeholder="t('todos.placeholder')"
           :disabled="!tenantStore.activeTenant || todoStore.creating"
         >
       </label>
       <button class="primary-button" :disabled="!canCreate" type="submit">
-        {{ todoStore.creating ? 'Adding...' : 'Add' }}
+        {{ todoStore.creating ? t('common.adding') : t('common.add') }}
       </button>
     </form>
 
     <p v-if="todoStore.status === 'loading'" class="todo-loading">
-      Loading TODOs...
+      {{ t('todos.loading') }}
     </p>
 
     <div v-else-if="todoStore.items.length > 0" class="todo-list">
@@ -193,7 +192,7 @@ async function removeTodo(item: TodoBody) {
             type="checkbox"
             @change="toggleTodo(item)"
           >
-          <span>{{ item.completed ? 'Done' : 'Open' }}</span>
+          <span>{{ item.completed ? t('common.done') : t('todos.open') }}</span>
         </label>
 
         <form class="inline-edit-form" @submit.prevent="renameTodo(item)">
@@ -210,12 +209,12 @@ async function removeTodo(item: TodoBody) {
             :disabled="todoStore.updatingPublicId === item.publicId"
             type="submit"
           >
-            Save
+            {{ t('common.save') }}
           </button>
         </form>
 
         <div class="todo-meta">
-          Created {{ formatDate(item.createdAt) }}
+          {{ t('todos.createdAt', { date: formatDate(item.createdAt) }) }}
         </div>
 
         <button
@@ -224,13 +223,13 @@ async function removeTodo(item: TodoBody) {
           type="button"
           @click="removeTodo(item)"
         >
-          {{ todoStore.deletingPublicId === item.publicId ? 'Deleting...' : 'Delete' }}
+          {{ todoStore.deletingPublicId === item.publicId ? t('common.deleting') : t('common.delete') }}
         </button>
       </article>
     </div>
 
     <div v-else-if="todoStore.status === 'empty'" class="empty-state">
-      <p>この tenant の TODO はまだありません。</p>
+      <p>{{ t('todos.emptyMessage') }}</p>
     </div>
   </section>
 </template>

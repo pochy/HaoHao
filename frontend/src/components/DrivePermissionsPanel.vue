@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
 import type { DrivePermissionBody, DrivePermissionsBody } from '../api/generated/types.gen'
 
 defineProps<{
@@ -12,46 +14,45 @@ const emit = defineEmits<{
   updateShareRole: [permission: DrivePermissionBody, role: string]
 }>()
 
+const { d, t } = useI18n()
+
 function formatDate(value?: string) {
   if (!value) {
     return '-'
   }
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return d(new Date(value), 'long')
 }
 
 function subjectLabel(permission: DrivePermissionBody) {
   if (permission.kind === 'share_link') {
-    return 'Share link'
+    return t('drivePermissions.shareLink')
   }
   if (permission.kind === 'owner') {
-    return 'Owner'
+    return t('driveShare.owner')
   }
   if (!permission.subjectType && !permission.subjectId) {
     return permission.kind
   }
-  return `${permission.subjectType ?? 'subject'}:${permission.subjectId ?? '-'}`
+  return `${permission.subjectType ?? t('drivePermissions.subject')}:${permission.subjectId ?? '-'}`
 }
 </script>
 
 <template>
   <div class="drive-permissions-panel">
     <section>
-      <h3>Direct</h3>
+      <h3>{{ t('drivePermissions.direct') }}</h3>
       <div v-if="permissions?.direct?.length" class="drive-permission-list">
         <article v-for="permission in permissions.direct" :key="`${permission.kind}:${permission.publicId}:${permission.subjectId}`" class="drive-permission-row">
           <div>
             <strong>{{ subjectLabel(permission) }}</strong>
             <span class="cell-subtle">
-              {{ permission.role }} / {{ permission.status || 'active' }}
+              {{ permission.role }} / {{ permission.status || t('drivePermissions.active') }}
             </span>
             <span v-if="permission.expiresAt" class="cell-subtle">
-              Expires {{ formatDate(permission.expiresAt) }}
+              {{ t('drivePermissions.expires', { date: formatDate(permission.expiresAt) }) }}
             </span>
             <span v-if="permission.canDownload !== undefined" class="cell-subtle">
-              Download {{ permission.canDownload ? 'allowed' : 'blocked' }}
+              {{ t('drivePermissions.download') }} {{ permission.canDownload ? t('drivePermissions.allowed') : t('drivePermissions.blocked') }}
             </span>
           </div>
           <div class="drive-row-actions">
@@ -60,11 +61,11 @@ function subjectLabel(permission: DrivePermissionBody) {
               class="field-input compact-select"
               :value="permission.role"
               :disabled="busy"
-              aria-label="Update share role"
+              :aria-label="t('drivePermissions.updateShareRole')"
               @change="emit('updateShareRole', permission, ($event.target as HTMLSelectElement).value)"
             >
-              <option value="viewer">Viewer</option>
-              <option value="editor">Editor</option>
+              <option value="viewer">{{ t('driveShare.viewer') }}</option>
+              <option value="editor">{{ t('driveShare.editor') }}</option>
             </select>
             <button
               v-if="permission.kind === 'share' && permission.publicId"
@@ -73,7 +74,7 @@ function subjectLabel(permission: DrivePermissionBody) {
               :disabled="busy"
               @click="emit('revokeShare', permission)"
             >
-              Revoke
+              {{ t('drivePermissions.revoke') }}
             </button>
             <button
               v-if="permission.kind === 'share_link' && permission.publicId"
@@ -82,27 +83,27 @@ function subjectLabel(permission: DrivePermissionBody) {
               :disabled="busy"
               @click="emit('disableLink', permission)"
             >
-              Disable
+              {{ t('drivePermissions.disable') }}
             </button>
           </div>
         </article>
       </div>
-      <p v-else class="cell-subtle">No direct permissions.</p>
+      <p v-else class="cell-subtle">{{ t('drivePermissions.noDirect') }}</p>
     </section>
 
     <section>
-      <h3>Inherited</h3>
+      <h3>{{ t('drivePermissions.inherited') }}</h3>
       <div v-if="permissions?.inherited?.length" class="drive-permission-list">
         <article v-for="permission in permissions.inherited" :key="`${permission.kind}:${permission.inheritedFromId}:${permission.subjectId}`" class="drive-permission-row">
           <div>
             <strong>{{ subjectLabel(permission) }}</strong>
             <span class="cell-subtle">
-              {{ permission.role }} inherited from {{ permission.inheritedFromId || '-' }}
+              {{ t('drivePermissions.inheritedFrom', { role: permission.role, source: permission.inheritedFromId || '-' }) }}
             </span>
           </div>
         </article>
       </div>
-      <p v-else class="cell-subtle">No inherited permissions.</p>
+      <p v-else class="cell-subtle">{{ t('drivePermissions.noInherited') }}</p>
     </section>
   </div>
 </template>

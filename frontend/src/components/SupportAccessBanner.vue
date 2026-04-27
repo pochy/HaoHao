@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
 import { toApiErrorMessage } from '../api/client'
 import { endSupportAccessSession } from '../api/support-access'
 import { useSessionStore } from '../stores/session'
 
 const sessionStore = useSessionStore()
+const { t } = useI18n()
 
 async function endAccess() {
   try {
@@ -20,15 +23,15 @@ async function endAccess() {
 <template>
   <div v-if="sessionStore.supportAccess" class="support-banner" data-testid="support-access-banner">
     <div>
-      <strong>Support access active</strong>
+      <strong>{{ t('supportAccess.active') }}</strong>
       <span>
-        {{ sessionStore.supportAccess.supportUserEmail }} as
+        {{ sessionStore.supportAccess.supportUserEmail }} {{ t('supportAccess.as') }}
         {{ sessionStore.supportAccess.impersonatedUserEmail }} /
         {{ sessionStore.supportAccess.tenantSlug }}
       </span>
     </div>
     <button class="secondary-button compact-button" type="button" @click="endAccess">
-      End
+      {{ t('supportAccess.end') }}
     </button>
   </div>
 </template>

@@ -11,68 +11,71 @@ import {
   PlugZap,
   RadioTower,
 } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 
 type NavigationItem = {
   to: string
-  label: string
+  labelKey: string
   icon: Component
 }
 
 type NavigationGroup = {
-  label: string
+  labelKey: string
   items: NavigationItem[]
 }
 
+const { t } = useI18n()
+
 const navigationGroups: NavigationGroup[] = [
   {
-    label: 'Workspace',
+    labelKey: 'nav.groups.workspace',
     items: [
-      { to: '/', label: 'Session', icon: Home },
-      { to: '/notifications', label: 'Notifications', icon: Bell },
+      { to: '/', labelKey: 'nav.items.session', icon: Home },
+      { to: '/notifications', labelKey: 'nav.items.notifications', icon: Bell },
     ],
   },
   {
-    label: 'Work',
+    labelKey: 'nav.groups.work',
     items: [
-      { to: '/customer-signals', label: 'Signals', icon: RadioTower },
-      { to: '/drive', label: 'Drive', icon: FolderOpen },
-      { to: '/todos', label: 'TODO', icon: CircleCheckBig },
+      { to: '/customer-signals', labelKey: 'nav.items.signals', icon: RadioTower },
+      { to: '/drive', labelKey: 'nav.items.drive', icon: FolderOpen },
+      { to: '/todos', labelKey: 'nav.items.todos', icon: CircleCheckBig },
     ],
   },
   {
-    label: 'Admin',
+    labelKey: 'nav.groups.admin',
     items: [
-      { to: '/tenant-admin', label: 'Tenants', icon: Building2 },
-      { to: '/machine-clients', label: 'Machine Clients', icon: KeyRound },
-      { to: '/integrations', label: 'Integrations', icon: PlugZap },
+      { to: '/tenant-admin', labelKey: 'nav.items.tenants', icon: Building2 },
+      { to: '/machine-clients', labelKey: 'nav.items.machineClients', icon: KeyRound },
+      { to: '/integrations', labelKey: 'nav.items.integrations', icon: PlugZap },
     ],
   },
 ]
 </script>
 
 <template>
-  <aside class="app-sidebar" aria-label="Primary">
+  <aside class="app-sidebar" :aria-label="t('nav.primary')">
     <RouterLink class="app-brand" to="/">
       <span class="app-brand-mark" aria-hidden="true">H</span>
       <span>
-        <strong>HaoHao</strong>
-        <span>Workspace OS</span>
+        <strong>{{ t('app.name') }}</strong>
+        <span>{{ t('app.tagline') }}</span>
       </span>
     </RouterLink>
 
     <nav class="sidebar-nav">
-      <section v-for="group in navigationGroups" :key="group.label" class="sidebar-group">
-        <h2>{{ group.label }}</h2>
+      <section v-for="group in navigationGroups" :key="group.labelKey" class="sidebar-group">
+        <h2>{{ t(group.labelKey) }}</h2>
         <RouterLink v-for="item in group.items" :key="item.to" class="sidebar-link" :to="item.to">
           <component :is="item.icon" class="sidebar-link-icon" :size="17" stroke-width="1.8" aria-hidden="true" />
-          <span>{{ item.label }}</span>
+          <span>{{ t(item.labelKey) }}</span>
         </RouterLink>
       </section>
     </nav>
 
     <RouterLink class="sidebar-doc-link" to="/drive/groups">
       <FileText :size="17" stroke-width="1.8" aria-hidden="true" />
-      <span>Drive groups</span>
+      <span>{{ t('nav.items.driveGroups') }}</span>
     </RouterLink>
   </aside>
 </template>

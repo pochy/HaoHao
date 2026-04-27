@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 import { toApiErrorMessage } from '../api/client'
 import type { CustomerSignalBody } from '../api/generated/types.gen'
@@ -20,6 +21,7 @@ const statusOptions = ['new', 'triaged', 'planned', 'closed'] as const
 
 const tenantStore = useTenantStore()
 const signalStore = useCustomerSignalStore()
+const { d, t } = useI18n()
 
 const customerName = ref('')
 const title = ref('')
@@ -34,7 +36,7 @@ const pendingFilterDelete = ref<{ publicId: string, name: string } | null>(null)
 const activeTenantLabel = computed(() => (
   tenantStore.activeTenant
     ? `${tenantStore.activeTenant.displayName} / ${tenantStore.activeTenant.slug}`
-    : 'None'
+    : t('common.none')
 ))
 
 const openCount = computed(() => signalStore.items.filter((item) => item.status !== 'closed').length)
@@ -70,18 +72,23 @@ watch(
 )
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return d(new Date(value), 'long')
 }
 
 function sourceLabel(value: string) {
-  return value.replaceAll('_', ' ')
+  return t(`signals.options.source.${value}`)
+}
+
+function priorityLabel(value: string) {
+  return t(`signals.options.priority.${value}`)
+}
+
+function statusLabel(value: string) {
+  return t(`signals.options.status.${value}`)
 }
 
 function previewText(item: CustomerSignalBody) {
-  return item.body || 'No details recorded.'
+  return item.body || t('signals.noDetails')
 }
 
 async function createSignal() {
@@ -165,16 +172,16 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
 <template>
   <AdminAccessDenied
     v-if="signalStore.status === 'forbidden'"
-    title="Customer Signal role required"
-    message="この画面を使うには active tenant の customer_signal_user role が必要です。"
+    :title="t('access.signalTitle')"
+    :message="t('access.signalMessage')"
     role-label="customer_signal_user"
   />
 
   <section v-else class="stack">
     <PageHeader
-      eyebrow="Customer Signals"
-      title="Signals"
-      description="顧客要望、source、priority、status を tenant 単位で検索、保存、記録します。"
+      :eyebrow="t('signals.eyebrow')"
+      :title="t('signals.title')"
+      :description="t('signals.description')"
     >
       <template #actions>
       <button
@@ -183,20 +190,20 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
         type="button"
         @click="signalStore.load()"
       >
-        {{ signalStore.status === 'loading' ? 'Refreshing...' : 'Refresh' }}
+        {{ signalStore.status === 'loading' ? t('common.refreshing') : t('common.refresh') }}
       </button>
       </template>
     </PageHeader>
 
     <div class="metric-grid">
-      <MetricTile label="Active tenant" :value="activeTenantLabel" hint="Current workspace" />
-      <MetricTile label="Open signals" :value="openCount" hint="Status is not closed" />
-      <MetricTile label="Urgent" :value="urgentCount" hint="Priority queue" />
-      <MetricTile label="Saved filters" :value="savedFilterCount" hint="Reusable search" />
+      <MetricTile :label="t('common.activeTenant')" :value="activeTenantLabel" :hint="t('signals.activeTenantHint')" />
+      <MetricTile :label="t('signals.openSignals')" :value="openCount" :hint="t('signals.openSignalsHint')" />
+      <MetricTile :label="t('signals.urgent')" :value="urgentCount" :hint="t('signals.urgentHint')" />
+      <MetricTile :label="t('signals.savedFilters')" :value="savedFilterCount" :hint="t('signals.savedFiltersHint')" />
     </div>
 
     <p v-if="tenantStore.status === 'empty'" class="warning-message">
-      Active tenant がありません。tenant membership を seed してから再ログインしてください。
+      {{ t('signals.noTenantMessage') }}
     </p>
     <p v-if="tenantStore.status === 'error'" class="error-message">
       {{ tenantStore.errorMessage }}
@@ -205,42 +212,42 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
       {{ actionErrorMessage || signalStore.errorMessage }}
     </p>
 
-    <DataCard title="Search and filters" subtitle="一覧の検索条件を絞り込み、必要なら filter として保存します。">
+    <DataCard :title="t('signals.searchCardTitle')" :subtitle="t('signals.searchCardSubtitle')">
     <form class="admin-form" @submit.prevent="applySearch">
       <label class="field">
-        <span class="field-label">Search</span>
+        <span class="field-label">{{ t('common.search') }}</span>
         <input
           v-model="signalStore.query"
           class="field-input"
           autocomplete="off"
-          placeholder="customer, title, or detail"
+          :placeholder="t('signals.searchPlaceholder')"
         >
       </label>
 
       <label class="field">
-        <span class="field-label">Status filter</span>
+        <span class="field-label">{{ t('signals.statusFilter') }}</span>
         <select v-model="signalStore.filters.status" class="field-input">
-          <option value="">Any</option>
+          <option value="">{{ t('common.any') }}</option>
           <option v-for="item in statusOptions" :key="item" :value="item">
-            {{ item }}
+            {{ statusLabel(item) }}
           </option>
         </select>
       </label>
 
       <label class="field">
-        <span class="field-label">Priority filter</span>
+        <span class="field-label">{{ t('signals.priorityFilter') }}</span>
         <select v-model="signalStore.filters.priority" class="field-input">
-          <option value="">Any</option>
+          <option value="">{{ t('common.any') }}</option>
           <option v-for="item in priorityOptions" :key="item" :value="item">
-            {{ item }}
+            {{ priorityLabel(item) }}
           </option>
         </select>
       </label>
 
       <label class="field">
-        <span class="field-label">Source filter</span>
+        <span class="field-label">{{ t('signals.sourceFilter') }}</span>
         <select v-model="signalStore.filters.source" class="field-input">
-          <option value="">Any</option>
+          <option value="">{{ t('common.any') }}</option>
           <option v-for="item in sourceOptions" :key="item" :value="item">
             {{ sourceLabel(item) }}
           </option>
@@ -252,75 +259,75 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
           class="primary-button"
           :disabled="signalStore.status === 'loading'"
           type="submit"
-          aria-label="Apply signal search"
+          :aria-label="t('signals.applySearch')"
         >
-          Apply
+          {{ t('common.apply') }}
         </button>
         <input
           v-model="savedFilterName"
           class="field-input inline-input"
           autocomplete="off"
-          placeholder="Filter name"
+          :placeholder="t('common.filterName')"
         >
         <button class="secondary-button" :disabled="savedFilterName.trim() === ''" type="button" @click="saveFilter">
-          Save filter
+          {{ t('signals.saveFilter') }}
         </button>
       </div>
     </form>
     </DataCard>
 
-    <DataCard v-if="signalStore.savedFilters.length > 0" title="Saved filters">
+    <DataCard v-if="signalStore.savedFilters.length > 0" :title="t('signals.savedFilters')">
       <article v-for="filter in signalStore.savedFilters" :key="filter.publicId" class="list-item">
         <div>
           <strong>{{ filter.name }}</strong>
-          <span class="cell-subtle">{{ filter.query || 'No search text' }}</span>
+          <span class="cell-subtle">{{ filter.query || t('signals.noSearchText') }}</span>
         </div>
         <div class="action-row">
           <button
             class="secondary-button compact-button"
             type="button"
-            :aria-label="`Apply saved filter ${filter.name}`"
+            :aria-label="t('signals.applySavedFilter', { name: filter.name })"
             @click="applySavedFilter(filter)"
           >
-            Apply
+            {{ t('common.apply') }}
           </button>
           <button class="secondary-button danger-button compact-button" type="button" @click="requestDeleteSavedFilter(filter)">
-            Delete
+            {{ t('common.delete') }}
           </button>
         </div>
       </article>
     </DataCard>
 
-    <DataCard title="Add signal" subtitle="新しい customer signal を active tenant に登録します。">
+    <DataCard :title="t('signals.addCardTitle')" :subtitle="t('signals.addCardSubtitle')">
     <form class="admin-form" @submit.prevent="createSignal">
       <label class="field">
-        <span class="field-label">Customer</span>
+        <span class="field-label">{{ t('signals.customer') }}</span>
         <input
           v-model="customerName"
           class="field-input"
           autocomplete="organization"
           maxlength="120"
-          placeholder="Acme"
+          :placeholder="t('signals.customerPlaceholder')"
           required
           :disabled="!tenantStore.activeTenant || signalStore.creating"
         >
       </label>
 
       <label class="field">
-        <span class="field-label">Title</span>
+        <span class="field-label">{{ t('common.title') }}</span>
         <input
           v-model="title"
           class="field-input"
           autocomplete="off"
           maxlength="200"
-          placeholder="Export CSV from reports"
+          :placeholder="t('signals.titlePlaceholder')"
           required
           :disabled="!tenantStore.activeTenant || signalStore.creating"
         >
       </label>
 
       <label class="field">
-        <span class="field-label">Source</span>
+        <span class="field-label">{{ t('signals.source') }}</span>
         <select v-model="source" class="field-input" :disabled="signalStore.creating">
           <option v-for="item in sourceOptions" :key="item" :value="item">
             {{ sourceLabel(item) }}
@@ -329,47 +336,47 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
       </label>
 
       <label class="field">
-        <span class="field-label">Priority</span>
+        <span class="field-label">{{ t('signals.priority') }}</span>
         <select v-model="priority" class="field-input" :disabled="signalStore.creating">
           <option v-for="item in priorityOptions" :key="item" :value="item">
-            {{ item }}
+            {{ priorityLabel(item) }}
           </option>
         </select>
       </label>
 
       <label class="field">
-        <span class="field-label">Status</span>
+        <span class="field-label">{{ t('signals.status') }}</span>
         <select v-model="status" class="field-input" :disabled="signalStore.creating">
           <option v-for="item in statusOptions" :key="item" :value="item">
-            {{ item }}
+            {{ statusLabel(item) }}
           </option>
         </select>
       </label>
 
       <label class="field form-span">
-        <span class="field-label">Details</span>
+        <span class="field-label">{{ t('signals.details') }}</span>
         <textarea
           v-model="body"
           class="field-input textarea-input"
           maxlength="4000"
-          placeholder="Customer asked for monthly report export."
+          :placeholder="t('signals.detailsPlaceholder')"
           :disabled="!tenantStore.activeTenant || signalStore.creating"
         />
       </label>
 
       <div class="action-row form-span">
         <button class="primary-button" :disabled="!canCreate" type="submit">
-          {{ signalStore.creating ? 'Adding...' : 'Add Signal' }}
+          {{ signalStore.creating ? t('common.adding') : t('signals.addSignal') }}
         </button>
       </div>
     </form>
     </DataCard>
 
     <p v-if="signalStore.status === 'loading'" class="todo-loading">
-      Loading customer signals...
+      {{ t('signals.loading') }}
     </p>
 
-    <DataCard v-else-if="signalStore.items.length > 0" title="Signal list">
+    <DataCard v-else-if="signalStore.items.length > 0" :title="t('signals.listTitle')">
       <article v-for="item in signalStore.items" :key="item.publicId" class="signal-item">
         <div class="signal-item-main">
           <div class="signal-title-row">
@@ -377,7 +384,7 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
               {{ item.title }}
             </RouterLink>
             <StatusBadge :tone="item.status === 'closed' ? 'danger' : 'neutral'">
-              {{ item.status }}
+              {{ statusLabel(item.status) }}
             </StatusBadge>
           </div>
           <p class="signal-preview">
@@ -386,32 +393,32 @@ async function applySavedFilter(filter: { query?: string, filters?: Record<strin
           <div class="signal-meta-row">
             <span>{{ item.customerName }}</span>
             <span>{{ sourceLabel(item.source) }}</span>
-            <span>{{ item.priority }}</span>
-            <span>Updated {{ formatDate(item.updatedAt) }}</span>
+            <span>{{ priorityLabel(item.priority) }}</span>
+            <span>{{ t('signals.updatedAt', { date: formatDate(item.updatedAt) }) }}</span>
           </div>
         </div>
         <RouterLink class="secondary-button link-button compact-button" :to="`/customer-signals/${item.publicId}`">
-          Open
+          {{ t('common.open') }}
         </RouterLink>
       </article>
       <div v-if="signalStore.nextCursor" class="action-row">
         <button class="secondary-button" type="button" @click="loadMore">
-          Load more
+          {{ t('signals.loadMore') }}
         </button>
       </div>
     </DataCard>
 
     <EmptyState
       v-else-if="signalStore.status === 'empty'"
-      title="No customer signals"
-      message="この tenant の Customer Signal はまだありません。"
+      :title="t('signals.emptyTitle')"
+      :message="t('signals.emptyMessage')"
     />
 
     <ConfirmActionDialog
       :open="pendingFilterDelete !== null"
-      title="Delete saved filter"
-      :message="`${pendingFilterDelete?.name ?? 'This filter'} を削除します。`"
-      confirm-label="Delete"
+      :title="t('signals.deleteSavedFilterTitle')"
+      :message="t('signals.deleteSavedFilterMessage', { name: pendingFilterDelete?.name ?? t('signals.deleteSavedFilterFallback') })"
+      :confirm-label="t('common.delete')"
       @cancel="cancelDeleteSavedFilter"
       @confirm="confirmDeleteSavedFilter"
     />

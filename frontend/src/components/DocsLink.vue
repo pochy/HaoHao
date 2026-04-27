@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { checkDocsAccess } from '../api/docs'
 
+const { t } = useI18n()
 const checking = ref(false)
 const errorMessage = ref('')
 
@@ -14,7 +16,7 @@ async function openDocs() {
     await checkDocsAccess()
     window.open('/docs', '_blank', 'noreferrer')
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Docs are unavailable.'
+    errorMessage.value = error instanceof Error ? error.message : t('docs.unavailable')
   } finally {
     checking.value = false
   }
@@ -24,7 +26,7 @@ async function openDocs() {
 <template>
   <div class="docs-link-wrapper">
     <button class="secondary-button" :disabled="checking" type="button" @click="openDocs">
-      {{ checking ? 'Checking...' : 'Open Docs' }}
+      {{ checking ? t('docs.checking') : t('docs.open') }}
     </button>
     <p v-if="errorMessage" class="error-message">
       {{ errorMessage }}

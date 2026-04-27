@@ -12,6 +12,7 @@ import {
   Star,
   Trash2,
 } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 
 import type { DriveFileBody, DriveItemBody } from '../api/generated/types.gen'
 import {
@@ -25,6 +26,8 @@ const props = defineProps<{
   deletingResourceId: string
   trashMode?: boolean
 }>()
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   downloadFile: [file: DriveFileBody]
@@ -54,7 +57,7 @@ function deleteBusy() {
 
 <template>
   <details class="drive-item-menu">
-    <summary :aria-label="`Actions for ${driveItemName(item)}`" title="Actions">
+    <summary :aria-label="t('drive.actionsFor', { name: driveItemName(item) })" :title="t('drive.actions')">
       <MoreVertical :size="17" stroke-width="1.9" aria-hidden="true" />
     </summary>
     <div class="drive-item-menu-popover" role="menu">
@@ -66,7 +69,7 @@ function deleteBusy() {
         @click="emit('restoreItem', item)"
       >
         <RotateCcw :size="16" stroke-width="1.8" aria-hidden="true" />
-        Restore
+        {{ t('drive.restore') }}
       </button>
       <button
         v-if="trashMode"
@@ -77,7 +80,7 @@ function deleteBusy() {
         @click="emit('permanentlyDeleteItem', item)"
       >
         <Trash2 :size="16" stroke-width="1.8" aria-hidden="true" />
-        Delete permanently
+        {{ t('drive.deletePermanently') }}
       </button>
       <template v-else>
         <button
@@ -88,7 +91,7 @@ function deleteBusy() {
           @click="emit('previewItem', item)"
         >
           <Eye :size="16" stroke-width="1.8" aria-hidden="true" />
-          Preview
+          {{ t('drive.preview') }}
         </button>
         <button
           v-if="item.file"
@@ -98,7 +101,7 @@ function deleteBusy() {
           @click="emit('downloadFile', item.file)"
         >
           <Download :size="16" stroke-width="1.8" aria-hidden="true" />
-          Download
+          {{ t('common.download') }}
         </button>
         <button
           type="button"
@@ -107,7 +110,7 @@ function deleteBusy() {
           @click="emit('downloadArchive', item)"
         >
           <Download :size="16" stroke-width="1.8" aria-hidden="true" />
-          Download ZIP
+          {{ t('drive.downloadZip') }}
         </button>
         <button
           type="button"
@@ -116,7 +119,7 @@ function deleteBusy() {
           @click="emit('toggleStar', item)"
         >
           <Star :size="16" stroke-width="1.8" aria-hidden="true" />
-          {{ item.starredByMe ? 'Remove star' : 'Add star' }}
+          {{ item.starredByMe ? t('drive.removeStar') : t('drive.addStar') }}
         </button>
         <button
           type="button"
@@ -125,7 +128,7 @@ function deleteBusy() {
           @click="emit('copyItem', item)"
         >
           <Copy :size="16" stroke-width="1.8" aria-hidden="true" />
-          Copy
+          {{ t('drive.copy') }}
         </button>
         <button
           type="button"
@@ -134,7 +137,7 @@ function deleteBusy() {
           @click="emit('shareItem', item)"
         >
           <Share2 :size="16" stroke-width="1.8" aria-hidden="true" />
-          Share
+          {{ t('drive.share') }}
         </button>
         <button
           type="button"
@@ -143,7 +146,7 @@ function deleteBusy() {
           @click="emit('renameItem', item)"
         >
           <Edit3 :size="16" stroke-width="1.8" aria-hidden="true" />
-          Rename
+          {{ t('drive.rename') }}
         </button>
         <button
           type="button"
@@ -152,7 +155,7 @@ function deleteBusy() {
           @click="emit('editMetadataItem', item)"
         >
           <Edit3 :size="16" stroke-width="1.8" aria-hidden="true" />
-          Metadata
+          {{ t('drive.metadata') }}
         </button>
         <button
           type="button"
@@ -161,7 +164,7 @@ function deleteBusy() {
           @click="emit('moveItem', item)"
         >
           <FolderInput :size="16" stroke-width="1.8" aria-hidden="true" />
-          Move
+          {{ t('drive.move') }}
         </button>
         <button
           v-if="item.file"
@@ -171,7 +174,7 @@ function deleteBusy() {
           @click="emit('overwriteFile', item.file)"
         >
           <RefreshCw :size="16" stroke-width="1.8" aria-hidden="true" />
-          Replace
+          {{ t('drive.replace') }}
         </button>
         <button
           class="danger"
@@ -181,12 +184,12 @@ function deleteBusy() {
           @click="emit('deleteItem', item)"
         >
           <Trash2 :size="16" stroke-width="1.8" aria-hidden="true" />
-          Delete
+          {{ t('common.delete') }}
         </button>
       </template>
       <button type="button" role="menuitem" @click="emit('detailsItem', item)">
         <Eye :size="16" stroke-width="1.8" aria-hidden="true" />
-        Details
+        {{ t('common.details') }}
       </button>
     </div>
   </details>

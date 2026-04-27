@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 import { fetchAuthSettings } from '../api/auth'
 import { useSessionStore } from '../stores/session'
@@ -10,6 +11,7 @@ type AuthMode = 'local' | 'zitadel'
 const route = useRoute()
 const router = useRouter()
 const sessionStore = useSessionStore()
+const { t } = useI18n()
 
 const authMode = ref<AuthMode>('local')
 const zitadelIssuer = ref('')
@@ -21,7 +23,7 @@ const loadingSettings = ref(true)
 
 const callbackErrorMessage = computed(() => {
   if (route.query.error === 'oidc_callback_failed') {
-    return 'Zitadel callback の処理に失敗しました。設定値と redirect URI を確認してください。'
+    return t('login.callbackError')
   }
   return ''
 })
@@ -59,11 +61,11 @@ async function submit() {
   <section class="split-grid">
     <div class="panel stack">
       <div class="stack intro">
-        <span class="status-pill">Cookie Session</span>
-        <h2>Login</h2>
+        <span class="status-pill">{{ t('login.badge') }}</span>
+        <h2>{{ t('login.title') }}</h2>
       </div>
 
-      <p v-if="loadingSettings">Loading auth settings...</p>
+      <p v-if="loadingSettings">{{ t('login.loadingSettings') }}</p>
 
       <form
         v-else-if="authMode === 'local' && localPasswordLoginEnabled"
@@ -71,7 +73,7 @@ async function submit() {
         @submit.prevent="submit"
       >
         <label class="field">
-          <span class="field-label">Email</span>
+          <span class="field-label">{{ t('login.email') }}</span>
           <input
             v-model="email"
             data-testid="login-email"
@@ -83,7 +85,7 @@ async function submit() {
         </label>
 
         <label class="field">
-          <span class="field-label">Password</span>
+          <span class="field-label">{{ t('login.password') }}</span>
           <input
             v-model="password"
             data-testid="login-password"
@@ -96,20 +98,20 @@ async function submit() {
         </label>
 
         <button class="primary-button" :disabled="submitting" type="submit">
-          {{ submitting ? 'Signing in...' : 'Sign in' }}
+          {{ submitting ? t('auth.signInProgress') : t('auth.signIn') }}
         </button>
       </form>
 
       <p v-else-if="authMode === 'local'" class="error-message">
-        Password login is disabled.
+        {{ t('login.passwordDisabled') }}
       </p>
 
       <div v-else class="stack">
         <p v-if="zitadelIssuer">
-          Issuer: <code>{{ zitadelIssuer }}</code>
+          {{ t('login.issuer') }}: <code>{{ zitadelIssuer }}</code>
         </p>
         <a class="primary-button zitadel-button" href="/api/v1/auth/login">
-          Sign in with Zitadel
+          {{ t('login.signInWithZitadel') }}
         </a>
       </div>
 
@@ -122,10 +124,10 @@ async function submit() {
     </div>
 
     <aside class="panel stack">
-      <h2>Routes</h2>
+      <h2>{{ t('login.routes') }}</h2>
       <div class="stack detail-list">
         <div>
-          <strong>Settings</strong>
+          <strong>{{ t('login.settingsRoute') }}</strong>
           <p><code>GET /api/v1/auth/settings</code></p>
         </div>
         <div>
@@ -133,7 +135,7 @@ async function submit() {
           <p><code>GET /api/v1/auth/login</code></p>
         </div>
         <div>
-          <strong>Callback</strong>
+          <strong>{{ t('login.callbackRoute') }}</strong>
           <p><code>GET /api/v1/auth/callback</code></p>
         </div>
         <div>
