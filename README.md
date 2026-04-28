@@ -29,14 +29,33 @@ OpenAPI 3.1 優先 + Monorepo + 単一バイナリ配信を基本方針とした
 
 ## クイックスタート
 
-- 必要環境: Go 1.26.0 / Node.js 22 / Docker / GNU Make / sqlc / golang-migrate
+- 必要環境: Go 1.26.0 / Node.js 22 / Docker / GNU Make / sqlc / golang-migrate / Air
+- 初回のみ Air をインストール: `go install github.com/air-verse/air@latest`
 - 依存サービスを起動: `make up`
 - マイグレーションを適用: `make db-up`
 - 生成物を更新（sqlc + OpenAPI + frontend SDK）: `make gen`
-- バックエンドを起動: `make backend-dev`
+- バックエンドをホットリロード起動: `make backend-dev`
 - フロントエンドを起動: `make frontend-dev`
 
 詳細な手順は [TUTORIAL.md](TUTORIAL.md) を参照してください。
+
+## バックエンド開発サーバー
+
+`make backend-dev` は `.env` を読み込んだうえで Air を起動し、`backend` 配下の Go ソース変更時にバックエンドを自動で再ビルド・再起動します。Air の監視設定は `.air.toml` にあります。
+
+ホットリロードを使わず従来どおり起動したい場合は、次のどちらかを使ってください。
+
+```bash
+make backend-run
+go run ./backend/cmd/main
+```
+
+`air` コマンドが見つからない場合は、次を実行してください。
+
+```bash
+go install github.com/air-verse/air@latest
+export PATH=$PATH:$(go env GOPATH)/bin
+```
 
 ## Runbook
 

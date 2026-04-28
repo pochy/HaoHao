@@ -1,0 +1,52 @@
+root = "."
+tmp_dir = ".air/tmp"
+
+[build]
+cmd = "go build -o ./.air/tmp/haohao-backend ./backend/cmd/main"
+bin = ".air/tmp/haohao-backend"
+entrypoint = ["./.air/tmp/haohao-backend"]
+include_dir = ["backend"]
+include_ext = ["go", "mod", "sum", "tpl", "tmpl", "html"]
+exclude_dir = [
+  ".air",
+  ".data",
+  ".git",
+  ".local",
+  "backend/web/dist",
+  "bin",
+  "docs",
+  "frontend",
+  "openapi",
+  "playwright-report",
+  "test-results",
+]
+exclude_file = []
+exclude_regex = ["_test\\.go"]
+exclude_unchanged = true
+follow_symlink = false
+log = "build-errors.log"
+poll = false
+delay = 1000
+stop_on_error = true
+send_interrupt = true
+kill_delay = 1000
+rerun = false
+rerun_delay = 500
+
+[log]
+time = false
+main_only = false
+silent = false
+
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[misc]
+clean_on_exit = true
+
+[screen]
+clear_on_rebuild = true
+keep_scroll = true

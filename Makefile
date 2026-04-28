@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 
 export-env = set -a && source .env && set +a
+AIR_BIN ?= air
 DOCKER_COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; else echo "docker compose"; fi)
 ZITADEL_ENV_FILE := dev/zitadel/.env
 ZITADEL_ENV_EXAMPLE := dev/zitadel/.env.example
@@ -53,7 +54,7 @@ db-down:
 # Prefer Homebrew postgresql@18's psql-18 when on PATH; override with make psql PSQL=psql
 PSQL ?= $(shell command -v psql-18 2>/dev/null || command -v psql 2>/dev/null || echo psql)
 
-.PHONY: psql sql
+.PHONY: psql sql air-check backend-dev backend-run
 psql:
 	$(export-env) && $(PSQL) "$$DATABASE_URL" $(ARGS)
 
@@ -77,7 +78,20 @@ openapi:
 gen:
 	./scripts/gen.sh
 
-backend-dev:
+air-check:
+	@command -v $(AIR_BIN) >/dev/null 2>&1 || { \
+		echo "air is not installed. Install it with:"; \
+		echo "  go install github.com/air-verse/air@latest"; \
+		echo ""; \
+		echo "If air is still not found, add Go's bin directory to PATH:"; \
+		echo '  export PATH=$$PATH:$$(go env GOPATH)/bin'; \
+		exit 1; \
+	}
+
+backend-dev: air-check
+	$(export-env) && $(AIR_BIN) -c .air.toml
+
+backend-run:
 	$(export-env) && go run ./backend/cmd/main
 
 frontend-dev:
