@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	localCommandProductExtractionTextLimit = 3000
+	localCommandProductExtractionTextLimit = 10000
 	localCommandProductExtractionItemLimit = 8
 	localCommandOutputLimit                = 1 << 20
 	localCommandErrorOutputLimit           = 16 << 10
