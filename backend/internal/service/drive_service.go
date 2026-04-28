@@ -28,6 +28,7 @@ type DriveService struct {
 	storage        FileStorage
 	authz          *DriveAuthorizationService
 	tenantSettings *TenantSettingsService
+	outbox         *OutboxService
 	audit          AuditRecorder
 	now            func() time.Time
 }
@@ -46,6 +47,12 @@ func NewDriveService(pool *pgxpool.Pool, queries *db.Queries, files *FileService
 		tenantSettings: tenantSettings,
 		audit:          audit,
 		now:            now,
+	}
+}
+
+func (s *DriveService) SetOutboxService(outbox *OutboxService) {
+	if s != nil {
+		s.outbox = outbox
 	}
 }
 
@@ -144,10 +151,10 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 	}
 	filename := normalizeDriveName(filepath.Base(strings.TrimSpace(input.Filename)))
 	if filename == "" || filename == "." {
-		return DriveFile{}, fmt.Errorf("%w: filename is required", ErrDriveInvalidInput)
+		return DriveFile{}, NewDriveCodedError(ErrDriveInvalidInput, DriveErrorFilenameRequired, "Filename is required.")
 	}
 	if input.Body == nil {
-		return DriveFile{}, fmt.Errorf("%w: file body is required", ErrDriveInvalidInput)
+		return DriveFile{}, NewDriveCodedError(ErrDriveInvalidInput, DriveErrorFileRequired, "File body is required.")
 	}
 
 	var parentRef *DriveResourceRef
@@ -163,6 +170,9 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 			parent, err = s.getDriveFolder(ctx, input.TenantID, DriveResourceRef{Type: DriveResourceTypeFolder, PublicID: parentPublicIDInput})
 		}
 		if err != nil {
+			if errors.Is(err, ErrDriveNotFound) {
+				return DriveFile{}, NewDriveCodedError(err, DriveErrorParentFolderNotFound, "Parent folder was not found.")
+			}
 			return DriveFile{}, err
 		}
 		if err := s.authz.CanEditFolder(ctx, actor, parent); err != nil {
@@ -176,6 +186,9 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 	}
 	workspace, err := s.resolveWorkspaceForCreate(ctx, input.TenantID, actor, input.WorkspacePublicID, parentFolderForWorkspace)
 	if err != nil {
+		if errors.Is(err, ErrDriveNotFound) && strings.TrimSpace(input.WorkspacePublicID) != "" {
+			return DriveFile{}, NewDriveCodedError(err, DriveErrorWorkspaceNotFound, "Workspace was not found.")
+		}
 		return DriveFile{}, err
 	}
 
@@ -197,7 +210,7 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 	})
 	if err != nil {
 		if errors.Is(err, ErrFileTooLarge) {
-			return DriveFile{}, ErrInvalidFileInput
+			return DriveFile{}, NewDriveCodedError(ErrInvalidFileInput, DriveErrorFileTooLarge, fmt.Sprintf("File exceeds the Drive upload limit of %s.", formatDriveByteLimit(maxBytes)))
 		}
 		return DriveFile{}, err
 	}
@@ -212,7 +225,7 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 			if s.files != nil && s.files.metrics != nil {
 				s.files.metrics.IncFileQuotaExceeded("drive")
 			}
-			return DriveFile{}, ErrFileQuotaExceeded
+			return DriveFile{}, NewDriveCodedError(ErrFileQuotaExceeded, DriveErrorQuotaExceeded, "Tenant file quota is exceeded.")
 		}
 	}
 
@@ -270,6 +283,7 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 	s.recordDriveActivityBestEffort(ctx, actor, file.ResourceRef(), "uploaded", map[string]any{"filename": file.OriginalFilename, "byteSize": file.ByteSize})
 	s.recordDriveFilePreviewStateBestEffort(ctx, file)
 	s.indexDriveFileBestEffort(ctx, file, "file_created")
+	s.enqueueDriveOCRBestEffort(ctx, actor, file, "upload")
 	s.recordDriveSyncEventBestEffort(ctx, file.ResourceRef(), "file.created", file.SHA256Hex, map[string]any{"filename": file.OriginalFilename})
 	return file, nil
 }
@@ -921,6 +935,30 @@ func (s *DriveService) drivePolicy(ctx context.Context, tenantID int64) (DrivePo
 	return s.tenantSettings.GetDrivePolicy(ctx, tenantID)
 }
 
+func (s *DriveService) enqueueDriveOCRBestEffort(ctx context.Context, actor DriveActor, file DriveFile, reason string) {
+	if s == nil || s.outbox == nil || file.ID <= 0 || file.TenantID <= 0 {
+		return
+	}
+	policy, err := s.drivePolicy(ctx, file.TenantID)
+	if err != nil || !policy.OCR.Enabled {
+		return
+	}
+	tenantID := file.TenantID
+	_, _ = s.outbox.Enqueue(ctx, OutboxEventInput{
+		TenantID:      &tenantID,
+		AggregateType: "drive_file",
+		AggregateID:   file.PublicID,
+		EventType:     "drive.ocr.requested",
+		Payload: map[string]any{
+			"tenantId":     file.TenantID,
+			"fileObjectId": file.ID,
+			"filePublicId": file.PublicID,
+			"actorUserId":  actor.UserID,
+			"reason":       reason,
+		},
+	})
+}
+
 func (s *DriveService) recordAuditWithQueries(ctx context.Context, queries *db.Queries, auditCtx AuditContext, action, targetType, targetID string, metadata map[string]any) error {
 	if s.audit == nil {
 		return nil
@@ -1007,6 +1045,24 @@ func normalizeContentType(value string) string {
 		return "application/octet-stream"
 	}
 	return contentType
+}
+
+func formatDriveByteLimit(bytes int64) string {
+	if bytes <= 0 {
+		return "the configured limit"
+	}
+	const mb = 1024 * 1024
+	if bytes%mb == 0 {
+		return fmt.Sprintf("%d MB", bytes/mb)
+	}
+	if bytes >= mb {
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(mb))
+	}
+	const kb = 1024
+	if bytes%kb == 0 {
+		return fmt.Sprintf("%d KB", bytes/kb)
+	}
+	return fmt.Sprintf("%d bytes", bytes)
 }
 
 func newDriveStorageKey(tenantID int64, workspacePublicID string, revision int) string {

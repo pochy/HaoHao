@@ -41,6 +41,15 @@ const {
   driveMobileOfflineEnabled,
   driveOfficeCoauthoringEnabled,
   driveOfflineCacheAllowed,
+  driveOcrEnabled,
+  driveOcrEngine,
+  driveOcrLanguages,
+  driveOcrMaxPages,
+  driveOcrTimeoutSecondsPerPage,
+  driveLMStudioBaseURL,
+  driveLMStudioModel,
+  driveOllamaBaseURL,
+  driveOllamaModel,
   driveOnPremGatewayEnabled,
   drivePasswordLinksEnabled,
   drivePlanCode,
@@ -50,9 +59,12 @@ const {
   driveRequireApproval,
   driveRequireLinkPassword,
   driveSearchEnabled,
+  driveStructuredExtractionEnabled,
+  driveStructuredExtractor,
   driveSyncEnabled,
   driveViewerDownloadEnabled,
   saveCommonSettings,
+  store,
 } = useTenantAdminDetailContext()
 </script>
 
@@ -213,6 +225,62 @@ const {
         <input v-model="driveMarketplaceEnabled" type="checkbox">
         <span>{{ t('tenantAdmin.fields.driveMarketplaceEnabled') }}</span>
       </label>
+      <label class="checkbox-field">
+        <input v-model="driveOcrEnabled" type="checkbox">
+        <span>{{ t('tenantAdmin.fields.ocrEnabled') }}</span>
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.ocrEngine') }}</span>
+        <select v-model="driveOcrEngine" class="field-input">
+          <option value="tesseract">Tesseract</option>
+          <option value="docling">Docling</option>
+          <option value="paddleocr">PaddleOCR</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.ocrLanguages') }}</span>
+        <input v-model="driveOcrLanguages" class="field-input" autocomplete="off" placeholder="jpn, eng">
+      </label>
+      <label class="checkbox-field">
+        <input v-model="driveStructuredExtractionEnabled" type="checkbox">
+        <span>{{ t('tenantAdmin.fields.structuredExtractionEnabled') }}</span>
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.structuredExtractor') }}</span>
+        <select v-model="driveStructuredExtractor" class="field-input">
+          <option value="rules">Rules</option>
+          <option value="ollama">Ollama</option>
+          <option value="lmstudio">LM Studio</option>
+          <option value="gemini">Gemini CLI</option>
+          <option value="codex">Codex CLI</option>
+          <option value="claude">Claude CLI</option>
+          <option value="docling">Docling</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.ocrMaxPages') }}</span>
+        <input v-model.number="driveOcrMaxPages" class="field-input" min="1" max="200" type="number">
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.ocrTimeoutSecondsPerPage') }}</span>
+        <input v-model.number="driveOcrTimeoutSecondsPerPage" class="field-input" min="1" max="300" type="number">
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.ollamaBaseUrl') }}</span>
+        <input v-model="driveOllamaBaseURL" class="field-input" autocomplete="off" placeholder="http://127.0.0.1:11434">
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.ollamaModel') }}</span>
+        <input v-model="driveOllamaModel" class="field-input" autocomplete="off" placeholder="llama3.1">
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.lmStudioBaseUrl') }}</span>
+        <input v-model="driveLMStudioBaseURL" class="field-input" autocomplete="off" placeholder="http://127.0.0.1:1234">
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.lmStudioModel') }}</span>
+        <input v-model="driveLMStudioModel" class="field-input" autocomplete="off" placeholder="local-model">
+      </label>
       <label class="field">
         <span class="field-label">{{ t('tenantAdmin.fields.encryptionMode') }}</span>
         <select v-model="driveEncryptionMode" class="field-input">
@@ -291,8 +359,77 @@ const {
 
     <p class="cell-subtle">
       {{ t('tenantAdmin.policy.auditNotePrefix') }}
-      <code>drive.file.*</code>, <code>drive.folder.*</code>, <code>drive.share.*</code>, <code>drive.share_link.*</code>, <code>drive.authz.denied</code>
+      <code>drive.file.*</code>, <code>drive.folder.*</code>, <code>drive.share.*</code>, <code>drive.share_link.*</code>, <code>drive.ocr.*</code>, <code>drive.authz.denied</code>
       {{ t('tenantAdmin.policy.auditNoteSuffix') }}
     </p>
+  </section>
+
+  <section class="panel stack">
+    <div class="section-header">
+      <div>
+        <span class="status-pill">{{ t('tenantAdmin.sections.drivePolicy') }}</span>
+        <h2>{{ t('tenantAdmin.headings.ocrRuntime') }}</h2>
+      </div>
+    </div>
+
+    <div class="admin-table">
+      <table>
+        <tbody>
+          <tr>
+            <td>{{ t('tenantAdmin.fields.ocrEnabled') }}</td>
+            <td>{{ store.driveOCRStatus?.enabled ? t('common.enabled') : t('common.disabled') }}</td>
+          </tr>
+          <tr>
+            <td>{{ t('tenantAdmin.fields.ocrEngine') }}</td>
+            <td>{{ store.driveOCRStatus?.ocrEngine ?? '-' }}</td>
+          </tr>
+          <tr>
+            <td>{{ t('tenantAdmin.fields.structuredExtractor') }}</td>
+            <td>{{ store.driveOCRStatus?.structuredExtractor ?? '-' }}</td>
+          </tr>
+          <tr>
+            <td>{{ t('tenantAdmin.fields.ollamaModel') }}</td>
+            <td>
+              {{ store.driveOCRStatus?.ollama.configured ? t('common.enabled') : t('common.disabled') }}
+              / {{ store.driveOCRStatus?.ollama.reachable ? t('tenantAdmin.status.available') : t('tenantAdmin.status.unavailable') }}
+            </td>
+          </tr>
+          <tr>
+            <td>{{ t('tenantAdmin.fields.lmStudioModel') }}</td>
+            <td>
+              {{ store.driveOCRStatus?.lmStudio?.configured ? t('common.enabled') : t('common.disabled') }}
+              / {{ store.driveOCRStatus?.lmStudio?.reachable ? t('tenantAdmin.status.available') : t('tenantAdmin.status.unavailable') }}
+            </td>
+          </tr>
+          <tr v-for="command in store.driveOCRStatus?.localCommands ?? []" :key="command.name">
+            <td>{{ t('tenantAdmin.fields.localCommand') }}: {{ command.name }}</td>
+            <td>
+              {{ command.configured ? t('common.enabled') : t('common.disabled') }}
+              / {{ command.available ? t('tenantAdmin.status.available') : t('tenantAdmin.status.unavailable') }}
+              <span v-if="command.version">/ {{ command.version }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="admin-table">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{{ t('tenantAdmin.fields.dependency') }}</th>
+            <th scope="col">{{ t('tenantAdmin.fields.state') }}</th>
+            <th scope="col">{{ t('tenantAdmin.fields.version') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="dependency in store.driveOCRStatus?.dependencies ?? []" :key="dependency.name">
+            <td>{{ dependency.name }}</td>
+            <td>{{ dependency.available ? t('tenantAdmin.status.available') : t('tenantAdmin.status.unavailable') }}</td>
+            <td>{{ dependency.version ?? '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 </template>

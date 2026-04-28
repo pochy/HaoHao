@@ -4,6 +4,7 @@ import {
   createTenantAdminTenant,
   deactivateTenantAdminTenant,
   getTenantAdminDriveOpenFgaDrift,
+  getTenantAdminDriveOcrStatus,
   getTenantAdminDriveOperationsHealth,
   getTenantAdminTenant,
   grantTenantAdminRole,
@@ -24,6 +25,7 @@ import type {
   TenantAdminDriveShareLinkStateBody,
   TenantAdminDriveShareStateBody,
   TenantAdminDriveSyncOutputBody,
+  TenantAdminDriveOcrStatusBody,
   TenantAdminDriveOperationsHealthBody,
   TenantAdminMembershipRequestBody,
   TenantAdminTenantBody,
@@ -114,6 +116,14 @@ export async function fetchTenantAdminDriveOperationsHealth(tenantSlug: string):
     responseStyle: 'data',
     throwOnError: true,
   }) as unknown as Promise<TenantAdminDriveOperationsHealthBody>
+}
+
+export async function fetchTenantAdminDriveOCRStatus(tenantSlug: string): Promise<TenantAdminDriveOcrStatusBody> {
+  return getTenantAdminDriveOcrStatus({
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<TenantAdminDriveOcrStatusBody>
 }
 
 export async function repairTenantAdminDriveSync(tenantSlug: string): Promise<TenantAdminDriveSyncOutputBody> {

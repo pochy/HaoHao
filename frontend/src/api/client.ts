@@ -1,9 +1,38 @@
 import type { ErrorModel } from './generated/types.gen'
 import { client } from './generated/client.gen'
 
-type ProblemLike = Partial<Pick<ErrorModel, 'detail' | 'title'>> & {
+type ProblemLike = Partial<Pick<ErrorModel, 'detail' | 'instance' | 'status' | 'title' | 'type'>> & {
   message?: string
+}
+
+type ApiErrorInit = {
+  title?: string
+  detail?: string
+  type?: string
   status?: number
+  instance?: string
+  requestId?: string
+  fallbackMessage?: string
+}
+
+export class ApiError extends Error {
+  title?: string
+  detail?: string
+  type?: string
+  status?: number
+  instance?: string
+  requestId?: string
+
+  constructor(init: ApiErrorInit) {
+    super(init.detail || init.title || init.fallbackMessage || 'リクエストに失敗しました')
+    this.name = 'ApiError'
+    this.title = init.title
+    this.detail = init.detail
+    this.type = init.type
+    this.status = init.status
+    this.instance = init.instance
+    this.requestId = init.requestId
+  }
 }
 
 export function readCookie(name: string): string | undefined {
@@ -16,6 +45,10 @@ export function readCookie(name: string): string | undefined {
 }
 
 export function toApiErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.detail || error.title || error.message
+  }
+
   if (error instanceof Error && error.message) {
     return error.message
   }
@@ -33,7 +66,7 @@ export function toApiErrorMessage(error: unknown): string {
     }
   }
 
-  return '認証処理に失敗しました'
+  return 'リクエストに失敗しました'
 }
 
 export function toApiErrorStatus(error: unknown): number | undefined {
@@ -43,6 +76,63 @@ export function toApiErrorStatus(error: unknown): number | undefined {
   }
 
   return undefined
+}
+
+export function toApiErrorType(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.type ?? ''
+  }
+  if (error && typeof error === 'object' && 'type' in error) {
+    const value = (error as ProblemLike).type
+    return typeof value === 'string' ? value : ''
+  }
+  return ''
+}
+
+export function toApiErrorRequestId(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.requestId ?? requestIDFromInstance(error.instance)
+  }
+  if (error && typeof error === 'object' && 'instance' in error) {
+    return requestIDFromInstance((error as ProblemLike).instance)
+  }
+  return ''
+}
+
+export function isRetryableApiError(error: unknown): boolean {
+  const status = toApiErrorStatus(error)
+  return status === undefined || status === 0 || status === 408 || status >= 500
+}
+
+export async function apiErrorFromResponse(response: Response, fallbackMessage: string): Promise<ApiError> {
+  let problem: ProblemLike = {}
+  try {
+    const body = await response.json()
+    if (body && typeof body === 'object') {
+      problem = body as ProblemLike
+    }
+  } catch {
+    // Non-JSON responses keep the HTTP status text.
+  }
+  const requestId = response.headers.get('X-Request-ID') || requestIDFromInstance(problem.instance)
+  return apiErrorFromProblem(problem, response.status, requestId, fallbackMessage || response.statusText || `Request failed (${response.status})`)
+}
+
+function requestIDFromInstance(instance?: string): string {
+  const prefix = 'urn:haohao:request:'
+  return instance?.startsWith(prefix) ? instance.slice(prefix.length) : ''
+}
+
+function apiErrorFromProblem(problem: ProblemLike, status: number | undefined, requestId: string, fallbackMessage: string): ApiError {
+  return new ApiError({
+    title: problem.title,
+    detail: problem.detail,
+    type: problem.type,
+    status: typeof problem.status === 'number' ? problem.status : status,
+    instance: problem.instance,
+    requestId: requestId || requestIDFromInstance(problem.instance),
+    fallbackMessage,
+  })
 }
 
 export function isApiForbidden(error: unknown): boolean {
@@ -111,4 +201,19 @@ client.setConfig({
       headers,
     })
   },
+})
+
+client.interceptors.error.use((error, response) => {
+  if (error instanceof ApiError) {
+    return error
+  }
+  if (response instanceof Response) {
+    const problem = error && typeof error === 'object' ? error as ProblemLike : {}
+    const requestId = response.headers.get('X-Request-ID') || requestIDFromInstance(problem.instance)
+    return apiErrorFromProblem(problem, response.status, requestId, response.statusText || `Request failed (${response.status})`)
+  }
+  if (error instanceof Error) {
+    return new ApiError({ detail: error.message, status: 0, fallbackMessage: error.message })
+  }
+  return error
 })

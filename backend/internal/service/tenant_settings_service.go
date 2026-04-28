@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -93,12 +94,27 @@ type DrivePolicy struct {
 	OnPremGatewayEnabled                bool
 	E2EEEnabled                         bool
 	E2EEZeroKnowledgeRequired           bool
+	OCR                                 DriveOCRPolicy
 	AIEnabled                           bool
 	AITrainingOptOut                    bool
 	MarketplaceEnabled                  bool
 	EncryptionMode                      string
 	PrimaryRegion                       string
 	AllowedRegions                      []string
+}
+
+type DriveOCRPolicy struct {
+	Enabled                     bool
+	OCREngine                   string
+	OCRLanguages                []string
+	StructuredExtractionEnabled bool
+	StructuredExtractor         string
+	MaxPages                    int
+	TimeoutSecondsPerPage       int
+	OllamaBaseURL               string
+	OllamaModel                 string
+	LMStudioBaseURL             string
+	LMStudioModel               string
 }
 
 type TenantSettingsService struct {
@@ -351,6 +367,7 @@ func defaultDrivePolicy() DrivePolicy {
 		OnPremGatewayEnabled:                false,
 		E2EEEnabled:                         false,
 		E2EEZeroKnowledgeRequired:           true,
+		OCR:                                 defaultDriveOCRPolicy(),
 		AIEnabled:                           false,
 		AITrainingOptOut:                    true,
 		MarketplaceEnabled:                  false,
@@ -415,6 +432,9 @@ func drivePolicyFromFeatures(features map[string]any) DrivePolicy {
 	policy.OnPremGatewayEnabled = featureBool(raw, "onPremGatewayEnabled", policy.OnPremGatewayEnabled)
 	policy.E2EEEnabled = featureBool(raw, "e2eeEnabled", policy.E2EEEnabled)
 	policy.E2EEZeroKnowledgeRequired = featureBool(raw, "e2eeZeroKnowledgeRequired", policy.E2EEZeroKnowledgeRequired)
+	if ocrRaw, ok := raw["ocr"].(map[string]any); ok {
+		policy.OCR = driveOCRPolicyFromFeatureMap(ocrRaw, policy.OCR)
+	}
 	policy.AIEnabled = featureBool(raw, "aiEnabled", policy.AIEnabled)
 	policy.AITrainingOptOut = featureBool(raw, "aiTrainingOptOut", policy.AITrainingOptOut)
 	policy.MarketplaceEnabled = featureBool(raw, "marketplaceEnabled", policy.MarketplaceEnabled)
@@ -469,6 +489,7 @@ func normalizeDrivePolicy(policy DrivePolicy) DrivePolicy {
 	if len(policy.AllowedRegions) == 0 {
 		policy.AllowedRegions = defaults.AllowedRegions
 	}
+	policy.OCR = normalizeDriveOCRPolicy(policy.OCR)
 	policy = applyDrivePlanCaps(policy)
 	return policy
 }
@@ -508,6 +529,9 @@ func normalizeDrivePolicyForSave(policy DrivePolicy) (DrivePolicy, error) {
 	case "service_managed", "tenant_managed", "workspace_managed", "file_managed":
 	default:
 		return DrivePolicy{}, fmt.Errorf("%w: unsupported encryptionMode", ErrInvalidTenantSettings)
+	}
+	if err := validateDriveOCRPolicy(policy.OCR); err != nil {
+		return DrivePolicy{}, err
 	}
 	return policy, nil
 }
@@ -563,6 +587,7 @@ func drivePolicyToFeatureMap(policy DrivePolicy) map[string]any {
 		"onPremGatewayEnabled":                policy.OnPremGatewayEnabled,
 		"e2eeEnabled":                         policy.E2EEEnabled,
 		"e2eeZeroKnowledgeRequired":           policy.E2EEZeroKnowledgeRequired,
+		"ocr":                                 driveOCRPolicyToFeatureMap(policy.OCR),
 		"aiEnabled":                           policy.AIEnabled,
 		"aiTrainingOptOut":                    policy.AITrainingOptOut,
 		"marketplaceEnabled":                  policy.MarketplaceEnabled,
@@ -607,6 +632,163 @@ func applyDrivePlanCaps(policy DrivePolicy) DrivePolicy {
 		policy.DLPEnabled = false
 	}
 	return policy
+}
+
+func defaultDriveOCRPolicy() DriveOCRPolicy {
+	return DriveOCRPolicy{
+		Enabled:                     false,
+		OCREngine:                   "tesseract",
+		OCRLanguages:                []string{"jpn", "eng"},
+		StructuredExtractionEnabled: false,
+		StructuredExtractor:         "rules",
+		MaxPages:                    20,
+		TimeoutSecondsPerPage:       30,
+		OllamaBaseURL:               "http://127.0.0.1:11434",
+		OllamaModel:                 "",
+		LMStudioBaseURL:             "http://127.0.0.1:1234",
+		LMStudioModel:               "",
+	}
+}
+
+func driveOCRPolicyFromFeatureMap(raw map[string]any, fallback DriveOCRPolicy) DriveOCRPolicy {
+	policy := fallback
+	policy.Enabled = featureBool(raw, "enabled", policy.Enabled)
+	policy.OCREngine = featureString(raw, "ocrEngine", policy.OCREngine)
+	policy.OCRLanguages = featureStringSlice(raw, "ocrLanguages", policy.OCRLanguages)
+	policy.StructuredExtractionEnabled = featureBool(raw, "structuredExtractionEnabled", policy.StructuredExtractionEnabled)
+	policy.StructuredExtractor = featureString(raw, "structuredExtractor", policy.StructuredExtractor)
+	policy.MaxPages = featureInt(raw, "maxPages", policy.MaxPages)
+	policy.TimeoutSecondsPerPage = featureInt(raw, "timeoutSecondsPerPage", policy.TimeoutSecondsPerPage)
+	policy.OllamaBaseURL = featureString(raw, "ollamaBaseURL", policy.OllamaBaseURL)
+	policy.OllamaModel = featureString(raw, "ollamaModel", policy.OllamaModel)
+	policy.LMStudioBaseURL = featureString(raw, "lmStudioBaseURL", policy.LMStudioBaseURL)
+	policy.LMStudioModel = featureString(raw, "lmStudioModel", policy.LMStudioModel)
+	return normalizeDriveOCRPolicy(policy)
+}
+
+func normalizeDriveOCRPolicy(policy DriveOCRPolicy) DriveOCRPolicy {
+	defaults := defaultDriveOCRPolicy()
+	policy.OCREngine = strings.ToLower(strings.TrimSpace(policy.OCREngine))
+	if policy.OCREngine == "" {
+		policy.OCREngine = defaults.OCREngine
+	}
+	policy.OCRLanguages = normalizeDriveOCRLanguages(policy.OCRLanguages)
+	if len(policy.OCRLanguages) == 0 {
+		policy.OCRLanguages = defaults.OCRLanguages
+	}
+	policy.StructuredExtractor = strings.ToLower(strings.TrimSpace(policy.StructuredExtractor))
+	if policy.StructuredExtractor == "" {
+		policy.StructuredExtractor = defaults.StructuredExtractor
+	}
+	if policy.MaxPages <= 0 {
+		policy.MaxPages = defaults.MaxPages
+	}
+	if policy.TimeoutSecondsPerPage <= 0 {
+		policy.TimeoutSecondsPerPage = defaults.TimeoutSecondsPerPage
+	}
+	policy.OllamaBaseURL = strings.TrimSpace(policy.OllamaBaseURL)
+	if policy.OllamaBaseURL == "" {
+		policy.OllamaBaseURL = defaults.OllamaBaseURL
+	}
+	policy.OllamaModel = strings.TrimSpace(policy.OllamaModel)
+	policy.LMStudioBaseURL = strings.TrimSpace(policy.LMStudioBaseURL)
+	if policy.LMStudioBaseURL == "" {
+		policy.LMStudioBaseURL = defaults.LMStudioBaseURL
+	}
+	policy.LMStudioModel = strings.TrimSpace(policy.LMStudioModel)
+	return policy
+}
+
+func validateDriveOCRPolicy(policy DriveOCRPolicy) error {
+	switch policy.OCREngine {
+	case "tesseract", "docling", "paddleocr":
+	default:
+		return fmt.Errorf("%w: unsupported drive ocr engine", ErrInvalidTenantSettings)
+	}
+	switch policy.StructuredExtractor {
+	case "rules", "ollama", "lmstudio", "gemini", "codex", "claude", "docling":
+	default:
+		return fmt.Errorf("%w: unsupported drive structured extractor", ErrInvalidTenantSettings)
+	}
+	if len(policy.OCRLanguages) == 0 {
+		return fmt.Errorf("%w: drive ocr languages are required", ErrInvalidTenantSettings)
+	}
+	if policy.MaxPages < 1 || policy.MaxPages > 200 {
+		return fmt.Errorf("%w: drive ocr maxPages must be between 1 and 200", ErrInvalidTenantSettings)
+	}
+	if policy.TimeoutSecondsPerPage < 1 || policy.TimeoutSecondsPerPage > 300 {
+		return fmt.Errorf("%w: drive ocr timeoutSecondsPerPage must be between 1 and 300", ErrInvalidTenantSettings)
+	}
+	if !isAllowedLocalHTTPURL(policy.OllamaBaseURL) {
+		return fmt.Errorf("%w: drive ocr ollamaBaseURL must be localhost or 127.0.0.1", ErrInvalidTenantSettings)
+	}
+	if !isAllowedLocalHTTPURL(policy.LMStudioBaseURL) {
+		return fmt.Errorf("%w: drive ocr lmStudioBaseURL must be localhost or 127.0.0.1", ErrInvalidTenantSettings)
+	}
+	if policy.StructuredExtractionEnabled && policy.StructuredExtractor == "ollama" && strings.TrimSpace(policy.OllamaModel) == "" {
+		return fmt.Errorf("%w: drive ocr ollamaModel is required for ollama extraction", ErrInvalidTenantSettings)
+	}
+	if policy.StructuredExtractionEnabled && policy.StructuredExtractor == "lmstudio" && strings.TrimSpace(policy.LMStudioModel) == "" {
+		return fmt.Errorf("%w: drive ocr lmStudioModel is required for LM Studio extraction", ErrInvalidTenantSettings)
+	}
+	return nil
+}
+
+func driveOCRPolicyToFeatureMap(policy DriveOCRPolicy) map[string]any {
+	policy = normalizeDriveOCRPolicy(policy)
+	return map[string]any{
+		"enabled":                     policy.Enabled,
+		"ocrEngine":                   policy.OCREngine,
+		"ocrLanguages":                policy.OCRLanguages,
+		"structuredExtractionEnabled": policy.StructuredExtractionEnabled,
+		"structuredExtractor":         policy.StructuredExtractor,
+		"maxPages":                    policy.MaxPages,
+		"timeoutSecondsPerPage":       policy.TimeoutSecondsPerPage,
+		"ollamaBaseURL":               policy.OllamaBaseURL,
+		"ollamaModel":                 policy.OllamaModel,
+		"lmStudioBaseURL":             policy.LMStudioBaseURL,
+		"lmStudioModel":               policy.LMStudioModel,
+	}
+}
+
+func normalizeDriveOCRLanguages(values []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		lang := normalizeDriveOCRLanguage(value)
+		if lang == "" {
+			continue
+		}
+		if _, ok := seen[lang]; ok {
+			continue
+		}
+		seen[lang] = struct{}{}
+		out = append(out, lang)
+	}
+	return out
+}
+
+func normalizeDriveOCRLanguage(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return ""
+	}
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			continue
+		}
+		return ""
+	}
+	return value
+}
+
+func isAllowedLocalHTTPURL(value string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil || parsed.Scheme != "http" {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	return host == "127.0.0.1" || host == "localhost"
 }
 
 func cloneFeatureMap(features map[string]any) map[string]any {

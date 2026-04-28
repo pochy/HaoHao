@@ -158,7 +158,7 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	outboxWorkerTimeout, err := getEnvPositiveDuration("OUTBOX_WORKER_TIMEOUT", "10s")
+	outboxWorkerTimeout, err := getEnvPositiveDuration("OUTBOX_WORKER_TIMEOUT", "10m")
 	if err != nil {
 		return Config{}, err
 	}

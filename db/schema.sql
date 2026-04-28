@@ -946,6 +946,41 @@ ALTER TABLE public.drive_encryption_policies ALTER COLUMN id ADD GENERATED ALWAY
 
 
 --
+-- Name: drive_file_previews; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_file_previews (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    thumbnail_storage_key text,
+    preview_storage_key text,
+    content_type text DEFAULT ''::text NOT NULL,
+    error_code text,
+    generated_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_file_previews_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'ready'::text, 'failed'::text, 'skipped'::text])))
+);
+
+
+--
+-- Name: drive_file_previews_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_file_previews ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_file_previews_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: drive_file_revisions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -992,7 +1027,6 @@ CREATE TABLE public.drive_folders (
     tenant_id bigint NOT NULL,
     parent_folder_id bigint,
     name text NOT NULL,
-    description text DEFAULT ''::text NOT NULL,
     created_by_user_id bigint NOT NULL,
     inheritance_enabled boolean DEFAULT true NOT NULL,
     deleted_at timestamp with time zone,
@@ -1006,6 +1040,7 @@ CREATE TABLE public.drive_folders (
     legal_hold_reason text,
     purge_block_reason text,
     workspace_id bigint,
+    description text DEFAULT ''::text NOT NULL,
     CONSTRAINT drive_folders_name_check CHECK ((btrim(name) <> ''::text))
 );
 
@@ -1336,6 +1371,72 @@ CREATE TABLE public.drive_index_jobs (
 
 ALTER TABLE public.drive_index_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.drive_index_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_item_activities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_item_activities (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    actor_user_id bigint,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    action text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_item_activities_action_check CHECK ((action = ANY (ARRAY['viewed'::text, 'downloaded'::text, 'uploaded'::text, 'updated'::text, 'renamed'::text, 'moved'::text, 'shared'::text, 'unshared'::text, 'deleted'::text, 'restored'::text, 'previewed'::text]))),
+    CONSTRAINT drive_item_activities_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text])))
+);
+
+
+--
+-- Name: drive_item_activities_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_item_activities ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_item_activities_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_item_tags; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_item_tags (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    tag text NOT NULL,
+    normalized_tag text NOT NULL,
+    created_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_item_tags_normalized_tag_check CHECK ((btrim(normalized_tag) <> ''::text)),
+    CONSTRAINT drive_item_tags_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text]))),
+    CONSTRAINT drive_item_tags_tag_check CHECK ((btrim(tag) <> ''::text))
+);
+
+
+--
+-- Name: drive_item_tags_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_item_tags ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_item_tags_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -1787,6 +1888,99 @@ ALTER TABLE public.drive_object_key_versions ALTER COLUMN id ADD GENERATED ALWAY
 
 
 --
+-- Name: drive_ocr_pages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_ocr_pages (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    ocr_run_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    page_number integer NOT NULL,
+    raw_text text DEFAULT ''::text NOT NULL,
+    average_confidence numeric(5,4),
+    layout_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    boxes_json jsonb DEFAULT '[]'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_ocr_pages_page_number_check CHECK ((page_number > 0))
+);
+
+
+--
+-- Name: drive_ocr_pages_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_ocr_pages_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_ocr_pages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_ocr_pages_id_seq OWNED BY public.drive_ocr_pages.id;
+
+
+--
+-- Name: drive_ocr_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_ocr_runs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    file_revision text DEFAULT '1'::text NOT NULL,
+    content_sha256 text DEFAULT ''::text NOT NULL,
+    engine text NOT NULL,
+    languages text[] DEFAULT ARRAY['jpn'::text, 'eng'::text] NOT NULL,
+    structured_extractor text DEFAULT 'rules'::text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    reason text DEFAULT 'upload'::text NOT NULL,
+    page_count integer DEFAULT 0 NOT NULL,
+    processed_page_count integer DEFAULT 0 NOT NULL,
+    average_confidence numeric(5,4),
+    extracted_text text DEFAULT ''::text NOT NULL,
+    error_code text,
+    error_message text,
+    requested_by_user_id bigint,
+    outbox_event_id bigint,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_ocr_runs_engine_check CHECK ((engine = ANY (ARRAY['tesseract'::text, 'docling'::text, 'paddleocr'::text]))),
+    CONSTRAINT drive_ocr_runs_page_count_check CHECK ((page_count >= 0)),
+    CONSTRAINT drive_ocr_runs_processed_page_count_check CHECK ((processed_page_count >= 0)),
+    CONSTRAINT drive_ocr_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'completed'::text, 'failed'::text, 'skipped'::text]))),
+    CONSTRAINT drive_ocr_runs_structured_extractor_check CHECK ((structured_extractor = ANY (ARRAY['rules'::text, 'ollama'::text, 'lmstudio'::text, 'gemini'::text, 'codex'::text, 'claude'::text, 'docling'::text])))
+);
+
+
+--
+-- Name: drive_ocr_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_ocr_runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_ocr_runs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_ocr_runs_id_seq OWNED BY public.drive_ocr_runs.id;
+
+
+--
 -- Name: drive_office_edit_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1935,6 +2129,56 @@ ALTER TABLE public.drive_presence_sessions ALTER COLUMN id ADD GENERATED ALWAYS 
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: drive_product_extraction_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_product_extraction_items (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    ocr_run_id bigint NOT NULL,
+    file_object_id bigint NOT NULL,
+    item_type text NOT NULL,
+    name text NOT NULL,
+    brand text,
+    manufacturer text,
+    model text,
+    sku text,
+    jan_code text,
+    category text,
+    description text,
+    price jsonb DEFAULT '{}'::jsonb NOT NULL,
+    promotion jsonb DEFAULT '{}'::jsonb NOT NULL,
+    availability jsonb DEFAULT '{}'::jsonb NOT NULL,
+    source_text text DEFAULT ''::text NOT NULL,
+    evidence jsonb DEFAULT '[]'::jsonb NOT NULL,
+    attributes jsonb DEFAULT '{}'::jsonb NOT NULL,
+    confidence numeric(5,4),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_product_extraction_items_item_type_check CHECK ((item_type = ANY (ARRAY['product'::text, 'promotion'::text, 'bundle'::text, 'unknown'::text])))
+);
+
+
+--
+-- Name: drive_product_extraction_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drive_product_extraction_items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drive_product_extraction_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drive_product_extraction_items_id_seq OWNED BY public.drive_product_extraction_items.id;
 
 
 --
@@ -2095,83 +2339,6 @@ CREATE TABLE public.drive_resource_shares (
     CONSTRAINT drive_resource_shares_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'editor'::text, 'viewer'::text]))),
     CONSTRAINT drive_resource_shares_status_check CHECK ((status = ANY (ARRAY['active'::text, 'revoked'::text, 'pending_sync'::text]))),
     CONSTRAINT drive_resource_shares_subject_type_check CHECK ((subject_type = ANY (ARRAY['user'::text, 'group'::text])))
-);
-
-
---
--- Name: drive_starred_items; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drive_starred_items (
-    id bigint NOT NULL,
-    public_id uuid DEFAULT uuidv7() NOT NULL,
-    tenant_id bigint NOT NULL,
-    user_id bigint NOT NULL,
-    resource_type text NOT NULL,
-    resource_id bigint NOT NULL,
-    deleted_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT drive_starred_items_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text])))
-);
-
-
---
--- Name: drive_item_activities; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drive_item_activities (
-    id bigint NOT NULL,
-    public_id uuid DEFAULT uuidv7() NOT NULL,
-    tenant_id bigint NOT NULL,
-    actor_user_id bigint,
-    resource_type text NOT NULL,
-    resource_id bigint NOT NULL,
-    action text NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT drive_item_activities_action_check CHECK ((action = ANY (ARRAY['viewed'::text, 'downloaded'::text, 'uploaded'::text, 'updated'::text, 'renamed'::text, 'moved'::text, 'shared'::text, 'unshared'::text, 'deleted'::text, 'restored'::text, 'previewed'::text]))),
-    CONSTRAINT drive_item_activities_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text])))
-);
-
-
---
--- Name: drive_file_previews; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drive_file_previews (
-    id bigint NOT NULL,
-    public_id uuid DEFAULT uuidv7() NOT NULL,
-    tenant_id bigint NOT NULL,
-    file_object_id bigint NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    thumbnail_storage_key text,
-    preview_storage_key text,
-    content_type text DEFAULT ''::text NOT NULL,
-    error_code text,
-    generated_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT drive_file_previews_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'ready'::text, 'failed'::text, 'skipped'::text])))
-);
-
-
---
--- Name: drive_item_tags; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drive_item_tags (
-    id bigint NOT NULL,
-    tenant_id bigint NOT NULL,
-    resource_type text NOT NULL,
-    resource_id bigint NOT NULL,
-    tag text NOT NULL,
-    normalized_tag text NOT NULL,
-    created_by_user_id bigint,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT drive_item_tags_normalized_tag_check CHECK ((btrim(normalized_tag) <> ''::text)),
-    CONSTRAINT drive_item_tags_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text]))),
-    CONSTRAINT drive_item_tags_tag_check CHECK ((btrim(tag) <> ''::text))
 );
 
 
@@ -2342,6 +2509,38 @@ CREATE TABLE public.drive_share_links (
 
 ALTER TABLE public.drive_share_links ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.drive_share_links_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: drive_starred_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drive_starred_items (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    resource_type text NOT NULL,
+    resource_id bigint NOT NULL,
+    deleted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_starred_items_resource_type_check CHECK ((resource_type = ANY (ARRAY['file'::text, 'folder'::text])))
+);
+
+
+--
+-- Name: drive_starred_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.drive_starred_items ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.drive_starred_items_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -3465,6 +3664,20 @@ ALTER TABLE ONLY public.drive_marketplace_installations ALTER COLUMN id SET DEFA
 
 
 --
+-- Name: drive_ocr_pages id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_pages ALTER COLUMN id SET DEFAULT nextval('public.drive_ocr_pages_id_seq'::regclass);
+
+
+--
+-- Name: drive_ocr_runs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_runs ALTER COLUMN id SET DEFAULT nextval('public.drive_ocr_runs_id_seq'::regclass);
+
+
+--
 -- Name: drive_office_edit_sessions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3483,6 +3696,13 @@ ALTER TABLE ONLY public.drive_office_provider_files ALTER COLUMN id SET DEFAULT 
 --
 
 ALTER TABLE ONLY public.drive_office_webhook_events ALTER COLUMN id SET DEFAULT nextval('public.drive_office_webhook_events_id_seq'::regclass);
+
+
+--
+-- Name: drive_product_extraction_items id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_product_extraction_items ALTER COLUMN id SET DEFAULT nextval('public.drive_product_extraction_items_id_seq'::regclass);
 
 
 --
@@ -3717,6 +3937,14 @@ ALTER TABLE ONLY public.drive_encryption_policies
 
 
 --
+-- Name: drive_file_previews drive_file_previews_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_file_previews
+    ADD CONSTRAINT drive_file_previews_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: drive_file_revisions drive_file_revisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3818,6 +4046,22 @@ ALTER TABLE ONLY public.drive_hsm_keys
 
 ALTER TABLE ONLY public.drive_index_jobs
     ADD CONSTRAINT drive_index_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_item_activities drive_item_activities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_item_activities
+    ADD CONSTRAINT drive_item_activities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_item_tags drive_item_tags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_item_tags
+    ADD CONSTRAINT drive_item_tags_pkey PRIMARY KEY (id);
 
 
 --
@@ -3949,6 +4193,22 @@ ALTER TABLE ONLY public.drive_object_key_versions
 
 
 --
+-- Name: drive_ocr_pages drive_ocr_pages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_pages
+    ADD CONSTRAINT drive_ocr_pages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_ocr_runs drive_ocr_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_runs
+    ADD CONSTRAINT drive_ocr_runs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: drive_office_edit_sessions drive_office_edit_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3978,6 +4238,14 @@ ALTER TABLE ONLY public.drive_office_webhook_events
 
 ALTER TABLE ONLY public.drive_presence_sessions
     ADD CONSTRAINT drive_presence_sessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_product_extraction_items drive_product_extraction_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_product_extraction_items
+    ADD CONSTRAINT drive_product_extraction_items_pkey PRIMARY KEY (id);
 
 
 --
@@ -4066,6 +4334,14 @@ ALTER TABLE ONLY public.drive_share_link_password_attempts
 
 ALTER TABLE ONLY public.drive_share_links
     ADD CONSTRAINT drive_share_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drive_starred_items drive_starred_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_starred_items
+    ADD CONSTRAINT drive_starred_items_pkey PRIMARY KEY (id);
 
 
 --
@@ -4689,6 +4965,27 @@ CREATE UNIQUE INDEX drive_edit_sessions_public_id_key ON public.drive_edit_sessi
 
 
 --
+-- Name: drive_file_previews_file_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_file_previews_file_key ON public.drive_file_previews USING btree (tenant_id, file_object_id);
+
+
+--
+-- Name: drive_file_previews_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_file_previews_public_id_key ON public.drive_file_previews USING btree (public_id);
+
+
+--
+-- Name: drive_file_previews_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_file_previews_status_idx ON public.drive_file_previews USING btree (tenant_id, status, updated_at);
+
+
+--
 -- Name: drive_file_revisions_file_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4864,6 +5161,41 @@ CREATE INDEX drive_index_jobs_tenant_status_idx ON public.drive_index_jobs USING
 
 
 --
+-- Name: drive_item_activities_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_item_activities_public_id_key ON public.drive_item_activities USING btree (public_id);
+
+
+--
+-- Name: drive_item_activities_recent_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_item_activities_recent_idx ON public.drive_item_activities USING btree (tenant_id, actor_user_id, created_at DESC, id DESC);
+
+
+--
+-- Name: drive_item_activities_resource_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_item_activities_resource_idx ON public.drive_item_activities USING btree (tenant_id, resource_type, resource_id, created_at DESC, id DESC);
+
+
+--
+-- Name: drive_item_tags_active_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_item_tags_active_key ON public.drive_item_tags USING btree (tenant_id, resource_type, resource_id, normalized_tag);
+
+
+--
+-- Name: drive_item_tags_resource_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_item_tags_resource_idx ON public.drive_item_tags USING btree (tenant_id, resource_type, resource_id, tag);
+
+
+--
 -- Name: drive_kms_keys_public_id_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4934,6 +5266,55 @@ CREATE UNIQUE INDEX drive_marketplace_installations_tenant_app_key ON public.dri
 
 
 --
+-- Name: drive_ocr_pages_file_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_ocr_pages_file_idx ON public.drive_ocr_pages USING btree (tenant_id, file_object_id, page_number);
+
+
+--
+-- Name: drive_ocr_pages_run_page_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ocr_pages_run_page_key ON public.drive_ocr_pages USING btree (ocr_run_id, page_number);
+
+
+--
+-- Name: drive_ocr_runs_file_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_ocr_runs_file_idx ON public.drive_ocr_runs USING btree (tenant_id, file_object_id, created_at DESC);
+
+
+--
+-- Name: drive_ocr_runs_file_revision_provider_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ocr_runs_file_revision_provider_key ON public.drive_ocr_runs USING btree (file_object_id, file_revision, content_sha256, engine, structured_extractor);
+
+
+--
+-- Name: drive_ocr_runs_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_ocr_runs_pending_idx ON public.drive_ocr_runs USING btree (tenant_id, created_at, id) WHERE (status = ANY (ARRAY['pending'::text, 'running'::text]));
+
+
+--
+-- Name: drive_ocr_runs_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_ocr_runs_public_id_key ON public.drive_ocr_runs USING btree (public_id);
+
+
+--
+-- Name: drive_ocr_runs_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_ocr_runs_status_idx ON public.drive_ocr_runs USING btree (tenant_id, status, created_at DESC);
+
+
+--
 -- Name: drive_office_edit_sessions_file_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4973,6 +5354,34 @@ CREATE UNIQUE INDEX drive_office_webhook_events_provider_event_key ON public.dri
 --
 
 CREATE INDEX drive_presence_sessions_file_idx ON public.drive_presence_sessions USING btree (file_object_id, status, last_seen_at DESC);
+
+
+--
+-- Name: drive_product_extraction_items_file_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_product_extraction_items_file_idx ON public.drive_product_extraction_items USING btree (tenant_id, file_object_id, created_at DESC);
+
+
+--
+-- Name: drive_product_extraction_items_jan_code_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_product_extraction_items_jan_code_idx ON public.drive_product_extraction_items USING btree (tenant_id, jan_code) WHERE (jan_code IS NOT NULL);
+
+
+--
+-- Name: drive_product_extraction_items_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_product_extraction_items_public_id_key ON public.drive_product_extraction_items USING btree (public_id);
+
+
+--
+-- Name: drive_product_extraction_items_run_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_product_extraction_items_run_idx ON public.drive_product_extraction_items USING btree (ocr_run_id, id);
 
 
 --
@@ -5106,6 +5515,27 @@ CREATE INDEX drive_share_links_resource_idx ON public.drive_share_links USING bt
 --
 
 CREATE UNIQUE INDEX drive_share_links_token_hash_key ON public.drive_share_links USING btree (token_hash);
+
+
+--
+-- Name: drive_starred_items_active_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_starred_items_active_key ON public.drive_starred_items USING btree (tenant_id, user_id, resource_type, resource_id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: drive_starred_items_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX drive_starred_items_public_id_key ON public.drive_starred_items USING btree (public_id);
+
+
+--
+-- Name: drive_starred_items_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX drive_starred_items_user_idx ON public.drive_starred_items USING btree (tenant_id, user_id, created_at DESC, id DESC) WHERE (deleted_at IS NULL);
 
 
 --
@@ -6136,6 +6566,22 @@ ALTER TABLE ONLY public.drive_encryption_policies
 
 
 --
+-- Name: drive_file_previews drive_file_previews_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_file_previews
+    ADD CONSTRAINT drive_file_previews_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_file_previews drive_file_previews_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_file_previews
+    ADD CONSTRAINT drive_file_previews_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: drive_file_revisions drive_file_revisions_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6397,6 +6843,38 @@ ALTER TABLE ONLY public.drive_index_jobs
 
 ALTER TABLE ONLY public.drive_index_jobs
     ADD CONSTRAINT drive_index_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_item_activities drive_item_activities_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_item_activities
+    ADD CONSTRAINT drive_item_activities_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_item_activities drive_item_activities_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_item_activities
+    ADD CONSTRAINT drive_item_activities_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_item_tags drive_item_tags_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_item_tags
+    ADD CONSTRAINT drive_item_tags_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_item_tags drive_item_tags_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_item_tags
+    ADD CONSTRAINT drive_item_tags_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -6664,6 +7142,62 @@ ALTER TABLE ONLY public.drive_object_key_versions
 
 
 --
+-- Name: drive_ocr_pages drive_ocr_pages_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_pages
+    ADD CONSTRAINT drive_ocr_pages_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ocr_pages drive_ocr_pages_ocr_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_pages
+    ADD CONSTRAINT drive_ocr_pages_ocr_run_id_fkey FOREIGN KEY (ocr_run_id) REFERENCES public.drive_ocr_runs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ocr_pages drive_ocr_pages_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_pages
+    ADD CONSTRAINT drive_ocr_pages_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ocr_runs drive_ocr_runs_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_runs
+    ADD CONSTRAINT drive_ocr_runs_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_ocr_runs drive_ocr_runs_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_runs
+    ADD CONSTRAINT drive_ocr_runs_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_ocr_runs drive_ocr_runs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_runs
+    ADD CONSTRAINT drive_ocr_runs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: drive_ocr_runs drive_ocr_runs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_ocr_runs
+    ADD CONSTRAINT drive_ocr_runs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: drive_office_edit_sessions drive_office_edit_sessions_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6749,6 +7283,30 @@ ALTER TABLE ONLY public.drive_presence_sessions
 
 ALTER TABLE ONLY public.drive_presence_sessions
     ADD CONSTRAINT drive_presence_sessions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_product_extraction_items drive_product_extraction_items_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_product_extraction_items
+    ADD CONSTRAINT drive_product_extraction_items_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_product_extraction_items drive_product_extraction_items_ocr_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_product_extraction_items
+    ADD CONSTRAINT drive_product_extraction_items_ocr_run_id_fkey FOREIGN KEY (ocr_run_id) REFERENCES public.drive_ocr_runs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_product_extraction_items drive_product_extraction_items_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_product_extraction_items
+    ADD CONSTRAINT drive_product_extraction_items_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -6941,6 +7499,22 @@ ALTER TABLE ONLY public.drive_share_links
 
 ALTER TABLE ONLY public.drive_share_links
     ADD CONSTRAINT drive_share_links_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: drive_starred_items drive_starred_items_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_starred_items
+    ADD CONSTRAINT drive_starred_items_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: drive_starred_items drive_starred_items_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drive_starred_items
+    ADD CONSTRAINT drive_starred_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

@@ -36,6 +36,15 @@ func RequestLogger(logger *slog.Logger) gin.HandlerFunc {
 		if len(c.Errors) > 0 {
 			attrs = append(attrs, "errors", c.Errors.String())
 		}
+		if value, ok := c.Get("error_type"); ok {
+			attrs = append(attrs, "error_type", value)
+		}
+		if value, ok := c.Get("error_code"); ok {
+			attrs = append(attrs, "error_code", value)
+		}
+		if value, ok := c.Get("error_detail"); ok {
+			attrs = append(attrs, "error_detail", value)
+		}
 		spanContext := trace.SpanContextFromContext(c.Request.Context())
 		if spanContext.IsValid() {
 			attrs = append(attrs,

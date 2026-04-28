@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import {
   addDriveGroupMemberItem,
   copyDriveItem,
+  createDriveOCRJobItem,
   createDriveFolderItem,
   createDriveGroupItem,
   createDriveShareInvitationItem,
@@ -20,6 +21,8 @@ import {
   fetchDriveGroup,
   fetchDriveGroups,
   fetchDriveItems,
+  fetchDriveOCR,
+  fetchDriveProductExtractions,
   fetchDriveRecentItems,
   fetchDriveSharedWithMe,
   fetchDriveStarredItems,
@@ -46,6 +49,7 @@ import {
   type DriveResourceRef,
 } from '../api/drive'
 import { toApiErrorMessage } from '../api/client'
+import { presentDriveActionError, presentDriveUploadError } from '../utils/driveErrors'
 import type {
   DriveFileBody,
   DriveActivityBody,
@@ -53,7 +57,9 @@ import type {
   DriveFolderTreeBody,
   DriveGroupBody,
   DriveItemBody,
+  DriveOcrOutputBody,
   DrivePermissionsBody,
+  DriveProductExtractionItemBody,
   DriveShareBody,
   DriveShareInvitationBody,
   DriveShareLinkBody,
@@ -78,6 +84,10 @@ export type DriveUploadQueueItem = {
   status: DriveUploadStatus
   progress: number
   errorMessage: string
+  errorTitle: string
+  errorAction: string
+  errorRequestId: string
+  retryable: boolean
 }
 
 const rootFolder: DriveFolderBody = {
@@ -138,6 +148,9 @@ export const useDriveStore = defineStore('drive', {
     selectedItem: null as DriveItemBody | null,
     selectedResource: null as DriveResourceRef | null,
     permissions: null as DrivePermissionsBody | null,
+    ocrResult: null as DriveOcrOutputBody | null,
+    productExtractionItems: [] as DriveProductExtractionItemBody[],
+    ocrLoading: false,
     groups: [] as DriveGroupBody[],
     currentGroup: null as DriveGroupBody | null,
     invitations: [] as DriveShareInvitationBody[],
@@ -166,6 +179,8 @@ export const useDriveStore = defineStore('drive', {
       this.selectedItem = null
       this.selectedResource = null
       this.permissions = null
+      this.ocrResult = null
+      this.productExtractionItems = []
       this.lastRawShareLink = null
       this.activityItems = []
     },
@@ -425,6 +440,10 @@ export const useDriveStore = defineStore('drive', {
         status: 'queued',
         progress: 0,
         errorMessage: '',
+        errorTitle: '',
+        errorAction: '',
+        errorRequestId: '',
+        retryable: true,
       }))
       this.uploadQueue = [...this.uploadQueue, ...queueItems]
       const uploadedItems: DriveItemBody[] = []
@@ -459,7 +478,7 @@ export const useDriveStore = defineStore('drive', {
     async uploadQueueItem(item: DriveUploadQueueItem) {
       this.uploadQueue = this.uploadQueue.map((candidate) => (
         candidate.id === item.id
-          ? { ...candidate, status: 'uploading', progress: 10, errorMessage: '' }
+          ? { ...candidate, status: 'uploading', progress: 10, errorMessage: '', errorTitle: '', errorAction: '', errorRequestId: '', retryable: true }
           : candidate
       ))
       try {
@@ -471,15 +490,24 @@ export const useDriveStore = defineStore('drive', {
         const driveItem = driveItemWithDefaults({ type: 'file', file: uploaded } as DriveItemBody)
         this.uploadQueue = this.uploadQueue.map((candidate) => (
           candidate.id === item.id
-            ? { ...candidate, status: 'complete', progress: 100, errorMessage: '' }
+            ? { ...candidate, status: 'complete', progress: 100, errorMessage: '', errorTitle: '', errorAction: '', errorRequestId: '', retryable: true }
             : candidate
         ))
         return driveItem
       } catch (error) {
-        const message = toApiErrorMessage(error)
+        const presentation = presentDriveUploadError(error)
         this.uploadQueue = this.uploadQueue.map((candidate) => (
           candidate.id === item.id
-            ? { ...candidate, status: 'error', progress: 0, errorMessage: message }
+            ? {
+              ...candidate,
+              status: 'error',
+              progress: 0,
+              errorMessage: presentation.reason,
+              errorTitle: presentation.title,
+              errorAction: presentation.action,
+              errorRequestId: presentation.requestId,
+              retryable: presentation.retryable,
+            }
             : candidate
         ))
         return null
@@ -488,7 +516,7 @@ export const useDriveStore = defineStore('drive', {
 
     async retryUpload(id: string) {
       const item = this.uploadQueue.find((candidate) => candidate.id === id)
-      if (!item || item.status !== 'error') {
+      if (!item || item.status !== 'error' || item.retryable === false) {
         return
       }
       this.actionStatus = 'working'
@@ -756,6 +784,42 @@ export const useDriveStore = defineStore('drive', {
       if (resource) {
         await this.loadPermissions(resource)
         await this.loadActivity(resource)
+        await this.loadOCR(resource)
+      }
+    },
+
+    async loadOCR(resource?: DriveResourceRef | null) {
+      const target = resource ?? this.selectedResource
+      if (!target || target.type !== 'file') {
+        this.ocrResult = null
+        this.productExtractionItems = []
+        return
+      }
+      this.ocrLoading = true
+      try {
+        const [ocr, products] = await Promise.all([
+          fetchDriveOCR(target.publicId).catch(() => null),
+          fetchDriveProductExtractions(target.publicId).catch(() => []),
+        ])
+        this.ocrResult = ocr
+        this.productExtractionItems = products
+      } finally {
+        this.ocrLoading = false
+      }
+    },
+
+    async requestOCR(file: DriveFileBody) {
+      this.busyResourceId = file.publicId
+      this.errorMessage = ''
+      try {
+        const job = await createDriveOCRJobItem(file.publicId)
+        await this.loadOCR({ type: 'file', publicId: file.publicId })
+        return job
+      } catch (error) {
+        this.errorMessage = presentDriveActionError(error)
+        throw error
+      } finally {
+        this.busyResourceId = ''
       }
     },
 

@@ -11,6 +11,7 @@ import {
   createDriveFolderShareInvitation,
   createDriveFolderShareLink,
   createDriveGroup,
+  createDriveOcrJob,
   createDriveWorkspace,
   deleteDriveFile,
   deleteDriveFileShare,
@@ -27,11 +28,13 @@ import {
   getDriveFolder,
   getDriveFolderPermissions,
   getDriveGroup,
+  getDriveOcr,
   getPublicDriveShareLink,
   listDriveFileActivity,
   listDriveFolderActivity,
   listDriveGroups,
   listDriveItems,
+  listDriveProductExtractions,
   listDriveRecent,
   listPublicDriveShareLinkChildren,
   listDriveShareInvitations,
@@ -74,7 +77,10 @@ import type {
   DriveFolderTreeBody,
   DriveGroupBody,
   DriveItemBody,
+  DriveOcrJobBody,
+  DriveOcrOutputBody,
   DrivePermissionsBody,
+  DriveProductExtractionItemBody,
   DriveShareBody,
   DriveShareInvitationBody,
   DriveShareLinkBody,
@@ -89,7 +95,7 @@ import type {
   UpdateDriveShareBodyWritable,
   UpdateDriveShareLinkBodyWritable,
 } from './generated/types.gen'
-import { readCookie, toApiErrorMessage } from './client'
+import { apiErrorFromResponse, readCookie } from './client'
 
 export type DriveResourceType = 'file' | 'folder'
 
@@ -174,15 +180,7 @@ async function driveFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   })
 
   if (!response.ok) {
-    let message = response.statusText
-    try {
-      message = toApiErrorMessage(await response.json())
-    } catch {
-      // Keep the HTTP status text for non-JSON errors.
-    }
-    const error = new Error(message || `Drive request failed (${response.status})`)
-    ;(error as Error & { status?: number }).status = response.status
-    throw error
+    throw await apiErrorFromResponse(response, `Drive request failed (${response.status})`)
   }
 
   return response
@@ -412,6 +410,26 @@ export async function downloadDriveFileItem(file: DriveFileBody): Promise<DriveD
     blob: await response.blob(),
     filename: contentDispositionFilename(response.headers.get('Content-Disposition'), file.originalFilename),
   }
+}
+
+export async function createDriveOCRJobItem(filePublicId: string): Promise<DriveOcrJobBody> {
+  return createDriveOcrJob({
+    headers: csrfHeaders(),
+    path: { filePublicId },
+  }) as unknown as Promise<DriveOcrJobBody>
+}
+
+export async function fetchDriveOCR(filePublicId: string): Promise<DriveOcrOutputBody> {
+  return getDriveOcr({
+    path: { filePublicId },
+  }) as unknown as Promise<DriveOcrOutputBody>
+}
+
+export async function fetchDriveProductExtractions(filePublicId: string): Promise<DriveProductExtractionItemBody[]> {
+  const data = await listDriveProductExtractions({
+    path: { filePublicId },
+  }) as unknown as { items: DriveProductExtractionItemBody[] | null }
+  return data.items ?? []
 }
 
 export async function deleteDriveFileItem(filePublicId: string): Promise<void> {

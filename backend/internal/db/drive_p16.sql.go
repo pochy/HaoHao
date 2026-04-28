@@ -208,7 +208,7 @@ FROM drive_folders source
 WHERE source.id = $6
   AND source.tenant_id = $7
   AND source.deleted_at IS NULL
-RETURNING id, public_id, tenant_id, parent_folder_id, name, description, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id
+RETURNING id, public_id, tenant_id, parent_folder_id, name, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, description
 `
 
 type CopyDriveFolderParams struct {
@@ -238,7 +238,6 @@ func (q *Queries) CopyDriveFolder(ctx context.Context, arg CopyDriveFolderParams
 		&i.TenantID,
 		&i.ParentFolderID,
 		&i.Name,
-		&i.Description,
 		&i.CreatedByUserID,
 		&i.InheritanceEnabled,
 		&i.DeletedAt,
@@ -252,6 +251,7 @@ func (q *Queries) CopyDriveFolder(ctx context.Context, arg CopyDriveFolderParams
 		&i.LegalHoldReason,
 		&i.PurgeBlockReason,
 		&i.WorkspaceID,
+		&i.Description,
 	)
 	return i, err
 }
@@ -284,7 +284,7 @@ WHERE id = $1
   AND legal_hold_at IS NULL
   AND purge_block_reason IS NULL
   AND (retention_until IS NULL OR retention_until <= now())
-RETURNING id, public_id, tenant_id, parent_folder_id, name, description, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id
+RETURNING id, public_id, tenant_id, parent_folder_id, name, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, description
 `
 
 type DeleteDriveFolderPermanentlyParams struct {
@@ -301,7 +301,6 @@ func (q *Queries) DeleteDriveFolderPermanently(ctx context.Context, arg DeleteDr
 		&i.TenantID,
 		&i.ParentFolderID,
 		&i.Name,
-		&i.Description,
 		&i.CreatedByUserID,
 		&i.InheritanceEnabled,
 		&i.DeletedAt,
@@ -315,6 +314,7 @@ func (q *Queries) DeleteDriveFolderPermanently(ctx context.Context, arg DeleteDr
 		&i.LegalHoldReason,
 		&i.PurgeBlockReason,
 		&i.WorkspaceID,
+		&i.Description,
 	)
 	return i, err
 }
@@ -402,7 +402,7 @@ func (q *Queries) IsDriveItemStarredByUser(ctx context.Context, arg IsDriveItemS
 }
 
 const listDriveFolderTreeCandidates = `-- name: ListDriveFolderTreeCandidates :many
-SELECT id, public_id, tenant_id, parent_folder_id, name, description, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id
+SELECT id, public_id, tenant_id, parent_folder_id, name, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, description
 FROM drive_folders
 WHERE tenant_id = $1
   AND deleted_at IS NULL
@@ -430,7 +430,6 @@ func (q *Queries) ListDriveFolderTreeCandidates(ctx context.Context, arg ListDri
 			&i.TenantID,
 			&i.ParentFolderID,
 			&i.Name,
-			&i.Description,
 			&i.CreatedByUserID,
 			&i.InheritanceEnabled,
 			&i.DeletedAt,
@@ -444,6 +443,7 @@ func (q *Queries) ListDriveFolderTreeCandidates(ctx context.Context, arg ListDri
 			&i.LegalHoldReason,
 			&i.PurgeBlockReason,
 			&i.WorkspaceID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -1053,7 +1053,7 @@ SET
 WHERE id = $2
   AND tenant_id = $3
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, parent_folder_id, name, description, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id
+RETURNING id, public_id, tenant_id, parent_folder_id, name, created_by_user_id, inheritance_enabled, deleted_at, deleted_by_user_id, created_at, updated_at, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, description
 `
 
 type UpdateDriveFolderOwnerParams struct {
@@ -1071,7 +1071,6 @@ func (q *Queries) UpdateDriveFolderOwner(ctx context.Context, arg UpdateDriveFol
 		&i.TenantID,
 		&i.ParentFolderID,
 		&i.Name,
-		&i.Description,
 		&i.CreatedByUserID,
 		&i.InheritanceEnabled,
 		&i.DeletedAt,
@@ -1085,6 +1084,7 @@ func (q *Queries) UpdateDriveFolderOwner(ctx context.Context, arg UpdateDriveFol
 		&i.LegalHoldReason,
 		&i.PurgeBlockReason,
 		&i.WorkspaceID,
+		&i.Description,
 	)
 	return i, err
 }

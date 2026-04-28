@@ -2171,6 +2171,123 @@ components:
         - denied
         - conflicted
       type: object
+    DriveOCRJobBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveOCRJobBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        engine:
+          type: string
+        filePublicId:
+          type: string
+        publicId:
+          type: string
+        status:
+          type: string
+      required:
+        - publicId
+        - filePublicId
+        - engine
+        - status
+        - createdAt
+      type: object
+    DriveOCROutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveOCROutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        pages:
+          items:
+            $ref: "#/components/schemas/DriveOCRPageBody"
+          type:
+            - array
+            - "null"
+        run:
+          $ref: "#/components/schemas/DriveOCRRunBody"
+      required:
+        - run
+        - pages
+      type: object
+    DriveOCRPageBody:
+      additionalProperties: false
+      properties:
+        averageConfidence:
+          format: double
+          type: number
+        pageNumber:
+          format: int64
+          type: integer
+        rawText:
+          type: string
+      required:
+        - pageNumber
+        - rawText
+      type: object
+    DriveOCRRunBody:
+      additionalProperties: false
+      properties:
+        averageConfidence:
+          format: double
+          type: number
+        completedAt:
+          format: date-time
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        engine:
+          type: string
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+        filePublicId:
+          type: string
+        languages:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        pageCount:
+          format: int64
+          type: integer
+        processedPageCount:
+          format: int64
+          type: integer
+        publicId:
+          type: string
+        reason:
+          type: string
+        status:
+          type: string
+        structuredExtractor:
+          type: string
+      required:
+        - publicId
+        - filePublicId
+        - engine
+        - languages
+        - structuredExtractor
+        - status
+        - reason
+        - pageCount
+        - processedPageCount
+        - createdAt
+      type: object
     DriveOfficeSessionBody:
       additionalProperties: false
       properties:
@@ -2357,6 +2474,87 @@ components:
       required:
         - direct
         - inherited
+      type: object
+    DriveProductExtractionItemBody:
+      additionalProperties: false
+      properties:
+        attributes:
+          additionalProperties: {}
+          type: object
+        availability:
+          additionalProperties: {}
+          type: object
+        brand:
+          type: string
+        category:
+          type: string
+        confidence:
+          format: double
+          type: number
+        createdAt:
+          format: date-time
+          type: string
+        description:
+          type: string
+        evidence:
+          items:
+            additionalProperties: {}
+            type: object
+          type:
+            - array
+            - "null"
+        itemType:
+          type: string
+        janCode:
+          type: string
+        manufacturer:
+          type: string
+        model:
+          type: string
+        name:
+          type: string
+        price:
+          additionalProperties: {}
+          type: object
+        promotion:
+          additionalProperties: {}
+          type: object
+        publicId:
+          type: string
+        sku:
+          type: string
+        sourceText:
+          type: string
+      required:
+        - publicId
+        - itemType
+        - name
+        - price
+        - promotion
+        - availability
+        - sourceText
+        - evidence
+        - attributes
+        - createdAt
+      type: object
+    DriveProductExtractionsOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveProductExtractionsOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DriveProductExtractionItemBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
       type: object
     DriveRegisterDeviceBody:
       additionalProperties: false
@@ -3641,6 +3839,113 @@ components:
           type: string
       required:
         - status
+      type: object
+    TenantAdminDriveOCRDependencyBody:
+      additionalProperties: false
+      properties:
+        available:
+          type: boolean
+        name:
+          type: string
+        version:
+          type: string
+      required:
+        - name
+        - available
+      type: object
+    TenantAdminDriveOCRLMStudioBody:
+      additionalProperties: false
+      properties:
+        configured:
+          type: boolean
+        modelAvailable:
+          type: boolean
+        reachable:
+          type: boolean
+      required:
+        - configured
+        - reachable
+        - modelAvailable
+      type: object
+    TenantAdminDriveOCRLocalCommandBody:
+      additionalProperties: false
+      properties:
+        available:
+          type: boolean
+        command:
+          type: string
+        configured:
+          type: boolean
+        name:
+          type: string
+        version:
+          type: string
+      required:
+        - name
+        - command
+        - configured
+        - available
+      type: object
+    TenantAdminDriveOCROllamaBody:
+      additionalProperties: false
+      properties:
+        configured:
+          type: boolean
+        modelAvailable:
+          type: boolean
+        reachable:
+          type: boolean
+      required:
+        - configured
+        - reachable
+        - modelAvailable
+      type: object
+    TenantAdminDriveOCRStatusBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDriveOCRStatusBody.json
+          format: uri
+          readOnly: true
+          type: string
+        dependencies:
+          items:
+            $ref: "#/components/schemas/TenantAdminDriveOCRDependencyBody"
+          type:
+            - array
+            - "null"
+        enabled:
+          type: boolean
+        lmStudio:
+          $ref: "#/components/schemas/TenantAdminDriveOCRLMStudioBody"
+        localCommands:
+          items:
+            $ref: "#/components/schemas/TenantAdminDriveOCRLocalCommandBody"
+          type:
+            - array
+            - "null"
+        ocrEngine:
+          type: string
+        ollama:
+          $ref: "#/components/schemas/TenantAdminDriveOCROllamaBody"
+        statusCounts:
+          additionalProperties:
+            format: int64
+            type: integer
+          type: object
+        structuredExtractor:
+          type: string
+      required:
+        - enabled
+        - ocrEngine
+        - structuredExtractor
+        - dependencies
+        - ollama
+        - lmStudio
+        - localCommands
+        - statusCounts
       type: object
     TenantAdminDriveOperationsHealthBody:
       additionalProperties: false
@@ -6147,6 +6452,46 @@ paths:
       summary: Drive marketplace scope と OpenFGA permission を確認する
       tags:
         - drive-marketplace
+  /api/v1/admin/tenants/{tenantSlug}/drive/ocr/status:
+    get:
+      operationId: getTenantAdminDriveOCRStatus
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdminDriveOCRStatusBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: tenant admin 用 Drive OCR runtime status を返す
+      tags:
+        - tenant-admin-drive
   /api/v1/admin/tenants/{tenantSlug}/drive/openfga-sync/drift:
     get:
       operationId: getTenantAdminDriveOpenFGADrift
@@ -9143,6 +9488,75 @@ paths:
       summary: Drive file external share invitation を作成する
       tags:
         - drive
+  /api/v1/drive/files/{filePublicId}/ocr:
+    get:
+      operationId: getDriveOCR
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveOCROutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file OCR result を返す
+      tags:
+        - drive-ocr
+  /api/v1/drive/files/{filePublicId}/ocr/jobs:
+    post:
+      operationId: createDriveOCRJob
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveOCRJobBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file OCR job を作成する
+      tags:
+        - drive-ocr
   /api/v1/drive/files/{filePublicId}/office/sessions:
     post:
       operationId: createDriveOfficeSession
@@ -9291,6 +9705,38 @@ paths:
       summary: Drive file permissions を返す
       tags:
         - drive
+  /api/v1/drive/files/{filePublicId}/product-extractions:
+    get:
+      operationId: listDriveProductExtractions
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveProductExtractionsOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file product extraction items を返す
+      tags:
+        - drive-ocr
   /api/v1/drive/files/{filePublicId}/restore:
     post:
       operationId: restoreDriveFile

@@ -838,6 +838,19 @@ async function reloadPermissions() {
   }
 }
 
+async function requestOCR(filePublicId: string) {
+  const file = driveStore.selectedItem?.file
+  if (!file || file.publicId !== filePublicId) {
+    return
+  }
+  try {
+    await driveStore.requestOCR(file)
+    actionMessage.value = t('drive.ocrRequested')
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
 async function search(query: string) {
   driveStore.setQuery(query)
   if (!query) {
@@ -1161,12 +1174,17 @@ async function toggleStar(item: DriveItemBody) {
         :selected-item="driveStore.selectedItem"
         :current-folder="driveStore.currentFolder"
         :permissions="driveStore.permissions"
+        :ocr-result="driveStore.ocrResult"
+        :product-extraction-items="driveStore.productExtractionItems"
+        :ocr-loading="driveStore.ocrLoading"
+        :busy-resource-id="driveStore.busyResourceId"
         :activities="driveStore.activityItems"
         :item-count="itemCount"
         :file-count="fileCount"
         :folder-count="folderCount"
         @close="closeDetailsPanel"
         @share-item="openShareDialog"
+        @request-ocr="requestOCR"
       />
     </template>
   </DriveWorkspaceLayout>

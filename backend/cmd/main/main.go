@@ -129,13 +129,15 @@ func main() {
 		Metrics:    metrics,
 	})
 	driveService := service.NewDriveService(pool, queries, fileService, fileStorage, driveAuthorizationService, tenantSettingsService, auditService)
+	driveService.SetOutboxService(outboxService)
+	driveOCRService := service.NewDriveOCRService(pool, queries, driveService, fileStorage, tenantSettingsService, auditService, nil, nil)
 	tenantInvitationService := service.NewTenantInvitationService(pool, queries, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)
 	tenantDataExportService := service.NewTenantDataExportService(pool, queries, outboxService, fileService, auditService, cfg.DataExportTTL, entitlementService)
 	customerSignalImportService := service.NewCustomerSignalImportService(pool, queries, outboxService, fileService, entitlementService, auditService)
 	customerSignalSavedFilterService := service.NewCustomerSignalSavedFilterService(queries, entitlementService, auditService)
 	supportAccessService := service.NewSupportAccessService(queries, sessionService, entitlementService, auditService, cfg.SupportAccessMaxDuration)
 	emailSender := service.NewLogEmailSender(logger, cfg.EmailFrom)
-	outboxHandler := service.NewOutboxHandler(emailSender, notificationService, tenantInvitationService, tenantDataExportService, webhookService, customerSignalImportService)
+	outboxHandler := service.NewOutboxHandler(emailSender, notificationService, tenantInvitationService, tenantDataExportService, webhookService, customerSignalImportService, driveOCRService)
 
 	var oidcLoginService *service.OIDCLoginService
 	var delegationService *service.DelegationService
@@ -225,7 +227,7 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics, entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService)
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics, entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService)
 	app.RegisterHealthRoutes(application.Router, platform.ReadinessChecker{
 		PostgresPing:  pool.Ping,
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },

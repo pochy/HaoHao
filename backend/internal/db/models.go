@@ -389,7 +389,6 @@ type DriveFolder struct {
 	TenantID              int64              `json:"tenant_id"`
 	ParentFolderID        pgtype.Int8        `json:"parent_folder_id"`
 	Name                  string             `json:"name"`
-	Description           string             `json:"description"`
 	CreatedByUserID       int64              `json:"created_by_user_id"`
 	InheritanceEnabled    bool               `json:"inheritance_enabled"`
 	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
@@ -403,6 +402,7 @@ type DriveFolder struct {
 	LegalHoldReason       pgtype.Text        `json:"legal_hold_reason"`
 	PurgeBlockReason      pgtype.Text        `json:"purge_block_reason"`
 	WorkspaceID           pgtype.Int8        `json:"workspace_id"`
+	Description           string             `json:"description"`
 }
 
 type DriveGatewayObject struct {
@@ -696,6 +696,45 @@ type DriveObjectKeyVersion struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type DriveOcrPage struct {
+	ID                int64              `json:"id"`
+	TenantID          int64              `json:"tenant_id"`
+	OcrRunID          int64              `json:"ocr_run_id"`
+	FileObjectID      int64              `json:"file_object_id"`
+	PageNumber        int32              `json:"page_number"`
+	RawText           string             `json:"raw_text"`
+	AverageConfidence pgtype.Numeric     `json:"average_confidence"`
+	LayoutJson        []byte             `json:"layout_json"`
+	BoxesJson         []byte             `json:"boxes_json"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type DriveOcrRun struct {
+	ID                  int64              `json:"id"`
+	PublicID            uuid.UUID          `json:"public_id"`
+	TenantID            int64              `json:"tenant_id"`
+	FileObjectID        int64              `json:"file_object_id"`
+	FileRevision        string             `json:"file_revision"`
+	ContentSha256       string             `json:"content_sha256"`
+	Engine              string             `json:"engine"`
+	Languages           []string           `json:"languages"`
+	StructuredExtractor string             `json:"structured_extractor"`
+	Status              string             `json:"status"`
+	Reason              string             `json:"reason"`
+	PageCount           int32              `json:"page_count"`
+	ProcessedPageCount  int32              `json:"processed_page_count"`
+	AverageConfidence   pgtype.Numeric     `json:"average_confidence"`
+	ExtractedText       string             `json:"extracted_text"`
+	ErrorCode           pgtype.Text        `json:"error_code"`
+	ErrorMessage        pgtype.Text        `json:"error_message"`
+	RequestedByUserID   pgtype.Int8        `json:"requested_by_user_id"`
+	OutboxEventID       pgtype.Int8        `json:"outbox_event_id"`
+	StartedAt           pgtype.Timestamptz `json:"started_at"`
+	CompletedAt         pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DriveOfficeEditSession struct {
 	ID                int64              `json:"id"`
 	PublicID          uuid.UUID          `json:"public_id"`
@@ -749,6 +788,31 @@ type DrivePresenceSession struct {
 	LastSeenAt   pgtype.Timestamptz `json:"last_seen_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DriveProductExtractionItem struct {
+	ID           int64              `json:"id"`
+	PublicID     uuid.UUID          `json:"public_id"`
+	TenantID     int64              `json:"tenant_id"`
+	OcrRunID     int64              `json:"ocr_run_id"`
+	FileObjectID int64              `json:"file_object_id"`
+	ItemType     string             `json:"item_type"`
+	Name         string             `json:"name"`
+	Brand        pgtype.Text        `json:"brand"`
+	Manufacturer pgtype.Text        `json:"manufacturer"`
+	Model        pgtype.Text        `json:"model"`
+	Sku          pgtype.Text        `json:"sku"`
+	JanCode      pgtype.Text        `json:"jan_code"`
+	Category     pgtype.Text        `json:"category"`
+	Description  pgtype.Text        `json:"description"`
+	Price        []byte             `json:"price"`
+	Promotion    []byte             `json:"promotion"`
+	Availability []byte             `json:"availability"`
+	SourceText   string             `json:"source_text"`
+	Evidence     []byte             `json:"evidence"`
+	Attributes   []byte             `json:"attributes"`
+	Confidence   pgtype.Numeric     `json:"confidence"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type DriveRegionMigrationJob struct {

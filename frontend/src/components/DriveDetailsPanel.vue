@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Info, Lock, ShieldCheck, X } from 'lucide-vue-next'
+import { FileText, Info, Lock, RefreshCw, ShieldCheck, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import type { DriveActivityBody, DriveFolderBody, DriveItemBody, DrivePermissionsBody } from '../api/generated/types.gen'
+import type { DriveActivityBody, DriveFolderBody, DriveItemBody, DriveOcrOutputBody, DrivePermissionsBody, DriveProductExtractionItemBody } from '../api/generated/types.gen'
 import {
   driveItemContentType,
   driveItemName,
@@ -18,6 +18,10 @@ const props = defineProps<{
   selectedItem: DriveItemBody | null
   currentFolder: DriveFolderBody
   permissions: DrivePermissionsBody | null
+  ocrResult: DriveOcrOutputBody | null
+  productExtractionItems: DriveProductExtractionItemBody[]
+  ocrLoading: boolean
+  busyResourceId: string
   activities: DriveActivityBody[]
   itemCount: number
   fileCount: number
@@ -27,10 +31,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   shareItem: [item: DriveItemBody]
+  requestOcr: [filePublicId: string]
 }>()
 
 const { t } = useI18n()
-const activeTab = ref<'details' | 'activity' | 'permissions'>('details')
+const activeTab = ref<'details' | 'activity' | 'permissions' | 'ocr'>('details')
 
 const title = computed(() => (
   props.selectedItem ? driveItemName(props.selectedItem) : props.currentFolder.publicId === 'root' ? t('drive.root') : props.currentFolder.name
@@ -39,6 +44,17 @@ const directCount = computed(() => props.permissions?.direct?.length ?? 0)
 const inheritedCount = computed(() => props.permissions?.inherited?.length ?? 0)
 const selectedDescription = computed(() => props.selectedItem?.file?.description ?? props.selectedItem?.folder?.description ?? '')
 const selectedTags = computed(() => props.selectedItem?.tags ?? [])
+const selectedFile = computed(() => props.selectedItem?.file ?? null)
+const ocrRun = computed(() => props.ocrResult?.run ?? null)
+const ocrPages = computed(() => props.ocrResult?.pages ?? [])
+
+function extractionPrice(item: DriveProductExtractionItemBody) {
+  const amount = item.price?.amount
+  if (typeof amount === 'number' || typeof amount === 'string') {
+    return `¥${amount}`
+  }
+  return ''
+}
 </script>
 
 <template>
@@ -65,6 +81,10 @@ const selectedTags = computed(() => props.selectedItem?.tags ?? [])
       <button type="button" :class="{ active: activeTab === 'permissions' }" @click="activeTab = 'permissions'">
         <ShieldCheck :size="15" stroke-width="1.9" aria-hidden="true" />
         {{ t('drive.permissions') }}
+      </button>
+      <button v-if="selectedFile" type="button" :class="{ active: activeTab === 'ocr' }" @click="activeTab = 'ocr'">
+        <FileText :size="15" stroke-width="1.9" aria-hidden="true" />
+        {{ t('drive.ocr') }}
       </button>
     </div>
 
@@ -145,7 +165,7 @@ const selectedTags = computed(() => props.selectedItem?.tags ?? [])
       </p>
     </div>
 
-    <div v-else class="drive-details-section">
+    <div v-else-if="activeTab === 'permissions'" class="drive-details-section">
       <div class="drive-details-summary">
         <span>{{ t('drive.directCount', { count: directCount }) }}</span>
         <span>{{ t('drive.inheritedCount', { count: inheritedCount }) }}</span>
@@ -156,6 +176,71 @@ const selectedTags = computed(() => props.selectedItem?.tags ?? [])
       <button v-if="selectedItem" class="secondary-button compact-button" type="button" @click="emit('shareItem', selectedItem)">
         {{ t('drive.manageAccess') }}
       </button>
+    </div>
+
+    <div v-else class="drive-details-section">
+      <div v-if="selectedFile" class="drive-metadata-stack">
+        <div class="action-row">
+          <button
+            class="secondary-button compact-button"
+            type="button"
+            :disabled="ocrLoading || busyResourceId === selectedFile.publicId"
+            @click="emit('requestOcr', selectedFile.publicId)"
+          >
+            <RefreshCw :size="15" stroke-width="1.9" aria-hidden="true" />
+            {{ t('drive.ocrRerun') }}
+          </button>
+        </div>
+        <dl class="metadata-grid compact">
+          <div>
+            <dt>{{ t('common.status') }}</dt>
+            <dd>{{ ocrRun?.status || (ocrLoading ? t('common.loading') : t('drive.ocrNotRun')) }}</dd>
+          </div>
+          <div v-if="ocrRun">
+            <dt>{{ t('drive.ocrEngine') }}</dt>
+            <dd>{{ ocrRun.engine }}</dd>
+          </div>
+          <div v-if="ocrRun">
+            <dt>{{ t('drive.ocrPages') }}</dt>
+            <dd class="tabular-cell">{{ ocrRun.processedPageCount }} / {{ ocrRun.pageCount }}</dd>
+          </div>
+          <div v-if="ocrRun?.averageConfidence !== undefined">
+            <dt>{{ t('drive.ocrConfidence') }}</dt>
+            <dd class="tabular-cell">{{ Math.round((ocrRun.averageConfidence ?? 0) * 100) }}%</dd>
+          </div>
+          <div v-if="ocrRun?.completedAt">
+            <dt>{{ t('drive.ocrCompletedAt') }}</dt>
+            <dd>{{ formatDriveDate(ocrRun.completedAt) }}</dd>
+          </div>
+          <div v-if="ocrRun?.errorCode || ocrRun?.errorMessage">
+            <dt>{{ t('drive.ocrReason') }}</dt>
+            <dd>{{ ocrRun.errorMessage || ocrRun.errorCode }}</dd>
+          </div>
+        </dl>
+
+        <div>
+          <h3>{{ t('drive.ocrText') }}</h3>
+          <p v-if="ocrPages.length === 0" class="cell-subtle">{{ t('drive.ocrNoText') }}</p>
+          <div v-else class="drive-activity-list">
+            <article v-for="page in ocrPages" :key="page.pageNumber" class="drive-activity-row">
+              <strong>{{ t('drive.ocrPage', { page: page.pageNumber }) }}</strong>
+              <span>{{ page.rawText }}</span>
+            </article>
+          </div>
+        </div>
+
+        <div>
+          <h3>{{ t('drive.productExtractions') }}</h3>
+          <p v-if="productExtractionItems.length === 0" class="cell-subtle">{{ t('drive.noProductExtractions') }}</p>
+          <div v-else class="drive-activity-list">
+            <article v-for="item in productExtractionItems" :key="item.publicId" class="drive-activity-row">
+              <strong>{{ item.name }}</strong>
+              <span>{{ item.janCode || item.itemType }}</span>
+              <span v-if="extractionPrice(item)" class="tabular-cell">{{ extractionPrice(item) }}</span>
+            </article>
+          </div>
+        </div>
+      </div>
     </div>
   </aside>
 </template>

@@ -32,6 +32,8 @@ type OutboxWorkerConfig struct {
 	WorkerID  string
 }
 
+const outboxMarkTimeout = 5 * time.Second
+
 type OutboxWorker struct {
 	outbox  outboxQueue
 	handler service.OutboxHandler
@@ -150,7 +152,10 @@ func (w *OutboxWorker) runBatch(ctx context.Context) (outboxRunSummary, error) {
 	for _, event := range events {
 		handleErr := w.handler.HandleOutboxEvent(ctx, event)
 		if handleErr == nil {
-			if err := w.outbox.MarkSent(ctx, event); err != nil {
+			markCtx, cancel := outboxMarkContext(ctx)
+			err := w.outbox.MarkSent(markCtx, event)
+			cancel()
+			if err != nil {
 				return summary, fmt.Errorf("mark outbox event sent: %w", err)
 			}
 			summary.Sent++
@@ -160,7 +165,10 @@ func (w *OutboxWorker) runBatch(ctx context.Context) (outboxRunSummary, error) {
 			continue
 		}
 		if errors.Is(handleErr, service.ErrUnknownOutboxEvent) {
-			if err := w.outbox.MarkFailed(ctx, eventWithMaxAttempts(event), handleErr); err != nil {
+			markCtx, cancel := outboxMarkContext(ctx)
+			err := w.outbox.MarkFailed(markCtx, eventWithMaxAttempts(event), handleErr)
+			cancel()
+			if err != nil {
 				return summary, fmt.Errorf("mark unknown outbox event dead: %w", err)
 			}
 			summary.Dead++
@@ -169,7 +177,10 @@ func (w *OutboxWorker) runBatch(ctx context.Context) (outboxRunSummary, error) {
 			}
 			continue
 		}
-		if err := w.outbox.MarkFailed(ctx, event, handleErr); err != nil {
+		markCtx, cancel := outboxMarkContext(ctx)
+		err := w.outbox.MarkFailed(markCtx, event, handleErr)
+		cancel()
+		if err != nil {
 			return summary, fmt.Errorf("mark outbox event failed: %w", err)
 		}
 		summary.Failed++
@@ -178,6 +189,10 @@ func (w *OutboxWorker) runBatch(ctx context.Context) (outboxRunSummary, error) {
 		}
 	}
 	return summary, nil
+}
+
+func outboxMarkContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), outboxMarkTimeout)
 }
 
 func eventWithMaxAttempts(event db.OutboxEvent) db.OutboxEvent {

@@ -909,6 +909,50 @@ export type DriveMobileOfflineReplayOutputBody = {
     denied: number;
 };
 
+export type DriveOcrJobBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    engine: string;
+    filePublicId: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveOcrOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    pages: Array<DriveOcrPageBody> | null;
+    run: DriveOcrRunBody;
+};
+
+export type DriveOcrPageBody = {
+    averageConfidence?: number;
+    pageNumber: number;
+    rawText: string;
+};
+
+export type DriveOcrRunBody = {
+    averageConfidence?: number;
+    completedAt?: string;
+    createdAt: string;
+    engine: string;
+    errorCode?: string;
+    errorMessage?: string;
+    filePublicId: string;
+    languages: Array<string> | null;
+    pageCount: number;
+    processedPageCount: number;
+    publicId: string;
+    reason: string;
+    status: string;
+    structuredExtractor: string;
+};
+
 export type DriveOfficeSessionBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -984,6 +1028,45 @@ export type DrivePermissionsBody = {
     readonly $schema?: string;
     direct: Array<DrivePermissionBody> | null;
     inherited: Array<DrivePermissionBody> | null;
+};
+
+export type DriveProductExtractionItemBody = {
+    attributes: {
+        [key: string]: unknown;
+    };
+    availability: {
+        [key: string]: unknown;
+    };
+    brand?: string;
+    category?: string;
+    confidence?: number;
+    createdAt: string;
+    description?: string;
+    evidence: Array<{
+        [key: string]: unknown;
+    }> | null;
+    itemType: string;
+    janCode?: string;
+    manufacturer?: string;
+    model?: string;
+    name: string;
+    price: {
+        [key: string]: unknown;
+    };
+    promotion: {
+        [key: string]: unknown;
+    };
+    publicId: string;
+    sku?: string;
+    sourceText: string;
+};
+
+export type DriveProductExtractionsOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DriveProductExtractionItemBody> | null;
 };
 
 export type DriveRegisterDeviceBody = {
@@ -1513,6 +1596,49 @@ export type TenantAdminDriveKmsKeyStatusInputBody = {
      */
     readonly $schema?: string;
     status: 'active' | 'disabled' | 'unavailable' | 'deleted';
+};
+
+export type TenantAdminDriveOcrDependencyBody = {
+    available: boolean;
+    name: string;
+    version?: string;
+};
+
+export type TenantAdminDriveOcrlmStudioBody = {
+    configured: boolean;
+    modelAvailable: boolean;
+    reachable: boolean;
+};
+
+export type TenantAdminDriveOcrLocalCommandBody = {
+    available: boolean;
+    command: string;
+    configured: boolean;
+    name: string;
+    version?: string;
+};
+
+export type TenantAdminDriveOcrOllamaBody = {
+    configured: boolean;
+    modelAvailable: boolean;
+    reachable: boolean;
+};
+
+export type TenantAdminDriveOcrStatusBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    dependencies: Array<TenantAdminDriveOcrDependencyBody> | null;
+    enabled: boolean;
+    lmStudio: TenantAdminDriveOcrlmStudioBody;
+    localCommands: Array<TenantAdminDriveOcrLocalCommandBody> | null;
+    ocrEngine: string;
+    ollama: TenantAdminDriveOcrOllamaBody;
+    statusCounts: {
+        [key: string]: number;
+    };
+    structuredExtractor: string;
 };
 
 export type TenantAdminDriveOperationsHealthBody = {
@@ -2447,6 +2573,19 @@ export type DriveMobileOfflineReplayOutputBodyWritable = {
     denied: number;
 };
 
+export type DriveOcrJobBodyWritable = {
+    createdAt: string;
+    engine: string;
+    filePublicId: string;
+    publicId: string;
+    status: string;
+};
+
+export type DriveOcrOutputBodyWritable = {
+    pages: Array<DriveOcrPageBody> | null;
+    run: DriveOcrRunBody;
+};
+
 export type DriveOfficeSessionBodyWritable = {
     accessLevel: string;
     createdAt: string;
@@ -2484,6 +2623,10 @@ export type DriveOwnerTransferBodyWritable = {
 export type DrivePermissionsBodyWritable = {
     direct: Array<DrivePermissionBody> | null;
     inherited: Array<DrivePermissionBody> | null;
+};
+
+export type DriveProductExtractionsOutputBodyWritable = {
+    items: Array<DriveProductExtractionItemBody> | null;
 };
 
 export type DriveRegisterDeviceBodyWritable = {
@@ -2755,6 +2898,19 @@ export type TenantAdminDriveInvitationsOutputBodyWritable = {
 
 export type TenantAdminDriveKmsKeyStatusInputBodyWritable = {
     status: 'active' | 'disabled' | 'unavailable' | 'deleted';
+};
+
+export type TenantAdminDriveOcrStatusBodyWritable = {
+    dependencies: Array<TenantAdminDriveOcrDependencyBody> | null;
+    enabled: boolean;
+    lmStudio: TenantAdminDriveOcrlmStudioBody;
+    localCommands: Array<TenantAdminDriveOcrLocalCommandBody> | null;
+    ocrEngine: string;
+    ollama: TenantAdminDriveOcrOllamaBody;
+    statusCounts: {
+        [key: string]: number;
+    };
+    structuredExtractor: string;
 };
 
 export type TenantAdminDriveOperationsHealthBodyWritable = {
@@ -3957,6 +4113,35 @@ export type CheckDriveMarketplaceScopeResponses = {
 };
 
 export type CheckDriveMarketplaceScopeResponse = CheckDriveMarketplaceScopeResponses[keyof CheckDriveMarketplaceScopeResponses];
+
+export type GetTenantAdminDriveOcrStatusData = {
+    body?: never;
+    path: {
+        tenantSlug: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/ocr/status';
+};
+
+export type GetTenantAdminDriveOcrStatusErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetTenantAdminDriveOcrStatusError = GetTenantAdminDriveOcrStatusErrors[keyof GetTenantAdminDriveOcrStatusErrors];
+
+export type GetTenantAdminDriveOcrStatusResponses = {
+    /**
+     * OK
+     */
+    200: TenantAdminDriveOcrStatusBody;
+};
+
+export type GetTenantAdminDriveOcrStatusResponse = GetTenantAdminDriveOcrStatusResponses[keyof GetTenantAdminDriveOcrStatusResponses];
 
 export type GetTenantAdminDriveOpenFgaDriftData = {
     body?: never;
@@ -6207,6 +6392,63 @@ export type CreateDriveFileShareInvitationResponses = {
 
 export type CreateDriveFileShareInvitationResponse = CreateDriveFileShareInvitationResponses[keyof CreateDriveFileShareInvitationResponses];
 
+export type GetDriveOcrData = {
+    body?: never;
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/ocr';
+};
+
+export type GetDriveOcrErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDriveOcrError = GetDriveOcrErrors[keyof GetDriveOcrErrors];
+
+export type GetDriveOcrResponses = {
+    /**
+     * OK
+     */
+    200: DriveOcrOutputBody;
+};
+
+export type GetDriveOcrResponse = GetDriveOcrResponses[keyof GetDriveOcrResponses];
+
+export type CreateDriveOcrJobData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/ocr/jobs';
+};
+
+export type CreateDriveOcrJobErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveOcrJobError = CreateDriveOcrJobErrors[keyof CreateDriveOcrJobErrors];
+
+export type CreateDriveOcrJobResponses = {
+    /**
+     * OK
+     */
+    200: DriveOcrJobBody;
+};
+
+export type CreateDriveOcrJobResponse = CreateDriveOcrJobResponses[keyof CreateDriveOcrJobResponses];
+
 export type CreateDriveOfficeSessionData = {
     body: DriveOfficeSessionCreateInputBodyWritable;
     headers: {
@@ -6323,6 +6565,33 @@ export type GetDriveFilePermissionsResponses = {
 };
 
 export type GetDriveFilePermissionsResponse = GetDriveFilePermissionsResponses[keyof GetDriveFilePermissionsResponses];
+
+export type ListDriveProductExtractionsData = {
+    body?: never;
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/product-extractions';
+};
+
+export type ListDriveProductExtractionsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveProductExtractionsError = ListDriveProductExtractionsErrors[keyof ListDriveProductExtractionsErrors];
+
+export type ListDriveProductExtractionsResponses = {
+    /**
+     * OK
+     */
+    200: DriveProductExtractionsOutputBody;
+};
+
+export type ListDriveProductExtractionsResponse = ListDriveProductExtractionsResponses[keyof ListDriveProductExtractionsResponses];
 
 export type RestoreDriveFileData = {
     body: RestoreDriveResourceBodyWritable;

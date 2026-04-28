@@ -1120,6 +1120,37 @@ code {
   font-size: 0.82rem;
 }
 
+.drive-upload-error {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  background: #fef2f2;
+  color: #7f1d1d;
+}
+
+.drive-upload-error strong,
+.drive-upload-error p,
+.drive-upload-error code {
+  min-width: 0;
+  margin: 0;
+  overflow: visible;
+  color: inherit;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.drive-upload-error p {
+  font-size: 0.82rem;
+}
+
+.drive-upload-error code {
+  color: #991b1b;
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
 .drive-upload-progress {
   height: 7px;
   overflow: hidden;

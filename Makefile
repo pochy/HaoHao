@@ -50,6 +50,15 @@ db-up: db-wait
 db-down:
 	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" down 1
 
+# Prefer Homebrew postgresql@18's psql-18 when on PATH; override with make psql PSQL=psql
+PSQL ?= $(shell command -v psql-18 2>/dev/null || command -v psql 2>/dev/null || echo psql)
+
+.PHONY: psql sql
+psql:
+	$(export-env) && $(PSQL) "$$DATABASE_URL" $(ARGS)
+
+sql: psql
+
 db-schema: db-wait
 	$(DOCKER_COMPOSE) exec -T postgres pg_dump --schema-only --no-owner --no-privileges -U haohao -d haohao | sed '/^\\restrict /d; /^\\unrestrict /d' | perl -0pe 's/\n+\z/\n/' > db/schema.sql
 

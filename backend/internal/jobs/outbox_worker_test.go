@@ -13,12 +13,14 @@ import (
 )
 
 type fakeOutboxQueue struct {
-	events        []db.OutboxEvent
-	claimErr      error
-	markSentErr   error
-	markFailedErr error
-	sent          int
-	failed        int
+	events           []db.OutboxEvent
+	claimErr         error
+	markSentErr      error
+	markFailedErr    error
+	markSentCtxErr   error
+	markFailedCtxErr error
+	sent             int
+	failed           int
 }
 
 func (q *fakeOutboxQueue) Claim(context.Context, string, int) ([]db.OutboxEvent, error) {
@@ -28,7 +30,8 @@ func (q *fakeOutboxQueue) Claim(context.Context, string, int) ([]db.OutboxEvent,
 	return q.events, nil
 }
 
-func (q *fakeOutboxQueue) MarkSent(context.Context, db.OutboxEvent) error {
+func (q *fakeOutboxQueue) MarkSent(ctx context.Context, event db.OutboxEvent) error {
+	q.markSentCtxErr = ctx.Err()
 	if q.markSentErr != nil {
 		return q.markSentErr
 	}
@@ -36,7 +39,8 @@ func (q *fakeOutboxQueue) MarkSent(context.Context, db.OutboxEvent) error {
 	return nil
 }
 
-func (q *fakeOutboxQueue) MarkFailed(context.Context, db.OutboxEvent, error) error {
+func (q *fakeOutboxQueue) MarkFailed(ctx context.Context, event db.OutboxEvent, cause error) error {
+	q.markFailedCtxErr = ctx.Err()
 	if q.markFailedErr != nil {
 		return q.markFailedErr
 	}
@@ -46,9 +50,13 @@ func (q *fakeOutboxQueue) MarkFailed(context.Context, db.OutboxEvent, error) err
 
 type fakeOutboxHandler struct {
 	err error
+	fn  func(context.Context, db.OutboxEvent) error
 }
 
-func (h fakeOutboxHandler) HandleOutboxEvent(context.Context, db.OutboxEvent) error {
+func (h fakeOutboxHandler) HandleOutboxEvent(ctx context.Context, event db.OutboxEvent) error {
+	if h.fn != nil {
+		return h.fn(ctx, event)
+	}
 	return h.err
 }
 
@@ -133,6 +141,56 @@ func TestOutboxWorkerRunOnceWithFailedEventInfoLogsCounts(t *testing.T) {
 	}
 	if queue.failed != 1 {
 		t.Fatalf("failed count = %d, want 1", queue.failed)
+	}
+}
+
+func TestOutboxWorkerRunBatchMarksSentAfterHandlerCancelsContext(t *testing.T) {
+	queue := &fakeOutboxQueue{
+		events: []db.OutboxEvent{{ID: 1, EventType: "email.send", MaxAttempts: 8}},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	worker := newOutboxWorkerForLogTest(queue, fakeOutboxHandler{
+		fn: func(context.Context, db.OutboxEvent) error {
+			cancel()
+			return nil
+		},
+	}, &bytes.Buffer{})
+
+	summary, err := worker.runBatch(ctx)
+
+	if err != nil {
+		t.Fatalf("runBatch returned error: %v", err)
+	}
+	if summary.Sent != 1 || queue.sent != 1 {
+		t.Fatalf("sent count = summary %d queue %d, want 1", summary.Sent, queue.sent)
+	}
+	if queue.markSentCtxErr != nil {
+		t.Fatalf("MarkSent context error = %v, want nil", queue.markSentCtxErr)
+	}
+}
+
+func TestOutboxWorkerRunBatchMarksFailedAfterHandlerCancelsContext(t *testing.T) {
+	queue := &fakeOutboxQueue{
+		events: []db.OutboxEvent{{ID: 1, EventType: "email.send", MaxAttempts: 8}},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	worker := newOutboxWorkerForLogTest(queue, fakeOutboxHandler{
+		fn: func(context.Context, db.OutboxEvent) error {
+			cancel()
+			return errors.New("handler failed")
+		},
+	}, &bytes.Buffer{})
+
+	summary, err := worker.runBatch(ctx)
+
+	if err != nil {
+		t.Fatalf("runBatch returned error: %v", err)
+	}
+	if summary.Failed != 1 || queue.failed != 1 {
+		t.Fatalf("failed count = summary %d queue %d, want 1", summary.Failed, queue.failed)
+	}
+	if queue.markFailedCtxErr != nil {
+		t.Fatalf("MarkFailed context error = %v, want nil", queue.markFailedCtxErr)
 	}
 }
 

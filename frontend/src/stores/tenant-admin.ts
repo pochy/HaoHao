@@ -8,6 +8,7 @@ import type {
   TenantAdminDriveShareLinkStateBody,
   TenantAdminDriveShareStateBody,
   TenantAdminDriveSyncOutputBody,
+  TenantAdminDriveOcrStatusBody,
   TenantAdminDriveOperationsHealthBody,
   TenantAdminTenantBody,
   TenantAdminTenantDetailBody,
@@ -23,6 +24,7 @@ import {
   fetchTenantAdminDriveAuditEvents,
   fetchTenantAdminDriveDrift,
   fetchTenantAdminDriveInvitations,
+  fetchTenantAdminDriveOCRStatus,
   fetchTenantAdminDriveOperationsHealth,
   fetchTenantAdminDriveShareLinks,
   fetchTenantAdminDriveShares,
@@ -47,6 +49,7 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
     driveAuditEvents: [] as TenantAdminDriveAuditEventBody[],
     driveSync: null as TenantAdminDriveSyncOutputBody | null,
     driveHealth: null as TenantAdminDriveOperationsHealthBody | null,
+    driveOCRStatus: null as TenantAdminDriveOcrStatusBody | null,
     errorMessage: '',
     saving: false,
   }),
@@ -83,7 +86,7 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
     async loadDriveState(tenantSlug: string) {
       this.errorMessage = ''
       try {
-        const [shares, links, invitations, approvals, auditEvents, sync, health] = await Promise.all([
+        const [shares, links, invitations, approvals, auditEvents, sync, health, ocrStatus] = await Promise.all([
           fetchTenantAdminDriveShares(tenantSlug),
           fetchTenantAdminDriveShareLinks(tenantSlug),
           fetchTenantAdminDriveInvitations(tenantSlug),
@@ -91,6 +94,7 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
           fetchTenantAdminDriveAuditEvents(tenantSlug),
           fetchTenantAdminDriveDrift(tenantSlug).catch(() => null),
           fetchTenantAdminDriveOperationsHealth(tenantSlug).catch(() => null),
+          fetchTenantAdminDriveOCRStatus(tenantSlug).catch(() => null),
         ])
         this.driveShares = shares
         this.driveShareLinks = links
@@ -99,6 +103,7 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
         this.driveAuditEvents = auditEvents
         this.driveSync = sync
         this.driveHealth = health
+        this.driveOCRStatus = ocrStatus
       } catch (error) {
         this.errorMessage = toApiErrorMessage(error)
       }

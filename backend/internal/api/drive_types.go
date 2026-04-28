@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
+	"example.com/haohao/backend/internal/platform"
 	"example.com/haohao/backend/internal/service"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -167,27 +169,80 @@ func requireDriveTenant(ctx context.Context, deps Dependencies, sessionID, csrfT
 }
 
 func toDriveHTTPError(err error) error {
-	switch {
-	case errors.Is(err, service.ErrDriveInvalidInput), errors.Is(err, service.ErrInvalidFileInput):
-		return huma.Error400BadRequest("invalid drive input")
-	case errors.Is(err, service.ErrDriveAuthzUnavailable):
-		return huma.Error503ServiceUnavailable("drive authorization unavailable")
-	case errors.Is(err, service.ErrDrivePermissionDenied):
-		return huma.Error403Forbidden("drive permission denied")
-	case errors.Is(err, service.ErrDrivePolicyDenied):
-		return huma.Error403Forbidden("drive policy denied")
-	case errors.Is(err, service.ErrDriveLocked):
-		return huma.Error409Conflict("drive resource is locked")
-	case errors.Is(err, service.ErrDriveNotFound):
-		return huma.Error404NotFound("drive resource not found")
-	case errors.Is(err, service.ErrFileQuotaExceeded):
-		return huma.Error409Conflict("file quota exceeded")
-	default:
-		return toHTTPError(err)
+	return driveProblemFromError(context.Background(), err).humaError()
+}
+
+type driveProblem struct {
+	Type     string `json:"type,omitempty"`
+	Title    string `json:"title"`
+	Status   int    `json:"status"`
+	Detail   string `json:"detail,omitempty"`
+	Instance string `json:"instance,omitempty"`
+	Code     string `json:"-"`
+}
+
+func (p driveProblem) humaError() error {
+	return &huma.ErrorModel{
+		Type:     p.Type,
+		Title:    p.Title,
+		Status:   p.Status,
+		Detail:   p.Detail,
+		Instance: p.Instance,
+	}
+}
+
+func driveProblemFromError(ctx context.Context, err error) driveProblem {
+	status := driveStatusCode(err)
+	code := driveErrorCode(err)
+	if code == service.DriveErrorFileTooLarge {
+		status = http.StatusRequestEntityTooLarge
+	}
+	title := driveErrorTitle(status)
+	detail := driveErrorDetail(err, status)
+	instance := driveRequestInstance(ctx)
+	if status >= 500 {
+		if instance != "" {
+			detail = "Drive request failed. Contact support with the request ID."
+		} else {
+			detail = "Drive request failed. Please try again later."
+		}
+	}
+	return driveProblem{
+		Type:     driveErrorType(code),
+		Title:    title,
+		Status:   status,
+		Detail:   detail,
+		Instance: instance,
+		Code:     code,
+	}
+}
+
+func driveProblemFromInput(ctx context.Context, status int, code, detail string) driveProblem {
+	return driveProblem{
+		Type:     driveErrorType(code),
+		Title:    driveErrorTitle(status),
+		Status:   status,
+		Detail:   detail,
+		Instance: driveRequestInstance(ctx),
+		Code:     code,
 	}
 }
 
 func driveStatusCode(err error) int {
+	if code, ok := service.DriveErrorCodeOf(err); ok {
+		switch code {
+		case service.DriveErrorFileTooLarge:
+			return http.StatusRequestEntityTooLarge
+		case service.DriveErrorQuotaExceeded:
+			return http.StatusConflict
+		case service.DriveErrorWorkspaceNotFound, service.DriveErrorParentFolderNotFound:
+			return http.StatusNotFound
+		case service.DriveErrorPermissionDenied:
+			return http.StatusForbidden
+		case service.DriveErrorPolicyDenied:
+			return http.StatusForbidden
+		}
+	}
 	switch {
 	case errors.Is(err, service.ErrDriveInvalidInput), errors.Is(err, service.ErrInvalidFileInput):
 		return http.StatusBadRequest
@@ -202,6 +257,98 @@ func driveStatusCode(err error) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+func driveErrorCode(err error) string {
+	if code, ok := service.DriveErrorCodeOf(err); ok {
+		return code
+	}
+	switch {
+	case errors.Is(err, service.ErrDriveInvalidInput), errors.Is(err, service.ErrInvalidFileInput):
+		return "drive.invalid_input"
+	case errors.Is(err, service.ErrDriveAuthzUnavailable):
+		return "drive.authorization_unavailable"
+	case errors.Is(err, service.ErrDrivePermissionDenied), errors.Is(err, service.ErrDrivePolicyDenied):
+		if errors.Is(err, service.ErrDrivePolicyDenied) {
+			return service.DriveErrorPolicyDenied
+		}
+		return service.DriveErrorPermissionDenied
+	case errors.Is(err, service.ErrDriveLocked), errors.Is(err, service.ErrFileQuotaExceeded):
+		if errors.Is(err, service.ErrFileQuotaExceeded) {
+			return service.DriveErrorQuotaExceeded
+		}
+		return "drive.locked"
+	case errors.Is(err, service.ErrDriveNotFound):
+		return "drive.not_found"
+	default:
+		return "drive.internal"
+	}
+}
+
+func driveErrorType(code string) string {
+	if code == "" {
+		code = "drive.internal"
+	}
+	return "urn:haohao:error:" + code
+}
+
+func driveErrorTitle(status int) string {
+	switch status {
+	case http.StatusBadRequest:
+		return "Drive request is invalid"
+	case http.StatusRequestEntityTooLarge:
+		return "Drive file is too large"
+	case http.StatusServiceUnavailable:
+		return "Drive service unavailable"
+	case http.StatusForbidden:
+		return "Drive access denied"
+	case http.StatusConflict:
+		return "Drive request conflicts with current policy"
+	case http.StatusNotFound:
+		return "Drive resource not found"
+	default:
+		return "Drive request failed"
+	}
+}
+
+func driveErrorDetail(err error, status int) string {
+	if detail, ok := service.DriveErrorDetailOf(err); ok {
+		return detail
+	}
+	if status >= 500 {
+		return ""
+	}
+	detail := strings.TrimSpace(err.Error())
+	for _, prefix := range []string{
+		service.ErrDriveInvalidInput.Error() + ":",
+		service.ErrInvalidFileInput.Error() + ":",
+		service.ErrDrivePermissionDenied.Error() + ":",
+		service.ErrDrivePolicyDenied.Error() + ":",
+		service.ErrDriveNotFound.Error() + ":",
+	} {
+		detail = strings.TrimSpace(strings.TrimPrefix(detail, prefix))
+	}
+	if detail == "" {
+		switch status {
+		case http.StatusBadRequest:
+			return "Drive request input is invalid."
+		case http.StatusForbidden:
+			return "You do not have permission for this Drive action."
+		case http.StatusConflict:
+			return "The Drive action conflicts with current policy or quota."
+		case http.StatusNotFound:
+			return "The Drive resource was not found."
+		}
+	}
+	return detail
+}
+
+func driveRequestInstance(ctx context.Context) string {
+	requestID := platform.RequestMetadataFromContext(ctx).RequestID
+	if requestID == "" {
+		return ""
+	}
+	return "urn:haohao:request:" + requestID
 }
 
 func toDriveFolderBody(item service.DriveFolder) DriveFolderBody {

@@ -155,6 +155,58 @@ func TestDrivePolicyFromFeaturesOverrides(t *testing.T) {
 	}
 }
 
+func TestDriveOCRPolicyFromFeaturesSupportsLMStudio(t *testing.T) {
+	got := drivePolicyFromFeatures(map[string]any{
+		"drive": map[string]any{
+			"ocr": map[string]any{
+				"enabled":                     true,
+				"structuredExtractionEnabled": true,
+				"structuredExtractor":         "lmstudio",
+				"lmStudioBaseURL":             "http://127.0.0.1:1234/v1",
+				"lmStudioModel":               "local-model",
+			},
+		},
+	})
+
+	if got.OCR.StructuredExtractor != "lmstudio" {
+		t.Fatalf("StructuredExtractor = %q, want lmstudio", got.OCR.StructuredExtractor)
+	}
+	if got.OCR.LMStudioBaseURL != "http://127.0.0.1:1234/v1" {
+		t.Fatalf("LMStudioBaseURL = %q", got.OCR.LMStudioBaseURL)
+	}
+	if got.OCR.LMStudioModel != "local-model" {
+		t.Fatalf("LMStudioModel = %q, want local-model", got.OCR.LMStudioModel)
+	}
+}
+
+func TestValidateDriveOCRPolicyRequiresLMStudioModel(t *testing.T) {
+	policy := defaultDriveOCRPolicy()
+	policy.StructuredExtractionEnabled = true
+	policy.StructuredExtractor = "lmstudio"
+
+	if err := validateDriveOCRPolicy(policy); err == nil {
+		t.Fatal("validateDriveOCRPolicy() error = nil, want lmStudioModel validation error")
+	}
+
+	policy.LMStudioModel = "local-model"
+	if err := validateDriveOCRPolicy(policy); err != nil {
+		t.Fatalf("validateDriveOCRPolicy() error = %v", err)
+	}
+}
+
+func TestValidateDriveOCRPolicyAcceptsLocalCommandExtractors(t *testing.T) {
+	for _, extractor := range []string{"gemini", "codex", "claude"} {
+		t.Run(extractor, func(t *testing.T) {
+			policy := defaultDriveOCRPolicy()
+			policy.StructuredExtractionEnabled = true
+			policy.StructuredExtractor = extractor
+			if err := validateDriveOCRPolicy(policy); err != nil {
+				t.Fatalf("validateDriveOCRPolicy() error = %v", err)
+			}
+		})
+	}
+}
+
 func TestNormalizeDrivePolicyForSaveValidation(t *testing.T) {
 	_, err := normalizeDrivePolicyForSave(DrivePolicy{
 		LinkSharingEnabled:            true,

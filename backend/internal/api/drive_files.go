@@ -153,17 +153,17 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 			return
 		}
 		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "invalid multipart form"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
 			return
 		}
 		header, err := c.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "file is required"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorFileRequired, "File is required."))
 			return
 		}
 		file, err := header.Open()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "file is invalid"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "File body is invalid."))
 			return
 		}
 		defer file.Close()
@@ -238,17 +238,17 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 			return
 		}
 		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "invalid multipart form"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
 			return
 		}
 		header, err := c.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "file is required"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorFileRequired, "File is required."))
 			return
 		}
 		file, err := header.Open()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "file is invalid"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "File body is invalid."))
 			return
 		}
 		defer file.Close()
@@ -273,7 +273,7 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 
 	router.GET("/api/public/drive/share-links/:token/content", func(c *gin.Context) {
 		if deps.DriveService == nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"title": "drive service is not configured"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusServiceUnavailable, "drive.service_unavailable", "Drive service is not configured."))
 			return
 		}
 		verificationCookie, _ := c.Cookie(service.DriveShareLinkPasswordCookieName)
@@ -288,14 +288,14 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 
 	router.POST("/api/public/drive/share-links/:token/password", func(c *gin.Context) {
 		if deps.DriveService == nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"title": "drive service is not configured"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusServiceUnavailable, "drive.service_unavailable", "Drive service is not configured."))
 			return
 		}
 		var body struct {
 			Password string `json:"password"`
 		}
 		if err := c.ShouldBindJSON(&body); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "invalid drive input"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, "drive.invalid_input", "Drive request body is invalid."))
 			return
 		}
 		verification, err := deps.DriveService.VerifyPublicShareLinkPassword(c.Request.Context(), c.Param("token"), body.Password, c.ClientIP())
@@ -314,21 +314,21 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 
 	router.PUT("/api/public/drive/share-links/:token/content", func(c *gin.Context) {
 		if deps.DriveService == nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"title": "drive service is not configured"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusServiceUnavailable, "drive.service_unavailable", "Drive service is not configured."))
 			return
 		}
 		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "invalid multipart form"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
 			return
 		}
 		header, err := c.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "file is required"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorFileRequired, "File is required."))
 			return
 		}
 		file, err := header.Open()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "file is invalid"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "File body is invalid."))
 			return
 		}
 		defer file.Close()
@@ -400,17 +400,17 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 			return
 		}
 		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "invalid multipart form"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
 			return
 		}
 		header, err := c.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "file is required"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorFileRequired, "File is required."))
 			return
 		}
 		file, err := header.Open()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "file is invalid"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "File body is invalid."))
 			return
 		}
 		defer file.Close()
@@ -451,12 +451,12 @@ func rawExternalDriveUser(c *gin.Context, scope string) (service.AuthContext, se
 
 func rawDriveActiveTenant(c *gin.Context, deps Dependencies, csrf bool) (service.CurrentSession, service.TenantAccess, bool) {
 	if deps.DriveService == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"title": "drive service is not configured"})
+		writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusServiceUnavailable, "drive.service_unavailable", "Drive service is not configured."))
 		return service.CurrentSession{}, service.TenantAccess{}, false
 	}
 	cookie, err := c.Cookie(auth.SessionCookieName)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"title": "missing or expired session"})
+		writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusUnauthorized, "drive.session_required", "Missing or expired session."))
 		return service.CurrentSession{}, service.TenantAccess{}, false
 	}
 	csrfToken := ""
@@ -467,9 +467,9 @@ func rawDriveActiveTenant(c *gin.Context, deps Dependencies, csrf bool) (service
 	if requireErr != nil {
 		var statusErr huma.StatusError
 		if errors.As(requireErr, &statusErr) {
-			c.JSON(statusErr.GetStatus(), gin.H{"title": statusErr.Error()})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), statusErr.GetStatus(), "drive.tenant_access_denied", statusErr.Error()))
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"title": "internal server error"})
+			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusInternalServerError, "drive.internal", "Drive request failed. Contact support with the request ID."))
 		}
 		return service.CurrentSession{}, service.TenantAccess{}, false
 	}
@@ -477,27 +477,14 @@ func rawDriveActiveTenant(c *gin.Context, deps Dependencies, csrf bool) (service
 }
 
 func writeRawDriveError(c *gin.Context, err error) {
-	c.JSON(driveStatusCode(err), gin.H{"title": driveErrorTitle(err)})
+	writeRawDriveProblem(c, driveProblemFromError(c.Request.Context(), err))
 }
 
-func driveErrorTitle(err error) string {
-	switch driveStatusCode(err) {
-	case http.StatusBadRequest:
-		return "invalid drive input"
-	case http.StatusServiceUnavailable:
-		return "drive authorization unavailable"
-	case http.StatusForbidden:
-		return "drive permission denied"
-	case http.StatusConflict:
-		if errors.Is(err, service.ErrDriveLocked) {
-			return "drive resource is locked"
-		}
-		return "file quota exceeded"
-	case http.StatusNotFound:
-		return "drive resource not found"
-	default:
-		return "internal server error"
-	}
+func writeRawDriveProblem(c *gin.Context, problem driveProblem) {
+	c.Set("error_type", problem.Type)
+	c.Set("error_code", problem.Code)
+	c.Set("error_detail", problem.Detail)
+	c.JSON(problem.Status, problem)
 }
 
 func writeDriveDownload(c *gin.Context, download service.DriveFileDownload) {

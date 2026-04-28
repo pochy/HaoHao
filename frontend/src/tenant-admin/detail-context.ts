@@ -72,6 +72,17 @@ export function createTenantAdminDetailContext() {
   const driveAiEnabled = ref(false)
   const driveAiTrainingOptOut = ref(true)
   const driveMarketplaceEnabled = ref(false)
+  const driveOcrEnabled = ref(false)
+  const driveOcrEngine = ref('tesseract')
+  const driveOcrLanguages = ref('jpn, eng')
+  const driveStructuredExtractionEnabled = ref(false)
+  const driveStructuredExtractor = ref('rules')
+  const driveOcrMaxPages = ref(20)
+  const driveOcrTimeoutSecondsPerPage = ref(30)
+  const driveOllamaBaseURL = ref('http://127.0.0.1:11434')
+  const driveOllamaModel = ref('')
+  const driveLMStudioBaseURL = ref('http://127.0.0.1:1234')
+  const driveLMStudioModel = ref('')
   const driveEncryptionMode = ref('service_managed')
   const drivePrimaryRegion = ref('global')
   const driveAllowedRegions = ref('global')
@@ -135,6 +146,10 @@ export function createTenantAdminDetailContext() {
       e2ee: driveE2eeEnabled.value ? t('tenantAdmin.status.e2eeOn') : t('tenantAdmin.status.e2eeOff'),
       ai: driveAiEnabled.value ? t('tenantAdmin.status.aiOn') : t('tenantAdmin.status.aiOff'),
       apps: driveMarketplaceEnabled.value ? t('tenantAdmin.status.appsOn') : t('tenantAdmin.status.appsOff'),
+    })],
+    [t('tenantAdmin.policy.ocrExtraction'), t('tenantAdmin.policy.ocrExtractionValue', {
+      ocr: driveOcrEnabled.value ? driveOcrEngine.value : t('common.disabled'),
+      extraction: driveStructuredExtractionEnabled.value ? driveStructuredExtractor.value : t('common.disabled'),
     })],
     [t('tenantAdmin.policy.maxLinkTtl'), t('tenantAdmin.policy.hours', { count: driveMaxLinkTTLHours.value })],
   ])
@@ -258,6 +273,17 @@ export function createTenantAdminDetailContext() {
       fileQuotaBytes.value = 104857600
       browserRateLimit.value = null
       notificationsEnabled.value = true
+      driveOcrEnabled.value = false
+      driveOcrEngine.value = 'tesseract'
+      driveOcrLanguages.value = 'jpn, eng'
+      driveStructuredExtractionEnabled.value = false
+      driveStructuredExtractor.value = 'rules'
+      driveOcrMaxPages.value = 20
+      driveOcrTimeoutSecondsPerPage.value = 30
+      driveOllamaBaseURL.value = 'http://127.0.0.1:11434'
+      driveOllamaModel.value = ''
+      driveLMStudioBaseURL.value = 'http://127.0.0.1:1234'
+      driveLMStudioModel.value = ''
       return
     }
     fileQuotaBytes.value = commonStore.settings.fileQuotaBytes
@@ -306,6 +332,20 @@ export function createTenantAdminDetailContext() {
     driveAiEnabled.value = Boolean(drive.aiEnabled)
     driveAiTrainingOptOut.value = drive.aiTrainingOptOut !== false
     driveMarketplaceEnabled.value = Boolean(drive.marketplaceEnabled)
+    const driveOCR = typeof drive.ocr === 'object' && drive.ocr !== null
+      ? drive.ocr as Record<string, unknown>
+      : {}
+    driveOcrEnabled.value = Boolean(driveOCR.enabled)
+    driveOcrEngine.value = stringValue(driveOCR.ocrEngine, 'tesseract')
+    driveOcrLanguages.value = Array.isArray(driveOCR.ocrLanguages) ? driveOCR.ocrLanguages.join(', ') : 'jpn, eng'
+    driveStructuredExtractionEnabled.value = Boolean(driveOCR.structuredExtractionEnabled)
+    driveStructuredExtractor.value = stringValue(driveOCR.structuredExtractor, 'rules')
+    driveOcrMaxPages.value = numberValue(driveOCR.maxPages, 20)
+    driveOcrTimeoutSecondsPerPage.value = numberValue(driveOCR.timeoutSecondsPerPage, 30)
+    driveOllamaBaseURL.value = stringValue(driveOCR.ollamaBaseURL, 'http://127.0.0.1:11434')
+    driveOllamaModel.value = stringValue(driveOCR.ollamaModel, '')
+    driveLMStudioBaseURL.value = stringValue(driveOCR.lmStudioBaseURL, 'http://127.0.0.1:1234')
+    driveLMStudioModel.value = stringValue(driveOCR.lmStudioModel, '')
     driveEncryptionMode.value = typeof drive.encryptionMode === 'string' ? drive.encryptionMode : 'service_managed'
     drivePrimaryRegion.value = typeof drive.primaryRegion === 'string' ? drive.primaryRegion : 'global'
     driveAllowedRegions.value = Array.isArray(drive.allowedRegions) ? drive.allowedRegions.join(', ') : 'global'
@@ -329,6 +369,14 @@ export function createTenantAdminDetailContext() {
 
   function domainList(value: string) {
     return value.split(',').map((item) => item.trim()).filter(Boolean)
+  }
+
+  function stringValue(value: unknown, fallback: string) {
+    return typeof value === 'string' ? value : fallback
+  }
+
+  function numberValue(value: unknown, fallback: number) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback
   }
 
   function enabledLabel(enabled: boolean) {
@@ -475,6 +523,19 @@ export function createTenantAdminDetailContext() {
             aiEnabled: driveAiEnabled.value,
             aiTrainingOptOut: driveAiTrainingOptOut.value,
             marketplaceEnabled: driveMarketplaceEnabled.value,
+            ocr: {
+              enabled: driveOcrEnabled.value,
+              ocrEngine: driveOcrEngine.value,
+              ocrLanguages: domainList(driveOcrLanguages.value),
+              structuredExtractionEnabled: driveStructuredExtractionEnabled.value,
+              structuredExtractor: driveStructuredExtractor.value,
+              maxPages: driveOcrMaxPages.value,
+              timeoutSecondsPerPage: driveOcrTimeoutSecondsPerPage.value,
+              ollamaBaseURL: driveOllamaBaseURL.value.trim(),
+              ollamaModel: driveOllamaModel.value.trim(),
+              lmStudioBaseURL: driveLMStudioBaseURL.value.trim(),
+              lmStudioModel: driveLMStudioModel.value.trim(),
+            },
             encryptionMode: driveEncryptionMode.value,
             primaryRegion: drivePrimaryRegion.value,
             allowedRegions: domainList(driveAllowedRegions.value),
@@ -742,6 +803,15 @@ export function createTenantAdminDetailContext() {
     driveMobileOfflineEnabled,
     driveOfficeCoauthoringEnabled,
     driveOfflineCacheAllowed,
+    driveOcrEnabled,
+    driveOcrEngine,
+    driveOcrLanguages,
+    driveOcrMaxPages,
+    driveOcrTimeoutSecondsPerPage,
+    driveOllamaBaseURL,
+    driveOllamaModel,
+    driveLMStudioBaseURL,
+    driveLMStudioModel,
     driveOnPremGatewayEnabled,
     drivePasswordLinksEnabled,
     drivePlanCode,
@@ -751,6 +821,8 @@ export function createTenantAdminDetailContext() {
     driveRequireApproval,
     driveRequireLinkPassword,
     driveSearchEnabled,
+    driveStructuredExtractionEnabled,
+    driveStructuredExtractor,
     driveSyncEnabled,
     driveViewerDownloadEnabled,
     errorMessage,

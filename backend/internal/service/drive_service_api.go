@@ -612,7 +612,7 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 		return DriveFile{}, err
 	}
 	if input.Body == nil {
-		return DriveFile{}, fmt.Errorf("%w: file body is required", ErrDriveInvalidInput)
+		return DriveFile{}, NewDriveCodedError(ErrDriveInvalidInput, DriveErrorFileRequired, "File body is required.")
 	}
 	filename := strings.TrimSpace(input.Filename)
 	if filename == "" {
@@ -620,7 +620,7 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 	}
 	filename = normalizeDriveName(filepath.Base(filename))
 	if filename == "" || filename == "." {
-		return DriveFile{}, fmt.Errorf("%w: filename is required", ErrDriveInvalidInput)
+		return DriveFile{}, NewDriveCodedError(ErrDriveInvalidInput, DriveErrorFilenameRequired, "Filename is required.")
 	}
 	contentType := normalizeContentType(input.ContentType)
 	storageKey := newDriveStorageKey(input.TenantID, file.WorkspacePublicID, 1)
@@ -640,7 +640,7 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 	})
 	if err != nil {
 		if errors.Is(err, ErrFileTooLarge) {
-			return DriveFile{}, ErrInvalidFileInput
+			return DriveFile{}, NewDriveCodedError(ErrInvalidFileInput, DriveErrorFileTooLarge, fmt.Sprintf("File exceeds the Drive upload limit of %s.", formatDriveByteLimit(maxBytes)))
 		}
 		return DriveFile{}, err
 	}
@@ -655,7 +655,7 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 			if s.files != nil && s.files.metrics != nil {
 				s.files.metrics.IncFileQuotaExceeded("drive")
 			}
-			return DriveFile{}, ErrFileQuotaExceeded
+			return DriveFile{}, NewDriveCodedError(ErrFileQuotaExceeded, DriveErrorQuotaExceeded, "Tenant file quota is exceeded.")
 		}
 	}
 	updated, err := s.queries.UpdateDriveFileObjectMetadata(ctx, db.UpdateDriveFileObjectMetadataParams{
@@ -697,6 +697,7 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 	s.recordDriveActivityBestEffort(ctx, actor, result.ResourceRef(), "updated", map[string]any{"filename": result.OriginalFilename, "byteSize": result.ByteSize})
 	s.recordDriveFilePreviewStateBestEffort(ctx, result)
 	s.indexDriveFileBestEffort(ctx, result, "content_updated")
+	s.enqueueDriveOCRBestEffort(ctx, actor, result, "overwrite")
 	s.recordDriveSyncEventBestEffort(ctx, result.ResourceRef(), "file.updated", result.SHA256Hex, map[string]any{"filename": result.OriginalFilename})
 	return result, nil
 }
