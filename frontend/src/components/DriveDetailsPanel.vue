@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { FileText, Info, Lock, RefreshCw, ShieldCheck, X } from 'lucide-vue-next'
+import { FileText, Info, Lock, ShieldCheck, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import type { DriveActivityBody, DriveFolderBody, DriveItemBody, DriveOcrOutputBody, DrivePermissionsBody, DriveProductExtractionItemBody } from '../api/generated/types.gen'
+import type { DriveOcrActionStatus } from '../utils/driveOcrStatus'
 import {
   driveItemContentType,
   driveItemName,
@@ -12,7 +13,9 @@ import {
   formatDriveDate,
   formatDriveSize,
 } from '../utils/driveItems'
+import DriveOCRRunStatus from './DriveOCRRunStatus.vue'
 import DriveOCRTextViewer from './DriveOCRTextViewer.vue'
+import DriveProductExtractionStatus from './DriveProductExtractionStatus.vue'
 import DriveProductExtractionTable from './DriveProductExtractionTable.vue'
 
 const props = defineProps<{
@@ -23,6 +26,12 @@ const props = defineProps<{
   ocrResult: DriveOcrOutputBody | null
   productExtractionItems: DriveProductExtractionItemBody[]
   ocrLoading: boolean
+  ocrActionStatus: DriveOcrActionStatus
+  ocrActionResourceId: string
+  ocrErrorMessage: string
+  productExtractionActionStatus: DriveOcrActionStatus
+  productExtractionActionResourceId: string
+  productExtractionErrorMessage: string
   busyResourceId: string
   activities: DriveActivityBody[]
   itemCount: number
@@ -34,6 +43,7 @@ const emit = defineEmits<{
   close: []
   shareItem: [item: DriveItemBody]
   requestOcr: [filePublicId: string]
+  requestProductExtraction: [filePublicId: string]
 }>()
 
 const { t } = useI18n()
@@ -49,6 +59,27 @@ const selectedTags = computed(() => props.selectedItem?.tags ?? [])
 const selectedFile = computed(() => props.selectedItem?.file ?? null)
 const ocrRun = computed(() => props.ocrResult?.run ?? null)
 const ocrPages = computed(() => props.ocrResult?.pages ?? [])
+const ocrActionApplies = computed(() => Boolean(selectedFile.value && props.ocrActionResourceId === selectedFile.value.publicId))
+const ocrFactStatusLabel = computed(() => {
+  if (ocrActionApplies.value) {
+    switch (props.ocrActionStatus) {
+      case 'requesting':
+        return t('drive.ocrStatus.requesting')
+      case 'queued':
+        return t('drive.ocrStatus.pending')
+      case 'polling':
+        return t('drive.ocrStatus.running')
+      case 'succeeded':
+        return t('drive.ocrStatus.completed')
+      case 'failed':
+        return t('drive.ocrStatus.failed')
+    }
+  }
+  if (ocrRun.value) {
+    return t(`drive.ocrStatus.${ocrRun.value.status}`)
+  }
+  return props.ocrLoading ? t('drive.ocrStatus.loading') : t('drive.ocrStatus.notRun')
+})
 </script>
 
 <template>
@@ -174,21 +205,31 @@ const ocrPages = computed(() => props.ocrResult?.pages ?? [])
 
     <div v-else class="drive-details-section">
       <div v-if="selectedFile" class="drive-metadata-stack">
-        <div class="action-row">
-          <button
-            class="secondary-button compact-button"
-            type="button"
-            :disabled="ocrLoading || busyResourceId === selectedFile.publicId"
-            @click="emit('requestOcr', selectedFile.publicId)"
-          >
-            <RefreshCw :size="15" stroke-width="1.9" aria-hidden="true" />
-            {{ t('drive.ocrRerun') }}
-          </button>
-        </div>
+        <DriveOCRRunStatus
+          :run="ocrRun"
+          :loading="ocrLoading"
+          :file-public-id="selectedFile.publicId"
+          :busy-resource-id="busyResourceId"
+          :action-status="ocrActionStatus"
+          :action-resource-id="ocrActionResourceId"
+          :error-message="ocrErrorMessage"
+          @request-ocr="emit('requestOcr', selectedFile.publicId)"
+        />
+        <DriveProductExtractionStatus
+          :run="ocrRun"
+          :items="productExtractionItems"
+          :loading="ocrLoading"
+          :file-public-id="selectedFile.publicId"
+          :busy-resource-id="busyResourceId"
+          :action-status="productExtractionActionStatus"
+          :action-resource-id="productExtractionActionResourceId"
+          :error-message="productExtractionErrorMessage"
+          @request-extraction="emit('requestProductExtraction', selectedFile.publicId)"
+        />
         <dl class="metadata-grid compact">
           <div>
             <dt>{{ t('common.status') }}</dt>
-            <dd>{{ ocrRun?.status || (ocrLoading ? t('common.loading') : t('drive.ocrNotRun')) }}</dd>
+            <dd>{{ ocrFactStatusLabel }}</dd>
           </div>
           <div v-if="ocrRun">
             <dt>{{ t('drive.ocrEngine') }}</dt>

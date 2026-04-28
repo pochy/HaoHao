@@ -7,7 +7,6 @@ import {
   FileText,
   Info,
   Lock,
-  RefreshCw,
   Share2,
   ShieldCheck,
   Tags,
@@ -23,6 +22,8 @@ import type {
   DrivePermissionsBody,
   DriveProductExtractionItemBody,
 } from '../api/generated/types.gen'
+import type { DriveOcrActionStatus } from '../utils/driveOcrStatus'
+import { driveOcrToneFromStatus } from '../utils/driveOcrStatus'
 import {
   driveItemContentType,
   driveItemKind,
@@ -33,7 +34,9 @@ import {
   formatDriveSize,
 } from '../utils/driveItems'
 import DriveFileTypeIcon from './DriveFileTypeIcon.vue'
+import DriveOCRRunStatus from './DriveOCRRunStatus.vue'
 import DriveOCRTextViewer from './DriveOCRTextViewer.vue'
+import DriveProductExtractionStatus from './DriveProductExtractionStatus.vue'
 import DriveProductExtractionTable from './DriveProductExtractionTable.vue'
 
 const props = defineProps<{
@@ -42,6 +45,12 @@ const props = defineProps<{
   ocrResult: DriveOcrOutputBody | null
   productExtractionItems: DriveProductExtractionItemBody[]
   ocrLoading: boolean
+  ocrActionStatus: DriveOcrActionStatus
+  ocrActionResourceId: string
+  ocrErrorMessage: string
+  productExtractionActionStatus: DriveOcrActionStatus
+  productExtractionActionResourceId: string
+  productExtractionErrorMessage: string
   busyResourceId: string
   activities: DriveActivityBody[]
 }>()
@@ -54,6 +63,7 @@ const emit = defineEmits<{
   previewItem: [item: DriveItemBody]
   shareItem: [item: DriveItemBody]
   requestOcr: [filePublicId: string]
+  requestProductExtraction: [filePublicId: string]
 }>()
 
 const { t } = useI18n()
@@ -81,6 +91,32 @@ const previewKind = computed(() => {
 })
 const ocrRun = computed(() => props.ocrResult?.run ?? null)
 const ocrPages = computed(() => props.ocrResult?.pages ?? [])
+const ocrRunStatusLabel = computed(() => (ocrRun.value ? t(`drive.ocrStatus.${ocrRun.value.status}`) : ''))
+const ocrActionApplies = computed(() => Boolean(file.value && props.ocrActionResourceId === file.value.publicId))
+const ocrFactStatusLabel = computed(() => {
+  if (ocrActionApplies.value) {
+    switch (props.ocrActionStatus) {
+      case 'requesting':
+        return t('drive.ocrStatus.requesting')
+      case 'queued':
+        return t('drive.ocrStatus.pending')
+      case 'polling':
+        return t('drive.ocrStatus.running')
+      case 'succeeded':
+        return t('drive.ocrStatus.completed')
+      case 'failed':
+        return t('drive.ocrStatus.failed')
+    }
+  }
+  if (ocrRun.value) {
+    return ocrRunStatusLabel.value
+  }
+  return props.ocrLoading ? t('drive.ocrStatus.loading') : t('drive.ocrStatus.notRun')
+})
+const ocrRunStatusClass = computed(() => {
+  const tone = driveOcrToneFromStatus(ocrRun.value?.status)
+  return tone === 'neutral' ? '' : tone
+})
 const directPermissions = computed(() => props.permissions?.direct ?? [])
 const inheritedPermissions = computed(() => props.permissions?.inherited ?? [])
 const selectedTags = computed(() => props.selectedItem?.tags ?? [])
@@ -99,7 +135,6 @@ const selectedDescription = computed(() => (
   || ocrSummary.value
   || ''
 ))
-const isBusy = computed(() => Boolean(file.value && props.busyResourceId === file.value.publicId))
 const statusClass = computed(() => {
   if (file.value?.locked || file.value?.dlpBlocked || file.value?.status === 'blocked') {
     return 'danger'
@@ -183,7 +218,7 @@ const productFacts = computed(() => {
       <div class="drive-file-detail-info">
         <div class="drive-file-detail-title-row">
           <span class="status-pill" :class="statusClass">{{ file.status }}</span>
-          <span v-if="ocrRun" class="status-pill">{{ ocrRun.status }}</span>
+          <span v-if="ocrRun" class="status-pill" :class="ocrRunStatusClass">{{ ocrRunStatusLabel }}</span>
         </div>
 
         <h1>{{ title }}</h1>
@@ -301,20 +336,32 @@ const productFacts = computed(() => {
         <div v-else class="drive-file-detail-tab-panel">
           <div class="drive-file-detail-section-heading">
             <h2>{{ t('drive.ocr') }}</h2>
-            <button
-              class="secondary-button compact-button"
-              type="button"
-              :disabled="ocrLoading || isBusy"
-              @click="emit('requestOcr', file.publicId)"
-            >
-              <RefreshCw :size="15" stroke-width="1.9" aria-hidden="true" />
-              {{ t('drive.ocrRerun') }}
-            </button>
           </div>
+          <DriveOCRRunStatus
+            :run="ocrRun"
+            :loading="ocrLoading"
+            :file-public-id="file.publicId"
+            :busy-resource-id="busyResourceId"
+            :action-status="ocrActionStatus"
+            :action-resource-id="ocrActionResourceId"
+            :error-message="ocrErrorMessage"
+            @request-ocr="emit('requestOcr', file.publicId)"
+          />
+          <DriveProductExtractionStatus
+            :run="ocrRun"
+            :items="productExtractionItems"
+            :loading="ocrLoading"
+            :file-public-id="file.publicId"
+            :busy-resource-id="busyResourceId"
+            :action-status="productExtractionActionStatus"
+            :action-resource-id="productExtractionActionResourceId"
+            :error-message="productExtractionErrorMessage"
+            @request-extraction="emit('requestProductExtraction', file.publicId)"
+          />
           <dl class="drive-file-detail-inline-facts">
             <div>
               <dt>{{ t('common.status') }}</dt>
-              <dd>{{ ocrRun?.status || (ocrLoading ? t('common.loading') : t('drive.ocrNotRun')) }}</dd>
+              <dd>{{ ocrFactStatusLabel }}</dd>
             </div>
             <div>
               <dt>{{ t('drive.ocrEngine') }}</dt>

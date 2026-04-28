@@ -2537,6 +2537,38 @@ components:
         - attributes
         - createdAt
       type: object
+    DriveProductExtractionJobBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveProductExtractionJobBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        extractor:
+          type: string
+        filePublicId:
+          type: string
+        itemCount:
+          format: int64
+          type: integer
+        ocrRunPublicId:
+          type: string
+        status:
+          type: string
+      required:
+        - filePublicId
+        - ocrRunPublicId
+        - extractor
+        - status
+        - itemCount
+        - createdAt
+      type: object
     DriveProductExtractionsOutputBody:
       additionalProperties: false
       properties:
@@ -10371,6 +10403,43 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive file product extraction items を返す
+      tags:
+        - drive-ocr
+  /api/v1/drive/files/{filePublicId}/product-extractions/jobs:
+    post:
+      operationId: createDriveProductExtractionJob
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveProductExtractionJobBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive file product extraction job を作成する
       tags:
         - drive-ocr
   /api/v1/drive/files/{filePublicId}/restore:

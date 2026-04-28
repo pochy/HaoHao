@@ -4,6 +4,7 @@ import {
   addDriveGroupMemberItem,
   copyDriveItem,
   createDriveOCRJobItem,
+  createDriveProductExtractionJobItem,
   createDriveFolderItem,
   createDriveGroupItem,
   createDriveShareInvitationItem,
@@ -51,6 +52,12 @@ import {
 } from '../api/drive'
 import { toApiErrorMessage } from '../api/client'
 import { presentDriveActionError, presentDriveUploadError } from '../utils/driveErrors'
+import {
+  driveOcrActionStatusFromRunStatus,
+  isDriveOcrActiveStatus,
+  isDriveOcrTerminalStatus,
+  type DriveOcrActionStatus,
+} from '../utils/driveOcrStatus'
 import type {
   DriveFileBody,
   DriveActivityBody,
@@ -89,6 +96,18 @@ export type DriveUploadQueueItem = {
   errorAction: string
   errorRequestId: string
   retryable: boolean
+}
+
+const OCR_POLL_INTERVAL_MS = 2500
+const OCR_PRODUCT_FOLLOWUP_POLLS = 6
+let ocrPollTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearOCRPollTimer() {
+  if (!ocrPollTimer) {
+    return
+  }
+  clearTimeout(ocrPollTimer)
+  ocrPollTimer = null
 }
 
 const rootFolder: DriveFolderBody = {
@@ -152,6 +171,14 @@ export const useDriveStore = defineStore('drive', {
     ocrResult: null as DriveOcrOutputBody | null,
     productExtractionItems: [] as DriveProductExtractionItemBody[],
     ocrLoading: false,
+    ocrActionStatus: 'idle' as DriveOcrActionStatus,
+    ocrActionResourceId: '',
+    ocrErrorMessage: '',
+    ocrPollingResourceId: '',
+    ocrProductFollowupPolls: 0,
+    productExtractionActionStatus: 'idle' as DriveOcrActionStatus,
+    productExtractionActionResourceId: '',
+    productExtractionErrorMessage: '',
     groups: [] as DriveGroupBody[],
     currentGroup: null as DriveGroupBody | null,
     invitations: [] as DriveShareInvitationBody[],
@@ -176,12 +203,29 @@ export const useDriveStore = defineStore('drive', {
   },
 
   actions: {
+    clearOCRPolling() {
+      clearOCRPollTimer()
+      this.ocrPollingResourceId = ''
+      this.ocrProductFollowupPolls = 0
+    },
+
+    clearOCRActionState() {
+      this.clearOCRPolling()
+      this.ocrActionStatus = 'idle'
+      this.ocrActionResourceId = ''
+      this.ocrErrorMessage = ''
+      this.productExtractionActionStatus = 'idle'
+      this.productExtractionActionResourceId = ''
+      this.productExtractionErrorMessage = ''
+    },
+
     resetSelection() {
       this.selectedItem = null
       this.selectedResource = null
       this.permissions = null
       this.ocrResult = null
       this.productExtractionItems = []
+      this.clearOCRActionState()
       this.lastRawShareLink = null
       this.activityItems = []
     },
@@ -812,6 +856,7 @@ export const useDriveStore = defineStore('drive', {
 
     async selectItem(item: DriveItemBody) {
       const resource = resourceFromDriveItem(item)
+      this.clearOCRActionState()
       this.selectedItem = item
       this.selectedResource = resource
       this.lastRawShareLink = null
@@ -819,17 +864,21 @@ export const useDriveStore = defineStore('drive', {
         await this.loadPermissions(resource)
         await this.loadActivity(resource)
         await this.loadOCR(resource)
+        this.syncOCRPollingForResource(resource)
       }
     },
 
-    async loadOCR(resource?: DriveResourceRef | null) {
+    async loadOCR(resource?: DriveResourceRef | null, options: { showLoading?: boolean } = {}) {
       const target = resource ?? this.selectedResource
       if (!target || target.type !== 'file') {
         this.ocrResult = null
         this.productExtractionItems = []
         return
       }
-      this.ocrLoading = true
+      const showLoading = options.showLoading ?? true
+      if (showLoading) {
+        this.ocrLoading = true
+      }
       try {
         const [ocr, products] = await Promise.all([
           fetchDriveOCR(target.publicId).catch(() => null),
@@ -838,22 +887,133 @@ export const useDriveStore = defineStore('drive', {
         this.ocrResult = ocr
         this.productExtractionItems = products
       } finally {
-        this.ocrLoading = false
+        if (showLoading) {
+          this.ocrLoading = false
+        }
       }
     },
 
     async requestOCR(file: DriveFileBody) {
+      this.clearOCRPolling()
+      this.ocrActionStatus = 'requesting'
+      this.ocrActionResourceId = file.publicId
+      this.ocrErrorMessage = ''
+      this.productExtractionActionStatus = 'idle'
+      this.productExtractionActionResourceId = ''
+      this.productExtractionErrorMessage = ''
       this.busyResourceId = file.publicId
       this.errorMessage = ''
       try {
         const job = await createDriveOCRJobItem(file.publicId)
-        await this.loadOCR({ type: 'file', publicId: file.publicId })
+        this.ocrActionStatus = driveOcrActionStatusFromRunStatus(job.status)
+        if (this.selectedResource?.type === 'file' && this.selectedResource.publicId === file.publicId) {
+          await this.loadOCR({ type: 'file', publicId: file.publicId }, { showLoading: false })
+          const status = this.ocrResult?.run.status || job.status
+          this.ocrActionStatus = driveOcrActionStatusFromRunStatus(status)
+          if (!isDriveOcrTerminalStatus(status)) {
+            this.startOCRPolling(file.publicId)
+          }
+        }
         return job
       } catch (error) {
-        this.errorMessage = presentDriveActionError(error)
+        const message = presentDriveActionError(error)
+        this.ocrActionStatus = 'failed'
+        this.ocrErrorMessage = message
+        this.errorMessage = message
         throw error
       } finally {
         this.busyResourceId = ''
+      }
+    },
+
+    async requestProductExtraction(file: DriveFileBody) {
+      this.productExtractionActionStatus = 'requesting'
+      this.productExtractionActionResourceId = file.publicId
+      this.productExtractionErrorMessage = ''
+      this.busyResourceId = file.publicId
+      this.errorMessage = ''
+      try {
+        this.productExtractionActionStatus = 'polling'
+        await createDriveProductExtractionJobItem(file.publicId)
+        if (this.selectedResource?.type === 'file' && this.selectedResource.publicId === file.publicId) {
+          await this.loadOCR({ type: 'file', publicId: file.publicId }, { showLoading: false })
+        }
+        this.productExtractionActionStatus = 'succeeded'
+      } catch (error) {
+        const message = presentDriveActionError(error)
+        this.productExtractionActionStatus = 'failed'
+        this.productExtractionErrorMessage = message
+        this.errorMessage = message
+        throw error
+      } finally {
+        this.busyResourceId = ''
+      }
+    },
+
+    syncOCRPollingForResource(resource?: DriveResourceRef | null) {
+      if (!resource || resource.type !== 'file') {
+        this.clearOCRPolling()
+        return
+      }
+      const status = this.ocrResult?.run.status
+      if (isDriveOcrActiveStatus(status)) {
+        this.ocrActionResourceId = resource.publicId
+        this.ocrActionStatus = driveOcrActionStatusFromRunStatus(status)
+        this.ocrErrorMessage = ''
+        this.startOCRPolling(resource.publicId)
+        return
+      }
+      this.clearOCRPolling()
+      if (this.ocrActionResourceId === resource.publicId && status) {
+        this.ocrActionStatus = driveOcrActionStatusFromRunStatus(status)
+      }
+    },
+
+    startOCRPolling(filePublicId: string) {
+      this.clearOCRPolling()
+      this.ocrPollingResourceId = filePublicId
+      this.ocrActionResourceId = filePublicId
+      this.ocrActionStatus = 'polling'
+      this.scheduleOCRPoll(filePublicId)
+    },
+
+    scheduleOCRPoll(filePublicId: string) {
+      clearOCRPollTimer()
+      ocrPollTimer = setTimeout(() => {
+        void this.pollOCR(filePublicId)
+      }, OCR_POLL_INTERVAL_MS)
+    },
+
+    async pollOCR(filePublicId: string) {
+      if (this.ocrPollingResourceId !== filePublicId) {
+        return
+      }
+      if (this.selectedResource?.type !== 'file' || this.selectedResource.publicId !== filePublicId) {
+        this.clearOCRPolling()
+        return
+      }
+      this.ocrActionStatus = 'polling'
+      try {
+        await this.loadOCR({ type: 'file', publicId: filePublicId }, { showLoading: false })
+        const status = this.ocrResult?.run.status
+        if (status) {
+          this.ocrActionStatus = driveOcrActionStatusFromRunStatus(status)
+        }
+        if (status === 'completed' && this.productExtractionItems.length === 0 && this.ocrProductFollowupPolls < OCR_PRODUCT_FOLLOWUP_POLLS) {
+          this.ocrActionStatus = 'polling'
+          this.ocrProductFollowupPolls += 1
+          this.scheduleOCRPoll(filePublicId)
+          return
+        }
+        if (isDriveOcrTerminalStatus(status)) {
+          this.clearOCRPolling()
+          return
+        }
+        this.scheduleOCRPoll(filePublicId)
+      } catch (error) {
+        this.ocrActionStatus = 'failed'
+        this.ocrErrorMessage = presentDriveActionError(error)
+        this.clearOCRPolling()
       }
     },
 

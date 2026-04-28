@@ -1061,6 +1061,19 @@ export type DriveProductExtractionItemBody = {
     sourceText: string;
 };
 
+export type DriveProductExtractionJobBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    createdAt: string;
+    extractor: string;
+    filePublicId: string;
+    itemCount: number;
+    ocrRunPublicId: string;
+    status: string;
+};
+
 export type DriveProductExtractionsOutputBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -2623,6 +2636,15 @@ export type DriveOwnerTransferBodyWritable = {
 export type DrivePermissionsBodyWritable = {
     direct: Array<DrivePermissionBody> | null;
     inherited: Array<DrivePermissionBody> | null;
+};
+
+export type DriveProductExtractionJobBodyWritable = {
+    createdAt: string;
+    extractor: string;
+    filePublicId: string;
+    itemCount: number;
+    ocrRunPublicId: string;
+    status: string;
 };
 
 export type DriveProductExtractionsOutputBodyWritable = {
@@ -6592,6 +6614,36 @@ export type ListDriveProductExtractionsResponses = {
 };
 
 export type ListDriveProductExtractionsResponse = ListDriveProductExtractionsResponses[keyof ListDriveProductExtractionsResponses];
+
+export type CreateDriveProductExtractionJobData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/product-extractions/jobs';
+};
+
+export type CreateDriveProductExtractionJobErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDriveProductExtractionJobError = CreateDriveProductExtractionJobErrors[keyof CreateDriveProductExtractionJobErrors];
+
+export type CreateDriveProductExtractionJobResponses = {
+    /**
+     * OK
+     */
+    200: DriveProductExtractionJobBody;
+};
+
+export type CreateDriveProductExtractionJobResponse = CreateDriveProductExtractionJobResponses[keyof CreateDriveProductExtractionJobResponses];
 
 export type RestoreDriveFileData = {
     body: RestoreDriveResourceBodyWritable;

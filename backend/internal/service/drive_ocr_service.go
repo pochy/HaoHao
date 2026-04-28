@@ -298,6 +298,61 @@ func (s *DriveOCRService) ListProductExtractions(ctx context.Context, tenantID, 
 	return items, nil
 }
 
+func (s *DriveOCRService) RequestProductExtraction(ctx context.Context, tenantID, actorUserID int64, filePublicID string, auditCtx AuditContext) (DriveOCRRun, []DriveProductExtractionItem, error) {
+	if err := s.ensureConfigured(); err != nil {
+		return DriveOCRRun{}, nil, err
+	}
+	actor, file, err := s.fileForActor(ctx, tenantID, actorUserID, filePublicID)
+	if err != nil {
+		return DriveOCRRun{}, nil, err
+	}
+	if err := s.drive.authz.CanEditFile(ctx, actor, file); err != nil {
+		s.drive.auditDenied(ctx, actor, "drive.product_extraction.job.create", "drive_file", file.PublicID, err, auditCtx)
+		return DriveOCRRun{}, nil, err
+	}
+	policy, err := s.driveOCRPolicy(ctx, tenantID)
+	if err != nil {
+		return DriveOCRRun{}, nil, err
+	}
+	if !policy.Enabled || !policy.StructuredExtractionEnabled {
+		return DriveOCRRun{}, nil, ErrDrivePolicyDenied
+	}
+	row, err := s.queries.GetLatestDriveOCRRunForFile(ctx, db.GetLatestDriveOCRRunForFileParams{TenantID: tenantID, FileObjectID: file.ID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DriveOCRRun{}, nil, fmt.Errorf("%w: OCR must complete before product extraction", ErrDriveInvalidInput)
+	}
+	if err != nil {
+		return DriveOCRRun{}, nil, fmt.Errorf("get latest drive ocr run: %w", err)
+	}
+	run := driveOCRRunFromDB(row, file.PublicID)
+	if run.Status != "completed" {
+		return DriveOCRRun{}, nil, fmt.Errorf("%w: OCR must complete before product extraction", ErrDriveInvalidInput)
+	}
+	pageRows, err := s.queries.ListDriveOCRPages(ctx, db.ListDriveOCRPagesParams{TenantID: tenantID, OcrRunID: row.ID})
+	if err != nil {
+		return DriveOCRRun{}, nil, fmt.Errorf("list drive ocr pages: %w", err)
+	}
+	pages := make([]DriveOCRPageResult, 0, len(pageRows))
+	for _, page := range pageRows {
+		pages = append(pages, DriveOCRPageResult{
+			PageNumber:        int(page.PageNumber),
+			RawText:           page.RawText,
+			AverageConfidence: floatFromPgNumeric(page.AverageConfidence),
+			LayoutJSON:        append([]byte{}, page.LayoutJson...),
+			BoxesJSON:         append([]byte{}, page.BoxesJson...),
+		})
+	}
+	if err := s.replaceProductItems(ctx, policy, run, file, DriveOCRProviderResult{Pages: pages, FullText: run.ExtractedText, AverageConfidence: run.AverageConfidence}); err != nil {
+		return DriveOCRRun{}, nil, fmt.Errorf("extract drive product items: %w", err)
+	}
+	items, err := s.ListProductExtractions(ctx, tenantID, actorUserID, filePublicID)
+	if err != nil {
+		return DriveOCRRun{}, nil, err
+	}
+	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.product_extraction.job.create", file.PublicID, map[string]any{"ocrRunPublicId": run.PublicID})
+	return run, items, nil
+}
+
 func (s *DriveOCRService) RuntimeStatus(ctx context.Context, tenantID int64) (DriveOCRRuntimeStatus, error) {
 	policy, err := s.driveOCRPolicy(ctx, tenantID)
 	if err != nil {

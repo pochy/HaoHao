@@ -12,6 +12,7 @@ import {
   createDriveFolderShareLink,
   createDriveGroup,
   createDriveOcrJob,
+  createDriveProductExtractionJob,
   createDriveWorkspace,
   deleteDriveFile,
   deleteDriveFileShare,
@@ -79,6 +80,7 @@ import type {
   DriveItemBody,
   DriveOcrJobBody,
   DriveOcrOutputBody,
+  DriveProductExtractionJobBody,
   DrivePermissionsBody,
   DriveProductExtractionItemBody,
   DriveShareBody,
@@ -417,6 +419,13 @@ export async function createDriveOCRJobItem(filePublicId: string): Promise<Drive
     headers: csrfHeaders(),
     path: { filePublicId },
   }) as unknown as Promise<DriveOcrJobBody>
+}
+
+export async function createDriveProductExtractionJobItem(filePublicId: string): Promise<DriveProductExtractionJobBody> {
+  return createDriveProductExtractionJob({
+    headers: csrfHeaders(),
+    path: { filePublicId },
+  }) as unknown as Promise<DriveProductExtractionJobBody>
 }
 
 export async function fetchDriveOCR(filePublicId: string): Promise<DriveOcrOutputBody> {

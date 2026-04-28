@@ -2442,6 +2442,62 @@ code {
   background: #fff;
 }
 
+.drive-ocr-run-status {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.drive-ocr-run-status.success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.drive-ocr-run-status.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.drive-ocr-run-status.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.drive-ocr-run-status-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.drive-ocr-run-status-copy p {
+  margin: 0;
+  color: var(--text);
+}
+
+.drive-ocr-run-status-copy strong {
+  color: var(--text-strong);
+}
+
+.drive-ocr-run-status-copy .cell-subtle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.drive-ocr-run-status-copy .error-message {
+  color: var(--danger);
+}
+
+.drive-ocr-run-status .secondary-button {
+  flex: 0 0 auto;
+}
+
 .drive-product-table {
   max-width: 100%;
   overflow: auto;
@@ -2919,6 +2975,15 @@ code {
   .drive-file-detail-inline-facts,
   .drive-file-detail-product-list article {
     grid-template-columns: 1fr;
+  }
+
+  .drive-ocr-run-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .drive-ocr-run-status .secondary-button {
+    width: 100%;
   }
 
   .drive-ocr-text-controls {

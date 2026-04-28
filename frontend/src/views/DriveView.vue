@@ -871,6 +871,19 @@ async function requestOCR(filePublicId: string) {
   }
 }
 
+async function requestProductExtraction(filePublicId: string) {
+  const file = driveStore.selectedItem?.file
+  if (!file || file.publicId !== filePublicId) {
+    return
+  }
+  try {
+    await driveStore.requestProductExtraction(file)
+    actionMessage.value = t('drive.productExtractionRequested')
+  } catch (error) {
+    actionErrorMessage.value = toApiErrorMessage(error)
+  }
+}
+
 async function search(query: string) {
   driveStore.setQuery(query)
   if (!query) {
@@ -1058,6 +1071,12 @@ async function toggleStar(item: DriveItemBody) {
         :ocr-result="driveStore.ocrResult"
         :product-extraction-items="driveStore.productExtractionItems"
         :ocr-loading="driveStore.ocrLoading"
+        :ocr-action-status="driveStore.ocrActionStatus"
+        :ocr-action-resource-id="driveStore.ocrActionResourceId"
+        :ocr-error-message="driveStore.ocrErrorMessage"
+        :product-extraction-action-status="driveStore.productExtractionActionStatus"
+        :product-extraction-action-resource-id="driveStore.productExtractionActionResourceId"
+        :product-extraction-error-message="driveStore.productExtractionErrorMessage"
         :busy-resource-id="driveStore.busyResourceId"
         :activities="driveStore.activityItems"
         @download-file="downloadFile"
@@ -1067,6 +1086,7 @@ async function toggleStar(item: DriveItemBody) {
         @preview-item="openPreviewDialog"
         @share-item="openShareDialog"
         @request-ocr="requestOCR"
+        @request-product-extraction="requestProductExtraction"
       />
       <input ref="overwriteInput" class="drive-hidden-input" type="file" @change="onOverwriteFileChange">
     </div>
@@ -1225,6 +1245,12 @@ async function toggleStar(item: DriveItemBody) {
         :ocr-result="driveStore.ocrResult"
         :product-extraction-items="driveStore.productExtractionItems"
         :ocr-loading="driveStore.ocrLoading"
+        :ocr-action-status="driveStore.ocrActionStatus"
+        :ocr-action-resource-id="driveStore.ocrActionResourceId"
+        :ocr-error-message="driveStore.ocrErrorMessage"
+        :product-extraction-action-status="driveStore.productExtractionActionStatus"
+        :product-extraction-action-resource-id="driveStore.productExtractionActionResourceId"
+        :product-extraction-error-message="driveStore.productExtractionErrorMessage"
         :busy-resource-id="driveStore.busyResourceId"
         :activities="driveStore.activityItems"
         :item-count="itemCount"
@@ -1233,6 +1259,7 @@ async function toggleStar(item: DriveItemBody) {
         @close="closeDetailsPanel"
         @share-item="openShareDialog"
         @request-ocr="requestOCR"
+        @request-product-extraction="requestProductExtraction"
       />
     </template>
   </DriveWorkspaceLayout>

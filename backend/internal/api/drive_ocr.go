@@ -90,6 +90,19 @@ type DriveProductExtractionsOutput struct {
 	}
 }
 
+type DriveProductExtractionJobBody struct {
+	FilePublicID   string    `json:"filePublicId"`
+	OCRRunPublicID string    `json:"ocrRunPublicId"`
+	Extractor      string    `json:"extractor"`
+	Status         string    `json:"status"`
+	ItemCount      int       `json:"itemCount"`
+	CreatedAt      time.Time `json:"createdAt" format:"date-time"`
+}
+
+type DriveProductExtractionJobOutput struct {
+	Body DriveProductExtractionJobBody
+}
+
 func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{
 		OperationID: "createDriveOCRJob",
@@ -170,6 +183,35 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 			out.Body.Items = append(out.Body.Items, toDriveProductExtractionItemBody(item))
 		}
 		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "createDriveProductExtractionJob",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/drive/files/{filePublicId}/product-extractions/jobs",
+		Tags:        []string{"drive-ocr"},
+		Summary:     "Drive file product extraction job を作成する",
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *CreateDriveOCRJobInput) (*DriveProductExtractionJobOutput, error) {
+		if deps.DriveOCRService == nil {
+			return nil, huma.Error503ServiceUnavailable("drive ocr service is not configured")
+		}
+		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		run, items, err := deps.DriveOCRService.RequestProductExtraction(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		return &DriveProductExtractionJobOutput{Body: DriveProductExtractionJobBody{
+			FilePublicID:   run.FilePublicID,
+			OCRRunPublicID: run.PublicID,
+			Extractor:      run.StructuredExtractor,
+			Status:         "completed",
+			ItemCount:      len(items),
+			CreatedAt:      time.Now(),
+		}}, nil
 	})
 }
 
