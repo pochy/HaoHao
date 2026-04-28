@@ -49,7 +49,7 @@ export function createTenantAdminDetailContext() {
   const driveBlockShareUntilScanComplete = ref(true)
   const driveDlpEnabled = ref(false)
   const drivePlanCode = ref('standard')
-  const driveMaxFileSizeBytes = ref(10485760)
+  const driveMaxFileSizeBytes = ref(104857600)
   const driveMaxWorkspaceCount = ref(25)
   const driveMaxPublicLinkCount = ref(1000)
   const driveM2MApiEnabled = ref(false)
@@ -309,7 +309,7 @@ export function createTenantAdminDetailContext() {
     driveBlockShareUntilScanComplete.value = drive.blockShareUntilScanComplete !== false
     driveDlpEnabled.value = Boolean(drive.dlpEnabled)
     drivePlanCode.value = typeof drive.planCode === 'string' ? drive.planCode : 'standard'
-    driveMaxFileSizeBytes.value = typeof drive.maxFileSizeBytes === 'number' ? drive.maxFileSizeBytes : 10485760
+    driveMaxFileSizeBytes.value = typeof drive.maxFileSizeBytes === 'number' ? drive.maxFileSizeBytes : 104857600
     driveMaxWorkspaceCount.value = typeof drive.maxWorkspaceCount === 'number' ? drive.maxWorkspaceCount : 25
     driveMaxPublicLinkCount.value = typeof drive.maxPublicLinkCount === 'number' ? drive.maxPublicLinkCount : 1000
     driveM2MApiEnabled.value = Boolean(drive.m2mDriveAPIEnabled)

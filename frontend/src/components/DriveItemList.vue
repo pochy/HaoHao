@@ -25,6 +25,7 @@ defineProps<{
 
 const emit = defineEmits<{
   openFolder: [folderPublicId: string]
+  openFile: [filePublicId: string]
   downloadFile: [file: DriveFileBody]
   renameItem: [item: DriveItemBody]
   moveItem: [item: DriveItemBody]
@@ -82,6 +83,14 @@ const { t } = useI18n()
           class="drive-name-button"
           type="button"
           @click="emit('openFolder', item.folder.publicId)"
+        >
+          {{ driveItemName(item) }}
+        </button>
+        <button
+          v-else-if="item.file && !trashMode"
+          class="drive-name-button"
+          type="button"
+          @click="emit('openFile', item.file.publicId)"
         >
           {{ driveItemName(item) }}
         </button>

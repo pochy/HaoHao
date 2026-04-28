@@ -12,6 +12,8 @@ import {
   formatDriveDate,
   formatDriveSize,
 } from '../utils/driveItems'
+import DriveOCRTextViewer from './DriveOCRTextViewer.vue'
+import DriveProductExtractionTable from './DriveProductExtractionTable.vue'
 
 const props = defineProps<{
   open: boolean
@@ -47,14 +49,6 @@ const selectedTags = computed(() => props.selectedItem?.tags ?? [])
 const selectedFile = computed(() => props.selectedItem?.file ?? null)
 const ocrRun = computed(() => props.ocrResult?.run ?? null)
 const ocrPages = computed(() => props.ocrResult?.pages ?? [])
-
-function extractionPrice(item: DriveProductExtractionItemBody) {
-  const amount = item.price?.amount
-  if (typeof amount === 'number' || typeof amount === 'string') {
-    return `¥${amount}`
-  }
-  return ''
-}
 </script>
 
 <template>
@@ -220,25 +214,13 @@ function extractionPrice(item: DriveProductExtractionItemBody) {
 
         <div>
           <h3>{{ t('drive.ocrText') }}</h3>
-          <p v-if="ocrPages.length === 0" class="cell-subtle">{{ t('drive.ocrNoText') }}</p>
-          <div v-else class="drive-activity-list">
-            <article v-for="page in ocrPages" :key="page.pageNumber" class="drive-activity-row">
-              <strong>{{ t('drive.ocrPage', { page: page.pageNumber }) }}</strong>
-              <span>{{ page.rawText }}</span>
-            </article>
-          </div>
+          <DriveOCRTextViewer :pages="ocrPages" :loading="ocrLoading" />
         </div>
 
         <div>
           <h3>{{ t('drive.productExtractions') }}</h3>
           <p v-if="productExtractionItems.length === 0" class="cell-subtle">{{ t('drive.noProductExtractions') }}</p>
-          <div v-else class="drive-activity-list">
-            <article v-for="item in productExtractionItems" :key="item.publicId" class="drive-activity-row">
-              <strong>{{ item.name }}</strong>
-              <span>{{ item.janCode || item.itemType }}</span>
-              <span v-if="extractionPrice(item)" class="tabular-cell">{{ extractionPrice(item) }}</span>
-            </article>
-          </div>
+          <DriveProductExtractionTable v-else :items="productExtractionItems" />
         </div>
       </div>
     </div>

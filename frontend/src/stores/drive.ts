@@ -18,6 +18,7 @@ import {
   fetchDriveActivity,
   fetchDriveFolder,
   fetchDriveFolderTree,
+  fetchDriveFile,
   fetchDriveGroup,
   fetchDriveGroups,
   fetchDriveItems,
@@ -285,6 +286,39 @@ export const useDriveStore = defineStore('drive', {
         this.status = this.children.length > 0 ? 'ready' : 'empty'
       } catch (error) {
         this.currentFolder = rootFolder
+        this.children = []
+        this.setError(error)
+      }
+    },
+
+    async loadFileDetail(filePublicId: string) {
+      if (!filePublicId) {
+        return
+      }
+      this.status = 'loading'
+      this.errorMessage = ''
+      this.resetSelection()
+      try {
+        if (this.workspaces.length === 0) {
+          this.workspaces = await fetchDriveWorkspaces()
+          this.currentWorkspace = this.workspaces[0] ?? null
+        }
+        const file = await fetchDriveFile(filePublicId)
+        const item = driveItemWithDefaults({ type: 'file', file } as DriveItemBody)
+        const resource: DriveResourceRef = { type: 'file', publicId: file.publicId }
+        this.currentFolder = rootFolder
+        this.children = [item]
+        this.selectedItem = item
+        this.selectedResource = resource
+        await Promise.all([
+          this.loadStorage(),
+          this.loadFolderTree(),
+          this.loadPermissions(resource),
+          this.loadActivity(resource),
+          this.loadOCR(resource),
+        ])
+        this.status = 'ready'
+      } catch (error) {
         this.children = []
         this.setError(error)
       }

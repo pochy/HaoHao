@@ -17,15 +17,17 @@ export type DriveErrorPresentation = {
 export function presentDriveUploadError(error: unknown): DriveErrorPresentation {
   const code = driveErrorCode(error)
   const status = toApiErrorStatus(error)
+  const reason = safeDriveReason(error)
   const requestId = toApiErrorRequestId(error)
   const retryable = isRetryableApiError(error)
 
   switch (code) {
     case 'drive.file_too_large':
+      const fileSizeLimitLabel = inferFileSizeLimitLabel(reason)
       return {
         title: 'アップロードできませんでした',
         reason: 'ファイルサイズが上限を超えています。',
-        action: '10 MB 以下のファイルを選ぶか、管理者に Drive policy の上限変更を依頼してください。',
+        action: `${fileSizeLimitLabel} 以下のファイルを選ぶか、管理者に Drive policy の上限変更を依頼してください。`,
         requestId,
         retryable: false,
       }
@@ -76,7 +78,7 @@ export function presentDriveUploadError(error: unknown): DriveErrorPresentation 
     default:
       return {
         title: status && status >= 500 ? '一時的にアップロードできません' : 'アップロードできませんでした',
-        reason: safeDriveReason(error),
+        reason,
         action: retryable
           ? '一時的な問題の可能性があります。少し待ってから再試行してください。'
           : '入力内容とアップロード先を確認してください。',
@@ -104,4 +106,31 @@ function safeDriveReason(error: unknown): string {
     return 'Drive の処理中に問題が発生しました。'
   }
   return message
+}
+
+function inferFileSizeLimitLabel(message: string): string {
+  const mbMatch = message.match(/(\d+(?:\.\d+)?)\s*MB/i)
+  if (mbMatch?.[1]) {
+    return `${mbMatch[1]} MB`
+  }
+  const bytesMatch = message.match(/(\d+)\s*bytes?/i)
+  if (bytesMatch?.[1]) {
+    const bytes = Number(bytesMatch[1])
+    if (Number.isFinite(bytes) && bytes > 0) {
+      return formatBytesForHuman(bytes)
+    }
+  }
+  return '指定サイズ'
+}
+
+function formatBytesForHuman(bytes: number): string {
+  const units = ['bytes', 'KB', 'MB', 'GB']
+  let value = bytes
+  let unitIdx = 0
+  while (value >= 1024 && unitIdx < units.length - 1) {
+    value /= 1024
+    unitIdx += 1
+  }
+  const rounded = value >= 10 || unitIdx === 0 ? Math.round(value) : Math.round(value * 10) / 10
+  return `${rounded} ${units[unitIdx]}`
 }

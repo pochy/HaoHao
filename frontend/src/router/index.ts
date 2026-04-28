@@ -162,6 +162,18 @@ const router = createRouter({
       },
     },
     {
+      path: '/drive/files/:filePublicId',
+      name: 'drive-file-detail',
+      component: DriveView,
+      meta: {
+        requiresAuth: true,
+        title: 'Drive File',
+        group: 'Work',
+        titleKey: 'routes.driveFile',
+        groupKey: 'nav.groups.work',
+      },
+    },
+    {
       path: '/drive/search',
       name: 'drive-search',
       component: DriveView,

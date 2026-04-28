@@ -14,6 +14,7 @@ defineProps<{
 
 const emit = defineEmits<{
   openFolder: [folderPublicId: string]
+  openFile: [filePublicId: string]
   downloadFile: [file: DriveFileBody]
   renameItem: [item: DriveItemBody]
   moveItem: [item: DriveItemBody]
@@ -47,6 +48,7 @@ const emit = defineEmits<{
       :selected-for-archive="selectedResourceIds.includes(item.file?.publicId ?? item.folder?.publicId ?? '')"
       :trash-mode="trashMode"
       @open-folder="emit('openFolder', $event)"
+      @open-file="emit('openFile', $event)"
       @download-file="emit('downloadFile', $event)"
       @rename-item="emit('renameItem', $event)"
       @move-item="emit('moveItem', $event)"

@@ -341,7 +341,7 @@ func defaultDrivePolicy() DrivePolicy {
 		BlockShareUntilScanComplete:         true,
 		DLPEnabled:                          false,
 		PlanCode:                            "standard",
-		MaxFileSizeBytes:                    10 * 1024 * 1024,
+		MaxFileSizeBytes:                    100 * 1024 * 1024,
 		MaxWorkspaceCount:                   25,
 		MaxPublicLinkCount:                  1000,
 		PasswordLinksPlanEnabled:            true,

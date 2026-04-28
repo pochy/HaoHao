@@ -9,6 +9,7 @@ import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
 import DriveCommandBar from '../components/DriveCommandBar.vue'
 import DriveBreadcrumbs from '../components/DriveBreadcrumbs.vue'
 import DriveDetailsPanel from '../components/DriveDetailsPanel.vue'
+import DriveFileDetailPage from '../components/DriveFileDetailPage.vue'
 import DriveItemGrid from '../components/DriveItemGrid.vue'
 import DriveItemList from '../components/DriveItemList.vue'
 import DriveMetadataDialog from '../components/DriveMetadataDialog.vue'
@@ -63,11 +64,16 @@ const sharedMode = ref(false)
 const starredMode = ref(false)
 const recentMode = ref(false)
 const storageMode = ref(false)
+const fileDetailMode = ref(false)
 const dropActive = ref(false)
 const dragDepth = ref(0)
 
 const routeFolderPublicId = computed(() => {
   const raw = route.params.folderPublicId
+  return Array.isArray(raw) ? raw[0] : raw
+})
+const routeFilePublicId = computed(() => {
+  const raw = route.params.filePublicId
   return Array.isArray(raw) ? raw[0] : raw
 })
 const routeQueryFingerprint = computed(() => JSON.stringify(route.query))
@@ -177,6 +183,9 @@ const driveTitle = computed(() => {
   }
   if (storageMode.value) {
     return t('drive.storage')
+  }
+  if (fileDetailMode.value) {
+    return driveStore.selectedItem?.file?.originalFilename ?? t('routes.driveFile')
   }
   return searchMode.value ? t('drive.searchDrive') : t('drive.browser')
 })
@@ -323,7 +332,7 @@ onMounted(async () => {
 })
 
 watch(
-  () => [tenantStore.activeTenant?.slug, route.name, routeFolderPublicId.value, routeQueryFingerprint.value],
+  () => [tenantStore.activeTenant?.slug, route.name, routeFolderPublicId.value, routeFilePublicId.value, routeQueryFingerprint.value],
   async ([slug]) => {
     actionMessage.value = ''
     actionErrorMessage.value = ''
@@ -334,6 +343,7 @@ watch(
     starredMode.value = route.name === 'drive-starred'
     recentMode.value = route.name === 'drive-recent'
     storageMode.value = route.name === 'drive-storage'
+    fileDetailMode.value = route.name === 'drive-file-detail'
     detailsPanelOpen.value = false
     applyRouteQueryFilters()
 
@@ -368,6 +378,12 @@ watch(
       return
     }
 
+    if (fileDetailMode.value) {
+      await driveStore.loadFileDetail(routeFilePublicId.value || '')
+      detailsPanelOpen.value = false
+      return
+    }
+
     if (searchMode.value) {
       driveStore.status = 'idle'
       driveStore.searchResults = []
@@ -388,6 +404,10 @@ function navigateFolder(folderPublicId: string) {
     return
   }
   router.push({ name: 'drive-folder', params: { folderPublicId } })
+}
+
+function navigateFile(filePublicId: string) {
+  router.push({ name: 'drive-file-detail', params: { filePublicId } })
 }
 
 async function selectWorkspace(event: Event) {
@@ -947,7 +967,7 @@ async function toggleStar(item: DriveItemBody) {
 </script>
 
 <template>
-  <DriveWorkspaceLayout :details-open="detailsPanelOpen">
+  <DriveWorkspaceLayout :details-open="detailsPanelOpen && !fileDetailMode">
     <template #side>
       <DriveSideNav
         :current-folder="driveStore.currentFolder"
@@ -966,7 +986,7 @@ async function toggleStar(item: DriveItemBody) {
     </template>
 
     <template #header>
-      <header class="drive-workspace-header">
+      <header v-if="!fileDetailMode" class="drive-workspace-header">
         <div class="drive-title-group">
           <span class="status-pill">Drive</span>
           <h1>{{ driveTitle }}</h1>
@@ -991,7 +1011,7 @@ async function toggleStar(item: DriveItemBody) {
         </div>
       </header>
 
-      <div class="drive-quick-stats" :aria-label="t('drive.summary')">
+      <div v-if="!fileDetailMode" class="drive-quick-stats" :aria-label="t('drive.summary')">
         <span>{{ activeTenantLabel }}</span>
         <span>{{ t('drive.itemCount', { count: itemCount }) }}</span>
         <span>{{ t('drive.fileCount', { count: fileCount }) }}</span>
@@ -1001,6 +1021,7 @@ async function toggleStar(item: DriveItemBody) {
 
     <template #command>
       <DriveCommandBar
+        v-if="!fileDetailMode"
         :busy="driveStore.isBusy"
         :disabled="!tenantStore.activeTenant || trashMode"
         :query="driveStore.query"
@@ -1026,7 +1047,32 @@ async function toggleStar(item: DriveItemBody) {
       />
     </template>
 
+    <div v-if="fileDetailMode" class="drive-workspace-content">
+      <p v-if="actionErrorMessage || driveStore.errorMessage" class="error-message">
+        {{ actionErrorMessage || driveStore.errorMessage }}
+      </p>
+      <p v-if="actionMessage" class="notice-message">{{ actionMessage }}</p>
+      <DriveFileDetailPage
+        :selected-item="driveStore.selectedItem"
+        :permissions="driveStore.permissions"
+        :ocr-result="driveStore.ocrResult"
+        :product-extraction-items="driveStore.productExtractionItems"
+        :ocr-loading="driveStore.ocrLoading"
+        :busy-resource-id="driveStore.busyResourceId"
+        :activities="driveStore.activityItems"
+        @download-file="downloadFile"
+        @rename-item="renameItem"
+        @overwrite-file="requestOverwrite"
+        @edit-metadata-item="openMetadataDialog"
+        @preview-item="openPreviewDialog"
+        @share-item="openShareDialog"
+        @request-ocr="requestOCR"
+      />
+      <input ref="overwriteInput" class="drive-hidden-input" type="file" @change="onOverwriteFileChange">
+    </div>
+
     <div
+      v-else
       class="drive-workspace-content"
       :class="{ 'drop-active': dropActive }"
       @dragenter="onDragEnter"
@@ -1099,6 +1145,7 @@ async function toggleStar(item: DriveItemBody) {
           :selected-resource-ids="driveStore.selectedResourceIds"
           :trash-mode="trashMode"
           @open-folder="navigateFolder"
+          @open-file="navigateFile"
           @download-file="downloadFile"
           @rename-item="renameItem"
           @move-item="moveItem"
@@ -1125,6 +1172,7 @@ async function toggleStar(item: DriveItemBody) {
           :selected-resource-ids="driveStore.selectedResourceIds"
           :trash-mode="trashMode"
           @open-folder="navigateFolder"
+          @open-file="navigateFile"
           @download-file="downloadFile"
           @rename-item="renameItem"
           @move-item="moveItem"
@@ -1168,7 +1216,7 @@ async function toggleStar(item: DriveItemBody) {
       />
     </div>
 
-    <template #details>
+    <template v-if="!fileDetailMode" #details>
       <DriveDetailsPanel
         :open="detailsPanelOpen"
         :selected-item="driveStore.selectedItem"

@@ -23,6 +23,7 @@ defineProps<{
 
 const emit = defineEmits<{
   openFolder: [folderPublicId: string]
+  openFile: [filePublicId: string]
   downloadFile: [file: DriveFileBody]
   renameItem: [item: DriveItemBody]
   moveItem: [item: DriveItemBody]
@@ -94,6 +95,14 @@ function formatSize(value?: number) {
               {{ item.folder.name }}
             </button>
             <span v-else-if="item.folder" class="drive-file-name">{{ item.folder.name }}</span>
+            <button
+              v-else-if="item.file && !trashMode"
+              class="drive-name-button"
+              type="button"
+              @click="emit('openFile', item.file.publicId)"
+            >
+              {{ labelFromDriveItem(item) }}
+            </button>
             <span v-else class="drive-file-name">{{ labelFromDriveItem(item) }}</span>
             <span class="cell-subtle monospace-cell">{{ itemPublicId(item) }}</span>
           </td>
