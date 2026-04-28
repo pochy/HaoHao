@@ -58,11 +58,18 @@ const {
   drivePublicLinksEnabled,
   driveRequireApproval,
   driveRequireLinkPassword,
+  driveRulesCandidateScoreThreshold,
+  driveRulesConfigVisible,
+  driveRulesContextWindowRunes,
+  driveRulesMaxBlockRunes,
+  driveRulesPriceExtractionEnabled,
   driveSearchEnabled,
   driveStructuredExtractionEnabled,
   driveStructuredExtractor,
   driveSyncEnabled,
   driveViewerDownloadEnabled,
+  driveOllamaConfigVisible,
+  driveLMStudioConfigVisible,
   saveCommonSettings,
   store,
 } = useTenantAdminDetailContext()
@@ -248,15 +255,41 @@ const {
       <label class="field">
         <span class="field-label">{{ t('tenantAdmin.fields.structuredExtractor') }}</span>
         <select v-model="driveStructuredExtractor" class="field-input">
-          <option value="rules">Rules</option>
-          <option value="ollama">Ollama</option>
-          <option value="lmstudio">LM Studio</option>
-          <option value="gemini">Gemini CLI</option>
-          <option value="codex">Codex CLI</option>
-          <option value="claude">Claude CLI</option>
-          <option value="docling">Docling</option>
+          <optgroup label="Local rules">
+            <option value="rules">Rules (IDEA, no LLM)</option>
+          </optgroup>
+          <optgroup label="Local LLM">
+            <option value="ollama">Ollama</option>
+            <option value="lmstudio">LM Studio</option>
+          </optgroup>
+          <optgroup label="Agent CLI">
+            <option value="gemini">Gemini CLI</option>
+            <option value="codex">Codex CLI</option>
+            <option value="claude">Claude CLI</option>
+          </optgroup>
+          <optgroup label="Compatibility">
+            <option value="docling">Docling</option>
+          </optgroup>
         </select>
       </label>
+      <template v-if="driveRulesConfigVisible">
+        <label class="field">
+          <span class="field-label">{{ t('tenantAdmin.fields.rulesCandidateScoreThreshold') }}</span>
+          <input v-model.number="driveRulesCandidateScoreThreshold" class="field-input" min="0" max="20" type="number">
+        </label>
+        <label class="field">
+          <span class="field-label">{{ t('tenantAdmin.fields.rulesMaxBlockRunes') }}</span>
+          <input v-model.number="driveRulesMaxBlockRunes" class="field-input" min="500" max="10000" type="number">
+        </label>
+        <label class="field">
+          <span class="field-label">{{ t('tenantAdmin.fields.rulesContextWindowRunes') }}</span>
+          <input v-model.number="driveRulesContextWindowRunes" class="field-input" min="100" max="3000" type="number">
+        </label>
+        <label class="checkbox-field">
+          <input v-model="driveRulesPriceExtractionEnabled" type="checkbox">
+          <span>{{ t('tenantAdmin.fields.rulesPriceExtractionEnabled') }}</span>
+        </label>
+      </template>
       <label class="field">
         <span class="field-label">{{ t('tenantAdmin.fields.ocrMaxPages') }}</span>
         <input v-model.number="driveOcrMaxPages" class="field-input" min="1" max="200" type="number">
@@ -265,19 +298,19 @@ const {
         <span class="field-label">{{ t('tenantAdmin.fields.ocrTimeoutSecondsPerPage') }}</span>
         <input v-model.number="driveOcrTimeoutSecondsPerPage" class="field-input" min="1" max="300" type="number">
       </label>
-      <label class="field">
+      <label v-if="driveOllamaConfigVisible" class="field">
         <span class="field-label">{{ t('tenantAdmin.fields.ollamaBaseUrl') }}</span>
         <input v-model="driveOllamaBaseURL" class="field-input" autocomplete="off" placeholder="http://127.0.0.1:11434">
       </label>
-      <label class="field">
+      <label v-if="driveOllamaConfigVisible" class="field">
         <span class="field-label">{{ t('tenantAdmin.fields.ollamaModel') }}</span>
         <input v-model="driveOllamaModel" class="field-input" autocomplete="off" placeholder="llama3.1">
       </label>
-      <label class="field">
+      <label v-if="driveLMStudioConfigVisible" class="field">
         <span class="field-label">{{ t('tenantAdmin.fields.lmStudioBaseUrl') }}</span>
         <input v-model="driveLMStudioBaseURL" class="field-input" autocomplete="off" placeholder="http://127.0.0.1:1234">
       </label>
-      <label class="field">
+      <label v-if="driveLMStudioConfigVisible" class="field">
         <span class="field-label">{{ t('tenantAdmin.fields.lmStudioModel') }}</span>
         <input v-model="driveLMStudioModel" class="field-input" autocomplete="off" placeholder="local-model">
       </label>

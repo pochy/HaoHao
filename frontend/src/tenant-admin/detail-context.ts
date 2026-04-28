@@ -77,6 +77,10 @@ export function createTenantAdminDetailContext() {
   const driveOcrLanguages = ref('jpn, eng')
   const driveStructuredExtractionEnabled = ref(false)
   const driveStructuredExtractor = ref('rules')
+  const driveRulesCandidateScoreThreshold = ref(4)
+  const driveRulesMaxBlockRunes = ref(3000)
+  const driveRulesContextWindowRunes = ref(800)
+  const driveRulesPriceExtractionEnabled = ref(true)
   const driveOcrMaxPages = ref(20)
   const driveOcrTimeoutSecondsPerPage = ref(30)
   const driveOllamaBaseURL = ref('http://127.0.0.1:11434')
@@ -172,6 +176,9 @@ export function createTenantAdminDetailContext() {
     }
     return t('tenantAdmin.options.standard')
   })
+  const driveRulesConfigVisible = computed(() => driveStructuredExtractor.value === 'rules')
+  const driveOllamaConfigVisible = computed(() => driveStructuredExtractor.value === 'ollama')
+  const driveLMStudioConfigVisible = computed(() => driveStructuredExtractor.value === 'lmstudio')
 
   const canSaveSettings = computed(() => (
     Boolean(tenant.value) &&
@@ -278,6 +285,10 @@ export function createTenantAdminDetailContext() {
       driveOcrLanguages.value = 'jpn, eng'
       driveStructuredExtractionEnabled.value = false
       driveStructuredExtractor.value = 'rules'
+      driveRulesCandidateScoreThreshold.value = 4
+      driveRulesMaxBlockRunes.value = 3000
+      driveRulesContextWindowRunes.value = 800
+      driveRulesPriceExtractionEnabled.value = true
       driveOcrMaxPages.value = 20
       driveOcrTimeoutSecondsPerPage.value = 30
       driveOllamaBaseURL.value = 'http://127.0.0.1:11434'
@@ -340,6 +351,13 @@ export function createTenantAdminDetailContext() {
     driveOcrLanguages.value = Array.isArray(driveOCR.ocrLanguages) ? driveOCR.ocrLanguages.join(', ') : 'jpn, eng'
     driveStructuredExtractionEnabled.value = Boolean(driveOCR.structuredExtractionEnabled)
     driveStructuredExtractor.value = stringValue(driveOCR.structuredExtractor, 'rules')
+    const driveOCRRules = typeof driveOCR.rules === 'object' && driveOCR.rules !== null
+      ? driveOCR.rules as Record<string, unknown>
+      : {}
+    driveRulesCandidateScoreThreshold.value = numberValue(driveOCRRules.candidateScoreThreshold, 4)
+    driveRulesMaxBlockRunes.value = numberValue(driveOCRRules.maxBlockRunes, 3000)
+    driveRulesContextWindowRunes.value = numberValue(driveOCRRules.contextWindowRunes, 800)
+    driveRulesPriceExtractionEnabled.value = driveOCRRules.priceExtractionEnabled !== false
     driveOcrMaxPages.value = numberValue(driveOCR.maxPages, 20)
     driveOcrTimeoutSecondsPerPage.value = numberValue(driveOCR.timeoutSecondsPerPage, 30)
     driveOllamaBaseURL.value = stringValue(driveOCR.ollamaBaseURL, 'http://127.0.0.1:11434')
@@ -529,6 +547,12 @@ export function createTenantAdminDetailContext() {
               ocrLanguages: domainList(driveOcrLanguages.value),
               structuredExtractionEnabled: driveStructuredExtractionEnabled.value,
               structuredExtractor: driveStructuredExtractor.value,
+              rules: {
+                candidateScoreThreshold: driveRulesCandidateScoreThreshold.value,
+                maxBlockRunes: driveRulesMaxBlockRunes.value,
+                contextWindowRunes: driveRulesContextWindowRunes.value,
+                priceExtractionEnabled: driveRulesPriceExtractionEnabled.value,
+              },
               maxPages: driveOcrMaxPages.value,
               timeoutSecondsPerPage: driveOcrTimeoutSecondsPerPage.value,
               ollamaBaseURL: driveOllamaBaseURL.value.trim(),
@@ -820,9 +844,16 @@ export function createTenantAdminDetailContext() {
     drivePublicLinksEnabled,
     driveRequireApproval,
     driveRequireLinkPassword,
+    driveRulesCandidateScoreThreshold,
+    driveRulesConfigVisible,
+    driveRulesContextWindowRunes,
+    driveRulesMaxBlockRunes,
+    driveRulesPriceExtractionEnabled,
     driveSearchEnabled,
     driveStructuredExtractionEnabled,
     driveStructuredExtractor,
+    driveOllamaConfigVisible,
+    driveLMStudioConfigVisible,
     driveSyncEnabled,
     driveViewerDownloadEnabled,
     errorMessage,

@@ -109,12 +109,20 @@ type DriveOCRPolicy struct {
 	OCRLanguages                []string
 	StructuredExtractionEnabled bool
 	StructuredExtractor         string
+	Rules                       DriveOCRRulesPolicy
 	MaxPages                    int
 	TimeoutSecondsPerPage       int
 	OllamaBaseURL               string
 	OllamaModel                 string
 	LMStudioBaseURL             string
 	LMStudioModel               string
+}
+
+type DriveOCRRulesPolicy struct {
+	CandidateScoreThreshold int
+	MaxBlockRunes           int
+	ContextWindowRunes      int
+	PriceExtractionEnabled  bool
 }
 
 type TenantSettingsService struct {
@@ -641,12 +649,22 @@ func defaultDriveOCRPolicy() DriveOCRPolicy {
 		OCRLanguages:                []string{"jpn", "eng"},
 		StructuredExtractionEnabled: false,
 		StructuredExtractor:         "rules",
+		Rules:                       defaultDriveOCRRulesPolicy(),
 		MaxPages:                    20,
 		TimeoutSecondsPerPage:       30,
 		OllamaBaseURL:               "http://127.0.0.1:11434",
 		OllamaModel:                 "",
 		LMStudioBaseURL:             "http://127.0.0.1:1234",
 		LMStudioModel:               "",
+	}
+}
+
+func defaultDriveOCRRulesPolicy() DriveOCRRulesPolicy {
+	return DriveOCRRulesPolicy{
+		CandidateScoreThreshold: 4,
+		MaxBlockRunes:           3000,
+		ContextWindowRunes:      800,
+		PriceExtractionEnabled:  true,
 	}
 }
 
@@ -657,6 +675,9 @@ func driveOCRPolicyFromFeatureMap(raw map[string]any, fallback DriveOCRPolicy) D
 	policy.OCRLanguages = featureStringSlice(raw, "ocrLanguages", policy.OCRLanguages)
 	policy.StructuredExtractionEnabled = featureBool(raw, "structuredExtractionEnabled", policy.StructuredExtractionEnabled)
 	policy.StructuredExtractor = featureString(raw, "structuredExtractor", policy.StructuredExtractor)
+	if rules, ok := raw["rules"].(map[string]any); ok {
+		policy.Rules = driveOCRRulesPolicyFromFeatureMap(rules, policy.Rules)
+	}
 	policy.MaxPages = featureInt(raw, "maxPages", policy.MaxPages)
 	policy.TimeoutSecondsPerPage = featureInt(raw, "timeoutSecondsPerPage", policy.TimeoutSecondsPerPage)
 	policy.OllamaBaseURL = featureString(raw, "ollamaBaseURL", policy.OllamaBaseURL)
@@ -664,6 +685,15 @@ func driveOCRPolicyFromFeatureMap(raw map[string]any, fallback DriveOCRPolicy) D
 	policy.LMStudioBaseURL = featureString(raw, "lmStudioBaseURL", policy.LMStudioBaseURL)
 	policy.LMStudioModel = featureString(raw, "lmStudioModel", policy.LMStudioModel)
 	return normalizeDriveOCRPolicy(policy)
+}
+
+func driveOCRRulesPolicyFromFeatureMap(raw map[string]any, fallback DriveOCRRulesPolicy) DriveOCRRulesPolicy {
+	policy := fallback
+	policy.CandidateScoreThreshold = featureNonNegativeInt(raw, "candidateScoreThreshold", policy.CandidateScoreThreshold)
+	policy.MaxBlockRunes = featureInt(raw, "maxBlockRunes", policy.MaxBlockRunes)
+	policy.ContextWindowRunes = featureInt(raw, "contextWindowRunes", policy.ContextWindowRunes)
+	policy.PriceExtractionEnabled = featureBool(raw, "priceExtractionEnabled", policy.PriceExtractionEnabled)
+	return normalizeDriveOCRRulesPolicy(policy)
 }
 
 func normalizeDriveOCRPolicy(policy DriveOCRPolicy) DriveOCRPolicy {
@@ -679,6 +709,11 @@ func normalizeDriveOCRPolicy(policy DriveOCRPolicy) DriveOCRPolicy {
 	policy.StructuredExtractor = strings.ToLower(strings.TrimSpace(policy.StructuredExtractor))
 	if policy.StructuredExtractor == "" {
 		policy.StructuredExtractor = defaults.StructuredExtractor
+	}
+	if policy.Rules == (DriveOCRRulesPolicy{}) {
+		policy.Rules = defaults.Rules
+	} else {
+		policy.Rules = normalizeDriveOCRRulesPolicy(policy.Rules)
 	}
 	if policy.MaxPages <= 0 {
 		policy.MaxPages = defaults.MaxPages
@@ -696,6 +731,17 @@ func normalizeDriveOCRPolicy(policy DriveOCRPolicy) DriveOCRPolicy {
 		policy.LMStudioBaseURL = defaults.LMStudioBaseURL
 	}
 	policy.LMStudioModel = strings.TrimSpace(policy.LMStudioModel)
+	return policy
+}
+
+func normalizeDriveOCRRulesPolicy(policy DriveOCRRulesPolicy) DriveOCRRulesPolicy {
+	defaults := defaultDriveOCRRulesPolicy()
+	if policy.MaxBlockRunes == 0 {
+		policy.MaxBlockRunes = defaults.MaxBlockRunes
+	}
+	if policy.ContextWindowRunes == 0 {
+		policy.ContextWindowRunes = defaults.ContextWindowRunes
+	}
 	return policy
 }
 
@@ -718,6 +764,15 @@ func validateDriveOCRPolicy(policy DriveOCRPolicy) error {
 	}
 	if policy.TimeoutSecondsPerPage < 1 || policy.TimeoutSecondsPerPage > 300 {
 		return fmt.Errorf("%w: drive ocr timeoutSecondsPerPage must be between 1 and 300", ErrInvalidTenantSettings)
+	}
+	if policy.Rules.CandidateScoreThreshold < 0 || policy.Rules.CandidateScoreThreshold > 20 {
+		return fmt.Errorf("%w: drive ocr rules candidateScoreThreshold must be between 0 and 20", ErrInvalidTenantSettings)
+	}
+	if policy.Rules.MaxBlockRunes < 500 || policy.Rules.MaxBlockRunes > 10000 {
+		return fmt.Errorf("%w: drive ocr rules maxBlockRunes must be between 500 and 10000", ErrInvalidTenantSettings)
+	}
+	if policy.Rules.ContextWindowRunes < 100 || policy.Rules.ContextWindowRunes > 3000 {
+		return fmt.Errorf("%w: drive ocr rules contextWindowRunes must be between 100 and 3000", ErrInvalidTenantSettings)
 	}
 	if !isAllowedLocalHTTPURL(policy.OllamaBaseURL) {
 		return fmt.Errorf("%w: drive ocr ollamaBaseURL must be localhost or 127.0.0.1", ErrInvalidTenantSettings)
@@ -742,12 +797,23 @@ func driveOCRPolicyToFeatureMap(policy DriveOCRPolicy) map[string]any {
 		"ocrLanguages":                policy.OCRLanguages,
 		"structuredExtractionEnabled": policy.StructuredExtractionEnabled,
 		"structuredExtractor":         policy.StructuredExtractor,
+		"rules":                       driveOCRRulesPolicyToFeatureMap(policy.Rules),
 		"maxPages":                    policy.MaxPages,
 		"timeoutSecondsPerPage":       policy.TimeoutSecondsPerPage,
 		"ollamaBaseURL":               policy.OllamaBaseURL,
 		"ollamaModel":                 policy.OllamaModel,
 		"lmStudioBaseURL":             policy.LMStudioBaseURL,
 		"lmStudioModel":               policy.LMStudioModel,
+	}
+}
+
+func driveOCRRulesPolicyToFeatureMap(policy DriveOCRRulesPolicy) map[string]any {
+	policy = normalizeDriveOCRRulesPolicy(policy)
+	return map[string]any{
+		"candidateScoreThreshold": policy.CandidateScoreThreshold,
+		"maxBlockRunes":           policy.MaxBlockRunes,
+		"contextWindowRunes":      policy.ContextWindowRunes,
+		"priceExtractionEnabled":  policy.PriceExtractionEnabled,
 	}
 }
 
@@ -823,6 +889,28 @@ func featureInt(values map[string]any, key string, fallback int) int {
 		}
 	case float64:
 		if value > 0 {
+			return int(value)
+		}
+	}
+	return fallback
+}
+
+func featureNonNegativeInt(values map[string]any, key string, fallback int) int {
+	switch value := values[key].(type) {
+	case int:
+		if value >= 0 {
+			return value
+		}
+	case int32:
+		if value >= 0 {
+			return int(value)
+		}
+	case int64:
+		if value >= 0 {
+			return int(value)
+		}
+	case float64:
+		if value >= 0 {
 			return int(value)
 		}
 	}

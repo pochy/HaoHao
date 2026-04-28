@@ -179,6 +179,51 @@ func TestDriveOCRPolicyFromFeaturesSupportsLMStudio(t *testing.T) {
 	}
 }
 
+func TestDriveOCRPolicyFromFeaturesSupportsRulesSettings(t *testing.T) {
+	got := drivePolicyFromFeatures(map[string]any{
+		"drive": map[string]any{
+			"ocr": map[string]any{
+				"enabled":             true,
+				"structuredExtractor": "rules",
+				"rules": map[string]any{
+					"candidateScoreThreshold": float64(0),
+					"maxBlockRunes":           float64(5000),
+					"contextWindowRunes":      float64(1200),
+					"priceExtractionEnabled":  false,
+				},
+			},
+		},
+	})
+
+	if got.OCR.StructuredExtractor != "rules" {
+		t.Fatalf("StructuredExtractor = %q, want rules", got.OCR.StructuredExtractor)
+	}
+	if got.OCR.Rules.CandidateScoreThreshold != 0 {
+		t.Fatalf("CandidateScoreThreshold = %d, want 0", got.OCR.Rules.CandidateScoreThreshold)
+	}
+	if got.OCR.Rules.MaxBlockRunes != 5000 {
+		t.Fatalf("MaxBlockRunes = %d, want 5000", got.OCR.Rules.MaxBlockRunes)
+	}
+	if got.OCR.Rules.ContextWindowRunes != 1200 {
+		t.Fatalf("ContextWindowRunes = %d, want 1200", got.OCR.Rules.ContextWindowRunes)
+	}
+	if got.OCR.Rules.PriceExtractionEnabled {
+		t.Fatal("PriceExtractionEnabled = true, want false")
+	}
+
+	roundTripped := driveOCRPolicyToFeatureMap(got.OCR)
+	rules, ok := roundTripped["rules"].(map[string]any)
+	if !ok {
+		t.Fatalf("rules feature map type = %T", roundTripped["rules"])
+	}
+	if rules["candidateScoreThreshold"] != 0 {
+		t.Fatalf("round-trip candidateScoreThreshold = %#v, want 0", rules["candidateScoreThreshold"])
+	}
+	if rules["priceExtractionEnabled"] != false {
+		t.Fatalf("round-trip priceExtractionEnabled = %#v, want false", rules["priceExtractionEnabled"])
+	}
+}
+
 func TestValidateDriveOCRPolicyRequiresLMStudioModel(t *testing.T) {
 	policy := defaultDriveOCRPolicy()
 	policy.StructuredExtractionEnabled = true
@@ -191,6 +236,53 @@ func TestValidateDriveOCRPolicyRequiresLMStudioModel(t *testing.T) {
 	policy.LMStudioModel = "local-model"
 	if err := validateDriveOCRPolicy(policy); err != nil {
 		t.Fatalf("validateDriveOCRPolicy() error = %v", err)
+	}
+}
+
+func TestValidateDriveOCRPolicyAcceptsRulesWithoutModel(t *testing.T) {
+	policy := defaultDriveOCRPolicy()
+	policy.StructuredExtractionEnabled = true
+	policy.StructuredExtractor = "rules"
+	policy.OllamaModel = ""
+	policy.LMStudioModel = ""
+
+	if err := validateDriveOCRPolicy(policy); err != nil {
+		t.Fatalf("validateDriveOCRPolicy() error = %v", err)
+	}
+}
+
+func TestValidateDriveOCRPolicyRejectsInvalidRulesSettings(t *testing.T) {
+	cases := []struct {
+		name   string
+		update func(*DriveOCRPolicy)
+	}{
+		{
+			name: "candidate score threshold",
+			update: func(policy *DriveOCRPolicy) {
+				policy.Rules.CandidateScoreThreshold = 21
+			},
+		},
+		{
+			name: "max block runes",
+			update: func(policy *DriveOCRPolicy) {
+				policy.Rules.MaxBlockRunes = 499
+			},
+		},
+		{
+			name: "context window runes",
+			update: func(policy *DriveOCRPolicy) {
+				policy.Rules.ContextWindowRunes = 99
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			policy := defaultDriveOCRPolicy()
+			tc.update(&policy)
+			if err := validateDriveOCRPolicy(policy); err == nil {
+				t.Fatal("validateDriveOCRPolicy() error = nil, want validation error")
+			}
+		})
 	}
 }
 
