@@ -90,10 +90,11 @@ func (e LocalCommandDriveProductExtractor) ExtractProducts(ctx context.Context, 
 
 func CheckDriveOCRLocalCommands(ctx context.Context, policy DriveOCRPolicy) []DriveOCRLocalCommandStatus {
 	profiles := defaultLocalCommandProductExtractorProfiles()
-	statuses := make([]DriveOCRLocalCommandStatus, 0, len(profiles))
+	statuses := make([]DriveOCRLocalCommandStatus, 0, len(profiles)+3)
 	for _, profile := range profiles {
 		statuses = append(statuses, checkDriveOCRLocalCommand(ctx, policy, profile))
 	}
+	statuses = append(statuses, CheckDriveOCRPythonNLPExtractors(ctx, policy)...)
 	return statuses
 }
 

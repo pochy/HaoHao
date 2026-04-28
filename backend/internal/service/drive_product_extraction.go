@@ -53,7 +53,7 @@ func (r DriveProductExtractorRouter) ExtractProducts(ctx context.Context, input 
 			return DriveProductExtractionResult{}, ErrDriveOCRStructuredUnsupported
 		}
 		return r.lmStudio.ExtractProducts(ctx, input)
-	case "gemini", "codex", "claude":
+	case "gemini", "codex", "claude", "python", "ginza", "sudachipy":
 		extractor := r.localCommands[input.Policy.StructuredExtractor]
 		if extractor == nil {
 			return DriveProductExtractionResult{}, ErrDriveOCRStructuredUnsupported

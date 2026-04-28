@@ -2,6 +2,8 @@
 
 この文書の識別子は `TUTORIAL_P19_DRIVE_LOCAL_OCR_PRODUCT_EXTRACTION` です。
 
+Python / GiNZA / SudachiPy を使った非LLMの商品情報抽出の環境構築・運用手順は、実装チュートリアルではなく runbook として `docs/RUNBOOK_DRIVE_PRODUCT_EXTRACTION_NLP.md` にまとめています。
+
 ## この文書の目的
 
 この文書は、HaoHao 内蔵 Drive に **ローカル OCR と商品・販促情報抽出** を追加するための実装チュートリアルです。

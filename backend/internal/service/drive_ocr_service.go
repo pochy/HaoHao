@@ -101,11 +101,12 @@ func NewDriveOCRService(pool *pgxpool.Pool, queries *db.Queries, drive *DriveSer
 		provider = p
 	}
 	if extractor == nil {
+		localExtractors := append(DefaultLocalCommandDriveProductExtractors(), DefaultPythonNLPDriveProductExtractors()...)
 		extractor = NewDriveProductExtractorRouter(
 			NewRulesDriveProductExtractor(),
 			NewOllamaDriveProductExtractor(nil),
 			NewLMStudioDriveProductExtractor(nil),
-			DefaultLocalCommandDriveProductExtractors()...,
+			localExtractors...,
 		)
 	}
 	return &DriveOCRService{
@@ -462,7 +463,7 @@ func (s *DriveOCRService) replaceProductItems(ctx context.Context, policy DriveO
 		return nil
 	}
 	switch policy.StructuredExtractor {
-	case "rules", "ollama", "lmstudio", "gemini", "codex", "claude":
+	case "rules", "ollama", "lmstudio", "gemini", "codex", "claude", "python", "ginza", "sudachipy":
 	default:
 		return nil
 	}

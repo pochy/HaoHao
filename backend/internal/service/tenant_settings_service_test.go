@@ -287,7 +287,7 @@ func TestValidateDriveOCRPolicyRejectsInvalidRulesSettings(t *testing.T) {
 }
 
 func TestValidateDriveOCRPolicyAcceptsLocalCommandExtractors(t *testing.T) {
-	for _, extractor := range []string{"gemini", "codex", "claude"} {
+	for _, extractor := range []string{"gemini", "codex", "claude", "python", "ginza", "sudachipy"} {
 		t.Run(extractor, func(t *testing.T) {
 			policy := defaultDriveOCRPolicy()
 			policy.StructuredExtractionEnabled = true

@@ -258,6 +258,11 @@ const {
           <optgroup label="Local rules">
             <option value="rules">Rules (IDEA, no LLM)</option>
           </optgroup>
+          <optgroup label="Non-LLM Python">
+            <option value="python">Python helper</option>
+            <option value="ginza">GiNZA</option>
+            <option value="sudachipy">SudachiPy</option>
+          </optgroup>
           <optgroup label="Local LLM">
             <option value="ollama">Ollama</option>
             <option value="lmstudio">LM Studio</option>
@@ -435,7 +440,7 @@ const {
             </td>
           </tr>
           <tr v-for="command in store.driveOCRStatus?.localCommands ?? []" :key="command.name">
-            <td>{{ t('tenantAdmin.fields.localCommand') }}: {{ command.name }}</td>
+            <td>{{ t('tenantAdmin.fields.localRuntime') }}: {{ command.name }}</td>
             <td>
               {{ command.configured ? t('common.enabled') : t('common.disabled') }}
               / {{ command.available ? t('tenantAdmin.status.available') : t('tenantAdmin.status.unavailable') }}

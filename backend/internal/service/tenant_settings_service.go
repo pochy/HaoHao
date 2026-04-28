@@ -752,7 +752,7 @@ func validateDriveOCRPolicy(policy DriveOCRPolicy) error {
 		return fmt.Errorf("%w: unsupported drive ocr engine", ErrInvalidTenantSettings)
 	}
 	switch policy.StructuredExtractor {
-	case "rules", "ollama", "lmstudio", "gemini", "codex", "claude", "docling":
+	case "rules", "ollama", "lmstudio", "gemini", "codex", "claude", "python", "ginza", "sudachipy", "docling":
 	default:
 		return fmt.Errorf("%w: unsupported drive structured extractor", ErrInvalidTenantSettings)
 	}

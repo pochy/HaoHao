@@ -62,6 +62,7 @@ export PATH=$PATH:$(go env GOPATH)/bin
 - [運用Runbook](RUNBOOK_OPERABILITY.md)
 - [可観測性Runbook](RUNBOOK_OBSERVABILITY.md)
 - [デプロイRunbook](RUNBOOK_DEPLOYMENT.md)
+- [Drive 商品情報抽出 Python / GiNZA / SudachiPy Runbook](docs/RUNBOOK_DRIVE_PRODUCT_EXTRACTION_NLP.md)
 
 ## OpenFGA
 

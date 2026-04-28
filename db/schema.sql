@@ -1957,7 +1957,7 @@ CREATE TABLE public.drive_ocr_runs (
     CONSTRAINT drive_ocr_runs_page_count_check CHECK ((page_count >= 0)),
     CONSTRAINT drive_ocr_runs_processed_page_count_check CHECK ((processed_page_count >= 0)),
     CONSTRAINT drive_ocr_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'completed'::text, 'failed'::text, 'skipped'::text]))),
-    CONSTRAINT drive_ocr_runs_structured_extractor_check CHECK ((structured_extractor = ANY (ARRAY['rules'::text, 'ollama'::text, 'lmstudio'::text, 'gemini'::text, 'codex'::text, 'claude'::text, 'docling'::text])))
+    CONSTRAINT drive_ocr_runs_structured_extractor_check CHECK ((structured_extractor = ANY (ARRAY['rules'::text, 'ollama'::text, 'lmstudio'::text, 'gemini'::text, 'codex'::text, 'claude'::text, 'python'::text, 'ginza'::text, 'sudachipy'::text, 'docling'::text])))
 );
 
 

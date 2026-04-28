@@ -204,6 +204,11 @@ func (item ollamaProductItem) toDriveProductExtractionItem(input DriveProductExt
 		attributes["ollamaModel"] = input.Policy.OllamaModel
 	case "gemini", "codex", "claude":
 		attributes["localCommand"] = extractor
+	case "python", "ginza", "sudachipy":
+		attributes["pythonHelper"] = "drive_product_extraction_nlp.py"
+		if _, ok := attributes["nlpEngine"]; !ok {
+			attributes["nlpEngine"] = extractor
+		}
 	}
 	confidence := item.Confidence
 	if confidence != nil {
