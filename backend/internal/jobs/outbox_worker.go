@@ -105,14 +105,14 @@ func (w *OutboxWorker) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			go w.runOnce(ctx, "interval")
+			w.runOnce(ctx, "interval")
 		}
 	}
 }
 
 func (w *OutboxWorker) runOnce(parent context.Context, trigger string) {
 	if !w.running.CompareAndSwap(false, true) {
-		w.logger.WarnContext(parent, "outbox worker skipped because previous run is still active", "trigger", trigger)
+		w.logger.DebugContext(parent, "outbox worker skipped because previous run is still active", "trigger", trigger)
 		return
 	}
 	defer w.running.Store(false)

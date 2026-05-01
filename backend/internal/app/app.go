@@ -34,6 +34,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	var supportAccessService *service.SupportAccessService
 	var driveService *service.DriveService
 	var driveOCRService *service.DriveOCRService
+	var datasetService *service.DatasetService
 	for _, extra := range extras {
 		switch item := extra.(type) {
 		case *service.EntitlementService:
@@ -50,6 +51,8 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 			driveService = item
 		case *service.DriveOCRService:
 			driveOCRService = item
+		case *service.DatasetService:
+			datasetService = item
 		}
 	}
 	if logger == nil {
@@ -72,7 +75,9 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 			HSTSEnabled: cfg.SecurityHSTSEnabled,
 			HSTSMaxAge:  cfg.SecurityHSTSMaxAge,
 		}),
-		middleware.BodyLimit(cfg.MaxRequestBodyBytes),
+		middleware.BodyLimitWithOverrides(cfg.MaxRequestBodyBytes, []middleware.BodyLimitOverride{
+			{Method: "POST", PathPrefix: "/api/v1/datasets", MaxBytes: cfg.DatasetMaxUploadBytes + 1024*1024},
+		}),
 		middleware.BrowserCORS(cfg.CORSAllowedOrigins),
 	}
 	if cfg.OTELTracingEnabled {
@@ -132,6 +137,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		CustomerSignalImportService:      customerSignalImportService,
 		CustomerSignalSavedFilterService: customerSignalSavedFilterService,
 		SupportAccessService:             supportAccessService,
+		DatasetService:                   datasetService,
 	})
 	backendapi.Register(api, deps)
 	backendapi.RegisterRawFileRoutes(router, backendapi.Dependencies{
@@ -143,6 +149,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		TodoService:           todoService,
 	}, cfg.FileMaxBytes)
 	backendapi.RegisterRawDriveRoutes(router, deps, cfg.FileMaxBytes)
+	backendapi.RegisterRawDatasetRoutes(router, deps, cfg.DatasetMaxUploadBytes)
 
 	return &App{
 		Router: router,

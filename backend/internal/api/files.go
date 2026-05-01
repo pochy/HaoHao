@@ -117,6 +117,10 @@ func RegisterRawFileRoutes(router *gin.Engine, deps Dependencies, maxBytes int64
 			return
 		}
 		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
+			if isRequestBodyTooLargeError(err) {
+				c.JSON(http.StatusRequestEntityTooLarge, gin.H{"title": "file is too large"})
+				return
+			}
 			c.JSON(http.StatusBadRequest, gin.H{"title": "invalid multipart form"})
 			return
 		}

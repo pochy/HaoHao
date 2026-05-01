@@ -58,7 +58,7 @@ func (s *ReconcileScheduler) Start(ctx context.Context) {
 	}
 
 	if s.config.RunOnStartup {
-		go s.runOnce(ctx, "startup")
+		s.runOnce(ctx, "startup")
 	}
 
 	ticker := time.NewTicker(s.config.Interval)
@@ -69,7 +69,7 @@ func (s *ReconcileScheduler) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			go s.runOnce(ctx, "interval")
+			s.runOnce(ctx, "interval")
 		}
 	}
 }
@@ -79,7 +79,7 @@ func (s *ReconcileScheduler) runOnce(parent context.Context, trigger string) {
 		if s.metrics != nil {
 			s.metrics.IncReconcileSkipped(trigger)
 		}
-		s.logger.WarnContext(parent, "provisioning reconcile skipped because previous run is still active", "trigger", trigger)
+		s.logger.DebugContext(parent, "provisioning reconcile skipped because previous run is still active", "trigger", trigger)
 		return
 	}
 	defer s.running.Store(false)

@@ -77,6 +77,74 @@ type CustomerSignalSavedFilter struct {
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type Dataset struct {
+	ID                 int64              `json:"id"`
+	PublicID           uuid.UUID          `json:"public_id"`
+	TenantID           int64              `json:"tenant_id"`
+	CreatedByUserID    pgtype.Int8        `json:"created_by_user_id"`
+	SourceFileObjectID int64              `json:"source_file_object_id"`
+	Name               string             `json:"name"`
+	OriginalFilename   string             `json:"original_filename"`
+	ContentType        string             `json:"content_type"`
+	ByteSize           int64              `json:"byte_size"`
+	RawDatabase        string             `json:"raw_database"`
+	RawTable           string             `json:"raw_table"`
+	WorkDatabase       string             `json:"work_database"`
+	Status             string             `json:"status"`
+	RowCount           int64              `json:"row_count"`
+	ErrorSummary       pgtype.Text        `json:"error_summary"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	ImportedAt         pgtype.Timestamptz `json:"imported_at"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type DatasetColumn struct {
+	ID             int64              `json:"id"`
+	DatasetID      int64              `json:"dataset_id"`
+	Ordinal        int32              `json:"ordinal"`
+	OriginalName   string             `json:"original_name"`
+	ColumnName     string             `json:"column_name"`
+	ClickhouseType string             `json:"clickhouse_type"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type DatasetImportJob struct {
+	ID                 int64              `json:"id"`
+	PublicID           uuid.UUID          `json:"public_id"`
+	TenantID           int64              `json:"tenant_id"`
+	DatasetID          int64              `json:"dataset_id"`
+	SourceFileObjectID int64              `json:"source_file_object_id"`
+	RequestedByUserID  pgtype.Int8        `json:"requested_by_user_id"`
+	OutboxEventID      pgtype.Int8        `json:"outbox_event_id"`
+	Status             string             `json:"status"`
+	TotalRows          int64              `json:"total_rows"`
+	ValidRows          int64              `json:"valid_rows"`
+	InvalidRows        int64              `json:"invalid_rows"`
+	ErrorSample        []byte             `json:"error_sample"`
+	ErrorSummary       pgtype.Text        `json:"error_summary"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	CompletedAt        pgtype.Timestamptz `json:"completed_at"`
+}
+
+type DatasetQueryJob struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
+	Statement         string             `json:"statement"`
+	Status            string             `json:"status"`
+	ResultColumns     []byte             `json:"result_columns"`
+	ResultRows        []byte             `json:"result_rows"`
+	RowCount          int32              `json:"row_count"`
+	ErrorSummary      pgtype.Text        `json:"error_summary"`
+	DurationMs        int64              `json:"duration_ms"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+}
+
 type DriveAdminContentAccessSession struct {
 	ID             int64              `json:"id"`
 	PublicID       uuid.UUID          `json:"public_id"`

@@ -655,6 +655,306 @@ components:
       required:
         - name
       type: object
+    DatasetBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetBody.json
+          format: uri
+          readOnly: true
+          type: string
+        byteSize:
+          examples:
+            - 104857600
+          format: int64
+          type: integer
+        columns:
+          items:
+            $ref: "#/components/schemas/DatasetColumnBody"
+          type:
+            - array
+            - "null"
+        contentType:
+          examples:
+            - text/csv
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        errorSummary:
+          type: string
+        importJob:
+          $ref: "#/components/schemas/DatasetImportJobBody"
+        importedAt:
+          format: date-time
+          type: string
+        name:
+          examples:
+            - Customers
+          type: string
+        originalFilename:
+          examples:
+            - customers.csv
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        rawDatabase:
+          examples:
+            - hh_t_1_raw
+          type: string
+        rawTable:
+          examples:
+            - ds_018f2f05c6c97a49b32d04f4dd84ef4a
+          type: string
+        rowCount:
+          examples:
+            - 10000000
+          format: int64
+          type: integer
+        status:
+          examples:
+            - ready
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        workDatabase:
+          examples:
+            - hh_t_1_work
+          type: string
+      required:
+        - publicId
+        - name
+        - originalFilename
+        - contentType
+        - byteSize
+        - rawDatabase
+        - rawTable
+        - workDatabase
+        - status
+        - rowCount
+        - columns
+        - createdAt
+        - updatedAt
+      type: object
+    DatasetColumnBody:
+      additionalProperties: false
+      properties:
+        clickHouseType:
+          examples:
+            - Nullable(String)
+          type: string
+        columnName:
+          examples:
+            - customer_id
+          type: string
+        ordinal:
+          examples:
+            - 1
+          format: int32
+          type: integer
+        originalName:
+          examples:
+            - Customer ID
+          type: string
+      required:
+        - ordinal
+        - originalName
+        - columnName
+        - clickHouseType
+      type: object
+    DatasetImportErrorBody:
+      additionalProperties: false
+      properties:
+        error:
+          examples:
+            - expected 5 columns, got 4
+          type: string
+        raw:
+          type: string
+        rowNumber:
+          examples:
+            - 10
+          format: int64
+          type: integer
+      required:
+        - rowNumber
+        - error
+      type: object
+    DatasetImportJobBody:
+      additionalProperties: false
+      properties:
+        completedAt:
+          format: date-time
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        errorSample:
+          items:
+            $ref: "#/components/schemas/DatasetImportErrorBody"
+          type:
+            - array
+            - "null"
+        errorSummary:
+          type: string
+        invalidRows:
+          examples:
+            - 10
+          format: int64
+          type: integer
+        publicId:
+          format: uuid
+          type: string
+        status:
+          examples:
+            - processing
+          type: string
+        totalRows:
+          examples:
+            - 10000000
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+        validRows:
+          examples:
+            - 9999990
+          format: int64
+          type: integer
+      required:
+        - publicId
+        - status
+        - totalRows
+        - validRows
+        - invalidRows
+        - errorSample
+        - createdAt
+        - updatedAt
+      type: object
+    DatasetListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DatasetBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DatasetQueryCreateBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetQueryCreateBody.json
+          format: uri
+          readOnly: true
+          type: string
+        statement:
+          examples:
+            - SELECT count() FROM hh_t_1_raw.ds_abc
+          type: string
+      required:
+        - statement
+      type: object
+    DatasetQueryJobBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetQueryJobBody.json
+          format: uri
+          readOnly: true
+          type: string
+        completedAt:
+          format: date-time
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        durationMs:
+          examples:
+            - 120
+          format: int64
+          type: integer
+        errorSummary:
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        resultColumns:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        resultRows:
+          items:
+            additionalProperties: {}
+            type: object
+          type:
+            - array
+            - "null"
+        rowCount:
+          examples:
+            - 1000
+          format: int32
+          type: integer
+        statement:
+          type: string
+        status:
+          examples:
+            - completed
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - statement
+        - status
+        - resultColumns
+        - resultRows
+        - rowCount
+        - durationMs
+        - createdAt
+        - updatedAt
+      type: object
+    DatasetQueryListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetQueryListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DatasetQueryJobBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
     DriveAIClassificationBody:
       additionalProperties: false
       properties:
@@ -8601,6 +8901,208 @@ paths:
       summary: active tenant の Customer Signal を更新する
       tags:
         - customer-signals
+  /api/v1/dataset-query-jobs:
+    get:
+      operationId: listDatasetQueryJobs
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 25
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetQueryListBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset query job 一覧を返す
+      tags:
+        - datasets
+    post:
+      operationId: createDatasetQueryJob
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetQueryCreateBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetQueryJobBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset SQL query job を作成する
+      tags:
+        - datasets
+  /api/v1/dataset-query-jobs/{queryJobPublicId}:
+    get:
+      operationId: getDatasetQueryJob
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: queryJobPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetQueryJobBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset query job detail を返す
+      tags:
+        - datasets
+  /api/v1/datasets:
+    get:
+      operationId: listDatasets
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetListBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset 一覧を返す
+      tags:
+        - datasets
+  /api/v1/datasets/{datasetPublicId}:
+    delete:
+      operationId: deleteDataset
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: datasetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset を削除する
+      tags:
+        - datasets
+    get:
+      operationId: getDataset
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: datasetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset detail を返す
+      tags:
+        - datasets
   /api/v1/drive-mobile/offline/replay:
     post:
       operationId: replayDriveMobileOfflineOperations

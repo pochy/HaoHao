@@ -153,6 +153,10 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 			return
 		}
 		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
+			if isRequestBodyTooLargeError(err) {
+				writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusRequestEntityTooLarge, service.DriveErrorFileTooLarge, fmt.Sprintf("File exceeds the Drive upload limit of %s.", formatUploadLimitLabel(maxBytes))))
+				return
+			}
 			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
 			return
 		}
@@ -238,6 +242,10 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 			return
 		}
 		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
+			if isRequestBodyTooLargeError(err) {
+				writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusRequestEntityTooLarge, service.DriveErrorFileTooLarge, fmt.Sprintf("File exceeds the Drive upload limit of %s.", formatUploadLimitLabel(maxBytes))))
+				return
+			}
 			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
 			return
 		}
@@ -318,6 +326,10 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 			return
 		}
 		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
+			if isRequestBodyTooLargeError(err) {
+				writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusRequestEntityTooLarge, service.DriveErrorFileTooLarge, fmt.Sprintf("File exceeds the Drive upload limit of %s.", formatUploadLimitLabel(maxBytes))))
+				return
+			}
 			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
 			return
 		}
@@ -400,6 +412,10 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 			return
 		}
 		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
+			if isRequestBodyTooLargeError(err) {
+				writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusRequestEntityTooLarge, service.DriveErrorFileTooLarge, fmt.Sprintf("File exceeds the Drive upload limit of %s.", formatUploadLimitLabel(maxBytes))))
+				return
+			}
 			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
 			return
 		}
@@ -501,4 +517,23 @@ func writeDriveInline(c *gin.Context, download service.DriveFileDownload) {
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Status(http.StatusOK)
 	_, _ = io.Copy(c.Writer, download.Body)
+}
+
+func isRequestBodyTooLargeError(err error) bool {
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "request body too large")
+}
+
+func formatUploadLimitLabel(maxBytes int64) string {
+	if maxBytes <= 0 {
+		return "the configured limit"
+	}
+	const mb = int64(1024 * 1024)
+	if maxBytes%mb == 0 {
+		return fmt.Sprintf("%d MB", maxBytes/mb)
+	}
+	return fmt.Sprintf("%.1f MB", float64(maxBytes)/float64(mb))
 }

@@ -23,6 +23,7 @@ type Config struct {
 	SecurityHSTSEnabled           bool
 	SecurityHSTSMaxAge            int
 	MaxRequestBodyBytes           int64
+	DatasetMaxUploadBytes         int64
 	TrustedProxyCIDRs             []string
 	CORSAllowedOrigins            []string
 	OTELTracingEnabled            bool
@@ -99,6 +100,15 @@ type Config struct {
 	RedisAddr                     string
 	RedisPassword                 string
 	RedisDB                       int
+	ClickHouseAddr                string
+	ClickHouseDatabase            string
+	ClickHouseUsername            string
+	ClickHousePassword            string
+	ClickHouseTenantPasswordSalt  string
+	ClickHouseQueryMaxSeconds     int
+	ClickHouseQueryMaxMemoryBytes int64
+	ClickHouseQueryMaxRowsToRead  int64
+	ClickHouseQueryMaxThreads     int
 	LoginStateTTL                 time.Duration
 	SessionTTL                    time.Duration
 	CookieSecure                  bool
@@ -248,6 +258,7 @@ func Load() (Config, error) {
 		SecurityHSTSEnabled:           getEnvBool("SECURITY_HSTS_ENABLED", false),
 		SecurityHSTSMaxAge:            positiveInt(getEnvInt("SECURITY_HSTS_MAX_AGE", 31536000), 31536000),
 		MaxRequestBodyBytes:           positiveInt64(getEnvInt64("MAX_REQUEST_BODY_BYTES", 104857600), 104857600),
+		DatasetMaxUploadBytes:         positiveInt64(getEnvInt64("DATASET_MAX_UPLOAD_BYTES", 10*1024*1024*1024), 10*1024*1024*1024),
 		TrustedProxyCIDRs:             getEnvCSV("TRUSTED_PROXY_CIDRS"),
 		CORSAllowedOrigins:            getEnvCSV("CORS_ALLOWED_ORIGINS"),
 		OTELTracingEnabled:            getEnvBool("OTEL_TRACING_ENABLED", false),
@@ -324,6 +335,15 @@ func Load() (Config, error) {
 		RedisAddr:                     getEnv("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword:                 getEnv("REDIS_PASSWORD", ""),
 		RedisDB:                       getEnvInt("REDIS_DB", 0),
+		ClickHouseAddr:                strings.TrimSpace(getEnv("CLICKHOUSE_ADDR", "127.0.0.1:9000")),
+		ClickHouseDatabase:            strings.TrimSpace(getEnv("CLICKHOUSE_DATABASE", "default")),
+		ClickHouseUsername:            strings.TrimSpace(getEnv("CLICKHOUSE_USERNAME", "default")),
+		ClickHousePassword:            getEnv("CLICKHOUSE_PASSWORD", ""),
+		ClickHouseTenantPasswordSalt:  getEnv("CLICKHOUSE_TENANT_PASSWORD_SALT", "haohao-local-datasets"),
+		ClickHouseQueryMaxSeconds:     positiveInt(getEnvInt("CLICKHOUSE_QUERY_MAX_SECONDS", 60), 60),
+		ClickHouseQueryMaxMemoryBytes: positiveInt64(getEnvInt64("CLICKHOUSE_QUERY_MAX_MEMORY_BYTES", 1024*1024*1024), 1024*1024*1024),
+		ClickHouseQueryMaxRowsToRead:  positiveInt64(getEnvInt64("CLICKHOUSE_QUERY_MAX_ROWS_TO_READ", 100000000), 100000000),
+		ClickHouseQueryMaxThreads:     positiveInt(getEnvInt("CLICKHOUSE_QUERY_MAX_THREADS", 4), 4),
 		LoginStateTTL:                 loginStateTTL,
 		SessionTTL:                    sessionTTL,
 		CookieSecure:                  getEnvBool("COOKIE_SECURE", false),

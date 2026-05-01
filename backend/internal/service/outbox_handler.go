@@ -19,6 +19,7 @@ type P7OutboxHandler struct {
 	webhooks      *WebhookService
 	imports       *CustomerSignalImportService
 	driveOCR      *DriveOCRService
+	datasets      *DatasetService
 }
 
 func NewOutboxHandler(emailSender EmailSender, notifications *NotificationService, invitations *TenantInvitationService, dataExports *TenantDataExportService, extras ...any) *P7OutboxHandler {
@@ -36,6 +37,8 @@ func NewOutboxHandler(emailSender EmailSender, notifications *NotificationServic
 			handler.imports = item
 		case *DriveOCRService:
 			handler.driveOCR = item
+		case *DatasetService:
+			handler.datasets = item
 		}
 	}
 	return handler
@@ -124,6 +127,18 @@ func (h *P7OutboxHandler) HandleOutboxEvent(ctx context.Context, event db.Outbox
 			return nil
 		}
 		return h.driveOCR.HandleRequested(ctx, payload.TenantID, payload.FileObjectID, payload.ActorUserID, payload.Reason, event.ID)
+	case "dataset.import_requested":
+		var payload struct {
+			TenantID    int64 `json:"tenantId"`
+			ImportJobID int64 `json:"importJobId"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.datasets == nil {
+			return nil
+		}
+		return h.datasets.HandleImportRequested(ctx, payload.TenantID, payload.ImportJobID, event.ID)
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownOutboxEvent, event.EventType)
 	}

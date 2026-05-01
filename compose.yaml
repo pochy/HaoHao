@@ -24,6 +24,28 @@ services:
     volumes:
       - redis-data:/data
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.10
+    container_name: haohao-clickhouse
+    mem_limit: ${CLICKHOUSE_MEM_LIMIT:-2g}
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+      - ./dev/clickhouse/config.d/local-dev.xml:/etc/clickhouse-server/config.d/local-dev.xml:ro
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   openfga-postgres:
     image: postgres:18
     container_name: haohao-openfga-postgres
@@ -95,5 +117,7 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  clickhouse-data:
+  clickhouse-logs:
   openfga-postgres-data:
   seaweedfs-data:

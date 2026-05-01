@@ -912,6 +912,131 @@ code {
   font-size: 0.9rem;
 }
 
+.dataset-workspace {
+  display: grid;
+  gap: 18px;
+}
+
+.dataset-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.dataset-sidebar-panel {
+  position: sticky;
+  top: 88px;
+  max-height: calc(100dvh - 112px);
+  overflow: auto;
+}
+
+.dataset-main {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.dataset-upload-form {
+  display: grid;
+  gap: 12px;
+}
+
+.dataset-list {
+  display: grid;
+  gap: 8px;
+}
+
+.dataset-row,
+.dataset-query-row {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: #fff;
+  text-align: left;
+}
+
+.dataset-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px;
+}
+
+.dataset-row.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.dataset-row span {
+  min-width: 0;
+}
+
+.dataset-row strong,
+.dataset-row small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataset-row strong {
+  color: var(--text-strong);
+}
+
+.dataset-row small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.dataset-metadata-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dataset-column-table,
+.dataset-result-table {
+  max-height: min(52dvh, 520px);
+  overflow: auto;
+}
+
+.dataset-sql-input {
+  min-height: 180px;
+  font-family:
+    "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Code", "Source Code Pro",
+    monospace;
+  line-height: 1.5;
+}
+
+.dataset-result-table table {
+  min-width: 720px;
+}
+
+.dataset-result-table td {
+  max-width: 360px;
+}
+
+.dataset-query-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 46px;
+  padding: 10px 12px;
+}
+
+.dataset-query-row .monospace-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .inline-edit-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2864,6 +2989,15 @@ code {
     flex-direction: column;
   }
 
+  .dataset-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dataset-sidebar-panel {
+    position: static;
+    max-height: none;
+  }
+
   .drive-file-detail-surface {
     grid-template-columns: 1fr;
     padding: 22px;
@@ -2918,8 +3052,15 @@ code {
 
   .drive-filter-chip,
   .drive-view-controls > *,
-  .drive-header-actions > * {
+  .drive-header-actions > *,
+  .dataset-upload-form .primary-button {
     width: 100%;
+  }
+
+  .dataset-row,
+  .dataset-query-row,
+  .dataset-metadata-grid {
+    grid-template-columns: 1fr;
   }
 
   .drive-grid {

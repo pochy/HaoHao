@@ -75,6 +75,7 @@ func openAPIExportDependencies(cfg config.Config) backendapi.Dependencies {
 	customerSignalImportService := service.NewCustomerSignalImportService(nil, nil, outboxService, fileService, entitlementService, auditService)
 	customerSignalSavedFilterService := service.NewCustomerSignalSavedFilterService(nil, entitlementService, auditService)
 	supportAccessService := service.NewSupportAccessService(nil, nil, entitlementService, auditService, cfg.SupportAccessMaxDuration)
+	datasetService := service.NewDatasetService(nil, nil, outboxService, fileService, auditService, nil, service.DatasetClickHouseConfig{})
 
 	return dependenciesWithConfig(cfg, backendapi.Dependencies{
 		AuditService:                     auditService,
@@ -96,6 +97,7 @@ func openAPIExportDependencies(cfg config.Config) backendapi.Dependencies {
 		CustomerSignalImportService:      customerSignalImportService,
 		CustomerSignalSavedFilterService: customerSignalSavedFilterService,
 		SupportAccessService:             supportAccessService,
+		DatasetService:                   datasetService,
 	})
 }
 

@@ -4,6 +4,7 @@ import {
   Bell,
   Building2,
   CircleCheckBig,
+  Database,
   FileText,
   FolderOpen,
   Home,
@@ -38,6 +39,7 @@ const navigationGroups: NavigationGroup[] = [
     labelKey: 'nav.groups.work',
     items: [
       { to: '/customer-signals', labelKey: 'nav.items.signals', icon: RadioTower },
+      { to: '/datasets', labelKey: 'nav.items.datasets', icon: Database },
       { to: '/drive', labelKey: 'nav.items.drive', icon: FolderOpen },
       { to: '/todos', labelKey: 'nav.items.todos', icon: CircleCheckBig },
     ],

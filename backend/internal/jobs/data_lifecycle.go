@@ -118,7 +118,7 @@ func (j *DataLifecycleJob) Start(ctx context.Context) {
 		return
 	}
 	if j.config.RunOnStartup {
-		go j.runOnce(ctx, "startup")
+		j.runOnce(ctx, "startup")
 	}
 
 	ticker := time.NewTicker(j.config.Interval)
@@ -128,14 +128,14 @@ func (j *DataLifecycleJob) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			go j.runOnce(ctx, "interval")
+			j.runOnce(ctx, "interval")
 		}
 	}
 }
 
 func (j *DataLifecycleJob) runOnce(parent context.Context, trigger string) {
 	if !j.running.CompareAndSwap(false, true) {
-		j.logger.WarnContext(parent, "data lifecycle job skipped because previous run is still active", "trigger", trigger)
+		j.logger.DebugContext(parent, "data lifecycle job skipped because previous run is still active", "trigger", trigger)
 		return
 	}
 	defer j.running.Store(false)

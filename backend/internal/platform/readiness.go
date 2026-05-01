@@ -12,15 +12,16 @@ import (
 type PingFunc func(context.Context) error
 
 type ReadinessChecker struct {
-	PostgresPing  PingFunc
-	RedisPing     PingFunc
-	ZitadelIssuer string
-	CheckZitadel  bool
-	OpenFGAURL    string
-	OpenFGAToken  string
-	CheckOpenFGA  bool
-	HTTPClient    *http.Client
-	Metrics       *Metrics
+	PostgresPing   PingFunc
+	RedisPing      PingFunc
+	ClickHousePing PingFunc
+	ZitadelIssuer  string
+	CheckZitadel   bool
+	OpenFGAURL     string
+	OpenFGAToken   string
+	CheckOpenFGA   bool
+	HTTPClient     *http.Client
+	Metrics        *Metrics
 }
 
 type ReadinessResult struct {
@@ -41,6 +42,9 @@ func (c ReadinessChecker) Check(ctx context.Context) ReadinessResult {
 
 	c.checkPing(ctx, &result, "postgres", c.PostgresPing)
 	c.checkPing(ctx, &result, "redis", c.RedisPing)
+	if c.ClickHousePing != nil {
+		c.checkPing(ctx, &result, "clickhouse", c.ClickHousePing)
+	}
 
 	if c.CheckZitadel {
 		startedAt := time.Now()

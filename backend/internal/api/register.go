@@ -33,6 +33,7 @@ type Dependencies struct {
 	CustomerSignalImportService      *service.CustomerSignalImportService
 	CustomerSignalSavedFilterService *service.CustomerSignalSavedFilterService
 	SupportAccessService             *service.SupportAccessService
+	DatasetService                   *service.DatasetService
 	AuthMode                         string
 	EnableLocalPasswordLogin         bool
 	SCIMBasePath                     string
@@ -81,6 +82,7 @@ func RegisterSurface(api huma.API, deps Dependencies, surface Surface) {
 		registerCustomerSignalSavedFilterRoutes(api, deps)
 		registerSupportAccessRoutes(api, deps)
 		registerMachineClientRoutes(api, deps)
+		registerDatasetRoutes(api, deps)
 		registerDriveRoutes(api, deps)
 	}
 

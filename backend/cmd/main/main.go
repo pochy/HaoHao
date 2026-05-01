@@ -73,6 +73,18 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	clickHouseConn, err := platform.NewClickHouseConn(ctx, platform.ClickHouseConfig{
+		Addr:     cfg.ClickHouseAddr,
+		Database: cfg.ClickHouseDatabase,
+		Username: cfg.ClickHouseUsername,
+		Password: cfg.ClickHousePassword,
+	})
+	if err != nil {
+		logger.Warn("clickhouse unavailable; datasets sql studio disabled", "error", err)
+	} else {
+		defer clickHouseConn.Close()
+	}
+
 	queries := db.New(pool)
 	auditService := service.NewAuditService(queries)
 	outboxService := service.NewOutboxService(pool, queries, cfg.OutboxWorkerMaxAttempts)
@@ -134,10 +146,21 @@ func main() {
 	tenantInvitationService := service.NewTenantInvitationService(pool, queries, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)
 	tenantDataExportService := service.NewTenantDataExportService(pool, queries, outboxService, fileService, auditService, cfg.DataExportTTL, entitlementService)
 	customerSignalImportService := service.NewCustomerSignalImportService(pool, queries, outboxService, fileService, entitlementService, auditService)
+	datasetService := service.NewDatasetService(pool, queries, outboxService, fileService, auditService, clickHouseConn, service.DatasetClickHouseConfig{
+		Addr:                cfg.ClickHouseAddr,
+		Database:            cfg.ClickHouseDatabase,
+		Username:            cfg.ClickHouseUsername,
+		Password:            cfg.ClickHousePassword,
+		TenantPasswordSalt:  cfg.ClickHouseTenantPasswordSalt,
+		QueryMaxSeconds:     cfg.ClickHouseQueryMaxSeconds,
+		QueryMaxMemoryBytes: cfg.ClickHouseQueryMaxMemoryBytes,
+		QueryMaxRowsToRead:  cfg.ClickHouseQueryMaxRowsToRead,
+		QueryMaxThreads:     cfg.ClickHouseQueryMaxThreads,
+	})
 	customerSignalSavedFilterService := service.NewCustomerSignalSavedFilterService(queries, entitlementService, auditService)
 	supportAccessService := service.NewSupportAccessService(queries, sessionService, entitlementService, auditService, cfg.SupportAccessMaxDuration)
 	emailSender := service.NewLogEmailSender(logger, cfg.EmailFrom)
-	outboxHandler := service.NewOutboxHandler(emailSender, notificationService, tenantInvitationService, tenantDataExportService, webhookService, customerSignalImportService, driveOCRService)
+	outboxHandler := service.NewOutboxHandler(emailSender, notificationService, tenantInvitationService, tenantDataExportService, webhookService, customerSignalImportService, driveOCRService, datasetService)
 
 	var oidcLoginService *service.OIDCLoginService
 	var delegationService *service.DelegationService
@@ -227,8 +250,8 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics, entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService)
-	app.RegisterHealthRoutes(application.Router, platform.ReadinessChecker{
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics, entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService)
+	readiness := platform.ReadinessChecker{
 		PostgresPing:  pool.Ping,
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },
 		ZitadelIssuer: cfg.ZitadelIssuer,
@@ -238,9 +261,19 @@ func main() {
 		CheckOpenFGA:  cfg.OpenFGA.Enabled,
 		HTTPClient:    platform.ReadinessTimeoutClient(cfg.ReadinessTimeout),
 		Metrics:       metrics,
-	}, cfg.ReadinessTimeout)
+	}
+	if clickHouseConn != nil {
+		readiness.ClickHousePing = func(ctx context.Context) error {
+			return clickHouseConn.Ping(ctx)
+		}
+	}
+	app.RegisterHealthRoutes(application.Router, readiness, cfg.ReadinessTimeout)
 	if err := backendroot.RegisterFrontendRoutes(application.Router); err != nil {
-		logger.Warn("frontend routes unavailable", "error", err)
+		if errors.Is(err, backendroot.ErrFrontendNotEmbedded) {
+			logger.Info("frontend routes not embedded; serve the frontend dev server separately", "frontend_base_url", cfg.FrontendBaseURL)
+		} else {
+			logger.Warn("frontend routes unavailable", "error", err)
+		}
 	}
 
 	server := &http.Server{

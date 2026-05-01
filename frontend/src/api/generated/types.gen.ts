@@ -253,6 +253,99 @@ export type CustomerSignalSavedFilterRequestBody = {
     query?: string;
 };
 
+export type DatasetBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    byteSize: number;
+    columns: Array<DatasetColumnBody> | null;
+    contentType: string;
+    createdAt: string;
+    errorSummary?: string;
+    importJob?: DatasetImportJobBody;
+    importedAt?: string;
+    name: string;
+    originalFilename: string;
+    publicId: string;
+    rawDatabase: string;
+    rawTable: string;
+    rowCount: number;
+    status: string;
+    updatedAt: string;
+    workDatabase: string;
+};
+
+export type DatasetColumnBody = {
+    clickHouseType: string;
+    columnName: string;
+    ordinal: number;
+    originalName: string;
+};
+
+export type DatasetImportErrorBody = {
+    error: string;
+    raw?: string;
+    rowNumber: number;
+};
+
+export type DatasetImportJobBody = {
+    completedAt?: string;
+    createdAt: string;
+    errorSample: Array<DatasetImportErrorBody> | null;
+    errorSummary?: string;
+    invalidRows: number;
+    publicId: string;
+    status: string;
+    totalRows: number;
+    updatedAt: string;
+    validRows: number;
+};
+
+export type DatasetListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetBody> | null;
+};
+
+export type DatasetQueryCreateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    statement: string;
+};
+
+export type DatasetQueryJobBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    completedAt?: string;
+    createdAt: string;
+    durationMs: number;
+    errorSummary?: string;
+    publicId: string;
+    resultColumns: Array<string> | null;
+    resultRows: Array<{
+        [key: string]: unknown;
+    }> | null;
+    rowCount: number;
+    statement: string;
+    status: string;
+    updatedAt: string;
+};
+
+export type DatasetQueryListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetQueryJobBody> | null;
+};
+
 export type DriveAiClassificationBody = {
     confidence: number;
     createdAt: string;
@@ -2204,6 +2297,53 @@ export type CustomerSignalSavedFilterRequestBodyWritable = {
     };
     name: string;
     query?: string;
+};
+
+export type DatasetBodyWritable = {
+    byteSize: number;
+    columns: Array<DatasetColumnBody> | null;
+    contentType: string;
+    createdAt: string;
+    errorSummary?: string;
+    importJob?: DatasetImportJobBody;
+    importedAt?: string;
+    name: string;
+    originalFilename: string;
+    publicId: string;
+    rawDatabase: string;
+    rawTable: string;
+    rowCount: number;
+    status: string;
+    updatedAt: string;
+    workDatabase: string;
+};
+
+export type DatasetListBodyWritable = {
+    items: Array<DatasetBodyWritable> | null;
+};
+
+export type DatasetQueryCreateBodyWritable = {
+    statement: string;
+};
+
+export type DatasetQueryJobBodyWritable = {
+    completedAt?: string;
+    createdAt: string;
+    durationMs: number;
+    errorSummary?: string;
+    publicId: string;
+    resultColumns: Array<string> | null;
+    resultRows: Array<{
+        [key: string]: unknown;
+    }> | null;
+    rowCount: number;
+    statement: string;
+    status: string;
+    updatedAt: string;
+};
+
+export type DatasetQueryListBodyWritable = {
+    items: Array<DatasetQueryJobBodyWritable> | null;
 };
 
 export type DriveAiClassificationsOutputBodyWritable = {
@@ -5710,6 +5850,172 @@ export type UpdateCustomerSignalResponses = {
 };
 
 export type UpdateCustomerSignalResponse = UpdateCustomerSignalResponses[keyof UpdateCustomerSignalResponses];
+
+export type ListDatasetQueryJobsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/dataset-query-jobs';
+};
+
+export type ListDatasetQueryJobsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetQueryJobsError = ListDatasetQueryJobsErrors[keyof ListDatasetQueryJobsErrors];
+
+export type ListDatasetQueryJobsResponses = {
+    /**
+     * OK
+     */
+    200: DatasetQueryListBody;
+};
+
+export type ListDatasetQueryJobsResponse = ListDatasetQueryJobsResponses[keyof ListDatasetQueryJobsResponses];
+
+export type CreateDatasetQueryJobData = {
+    body: DatasetQueryCreateBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/dataset-query-jobs';
+};
+
+export type CreateDatasetQueryJobErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDatasetQueryJobError = CreateDatasetQueryJobErrors[keyof CreateDatasetQueryJobErrors];
+
+export type CreateDatasetQueryJobResponses = {
+    /**
+     * OK
+     */
+    200: DatasetQueryJobBody;
+};
+
+export type CreateDatasetQueryJobResponse = CreateDatasetQueryJobResponses[keyof CreateDatasetQueryJobResponses];
+
+export type GetDatasetQueryJobData = {
+    body?: never;
+    path: {
+        queryJobPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-query-jobs/{queryJobPublicId}';
+};
+
+export type GetDatasetQueryJobErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDatasetQueryJobError = GetDatasetQueryJobErrors[keyof GetDatasetQueryJobErrors];
+
+export type GetDatasetQueryJobResponses = {
+    /**
+     * OK
+     */
+    200: DatasetQueryJobBody;
+};
+
+export type GetDatasetQueryJobResponse = GetDatasetQueryJobResponses[keyof GetDatasetQueryJobResponses];
+
+export type ListDatasetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/datasets';
+};
+
+export type ListDatasetsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetsError = ListDatasetsErrors[keyof ListDatasetsErrors];
+
+export type ListDatasetsResponses = {
+    /**
+     * OK
+     */
+    200: DatasetListBody;
+};
+
+export type ListDatasetsResponse = ListDatasetsResponses[keyof ListDatasetsResponses];
+
+export type DeleteDatasetData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        datasetPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/datasets/{datasetPublicId}';
+};
+
+export type DeleteDatasetErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeleteDatasetError = DeleteDatasetErrors[keyof DeleteDatasetErrors];
+
+export type DeleteDatasetResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteDatasetResponse = DeleteDatasetResponses[keyof DeleteDatasetResponses];
+
+export type GetDatasetData = {
+    body?: never;
+    path: {
+        datasetPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/datasets/{datasetPublicId}';
+};
+
+export type GetDatasetErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDatasetError = GetDatasetErrors[keyof GetDatasetErrors];
+
+export type GetDatasetResponses = {
+    /**
+     * OK
+     */
+    200: DatasetBody;
+};
+
+export type GetDatasetResponse = GetDatasetResponses[keyof GetDatasetResponses];
 
 export type ReplayDriveMobileOfflineOperationsData = {
     body: DriveMobileOfflineReplayInputBodyWritable;

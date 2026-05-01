@@ -199,6 +199,168 @@ ALTER TABLE public.customer_signals ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
 
 
 --
+-- Name: dataset_columns; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_columns (
+    id bigint NOT NULL,
+    dataset_id bigint NOT NULL,
+    ordinal integer NOT NULL,
+    original_name text NOT NULL,
+    column_name text NOT NULL,
+    clickhouse_type text DEFAULT 'Nullable(String)'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT dataset_columns_clickhouse_type_check CHECK ((btrim(clickhouse_type) <> ''::text)),
+    CONSTRAINT dataset_columns_column_name_check CHECK ((btrim(column_name) <> ''::text)),
+    CONSTRAINT dataset_columns_ordinal_check CHECK ((ordinal > 0))
+);
+
+
+--
+-- Name: dataset_columns_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_columns ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_columns_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: dataset_import_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_import_jobs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    dataset_id bigint NOT NULL,
+    source_file_object_id bigint NOT NULL,
+    requested_by_user_id bigint,
+    outbox_event_id bigint,
+    status text DEFAULT 'pending'::text NOT NULL,
+    total_rows bigint DEFAULT 0 NOT NULL,
+    valid_rows bigint DEFAULT 0 NOT NULL,
+    invalid_rows bigint DEFAULT 0 NOT NULL,
+    error_sample jsonb DEFAULT '[]'::jsonb NOT NULL,
+    error_summary text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    CONSTRAINT dataset_import_jobs_invalid_rows_check CHECK ((invalid_rows >= 0)),
+    CONSTRAINT dataset_import_jobs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text]))),
+    CONSTRAINT dataset_import_jobs_total_rows_check CHECK ((total_rows >= 0)),
+    CONSTRAINT dataset_import_jobs_valid_rows_check CHECK ((valid_rows >= 0))
+);
+
+
+--
+-- Name: dataset_import_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_import_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_import_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: dataset_query_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_query_jobs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    requested_by_user_id bigint,
+    statement text NOT NULL,
+    status text DEFAULT 'running'::text NOT NULL,
+    result_columns jsonb DEFAULT '[]'::jsonb NOT NULL,
+    result_rows jsonb DEFAULT '[]'::jsonb NOT NULL,
+    row_count integer DEFAULT 0 NOT NULL,
+    error_summary text,
+    duration_ms bigint DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    CONSTRAINT dataset_query_jobs_duration_ms_check CHECK ((duration_ms >= 0)),
+    CONSTRAINT dataset_query_jobs_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT dataset_query_jobs_statement_check CHECK ((btrim(statement) <> ''::text)),
+    CONSTRAINT dataset_query_jobs_status_check CHECK ((status = ANY (ARRAY['running'::text, 'completed'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: dataset_query_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_query_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_query_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: datasets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.datasets (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    created_by_user_id bigint,
+    source_file_object_id bigint NOT NULL,
+    name text NOT NULL,
+    original_filename text NOT NULL,
+    content_type text NOT NULL,
+    byte_size bigint NOT NULL,
+    raw_database text NOT NULL,
+    raw_table text NOT NULL,
+    work_database text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    row_count bigint DEFAULT 0 NOT NULL,
+    error_summary text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    imported_at timestamp with time zone,
+    deleted_at timestamp with time zone,
+    CONSTRAINT datasets_byte_size_check CHECK ((byte_size >= 0)),
+    CONSTRAINT datasets_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT datasets_raw_database_check CHECK ((btrim(raw_database) <> ''::text)),
+    CONSTRAINT datasets_raw_table_check CHECK ((btrim(raw_table) <> ''::text)),
+    CONSTRAINT datasets_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT datasets_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'importing'::text, 'ready'::text, 'failed'::text, 'deleted'::text]))),
+    CONSTRAINT datasets_work_database_check CHECK ((btrim(work_database) <> ''::text))
+);
+
+
+--
+-- Name: datasets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.datasets ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.datasets_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: drive_admin_content_access_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2871,7 +3033,7 @@ CREATE TABLE public.file_objects (
     CONSTRAINT file_objects_byte_size_check CHECK ((byte_size >= 0)),
     CONSTRAINT file_objects_encryption_mode_check CHECK ((encryption_mode = ANY (ARRAY['server_managed'::text, 'tenant_managed'::text, 'hsm_managed'::text, 'zero_knowledge'::text]))),
     CONSTRAINT file_objects_purge_attempts_check CHECK ((purge_attempts >= 0)),
-    CONSTRAINT file_objects_purpose_check CHECK ((purpose = ANY (ARRAY['attachment'::text, 'avatar'::text, 'import'::text, 'export'::text, 'drive'::text]))),
+    CONSTRAINT file_objects_purpose_check CHECK ((purpose = ANY (ARRAY['attachment'::text, 'avatar'::text, 'import'::text, 'export'::text, 'drive'::text, 'dataset_source'::text]))),
     CONSTRAINT file_objects_scan_status_check CHECK ((scan_status = ANY (ARRAY['pending'::text, 'clean'::text, 'infected'::text, 'blocked'::text, 'failed'::text, 'skipped'::text]))),
     CONSTRAINT file_objects_status_check CHECK ((status = ANY (ARRAY['active'::text, 'deleted'::text]))),
     CONSTRAINT file_objects_upload_state_check CHECK ((upload_state = ANY (ARRAY['reserved'::text, 'uploading'::text, 'active'::text, 'failed'::text])))
@@ -3742,6 +3904,38 @@ ALTER TABLE ONLY public.customer_signal_saved_filters
 
 ALTER TABLE ONLY public.customer_signals
     ADD CONSTRAINT customer_signals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_columns dataset_columns_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_columns
+    ADD CONSTRAINT dataset_columns_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_import_jobs dataset_import_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_import_jobs
+    ADD CONSTRAINT dataset_import_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_query_jobs dataset_query_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_query_jobs
+    ADD CONSTRAINT dataset_query_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: datasets datasets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.datasets
+    ADD CONSTRAINT datasets_pkey PRIMARY KEY (id);
 
 
 --
@@ -4787,6 +4981,83 @@ CREATE INDEX customer_signals_tenant_search_idx ON public.customer_signals USING
 --
 
 CREATE INDEX customer_signals_tenant_status_created_at_idx ON public.customer_signals USING btree (tenant_id, status, created_at DESC, id DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: dataset_columns_dataset_column_name_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_columns_dataset_column_name_key ON public.dataset_columns USING btree (dataset_id, column_name);
+
+
+--
+-- Name: dataset_columns_dataset_ordinal_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_columns_dataset_ordinal_key ON public.dataset_columns USING btree (dataset_id, ordinal);
+
+
+--
+-- Name: dataset_import_jobs_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_import_jobs_pending_idx ON public.dataset_import_jobs USING btree (created_at, id) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]));
+
+
+--
+-- Name: dataset_import_jobs_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_import_jobs_public_id_key ON public.dataset_import_jobs USING btree (public_id);
+
+
+--
+-- Name: dataset_import_jobs_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_import_jobs_tenant_created_idx ON public.dataset_import_jobs USING btree (tenant_id, created_at DESC, id DESC);
+
+
+--
+-- Name: dataset_query_jobs_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_query_jobs_public_id_key ON public.dataset_query_jobs USING btree (public_id);
+
+
+--
+-- Name: dataset_query_jobs_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_query_jobs_tenant_created_idx ON public.dataset_query_jobs USING btree (tenant_id, created_at DESC, id DESC);
+
+
+--
+-- Name: datasets_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX datasets_public_id_key ON public.datasets USING btree (public_id);
+
+
+--
+-- Name: datasets_source_file_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX datasets_source_file_idx ON public.datasets USING btree (source_file_object_id);
+
+
+--
+-- Name: datasets_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX datasets_tenant_created_idx ON public.datasets USING btree (tenant_id, created_at DESC, id DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: datasets_tenant_raw_table_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX datasets_tenant_raw_table_key ON public.datasets USING btree (tenant_id, raw_table);
 
 
 --
@@ -6059,6 +6330,94 @@ ALTER TABLE ONLY public.customer_signals
 
 ALTER TABLE ONLY public.customer_signals
     ADD CONSTRAINT customer_signals_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_columns dataset_columns_dataset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_columns
+    ADD CONSTRAINT dataset_columns_dataset_id_fkey FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_import_jobs dataset_import_jobs_dataset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_import_jobs
+    ADD CONSTRAINT dataset_import_jobs_dataset_id_fkey FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_import_jobs dataset_import_jobs_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_import_jobs
+    ADD CONSTRAINT dataset_import_jobs_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_import_jobs dataset_import_jobs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_import_jobs
+    ADD CONSTRAINT dataset_import_jobs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_import_jobs dataset_import_jobs_source_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_import_jobs
+    ADD CONSTRAINT dataset_import_jobs_source_file_object_id_fkey FOREIGN KEY (source_file_object_id) REFERENCES public.file_objects(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: dataset_import_jobs dataset_import_jobs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_import_jobs
+    ADD CONSTRAINT dataset_import_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_query_jobs dataset_query_jobs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_query_jobs
+    ADD CONSTRAINT dataset_query_jobs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_query_jobs dataset_query_jobs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_query_jobs
+    ADD CONSTRAINT dataset_query_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: datasets datasets_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.datasets
+    ADD CONSTRAINT datasets_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: datasets datasets_source_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.datasets
+    ADD CONSTRAINT datasets_source_file_object_id_fkey FOREIGN KEY (source_file_object_id) REFERENCES public.file_objects(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: datasets datasets_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.datasets
+    ADD CONSTRAINT datasets_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --

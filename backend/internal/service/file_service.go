@@ -117,8 +117,19 @@ func NewFileService(pool *pgxpool.Pool, queries *db.Queries, storage FileStorage
 }
 
 func (s *FileService) Upload(ctx context.Context, input FileUploadInput, auditCtx AuditContext) (FileObject, error) {
+	return s.uploadWithLimit(ctx, input, auditCtx, s.maxBytes)
+}
+
+func (s *FileService) UploadWithMaxBytes(ctx context.Context, input FileUploadInput, auditCtx AuditContext, maxBytes int64) (FileObject, error) {
+	return s.uploadWithLimit(ctx, input, auditCtx, maxBytes)
+}
+
+func (s *FileService) uploadWithLimit(ctx context.Context, input FileUploadInput, auditCtx AuditContext, maxBytes int64) (FileObject, error) {
 	if s == nil || s.pool == nil || s.queries == nil || s.storage == nil {
 		return FileObject{}, fmt.Errorf("file service is not configured")
+	}
+	if maxBytes <= 0 {
+		maxBytes = s.maxBytes
 	}
 	normalized, err := s.normalizeUploadInput(input)
 	if err != nil {
@@ -128,7 +139,7 @@ func (s *FileService) Upload(ctx context.Context, input FileUploadInput, auditCt
 		return FileObject{}, err
 	}
 	storageKey := fmt.Sprintf("tenants/%d/files/%s", normalized.TenantID, uuid.NewString())
-	stored, err := s.storage.PutObject(ctx, storageKey, normalized.Body, s.maxBytes, ObjectPutOptions{
+	stored, err := s.storage.PutObject(ctx, storageKey, normalized.Body, maxBytes, ObjectPutOptions{
 		ContentType: normalized.ContentType,
 	})
 	if err != nil {
