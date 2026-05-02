@@ -19,6 +19,7 @@ type fakeLifecycleQueries struct {
 	expiredTenantInvitations int64
 	deletedProcessedOutbox   int64
 	deletedReadNotifications int64
+	deletedRealtimeEvents    int64
 	expiredTenantDataExports int64
 }
 
@@ -36,6 +37,10 @@ func (q fakeLifecycleQueries) DeleteProcessedOutboxEventsBefore(context.Context,
 
 func (q fakeLifecycleQueries) DeleteReadNotificationsBefore(context.Context, pgtype.Timestamptz) (int64, error) {
 	return q.deletedReadNotifications, nil
+}
+
+func (q fakeLifecycleQueries) DeleteExpiredRealtimeEvents(context.Context) (int64, error) {
+	return q.deletedRealtimeEvents, nil
 }
 
 func (q fakeLifecycleQueries) SoftDeleteExpiredTenantDataExports(context.Context) (int64, error) {

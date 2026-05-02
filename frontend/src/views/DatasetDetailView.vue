@@ -8,6 +8,7 @@ import { toApiErrorMessage, toApiErrorRequestId } from '../api/client'
 import type { DatasetQueryJobBody } from '../api/generated/types.gen'
 import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
 import { useDatasetStore } from '../stores/datasets'
+import { useRealtimeStore } from '../stores/realtime'
 import { useTenantStore } from '../stores/tenants'
 
 type DatasetTab = 'sql' | 'schema' | 'history'
@@ -15,6 +16,7 @@ type DatasetTab = 'sql' | 'schema' | 'history'
 const route = useRoute()
 const router = useRouter()
 const datasetStore = useDatasetStore()
+const realtimeStore = useRealtimeStore()
 const tenantStore = useTenantStore()
 const { d, n, t } = useI18n()
 
@@ -57,7 +59,7 @@ onMounted(async () => {
     await tenantStore.load()
   }
   refreshTimer = window.setInterval(async () => {
-    if (selectedDataset.value && ['pending', 'importing'].includes(selectedDataset.value.status)) {
+    if (!realtimeStore.connected && selectedDataset.value && ['pending', 'importing'].includes(selectedDataset.value.status)) {
       await refreshDatasetDetail()
     }
   }, 4000)

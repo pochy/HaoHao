@@ -93,6 +93,13 @@ func main() {
 	auditService := service.NewAuditService(queries)
 	outboxService := service.NewOutboxService(pool, queries, cfg.OutboxWorkerMaxAttempts)
 	idempotencyService := service.NewIdempotencyService(queries, cfg.IdempotencyTTL)
+	realtimeService := service.NewRealtimeService(queries, redisClient, service.RealtimeConfig{
+		Enabled:           cfg.RealtimeEnabled,
+		HeartbeatInterval: cfg.RealtimeHeartbeatInterval,
+		LongPollTimeout:   cfg.RealtimeLongPollTimeout,
+		EventRetention:    cfg.RealtimeEventRetention,
+		BackfillLimit:     cfg.RealtimeBackfillLimit,
+	}, metrics)
 	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
 	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode, cfg.EnableLocalPasswordLogin, auditService)
 	authzService := service.NewAuthzService(pool, queries)
@@ -110,6 +117,7 @@ func main() {
 	todoService := service.NewTodoService(pool, queries, auditService)
 	machineClientService := service.NewMachineClientService(pool, queries, cfg.M2MRequiredScopePrefix, auditService)
 	notificationService := service.NewNotificationService(queries, auditService)
+	notificationService.SetRealtimeService(realtimeService)
 	tenantSettingsService := service.NewTenantSettingsService(queries, auditService, cfg.TenantDefaultFileQuotaBytes)
 	fileStorage, err := service.NewFileStorage(ctx, service.FileStorageConfig{
 		Driver:            cfg.FileStorageDriver,
@@ -162,6 +170,11 @@ func main() {
 		QueryMaxRowsToRead:  cfg.ClickHouseQueryMaxRowsToRead,
 		QueryMaxThreads:     cfg.ClickHouseQueryMaxThreads,
 	})
+	driveOCRService.SetRealtimeService(realtimeService)
+	tenantInvitationService.SetRealtimeService(realtimeService)
+	tenantDataExportService.SetRealtimeService(realtimeService)
+	customerSignalImportService.SetRealtimeService(realtimeService)
+	datasetService.SetRealtimeService(realtimeService)
 	customerSignalSavedFilterService := service.NewCustomerSignalSavedFilterService(queries, entitlementService, auditService)
 	supportAccessService := service.NewSupportAccessService(queries, sessionService, entitlementService, auditService, cfg.SupportAccessMaxDuration)
 	emailSender := service.NewLogEmailSender(logger, cfg.EmailFrom)
@@ -255,7 +268,7 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	appExtras := []any{entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService}
+	appExtras := []any{entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService, realtimeService}
 	markdownDocsFS, err := backendweb.MarkdownDocsFS()
 	if err != nil {
 		logger.Warn("markdown docs unavailable", "error", err)

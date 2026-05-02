@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useTenantAdminDetailContext } from '../../tenant-admin/detail-context'
+
+const DATA_JOB_REFRESH_INTERVAL_MS = 4000
 
 const { t } = useI18n()
 const {
@@ -14,6 +17,23 @@ const {
   tenant,
   uploadImportCSV,
 } = useTenantAdminDetailContext()
+
+let refreshTimer: number | undefined
+
+onMounted(() => {
+  refreshTimer = window.setInterval(() => {
+    const slug = tenant.value?.slug
+    if (slug && commonStore.hasActiveDataJobs) {
+      void commonStore.refreshDataJobs(slug)
+    }
+  }, DATA_JOB_REFRESH_INTERVAL_MS)
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer !== undefined) {
+    window.clearInterval(refreshTimer)
+  }
+})
 </script>
 
 <template>

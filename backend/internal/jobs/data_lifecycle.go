@@ -20,6 +20,7 @@ type dataLifecycleQueries interface {
 	ExpireTenantInvitations(context.Context) (int64, error)
 	DeleteProcessedOutboxEventsBefore(context.Context, pgtype.Timestamptz) (int64, error)
 	DeleteReadNotificationsBefore(context.Context, pgtype.Timestamptz) (int64, error)
+	DeleteExpiredRealtimeEvents(context.Context) (int64, error)
 	SoftDeleteExpiredTenantDataExports(context.Context) (int64, error)
 }
 
@@ -61,6 +62,7 @@ type dataLifecycleRunSummary struct {
 	TenantInvitationsExpired int64
 	ProcessedOutboxDeleted   int64
 	ReadNotificationsDeleted int64
+	RealtimeEventsDeleted    int64
 	TenantDataExportsExpired int64
 	FileBodiesClaimed        int64
 	FileBodiesPurged         int64
@@ -72,6 +74,7 @@ func (s dataLifecycleRunSummary) changed() bool {
 		s.TenantInvitationsExpired > 0 ||
 		s.ProcessedOutboxDeleted > 0 ||
 		s.ReadNotificationsDeleted > 0 ||
+		s.RealtimeEventsDeleted > 0 ||
 		s.TenantDataExportsExpired > 0 ||
 		s.FileBodiesClaimed > 0 ||
 		s.FileBodiesPurged > 0 ||
@@ -84,6 +87,7 @@ func (s dataLifecycleRunSummary) attrs() []any {
 		"tenant_invitations_expired", s.TenantInvitationsExpired,
 		"processed_outbox_events_deleted", s.ProcessedOutboxDeleted,
 		"read_notifications_deleted", s.ReadNotificationsDeleted,
+		"realtime_events_deleted", s.RealtimeEventsDeleted,
 		"tenant_data_exports_expired", s.TenantDataExportsExpired,
 		"file_bodies_claimed", s.FileBodiesClaimed,
 		"file_bodies_purged", s.FileBodiesPurged,
@@ -200,6 +204,13 @@ func (j *DataLifecycleJob) runOnceWithSummary(ctx context.Context) (dataLifecycl
 	}
 	summary.ReadNotificationsDeleted = notificationDeleted
 	j.addItems("notifications", notificationDeleted)
+
+	realtimeDeleted, err := j.queries.DeleteExpiredRealtimeEvents(ctx)
+	if err != nil {
+		return summary, fmt.Errorf("delete expired realtime events: %w", err)
+	}
+	summary.RealtimeEventsDeleted = realtimeDeleted
+	j.addItems("realtime_events", realtimeDeleted)
 
 	fileBefore := now.Add(-j.config.FileDeletedRetention)
 	if j.filePurger != nil {

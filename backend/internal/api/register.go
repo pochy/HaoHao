@@ -24,6 +24,7 @@ type Dependencies struct {
 	OutboxService                    *service.OutboxService
 	IdempotencyService               *service.IdempotencyService
 	NotificationService              *service.NotificationService
+	RealtimeService                  *service.RealtimeService
 	TenantInvitationService          *service.TenantInvitationService
 	FileService                      *service.FileService
 	DriveService                     *service.DriveService

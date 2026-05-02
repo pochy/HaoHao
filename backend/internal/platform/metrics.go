@@ -36,6 +36,11 @@ type Metrics struct {
 	openFGARequestsTotal    *prometheus.CounterVec
 	openFGARequestDuration  *prometheus.HistogramVec
 	driveAuthzDeniedTotal   *prometheus.CounterVec
+	realtimeConnections     prometheus.Gauge
+	realtimeEventsTotal     *prometheus.CounterVec
+	realtimeDeliveredTotal  *prometheus.CounterVec
+	realtimePublishErrors   *prometheus.CounterVec
+	realtimePollTimeouts    prometheus.Counter
 }
 
 func NewMetrics(appVersion string) *Metrics {
@@ -163,6 +168,36 @@ func NewMetrics(appVersion string) *Metrics {
 			Help:        "Total number of denied Drive authorization decisions.",
 			ConstLabels: constLabels,
 		}, []string{"operation", "resource_type"}),
+		realtimeConnections: factory.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "haohao",
+			Name:        "realtime_connections",
+			Help:        "Current number of realtime browser connections.",
+			ConstLabels: constLabels,
+		}),
+		realtimeEventsTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "realtime_events_total",
+			Help:        "Total number of realtime events published.",
+			ConstLabels: constLabels,
+		}, []string{"event_type"}),
+		realtimeDeliveredTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "realtime_delivered_total",
+			Help:        "Total number of realtime events delivered to browser transports.",
+			ConstLabels: constLabels,
+		}, []string{"event_type", "transport"}),
+		realtimePublishErrors: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "realtime_publish_errors_total",
+			Help:        "Total number of realtime Redis fanout errors.",
+			ConstLabels: constLabels,
+		}, []string{"reason"}),
+		realtimePollTimeouts: factory.NewCounter(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "realtime_poll_timeouts_total",
+			Help:        "Total number of realtime long poll timeouts.",
+			ConstLabels: constLabels,
+		}),
 	}
 }
 
@@ -341,4 +376,62 @@ func (m *Metrics) IncDriveAuthzDenied(operation, resourceType string) {
 		resourceType = "unknown"
 	}
 	m.driveAuthzDeniedTotal.WithLabelValues(operation, resourceType).Inc()
+}
+
+func (m *Metrics) IncRealtimeConnection() {
+	if m == nil {
+		return
+	}
+	m.realtimeConnections.Inc()
+}
+
+func (m *Metrics) DecRealtimeConnection() {
+	if m == nil {
+		return
+	}
+	m.realtimeConnections.Dec()
+}
+
+func (m *Metrics) IncRealtimeEventPublished(eventType string) {
+	if m == nil {
+		return
+	}
+	m.realtimeEventsTotal.WithLabelValues(sanitizeRealtimeLabel(eventType)).Inc()
+}
+
+func (m *Metrics) IncRealtimeEventDelivered(eventType, transport string) {
+	if m == nil {
+		return
+	}
+	switch transport {
+	case "sse", "poll":
+	default:
+		transport = "unknown"
+	}
+	m.realtimeDeliveredTotal.WithLabelValues(sanitizeRealtimeLabel(eventType), transport).Inc()
+}
+
+func (m *Metrics) IncRealtimePublishError(reason string) {
+	if m == nil {
+		return
+	}
+	m.realtimePublishErrors.WithLabelValues(sanitizeRealtimeLabel(reason)).Inc()
+}
+
+func (m *Metrics) IncRealtimePollTimeout() {
+	if m == nil {
+		return
+	}
+	m.realtimePollTimeouts.Inc()
+}
+
+func sanitizeRealtimeLabel(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "unknown"
+	}
+	if len(value) > 80 {
+		return value[:80]
+	}
+	return value
 }

@@ -64,6 +64,7 @@ export const useDatasetStore = defineStore('datasets', {
       state.sourceFiles.find((item) => item.publicId === state.selectedSourceFilePublicId) ?? state.sourceFiles[0] ?? null
     ),
     hasActiveImports: (state) => state.items.some((item) => ['pending', 'importing'].includes(item.status)),
+    hasActiveWorkTableExports: (state) => state.workTableExports.some((item) => ['pending', 'processing'].includes(item.status)),
   },
 
   actions: {
@@ -344,6 +345,30 @@ export const useDatasetStore = defineStore('datasets', {
       } finally {
         this.workTableActionLoading = false
       }
+    },
+
+    async refreshSelectedWorkTableExports() {
+      const publicId = this.selectedWorkTable?.publicId
+      if (!publicId || !this.selectedWorkTable?.managed) {
+        return
+      }
+      try {
+        this.workTableExports = await fetchWorkTableExports(publicId)
+      } catch (error) {
+        this.workTableErrorMessage = toApiErrorMessage(error)
+      }
+    },
+
+    applyWorkTableExportUpdate(update: Partial<DatasetWorkTableExportBody> & { publicId: string }) {
+      const index = this.workTableExports.findIndex((item) => item.publicId === update.publicId)
+      if (index < 0) {
+        return false
+      }
+      this.workTableExports[index] = {
+        ...this.workTableExports[index],
+        ...update,
+      }
+      return true
     },
 
     async importFromDriveFile(driveFilePublicId: string, name: string) {

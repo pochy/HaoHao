@@ -502,6 +502,7 @@ code {
 }
 
 .icon-button {
+  position: relative;
   display: inline-grid;
   width: 38px;
   height: 38px;
@@ -516,6 +517,24 @@ code {
 .icon-button:hover {
   color: var(--accent-strong);
   background: #eff6ff;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  color: #fff;
+  background: #dc2626;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .locale-switcher {

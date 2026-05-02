@@ -39,6 +39,8 @@ import type {
   WebhookEndpointRequestBodyWritable,
 } from '../api/generated/types.gen'
 
+const activeDataJobStatuses = new Set(['pending', 'processing'])
+
 export const useTenantCommonStore = defineStore('tenantCommon', {
   state: () => ({
     invitations: [] as TenantInvitationBody[],
@@ -51,6 +53,13 @@ export const useTenantCommonStore = defineStore('tenantCommon', {
     saving: false,
     errorMessage: '',
   }),
+
+  getters: {
+    hasActiveDataJobs: (state) => (
+      state.exports.some((item) => activeDataJobStatuses.has(item.status)) ||
+      state.imports.some((item) => activeDataJobStatuses.has(item.status))
+    ),
+  },
 
   actions: {
     async load(tenantSlug: string) {
@@ -76,6 +85,62 @@ export const useTenantCommonStore = defineStore('tenantCommon', {
       } finally {
         this.loading = false
       }
+    },
+
+    async refreshDataJobs(tenantSlug: string) {
+      this.errorMessage = ''
+      try {
+        const [exports, imports] = await Promise.all([
+          fetchTenantDataExports(tenantSlug),
+          fetchCustomerSignalImports(tenantSlug).catch(() => []),
+        ])
+        this.exports = exports
+        this.imports = imports
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+      }
+    },
+
+    async refreshTenantDataExports(tenantSlug: string) {
+      this.errorMessage = ''
+      try {
+        this.exports = await fetchTenantDataExports(tenantSlug)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+      }
+    },
+
+    async refreshCustomerSignalImports(tenantSlug: string) {
+      this.errorMessage = ''
+      try {
+        this.imports = await fetchCustomerSignalImports(tenantSlug)
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+      }
+    },
+
+    applyTenantDataExportUpdate(update: Partial<TenantDataExportBody> & { publicId: string }) {
+      const index = this.exports.findIndex((item) => item.publicId === update.publicId)
+      if (index < 0) {
+        return false
+      }
+      this.exports[index] = {
+        ...this.exports[index],
+        ...update,
+      }
+      return true
+    },
+
+    applyCustomerSignalImportUpdate(update: Partial<CustomerSignalImportJobBody> & { publicId: string }) {
+      const index = this.imports.findIndex((item) => item.publicId === update.publicId)
+      if (index < 0) {
+        return false
+      }
+      this.imports[index] = {
+        ...this.imports[index],
+        ...update,
+      }
+      return true
     },
 
     async updateSettings(tenantSlug: string, body: TenantSettingsRequestBodyWritable) {

@@ -56,10 +56,17 @@ type CustomerSignalImportService struct {
 	files        *FileService
 	entitlements *EntitlementService
 	audit        AuditRecorder
+	realtime     RealtimePublisher
 }
 
 func NewCustomerSignalImportService(pool *pgxpool.Pool, queries *db.Queries, outbox *OutboxService, files *FileService, entitlements *EntitlementService, audit AuditRecorder) *CustomerSignalImportService {
 	return &CustomerSignalImportService{pool: pool, queries: queries, outbox: outbox, files: files, entitlements: entitlements, audit: audit}
+}
+
+func (s *CustomerSignalImportService) SetRealtimeService(realtime RealtimePublisher) {
+	if s != nil {
+		s.realtime = realtime
+	}
 }
 
 func (s *CustomerSignalImportService) List(ctx context.Context, tenantID int64, limit int) ([]CustomerSignalImportJob, error) {
@@ -172,6 +179,7 @@ func (s *CustomerSignalImportService) Create(ctx context.Context, tenantID, user
 	if err := tx.Commit(ctx); err != nil {
 		return CustomerSignalImportJob{}, fmt.Errorf("commit import transaction: %w", err)
 	}
+	s.publishCustomerSignalImportUpdated(ctx, row, "processing", "")
 	return customerSignalImportJobFromDB(row), nil
 }
 
@@ -191,13 +199,13 @@ func (s *CustomerSignalImportService) HandleRequested(ctx context.Context, tenan
 	}
 	download, err := s.files.DownloadByID(ctx, tenantID, job.InputFileObjectID)
 	if err != nil {
-		_, _ = s.queries.FailCustomerSignalImportJob(ctx, db.FailCustomerSignalImportJobParams{ID: importJobID, Left: err.Error()})
+		s.failCustomerSignalImportJob(ctx, job, err.Error())
 		return err
 	}
 	defer download.Body.Close()
 	body, err := io.ReadAll(download.Body)
 	if err != nil {
-		_, _ = s.queries.FailCustomerSignalImportJob(ctx, db.FailCustomerSignalImportJobParams{ID: importJobID, Left: err.Error()})
+		s.failCustomerSignalImportJob(ctx, job, err.Error())
 		return err
 	}
 	result := s.validateCSV(body)
@@ -207,7 +215,7 @@ func (s *CustomerSignalImportService) HandleRequested(ctx context.Context, tenan
 		errorBody := result.ErrorCSV()
 		file, err := s.files.CreateGeneratedFile(ctx, tenantID, optionalPgInt8(job.RequestedByUserID), "import", fmt.Sprintf("customer-signal-import-errors-%s.csv", job.PublicID.String()), "text/csv", bytes.NewReader(errorBody))
 		if err != nil {
-			_, _ = s.queries.FailCustomerSignalImportJob(ctx, db.FailCustomerSignalImportJobParams{ID: importJobID, Left: err.Error()})
+			s.failCustomerSignalImportJob(ctx, job, err.Error())
 			return err
 		}
 		errorFileID = pgtype.Int8{Int64: file.ID, Valid: true}
@@ -227,13 +235,13 @@ func (s *CustomerSignalImportService) HandleRequested(ctx context.Context, tenan
 				Status:          item.Status,
 			})
 			if err != nil {
-				_, _ = s.queries.FailCustomerSignalImportJob(ctx, db.FailCustomerSignalImportJobParams{ID: importJobID, Left: err.Error()})
+				s.failCustomerSignalImportJob(ctx, job, err.Error())
 				return err
 			}
 			inserted++
 		}
 	}
-	if _, err := s.queries.CompleteCustomerSignalImportJob(ctx, db.CompleteCustomerSignalImportJobParams{
+	completed, err := s.queries.CompleteCustomerSignalImportJob(ctx, db.CompleteCustomerSignalImportJobParams{
 		ID:                importJobID,
 		TotalRows:         result.TotalRows,
 		ValidRows:         int32(len(result.ValidItems)),
@@ -241,10 +249,49 @@ func (s *CustomerSignalImportService) HandleRequested(ctx context.Context, tenan
 		InsertedRows:      inserted,
 		ErrorFileObjectID: errorFileID,
 		ErrorSummary:      errorSummary,
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("complete import job: %w", err)
 	}
+	s.publishCustomerSignalImportUpdated(ctx, completed, "completed", "")
 	return nil
+}
+
+func (s *CustomerSignalImportService) failCustomerSignalImportJob(ctx context.Context, job db.CustomerSignalImportJob, message string) {
+	if message == "" {
+		message = "customer signal import failed"
+	}
+	updated, err := s.queries.FailCustomerSignalImportJob(ctx, db.FailCustomerSignalImportJobParams{ID: job.ID, Left: message})
+	if err == nil {
+		job = updated
+	}
+	s.publishCustomerSignalImportUpdated(ctx, job, "failed", message)
+}
+
+func (s *CustomerSignalImportService) publishCustomerSignalImportUpdated(ctx context.Context, job db.CustomerSignalImportJob, status, errorSummary string) {
+	if s == nil || s.realtime == nil || !job.RequestedByUserID.Valid {
+		return
+	}
+	payload := map[string]any{
+		"status":         status,
+		"importPublicId": job.PublicID.String(),
+		"validateOnly":   job.ValidateOnly,
+		"totalRows":      job.TotalRows,
+		"validRows":      job.ValidRows,
+		"invalidRows":    job.InvalidRows,
+		"insertedRows":   job.InsertedRows,
+	}
+	if errorSummary != "" {
+		payload["errorSummary"] = errorSummary
+	}
+	_, _ = s.realtime.Publish(ctx, RealtimeEventInput{
+		TenantID:         &job.TenantID,
+		RecipientUserID:  job.RequestedByUserID.Int64,
+		EventType:        "job.updated",
+		ResourceType:     "customer_signal_import",
+		ResourcePublicID: job.PublicID.String(),
+		Payload:          payload,
+	})
 }
 
 func (s *CustomerSignalImportService) requireEnabled(ctx context.Context, tenantID int64) error {

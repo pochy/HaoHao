@@ -5,14 +5,17 @@ import { Bell, CircleUserRound, HelpCircle, LogIn } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { useSessionStore } from '../stores/session'
+import { useNotificationStore } from '../stores/notifications'
 import LocaleSwitcher from './LocaleSwitcher.vue'
 import TenantSelector from './TenantSelector.vue'
 
 const route = useRoute()
 const sessionStore = useSessionStore()
+const notificationStore = useNotificationStore()
 const { t, te } = useI18n()
 
 const displayName = computed(() => sessionStore.user?.displayName ?? t('auth.guest'))
+const unreadNotifications = computed(() => notificationStore.unreadCount)
 const routeLabel = computed(() => {
   const key = route.meta.titleKey
   if (typeof key === 'string' && te(key)) {
@@ -54,6 +57,7 @@ const statusLabel = computed(() => {
     <div class="topbar-actions">
       <RouterLink class="icon-button" to="/notifications" :aria-label="t('topbar.openInbox')">
         <Bell :size="17" stroke-width="1.8" aria-hidden="true" />
+        <span v-if="unreadNotifications > 0" class="notification-badge">{{ unreadNotifications > 9 ? '9+' : unreadNotifications }}</span>
       </RouterLink>
       <a class="icon-button" href="/docs/openapi" :aria-label="t('topbar.openApiDocs')">
         <HelpCircle :size="17" stroke-width="1.8" aria-hidden="true" />

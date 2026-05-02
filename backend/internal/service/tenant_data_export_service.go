@@ -45,6 +45,7 @@ type TenantDataExportService struct {
 	entitlements *EntitlementService
 	audit        AuditRecorder
 	ttl          time.Duration
+	realtime     RealtimePublisher
 }
 
 func NewTenantDataExportService(pool *pgxpool.Pool, queries *db.Queries, outbox *OutboxService, files *FileService, audit AuditRecorder, ttl time.Duration, entitlements ...*EntitlementService) *TenantDataExportService {
@@ -63,6 +64,12 @@ func NewTenantDataExportService(pool *pgxpool.Pool, queries *db.Queries, outbox 
 		entitlements: entitlementService,
 		audit:        audit,
 		ttl:          ttl,
+	}
+}
+
+func (s *TenantDataExportService) SetRealtimeService(realtime RealtimePublisher) {
+	if s != nil {
+		s.realtime = realtime
 	}
 }
 
@@ -138,6 +145,7 @@ func (s *TenantDataExportService) Create(ctx context.Context, tenantID, userID i
 	if err := tx.Commit(ctx); err != nil {
 		return TenantDataExport{}, fmt.Errorf("commit tenant data export transaction: %w", err)
 	}
+	s.publishTenantDataExportUpdated(ctx, row, "processing", "", "")
 	return tenantDataExportFromDB(row), nil
 }
 
@@ -214,7 +222,7 @@ func (s *TenantDataExportService) HandleRequested(ctx context.Context, tenantID,
 	}
 	signals, err := s.queries.ListCustomerSignalsByTenantID(ctx, tenantID)
 	if err != nil {
-		_, _ = s.queries.MarkTenantDataExportFailed(ctx, db.MarkTenantDataExportFailedParams{ID: exportID, Left: err.Error()})
+		s.markTenantDataExportFailed(ctx, row, err.Error())
 		return fmt.Errorf("list export customer signals: %w", err)
 	}
 	files, err := s.queries.ListActiveFileObjectsForTenant(ctx, db.ListActiveFileObjectsForTenantParams{
@@ -222,7 +230,7 @@ func (s *TenantDataExportService) HandleRequested(ctx context.Context, tenantID,
 		Limit:    1000,
 	})
 	if err != nil {
-		_, _ = s.queries.MarkTenantDataExportFailed(ctx, db.MarkTenantDataExportFailedParams{ID: exportID, Left: err.Error()})
+		s.markTenantDataExportFailed(ctx, row, err.Error())
 		return fmt.Errorf("list export files: %w", err)
 	}
 	payload := map[string]any{
@@ -234,21 +242,23 @@ func (s *TenantDataExportService) HandleRequested(ctx context.Context, tenantID,
 	}
 	body, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
-		_, _ = s.queries.MarkTenantDataExportFailed(ctx, db.MarkTenantDataExportFailedParams{ID: exportID, Left: err.Error()})
+		s.markTenantDataExportFailed(ctx, row, err.Error())
 		return err
 	}
 	userID := optionalPgInt8(row.RequestedByUserID)
 	file, err := s.files.CreateGeneratedFile(ctx, tenantID, userID, "export", fmt.Sprintf("tenant-export-%s.json", row.PublicID.String()), "application/json", bytes.NewReader(body))
 	if err != nil {
-		_, _ = s.queries.MarkTenantDataExportFailed(ctx, db.MarkTenantDataExportFailedParams{ID: exportID, Left: err.Error()})
+		s.markTenantDataExportFailed(ctx, row, err.Error())
 		return err
 	}
-	if _, err := s.queries.MarkTenantDataExportReady(ctx, db.MarkTenantDataExportReadyParams{
+	ready, err := s.queries.MarkTenantDataExportReady(ctx, db.MarkTenantDataExportReadyParams{
 		ID:           exportID,
 		FileObjectID: pgtype.Int8{Int64: file.ID, Valid: true},
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("mark tenant data export ready: %w", err)
 	}
+	s.publishTenantDataExportUpdated(ctx, ready, "ready", "", file.PublicID)
 	return nil
 }
 
@@ -287,7 +297,7 @@ func normalizeExportFormat(value string) string {
 func (s *TenantDataExportService) handleCustomerSignalsCSVExport(ctx context.Context, row db.TenantDataExport) error {
 	signals, err := s.queries.ListCustomerSignalsByTenantID(ctx, row.TenantID)
 	if err != nil {
-		_, _ = s.queries.MarkTenantDataExportFailed(ctx, db.MarkTenantDataExportFailedParams{ID: row.ID, Left: err.Error()})
+		s.markTenantDataExportFailed(ctx, row, err.Error())
 		return fmt.Errorf("list export customer signals: %w", err)
 	}
 	var buf bytes.Buffer
@@ -308,22 +318,60 @@ func (s *TenantDataExportService) handleCustomerSignalsCSVExport(ctx context.Con
 	}
 	writer.Flush()
 	if err := writer.Error(); err != nil {
-		_, _ = s.queries.MarkTenantDataExportFailed(ctx, db.MarkTenantDataExportFailedParams{ID: row.ID, Left: err.Error()})
+		s.markTenantDataExportFailed(ctx, row, err.Error())
 		return err
 	}
 	userID := optionalPgInt8(row.RequestedByUserID)
 	file, err := s.files.CreateGeneratedFile(ctx, row.TenantID, userID, "export", fmt.Sprintf("customer-signals-%s.csv", row.PublicID.String()), "text/csv", bytes.NewReader(buf.Bytes()))
 	if err != nil {
-		_, _ = s.queries.MarkTenantDataExportFailed(ctx, db.MarkTenantDataExportFailedParams{ID: row.ID, Left: err.Error()})
+		s.markTenantDataExportFailed(ctx, row, err.Error())
 		return err
 	}
-	if _, err := s.queries.MarkTenantDataExportReady(ctx, db.MarkTenantDataExportReadyParams{
+	ready, err := s.queries.MarkTenantDataExportReady(ctx, db.MarkTenantDataExportReadyParams{
 		ID:           row.ID,
 		FileObjectID: pgtype.Int8{Int64: file.ID, Valid: true},
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("mark tenant csv export ready: %w", err)
 	}
+	s.publishTenantDataExportUpdated(ctx, ready, "ready", "", file.PublicID)
 	return nil
+}
+
+func (s *TenantDataExportService) markTenantDataExportFailed(ctx context.Context, row db.TenantDataExport, message string) {
+	if message == "" {
+		message = "tenant data export failed"
+	}
+	updated, err := s.queries.MarkTenantDataExportFailed(ctx, db.MarkTenantDataExportFailedParams{ID: row.ID, Left: message})
+	if err == nil {
+		row = updated
+	}
+	s.publishTenantDataExportUpdated(ctx, row, "failed", message, "")
+}
+
+func (s *TenantDataExportService) publishTenantDataExportUpdated(ctx context.Context, row db.TenantDataExport, status, errorSummary, filePublicID string) {
+	if s == nil || s.realtime == nil || !row.RequestedByUserID.Valid {
+		return
+	}
+	payload := map[string]any{
+		"status":         status,
+		"exportPublicId": row.PublicID.String(),
+		"format":         row.Format,
+	}
+	if filePublicID != "" {
+		payload["filePublicId"] = filePublicID
+	}
+	if errorSummary != "" {
+		payload["errorSummary"] = errorSummary
+	}
+	_, _ = s.realtime.Publish(ctx, RealtimeEventInput{
+		TenantID:         &row.TenantID,
+		RecipientUserID:  row.RequestedByUserID.Int64,
+		EventType:        "job.updated",
+		ResourceType:     "tenant_data_export",
+		ResourcePublicID: row.PublicID.String(),
+		Payload:          payload,
+	})
 }
 
 func tenantDataExportFromDB(row db.TenantDataExport) TenantDataExport {

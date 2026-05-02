@@ -8,9 +8,11 @@ import { toApiErrorMessage, toApiErrorRequestId } from '../api/client'
 import type { DatasetWorkTableExportFormat } from '../api/datasets'
 import DatasetWorkTableBrowser from '../components/DatasetWorkTableBrowser.vue'
 import { useDatasetStore } from '../stores/datasets'
+import { useRealtimeStore } from '../stores/realtime'
 import { useTenantStore } from '../stores/tenants'
 
 const datasetStore = useDatasetStore()
+const realtimeStore = useRealtimeStore()
 const tenantStore = useTenantStore()
 const router = useRouter()
 const { d, t } = useI18n()
@@ -34,8 +36,11 @@ onMounted(async () => {
     await tenantStore.load()
   }
   refreshTimer = window.setInterval(async () => {
-    if (datasetStore.hasActiveImports) {
+    if (datasetStore.hasActiveImports && !realtimeStore.connected) {
       await datasetStore.load()
+    }
+    if (datasetStore.hasActiveWorkTableExports) {
+      await datasetStore.refreshSelectedWorkTableExports()
     }
   }, 4000)
 })

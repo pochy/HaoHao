@@ -101,6 +101,11 @@ type Config struct {
 	RedisAddr                     string
 	RedisPassword                 string
 	RedisDB                       int
+	RealtimeEnabled               bool
+	RealtimeHeartbeatInterval     time.Duration
+	RealtimeLongPollTimeout       time.Duration
+	RealtimeEventRetention        time.Duration
+	RealtimeBackfillLimit         int
 	ClickHouseAddr                string
 	ClickHouseHTTPURL             string
 	ClickHouseDatabase            string
@@ -215,6 +220,18 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	supportAccessMaxDuration, err := getEnvPositiveDuration("SUPPORT_ACCESS_MAX_DURATION", "1h")
+	if err != nil {
+		return Config{}, err
+	}
+	realtimeHeartbeatInterval, err := getEnvPositiveDuration("REALTIME_HEARTBEAT_INTERVAL", "25s")
+	if err != nil {
+		return Config{}, err
+	}
+	realtimeLongPollTimeout, err := getEnvPositiveDuration("REALTIME_LONG_POLL_TIMEOUT", "25s")
+	if err != nil {
+		return Config{}, err
+	}
+	realtimeEventRetention, err := getEnvPositiveDuration("REALTIME_EVENT_RETENTION", "168h")
 	if err != nil {
 		return Config{}, err
 	}
@@ -342,6 +359,11 @@ func Load() (Config, error) {
 		RedisAddr:                     getEnv("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword:                 getEnv("REDIS_PASSWORD", ""),
 		RedisDB:                       getEnvInt("REDIS_DB", 0),
+		RealtimeEnabled:               getEnvBool("REALTIME_ENABLED", true),
+		RealtimeHeartbeatInterval:     realtimeHeartbeatInterval,
+		RealtimeLongPollTimeout:       realtimeLongPollTimeout,
+		RealtimeEventRetention:        realtimeEventRetention,
+		RealtimeBackfillLimit:         positiveInt(getEnvInt("REALTIME_BACKFILL_LIMIT", 100), 100),
 		ClickHouseAddr:                strings.TrimSpace(getEnv("CLICKHOUSE_ADDR", "127.0.0.1:9000")),
 		ClickHouseHTTPURL:             strings.TrimSpace(getEnv("CLICKHOUSE_HTTP_URL", "http://127.0.0.1:8123")),
 		ClickHouseDatabase:            strings.TrimSpace(getEnv("CLICKHOUSE_DATABASE", "default")),

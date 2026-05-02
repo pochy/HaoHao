@@ -24,6 +24,7 @@ type DriveOCRRun struct {
 	FilePublicID        string
 	TenantID            int64
 	FileObjectID        int64
+	RequestedByUserID   *int64
 	FileRevision        string
 	ContentSHA256       string
 	Engine              string
@@ -90,6 +91,7 @@ type DriveOCRService struct {
 	audit          AuditRecorder
 	provider       DriveOCRProvider
 	extractor      DriveProductExtractor
+	realtime       RealtimePublisher
 }
 
 func NewDriveOCRService(pool *pgxpool.Pool, queries *db.Queries, drive *DriveService, storage FileStorage, tenantSettings *TenantSettingsService, audit AuditRecorder, provider DriveOCRProvider, extractor DriveProductExtractor) *DriveOCRService {
@@ -118,6 +120,12 @@ func NewDriveOCRService(pool *pgxpool.Pool, queries *db.Queries, drive *DriveSer
 		audit:          audit,
 		provider:       provider,
 		extractor:      extractor,
+	}
+}
+
+func (s *DriveOCRService) SetRealtimeService(realtime RealtimePublisher) {
+	if s != nil {
+		s.realtime = realtime
 	}
 }
 
@@ -162,6 +170,7 @@ func (s *DriveOCRService) RequestJob(ctx context.Context, tenantID, actorUserID 
 		}
 	}
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.ocr.job.create", file.PublicID, map[string]any{"reason": reason})
+	s.publishDriveOCRRunUpdated(ctx, run, run.Status, "")
 	return run, nil
 }
 
@@ -186,20 +195,30 @@ func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObj
 		return err
 	}
 	if run.Status == "completed" {
-		return s.indexOCRText(ctx, file, run.ExtractedText)
+		if err := s.indexOCRText(ctx, file, run.ExtractedText); err != nil {
+			return err
+		}
+		s.publishDriveOCRRunUpdated(ctx, run, "completed", "")
+		return nil
 	}
 	if code, message := s.skipReason(ctx, file, policy); code != "" {
-		_, err := s.queries.MarkDriveOCRRunSkipped(ctx, db.MarkDriveOCRRunSkippedParams{
+		skipped, err := s.queries.MarkDriveOCRRunSkipped(ctx, db.MarkDriveOCRRunSkippedParams{
 			ErrorCode:    pgtype.Text{String: code, Valid: true},
 			ErrorMessage: message,
 			ID:           run.ID,
 			TenantID:     tenantID,
 		})
+		if err == nil {
+			s.publishDriveOCRRunUpdated(ctx, driveOCRRunFromDB(skipped, file.PublicID), "skipped", message)
+		}
 		return err
 	}
-	if _, err := s.queries.MarkDriveOCRRunRunning(ctx, db.MarkDriveOCRRunRunningParams{ID: run.ID, TenantID: tenantID}); err != nil {
+	running, err := s.queries.MarkDriveOCRRunRunning(ctx, db.MarkDriveOCRRunRunningParams{ID: run.ID, TenantID: tenantID})
+	if err != nil {
 		return err
 	}
+	run = driveOCRRunFromDB(running, file.PublicID)
+	s.publishDriveOCRRunUpdated(ctx, run, "running", "")
 	body, err := s.storage.Open(ctx, file.StorageKey)
 	if err != nil {
 		return s.markRunFailed(ctx, run, "storage_open_failed", err)
@@ -208,12 +227,15 @@ func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObj
 	result, err := s.provider.Extract(ctx, DriveOCRProviderInput{TenantID: tenantID, File: file, Body: body, Policy: policy})
 	if err != nil {
 		if isDriveOCRUnsupported(err) {
-			_, markErr := s.queries.MarkDriveOCRRunSkipped(ctx, db.MarkDriveOCRRunSkippedParams{
+			skipped, markErr := s.queries.MarkDriveOCRRunSkipped(ctx, db.MarkDriveOCRRunSkippedParams{
 				ErrorCode:    pgtype.Text{String: "unsupported_file", Valid: true},
 				ErrorMessage: trimOCRProcessError(err),
 				ID:           run.ID,
 				TenantID:     tenantID,
 			})
+			if markErr == nil {
+				s.publishDriveOCRRunUpdated(ctx, driveOCRRunFromDB(skipped, file.PublicID), "skipped", trimOCRProcessError(err))
+			}
 			return markErr
 		}
 		return s.markRunFailed(ctx, run, "provider_failed", err)
@@ -239,6 +261,7 @@ func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObj
 	if err := s.indexOCRText(ctx, file, result.FullText); err != nil {
 		return err
 	}
+	s.publishDriveOCRRunUpdated(ctx, run, "completed", "")
 	return nil
 }
 
@@ -541,7 +564,7 @@ func (s *DriveOCRService) indexOCRText(ctx context.Context, file DriveFile, text
 }
 
 func (s *DriveOCRService) markRunFailed(ctx context.Context, run DriveOCRRun, code string, cause error) error {
-	_, err := s.queries.MarkDriveOCRRunFailed(ctx, db.MarkDriveOCRRunFailedParams{
+	updated, err := s.queries.MarkDriveOCRRunFailed(ctx, db.MarkDriveOCRRunFailedParams{
 		ErrorCode:    pgtype.Text{String: code, Valid: true},
 		ErrorMessage: trimOCRProcessError(cause),
 		ID:           run.ID,
@@ -550,7 +573,37 @@ func (s *DriveOCRService) markRunFailed(ctx context.Context, run DriveOCRRun, co
 	if err != nil {
 		return err
 	}
+	s.publishDriveOCRRunUpdated(ctx, driveOCRRunFromDB(updated, run.FilePublicID), "failed", trimOCRProcessError(cause))
 	return cause
+}
+
+func (s *DriveOCRService) publishDriveOCRRunUpdated(ctx context.Context, run DriveOCRRun, status, errorSummary string) {
+	if s == nil || s.realtime == nil || run.RequestedByUserID == nil {
+		return
+	}
+	payload := map[string]any{
+		"status":       status,
+		"runPublicId":  run.PublicID,
+		"filePublicId": run.FilePublicID,
+		"reason":       run.Reason,
+	}
+	if run.PageCount > 0 {
+		payload["pageCount"] = run.PageCount
+	}
+	if run.ProcessedPageCount > 0 {
+		payload["processedPageCount"] = run.ProcessedPageCount
+	}
+	if errorSummary != "" {
+		payload["errorSummary"] = errorSummary
+	}
+	_, _ = s.realtime.Publish(ctx, RealtimeEventInput{
+		TenantID:         &run.TenantID,
+		RecipientUserID:  *run.RequestedByUserID,
+		EventType:        "job.updated",
+		ResourceType:     "drive_ocr_run",
+		ResourcePublicID: run.PublicID,
+		Payload:          payload,
+	})
 }
 
 func (s *DriveOCRService) skipReason(ctx context.Context, file DriveFile, policy DriveOCRPolicy) (string, string) {
@@ -647,6 +700,7 @@ func driveOCRRunFromDB(row db.DriveOcrRun, filePublicID string) DriveOCRRun {
 		FilePublicID:        filePublicID,
 		TenantID:            row.TenantID,
 		FileObjectID:        row.FileObjectID,
+		RequestedByUserID:   optionalPgInt8(row.RequestedByUserID),
 		FileRevision:        row.FileRevision,
 		ContentSHA256:       row.ContentSha256,
 		Engine:              row.Engine,

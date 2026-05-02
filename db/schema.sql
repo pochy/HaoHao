@@ -3351,6 +3351,40 @@ CREATE TABLE public.provisioning_sync_state (
 
 
 --
+-- Name: realtime_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.realtime_events (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint,
+    recipient_user_id bigint NOT NULL,
+    event_type text NOT NULL,
+    resource_type text DEFAULT ''::text NOT NULL,
+    resource_public_id text DEFAULT ''::text NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    expires_at timestamp with time zone DEFAULT (now() + '7 days'::interval) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT realtime_events_event_type_check CHECK ((btrim(event_type) <> ''::text)),
+    CONSTRAINT realtime_events_recipient_user_id_check CHECK ((recipient_user_id > 0))
+);
+
+
+--
+-- Name: realtime_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.realtime_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.realtime_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: roles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4796,6 +4830,14 @@ ALTER TABLE ONLY public.provisioning_sync_state
 
 
 --
+-- Name: realtime_events realtime_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.realtime_events
+    ADD CONSTRAINT realtime_events_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: roles roles_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6227,6 +6269,34 @@ CREATE UNIQUE INDEX outbox_events_public_id_key ON public.outbox_events USING bt
 --
 
 CREATE INDEX outbox_events_tenant_created_idx ON public.outbox_events USING btree (tenant_id, created_at DESC) WHERE (tenant_id IS NOT NULL);
+
+
+--
+-- Name: realtime_events_expires_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX realtime_events_expires_idx ON public.realtime_events USING btree (expires_at);
+
+
+--
+-- Name: realtime_events_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX realtime_events_public_id_key ON public.realtime_events USING btree (public_id);
+
+
+--
+-- Name: realtime_events_recipient_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX realtime_events_recipient_cursor_idx ON public.realtime_events USING btree (recipient_user_id, id);
+
+
+--
+-- Name: realtime_events_tenant_recipient_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX realtime_events_tenant_recipient_cursor_idx ON public.realtime_events USING btree (tenant_id, recipient_user_id, id) WHERE (tenant_id IS NOT NULL);
 
 
 --
@@ -8402,6 +8472,22 @@ ALTER TABLE ONLY public.oauth_user_grants
 
 ALTER TABLE ONLY public.outbox_events
     ADD CONSTRAINT outbox_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE SET NULL;
+
+
+--
+-- Name: realtime_events realtime_events_recipient_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.realtime_events
+    ADD CONSTRAINT realtime_events_recipient_user_id_fkey FOREIGN KEY (recipient_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: realtime_events realtime_events_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.realtime_events
+    ADD CONSTRAINT realtime_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --

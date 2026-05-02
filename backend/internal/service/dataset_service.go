@@ -205,6 +205,7 @@ type DatasetService struct {
 	chMu       sync.Mutex
 	clickhouse driver.Conn
 	chConfig   DatasetClickHouseConfig
+	realtime   RealtimePublisher
 }
 
 func NewDatasetService(pool *pgxpool.Pool, queries *db.Queries, outbox *OutboxService, files *FileService, audit AuditRecorder, clickhouseConn driver.Conn, chConfig DatasetClickHouseConfig) *DatasetService {
@@ -237,6 +238,12 @@ func NewDatasetService(pool *pgxpool.Pool, queries *db.Queries, outbox *OutboxSe
 		audit:      audit,
 		clickhouse: clickhouseConn,
 		chConfig:   chConfig,
+	}
+}
+
+func (s *DatasetService) SetRealtimeService(realtime RealtimePublisher) {
+	if s != nil {
+		s.realtime = realtime
 	}
 }
 
@@ -499,13 +506,13 @@ func (s *DatasetService) HandleImportRequested(ctx context.Context, tenantID, im
 	}
 	dataset, err := s.queries.GetDatasetByIDForTenant(ctx, db.GetDatasetByIDForTenantParams{ID: job.DatasetID, TenantID: tenantID})
 	if err != nil {
-		_ = s.failImport(ctx, job.ID, job.DatasetID, fmt.Errorf("get dataset: %w", err))
+		_ = s.failImport(ctx, tenantID, job, job.DatasetID, fmt.Errorf("get dataset: %w", err))
 		return err
 	}
 	_, _ = s.queries.MarkDatasetImporting(ctx, dataset.ID)
 	result, err := s.importCSV(ctx, tenantID, dataset, job)
 	if err != nil {
-		return s.failImport(ctx, job.ID, dataset.ID, err)
+		return s.failImport(ctx, tenantID, job, dataset.ID, err)
 	}
 	errorSample, _ := json.Marshal(result.ErrorSample)
 	errorSummary := pgtype.Text{}
@@ -525,6 +532,8 @@ func (s *DatasetService) HandleImportRequested(ctx context.Context, tenantID, im
 	if _, err := s.queries.MarkDatasetReady(ctx, db.MarkDatasetReadyParams{ID: dataset.ID, RowCount: result.ValidRows}); err != nil {
 		return fmt.Errorf("mark dataset ready: %w", err)
 	}
+	s.publishDatasetImportJobUpdated(ctx, tenantID, job, "completed", "", dataset.PublicID.String(), result.ValidRows)
+	s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(job.RequestedByUserID), dataset.PublicID.String(), "ready", result.ValidRows, "")
 	return nil
 }
 
@@ -1347,26 +1356,31 @@ func (s *DatasetService) HandleWorkTablePromotionRequested(ctx context.Context, 
 	workTable, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: workTableID, TenantID: tenantID})
 	if err != nil {
 		_, _ = s.queries.MarkDatasetFailed(ctx, db.MarkDatasetFailedParams{ID: datasetID, Left: err.Error()})
+		s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(dataset.CreatedByUserID), dataset.PublicID.String(), "failed", 0, err.Error())
 		return fmt.Errorf("get source work table: %w", err)
 	}
 	if workTable.Status != "active" || workTable.DroppedAt.Valid {
 		err := ErrDatasetWorkTableNotFound
 		_, _ = s.queries.MarkDatasetFailed(ctx, db.MarkDatasetFailedParams{ID: datasetID, Left: err.Error()})
+		s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(dataset.CreatedByUserID), dataset.PublicID.String(), "failed", 0, err.Error())
 		return err
 	}
 	_, _ = s.queries.MarkDatasetImporting(ctx, dataset.ID)
 	if err := s.copyWorkTableToDatasetRaw(ctx, tenantID, dataset, workTable); err != nil {
 		_, _ = s.queries.MarkDatasetFailed(ctx, db.MarkDatasetFailedParams{ID: datasetID, Left: err.Error()})
+		s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(dataset.CreatedByUserID), dataset.PublicID.String(), "failed", 0, err.Error())
 		return err
 	}
 	metadata, err := s.getWorkTableMetadata(ctx, dataset.RawDatabase, dataset.RawTable)
 	if err != nil {
 		_, _ = s.queries.MarkDatasetFailed(ctx, db.MarkDatasetFailedParams{ID: datasetID, Left: err.Error()})
+		s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(dataset.CreatedByUserID), dataset.PublicID.String(), "failed", 0, err.Error())
 		return err
 	}
 	if _, err := s.queries.MarkDatasetReady(ctx, db.MarkDatasetReadyParams{ID: dataset.ID, RowCount: metadata.TotalRows}); err != nil {
 		return fmt.Errorf("mark promoted dataset ready: %w", err)
 	}
+	s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(dataset.CreatedByUserID), dataset.PublicID.String(), "ready", metadata.TotalRows, "")
 	return nil
 }
 
@@ -1440,6 +1454,7 @@ func (s *DatasetService) CreateWorkTableExport(ctx context.Context, tenantID, us
 	if err := tx.Commit(ctx); err != nil {
 		return DatasetWorkTableExport{}, fmt.Errorf("commit work table export transaction: %w", err)
 	}
+	s.publishWorkTableExportUpdated(ctx, export, "processing", "", "")
 	return datasetWorkTableExportFromDB(export), nil
 }
 
@@ -1509,19 +1524,19 @@ func (s *DatasetService) HandleWorkTableExportRequested(ctx context.Context, ten
 	}
 	workTable, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: export.WorkTableID, TenantID: tenantID})
 	if err != nil {
-		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
+		s.markWorkTableExportFailed(ctx, export, err.Error())
 		return fmt.Errorf("get export work table: %w", err)
 	}
 	spec, ok := datasetWorkTableExportFormatSpecFor(export.Format)
 	if !ok {
 		err := fmt.Errorf("%w: unsupported export format %q", ErrInvalidDatasetInput, export.Format)
-		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
+		s.markWorkTableExportFailed(ctx, export, err.Error())
 		return nil
 	}
 
 	tmp, err := os.CreateTemp("", "haohao-work-table-export-*"+spec.Extension)
 	if err != nil {
-		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: "create temporary export file failed"})
+		s.markWorkTableExportFailed(ctx, export, "create temporary export file failed")
 		return fmt.Errorf("create temporary work table export file: %w", err)
 	}
 	defer func() {
@@ -1530,27 +1545,29 @@ func (s *DatasetService) HandleWorkTableExportRequested(ctx context.Context, ten
 	}()
 
 	if err := s.writeWorkTableExport(ctx, workTable.WorkDatabase, workTable.WorkTable, export.Format, tmp); err != nil {
-		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
+		s.markWorkTableExportFailed(ctx, export, err.Error())
 		if errors.Is(err, ErrInvalidDatasetInput) {
 			return nil
 		}
 		return err
 	}
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
-		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: "prepare export file failed"})
+		s.markWorkTableExportFailed(ctx, export, "prepare export file failed")
 		return fmt.Errorf("seek work table export file: %w", err)
 	}
 	file, err := s.files.CreateGeneratedFile(ctx, tenantID, optionalPgInt8(export.RequestedByUserID), "export", fmt.Sprintf("work-table-%s%s", export.PublicID.String(), spec.Extension), spec.ContentType, tmp)
 	if err != nil {
-		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
+		s.markWorkTableExportFailed(ctx, export, err.Error())
 		return err
 	}
-	if _, err := s.queries.MarkDatasetWorkTableExportReady(ctx, db.MarkDatasetWorkTableExportReadyParams{
+	ready, err := s.queries.MarkDatasetWorkTableExportReady(ctx, db.MarkDatasetWorkTableExportReadyParams{
 		ID:           exportID,
 		FileObjectID: pgtype.Int8{Int64: file.ID, Valid: true},
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("mark work table export ready: %w", err)
 	}
+	s.publishWorkTableExportUpdated(ctx, ready, "ready", "", file.PublicID)
 	return nil
 }
 
@@ -2048,14 +2065,107 @@ func (s *DatasetService) inflateDataset(ctx context.Context, row db.Dataset) (Da
 	return item, nil
 }
 
-func (s *DatasetService) failImport(ctx context.Context, jobID, datasetID int64, cause error) error {
+func (s *DatasetService) failImport(ctx context.Context, tenantID int64, job db.DatasetImportJob, datasetID int64, cause error) error {
 	message := "dataset import failed"
 	if cause != nil {
 		message = cause.Error()
 	}
-	_, _ = s.queries.FailDatasetImportJob(ctx, db.FailDatasetImportJobParams{ID: jobID, Left: message})
+	_, _ = s.queries.FailDatasetImportJob(ctx, db.FailDatasetImportJobParams{ID: job.ID, Left: message})
 	_, _ = s.queries.MarkDatasetFailed(ctx, db.MarkDatasetFailedParams{ID: datasetID, Left: message})
+	datasetPublicID := ""
+	if dataset, err := s.queries.GetDatasetByIDForTenant(ctx, db.GetDatasetByIDForTenantParams{ID: datasetID, TenantID: tenantID}); err == nil {
+		datasetPublicID = dataset.PublicID.String()
+		s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(job.RequestedByUserID), datasetPublicID, "failed", 0, message)
+	}
+	s.publishDatasetImportJobUpdated(ctx, tenantID, job, "failed", message, datasetPublicID, 0)
 	return cause
+}
+
+func (s *DatasetService) publishDatasetImportJobUpdated(ctx context.Context, tenantID int64, job db.DatasetImportJob, status, errorSummary, datasetPublicID string, rowCount int64) {
+	if s == nil || s.realtime == nil || !job.RequestedByUserID.Valid {
+		return
+	}
+	payload := map[string]any{
+		"status":            status,
+		"importJobPublicId": job.PublicID.String(),
+	}
+	if datasetPublicID != "" {
+		payload["datasetPublicId"] = datasetPublicID
+	}
+	if rowCount > 0 {
+		payload["rowCount"] = rowCount
+	}
+	if errorSummary != "" {
+		payload["errorSummary"] = errorSummary
+	}
+	_, _ = s.realtime.Publish(ctx, RealtimeEventInput{
+		TenantID:         &tenantID,
+		RecipientUserID:  job.RequestedByUserID.Int64,
+		EventType:        "job.updated",
+		ResourceType:     "dataset_import",
+		ResourcePublicID: job.PublicID.String(),
+		Payload:          payload,
+	})
+}
+
+func (s *DatasetService) publishDatasetUpdated(ctx context.Context, tenantID int64, recipientUserID *int64, datasetPublicID, status string, rowCount int64, errorSummary string) {
+	if s == nil || s.realtime == nil || recipientUserID == nil || datasetPublicID == "" {
+		return
+	}
+	payload := map[string]any{
+		"status":          status,
+		"datasetPublicId": datasetPublicID,
+	}
+	if rowCount > 0 {
+		payload["rowCount"] = rowCount
+	}
+	if errorSummary != "" {
+		payload["errorSummary"] = errorSummary
+	}
+	_, _ = s.realtime.Publish(ctx, RealtimeEventInput{
+		TenantID:         &tenantID,
+		RecipientUserID:  *recipientUserID,
+		EventType:        "job.updated",
+		ResourceType:     "dataset",
+		ResourcePublicID: datasetPublicID,
+		Payload:          payload,
+	})
+}
+
+func (s *DatasetService) markWorkTableExportFailed(ctx context.Context, export db.DatasetWorkTableExport, message string) {
+	if message == "" {
+		message = "work table export failed"
+	}
+	updated, err := s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: export.ID, Left: message})
+	if err == nil {
+		export = updated
+	}
+	s.publishWorkTableExportUpdated(ctx, export, "failed", message, "")
+}
+
+func (s *DatasetService) publishWorkTableExportUpdated(ctx context.Context, export db.DatasetWorkTableExport, status, errorSummary, filePublicID string) {
+	if s == nil || s.realtime == nil || !export.RequestedByUserID.Valid {
+		return
+	}
+	payload := map[string]any{
+		"status":         status,
+		"exportPublicId": export.PublicID.String(),
+		"format":         export.Format,
+	}
+	if filePublicID != "" {
+		payload["filePublicId"] = filePublicID
+	}
+	if errorSummary != "" {
+		payload["errorSummary"] = errorSummary
+	}
+	_, _ = s.realtime.Publish(ctx, RealtimeEventInput{
+		TenantID:         &export.TenantID,
+		RecipientUserID:  export.RequestedByUserID.Int64,
+		EventType:        "job.updated",
+		ResourceType:     "dataset_work_table_export",
+		ResourcePublicID: export.PublicID.String(),
+		Payload:          payload,
+	})
 }
 
 func validateDatasetSQL(tenantID int64, statement string) (string, error) {

@@ -57,6 +57,7 @@ type TenantInvitationService struct {
 	audit           AuditRecorder
 	ttl             time.Duration
 	frontendBaseURL string
+	realtime        RealtimePublisher
 }
 
 func NewTenantInvitationService(pool *pgxpool.Pool, queries *db.Queries, outbox *OutboxService, audit AuditRecorder, ttl time.Duration, frontendBaseURL string) *TenantInvitationService {
@@ -70,6 +71,12 @@ func NewTenantInvitationService(pool *pgxpool.Pool, queries *db.Queries, outbox 
 		audit:           audit,
 		ttl:             ttl,
 		frontendBaseURL: strings.TrimRight(frontendBaseURL, "/"),
+	}
+}
+
+func (s *TenantInvitationService) SetRealtimeService(realtime RealtimePublisher) {
+	if s != nil {
+		s.realtime = realtime
 	}
 }
 
@@ -110,6 +117,8 @@ func (s *TenantInvitationService) Create(ctx context.Context, input TenantInvita
 	if err != nil {
 		return TenantInvitation{}, fmt.Errorf("create tenant invitation: %w", err)
 	}
+	var directNotification *db.Notification
+	var directNotificationRecipientID int64
 	if s.outbox != nil {
 		if _, err := s.outbox.EnqueueWithQueries(ctx, qtx, OutboxEventInput{
 			TenantID:      &normalized.TenantID,
@@ -129,7 +138,7 @@ func (s *TenantInvitationService) Create(ctx context.Context, input TenantInvita
 			"tenantId":     row.TenantID,
 			"invitationId": row.PublicID.String(),
 		})
-		if _, err := qtx.CreateNotification(ctx, db.CreateNotificationParams{
+		notification, err := qtx.CreateNotification(ctx, db.CreateNotificationParams{
 			TenantID:        pgtype.Int8{Int64: row.TenantID, Valid: true},
 			RecipientUserID: invitee.ID,
 			Channel:         "in_app",
@@ -137,9 +146,12 @@ func (s *TenantInvitationService) Create(ctx context.Context, input TenantInvita
 			Subject:         "Tenant invitation",
 			Body:            "You have a new tenant invitation.",
 			Metadata:        metadata,
-		}); err != nil {
+		})
+		if err != nil {
 			return TenantInvitation{}, fmt.Errorf("create invitation notification: %w", err)
 		}
+		directNotification = &notification
+		directNotificationRecipientID = invitee.ID
 		if s.outbox != nil {
 			if _, err := s.outbox.EnqueueWithQueries(ctx, qtx, OutboxEventInput{
 				TenantID:      &normalized.TenantID,
@@ -177,6 +189,19 @@ func (s *TenantInvitationService) Create(ctx context.Context, input TenantInvita
 	item := tenantInvitationFromDB(row)
 	item.Token = token
 	item.AcceptURL = s.acceptURL(token)
+	if directNotification != nil && s.realtime != nil {
+		notification := notificationFromDB(*directNotification)
+		_, _ = s.realtime.Publish(ctx, RealtimeEventInput{
+			TenantID:         notification.TenantID,
+			RecipientUserID:  directNotificationRecipientID,
+			EventType:        "notification.created",
+			ResourceType:     "notification",
+			ResourcePublicID: notification.PublicID,
+			Payload: map[string]any{
+				"notification": notificationPayload(notification),
+			},
+		})
+	}
 	return item, nil
 }
 

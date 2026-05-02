@@ -44,12 +44,19 @@ type NotificationInput struct {
 }
 
 type NotificationService struct {
-	queries *db.Queries
-	audit   AuditRecorder
+	queries  *db.Queries
+	audit    AuditRecorder
+	realtime RealtimePublisher
 }
 
 func NewNotificationService(queries *db.Queries, audit AuditRecorder) *NotificationService {
 	return &NotificationService{queries: queries, audit: audit}
+}
+
+func (s *NotificationService) SetRealtimeService(realtime RealtimePublisher) {
+	if s != nil {
+		s.realtime = realtime
+	}
 }
 
 func (s *NotificationService) Create(ctx context.Context, input NotificationInput) (Notification, error) {
@@ -60,7 +67,9 @@ func (s *NotificationService) Create(ctx context.Context, input NotificationInpu
 	if err != nil {
 		return Notification{}, err
 	}
-	return notificationFromDB(row), nil
+	item := notificationFromDB(row)
+	s.publishNotificationEvent(ctx, "notification.created", item, input.RecipientUserID)
+	return item, nil
 }
 
 func (s *NotificationService) CreateWithQueries(ctx context.Context, queries *db.Queries, input NotificationInput) (db.Notification, error) {
@@ -139,7 +148,25 @@ func (s *NotificationService) MarkRead(ctx context.Context, userID int64, public
 			TargetID:     row.PublicID.String(),
 		})
 	}
-	return notificationFromDB(row), nil
+	item := notificationFromDB(row)
+	s.publishNotificationEvent(ctx, "notification.read", item, userID)
+	return item, nil
+}
+
+func (s *NotificationService) publishNotificationEvent(ctx context.Context, eventType string, item Notification, recipientUserID int64) {
+	if s == nil || s.realtime == nil || recipientUserID <= 0 {
+		return
+	}
+	_, _ = s.realtime.Publish(ctx, RealtimeEventInput{
+		TenantID:         item.TenantID,
+		RecipientUserID:  recipientUserID,
+		EventType:        eventType,
+		ResourceType:     "notification",
+		ResourcePublicID: item.PublicID,
+		Payload: map[string]any{
+			"notification": notificationPayload(item),
+		},
+	})
 }
 
 func normalizeNotificationInput(input NotificationInput) (NotificationInput, error) {
@@ -172,4 +199,24 @@ func notificationFromDB(row db.Notification) Notification {
 		CreatedAt: row.CreatedAt.Time,
 		UpdatedAt: row.UpdatedAt.Time,
 	}
+}
+
+func notificationPayload(item Notification) map[string]any {
+	payload := map[string]any{
+		"publicId":  item.PublicID,
+		"channel":   item.Channel,
+		"template":  item.Template,
+		"subject":   item.Subject,
+		"body":      item.Body,
+		"status":    item.Status,
+		"createdAt": item.CreatedAt,
+		"updatedAt": item.UpdatedAt,
+	}
+	if item.TenantID != nil {
+		payload["tenantId"] = *item.TenantID
+	}
+	if item.ReadAt != nil {
+		payload["readAt"] = item.ReadAt
+	}
+	return payload
 }

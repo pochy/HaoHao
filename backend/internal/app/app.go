@@ -41,6 +41,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	var driveService *service.DriveService
 	var driveOCRService *service.DriveOCRService
 	var datasetService *service.DatasetService
+	var realtimeService *service.RealtimeService
 	markdownDocsFS := fs.FS(os.DirFS("docs"))
 	for _, extra := range extras {
 		switch item := extra.(type) {
@@ -60,6 +61,8 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 			driveOCRService = item
 		case *service.DatasetService:
 			datasetService = item
+		case *service.RealtimeService:
+			realtimeService = item
 		case MarkdownDocsFS:
 			if item.FS != nil {
 				markdownDocsFS = item.FS
@@ -140,6 +143,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		OutboxService:                    outboxService,
 		IdempotencyService:               idempotencyService,
 		NotificationService:              notificationService,
+		RealtimeService:                  realtimeService,
 		TenantInvitationService:          tenantInvitationService,
 		FileService:                      fileService,
 		DriveService:                     driveService,
@@ -164,6 +168,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		TodoService:           todoService,
 	}, cfg.FileMaxBytes)
 	backendapi.RegisterRawDriveRoutes(router, deps, cfg.FileMaxBytes, cfg.DatasetMaxUploadBytes)
+	backendapi.RegisterRawRealtimeRoutes(router, deps)
 
 	return &App{
 		Router: router,

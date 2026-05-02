@@ -1338,6 +1338,19 @@ type ProvisioningSyncState struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type RealtimeEvent struct {
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	TenantID         pgtype.Int8        `json:"tenant_id"`
+	RecipientUserID  int64              `json:"recipient_user_id"`
+	EventType        string             `json:"event_type"`
+	ResourceType     string             `json:"resource_type"`
+	ResourcePublicID string             `json:"resource_public_id"`
+	Payload          []byte             `json:"payload"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type Role struct {
 	ID        int64              `json:"id"`
 	Code      string             `json:"code"`

@@ -14,6 +14,10 @@ export const useNotificationStore = defineStore('notifications', {
     updatingPublicId: '',
   }),
 
+  getters: {
+    unreadCount: (state) => state.items.filter((item) => !item.readAt).length,
+  },
+
   actions: {
     async load() {
       this.status = 'loading'
@@ -40,6 +44,19 @@ export const useNotificationStore = defineStore('notifications', {
       } finally {
         this.updatingPublicId = ''
       }
+    },
+
+    upsert(item: NotificationBody) {
+      this.items = [item, ...this.items.filter((existing) => existing.publicId !== item.publicId)]
+      this.status = this.items.length > 0 ? 'ready' : 'empty'
+    },
+
+    markReadFromRealtime(item: NotificationBody) {
+      this.items = this.items.map((existing) => (existing.publicId === item.publicId ? item : existing))
+      if (!this.items.some((existing) => existing.publicId === item.publicId)) {
+        this.items = [item, ...this.items]
+      }
+      this.status = this.items.length > 0 ? 'ready' : 'empty'
     },
   },
 })
