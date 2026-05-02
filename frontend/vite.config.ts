@@ -80,5 +80,18 @@ export default defineConfig({
   build: {
     outDir: '../backend/web/dist',
     emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vue-core',
+              test: /node_modules[\\/](?:@vue|vue|vue-router|pinia|vue-i18n)[\\/]/,
+              priority: 10,
+            },
+          ],
+        },
+      },
+    },
   },
 })

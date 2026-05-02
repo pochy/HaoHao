@@ -1,35 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { useSessionStore } from '../stores/session'
-import HomeView from '../views/HomeView.vue'
-import IntegrationsView from '../views/IntegrationsView.vue'
-import LoginView from '../views/LoginView.vue'
-import MachineClientDetailView from '../views/MachineClientDetailView.vue'
-import MachineClientFormView from '../views/MachineClientFormView.vue'
-import MachineClientsView from '../views/MachineClientsView.vue'
-import InvitationAcceptView from '../views/InvitationAcceptView.vue'
-import NotificationsView from '../views/NotificationsView.vue'
-import CustomerSignalDetailView from '../views/CustomerSignalDetailView.vue'
-import CustomerSignalsView from '../views/CustomerSignalsView.vue'
-import DatasetDetailView from '../views/DatasetDetailView.vue'
-import DatasetsView from '../views/DatasetsView.vue'
-import DriveGroupsView from '../views/DriveGroupsView.vue'
-import DriveView from '../views/DriveView.vue'
-import TenantAdminTenantFormView from '../views/TenantAdminTenantFormView.vue'
-import TenantAdminTenantsView from '../views/TenantAdminTenantsView.vue'
-import TenantAdminTenantDataView from '../views/tenant-admin/TenantAdminTenantDataView.vue'
-import TenantAdminTenantDriveOperationsView from '../views/tenant-admin/TenantAdminTenantDriveOperationsView.vue'
-import TenantAdminTenantDrivePolicyView from '../views/tenant-admin/TenantAdminTenantDrivePolicyView.vue'
-import TenantAdminTenantEntitlementsView from '../views/tenant-admin/TenantAdminTenantEntitlementsView.vue'
-import TenantAdminTenantInvitationsView from '../views/tenant-admin/TenantAdminTenantInvitationsView.vue'
-import TenantAdminTenantMembersView from '../views/tenant-admin/TenantAdminTenantMembersView.vue'
-import TenantAdminTenantOverviewView from '../views/tenant-admin/TenantAdminTenantOverviewView.vue'
-import TenantAdminTenantSettingsView from '../views/tenant-admin/TenantAdminTenantSettingsView.vue'
-import TenantAdminTenantShellView from '../views/tenant-admin/TenantAdminTenantShellView.vue'
-import TenantAdminTenantSupportView from '../views/tenant-admin/TenantAdminTenantSupportView.vue'
-import TenantAdminTenantWebhooksView from '../views/tenant-admin/TenantAdminTenantWebhooksView.vue'
-import TodosView from '../views/TodosView.vue'
-import PublicDriveShareView from '../views/PublicDriveShareView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -40,6 +11,36 @@ declare module 'vue-router' {
     groupKey?: string
   }
 }
+
+const HomeView = () => import('../views/HomeView.vue')
+const LoginView = () => import('../views/LoginView.vue')
+const IntegrationsView = () => import('../views/IntegrationsView.vue')
+const NotificationsView = () => import('../views/NotificationsView.vue')
+const InvitationAcceptView = () => import('../views/InvitationAcceptView.vue')
+const TodosView = () => import('../views/TodosView.vue')
+const CustomerSignalsView = () => import('../views/CustomerSignalsView.vue')
+const CustomerSignalDetailView = () => import('../views/CustomerSignalDetailView.vue')
+const DatasetsView = () => import('../views/DatasetsView.vue')
+const DatasetDetailView = () => import('../views/DatasetDetailView.vue')
+const DriveView = () => import('../views/DriveView.vue')
+const DriveGroupsView = () => import('../views/DriveGroupsView.vue')
+const PublicDriveShareView = () => import('../views/PublicDriveShareView.vue')
+const TenantAdminTenantsView = () => import('../views/TenantAdminTenantsView.vue')
+const TenantAdminTenantFormView = () => import('../views/TenantAdminTenantFormView.vue')
+const TenantAdminTenantShellView = () => import('../views/tenant-admin/TenantAdminTenantShellView.vue')
+const TenantAdminTenantOverviewView = () => import('../views/tenant-admin/TenantAdminTenantOverviewView.vue')
+const TenantAdminTenantMembersView = () => import('../views/tenant-admin/TenantAdminTenantMembersView.vue')
+const TenantAdminTenantInvitationsView = () => import('../views/tenant-admin/TenantAdminTenantInvitationsView.vue')
+const TenantAdminTenantSettingsView = () => import('../views/tenant-admin/TenantAdminTenantSettingsView.vue')
+const TenantAdminTenantDrivePolicyView = () => import('../views/tenant-admin/TenantAdminTenantDrivePolicyView.vue')
+const TenantAdminTenantDriveOperationsView = () => import('../views/tenant-admin/TenantAdminTenantDriveOperationsView.vue')
+const TenantAdminTenantEntitlementsView = () => import('../views/tenant-admin/TenantAdminTenantEntitlementsView.vue')
+const TenantAdminTenantSupportView = () => import('../views/tenant-admin/TenantAdminTenantSupportView.vue')
+const TenantAdminTenantWebhooksView = () => import('../views/tenant-admin/TenantAdminTenantWebhooksView.vue')
+const TenantAdminTenantDataView = () => import('../views/tenant-admin/TenantAdminTenantDataView.vue')
+const MachineClientsView = () => import('../views/MachineClientsView.vue')
+const MachineClientFormView = () => import('../views/MachineClientFormView.vue')
+const MachineClientDetailView = () => import('../views/MachineClientDetailView.vue')
 
 const router = createRouter({
   history: createWebHistory(),
