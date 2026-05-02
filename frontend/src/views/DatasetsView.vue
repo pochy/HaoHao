@@ -12,6 +12,8 @@ import { useDatasetStore } from '../stores/datasets'
 import { useRealtimeStore } from '../stores/realtime'
 import { useTenantStore } from '../stores/tenants'
 
+type DatasetHomeTab = 'datasets' | 'workTables'
+
 const datasetStore = useDatasetStore()
 const realtimeStore = useRealtimeStore()
 const tenantStore = useTenantStore()
@@ -21,6 +23,7 @@ const { d, t } = useI18n()
 const sourceSearch = ref('')
 const datasetName = ref('')
 const actionErrorMessage = ref('')
+const activeDatasetHomeTab = ref<DatasetHomeTab>('datasets')
 let refreshTimer: number | undefined
 
 const selectedSourceFile = computed(() => datasetStore.selectedSourceFile)
@@ -313,130 +316,166 @@ function formatActionError(error: unknown) {
       {{ requestErrorMessage }}
     </p>
 
-    <section class="panel stack dataset-home-panel">
-      <form class="dataset-source-form" @submit.prevent="importDataset">
-        <div class="section-header compact-section-header">
-          <div>
-            <h2>{{ t('datasets.driveSources') }}</h2>
-            <span class="cell-subtle">{{ datasetStore.sourceFiles.length }} {{ t('common.files') }}</span>
-          </div>
-          <RouterLink class="secondary-button compact-button" to="/drive">
-            <FileText :size="16" aria-hidden="true" />
-            Drive
-          </RouterLink>
-        </div>
-
-        <div class="dataset-source-search">
-          <input
-            v-model="sourceSearch"
-            class="field-input"
-            maxlength="120"
-            autocomplete="off"
-            :placeholder="t('datasets.sourceSearchPlaceholder')"
-            @keydown.enter.prevent="searchSourceFiles"
-          >
-          <button class="icon-button" type="button" :aria-label="t('common.search')" :title="t('common.search')" @click="searchSourceFiles">
-            <Search :size="17" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div v-if="datasetStore.sourceFiles.length > 0" class="dataset-list dataset-source-list">
-          <button
-            v-for="file in datasetStore.sourceFiles"
-            :key="file.publicId"
-            class="dataset-row"
-            :class="{ active: file.publicId === selectedSourceFile?.publicId }"
-            type="button"
-            @click="selectSourceFile(file.publicId)"
-          >
-            <FileText :size="17" aria-hidden="true" />
-            <span>
-              <strong>{{ file.originalFilename }}</strong>
-              <small>{{ formatBytes(file.byteSize) }} · {{ formatDate(file.updatedAt) }}</small>
-            </span>
-          </button>
-        </div>
-
-        <div v-else class="empty-state">
-          <p>{{ t('datasets.noDriveSources') }}</p>
-        </div>
-
-        <label class="field">
-          <span class="field-label">{{ t('datasets.datasetName') }}</span>
-          <input v-model="datasetName" class="field-input" maxlength="160" autocomplete="off">
-        </label>
-        <button class="primary-button" :disabled="!selectedSourceFile || datasetStore.importing" type="submit">
-          <Database :size="17" aria-hidden="true" />
-          {{ datasetStore.importing ? t('datasets.importing') : t('datasets.importFromDrive') }}
-        </button>
-      </form>
-
-      <div class="section-header">
-        <div>
-          <h2>{{ t('datasets.datasets') }}</h2>
-          <span class="cell-subtle">{{ datasetStore.items.length }} {{ t('common.files') }}</span>
-        </div>
-      </div>
-
-      <div v-if="datasetStore.items.length > 0" class="dataset-list">
-        <RouterLink
-          v-for="item in datasetStore.items"
-          :key="item.publicId"
-          class="dataset-row"
-          :to="{ name: 'dataset-detail', params: { datasetPublicId: item.publicId } }"
+    <main class="dataset-main">
+      <div class="dataset-tabs dataset-home-tabs" role="tablist" :aria-label="t('datasets.pageTabs')">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeDatasetHomeTab === 'datasets'"
+          :class="{ active: activeDatasetHomeTab === 'datasets' }"
+          @click="activeDatasetHomeTab = 'datasets'"
         >
-          <Database :size="17" aria-hidden="true" />
-          <span>
-            <strong>{{ item.name }}</strong>
-            <small>{{ item.rawTable }} · {{ formatBytes(item.byteSize) }}</small>
-          </span>
-          <span class="status-pill" :class="statusClass(item.status)">{{ item.status }}</span>
-        </RouterLink>
+          {{ t('datasets.datasets') }}
+          <span class="status-pill">{{ datasetStore.items.length }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeDatasetHomeTab === 'workTables'"
+          :class="{ active: activeDatasetHomeTab === 'workTables' }"
+          @click="activeDatasetHomeTab = 'workTables'"
+        >
+          {{ t('datasets.workTables') }}
+          <span class="status-pill">{{ datasetStore.workTables.length }}</span>
+        </button>
       </div>
 
-      <div v-else-if="datasetStore.status === 'empty'" class="empty-state">
-        <p>{{ t('datasets.empty') }}</p>
+      <div
+        v-if="activeDatasetHomeTab === 'datasets'"
+        class="dataset-tab-panel"
+        role="tabpanel"
+      >
+        <section class="panel stack dataset-home-panel">
+          <form class="dataset-source-form" @submit.prevent="importDataset">
+            <div class="section-header compact-section-header">
+              <div>
+                <h2>{{ t('datasets.driveSources') }}</h2>
+                <span class="cell-subtle">{{ datasetStore.sourceFiles.length }} {{ t('common.files') }}</span>
+              </div>
+              <RouterLink class="secondary-button compact-button" to="/drive">
+                <FileText :size="16" aria-hidden="true" />
+                Drive
+              </RouterLink>
+            </div>
+
+            <div class="dataset-source-search">
+              <input
+                v-model="sourceSearch"
+                class="field-input"
+                maxlength="120"
+                autocomplete="off"
+                :placeholder="t('datasets.sourceSearchPlaceholder')"
+                @keydown.enter.prevent="searchSourceFiles"
+              >
+              <button class="icon-button" type="button" :aria-label="t('common.search')" :title="t('common.search')" @click="searchSourceFiles">
+                <Search :size="17" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div v-if="datasetStore.sourceFiles.length > 0" class="dataset-list dataset-source-list">
+              <button
+                v-for="file in datasetStore.sourceFiles"
+                :key="file.publicId"
+                class="dataset-row"
+                :class="{ active: file.publicId === selectedSourceFile?.publicId }"
+                type="button"
+                @click="selectSourceFile(file.publicId)"
+              >
+                <FileText :size="17" aria-hidden="true" />
+                <span>
+                  <strong>{{ file.originalFilename }}</strong>
+                  <small>{{ formatBytes(file.byteSize) }} · {{ formatDate(file.updatedAt) }}</small>
+                </span>
+              </button>
+            </div>
+
+            <div v-else class="empty-state">
+              <p>{{ t('datasets.noDriveSources') }}</p>
+            </div>
+
+            <label class="field">
+              <span class="field-label">{{ t('datasets.datasetName') }}</span>
+              <input v-model="datasetName" class="field-input" maxlength="160" autocomplete="off">
+            </label>
+            <button class="primary-button" :disabled="!selectedSourceFile || datasetStore.importing" type="submit">
+              <Database :size="17" aria-hidden="true" />
+              {{ datasetStore.importing ? t('datasets.importing') : t('datasets.importFromDrive') }}
+            </button>
+          </form>
+
+          <div class="section-header">
+            <div>
+              <h2>{{ t('datasets.datasets') }}</h2>
+              <span class="cell-subtle">{{ datasetStore.items.length }} {{ t('common.files') }}</span>
+            </div>
+          </div>
+
+          <div v-if="datasetStore.items.length > 0" class="dataset-list">
+            <RouterLink
+              v-for="item in datasetStore.items"
+              :key="item.publicId"
+              class="dataset-row"
+              :to="{ name: 'dataset-detail', params: { datasetPublicId: item.publicId } }"
+            >
+              <Database :size="17" aria-hidden="true" />
+              <span>
+                <strong>{{ item.name }}</strong>
+                <small>{{ item.rawTable }} · {{ formatBytes(item.byteSize) }}</small>
+              </span>
+              <span class="status-pill" :class="statusClass(item.status)">{{ item.status }}</span>
+            </RouterLink>
+          </div>
+
+          <div v-else-if="datasetStore.status === 'empty'" class="empty-state">
+            <p>{{ t('datasets.empty') }}</p>
+          </div>
+        </section>
       </div>
 
-    </section>
-
-    <DatasetWorkTableBrowser
-      :tables="datasetStore.workTables"
-      :datasets="datasetStore.items"
-      :selected-table="datasetStore.selectedWorkTable"
-      :preview="datasetStore.workTablePreview"
-      :exports="datasetStore.workTableExports"
-      :schedules="datasetStore.workTableExportSchedules"
-      :lineage="datasetStore.workTableLineage"
-      :lineage-loading="datasetStore.workTableLineageLoading"
-      :lineage-level="datasetStore.lineageLevel"
-      :lineage-sources="datasetStore.lineageSources"
-      :lineage-action-loading="datasetStore.lineageActionLoading"
-      :lineage-draft-source-kind="datasetStore.selectedLineageChangeSet?.changeSet.sourceKind ?? 'manual'"
-      :has-lineage-draft="Boolean(datasetStore.selectedLineageChangeSet)"
-      :can-publish-lineage="canReviewLineage"
-      :loading="datasetStore.workTablesLoading"
-      :preview-loading="datasetStore.workTablePreviewLoading"
-      :action-loading="datasetStore.workTableActionLoading"
-      :error-message="datasetStore.workTableErrorMessage"
-      @refresh="datasetStore.loadWorkTables"
-      @select="datasetStore.selectWorkTable"
-      @register="registerWorkTable"
-      @link="linkWorkTable"
-      @rename="renameWorkTable"
-      @truncate="truncateWorkTable"
-      @drop="dropWorkTable"
-      @promote="promoteWorkTable"
-      @export="requestWorkTableExport"
-      @create-schedule="createWorkTableExportSchedule"
-      @update-schedule="updateWorkTableExportSchedule"
-      @disable-schedule="disableWorkTableExportSchedule"
-      @refresh-lineage="datasetStore.loadSelectedWorkTableLineage"
-      @set-lineage-level="setLineageLevel"
-      @toggle-lineage-source="toggleLineageSource"
-      @save-lineage-draft="saveWorkTableLineageDraft"
-      @publish-lineage-draft="publishLineageDraft"
-      @reject-lineage-draft="rejectLineageDraft"
-    />
+      <div
+        v-else
+        class="dataset-tab-panel"
+        role="tabpanel"
+      >
+        <DatasetWorkTableBrowser
+          :tables="datasetStore.workTables"
+          :datasets="datasetStore.items"
+          :selected-table="datasetStore.selectedWorkTable"
+          :preview="datasetStore.workTablePreview"
+          :exports="datasetStore.workTableExports"
+          :schedules="datasetStore.workTableExportSchedules"
+          :lineage="datasetStore.workTableLineage"
+          :lineage-loading="datasetStore.workTableLineageLoading"
+          :lineage-level="datasetStore.lineageLevel"
+          :lineage-sources="datasetStore.lineageSources"
+          :lineage-action-loading="datasetStore.lineageActionLoading"
+          :lineage-draft-source-kind="datasetStore.selectedLineageChangeSet?.changeSet.sourceKind ?? 'manual'"
+          :has-lineage-draft="Boolean(datasetStore.selectedLineageChangeSet)"
+          :can-publish-lineage="canReviewLineage"
+          :loading="datasetStore.workTablesLoading"
+          :preview-loading="datasetStore.workTablePreviewLoading"
+          :action-loading="datasetStore.workTableActionLoading"
+          :error-message="datasetStore.workTableErrorMessage"
+          @refresh="datasetStore.loadWorkTables"
+          @select="datasetStore.selectWorkTable"
+          @register="registerWorkTable"
+          @link="linkWorkTable"
+          @rename="renameWorkTable"
+          @truncate="truncateWorkTable"
+          @drop="dropWorkTable"
+          @promote="promoteWorkTable"
+          @export="requestWorkTableExport"
+          @create-schedule="createWorkTableExportSchedule"
+          @update-schedule="updateWorkTableExportSchedule"
+          @disable-schedule="disableWorkTableExportSchedule"
+          @refresh-lineage="datasetStore.loadSelectedWorkTableLineage"
+          @set-lineage-level="setLineageLevel"
+          @toggle-lineage-source="toggleLineageSource"
+          @save-lineage-draft="saveWorkTableLineageDraft"
+          @publish-lineage-draft="publishLineageDraft"
+          @reject-lineage-draft="rejectLineageDraft"
+        />
+      </div>
+    </main>
   </div>
 </template>

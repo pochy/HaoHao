@@ -13,6 +13,7 @@ import LineageTimeline from './LineageTimeline.vue'
 import TextInputDialog from './TextInputDialog.vue'
 
 type LineageGraphTab = 'flow' | 'compact'
+type WorkTableDetailTab = 'overview' | 'lineage' | 'exports'
 
 const props = withDefaults(defineProps<{
   tables: DatasetWorkTableBody[]
@@ -68,6 +69,7 @@ const selectedColumns = computed(() => props.selectedTable?.columns ?? [])
 const browserTitle = computed(() => props.title || t('datasets.workTables'))
 const selectedDatasetPublicId = ref('')
 const exportFormat = ref<DatasetWorkTableExportFormat>('csv')
+const activeWorkTableDetailTab = ref<WorkTableDetailTab>('overview')
 const activeLineageGraphTab = ref<LineageGraphTab>('flow')
 const lineageEditMode = ref(false)
 const editingSchedulePublicId = ref('')
@@ -115,8 +117,11 @@ watch(
 )
 
 watch(
-  () => props.selectedTable?.publicId,
-  () => resetScheduleForm(),
+  () => props.selectedTable ? props.selectedTable.publicId || `${props.selectedTable.database}.${props.selectedTable.table}` : '',
+  () => {
+    activeWorkTableDetailTab.value = 'overview'
+    resetScheduleForm()
+  },
 )
 
 function sameWorkTable(item: DatasetWorkTableBody) {
@@ -314,12 +319,45 @@ function changeLineageLevel(event: Event) {
       <div v-if="selectedTable" class="dataset-work-table-detail">
         <div class="section-header compact-section-header">
           <div>
-            <span class="status-pill">{{ t('datasets.preview') }}</span>
+            <span class="status-pill">{{ t('datasets.workTables') }}</span>
             <h3>{{ selectedTable.table }}</h3>
             <span class="cell-subtle monospace-cell">`{{ selectedTable.database }}`.`{{ selectedTable.table }}`</span>
           </div>
         </div>
 
+        <div class="dataset-tabs dataset-work-table-tabs" role="tablist" :aria-label="t('datasets.workTableSections')">
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeWorkTableDetailTab === 'overview'"
+            :class="{ active: activeWorkTableDetailTab === 'overview' }"
+            @click="activeWorkTableDetailTab = 'overview'"
+          >
+            {{ t('datasets.overview') }}
+          </button>
+          <button
+            v-if="selectedTable.managed"
+            type="button"
+            role="tab"
+            :aria-selected="activeWorkTableDetailTab === 'lineage'"
+            :class="{ active: activeWorkTableDetailTab === 'lineage' }"
+            @click="activeWorkTableDetailTab = 'lineage'"
+          >
+            {{ t('datasets.lineage') }}
+          </button>
+          <button
+            v-if="selectedTable.managed"
+            type="button"
+            role="tab"
+            :aria-selected="activeWorkTableDetailTab === 'exports'"
+            :class="{ active: activeWorkTableDetailTab === 'exports' }"
+            @click="activeWorkTableDetailTab = 'exports'"
+          >
+            {{ t('datasets.exports') }}
+          </button>
+        </div>
+
+        <div v-if="activeWorkTableDetailTab === 'overview'" class="dataset-work-table-tab-panel">
         <div class="dataset-work-table-actions">
           <template v-if="!selectedTable.managed">
             <button class="primary-button compact-button" type="button" :disabled="actionLoading" @click="emit('register', selectedDatasetPublicId)">
@@ -393,8 +431,9 @@ function changeLineageLevel(event: Event) {
             <dd>{{ formatDate(selectedTable.createdAt) }}</dd>
           </div>
         </dl>
+        </div>
 
-        <div v-if="selectedTable.managed" class="section-header compact-section-header">
+        <div v-if="selectedTable.managed && activeWorkTableDetailTab === 'lineage'" class="section-header compact-section-header">
           <div>
             <span class="status-pill">{{ t('datasets.lineage') }}</span>
             <h3>{{ t('datasets.lineageGraph') }}</h3>
@@ -406,7 +445,7 @@ function changeLineageLevel(event: Event) {
           </button>
         </div>
 
-        <div v-if="selectedTable.managed" class="lineage-control-bar">
+        <div v-if="selectedTable.managed && activeWorkTableDetailTab === 'lineage'" class="lineage-control-bar">
           <label class="field compact-field">
             <span class="field-label">{{ t('datasets.lineageLevel') }}</span>
             <select class="field-input" :value="lineageLevel" @change="changeLineageLevel">
@@ -430,10 +469,10 @@ function changeLineageLevel(event: Event) {
           </button>
         </div>
 
-        <p v-if="selectedTable.managed && lineageLoading">
+        <p v-if="selectedTable.managed && activeWorkTableDetailTab === 'lineage' && lineageLoading">
           {{ t('datasets.loadingLineage') }}
         </p>
-        <template v-else-if="selectedTable.managed">
+        <template v-else-if="selectedTable.managed && activeWorkTableDetailTab === 'lineage'">
           <div class="lineage-view-tabs" role="tablist" :aria-label="t('datasets.lineageGraphView')">
             <button
               type="button"
@@ -470,7 +509,7 @@ function changeLineageLevel(event: Event) {
           <LineageTimeline :lineage="lineage" />
         </template>
 
-        <div v-if="selectedColumns.length > 0" class="admin-table dataset-column-table">
+        <div v-if="activeWorkTableDetailTab === 'overview' && selectedColumns.length > 0" class="admin-table dataset-column-table">
           <table>
             <thead>
               <tr>
@@ -487,18 +526,18 @@ function changeLineageLevel(event: Event) {
           </table>
         </div>
 
-        <div class="section-header compact-section-header">
+        <div v-if="activeWorkTableDetailTab === 'overview'" class="section-header compact-section-header">
           <div>
             <span class="status-pill">{{ t('datasets.preview') }}</span>
             <h3>{{ t('datasets.previewRows') }}</h3>
           </div>
         </div>
 
-        <p v-if="previewLoading">
+        <p v-if="activeWorkTableDetailTab === 'overview' && previewLoading">
           {{ t('datasets.loadingPreview') }}
         </p>
 
-        <div v-else-if="previewColumns.length > 0 && previewRows.length > 0" class="admin-table dataset-result-table dataset-work-table-preview-table">
+        <div v-else-if="activeWorkTableDetailTab === 'overview' && previewColumns.length > 0 && previewRows.length > 0" class="admin-table dataset-result-table dataset-work-table-preview-table">
           <table>
             <thead>
               <tr>
@@ -515,18 +554,18 @@ function changeLineageLevel(event: Event) {
           </table>
         </div>
 
-        <div v-else class="empty-state">
+        <div v-else-if="activeWorkTableDetailTab === 'overview'" class="empty-state">
           <p>{{ t('datasets.noPreviewRows') }}</p>
         </div>
 
-        <div v-if="selectedTable.managed && selectedTable.status === 'active'" class="section-header compact-section-header">
+        <div v-if="selectedTable.managed && activeWorkTableDetailTab === 'exports' && selectedTable.status === 'active'" class="section-header compact-section-header">
           <div>
             <span class="status-pill">{{ t('datasets.scheduledExports') }}</span>
             <h3>{{ t('datasets.exportSchedules') }}</h3>
           </div>
         </div>
 
-        <div v-if="selectedTable.managed && selectedTable.status === 'active'" class="dataset-export-schedule-form">
+        <div v-if="selectedTable.managed && activeWorkTableDetailTab === 'exports' && selectedTable.status === 'active'" class="dataset-export-schedule-form">
           <label class="field compact-field">
             <span class="field-label">{{ t('datasets.format') }}</span>
             <select v-model="scheduleForm.format" class="field-input">
@@ -584,7 +623,7 @@ function changeLineageLevel(event: Event) {
           </button>
         </div>
 
-        <div v-if="selectedTable.managed && schedules.length > 0" class="admin-table dataset-work-table-schedule-table">
+        <div v-if="selectedTable.managed && activeWorkTableDetailTab === 'exports' && schedules.length > 0" class="admin-table dataset-work-table-schedule-table">
           <table>
             <thead>
               <tr>
@@ -620,14 +659,14 @@ function changeLineageLevel(event: Event) {
           </table>
         </div>
 
-        <div v-if="selectedTable.managed" class="section-header compact-section-header">
+        <div v-if="selectedTable.managed && activeWorkTableDetailTab === 'exports'" class="section-header compact-section-header">
           <div>
             <span class="status-pill">{{ t('datasets.exports') }}</span>
             <h3>{{ t('datasets.exportHistory') }}</h3>
           </div>
         </div>
 
-        <div v-if="selectedTable.managed && exports.length > 0" class="admin-table dataset-work-table-export-table">
+        <div v-if="selectedTable.managed && activeWorkTableDetailTab === 'exports' && exports.length > 0" class="admin-table dataset-work-table-export-table">
           <table>
             <thead>
               <tr>
