@@ -76,7 +76,8 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 			HSTSMaxAge:  cfg.SecurityHSTSMaxAge,
 		}),
 		middleware.BodyLimitWithOverrides(cfg.MaxRequestBodyBytes, []middleware.BodyLimitOverride{
-			{Method: "POST", PathPrefix: "/api/v1/datasets", MaxBytes: cfg.DatasetMaxUploadBytes + 1024*1024},
+			{Method: "POST", PathPrefix: "/api/v1/drive/files", MaxBytes: maxInt64(cfg.FileMaxBytes, cfg.DatasetMaxUploadBytes) + 1024*1024},
+			{Method: "PUT", PathPrefix: "/api/v1/drive/files", MaxBytes: maxInt64(cfg.FileMaxBytes, cfg.DatasetMaxUploadBytes) + 1024*1024},
 		}),
 		middleware.BrowserCORS(cfg.CORSAllowedOrigins),
 	}
@@ -148,13 +149,19 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		CustomerSignalService: customerSignalService,
 		TodoService:           todoService,
 	}, cfg.FileMaxBytes)
-	backendapi.RegisterRawDriveRoutes(router, deps, cfg.FileMaxBytes)
-	backendapi.RegisterRawDatasetRoutes(router, deps, cfg.DatasetMaxUploadBytes)
+	backendapi.RegisterRawDriveRoutes(router, deps, cfg.FileMaxBytes, cfg.DatasetMaxUploadBytes)
 
 	return &App{
 		Router: router,
 		API:    api,
 	}
+}
+
+func maxInt64(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func browserAPIRateLimitResolver(sessionService *service.SessionService, tenantSettingsService *service.TenantSettingsService, defaults service.RateLimitDefaults) middleware.RateLimitResolver {

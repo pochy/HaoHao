@@ -1,11 +1,13 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -143,7 +145,7 @@ func registerDriveFileRoutes(api huma.API, deps Dependencies) {
 	})
 }
 
-func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int64) {
+func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes, datasetMaxBytes int64) {
 	if router == nil {
 		return
 	}
@@ -152,43 +154,62 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 		if !ok {
 			return
 		}
-		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
-			if isRequestBodyTooLargeError(err) {
-				writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusRequestEntityTooLarge, service.DriveErrorFileTooLarge, fmt.Sprintf("File exceeds the Drive upload limit of %s.", formatUploadLimitLabel(maxBytes))))
+		reader, err := c.Request.MultipartReader()
+		if err != nil {
+			writeRawDriveMultipartReaderError(c, err, maxRawDriveUploadBytes(maxBytes, datasetMaxBytes))
+			return
+		}
+		var workspacePublicID string
+		var parentFolderPublicID string
+		var item service.DriveFile
+		for {
+			part, err := reader.NextPart()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				writeRawDriveMultipartReaderError(c, err, maxRawDriveUploadBytes(maxBytes, datasetMaxBytes))
 				return
 			}
-			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
-			return
+			switch part.FormName() {
+			case "workspacePublicId":
+				workspacePublicID = readRawDriveMultipartField(part, 128)
+				_ = part.Close()
+			case "parentFolderPublicId":
+				parentFolderPublicID = readRawDriveMultipartField(part, 128)
+				_ = part.Close()
+			case "file":
+				if item.ID > 0 {
+					_ = part.Close()
+					writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Only one file is allowed."))
+					return
+				}
+				body := bufio.NewReader(part)
+				filename := filepath.Base(strings.TrimSpace(part.FileName()))
+				contentType := rawDriveUploadContentType(filename, strings.TrimSpace(part.Header.Get("Content-Type")), body)
+				uploadLimit := rawDriveUploadMaxBytes(filename, contentType, maxBytes, datasetMaxBytes)
+				uploaded, err := deps.DriveService.UploadFile(c.Request.Context(), service.DriveUploadFileInput{
+					TenantID:             tenant.ID,
+					ActorUserID:          current.User.ID,
+					WorkspacePublicID:    workspacePublicID,
+					ParentFolderPublicID: parentFolderPublicID,
+					Filename:             filename,
+					ContentType:          contentType,
+					Body:                 body,
+					MaxBytes:             uploadLimit,
+				}, sessionAuditContext(c.Request.Context(), current, &tenant.ID))
+				_ = part.Close()
+				if err != nil {
+					writeRawDriveError(c, err)
+					return
+				}
+				item = uploaded
+			default:
+				_ = part.Close()
+			}
 		}
-		header, err := c.FormFile("file")
-		if err != nil {
+		if item.ID <= 0 {
 			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorFileRequired, "File is required."))
-			return
-		}
-		file, err := header.Open()
-		if err != nil {
-			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "File body is invalid."))
-			return
-		}
-		defer file.Close()
-		contentType := strings.TrimSpace(header.Header.Get("Content-Type"))
-		if contentType == "" {
-			var sample [512]byte
-			n, _ := file.Read(sample[:])
-			contentType = http.DetectContentType(sample[:n])
-			_, _ = file.Seek(0, io.SeekStart)
-		}
-		item, err := deps.DriveService.UploadFile(c.Request.Context(), service.DriveUploadFileInput{
-			TenantID:             tenant.ID,
-			ActorUserID:          current.User.ID,
-			WorkspacePublicID:    c.PostForm("workspacePublicId"),
-			ParentFolderPublicID: c.PostForm("parentFolderPublicId"),
-			Filename:             header.Filename,
-			ContentType:          contentType,
-			Body:                 file,
-		}, sessionAuditContext(c.Request.Context(), current, &tenant.ID))
-		if err != nil {
-			writeRawDriveError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, toDriveFileBody(item))
@@ -241,39 +262,52 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 		if !ok {
 			return
 		}
-		if err := c.Request.ParseMultipartForm(maxBytes + 1024*1024); err != nil {
-			if isRequestBodyTooLargeError(err) {
-				writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusRequestEntityTooLarge, service.DriveErrorFileTooLarge, fmt.Sprintf("File exceeds the Drive upload limit of %s.", formatUploadLimitLabel(maxBytes))))
+		reader, err := c.Request.MultipartReader()
+		if err != nil {
+			writeRawDriveMultipartReaderError(c, err, maxRawDriveUploadBytes(maxBytes, datasetMaxBytes))
+			return
+		}
+		var item service.DriveFile
+		for {
+			part, err := reader.NextPart()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				writeRawDriveMultipartReaderError(c, err, maxRawDriveUploadBytes(maxBytes, datasetMaxBytes))
 				return
 			}
-			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
-			return
+			if part.FormName() != "file" {
+				_ = part.Close()
+				continue
+			}
+			if item.ID > 0 {
+				_ = part.Close()
+				writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Only one file is allowed."))
+				return
+			}
+			body := bufio.NewReader(part)
+			filename := filepath.Base(strings.TrimSpace(part.FileName()))
+			contentType := rawDriveUploadContentType(filename, strings.TrimSpace(part.Header.Get("Content-Type")), body)
+			uploadLimit := rawDriveUploadMaxBytes(filename, contentType, maxBytes, datasetMaxBytes)
+			updated, err := deps.DriveService.OverwriteFile(c.Request.Context(), service.DriveOverwriteFileInput{
+				TenantID:     tenant.ID,
+				ActorUserID:  current.User.ID,
+				FilePublicID: c.Param("filePublicId"),
+				Filename:     filename,
+				ContentType:  contentType,
+				Body:         body,
+				MaxBytes:     uploadLimit,
+			}, sessionAuditContext(c.Request.Context(), current, &tenant.ID))
+			_ = part.Close()
+			if err != nil {
+				writeRawDriveError(c, err)
+				return
+			}
+			item = updated
 		}
-		header, err := c.FormFile("file")
-		if err != nil {
+		if item.ID <= 0 {
 			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorFileRequired, "File is required."))
-			return
-		}
-		file, err := header.Open()
-		if err != nil {
-			writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "File body is invalid."))
-			return
-		}
-		defer file.Close()
-		contentType := strings.TrimSpace(header.Header.Get("Content-Type"))
-		if contentType == "" {
-			contentType = "application/octet-stream"
-		}
-		item, err := deps.DriveService.OverwriteFile(c.Request.Context(), service.DriveOverwriteFileInput{
-			TenantID:     tenant.ID,
-			ActorUserID:  current.User.ID,
-			FilePublicID: c.Param("filePublicId"),
-			Filename:     header.Filename,
-			ContentType:  contentType,
-			Body:         file,
-		}, sessionAuditContext(c.Request.Context(), current, &tenant.ID))
-		if err != nil {
-			writeRawDriveError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, toDriveFileBody(item))
@@ -449,6 +483,65 @@ func RegisterRawDriveRoutes(router *gin.Engine, deps Dependencies, maxBytes int6
 		}
 		c.JSON(http.StatusOK, toDriveFileBody(item))
 	})
+}
+
+func readRawDriveMultipartField(part io.Reader, maxLen int64) string {
+	if maxLen <= 0 {
+		maxLen = 512
+	}
+	value, _ := io.ReadAll(io.LimitReader(part, maxLen))
+	return strings.TrimSpace(string(value))
+}
+
+func rawDriveUploadContentType(filename, contentType string, body *bufio.Reader) string {
+	contentType = strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	if (contentType == "" || contentType == "application/octet-stream") && body != nil {
+		sample, _ := body.Peek(512)
+		if len(sample) > 0 {
+			contentType = strings.ToLower(strings.TrimSpace(strings.Split(http.DetectContentType(sample), ";")[0]))
+		}
+	}
+	if rawDriveLooksLikeCSV(filename, contentType) {
+		return "text/csv"
+	}
+	if contentType == "" {
+		return "application/octet-stream"
+	}
+	return contentType
+}
+
+func rawDriveUploadMaxBytes(filename, contentType string, fileMaxBytes, datasetMaxBytes int64) int64 {
+	if rawDriveLooksLikeCSV(filename, contentType) && datasetMaxBytes > fileMaxBytes {
+		return datasetMaxBytes
+	}
+	return 0
+}
+
+func maxRawDriveUploadBytes(fileMaxBytes, datasetMaxBytes int64) int64 {
+	if datasetMaxBytes > fileMaxBytes {
+		return datasetMaxBytes
+	}
+	return fileMaxBytes
+}
+
+func rawDriveLooksLikeCSV(filename, contentType string) bool {
+	if strings.EqualFold(filepath.Ext(strings.TrimSpace(filename)), ".csv") {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0])) {
+	case "text/csv", "application/csv", "application/vnd.ms-excel":
+		return true
+	default:
+		return false
+	}
+}
+
+func writeRawDriveMultipartReaderError(c *gin.Context, err error, maxBytes int64) {
+	if isRequestBodyTooLargeError(err) {
+		writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusRequestEntityTooLarge, service.DriveErrorFileTooLarge, fmt.Sprintf("File exceeds the Drive upload limit of %s.", formatUploadLimitLabel(maxBytes))))
+		return
+	}
+	writeRawDriveProblem(c, driveProblemFromInput(c.Request.Context(), http.StatusBadRequest, service.DriveErrorInvalidMultipart, "Multipart form is invalid or exceeds the request size limit."))
 }
 
 func rawExternalDriveUser(c *gin.Context, scope string) (service.AuthContext, service.TenantAccess, bool) {

@@ -27,7 +27,7 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:25.10
     container_name: haohao-clickhouse
-    mem_limit: ${CLICKHOUSE_MEM_LIMIT:-2g}
+    mem_limit: ${CLICKHOUSE_MEM_LIMIT:-4g}
     environment:
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default

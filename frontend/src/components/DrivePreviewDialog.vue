@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import type { DriveItemBody } from '../api/generated/types.gen'
-import { driveItemContentType, driveItemName } from '../utils/driveItems'
+import { driveItemContentType, driveItemIsCsv, driveItemName } from '../utils/driveItems'
 
 const props = defineProps<{
   open: boolean
@@ -25,6 +25,9 @@ const previewUrl = computed(() => (file.value ? `/api/v1/drive/files/${encodeURI
 const previewKind = computed(() => {
   const type = contentType.value
   const name = title.value.toLowerCase()
+  if (props.item && driveItemIsCsv(props.item)) {
+    return 'unsupported'
+  }
   if (type.startsWith('image/')) {
     return 'image'
   }

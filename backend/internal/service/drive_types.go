@@ -324,6 +324,7 @@ type DriveUploadFileInput struct {
 	Filename             string
 	ContentType          string
 	Body                 io.Reader
+	MaxBytes             int64
 }
 
 type DriveUpdateFileInput struct {
@@ -350,6 +351,7 @@ type DriveOverwriteFileInput struct {
 	Filename     string
 	ContentType  string
 	Body         io.Reader
+	MaxBytes     int64
 }
 
 type DriveListChildrenInput struct {
@@ -376,6 +378,13 @@ type DriveSearchInput struct {
 	UpdatedBefore *time.Time
 	Filter        DriveListItemsFilter
 	Limit         int32
+}
+
+type DriveListDatasetSourceFilesInput struct {
+	TenantID    int64
+	ActorUserID int64
+	Query       string
+	Limit       int32
 }
 
 type DriveActivity struct {

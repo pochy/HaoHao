@@ -1,16 +1,20 @@
-import { apiErrorFromResponse, readCookie } from './client'
+import { readCookie } from './client'
 import {
+  createDataset,
   createDatasetQueryJob,
   deleteDataset,
   getCsrf,
   getDataset,
   listDatasetQueryJobs,
   listDatasets,
+  listDatasetSourceFiles,
 } from './generated/sdk.gen'
 import type {
   DatasetBody,
+  DatasetCreateBodyWritable,
   DatasetQueryCreateBodyWritable,
   DatasetQueryJobBody,
+  DatasetSourceFileBody,
 } from './generated/types.gen'
 
 function csrfHeaders() {
@@ -39,28 +43,22 @@ export async function fetchDataset(datasetPublicId: string): Promise<DatasetBody
   }) as unknown as Promise<DatasetBody>
 }
 
-export async function uploadDatasetFile(file: File, name: string): Promise<DatasetBody> {
+export async function fetchDatasetSourceFiles(query = ''): Promise<DatasetSourceFileBody[]> {
+  const data = await listDatasetSourceFiles({
+    query: {
+      ...(query.trim() ? { q: query.trim() } : {}),
+      limit: 100,
+    },
+  }) as unknown as { items?: DatasetSourceFileBody[] | null }
+  return data.items ?? []
+}
+
+export async function createDatasetFromDriveFile(body: DatasetCreateBodyWritable): Promise<DatasetBody> {
   await ensureCSRFCookie()
-  const body = new FormData()
-  body.append('file', file)
-  if (name.trim()) {
-    body.append('name', name.trim())
-  }
-  const headers = new Headers({
-    Accept: 'application/json',
-    'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
-    'Idempotency-Key': crypto.randomUUID(),
-  })
-  const response = await fetch('/api/v1/datasets', {
-    method: 'POST',
-    credentials: 'include',
-    headers,
+  return createDataset({
+    headers: csrfHeaders(),
     body,
-  })
-  if (!response.ok) {
-    throw await apiErrorFromResponse(response, `Dataset upload failed (${response.status})`)
-  }
-  return await response.json() as DatasetBody
+  }) as unknown as Promise<DatasetBody>
 }
 
 export async function deleteDatasetItem(datasetPublicId: string): Promise<void> {

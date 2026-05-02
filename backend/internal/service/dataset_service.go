@@ -229,7 +229,10 @@ func (s *DatasetService) CreateFromSourceFile(ctx context.Context, tenantID, use
 	if err := s.EnsureClickHouse(ctx); err != nil {
 		return Dataset{}, err
 	}
-	if tenantID <= 0 || userID <= 0 || file.ID <= 0 || file.TenantID != tenantID || file.Purpose != DatasetSourceFilePurpose {
+	if tenantID <= 0 || userID <= 0 || file.ID <= 0 || file.TenantID != tenantID || !datasetSourcePurposeAllowed(file.Purpose) {
+		return Dataset{}, ErrInvalidDatasetInput
+	}
+	if !isDatasetCSVSource(file.OriginalFilename, file.ContentType) {
 		return Dataset{}, ErrInvalidDatasetInput
 	}
 	displayName := normalizeDatasetName(name, file.OriginalFilename)
@@ -304,6 +307,27 @@ func (s *DatasetService) CreateFromSourceFile(ctx context.Context, tenantID, use
 	importJob := datasetImportJobFromDB(job)
 	item.ImportJob = &importJob
 	return item, nil
+}
+
+func (s *DatasetService) CreateFromDriveFile(ctx context.Context, tenantID, userID int64, file DriveFile, name string, auditCtx AuditContext) (Dataset, error) {
+	source := FileObject{
+		ID:               file.ID,
+		PublicID:         file.PublicID,
+		TenantID:         file.TenantID,
+		UploadedByUserID: file.UploadedByUserID,
+		Purpose:          "drive",
+		OriginalFilename: file.OriginalFilename,
+		ContentType:      file.ContentType,
+		ByteSize:         file.ByteSize,
+		SHA256Hex:        file.SHA256Hex,
+		StorageDriver:    file.StorageDriver,
+		StorageKey:       file.StorageKey,
+		Status:           file.Status,
+		CreatedAt:        file.CreatedAt,
+		UpdatedAt:        file.UpdatedAt,
+		DeletedAt:        file.DeletedAt,
+	}
+	return s.CreateFromSourceFile(ctx, tenantID, userID, source, name, auditCtx)
 }
 
 func (s *DatasetService) List(ctx context.Context, tenantID int64, limit int32) ([]Dataset, error) {
@@ -443,7 +467,7 @@ func (s *DatasetService) importCSV(ctx context.Context, tenantID int64, dataset 
 	if err := s.ensureTenantSandbox(ctx, tenantID); err != nil {
 		return datasetImportResult{}, err
 	}
-	download, err := s.files.DownloadByID(ctx, tenantID, job.SourceFileObjectID)
+	download, err := s.files.DownloadActiveByID(ctx, tenantID, job.SourceFileObjectID)
 	if err != nil {
 		return datasetImportResult{}, err
 	}
@@ -947,6 +971,29 @@ func datasetWorkDatabaseName(tenantID int64) string {
 
 func datasetTenantUserName(tenantID int64) string {
 	return fmt.Sprintf("hh_t_%d_user", tenantID)
+}
+
+func datasetSourcePurposeAllowed(purpose string) bool {
+	switch strings.ToLower(strings.TrimSpace(purpose)) {
+	case DatasetSourceFilePurpose, "drive":
+		return true
+	default:
+		return false
+	}
+}
+
+func isDatasetCSVSource(filename, contentType string) bool {
+	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(filename)))
+	if ext == ".csv" {
+		return true
+	}
+	contentType = strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	switch contentType {
+	case "text/csv", "application/csv", "application/vnd.ms-excel":
+		return true
+	default:
+		return false
+	}
 }
 
 func datasetInsertSQL(dataset db.Dataset) string {

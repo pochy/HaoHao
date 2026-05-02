@@ -26,6 +26,7 @@ import type { DriveOcrActionStatus } from '../utils/driveOcrStatus'
 import { driveOcrToneFromStatus } from '../utils/driveOcrStatus'
 import {
   driveItemContentType,
+  driveItemIsCsv,
   driveItemKind,
   driveItemName,
   driveItemPublicId,
@@ -83,6 +84,9 @@ const previewKind = computed(() => {
   }
   if (contentType.value.includes('pdf')) {
     return 'pdf'
+  }
+  if (props.selectedItem && driveItemIsCsv(props.selectedItem)) {
+    return 'icon'
   }
   if (contentType.value.startsWith('text/') || /\.(md|txt|csv|json)$/i.test(file.value.originalFilename)) {
     return 'text'

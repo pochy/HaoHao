@@ -201,6 +201,38 @@ func (s *DriveService) Search(ctx context.Context, input DriveSearchInput, audit
 	return s.applyDriveListFilter(s.enrichDriveItems(ctx, actor, items), input.Filter), nil
 }
 
+func (s *DriveService) ListDatasetSourceFiles(ctx context.Context, input DriveListDatasetSourceFilesInput, auditCtx AuditContext) ([]DriveFile, error) {
+	if err := s.ensureConfigured(false); err != nil {
+		return nil, err
+	}
+	actor, err := s.actor(ctx, input.TenantID, input.ActorUserID)
+	if err != nil {
+		return nil, err
+	}
+	limit := input.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	rows, err := s.queries.ListDriveDatasetSourceFileCandidates(ctx, db.ListDriveDatasetSourceFileCandidatesParams{
+		TenantID:   input.TenantID,
+		Query:      pgText(strings.TrimSpace(input.Query)),
+		LimitCount: limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list drive dataset source files: %w", err)
+	}
+	files := make([]DriveFile, 0, len(rows))
+	for _, row := range rows {
+		files = append(files, driveFileFromDB(row))
+	}
+	viewable, err := s.authz.FilterViewableFiles(ctx, actor, files)
+	if err != nil {
+		s.auditDenied(ctx, actor, "drive.dataset_sources", "drive", "dataset_sources", err, auditCtx)
+		return nil, err
+	}
+	return viewable, nil
+}
+
 func (s *DriveService) ListTrash(ctx context.Context, input DriveListTrashInput, auditCtx AuditContext) ([]DriveItem, error) {
 	if err := s.ensureConfigured(false); err != nil {
 		return nil, err
@@ -475,6 +507,41 @@ func (s *DriveService) GetFile(ctx context.Context, tenantID, actorUserID int64,
 	return file, nil
 }
 
+func (s *DriveService) PrepareDatasetSourceFile(ctx context.Context, tenantID, actorUserID int64, filePublicID string, auditCtx AuditContext) (DriveFile, error) {
+	if err := s.ensureConfigured(false); err != nil {
+		return DriveFile{}, err
+	}
+	actor, err := s.actor(ctx, tenantID, actorUserID)
+	if err != nil {
+		return DriveFile{}, err
+	}
+	row, err := s.getDriveFileRow(ctx, tenantID, DriveResourceRef{Type: DriveResourceTypeFile, PublicID: filePublicID})
+	if err != nil {
+		return DriveFile{}, err
+	}
+	file := driveFileFromDB(row)
+	if err := s.authz.CanViewFile(ctx, actor, file); err != nil {
+		s.auditDenied(ctx, actor, "drive.file.dataset_import", "drive_file", file.PublicID, err, auditCtx)
+		return DriveFile{}, err
+	}
+	if err := s.authz.CanDownloadFile(ctx, actor, file); err != nil {
+		s.auditDenied(ctx, actor, "drive.file.dataset_import", "drive_file", file.PublicID, err, auditCtx)
+		return DriveFile{}, err
+	}
+	if err := s.ensureFileDownloadAllowed(ctx, actor, file, auditCtx, "drive.file.dataset_import"); err != nil {
+		return DriveFile{}, err
+	}
+	if err := s.ensureDriveEncryptionAvailable(ctx, file.TenantID, file.ID); err != nil {
+		s.auditDenied(ctx, actor, "drive.file.dataset_import", "drive_file", file.PublicID, err, auditCtx)
+		return DriveFile{}, err
+	}
+	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.file.dataset_import", "drive_file", file.PublicID, map[string]any{
+		"contentType": file.ContentType,
+		"byteSize":    file.ByteSize,
+	})
+	return file, nil
+}
+
 func (s *DriveService) DownloadFile(ctx context.Context, tenantID, actorUserID int64, filePublicID string, auditCtx AuditContext) (DriveFileDownload, error) {
 	if err := s.ensureConfigured(true); err != nil {
 		return DriveFileDownload{}, err
@@ -624,17 +691,11 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 	}
 	contentType := normalizeContentType(input.ContentType)
 	storageKey := newDriveStorageKey(input.TenantID, file.WorkspacePublicID, 1)
-	maxBytes := int64(10 * 1024 * 1024)
-	if s.files != nil && s.files.maxBytes > 0 {
-		maxBytes = s.files.maxBytes
-	}
 	policy, err := s.drivePolicy(ctx, input.TenantID)
 	if err != nil {
 		return DriveFile{}, err
 	}
-	if policy.MaxFileSizeBytes > 0 && policy.MaxFileSizeBytes < maxBytes {
-		maxBytes = policy.MaxFileSizeBytes
-	}
+	maxBytes := driveEffectiveUploadMaxBytes(fileServiceMaxBytes(s.files), input.MaxBytes, policy.MaxFileSizeBytes)
 	stored, err := s.storage.PutObject(ctx, storageKey, input.Body, maxBytes, ObjectPutOptions{
 		ContentType: contentType,
 	})

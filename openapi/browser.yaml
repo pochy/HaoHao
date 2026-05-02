@@ -766,6 +766,25 @@ components:
         - columnName
         - clickHouseType
       type: object
+    DatasetCreateBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetCreateBody.json
+          format: uri
+          readOnly: true
+          type: string
+        driveFilePublicId:
+          format: uuid
+          type: string
+        name:
+          maxLength: 160
+          type: string
+      required:
+        - driveFilePublicId
+      type: object
     DatasetImportErrorBody:
       additionalProperties: false
       properties:
@@ -949,6 +968,61 @@ components:
         items:
           items:
             $ref: "#/components/schemas/DatasetQueryJobBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DatasetSourceFileBody:
+      additionalProperties: false
+      properties:
+        byteSize:
+          examples:
+            - 104857600
+          format: int64
+          type: integer
+        contentType:
+          examples:
+            - text/csv
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        originalFilename:
+          examples:
+            - customers.csv
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        sha256Hex:
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - originalFilename
+        - contentType
+        - byteSize
+        - sha256Hex
+        - updatedAt
+        - createdAt
+      type: object
+    DatasetSourceFileListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetSourceFileListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DatasetSourceFileBody"
           type:
             - array
             - "null"
@@ -9004,6 +9078,46 @@ paths:
       summary: active tenant の dataset query job detail を返す
       tags:
         - datasets
+  /api/v1/dataset-source-files:
+    get:
+      operationId: listDatasetSourceFiles
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: q
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetSourceFileListBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Dataset に取り込める Drive CSV file 一覧を返す
+      tags:
+        - datasets
   /api/v1/datasets:
     get:
       operationId: listDatasets
@@ -9037,6 +9151,42 @@ paths:
       security:
         - cookieAuth: []
       summary: active tenant の dataset 一覧を返す
+      tags:
+        - datasets
+    post:
+      operationId: createDataset
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetCreateBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: Drive CSV file から active tenant の dataset を作成する
       tags:
         - datasets
   /api/v1/datasets/{datasetPublicId}:

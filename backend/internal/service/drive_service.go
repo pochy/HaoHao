@@ -193,17 +193,11 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 	}
 
 	contentType := normalizeContentType(input.ContentType)
-	maxBytes := int64(10 * 1024 * 1024)
-	if s.files != nil && s.files.maxBytes > 0 {
-		maxBytes = s.files.maxBytes
-	}
 	policy, err := s.drivePolicy(ctx, input.TenantID)
 	if err != nil {
 		return DriveFile{}, err
 	}
-	if policy.MaxFileSizeBytes > 0 && policy.MaxFileSizeBytes < maxBytes {
-		maxBytes = policy.MaxFileSizeBytes
-	}
+	maxBytes := driveEffectiveUploadMaxBytes(fileServiceMaxBytes(s.files), input.MaxBytes, policy.MaxFileSizeBytes)
 	storageKey := newDriveStorageKey(input.TenantID, workspace.PublicID, 1)
 	stored, err := s.storage.PutObject(ctx, storageKey, input.Body, maxBytes, ObjectPutOptions{
 		ContentType: contentType,
@@ -1045,6 +1039,27 @@ func normalizeContentType(value string) string {
 		return "application/octet-stream"
 	}
 	return contentType
+}
+
+func fileServiceMaxBytes(files *FileService) int64 {
+	if files != nil && files.maxBytes > 0 {
+		return files.maxBytes
+	}
+	return 10 * 1024 * 1024
+}
+
+func driveEffectiveUploadMaxBytes(defaultMaxBytes, overrideMaxBytes, policyMaxBytes int64) int64 {
+	maxBytes := defaultMaxBytes
+	if maxBytes <= 0 {
+		maxBytes = 10 * 1024 * 1024
+	}
+	if overrideMaxBytes > maxBytes {
+		maxBytes = overrideMaxBytes
+	}
+	if overrideMaxBytes <= 0 && policyMaxBytes > 0 && policyMaxBytes < maxBytes {
+		maxBytes = policyMaxBytes
+	}
+	return maxBytes
 }
 
 func formatDriveByteLimit(bytes int64) string {

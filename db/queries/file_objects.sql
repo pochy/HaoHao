@@ -35,6 +35,13 @@ WHERE id = $1
   AND purpose <> 'drive'
   AND deleted_at IS NULL;
 
+-- name: GetActiveFileObjectByIDForTenant :one
+SELECT *
+FROM file_objects
+WHERE id = $1
+  AND tenant_id = $2
+  AND deleted_at IS NULL;
+
 -- name: ListFileObjectsForAttachment :many
 SELECT *
 FROM file_objects

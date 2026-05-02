@@ -27,6 +27,15 @@ export function driveItemContentType(item: DriveItemBody) {
   return item.file?.contentType ?? ''
 }
 
+export function driveItemIsCsv(item: DriveItemBody) {
+  const contentType = driveItemContentType(item).toLowerCase().split(';')[0].trim()
+  const name = driveItemName(item).toLowerCase()
+  return contentType === 'text/csv' ||
+    contentType === 'application/csv' ||
+    contentType === 'application/vnd.ms-excel' ||
+    name.endsWith('.csv')
+}
+
 export function driveItemKind(item: DriveItemBody) {
   if (item.folder) {
     return 'folder'

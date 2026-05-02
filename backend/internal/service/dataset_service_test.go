@@ -113,6 +113,40 @@ func TestDatasetInsertSQLUsesNativeBatchForm(t *testing.T) {
 	}
 }
 
+func TestDatasetSourceAllowsDriveCSVFiles(t *testing.T) {
+	if !datasetSourcePurposeAllowed("drive") {
+		t.Fatal("datasetSourcePurposeAllowed(drive) = false")
+	}
+	if !datasetSourcePurposeAllowed(DatasetSourceFilePurpose) {
+		t.Fatal("datasetSourcePurposeAllowed(dataset_source) = false")
+	}
+	if datasetSourcePurposeAllowed("attachment") {
+		t.Fatal("datasetSourcePurposeAllowed(attachment) = true")
+	}
+	if !isDatasetCSVSource("customers.csv", "application/octet-stream") {
+		t.Fatal("isDatasetCSVSource(.csv) = false")
+	}
+	if !isDatasetCSVSource("customers", "application/vnd.ms-excel") {
+		t.Fatal("isDatasetCSVSource(application/vnd.ms-excel) = false")
+	}
+	if isDatasetCSVSource("customers.json", "application/json") {
+		t.Fatal("isDatasetCSVSource(json) = true")
+	}
+}
+
+func TestDriveEffectiveUploadMaxBytesHonorsDatasetOverride(t *testing.T) {
+	const fileMax = int64(100)
+	const datasetMax = int64(1000)
+	const policyMax = int64(50)
+
+	if got := driveEffectiveUploadMaxBytes(fileMax, 0, policyMax); got != policyMax {
+		t.Fatalf("driveEffectiveUploadMaxBytes(no override) = %d, want %d", got, policyMax)
+	}
+	if got := driveEffectiveUploadMaxBytes(fileMax, datasetMax, policyMax); got != datasetMax {
+		t.Fatalf("driveEffectiveUploadMaxBytes(dataset override) = %d, want %d", got, datasetMax)
+	}
+}
+
 func TestDatasetScanDestinationsUsesConcreteTypes(t *testing.T) {
 	columnTypes := []driver.ColumnType{
 		fakeDatasetColumnType{name: "__row_number", scanType: reflect.TypeOf(uint64(0))},

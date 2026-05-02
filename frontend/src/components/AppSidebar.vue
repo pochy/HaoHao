@@ -9,6 +9,8 @@ import {
   FolderOpen,
   Home,
   KeyRound,
+  PanelLeftClose,
+  PanelLeftOpen,
   PlugZap,
   RadioTower,
 } from 'lucide-vue-next'
@@ -26,6 +28,14 @@ type NavigationGroup = {
 }
 
 const { t } = useI18n()
+
+defineProps<{
+  collapsed: boolean
+}>()
+
+defineEmits<{
+  toggleCollapsed: []
+}>()
 
 const navigationGroups: NavigationGroup[] = [
   {
@@ -56,28 +66,58 @@ const navigationGroups: NavigationGroup[] = [
 </script>
 
 <template>
-  <aside class="app-sidebar" :aria-label="t('nav.primary')">
-    <RouterLink class="app-brand" to="/">
-      <span class="app-brand-mark" aria-hidden="true">H</span>
-      <span>
-        <strong>{{ t('app.name') }}</strong>
-        <span>{{ t('app.tagline') }}</span>
-      </span>
-    </RouterLink>
+  <aside class="app-sidebar" :class="{ collapsed }" :aria-label="t('nav.primary')">
+    <div class="app-sidebar-header">
+      <RouterLink
+        class="app-brand"
+        to="/"
+        :aria-label="collapsed ? t('app.name') : undefined"
+        :title="collapsed ? t('app.name') : undefined"
+      >
+        <span class="app-brand-mark" aria-hidden="true">H</span>
+        <span class="app-brand-copy">
+          <strong>{{ t('app.name') }}</strong>
+          <span>{{ t('app.tagline') }}</span>
+        </span>
+      </RouterLink>
+
+      <button
+        class="sidebar-collapse-button"
+        type="button"
+        :aria-label="collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')"
+        :title="collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')"
+        @click="$emit('toggleCollapsed')"
+      >
+        <PanelLeftOpen v-if="collapsed" :size="17" stroke-width="1.9" aria-hidden="true" />
+        <PanelLeftClose v-else :size="17" stroke-width="1.9" aria-hidden="true" />
+      </button>
+    </div>
 
     <nav class="sidebar-nav">
       <section v-for="group in navigationGroups" :key="group.labelKey" class="sidebar-group">
         <h2>{{ t(group.labelKey) }}</h2>
-        <RouterLink v-for="item in group.items" :key="item.to" class="sidebar-link" :to="item.to">
+        <RouterLink
+          v-for="item in group.items"
+          :key="item.to"
+          class="sidebar-link"
+          :to="item.to"
+          :aria-label="collapsed ? t(item.labelKey) : undefined"
+          :title="collapsed ? t(item.labelKey) : undefined"
+        >
           <component :is="item.icon" class="sidebar-link-icon" :size="17" stroke-width="1.8" aria-hidden="true" />
-          <span>{{ t(item.labelKey) }}</span>
+          <span class="sidebar-link-label">{{ t(item.labelKey) }}</span>
         </RouterLink>
       </section>
     </nav>
 
-    <RouterLink class="sidebar-doc-link" to="/drive/groups">
+    <RouterLink
+      class="sidebar-doc-link"
+      to="/drive/groups"
+      :aria-label="collapsed ? t('nav.items.driveGroups') : undefined"
+      :title="collapsed ? t('nav.items.driveGroups') : undefined"
+    >
       <FileText :size="17" stroke-width="1.8" aria-hidden="true" />
-      <span>{{ t('nav.items.driveGroups') }}</span>
+      <span class="sidebar-link-label">{{ t('nav.items.driveGroups') }}</span>
     </RouterLink>
   </aside>
 </template>

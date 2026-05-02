@@ -283,6 +283,15 @@ export type DatasetColumnBody = {
     originalName: string;
 };
 
+export type DatasetCreateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    driveFilePublicId: string;
+    name?: string;
+};
+
 export type DatasetImportErrorBody = {
     error: string;
     raw?: string;
@@ -344,6 +353,24 @@ export type DatasetQueryListBody = {
      */
     readonly $schema?: string;
     items: Array<DatasetQueryJobBody> | null;
+};
+
+export type DatasetSourceFileBody = {
+    byteSize: number;
+    contentType: string;
+    createdAt: string;
+    originalFilename: string;
+    publicId: string;
+    sha256Hex: string;
+    updatedAt: string;
+};
+
+export type DatasetSourceFileListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetSourceFileBody> | null;
 };
 
 export type DriveAiClassificationBody = {
@@ -2318,6 +2345,11 @@ export type DatasetBodyWritable = {
     workDatabase: string;
 };
 
+export type DatasetCreateBodyWritable = {
+    driveFilePublicId: string;
+    name?: string;
+};
+
 export type DatasetListBodyWritable = {
     items: Array<DatasetBodyWritable> | null;
 };
@@ -2344,6 +2376,10 @@ export type DatasetQueryJobBodyWritable = {
 
 export type DatasetQueryListBodyWritable = {
     items: Array<DatasetQueryJobBodyWritable> | null;
+};
+
+export type DatasetSourceFileListBodyWritable = {
+    items: Array<DatasetSourceFileBody> | null;
 };
 
 export type DriveAiClassificationsOutputBodyWritable = {
@@ -5933,6 +5969,34 @@ export type GetDatasetQueryJobResponses = {
 
 export type GetDatasetQueryJobResponse = GetDatasetQueryJobResponses[keyof GetDatasetQueryJobResponses];
 
+export type ListDatasetSourceFilesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        q?: string;
+        limit?: number;
+    };
+    url: '/api/v1/dataset-source-files';
+};
+
+export type ListDatasetSourceFilesErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetSourceFilesError = ListDatasetSourceFilesErrors[keyof ListDatasetSourceFilesErrors];
+
+export type ListDatasetSourceFilesResponses = {
+    /**
+     * OK
+     */
+    200: DatasetSourceFileListBody;
+};
+
+export type ListDatasetSourceFilesResponse = ListDatasetSourceFilesResponses[keyof ListDatasetSourceFilesResponses];
+
 export type ListDatasetsData = {
     body?: never;
     path?: never;
@@ -5959,6 +6023,34 @@ export type ListDatasetsResponses = {
 };
 
 export type ListDatasetsResponse = ListDatasetsResponses[keyof ListDatasetsResponses];
+
+export type CreateDatasetData = {
+    body: DatasetCreateBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/datasets';
+};
+
+export type CreateDatasetErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDatasetError = CreateDatasetErrors[keyof CreateDatasetErrors];
+
+export type CreateDatasetResponses = {
+    /**
+     * OK
+     */
+    200: DatasetBody;
+};
+
+export type CreateDatasetResponse = CreateDatasetResponses[keyof CreateDatasetResponses];
 
 export type DeleteDatasetData = {
     body?: never;

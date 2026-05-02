@@ -1,14 +1,15 @@
 import { defineStore } from 'pinia'
 
 import { isApiForbidden, toApiErrorMessage, toApiErrorStatus } from '../api/client'
-import type { DatasetBody, DatasetQueryJobBody } from '../api/generated/types.gen'
+import type { DatasetBody, DatasetQueryJobBody, DatasetSourceFileBody } from '../api/generated/types.gen'
 import {
+  createDatasetFromDriveFile,
   createDatasetQuery,
   deleteDatasetItem,
   fetchDataset,
   fetchDatasetQueryJobs,
   fetchDatasets,
-  uploadDatasetFile,
+  fetchDatasetSourceFiles,
 } from '../api/datasets'
 
 type DatasetStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
@@ -18,10 +19,12 @@ export const useDatasetStore = defineStore('datasets', {
     status: 'idle' as DatasetStatus,
     items: [] as DatasetBody[],
     selectedPublicId: '',
+    sourceFiles: [] as DatasetSourceFileBody[],
+    selectedSourceFilePublicId: '',
     queryJobs: [] as DatasetQueryJobBody[],
     latestQuery: null as DatasetQueryJobBody | null,
     errorMessage: '',
-    uploading: false,
+    importing: false,
     executing: false,
     deletingPublicId: '',
   }),
@@ -29,6 +32,9 @@ export const useDatasetStore = defineStore('datasets', {
   getters: {
     selectedDataset: (state) => (
       state.items.find((item) => item.publicId === state.selectedPublicId) ?? state.items[0] ?? null
+    ),
+    selectedSourceFile: (state) => (
+      state.sourceFiles.find((item) => item.publicId === state.selectedSourceFilePublicId) ?? state.sourceFiles[0] ?? null
     ),
     hasActiveImports: (state) => state.items.some((item) => ['pending', 'importing'].includes(item.status)),
   },
@@ -38,19 +44,25 @@ export const useDatasetStore = defineStore('datasets', {
       this.status = 'loading'
       this.errorMessage = ''
       try {
-        const [datasets, queryJobs] = await Promise.all([
+        const [datasets, queryJobs, sourceFiles] = await Promise.all([
           fetchDatasets(),
           fetchDatasetQueryJobs(),
+          fetchDatasetSourceFiles(),
         ])
         this.items = datasets
         this.queryJobs = queryJobs
+        this.sourceFiles = sourceFiles
         if (!this.selectedPublicId || !this.items.some((item) => item.publicId === this.selectedPublicId)) {
           this.selectedPublicId = this.items[0]?.publicId ?? ''
+        }
+        if (!this.selectedSourceFilePublicId || !this.sourceFiles.some((item) => item.publicId === this.selectedSourceFilePublicId)) {
+          this.selectedSourceFilePublicId = this.sourceFiles[0]?.publicId ?? ''
         }
         this.status = this.items.length > 0 ? 'ready' : 'empty'
       } catch (error) {
         this.items = []
         this.queryJobs = []
+        this.sourceFiles = []
         this.status = toApiErrorStatus(error) === 403 || isApiForbidden(error) ? 'forbidden' : 'error'
         this.errorMessage = toApiErrorMessage(error)
       }
@@ -68,11 +80,27 @@ export const useDatasetStore = defineStore('datasets', {
       }
     },
 
-    async upload(file: File, name: string) {
-      this.uploading = true
+    async refreshSourceFiles(query = '') {
       this.errorMessage = ''
       try {
-        const created = await uploadDatasetFile(file, name)
+        this.sourceFiles = await fetchDatasetSourceFiles(query)
+        if (!this.selectedSourceFilePublicId || !this.sourceFiles.some((item) => item.publicId === this.selectedSourceFilePublicId)) {
+          this.selectedSourceFilePublicId = this.sourceFiles[0]?.publicId ?? ''
+        }
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      }
+    },
+
+    async importFromDriveFile(driveFilePublicId: string, name: string) {
+      this.importing = true
+      this.errorMessage = ''
+      try {
+        const created = await createDatasetFromDriveFile({
+          driveFilePublicId,
+          ...(name.trim() ? { name: name.trim() } : {}),
+        })
         this.items = [created, ...this.items.filter((item) => item.publicId !== created.publicId)]
         this.selectedPublicId = created.publicId
         this.status = 'ready'
@@ -80,7 +108,7 @@ export const useDatasetStore = defineStore('datasets', {
         this.errorMessage = toApiErrorMessage(error)
         throw error
       } finally {
-        this.uploading = false
+        this.importing = false
       }
     },
 
@@ -122,10 +150,12 @@ export const useDatasetStore = defineStore('datasets', {
       this.status = 'idle'
       this.items = []
       this.selectedPublicId = ''
+      this.sourceFiles = []
+      this.selectedSourceFilePublicId = ''
       this.queryJobs = []
       this.latestQuery = null
       this.errorMessage = ''
-      this.uploading = false
+      this.importing = false
       this.executing = false
       this.deletingPublicId = ''
     },

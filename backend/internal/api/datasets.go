@@ -1,20 +1,14 @@
 package api
 
 import (
-	"bufio"
 	"context"
 	"errors"
-	"io"
-	"mime/multipart"
 	"net/http"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"example.com/haohao/backend/internal/service"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/gin-gonic/gin"
 )
 
 type DatasetColumnBody struct {
@@ -66,16 +60,51 @@ type DatasetListBody struct {
 	Items []DatasetBody `json:"items"`
 }
 
+type DatasetSourceFileBody struct {
+	PublicID         string    `json:"publicId" format:"uuid"`
+	OriginalFilename string    `json:"originalFilename" example:"customers.csv"`
+	ContentType      string    `json:"contentType" example:"text/csv"`
+	ByteSize         int64     `json:"byteSize" example:"104857600"`
+	SHA256Hex        string    `json:"sha256Hex"`
+	UpdatedAt        time.Time `json:"updatedAt" format:"date-time"`
+	CreatedAt        time.Time `json:"createdAt" format:"date-time"`
+}
+
+type DatasetSourceFileListBody struct {
+	Items []DatasetSourceFileBody `json:"items"`
+}
+
 type DatasetListOutput struct {
 	Body DatasetListBody
+}
+
+type DatasetSourceFileListOutput struct {
+	Body DatasetSourceFileListBody
 }
 
 type DatasetOutput struct {
 	Body DatasetBody
 }
 
+type DatasetCreateBody struct {
+	DriveFilePublicID string `json:"driveFilePublicId" format:"uuid"`
+	Name              string `json:"name,omitempty" maxLength:"160"`
+}
+
+type DatasetCreateInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
+	Body          DatasetCreateBody
+}
+
 type ListDatasetsInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	Limit         int32       `query:"limit" minimum:"1" maximum:"200" default:"100"`
+}
+
+type ListDatasetSourceFilesInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	Query         string      `query:"q"`
 	Limit         int32       `query:"limit" minimum:"1" maximum:"200" default:"100"`
 }
 
@@ -140,6 +169,33 @@ type DatasetQueryByPublicIDInput struct {
 
 func registerDatasetRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{
+		OperationID: "createDataset",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/datasets",
+		Summary:     "Drive CSV file から active tenant の dataset を作成する",
+		Tags:        []string{"datasets"},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetCreateInput) (*DatasetOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		if deps.DriveService == nil {
+			return nil, huma.Error503ServiceUnavailable("drive service is not configured")
+		}
+		auditCtx := sessionAuditContext(ctx, current, &tenant.ID)
+		file, err := deps.DriveService.PrepareDatasetSourceFile(ctx, tenant.ID, current.User.ID, input.Body.DriveFilePublicID, auditCtx)
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		item, err := deps.DatasetService.CreateFromDriveFile(ctx, tenant.ID, current.User.ID, file, input.Body.Name, auditCtx)
+		if err != nil {
+			return nil, toDatasetHTTPError(err)
+		}
+		return &DatasetOutput{Body: toDatasetBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID: "listDatasets",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/datasets",
@@ -159,6 +215,38 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		out.Body.Items = make([]DatasetBody, 0, len(items))
 		for _, item := range items {
 			out.Body.Items = append(out.Body.Items, toDatasetBody(item))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listDatasetSourceFiles",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/dataset-source-files",
+		Summary:     "Dataset に取り込める Drive CSV file 一覧を返す",
+		Tags:        []string{"datasets"},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *ListDatasetSourceFilesInput) (*DatasetSourceFileListOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		if deps.DriveService == nil {
+			return nil, huma.Error503ServiceUnavailable("drive service is not configured")
+		}
+		files, err := deps.DriveService.ListDatasetSourceFiles(ctx, service.DriveListDatasetSourceFilesInput{
+			TenantID:    tenant.ID,
+			ActorUserID: current.User.ID,
+			Query:       input.Query,
+			Limit:       input.Limit,
+		}, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDriveHTTPError(err)
+		}
+		out := &DatasetSourceFileListOutput{}
+		out.Body.Items = make([]DatasetSourceFileBody, 0, len(files))
+		for _, file := range files {
+			out.Body.Items = append(out.Body.Items, toDatasetSourceFileBody(file))
 		}
 		return out, nil
 	})
@@ -264,108 +352,6 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 	})
 }
 
-func RegisterRawDatasetRoutes(router *gin.Engine, deps Dependencies, maxBytes int64) {
-	if router == nil {
-		return
-	}
-	router.POST("/api/v1/datasets", func(c *gin.Context) {
-		current, tenant, ok := rawActiveTenant(c, deps, true)
-		if !ok {
-			return
-		}
-		if deps.DatasetService == nil || deps.FileService == nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"title": "dataset service is not configured"})
-			return
-		}
-		if err := deps.DatasetService.EnsureClickHouse(c.Request.Context()); err != nil {
-			writeRawDatasetError(c, err)
-			return
-		}
-		reader, err := c.Request.MultipartReader()
-		if err != nil {
-			if isRequestBodyTooLargeError(err) {
-				c.JSON(http.StatusRequestEntityTooLarge, gin.H{"title": "file is too large"})
-				return
-			}
-			c.JSON(http.StatusBadRequest, gin.H{"title": "invalid multipart form"})
-			return
-		}
-		var name string
-		var file service.FileObject
-		for {
-			part, err := reader.NextPart()
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if err != nil {
-				if isRequestBodyTooLargeError(err) {
-					c.JSON(http.StatusRequestEntityTooLarge, gin.H{"title": "file is too large"})
-					return
-				}
-				c.JSON(http.StatusBadRequest, gin.H{"title": "invalid multipart form"})
-				return
-			}
-			switch part.FormName() {
-			case "name":
-				value, _ := io.ReadAll(io.LimitReader(part, 512))
-				name = strings.TrimSpace(string(value))
-			case "file":
-				if file.ID > 0 {
-					c.JSON(http.StatusBadRequest, gin.H{"title": "only one dataset file is allowed"})
-					_ = part.Close()
-					return
-				}
-				uploaded, err := uploadDatasetPart(c.Request.Context(), deps, tenant.ID, current.User.ID, part, maxBytes, sessionAuditContext(c.Request.Context(), current, &tenant.ID))
-				if err != nil {
-					writeRawDatasetError(c, err)
-					_ = part.Close()
-					return
-				}
-				file = uploaded
-			}
-			_ = part.Close()
-		}
-		if file.ID <= 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"title": "file is required"})
-			return
-		}
-		item, err := deps.DatasetService.CreateFromSourceFile(c.Request.Context(), tenant.ID, current.User.ID, file, name, sessionAuditContext(c.Request.Context(), current, &tenant.ID))
-		if err != nil {
-			writeRawDatasetError(c, err)
-			return
-		}
-		c.JSON(http.StatusOK, toDatasetBody(item))
-	})
-}
-
-func uploadDatasetPart(ctx context.Context, deps Dependencies, tenantID, userID int64, part *multipart.Part, maxBytes int64, auditCtx service.AuditContext) (service.FileObject, error) {
-	filename := filepath.Base(strings.TrimSpace(part.FileName()))
-	if filename == "" || filename == "." {
-		return service.FileObject{}, service.ErrInvalidDatasetInput
-	}
-	body := bufio.NewReader(part)
-	contentType := strings.TrimSpace(part.Header.Get("Content-Type"))
-	if contentType == "" {
-		sample, _ := body.Peek(512)
-		contentType = http.DetectContentType(sample)
-	}
-	contentType = strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
-	if strings.EqualFold(filepath.Ext(filename), ".csv") || contentType == "application/vnd.ms-excel" || contentType == "application/csv" {
-		contentType = "text/csv"
-	}
-	if contentType == "" || contentType == "application/octet-stream" {
-		contentType = "text/csv"
-	}
-	return deps.FileService.UploadWithMaxBytes(ctx, service.FileUploadInput{
-		TenantID:         tenantID,
-		UserID:           userID,
-		Purpose:          service.DatasetSourceFilePurpose,
-		OriginalFilename: filename,
-		ContentType:      contentType,
-		Body:             body,
-	}, auditCtx, maxBytes)
-}
-
 func requireDatasetTenant(ctx context.Context, deps Dependencies, sessionID, csrfToken string) (service.CurrentSession, service.TenantAccess, error) {
 	if deps.DatasetService == nil {
 		return service.CurrentSession{}, service.TenantAccess{}, huma.Error503ServiceUnavailable("dataset service is not configured")
@@ -404,6 +390,18 @@ func toDatasetBody(item service.Dataset) DatasetBody {
 		body.ImportJob = &importJob
 	}
 	return body
+}
+
+func toDatasetSourceFileBody(item service.DriveFile) DatasetSourceFileBody {
+	return DatasetSourceFileBody{
+		PublicID:         item.PublicID,
+		OriginalFilename: item.OriginalFilename,
+		ContentType:      item.ContentType,
+		ByteSize:         item.ByteSize,
+		SHA256Hex:        item.SHA256Hex,
+		UpdatedAt:        item.UpdatedAt,
+		CreatedAt:        item.CreatedAt,
+	}
 }
 
 func toDatasetImportJobBody(item service.DatasetImportJob) DatasetImportJobBody {
@@ -456,23 +454,8 @@ func toDatasetHTTPError(err error) error {
 	case errors.Is(err, service.ErrUnsafeDatasetSQL):
 		return huma.Error400BadRequest(err.Error())
 	case errors.Is(err, service.ErrDatasetClickHouseNotReady):
-		return huma.Error503ServiceUnavailable("clickhouse is not configured")
+		return huma.Error503ServiceUnavailable(err.Error())
 	default:
 		return toHTTPError(err)
-	}
-}
-
-func writeRawDatasetError(c *gin.Context, err error) {
-	switch {
-	case isRequestBodyTooLargeError(err):
-		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"title": "file is too large"})
-	case errors.Is(err, service.ErrInvalidDatasetInput), errors.Is(err, service.ErrInvalidFileInput):
-		c.JSON(http.StatusBadRequest, gin.H{"title": err.Error()})
-	case errors.Is(err, service.ErrFileQuotaExceeded):
-		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"title": "tenant file quota exceeded"})
-	case errors.Is(err, service.ErrDatasetClickHouseNotReady):
-		c.JSON(http.StatusServiceUnavailable, gin.H{"title": "clickhouse is not configured"})
-	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"title": "dataset request failed"})
 	}
 }

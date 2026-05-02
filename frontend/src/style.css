@@ -90,6 +90,10 @@ code {
   min-height: 100dvh;
 }
 
+.app-layout.sidebar-collapsed {
+  grid-template-columns: 80px minmax(0, 1fr);
+}
+
 .app-sidebar {
   position: sticky;
   top: 0;
@@ -97,17 +101,45 @@ code {
   flex-direction: column;
   gap: 22px;
   height: 100dvh;
-  padding: max(20px, env(safe-area-inset-top)) 18px max(20px, env(safe-area-inset-bottom));
+  padding: max(20px, env(safe-area-inset-top)) 18px
+    max(20px, env(safe-area-inset-bottom));
   border-right: 1px solid var(--border);
   background: #fff;
+}
+
+.app-sidebar.collapsed {
+  align-items: center;
+  gap: 18px;
+  padding-right: 12px;
+  padding-left: 12px;
+}
+
+.app-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.app-sidebar.collapsed .app-sidebar-header {
+  flex-direction: column;
+  gap: 10px;
 }
 
 .app-brand {
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
   gap: 12px;
+  min-width: 0;
   color: var(--text-strong);
   text-decoration: none;
+}
+
+.app-sidebar.collapsed .app-brand {
+  flex: 0 0 auto;
+  justify-content: center;
 }
 
 .app-brand-mark {
@@ -121,9 +153,21 @@ code {
   font-weight: 800;
 }
 
+.app-brand-copy {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .app-brand strong,
 .app-brand span span {
   display: block;
+}
+
+.app-brand-copy strong,
+.app-brand-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-brand span span {
@@ -131,12 +175,35 @@ code {
   font-size: 0.8rem;
 }
 
+.sidebar-collapse-button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: #fff;
+}
+
+.sidebar-collapse-button:hover {
+  color: var(--text-strong);
+  background: var(--surface-muted);
+}
+
 .sidebar-nav {
   display: grid;
   gap: 22px;
 }
 
+.app-sidebar.collapsed .sidebar-nav,
+.app-sidebar.collapsed .sidebar-group {
+  width: 100%;
+}
+
 .sidebar-group {
+  position: relative;
   display: grid;
   gap: 6px;
 }
@@ -148,8 +215,18 @@ code {
   text-transform: uppercase;
 }
 
+.app-sidebar.collapsed .app-brand-copy,
+.app-sidebar.collapsed .sidebar-group h2,
+.app-sidebar.collapsed .sidebar-link-label {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-6px);
+}
+
 .sidebar-link,
 .sidebar-doc-link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -158,6 +235,12 @@ code {
   border-radius: var(--radius-sm);
   color: var(--text);
   text-decoration: none;
+}
+
+.app-sidebar.collapsed .sidebar-link,
+.app-sidebar.collapsed .sidebar-doc-link {
+  justify-content: center;
+  padding: 0;
 }
 
 .sidebar-link:hover,
@@ -179,6 +262,42 @@ code {
 .sidebar-doc-link {
   margin-top: auto;
   border: 1px solid var(--border);
+}
+
+.app-sidebar.collapsed .sidebar-doc-link {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .app-brand-copy,
+  .sidebar-group h2,
+  .sidebar-link-label {
+    transition:
+      opacity 360ms ease-out,
+      transform 360ms ease-out;
+  }
+
+  .app-brand-mark,
+  .sidebar-collapse-button,
+  .sidebar-link-icon {
+    transition:
+      opacity 360ms ease-out,
+      transform 360ms ease-out;
+  }
+
+  .app-sidebar.collapsed .app-brand-mark {
+    transform: scale(0.96);
+  }
+
+  .app-sidebar.collapsed .app-brand-copy,
+  .app-sidebar.collapsed .sidebar-group h2,
+  .app-sidebar.collapsed .sidebar-link-label {
+    transition: none;
+  }
+
+  .app-sidebar.collapsed .sidebar-collapse-button {
+    transform: translateY(-1px);
+  }
 }
 
 .app-workspace {
@@ -260,6 +379,10 @@ code {
   width: min(1180px, calc(100vw - 316px));
   margin: 0 auto;
   padding: 28px 28px 56px;
+}
+
+.app-layout.sidebar-collapsed .app-main {
+  width: min(1180px, calc(100vw - 136px));
 }
 
 .app-main-wide {
@@ -630,8 +753,8 @@ code {
 
 .monospace-cell {
   font-family:
-    "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Code", "Source Code Pro",
-    monospace;
+    "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Code",
+    "Source Code Pro", monospace;
   overflow-wrap: anywhere;
 }
 
@@ -802,7 +925,9 @@ code {
 
 .todo-item {
   display: grid;
-  grid-template-columns: minmax(90px, 0.2fr) minmax(220px, 1fr) minmax(160px, 0.38fr) auto;
+  grid-template-columns:
+    minmax(90px, 0.2fr) minmax(220px, 1fr) minmax(160px, 0.38fr)
+    auto;
   gap: 12px;
   align-items: center;
   padding: 14px 0;
@@ -937,9 +1062,58 @@ code {
   min-width: 0;
 }
 
-.dataset-upload-form {
+.dataset-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.dataset-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: transparent;
+  font-weight: 700;
+}
+
+.dataset-tabs button.active {
+  color: var(--accent-strong);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.dataset-tab-panel {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.dataset-source-form {
   display: grid;
   gap: 12px;
+}
+
+.compact-section-header {
+  gap: 10px;
+}
+
+.dataset-source-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.dataset-source-list {
+  max-height: 260px;
+  overflow: auto;
 }
 
 .dataset-list {
@@ -1008,8 +1182,8 @@ code {
 .dataset-sql-input {
   min-height: 180px;
   font-family:
-    "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Code", "Source Code Pro",
-    monospace;
+    "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Code",
+    "Source Code Pro", monospace;
   line-height: 1.5;
 }
 
@@ -2061,7 +2235,9 @@ code {
 .drive-list-header,
 .drive-list-row {
   display: grid;
-  grid-template-columns: 58px minmax(240px, 1.8fr) minmax(90px, 0.6fr) minmax(90px, 0.5fr) minmax(160px, 0.8fr) minmax(108px, auto);
+  grid-template-columns:
+    58px minmax(240px, 1.8fr) minmax(90px, 0.6fr) minmax(90px, 0.5fr)
+    minmax(160px, 0.8fr) minmax(108px, auto);
   gap: 12px;
   align-items: center;
   min-width: 820px;
@@ -2738,8 +2914,8 @@ code {
   background: #f8fafc;
   color: var(--text-strong);
   font-family:
-    "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Code", "Source Code Pro",
-    monospace;
+    "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Code",
+    "Source Code Pro", monospace;
   font-size: 0.86rem;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -2854,8 +3030,8 @@ code {
   color: #f6f1eb;
   overflow: auto;
   font-family:
-    "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Code", "Source Code Pro",
-    monospace;
+    "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Code",
+    "Source Code Pro", monospace;
   font-size: 0.92rem;
   line-height: 1.55;
 }
@@ -2871,6 +3047,30 @@ code {
     padding: max(14px, env(safe-area-inset-top)) 14px 12px;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+  }
+
+  .app-sidebar.collapsed {
+    align-items: stretch;
+    gap: 22px;
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .app-sidebar.collapsed .app-sidebar-header {
+    flex-direction: row;
+  }
+
+  .app-sidebar.collapsed .app-brand {
+    flex: 1 1 auto;
+    justify-content: start;
+  }
+
+  .app-sidebar.collapsed .app-brand-copy,
+  .app-sidebar.collapsed .sidebar-link-label {
+    position: static;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
   }
 
   .sidebar-nav {
@@ -2892,6 +3092,11 @@ code {
 
   .sidebar-link {
     flex: 0 0 auto;
+  }
+
+  .app-sidebar.collapsed .sidebar-link {
+    justify-content: start;
+    padding: 0 10px;
   }
 
   .app-topbar {
@@ -3053,8 +3258,12 @@ code {
   .drive-filter-chip,
   .drive-view-controls > *,
   .drive-header-actions > *,
-  .dataset-upload-form .primary-button {
+  .dataset-source-form .primary-button {
     width: 100%;
+  }
+
+  .dataset-source-search {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .dataset-row,

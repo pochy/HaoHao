@@ -230,3 +230,22 @@ WHERE tenant_id = sqlc.arg(tenant_id)
   )
 ORDER BY updated_at DESC, id DESC
 LIMIT sqlc.arg(limit_count);
+
+-- name: ListDriveDatasetSourceFileCandidates :many
+SELECT *
+FROM file_objects
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND purpose = 'drive'
+  AND deleted_at IS NULL
+  AND scan_status IN ('clean', 'skipped')
+  AND dlp_blocked = false
+  AND (
+      content_type IN ('text/csv', 'application/csv', 'application/vnd.ms-excel')
+      OR lower(original_filename) LIKE '%.csv'
+  )
+  AND (
+      sqlc.narg(query)::text IS NULL
+      OR original_filename ILIKE '%' || sqlc.narg(query)::text || '%'
+  )
+ORDER BY updated_at DESC, id DESC
+LIMIT sqlc.arg(limit_count);
