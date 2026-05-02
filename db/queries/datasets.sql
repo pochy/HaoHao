@@ -61,6 +61,15 @@ WHERE id = $1
   AND deleted_at IS NULL
 LIMIT 1;
 
+-- name: ListLineageDatasetsBySourceWorkTable :many
+SELECT *
+FROM datasets
+WHERE tenant_id = $1
+  AND source_work_table_id = $2
+  AND deleted_at IS NULL
+ORDER BY created_at DESC, id DESC
+LIMIT $3;
+
 -- name: MarkDatasetImporting :one
 UPDATE datasets
 SET
@@ -221,6 +230,14 @@ WHERE tenant_id = $1
 ORDER BY created_at DESC, id DESC
 LIMIT $3;
 
+-- name: ListLineageDatasetSyncJobsBySourceWorkTable :many
+SELECT *
+FROM dataset_sync_jobs
+WHERE tenant_id = $1
+  AND source_work_table_id = $2
+ORDER BY created_at DESC, id DESC
+LIMIT $3;
+
 -- name: GetLatestDatasetSyncJob :one
 SELECT *
 FROM dataset_sync_jobs
@@ -330,6 +347,13 @@ WHERE public_id = $1
   AND tenant_id = $2
 LIMIT 1;
 
+-- name: GetDatasetQueryJobByIDForTenant :one
+SELECT *
+FROM dataset_query_jobs
+WHERE id = $1
+  AND tenant_id = $2
+LIMIT 1;
+
 -- name: ListDatasetQueryJobs :many
 SELECT *
 FROM dataset_query_jobs
@@ -343,6 +367,14 @@ FROM dataset_query_jobs
 WHERE tenant_id = $1
   AND dataset_id = $2
 ORDER BY created_at DESC, id DESC
+LIMIT $3;
+
+-- name: ListLineageDatasetWorkTablesByQueryJob :many
+SELECT *
+FROM dataset_work_tables
+WHERE tenant_id = $1
+  AND created_from_query_job_id = $2
+ORDER BY updated_at DESC, id DESC
 LIMIT $3;
 
 -- name: UpsertDatasetWorkTable :one
@@ -386,6 +418,14 @@ FROM dataset_work_tables
 WHERE tenant_id = $1
   AND source_dataset_id = $2
   AND status = 'active'
+ORDER BY updated_at DESC, id DESC
+LIMIT $3;
+
+-- name: ListLineageDatasetWorkTablesForDataset :many
+SELECT *
+FROM dataset_work_tables
+WHERE tenant_id = $1
+  AND source_dataset_id = $2
 ORDER BY updated_at DESC, id DESC
 LIMIT $3;
 
@@ -482,6 +522,14 @@ FROM dataset_work_table_exports
 WHERE tenant_id = $1
   AND work_table_id = $2
   AND deleted_at IS NULL
+ORDER BY created_at DESC, id DESC
+LIMIT $3;
+
+-- name: ListLineageDatasetWorkTableExports :many
+SELECT *
+FROM dataset_work_table_exports
+WHERE tenant_id = $1
+  AND work_table_id = $2
 ORDER BY created_at DESC, id DESC
 LIMIT $3;
 

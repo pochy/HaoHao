@@ -1,6 +1,7 @@
 import { readCookie } from './client'
 import {
   createDataset,
+  createDatasetLineageChangeSet,
   createDatasetQueryJob,
   createDatasetScopedQueryJob,
   createDatasetSyncJob,
@@ -14,10 +15,16 @@ import {
   getDatasetWorkTablePreview,
   getCsrf,
   getDataset,
+  getDatasetLineage,
+  getDatasetLineageChangeSet,
+  getDatasetQueryJobLineage,
+  getDatasetWorkTableLineage,
   getManagedDatasetWorkTable,
   getManagedDatasetWorkTablePreview,
   linkDatasetWorkTable,
+  listDatasetLineageChangeSets,
   listDatasetQueryJobs,
+  listDatasetQueryJobLineageParseRuns,
   listDatasets,
   listDatasetScopedQueryJobs,
   listDatasetScopedWorkTables,
@@ -26,15 +33,25 @@ import {
   listDatasetWorkTableExportSchedules,
   listDatasetWorkTableExports,
   listDatasetWorkTables,
+  parseDatasetQueryJobLineage,
   promoteDatasetWorkTable,
+  publishDatasetLineageChangeSet,
   registerDatasetWorkTable,
+  rejectDatasetLineageChangeSet,
   renameDatasetWorkTable,
   truncateDatasetWorkTable,
+  updateDatasetLineageChangeSetGraph,
   updateDatasetWorkTableExportSchedule,
 } from './generated/sdk.gen'
 import type {
   DatasetBody,
   DatasetCreateBodyWritable,
+  DatasetLineageBody,
+  DatasetLineageChangeSetBody,
+  DatasetLineageChangeSetCreateBodyWritable,
+  DatasetLineageChangeSetGraphBody,
+  DatasetLineageGraphSaveBodyWritable,
+  DatasetLineageParseRunBody,
   DatasetQueryCreateBodyWritable,
   DatasetQueryJobBody,
   DatasetSourceFileBody,
@@ -55,6 +72,17 @@ import type {
 export type DatasetWorkTableExportFormat = 'csv' | 'json' | 'parquet'
 export type DatasetWorkTableExportFrequency = 'daily' | 'weekly' | 'monthly'
 export type DatasetSyncMode = 'full_refresh'
+export type DatasetLineageDirection = 'upstream' | 'downstream' | 'both'
+export type DatasetLineageLevel = 'table' | 'column' | 'both'
+export type DatasetLineageSource = 'metadata' | 'parser' | 'manual'
+export type DatasetLineageChangeSetStatus = 'draft' | 'published' | 'rejected' | 'archived'
+
+export interface DatasetLineageFetchOptions {
+  level?: DatasetLineageLevel
+  sources?: DatasetLineageSource[]
+  includeDraft?: boolean
+  changeSetPublicId?: string
+}
 
 function csrfHeaders() {
   return {
@@ -80,6 +108,26 @@ export async function fetchDataset(datasetPublicId: string): Promise<DatasetBody
   return getDataset({
     path: { datasetPublicId },
   }) as unknown as Promise<DatasetBody>
+}
+
+function lineageQuery(direction: DatasetLineageDirection, options: DatasetLineageFetchOptions = {}) {
+  return {
+    direction,
+    depth: 2,
+    includeHistory: true,
+    limit: 50,
+    level: options.level ?? 'table',
+    sources: (options.sources?.length ? options.sources : ['metadata', 'parser', 'manual']).join(','),
+    includeDraft: options.includeDraft ?? false,
+    ...(options.changeSetPublicId ? { changeSetPublicId: options.changeSetPublicId } : {}),
+  }
+}
+
+export async function fetchDatasetLineage(datasetPublicId: string, direction: DatasetLineageDirection = 'both', options: DatasetLineageFetchOptions = {}): Promise<DatasetLineageBody> {
+  return getDatasetLineage({
+    path: { datasetPublicId },
+    query: lineageQuery(direction, options),
+  }) as unknown as Promise<DatasetLineageBody>
 }
 
 export async function fetchDatasetSourceFiles(query = ''): Promise<DatasetSourceFileBody[]> {
@@ -131,6 +179,82 @@ export async function fetchManagedDatasetWorkTablePreview(workTablePublicId: str
     path: { workTablePublicId },
     query: { limit: 100 },
   }) as unknown as Promise<DatasetWorkTablePreviewBody>
+}
+
+export async function fetchDatasetWorkTableLineage(workTablePublicId: string, direction: DatasetLineageDirection = 'both', options: DatasetLineageFetchOptions = {}): Promise<DatasetLineageBody> {
+  return getDatasetWorkTableLineage({
+    path: { workTablePublicId },
+    query: lineageQuery(direction, options),
+  }) as unknown as Promise<DatasetLineageBody>
+}
+
+export async function fetchDatasetQueryJobLineage(queryJobPublicId: string, direction: DatasetLineageDirection = 'both', options: DatasetLineageFetchOptions = {}): Promise<DatasetLineageBody> {
+  return getDatasetQueryJobLineage({
+    path: { queryJobPublicId },
+    query: lineageQuery(direction, options),
+  }) as unknown as Promise<DatasetLineageBody>
+}
+
+export async function requestDatasetQueryJobLineageParse(queryJobPublicId: string): Promise<DatasetLineageChangeSetGraphBody> {
+  await ensureCSRFCookie()
+  return parseDatasetQueryJobLineage({
+    headers: csrfHeaders(),
+    path: { queryJobPublicId },
+  }) as unknown as Promise<DatasetLineageChangeSetGraphBody>
+}
+
+export async function fetchDatasetQueryJobLineageParseRuns(queryJobPublicId: string): Promise<DatasetLineageParseRunBody[]> {
+  const data = await listDatasetQueryJobLineageParseRuns({
+    path: { queryJobPublicId },
+    query: { limit: 25 },
+  }) as unknown as { items?: DatasetLineageParseRunBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchDatasetLineageChangeSets(status: DatasetLineageChangeSetStatus = 'draft'): Promise<DatasetLineageChangeSetBody[]> {
+  const data = await listDatasetLineageChangeSets({
+    query: { status, limit: 50 },
+  }) as unknown as { items?: DatasetLineageChangeSetBody[] | null }
+  return data.items ?? []
+}
+
+export async function createLineageChangeSet(body: DatasetLineageChangeSetCreateBodyWritable): Promise<DatasetLineageChangeSetBody> {
+  await ensureCSRFCookie()
+  return createDatasetLineageChangeSet({
+    headers: csrfHeaders(),
+    body,
+  }) as unknown as Promise<DatasetLineageChangeSetBody>
+}
+
+export async function fetchLineageChangeSet(changeSetPublicId: string): Promise<DatasetLineageChangeSetGraphBody> {
+  return getDatasetLineageChangeSet({
+    path: { changeSetPublicId },
+  }) as unknown as Promise<DatasetLineageChangeSetGraphBody>
+}
+
+export async function saveLineageChangeSetGraph(changeSetPublicId: string, body: DatasetLineageGraphSaveBodyWritable): Promise<DatasetLineageChangeSetGraphBody> {
+  await ensureCSRFCookie()
+  return updateDatasetLineageChangeSetGraph({
+    headers: csrfHeaders(),
+    path: { changeSetPublicId },
+    body,
+  }) as unknown as Promise<DatasetLineageChangeSetGraphBody>
+}
+
+export async function publishLineageChangeSet(changeSetPublicId: string): Promise<DatasetLineageChangeSetBody> {
+  await ensureCSRFCookie()
+  return publishDatasetLineageChangeSet({
+    headers: csrfHeaders(),
+    path: { changeSetPublicId },
+  }) as unknown as Promise<DatasetLineageChangeSetBody>
+}
+
+export async function rejectLineageChangeSet(changeSetPublicId: string): Promise<DatasetLineageChangeSetBody> {
+  await ensureCSRFCookie()
+  return rejectDatasetLineageChangeSet({
+    headers: csrfHeaders(),
+    path: { changeSetPublicId },
+  }) as unknown as Promise<DatasetLineageChangeSetBody>
 }
 
 export async function fetchDatasetLinkedWorkTables(datasetPublicId: string): Promise<DatasetWorkTableBody[]> {

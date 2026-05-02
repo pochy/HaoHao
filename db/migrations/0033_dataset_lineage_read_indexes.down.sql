@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS dataset_sync_jobs_source_work_table_created_idx;
+DROP INDEX IF EXISTS dataset_work_tables_tenant_query_job_idx;

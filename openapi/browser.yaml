@@ -1108,6 +1108,730 @@ components:
         - createdAt
         - updatedAt
       type: object
+    DatasetLineageBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetLineageBody.json
+          format: uri
+          readOnly: true
+          type: string
+        edges:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetLineageEdgeBody"
+          type:
+            - array
+            - "null"
+        nodes:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetLineageNodeBody"
+          type:
+            - array
+            - "null"
+        root:
+          $ref: "#/components/schemas/DatasetLineageNodeBody"
+          examples:
+            - example
+        timeline:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetLineageTimelineItemBody"
+          type:
+            - array
+            - "null"
+      required:
+        - root
+        - nodes
+        - edges
+        - timeline
+      type: object
+    DatasetLineageChangeSetBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetLineageChangeSetBody.json
+          format: uri
+          readOnly: true
+          type: string
+        archivedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        publishedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        queryJobPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        rejectedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        rootResourcePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        rootResourceType:
+          examples:
+            - support
+          type: string
+        sourceKind:
+          enum:
+            - parser
+            - manual
+          examples:
+            - parser
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          enum:
+            - draft
+            - published
+            - rejected
+            - archived
+          examples:
+            - draft
+          type: string
+        title:
+          examples:
+            - Export CSV from reports
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - rootResourceType
+        - sourceKind
+        - status
+        - title
+        - description
+        - createdAt
+        - updatedAt
+      type: object
+    DatasetLineageChangeSetCreateBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetLineageChangeSetCreateBody.json
+          format: uri
+          readOnly: true
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          maxLength: 2000
+          type: string
+        rootResourcePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        rootResourceType:
+          examples:
+            - dataset_query_job
+          type: string
+        sourceKind:
+          enum:
+            - manual
+            - parser
+          examples:
+            - manual
+          type: string
+        title:
+          examples:
+            - Export CSV from reports
+          maxLength: 160
+          type: string
+      type: object
+    DatasetLineageChangeSetGraphBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetLineageChangeSetGraphBody.json
+          format: uri
+          readOnly: true
+          type: string
+        changeSet:
+          $ref: "#/components/schemas/DatasetLineageChangeSetBody"
+          examples:
+            - example
+        edges:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetLineageEdgeBody"
+          type:
+            - array
+            - "null"
+        nodes:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetLineageNodeBody"
+          type:
+            - array
+            - "null"
+      required:
+        - changeSet
+        - nodes
+        - edges
+      type: object
+    DatasetLineageChangeSetListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetLineageChangeSetListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetLineageChangeSetBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DatasetLineageEdgeBody:
+      additionalProperties: false
+      properties:
+        confidence:
+          enum:
+            - metadata
+            - parser_exact
+            - parser_partial
+            - manual
+          examples:
+            - metadata
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          type: string
+        editable:
+          examples:
+            - true
+          type: boolean
+        expression:
+          examples:
+            - example
+          type: string
+        id:
+          description: 内部 ID または protocol 上の識別子です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        label:
+          examples:
+            - example
+          type: string
+        relationType:
+          enum:
+            - query_input
+            - query_created_work_table
+            - source_dataset
+            - promoted_dataset
+            - work_table_export
+            - export_schedule
+            - scheduled_export_run
+            - dataset_sync_source
+            - dataset_sync_target
+            - column_derives
+            - manual_dependency
+          examples:
+            - source_dataset
+          type: string
+        sourceKind:
+          enum:
+            - metadata
+            - parser
+            - manual
+          examples:
+            - metadata
+          type: string
+        sourceNodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        targetNodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+      required:
+        - id
+        - sourceNodeId
+        - targetNodeId
+        - relationType
+        - confidence
+        - editable
+      type: object
+    DatasetLineageEdgeWriteBody:
+      additionalProperties: false
+      properties:
+        confidence:
+          enum:
+            - parser_exact
+            - parser_partial
+            - manual
+          examples:
+            - parser_exact
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          type: string
+        expression:
+          examples:
+            - example
+          type: string
+        id:
+          description: 内部 ID または protocol 上の識別子です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        label:
+          examples:
+            - example
+          type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        relationType:
+          examples:
+            - example
+          type: string
+        sourceKind:
+          enum:
+            - parser
+            - manual
+          examples:
+            - parser
+          type: string
+        sourceNodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        targetNodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+      required:
+        - sourceNodeId
+        - targetNodeId
+      type: object
+    DatasetLineageGraphSaveBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetLineageGraphSaveBody.json
+          format: uri
+          readOnly: true
+          type: string
+        edges:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetLineageEdgeWriteBody"
+          type:
+            - array
+            - "null"
+        nodes:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetLineageNodeWriteBody"
+          type:
+            - array
+            - "null"
+      required:
+        - nodes
+        - edges
+      type: object
+    DatasetLineageNodeBody:
+      additionalProperties: false
+      properties:
+        columnName:
+          examples:
+            - customer_id
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          type: string
+        displayName:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Sales
+          type: string
+        editable:
+          examples:
+            - true
+          type: boolean
+        id:
+          description: 内部 ID または protocol 上の識別子です。
+          examples:
+            - dataset:018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        nodeKind:
+          enum:
+            - resource
+            - column
+            - custom
+          examples:
+            - resource
+          type: string
+        position:
+          $ref: "#/components/schemas/DatasetLineagePositionBody"
+          examples:
+            - example
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        resourceType:
+          description: "`file` や `folder` など、対象 resource の種類です。"
+          enum:
+            - dataset
+            - dataset_query_job
+            - dataset_work_table
+            - dataset_work_table_export
+            - dataset_work_table_export_schedule
+            - dataset_sync_job
+            - custom
+          examples:
+            - dataset
+          type: string
+        sourceKind:
+          enum:
+            - metadata
+            - parser
+            - manual
+          examples:
+            - metadata
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          examples:
+            - ready
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - id
+        - resourceType
+        - displayName
+        - editable
+      type: object
+    DatasetLineageNodeWriteBody:
+      additionalProperties: false
+      properties:
+        columnName:
+          examples:
+            - Acme
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          type: string
+        displayName:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Acme
+          type: string
+        id:
+          description: 内部 ID または protocol 上の識別子です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        nodeKind:
+          enum:
+            - resource
+            - column
+            - custom
+          examples:
+            - resource
+          type: string
+        position:
+          $ref: "#/components/schemas/DatasetLineagePositionBody"
+          examples:
+            - example
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        resourceType:
+          description: "`file` や `folder` など、対象 resource の種類です。"
+          examples:
+            - support
+          type: string
+        sourceKind:
+          enum:
+            - parser
+            - manual
+          examples:
+            - parser
+          type: string
+      required:
+        - id
+      type: object
+    DatasetLineageParseRunBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetLineageParseRunBody.json
+          format: uri
+          readOnly: true
+          type: string
+        changeSetPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        columnEdgeCount:
+          examples:
+            - 3
+          format: int32
+          type: integer
+        completedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        errorSummary:
+          examples:
+            - example
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        queryJobPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          enum:
+            - processing
+            - completed
+            - failed
+          examples:
+            - processing
+          type: string
+        tableRefCount:
+          examples:
+            - 3
+          format: int32
+          type: integer
+      required:
+        - publicId
+        - queryJobPublicId
+        - status
+        - tableRefCount
+        - columnEdgeCount
+        - createdAt
+      type: object
+    DatasetLineageParseRunListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetLineageParseRunListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetLineageParseRunBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DatasetLineagePositionBody:
+      additionalProperties: false
+      properties:
+        x:
+          examples:
+            - 120
+          format: double
+          type: number
+        "y":
+          examples:
+            - 240
+          format: double
+          type: number
+      required:
+        - x
+        - "y"
+      type: object
+    DatasetLineageTimelineItemBody:
+      additionalProperties: false
+      properties:
+        id:
+          description: 内部 ID または protocol 上の識別子です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        nodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        occurredAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        relationType:
+          enum:
+            - query_input
+            - query_created_work_table
+            - source_dataset
+            - promoted_dataset
+            - work_table_export
+            - export_schedule
+            - scheduled_export_run
+            - dataset_sync_source
+            - dataset_sync_target
+          examples:
+            - query_created_work_table
+          type: string
+        resourceType:
+          description: "`file` や `folder` など、対象 resource の種類です。"
+          enum:
+            - dataset
+            - dataset_query_job
+            - dataset_work_table
+            - dataset_work_table_export
+            - dataset_work_table_export_schedule
+            - dataset_sync_job
+          examples:
+            - dataset_work_table
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          examples:
+            - completed
+          type: string
+      required:
+        - id
+        - nodeId
+        - resourceType
+        - relationType
+      type: object
     DatasetListBody:
       additionalProperties: false
       properties:
@@ -15419,6 +16143,333 @@ paths:
       summary: active tenant の dataset query job detail を返す
       tags:
         - Data & Datasets
+  /api/v1/dataset-query-jobs/{queryJobPublicId}/lineage:
+    get:
+      description: |-
+        active tenant の dataset query job lineage graph を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getDatasetQueryJobLineage
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `queryJobPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: queryJobPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `direction` です。
+          example: upstream
+          explode: false
+          in: query
+          name: direction
+          schema:
+            default: both
+            enum:
+              - upstream
+              - downstream
+              - both
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `depth` です。
+          example: 1
+          explode: false
+          in: query
+          name: depth
+          schema:
+            default: 1
+            format: int32
+            maximum: 2
+            minimum: 1
+            type: integer
+        - description: 結果の絞り込みや pagination に使う query parameter `includeHistory` です。
+          example: true
+          explode: false
+          in: query
+          name: includeHistory
+          schema:
+            default: true
+            type: boolean
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+        - description: 結果の絞り込みや pagination に使う query parameter `level` です。
+          example: table
+          explode: false
+          in: query
+          name: level
+          schema:
+            default: table
+            enum:
+              - table
+              - column
+              - both
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `sources` です。
+          example: metadata,parser,manual
+          explode: false
+          in: query
+          name: sources
+          schema:
+            examples:
+              - metadata,parser,manual
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `includeDraft` です。
+          example: true
+          explode: false
+          in: query
+          name: includeDraft
+          schema:
+            default: false
+            type: boolean
+        - description: 結果の絞り込みや pagination に使う query parameter `changeSetPublicId` です。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          explode: false
+          in: query
+          name: changeSetPublicId
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DatasetLineageBody.json
+                    edges:
+                      - example
+                    nodes:
+                      - example
+                    root:
+                      columnName: customer_id
+                      createdAt: "2026-01-15T09:30:00Z"
+                      description: Quarterly planning documents.
+                      displayName: Sales
+                      editable: true
+                      id: dataset:018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      metadata: {}
+                      nodeKind: resource
+                      position:
+                        x: 120
+                        "y": 240
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      resourceType: dataset
+                      sourceKind: metadata
+                      status: ready
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    timeline:
+                      - example
+              schema:
+                $ref: "#/components/schemas/DatasetLineageBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset query job lineage graph を返す
+      tags:
+        - Data & Datasets
+  /api/v1/dataset-query-jobs/{queryJobPublicId}/lineage/parse:
+    post:
+      description: |-
+        dataset query job の SQL を parse して lineage draft を作成する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: parseDatasetQueryJobLineage
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `queryJobPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: queryJobPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    changeSetPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    columnEdgeCount: 3
+                    completedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    errorSummary: example
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    queryJobPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    status: processing
+                    tableRefCount: 3
+              schema:
+                $ref: "#/components/schemas/DatasetLineageParseRunBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: dataset query job の SQL を parse して lineage draft を作成する
+      tags:
+        - Data & Datasets
+  /api/v1/dataset-query-jobs/{queryJobPublicId}/lineage/parse-runs:
+    get:
+      description: |-
+        dataset query job の lineage parse run 一覧を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listDatasetQueryJobLineageParseRuns
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `queryJobPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: queryJobPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 25
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - $schema: https://example.com/schemas/DatasetLineageParseRunBody.json
+                        changeSetPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        columnEdgeCount: 3
+                        completedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        errorSummary: example
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        queryJobPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        status: processing
+                        tableRefCount: 3
+              schema:
+                $ref: "#/components/schemas/DatasetLineageParseRunListBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: dataset query job の lineage parse run 一覧を返す
+      tags:
+        - Data & Datasets
   /api/v1/dataset-source-files:
     get:
       description: |-
@@ -16691,6 +17742,200 @@ paths:
       summary: managed work table の export を request する
       tags:
         - Data & Datasets
+  /api/v1/dataset-work-tables/{workTablePublicId}/lineage:
+    get:
+      description: |-
+        managed work table の lineage graph を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getDatasetWorkTableLineage
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `workTablePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `direction` です。
+          example: upstream
+          explode: false
+          in: query
+          name: direction
+          schema:
+            default: both
+            enum:
+              - upstream
+              - downstream
+              - both
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `depth` です。
+          example: 1
+          explode: false
+          in: query
+          name: depth
+          schema:
+            default: 1
+            format: int32
+            maximum: 2
+            minimum: 1
+            type: integer
+        - description: 結果の絞り込みや pagination に使う query parameter `includeHistory` です。
+          example: true
+          explode: false
+          in: query
+          name: includeHistory
+          schema:
+            default: true
+            type: boolean
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+        - description: 結果の絞り込みや pagination に使う query parameter `level` です。
+          example: table
+          explode: false
+          in: query
+          name: level
+          schema:
+            default: table
+            enum:
+              - table
+              - column
+              - both
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `sources` です。
+          example: metadata,parser,manual
+          explode: false
+          in: query
+          name: sources
+          schema:
+            examples:
+              - metadata,parser,manual
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `includeDraft` です。
+          example: true
+          explode: false
+          in: query
+          name: includeDraft
+          schema:
+            default: false
+            type: boolean
+        - description: 結果の絞り込みや pagination に使う query parameter `changeSetPublicId` です。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          explode: false
+          in: query
+          name: changeSetPublicId
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    edges:
+                      - confidence: metadata
+                        createdAt: "2026-01-15T09:30:00Z"
+                        description: Quarterly planning documents.
+                        editable: true
+                        expression: example
+                        id: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        label: example
+                        relationType: source_dataset
+                        sourceKind: metadata
+                        sourceNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        targetNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    nodes:
+                      - columnName: customer_id
+                        createdAt: "2026-01-15T09:30:00Z"
+                        description: Quarterly planning documents.
+                        displayName: Sales
+                        editable: true
+                        id: dataset:018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        metadata: {}
+                        nodeKind: resource
+                        position: {}
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        resourceType: dataset
+                        sourceKind: metadata
+                        status: ready
+                        updatedAt: "2026-01-15T09:30:00Z"
+                    root:
+                      columnName: customer_id
+                      createdAt: "2026-01-15T09:30:00Z"
+                      description: Quarterly planning documents.
+                      displayName: Sales
+                      editable: true
+                      id: dataset:018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      metadata: {}
+                      nodeKind: resource
+                      position:
+                        x: 120
+                        "y": 240
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      resourceType: dataset
+                      sourceKind: metadata
+                      status: ready
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    timeline:
+                      - id: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        metadata: {}
+                        nodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        occurredAt: "2026-01-15T09:30:00Z"
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        relationType: query_created_work_table
+                        resourceType: dataset_work_table
+                        status: completed
+              schema:
+                $ref: "#/components/schemas/DatasetLineageBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: managed work table の lineage graph を返す
+      tags:
+        - Data & Datasets
   /api/v1/dataset-work-tables/{workTablePublicId}/link:
     post:
       description: |-
@@ -17588,6 +18833,171 @@ paths:
       security:
         - cookieAuth: []
       summary: active tenant の dataset detail を返す
+      tags:
+        - Data & Datasets
+  /api/v1/datasets/{datasetPublicId}/lineage:
+    get:
+      description: |-
+        active tenant の dataset lineage graph を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getDatasetLineage
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `datasetPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: datasetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `direction` です。
+          example: upstream
+          explode: false
+          in: query
+          name: direction
+          schema:
+            default: both
+            enum:
+              - upstream
+              - downstream
+              - both
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `depth` です。
+          example: 1
+          explode: false
+          in: query
+          name: depth
+          schema:
+            default: 1
+            format: int32
+            maximum: 2
+            minimum: 1
+            type: integer
+        - description: 結果の絞り込みや pagination に使う query parameter `includeHistory` です。
+          example: true
+          explode: false
+          in: query
+          name: includeHistory
+          schema:
+            default: true
+            type: boolean
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+        - description: 結果の絞り込みや pagination に使う query parameter `level` です。
+          example: table
+          explode: false
+          in: query
+          name: level
+          schema:
+            default: table
+            enum:
+              - table
+              - column
+              - both
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `sources` です。
+          example: metadata,parser,manual
+          explode: false
+          in: query
+          name: sources
+          schema:
+            examples:
+              - metadata,parser,manual
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `includeDraft` です。
+          example: true
+          explode: false
+          in: query
+          name: includeDraft
+          schema:
+            default: false
+            type: boolean
+        - description: 結果の絞り込みや pagination に使う query parameter `changeSetPublicId` です。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          explode: false
+          in: query
+          name: changeSetPublicId
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DatasetLineageBody.json
+                    edges:
+                      - example
+                    nodes:
+                      - example
+                    root:
+                      columnName: customer_id
+                      createdAt: "2026-01-15T09:30:00Z"
+                      description: Quarterly planning documents.
+                      displayName: Sales
+                      editable: true
+                      id: dataset:018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      metadata: {}
+                      nodeKind: resource
+                      position:
+                        x: 120
+                        "y": 240
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      resourceType: dataset
+                      sourceKind: metadata
+                      status: ready
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    timeline:
+                      - example
+              schema:
+                $ref: "#/components/schemas/DatasetLineageBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset lineage graph を返す
       tags:
         - Data & Datasets
   /api/v1/datasets/{datasetPublicId}/query-jobs:
@@ -25553,6 +26963,581 @@ paths:
       summary: tenant invitation を accept する
       tags:
         - Tenant Workspace
+  /api/v1/lineage/change-sets:
+    get:
+      description: |-
+        lineage change set 一覧を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listDatasetLineageChangeSets
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: 結果の絞り込みや pagination に使う query parameter `status` です。
+          example: draft
+          explode: false
+          in: query
+          name: status
+          schema:
+            enum:
+              - draft
+              - published
+              - rejected
+              - archived
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - $schema: https://example.com/schemas/DatasetLineageChangeSetBody.json
+                        archivedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        description: Quarterly planning documents.
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        publishedAt: "2026-01-15T09:30:00Z"
+                        queryJobPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        rejectedAt: "2026-01-15T09:30:00Z"
+                        rootResourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        rootResourceType: support
+                        sourceKind: parser
+                        status: draft
+                        title: Export CSV from reports
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetLineageChangeSetListBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: lineage change set 一覧を返す
+      tags:
+        - Data & Datasets
+    post:
+      description: |-
+        lineage change set draft を作成する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: createDatasetLineageChangeSet
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  description: Quarterly planning documents.
+                  rootResourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  rootResourceType: dataset_query_job
+                  sourceKind: manual
+                  title: Export CSV from reports
+            schema:
+              $ref: "#/components/schemas/DatasetLineageChangeSetCreateBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    archivedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedAt: "2026-01-15T09:30:00Z"
+                    queryJobPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    rejectedAt: "2026-01-15T09:30:00Z"
+                    rootResourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    rootResourceType: support
+                    sourceKind: parser
+                    status: draft
+                    title: Export CSV from reports
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetLineageChangeSetBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: lineage change set draft を作成する
+      tags:
+        - Data & Datasets
+  /api/v1/lineage/change-sets/{changeSetPublicId}:
+    get:
+      description: |-
+        lineage change set graph を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getDatasetLineageChangeSet
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `changeSetPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: changeSetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    changeSet:
+                      $schema: https://example.com/schemas/DatasetLineageChangeSetBody.json
+                      archivedAt: "2026-01-15T09:30:00Z"
+                      createdAt: "2026-01-15T09:30:00Z"
+                      description: Quarterly planning documents.
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      publishedAt: "2026-01-15T09:30:00Z"
+                      queryJobPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rejectedAt: "2026-01-15T09:30:00Z"
+                      rootResourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rootResourceType: support
+                      sourceKind: parser
+                      status: draft
+                      title: Export CSV from reports
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    edges:
+                      - confidence: metadata
+                        createdAt: "2026-01-15T09:30:00Z"
+                        description: Quarterly planning documents.
+                        editable: true
+                        expression: example
+                        id: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        label: example
+                        relationType: source_dataset
+                        sourceKind: metadata
+                        sourceNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        targetNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    nodes:
+                      - columnName: customer_id
+                        createdAt: "2026-01-15T09:30:00Z"
+                        description: Quarterly planning documents.
+                        displayName: Sales
+                        editable: true
+                        id: dataset:018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        metadata: {}
+                        nodeKind: resource
+                        position: {}
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        resourceType: dataset
+                        sourceKind: metadata
+                        status: ready
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetLineageChangeSetGraphBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: lineage change set graph を返す
+      tags:
+        - Data & Datasets
+  /api/v1/lineage/change-sets/{changeSetPublicId}/graph:
+    put:
+      description: |-
+        lineage change set draft graph を保存する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: updateDatasetLineageChangeSetGraph
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `changeSetPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: changeSetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  edges:
+                    - confidence: parser_exact
+                      description: Quarterly planning documents.
+                      expression: example
+                      label: example
+                      metadata: {}
+                      relationType: example
+                      sourceKind: parser
+                      sourceNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      targetNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  nodes:
+                    - columnName: Acme
+                      description: Quarterly planning documents.
+                      displayName: Acme
+                      id: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      metadata: {}
+                      nodeKind: resource
+                      position: {}
+                      resourceType: support
+                      sourceKind: parser
+            schema:
+              $ref: "#/components/schemas/DatasetLineageGraphSaveBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DatasetLineageChangeSetGraphBody.json
+                    changeSet:
+                      $schema: https://example.com/schemas/DatasetLineageChangeSetBody.json
+                      archivedAt: "2026-01-15T09:30:00Z"
+                      createdAt: "2026-01-15T09:30:00Z"
+                      description: Quarterly planning documents.
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      publishedAt: "2026-01-15T09:30:00Z"
+                      queryJobPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rejectedAt: "2026-01-15T09:30:00Z"
+                      rootResourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rootResourceType: support
+                      sourceKind: parser
+                      status: draft
+                      title: Export CSV from reports
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    edges:
+                      - example
+                    nodes:
+                      - example
+              schema:
+                $ref: "#/components/schemas/DatasetLineageChangeSetGraphBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: lineage change set draft graph を保存する
+      tags:
+        - Data & Datasets
+  /api/v1/lineage/change-sets/{changeSetPublicId}/publish:
+    post:
+      description: |-
+        lineage change set draft を publish する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: publishDatasetLineageChangeSet
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `changeSetPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: changeSetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DatasetLineageChangeSetBody.json
+                    archivedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedAt: "2026-01-15T09:30:00Z"
+                    queryJobPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    rejectedAt: "2026-01-15T09:30:00Z"
+                    rootResourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    rootResourceType: support
+                    sourceKind: parser
+                    status: draft
+                    title: Export CSV from reports
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetLineageChangeSetBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: lineage change set draft を publish する
+      tags:
+        - Data & Datasets
+  /api/v1/lineage/change-sets/{changeSetPublicId}/reject:
+    post:
+      description: |-
+        lineage change set draft を reject する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: rejectDatasetLineageChangeSet
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `changeSetPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: changeSetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DatasetLineageChangeSetBody.json
+                    archivedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedAt: "2026-01-15T09:30:00Z"
+                    queryJobPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    rejectedAt: "2026-01-15T09:30:00Z"
+                    rootResourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    rootResourceType: support
+                    sourceKind: parser
+                    status: draft
+                    title: Export CSV from reports
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetLineageChangeSetBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: lineage change set draft を reject する
+      tags:
+        - Data & Datasets
   /api/v1/login:
     post:
       description: |-

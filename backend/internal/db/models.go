@@ -130,6 +130,82 @@ type DatasetImportJob struct {
 	CompletedAt        pgtype.Timestamptz `json:"completed_at"`
 }
 
+type DatasetLineageChangeSet struct {
+	ID                   int64              `json:"id"`
+	PublicID             uuid.UUID          `json:"public_id"`
+	TenantID             int64              `json:"tenant_id"`
+	QueryJobID           pgtype.Int8        `json:"query_job_id"`
+	RootResourceType     string             `json:"root_resource_type"`
+	RootResourcePublicID pgtype.UUID        `json:"root_resource_public_id"`
+	SourceKind           string             `json:"source_kind"`
+	Status               string             `json:"status"`
+	Title                string             `json:"title"`
+	Description          string             `json:"description"`
+	CreatedByUserID      pgtype.Int8        `json:"created_by_user_id"`
+	PublishedByUserID    pgtype.Int8        `json:"published_by_user_id"`
+	RejectedByUserID     pgtype.Int8        `json:"rejected_by_user_id"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	PublishedAt          pgtype.Timestamptz `json:"published_at"`
+	RejectedAt           pgtype.Timestamptz `json:"rejected_at"`
+	ArchivedAt           pgtype.Timestamptz `json:"archived_at"`
+}
+
+type DatasetLineageEdge struct {
+	ID            int64              `json:"id"`
+	PublicID      uuid.UUID          `json:"public_id"`
+	TenantID      int64              `json:"tenant_id"`
+	ChangeSetID   int64              `json:"change_set_id"`
+	EdgeKey       string             `json:"edge_key"`
+	SourceNodeKey string             `json:"source_node_key"`
+	TargetNodeKey string             `json:"target_node_key"`
+	RelationType  string             `json:"relation_type"`
+	SourceKind    string             `json:"source_kind"`
+	Confidence    string             `json:"confidence"`
+	Label         string             `json:"label"`
+	Description   string             `json:"description"`
+	Expression    string             `json:"expression"`
+	Metadata      []byte             `json:"metadata"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DatasetLineageNode struct {
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	TenantID         int64              `json:"tenant_id"`
+	ChangeSetID      int64              `json:"change_set_id"`
+	NodeKey          string             `json:"node_key"`
+	NodeKind         string             `json:"node_kind"`
+	SourceKind       string             `json:"source_kind"`
+	ResourceType     string             `json:"resource_type"`
+	ResourcePublicID pgtype.UUID        `json:"resource_public_id"`
+	ParentNodeKey    pgtype.Text        `json:"parent_node_key"`
+	ColumnName       pgtype.Text        `json:"column_name"`
+	Label            string             `json:"label"`
+	Description      string             `json:"description"`
+	PositionX        pgtype.Float8      `json:"position_x"`
+	PositionY        pgtype.Float8      `json:"position_y"`
+	Metadata         []byte             `json:"metadata"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DatasetLineageParseRun struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	QueryJobID        int64              `json:"query_job_id"`
+	ChangeSetID       pgtype.Int8        `json:"change_set_id"`
+	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
+	Status            string             `json:"status"`
+	TableRefCount     int32              `json:"table_ref_count"`
+	ColumnEdgeCount   int32              `json:"column_edge_count"`
+	ErrorSummary      pgtype.Text        `json:"error_summary"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+}
+
 type DatasetQueryJob struct {
 	ID                int64              `json:"id"`
 	PublicID          uuid.UUID          `json:"public_id"`

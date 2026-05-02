@@ -1075,6 +1075,42 @@ func (q *Queries) GetDatasetImportJobByIDForTenant(ctx context.Context, arg GetD
 	return i, err
 }
 
+const getDatasetQueryJobByIDForTenant = `-- name: GetDatasetQueryJobByIDForTenant :one
+SELECT id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at, dataset_id
+FROM dataset_query_jobs
+WHERE id = $1
+  AND tenant_id = $2
+LIMIT 1
+`
+
+type GetDatasetQueryJobByIDForTenantParams struct {
+	ID       int64 `json:"id"`
+	TenantID int64 `json:"tenant_id"`
+}
+
+func (q *Queries) GetDatasetQueryJobByIDForTenant(ctx context.Context, arg GetDatasetQueryJobByIDForTenantParams) (DatasetQueryJob, error) {
+	row := q.db.QueryRow(ctx, getDatasetQueryJobByIDForTenant, arg.ID, arg.TenantID)
+	var i DatasetQueryJob
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.RequestedByUserID,
+		&i.Statement,
+		&i.Status,
+		&i.ResultColumns,
+		&i.ResultRows,
+		&i.RowCount,
+		&i.ErrorSummary,
+		&i.DurationMs,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+		&i.DatasetID,
+	)
+	return i, err
+}
+
 const getDatasetQueryJobForTenant = `-- name: GetDatasetQueryJobForTenant :one
 SELECT id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at, dataset_id
 FROM dataset_query_jobs
@@ -1920,6 +1956,279 @@ type ListDatasetsParams struct {
 
 func (q *Queries) ListDatasets(ctx context.Context, arg ListDatasetsParams) ([]Dataset, error) {
 	rows, err := q.db.Query(ctx, listDatasets, arg.TenantID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Dataset
+	for rows.Next() {
+		var i Dataset
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.CreatedByUserID,
+			&i.SourceFileObjectID,
+			&i.Name,
+			&i.OriginalFilename,
+			&i.ContentType,
+			&i.ByteSize,
+			&i.RawDatabase,
+			&i.RawTable,
+			&i.WorkDatabase,
+			&i.Status,
+			&i.RowCount,
+			&i.ErrorSummary,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ImportedAt,
+			&i.DeletedAt,
+			&i.SourceKind,
+			&i.SourceWorkTableID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLineageDatasetSyncJobsBySourceWorkTable = `-- name: ListLineageDatasetSyncJobsBySourceWorkTable :many
+SELECT id, public_id, tenant_id, dataset_id, source_work_table_id, requested_by_user_id, outbox_event_id, mode, status, old_raw_database, old_raw_table, new_raw_database, new_raw_table, row_count, total_bytes, error_summary, cleanup_status, cleanup_error_summary, started_at, completed_at, created_at, updated_at
+FROM dataset_sync_jobs
+WHERE tenant_id = $1
+  AND source_work_table_id = $2
+ORDER BY created_at DESC, id DESC
+LIMIT $3
+`
+
+type ListLineageDatasetSyncJobsBySourceWorkTableParams struct {
+	TenantID          int64 `json:"tenant_id"`
+	SourceWorkTableID int64 `json:"source_work_table_id"`
+	Limit             int32 `json:"limit"`
+}
+
+func (q *Queries) ListLineageDatasetSyncJobsBySourceWorkTable(ctx context.Context, arg ListLineageDatasetSyncJobsBySourceWorkTableParams) ([]DatasetSyncJob, error) {
+	rows, err := q.db.Query(ctx, listLineageDatasetSyncJobsBySourceWorkTable, arg.TenantID, arg.SourceWorkTableID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetSyncJob
+	for rows.Next() {
+		var i DatasetSyncJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.DatasetID,
+			&i.SourceWorkTableID,
+			&i.RequestedByUserID,
+			&i.OutboxEventID,
+			&i.Mode,
+			&i.Status,
+			&i.OldRawDatabase,
+			&i.OldRawTable,
+			&i.NewRawDatabase,
+			&i.NewRawTable,
+			&i.RowCount,
+			&i.TotalBytes,
+			&i.ErrorSummary,
+			&i.CleanupStatus,
+			&i.CleanupErrorSummary,
+			&i.StartedAt,
+			&i.CompletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLineageDatasetWorkTableExports = `-- name: ListLineageDatasetWorkTableExports :many
+SELECT id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at, schedule_id, scheduled_for
+FROM dataset_work_table_exports
+WHERE tenant_id = $1
+  AND work_table_id = $2
+ORDER BY created_at DESC, id DESC
+LIMIT $3
+`
+
+type ListLineageDatasetWorkTableExportsParams struct {
+	TenantID    int64 `json:"tenant_id"`
+	WorkTableID int64 `json:"work_table_id"`
+	Limit       int32 `json:"limit"`
+}
+
+func (q *Queries) ListLineageDatasetWorkTableExports(ctx context.Context, arg ListLineageDatasetWorkTableExportsParams) ([]DatasetWorkTableExport, error) {
+	rows, err := q.db.Query(ctx, listLineageDatasetWorkTableExports, arg.TenantID, arg.WorkTableID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetWorkTableExport
+	for rows.Next() {
+		var i DatasetWorkTableExport
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.WorkTableID,
+			&i.RequestedByUserID,
+			&i.FileObjectID,
+			&i.OutboxEventID,
+			&i.Format,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.ErrorSummary,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+			&i.DeletedAt,
+			&i.ScheduleID,
+			&i.ScheduledFor,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLineageDatasetWorkTablesByQueryJob = `-- name: ListLineageDatasetWorkTablesByQueryJob :many
+SELECT id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+FROM dataset_work_tables
+WHERE tenant_id = $1
+  AND created_from_query_job_id = $2
+ORDER BY updated_at DESC, id DESC
+LIMIT $3
+`
+
+type ListLineageDatasetWorkTablesByQueryJobParams struct {
+	TenantID              int64       `json:"tenant_id"`
+	CreatedFromQueryJobID pgtype.Int8 `json:"created_from_query_job_id"`
+	Limit                 int32       `json:"limit"`
+}
+
+func (q *Queries) ListLineageDatasetWorkTablesByQueryJob(ctx context.Context, arg ListLineageDatasetWorkTablesByQueryJobParams) ([]DatasetWorkTable, error) {
+	rows, err := q.db.Query(ctx, listLineageDatasetWorkTablesByQueryJob, arg.TenantID, arg.CreatedFromQueryJobID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetWorkTable
+	for rows.Next() {
+		var i DatasetWorkTable
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.SourceDatasetID,
+			&i.CreatedFromQueryJobID,
+			&i.CreatedByUserID,
+			&i.WorkDatabase,
+			&i.WorkTable,
+			&i.DisplayName,
+			&i.Status,
+			&i.RowCount,
+			&i.TotalBytes,
+			&i.Engine,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DroppedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLineageDatasetWorkTablesForDataset = `-- name: ListLineageDatasetWorkTablesForDataset :many
+SELECT id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+FROM dataset_work_tables
+WHERE tenant_id = $1
+  AND source_dataset_id = $2
+ORDER BY updated_at DESC, id DESC
+LIMIT $3
+`
+
+type ListLineageDatasetWorkTablesForDatasetParams struct {
+	TenantID        int64       `json:"tenant_id"`
+	SourceDatasetID pgtype.Int8 `json:"source_dataset_id"`
+	Limit           int32       `json:"limit"`
+}
+
+func (q *Queries) ListLineageDatasetWorkTablesForDataset(ctx context.Context, arg ListLineageDatasetWorkTablesForDatasetParams) ([]DatasetWorkTable, error) {
+	rows, err := q.db.Query(ctx, listLineageDatasetWorkTablesForDataset, arg.TenantID, arg.SourceDatasetID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetWorkTable
+	for rows.Next() {
+		var i DatasetWorkTable
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.SourceDatasetID,
+			&i.CreatedFromQueryJobID,
+			&i.CreatedByUserID,
+			&i.WorkDatabase,
+			&i.WorkTable,
+			&i.DisplayName,
+			&i.Status,
+			&i.RowCount,
+			&i.TotalBytes,
+			&i.Engine,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DroppedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLineageDatasetsBySourceWorkTable = `-- name: ListLineageDatasetsBySourceWorkTable :many
+SELECT id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
+FROM datasets
+WHERE tenant_id = $1
+  AND source_work_table_id = $2
+  AND deleted_at IS NULL
+ORDER BY created_at DESC, id DESC
+LIMIT $3
+`
+
+type ListLineageDatasetsBySourceWorkTableParams struct {
+	TenantID          int64       `json:"tenant_id"`
+	SourceWorkTableID pgtype.Int8 `json:"source_work_table_id"`
+	Limit             int32       `json:"limit"`
+}
+
+func (q *Queries) ListLineageDatasetsBySourceWorkTable(ctx context.Context, arg ListLineageDatasetsBySourceWorkTableParams) ([]Dataset, error) {
+	rows, err := q.db.Query(ctx, listLineageDatasetsBySourceWorkTable, arg.TenantID, arg.SourceWorkTableID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

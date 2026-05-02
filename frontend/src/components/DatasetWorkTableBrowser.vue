@@ -4,10 +4,15 @@ import { CalendarClock, Database, Download, FileDown, Link2, Pencil, RefreshCw, 
 import { useI18n } from 'vue-i18n'
 
 import { workTableExportDownloadUrl } from '../api/datasets'
-import type { DatasetWorkTableExportFormat, DatasetWorkTableExportFrequency } from '../api/datasets'
-import type { DatasetBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
+import type { DatasetLineageLevel, DatasetLineageSource, DatasetWorkTableExportFormat, DatasetWorkTableExportFrequency } from '../api/datasets'
+import type { DatasetBody, DatasetLineageBody, DatasetLineageGraphSaveBodyWritable, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
 import ConfirmActionDialog from './ConfirmActionDialog.vue'
+import LineageCompactGraph from './LineageCompactGraph.vue'
+import LineageFlowGraph from './LineageFlowGraph.vue'
+import LineageTimeline from './LineageTimeline.vue'
 import TextInputDialog from './TextInputDialog.vue'
+
+type LineageGraphTab = 'flow' | 'compact'
 
 const props = withDefaults(defineProps<{
   tables: DatasetWorkTableBody[]
@@ -16,6 +21,14 @@ const props = withDefaults(defineProps<{
   preview: DatasetWorkTablePreviewBody | null
   exports: DatasetWorkTableExportBody[]
   schedules: DatasetWorkTableExportScheduleBody[]
+  lineage: DatasetLineageBody | null
+  lineageLoading: boolean
+  lineageLevel: DatasetLineageLevel
+  lineageSources: DatasetLineageSource[]
+  lineageActionLoading: boolean
+  lineageDraftSourceKind: 'parser' | 'manual'
+  hasLineageDraft: boolean
+  canPublishLineage: boolean
   loading: boolean
   previewLoading: boolean
   actionLoading: boolean
@@ -39,6 +52,12 @@ const emit = defineEmits<{
   createSchedule: [body: DatasetWorkTableExportScheduleCreateBodyWritable]
   updateSchedule: [schedulePublicId: string, body: DatasetWorkTableExportScheduleUpdateBodyWritable]
   disableSchedule: [schedulePublicId: string]
+  refreshLineage: []
+  setLineageLevel: [level: DatasetLineageLevel]
+  toggleLineageSource: [source: DatasetLineageSource]
+  saveLineageDraft: [body: DatasetLineageGraphSaveBodyWritable]
+  publishLineageDraft: []
+  rejectLineageDraft: []
 }>()
 
 const { d, n, t } = useI18n()
@@ -49,6 +68,8 @@ const selectedColumns = computed(() => props.selectedTable?.columns ?? [])
 const browserTitle = computed(() => props.title || t('datasets.workTables'))
 const selectedDatasetPublicId = ref('')
 const exportFormat = ref<DatasetWorkTableExportFormat>('csv')
+const activeLineageGraphTab = ref<LineageGraphTab>('flow')
+const lineageEditMode = ref(false)
 const editingSchedulePublicId = ref('')
 const textDialog = ref<'rename' | 'promote' | ''>('')
 const confirmDialog = ref<'truncate' | 'drop' | ''>('')
@@ -239,6 +260,10 @@ function submitSchedule() {
   }
   emit('createSchedule', body)
 }
+
+function changeLineageLevel(event: Event) {
+  emit('setLineageLevel', (event.target as HTMLSelectElement).value as DatasetLineageLevel)
+}
 </script>
 
 <template>
@@ -368,6 +393,82 @@ function submitSchedule() {
             <dd>{{ formatDate(selectedTable.createdAt) }}</dd>
           </div>
         </dl>
+
+        <div v-if="selectedTable.managed" class="section-header compact-section-header">
+          <div>
+            <span class="status-pill">{{ t('datasets.lineage') }}</span>
+            <h3>{{ t('datasets.lineageGraph') }}</h3>
+            <span class="cell-subtle">{{ t('datasets.lineageMetadataConfidence') }}</span>
+          </div>
+          <button class="secondary-button compact-button" :disabled="lineageLoading" type="button" @click="emit('refreshLineage')">
+            <RefreshCw :size="16" aria-hidden="true" />
+            {{ lineageLoading ? t('common.loading') : t('common.refresh') }}
+          </button>
+        </div>
+
+        <div v-if="selectedTable.managed" class="lineage-control-bar">
+          <label class="field compact-field">
+            <span class="field-label">{{ t('datasets.lineageLevel') }}</span>
+            <select class="field-input" :value="lineageLevel" @change="changeLineageLevel">
+              <option value="table">{{ t('datasets.lineageLevelTable') }}</option>
+              <option value="column">{{ t('datasets.lineageLevelColumn') }}</option>
+              <option value="both">{{ t('datasets.lineageLevelBoth') }}</option>
+            </select>
+          </label>
+          <div class="lineage-source-controls" :aria-label="t('datasets.lineageSources')">
+            <label v-for="source in ['metadata', 'parser', 'manual']" :key="source" class="lineage-source-option">
+              <input
+                type="checkbox"
+                :checked="lineageSources.includes(source as DatasetLineageSource)"
+                @change="emit('toggleLineageSource', source as DatasetLineageSource)"
+              >
+              <span>{{ t(`datasets.lineageSource.${source}`) }}</span>
+            </label>
+          </div>
+          <button v-if="activeLineageGraphTab === 'flow'" class="secondary-button compact-button" type="button" :disabled="lineageActionLoading" @click="lineageEditMode = !lineageEditMode">
+            {{ lineageEditMode ? t('datasets.lineageViewMode') : t('datasets.lineageEditMode') }}
+          </button>
+        </div>
+
+        <p v-if="selectedTable.managed && lineageLoading">
+          {{ t('datasets.loadingLineage') }}
+        </p>
+        <template v-else-if="selectedTable.managed">
+          <div class="lineage-view-tabs" role="tablist" :aria-label="t('datasets.lineageGraphView')">
+            <button
+              type="button"
+              role="tab"
+              :aria-selected="activeLineageGraphTab === 'flow'"
+              :class="{ active: activeLineageGraphTab === 'flow' }"
+              @click="activeLineageGraphTab = 'flow'"
+            >
+              {{ t('datasets.lineageFlowView') }}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              :aria-selected="activeLineageGraphTab === 'compact'"
+              :class="{ active: activeLineageGraphTab === 'compact' }"
+              @click="activeLineageGraphTab = 'compact'"
+            >
+              {{ t('datasets.lineageCompactView') }}
+            </button>
+          </div>
+          <LineageFlowGraph
+            v-if="activeLineageGraphTab === 'flow'"
+            :lineage="lineage"
+            :editable="lineageEditMode"
+            :saving="lineageActionLoading"
+            :draft-source-kind="lineageDraftSourceKind"
+            :has-draft="hasLineageDraft"
+            :can-publish="canPublishLineage"
+            @save-draft="emit('saveLineageDraft', $event)"
+            @publish-draft="emit('publishLineageDraft')"
+            @reject-draft="emit('rejectLineageDraft')"
+          />
+          <LineageCompactGraph v-else :lineage="lineage" />
+          <LineageTimeline :lineage="lineage" />
+        </template>
 
         <div v-if="selectedColumns.length > 0" class="admin-table dataset-column-table">
           <table>

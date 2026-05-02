@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"example.com/haohao/backend/internal/service"
@@ -207,6 +208,102 @@ type DatasetWorkTablePreviewBody struct {
 	PreviewRows []map[string]any `json:"previewRows"`
 }
 
+type DatasetLineageNodeBody struct {
+	ID           string                      `json:"id" example:"dataset:018f2f05-c6c9-7a49-b32d-04f4dd84ef4a"`
+	ResourceType string                      `json:"resourceType" enum:"dataset,dataset_query_job,dataset_work_table,dataset_work_table_export,dataset_work_table_export_schedule,dataset_sync_job,custom" example:"dataset"`
+	PublicID     string                      `json:"publicId,omitempty" format:"uuid"`
+	DisplayName  string                      `json:"displayName" example:"Sales"`
+	Status       string                      `json:"status,omitempty" example:"ready"`
+	NodeKind     string                      `json:"nodeKind,omitempty" enum:"resource,column,custom" example:"resource"`
+	SourceKind   string                      `json:"sourceKind,omitempty" enum:"metadata,parser,manual" example:"metadata"`
+	ColumnName   string                      `json:"columnName,omitempty" example:"customer_id"`
+	Description  string                      `json:"description,omitempty"`
+	Editable     bool                        `json:"editable"`
+	Position     *DatasetLineagePositionBody `json:"position,omitempty"`
+	CreatedAt    *time.Time                  `json:"createdAt,omitempty" format:"date-time"`
+	UpdatedAt    *time.Time                  `json:"updatedAt,omitempty" format:"date-time"`
+	Metadata     map[string]any              `json:"metadata,omitempty"`
+}
+
+type DatasetLineagePositionBody struct {
+	X float64 `json:"x" example:"120"`
+	Y float64 `json:"y" example:"240"`
+}
+
+type DatasetLineageEdgeBody struct {
+	ID           string     `json:"id"`
+	SourceNodeID string     `json:"sourceNodeId"`
+	TargetNodeID string     `json:"targetNodeId"`
+	RelationType string     `json:"relationType" enum:"query_input,query_created_work_table,source_dataset,promoted_dataset,work_table_export,export_schedule,scheduled_export_run,dataset_sync_source,dataset_sync_target,column_derives,manual_dependency" example:"source_dataset"`
+	Confidence   string     `json:"confidence" enum:"metadata,parser_exact,parser_partial,manual" example:"metadata"`
+	SourceKind   string     `json:"sourceKind,omitempty" enum:"metadata,parser,manual" example:"metadata"`
+	Label        string     `json:"label,omitempty"`
+	Description  string     `json:"description,omitempty"`
+	Expression   string     `json:"expression,omitempty"`
+	Editable     bool       `json:"editable"`
+	CreatedAt    *time.Time `json:"createdAt,omitempty" format:"date-time"`
+}
+
+type DatasetLineageTimelineItemBody struct {
+	ID           string         `json:"id"`
+	NodeID       string         `json:"nodeId"`
+	ResourceType string         `json:"resourceType" enum:"dataset,dataset_query_job,dataset_work_table,dataset_work_table_export,dataset_work_table_export_schedule,dataset_sync_job" example:"dataset_work_table"`
+	PublicID     string         `json:"publicId,omitempty" format:"uuid"`
+	RelationType string         `json:"relationType" enum:"query_input,query_created_work_table,source_dataset,promoted_dataset,work_table_export,export_schedule,scheduled_export_run,dataset_sync_source,dataset_sync_target" example:"query_created_work_table"`
+	Status       string         `json:"status,omitempty" example:"completed"`
+	OccurredAt   *time.Time     `json:"occurredAt,omitempty" format:"date-time"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+}
+
+type DatasetLineageBody struct {
+	Root     DatasetLineageNodeBody           `json:"root"`
+	Nodes    []DatasetLineageNodeBody         `json:"nodes"`
+	Edges    []DatasetLineageEdgeBody         `json:"edges"`
+	Timeline []DatasetLineageTimelineItemBody `json:"timeline"`
+}
+
+type DatasetLineageChangeSetBody struct {
+	PublicID             string     `json:"publicId" format:"uuid"`
+	QueryJobPublicID     string     `json:"queryJobPublicId,omitempty" format:"uuid"`
+	RootResourceType     string     `json:"rootResourceType"`
+	RootResourcePublicID string     `json:"rootResourcePublicId,omitempty" format:"uuid"`
+	SourceKind           string     `json:"sourceKind" enum:"parser,manual"`
+	Status               string     `json:"status" enum:"draft,published,rejected,archived"`
+	Title                string     `json:"title"`
+	Description          string     `json:"description"`
+	CreatedAt            time.Time  `json:"createdAt" format:"date-time"`
+	UpdatedAt            time.Time  `json:"updatedAt" format:"date-time"`
+	PublishedAt          *time.Time `json:"publishedAt,omitempty" format:"date-time"`
+	RejectedAt           *time.Time `json:"rejectedAt,omitempty" format:"date-time"`
+	ArchivedAt           *time.Time `json:"archivedAt,omitempty" format:"date-time"`
+}
+
+type DatasetLineageChangeSetGraphBody struct {
+	ChangeSet DatasetLineageChangeSetBody `json:"changeSet"`
+	Nodes     []DatasetLineageNodeBody    `json:"nodes"`
+	Edges     []DatasetLineageEdgeBody    `json:"edges"`
+}
+
+type DatasetLineageChangeSetListBody struct {
+	Items []DatasetLineageChangeSetBody `json:"items"`
+}
+
+type DatasetLineageParseRunBody struct {
+	PublicID          string     `json:"publicId" format:"uuid"`
+	QueryJobPublicID  string     `json:"queryJobPublicId" format:"uuid"`
+	ChangeSetPublicID string     `json:"changeSetPublicId,omitempty" format:"uuid"`
+	Status            string     `json:"status" enum:"processing,completed,failed"`
+	TableRefCount     int32      `json:"tableRefCount"`
+	ColumnEdgeCount   int32      `json:"columnEdgeCount"`
+	ErrorSummary      string     `json:"errorSummary,omitempty"`
+	CreatedAt         time.Time  `json:"createdAt" format:"date-time"`
+	CompletedAt       *time.Time `json:"completedAt,omitempty" format:"date-time"`
+}
+
+type DatasetLineageParseRunListBody struct {
+	Items []DatasetLineageParseRunBody `json:"items"`
+}
+
 type DatasetSourceFileListBody struct {
 	Items []DatasetSourceFileBody `json:"items"`
 }
@@ -253,6 +350,30 @@ type DatasetSyncJobListOutput struct {
 
 type DatasetWorkTablePreviewOutput struct {
 	Body DatasetWorkTablePreviewBody
+}
+
+type DatasetLineageOutput struct {
+	Body DatasetLineageBody
+}
+
+type DatasetLineageChangeSetOutput struct {
+	Body DatasetLineageChangeSetBody
+}
+
+type DatasetLineageChangeSetGraphOutput struct {
+	Body DatasetLineageChangeSetGraphBody
+}
+
+type DatasetLineageChangeSetListOutput struct {
+	Body DatasetLineageChangeSetListBody
+}
+
+type DatasetLineageParseRunOutput struct {
+	Body DatasetLineageParseRunBody
+}
+
+type DatasetLineageParseRunListOutput struct {
+	Body DatasetLineageParseRunListBody
 }
 
 type DownloadDatasetWorkTableExportOutput struct {
@@ -314,6 +435,19 @@ type ListDatasetSyncJobsInput struct {
 	Limit           int32       `query:"limit" minimum:"1" maximum:"100" default:"25"`
 }
 
+type DatasetLineageInput struct {
+	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
+	DatasetPublicID   string      `path:"datasetPublicId" format:"uuid"`
+	Direction         string      `query:"direction" enum:"upstream,downstream,both" default:"both"`
+	Depth             int32       `query:"depth" minimum:"1" maximum:"2" default:"1"`
+	IncludeHistory    bool        `query:"includeHistory" default:"true"`
+	Limit             int32       `query:"limit" minimum:"1" maximum:"100" default:"50"`
+	Level             string      `query:"level" enum:"table,column,both" default:"table"`
+	Sources           string      `query:"sources" example:"metadata,parser,manual"`
+	IncludeDraft      bool        `query:"includeDraft" default:"false"`
+	ChangeSetPublicID string      `query:"changeSetPublicId" format:"uuid"`
+}
+
 type DatasetWorkTableInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
 	Database      string      `path:"database" maxLength:"128"`
@@ -323,6 +457,19 @@ type DatasetWorkTableInput struct {
 type DatasetWorkTableByPublicIDInput struct {
 	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
 	WorkTablePublicID string      `path:"workTablePublicId" format:"uuid"`
+}
+
+type DatasetWorkTableLineageInput struct {
+	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
+	WorkTablePublicID string      `path:"workTablePublicId" format:"uuid"`
+	Direction         string      `query:"direction" enum:"upstream,downstream,both" default:"both"`
+	Depth             int32       `query:"depth" minimum:"1" maximum:"2" default:"1"`
+	IncludeHistory    bool        `query:"includeHistory" default:"true"`
+	Limit             int32       `query:"limit" minimum:"1" maximum:"100" default:"50"`
+	Level             string      `query:"level" enum:"table,column,both" default:"table"`
+	Sources           string      `query:"sources" example:"metadata,parser,manual"`
+	IncludeDraft      bool        `query:"includeDraft" default:"false"`
+	ChangeSetPublicID string      `query:"changeSetPublicId" format:"uuid"`
 }
 
 type DatasetWorkTablePreviewInput struct {
@@ -506,6 +653,100 @@ type DatasetQueryByPublicIDInput struct {
 	QueryJobPublicID string      `path:"queryJobPublicId" format:"uuid"`
 }
 
+type DatasetQueryLineageInput struct {
+	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
+	QueryJobPublicID  string      `path:"queryJobPublicId" format:"uuid"`
+	Direction         string      `query:"direction" enum:"upstream,downstream,both" default:"both"`
+	Depth             int32       `query:"depth" minimum:"1" maximum:"2" default:"1"`
+	IncludeHistory    bool        `query:"includeHistory" default:"true"`
+	Limit             int32       `query:"limit" minimum:"1" maximum:"100" default:"50"`
+	Level             string      `query:"level" enum:"table,column,both" default:"table"`
+	Sources           string      `query:"sources" example:"metadata,parser,manual"`
+	IncludeDraft      bool        `query:"includeDraft" default:"false"`
+	ChangeSetPublicID string      `query:"changeSetPublicId" format:"uuid"`
+}
+
+type DatasetQueryLineageParseInput struct {
+	SessionCookie    http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken        string      `header:"X-CSRF-Token" required:"true"`
+	QueryJobPublicID string      `path:"queryJobPublicId" format:"uuid"`
+}
+
+type DatasetQueryLineageParseRunsInput struct {
+	SessionCookie    http.Cookie `cookie:"SESSION_ID"`
+	QueryJobPublicID string      `path:"queryJobPublicId" format:"uuid"`
+	Limit            int32       `query:"limit" minimum:"1" maximum:"100" default:"25"`
+}
+
+type DatasetLineageChangeSetCreateBody struct {
+	RootResourceType     string `json:"rootResourceType,omitempty" example:"dataset_query_job"`
+	RootResourcePublicID string `json:"rootResourcePublicId,omitempty" format:"uuid"`
+	SourceKind           string `json:"sourceKind,omitempty" enum:"manual,parser" example:"manual"`
+	Title                string `json:"title,omitempty" maxLength:"160"`
+	Description          string `json:"description,omitempty" maxLength:"2000"`
+}
+
+type DatasetLineageChangeSetCreateInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
+	Body          DatasetLineageChangeSetCreateBody
+}
+
+type DatasetLineageChangeSetListInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	Status        string      `query:"status" enum:"draft,published,rejected,archived"`
+	Limit         int32       `query:"limit" minimum:"1" maximum:"100" default:"50"`
+}
+
+type DatasetLineageChangeSetInput struct {
+	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
+	ChangeSetPublicID string      `path:"changeSetPublicId" format:"uuid"`
+}
+
+type DatasetLineageChangeSetMutateInput struct {
+	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken         string      `header:"X-CSRF-Token" required:"true"`
+	ChangeSetPublicID string      `path:"changeSetPublicId" format:"uuid"`
+}
+
+type DatasetLineageGraphSaveInput struct {
+	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken         string      `header:"X-CSRF-Token" required:"true"`
+	ChangeSetPublicID string      `path:"changeSetPublicId" format:"uuid"`
+	Body              DatasetLineageGraphSaveBody
+}
+
+type DatasetLineageGraphSaveBody struct {
+	Nodes []DatasetLineageNodeWriteBody `json:"nodes"`
+	Edges []DatasetLineageEdgeWriteBody `json:"edges"`
+}
+
+type DatasetLineageNodeWriteBody struct {
+	ID           string                      `json:"id"`
+	ResourceType string                      `json:"resourceType,omitempty"`
+	PublicID     string                      `json:"publicId,omitempty" format:"uuid"`
+	DisplayName  string                      `json:"displayName,omitempty"`
+	NodeKind     string                      `json:"nodeKind,omitempty" enum:"resource,column,custom"`
+	SourceKind   string                      `json:"sourceKind,omitempty" enum:"parser,manual"`
+	ColumnName   string                      `json:"columnName,omitempty"`
+	Description  string                      `json:"description,omitempty"`
+	Position     *DatasetLineagePositionBody `json:"position,omitempty"`
+	Metadata     map[string]any              `json:"metadata,omitempty"`
+}
+
+type DatasetLineageEdgeWriteBody struct {
+	ID           string         `json:"id,omitempty"`
+	SourceNodeID string         `json:"sourceNodeId"`
+	TargetNodeID string         `json:"targetNodeId"`
+	RelationType string         `json:"relationType,omitempty"`
+	Confidence   string         `json:"confidence,omitempty" enum:"parser_exact,parser_partial,manual"`
+	SourceKind   string         `json:"sourceKind,omitempty" enum:"parser,manual"`
+	Label        string         `json:"label,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	Expression   string         `json:"expression,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+}
+
 func registerDatasetRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{
 		OperationID: "createDataset",
@@ -650,6 +891,34 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 			return nil, toDatasetHTTPError(ctx, deps, "getManagedDatasetWorkTable", err)
 		}
 		return &DatasetWorkTableOutput{Body: toDatasetWorkTableBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getDatasetWorkTableLineage",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/lineage",
+		Summary:     "managed work table の lineage graph を返す",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetWorkTableLineageInput) (*DatasetLineageOutput, error) {
+		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		graph, err := deps.DatasetService.GetWorkTableLineage(ctx, tenant.ID, input.WorkTablePublicID, service.DatasetLineageOptions{
+			Direction:         input.Direction,
+			Depth:             input.Depth,
+			IncludeHistory:    input.IncludeHistory,
+			Limit:             input.Limit,
+			Level:             input.Level,
+			Sources:           datasetLineageSourcesFromQuery(input.Sources),
+			IncludeDraft:      input.IncludeDraft,
+			ChangeSetPublicID: input.ChangeSetPublicID,
+		})
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDatasetWorkTableLineage", err)
+		}
+		return &DatasetLineageOutput{Body: toDatasetLineageBody(graph)}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -999,6 +1268,34 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID: "getDatasetLineage",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/datasets/{datasetPublicId}/lineage",
+		Summary:     "active tenant の dataset lineage graph を返す",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetLineageInput) (*DatasetLineageOutput, error) {
+		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		graph, err := deps.DatasetService.GetDatasetLineage(ctx, tenant.ID, input.DatasetPublicID, service.DatasetLineageOptions{
+			Direction:         input.Direction,
+			Depth:             input.Depth,
+			IncludeHistory:    input.IncludeHistory,
+			Limit:             input.Limit,
+			Level:             input.Level,
+			Sources:           datasetLineageSourcesFromQuery(input.Sources),
+			IncludeDraft:      input.IncludeDraft,
+			ChangeSetPublicID: input.ChangeSetPublicID,
+		})
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDatasetLineage", err)
+		}
+		return &DatasetLineageOutput{Body: toDatasetLineageBody(graph)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID: "createDatasetSyncJob",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/datasets/{datasetPublicId}/syncs",
@@ -1192,6 +1489,208 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		}
 		return &DatasetQueryOutput{Body: toDatasetQueryJobBody(item)}, nil
 	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getDatasetQueryJobLineage",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/dataset-query-jobs/{queryJobPublicId}/lineage",
+		Summary:     "active tenant の dataset query job lineage graph を返す",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetQueryLineageInput) (*DatasetLineageOutput, error) {
+		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		graph, err := deps.DatasetService.GetQueryJobLineage(ctx, tenant.ID, input.QueryJobPublicID, service.DatasetLineageOptions{
+			Direction:         input.Direction,
+			Depth:             input.Depth,
+			IncludeHistory:    input.IncludeHistory,
+			Limit:             input.Limit,
+			Level:             input.Level,
+			Sources:           datasetLineageSourcesFromQuery(input.Sources),
+			IncludeDraft:      input.IncludeDraft,
+			ChangeSetPublicID: input.ChangeSetPublicID,
+		})
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDatasetQueryJobLineage", err)
+		}
+		return &DatasetLineageOutput{Body: toDatasetLineageBody(graph)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "parseDatasetQueryJobLineage",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/dataset-query-jobs/{queryJobPublicId}/lineage/parse",
+		Summary:     "dataset query job の SQL を parse して lineage draft を作成する",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetQueryLineageParseInput) (*DatasetLineageParseRunOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		run, _, err := deps.DatasetService.ParseQueryJobLineage(ctx, tenant.ID, current.User.ID, input.QueryJobPublicID, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "parseDatasetQueryJobLineage", err)
+		}
+		return &DatasetLineageParseRunOutput{Body: toDatasetLineageParseRunBody(run)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listDatasetQueryJobLineageParseRuns",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/dataset-query-jobs/{queryJobPublicId}/lineage/parse-runs",
+		Summary:     "dataset query job の lineage parse run 一覧を返す",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetQueryLineageParseRunsInput) (*DatasetLineageParseRunListOutput, error) {
+		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		items, err := deps.DatasetService.ListLineageParseRuns(ctx, tenant.ID, input.QueryJobPublicID, input.Limit)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasetQueryJobLineageParseRuns", err)
+		}
+		out := &DatasetLineageParseRunListOutput{}
+		out.Body.Items = make([]DatasetLineageParseRunBody, 0, len(items))
+		for _, item := range items {
+			out.Body.Items = append(out.Body.Items, toDatasetLineageParseRunBody(item))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "createDatasetLineageChangeSet",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/lineage/change-sets",
+		Summary:     "lineage change set draft を作成する",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetLineageChangeSetCreateInput) (*DatasetLineageChangeSetOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		item, err := deps.DatasetService.CreateLineageChangeSet(ctx, tenant.ID, current.User.ID, service.DatasetLineageChangeSetInput{
+			RootResourceType:     input.Body.RootResourceType,
+			RootResourcePublicID: input.Body.RootResourcePublicID,
+			SourceKind:           input.Body.SourceKind,
+			Title:                input.Body.Title,
+			Description:          input.Body.Description,
+		}, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "createDatasetLineageChangeSet", err)
+		}
+		return &DatasetLineageChangeSetOutput{Body: toDatasetLineageChangeSetBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listDatasetLineageChangeSets",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/lineage/change-sets",
+		Summary:     "lineage change set 一覧を返す",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetLineageChangeSetListInput) (*DatasetLineageChangeSetListOutput, error) {
+		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		items, err := deps.DatasetService.ListLineageChangeSets(ctx, tenant.ID, input.Status, input.Limit)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasetLineageChangeSets", err)
+		}
+		out := &DatasetLineageChangeSetListOutput{}
+		out.Body.Items = make([]DatasetLineageChangeSetBody, 0, len(items))
+		for _, item := range items {
+			out.Body.Items = append(out.Body.Items, toDatasetLineageChangeSetBody(item))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getDatasetLineageChangeSet",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/lineage/change-sets/{changeSetPublicId}",
+		Summary:     "lineage change set graph を返す",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetLineageChangeSetInput) (*DatasetLineageChangeSetGraphOutput, error) {
+		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		item, err := deps.DatasetService.GetLineageChangeSet(ctx, tenant.ID, input.ChangeSetPublicID)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDatasetLineageChangeSet", err)
+		}
+		return &DatasetLineageChangeSetGraphOutput{Body: toDatasetLineageChangeSetGraphBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "updateDatasetLineageChangeSetGraph",
+		Method:      http.MethodPut,
+		Path:        "/api/v1/lineage/change-sets/{changeSetPublicId}/graph",
+		Summary:     "lineage change set draft graph を保存する",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetLineageGraphSaveInput) (*DatasetLineageChangeSetGraphOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		item, err := deps.DatasetService.SaveLineageChangeSetGraph(ctx, tenant.ID, input.ChangeSetPublicID, datasetLineageGraphInputFromBody(input.Body), sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "updateDatasetLineageChangeSetGraph", err)
+		}
+		return &DatasetLineageChangeSetGraphOutput{Body: toDatasetLineageChangeSetGraphBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "publishDatasetLineageChangeSet",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/lineage/change-sets/{changeSetPublicId}/publish",
+		Summary:     "lineage change set draft を publish する",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetLineageChangeSetMutateInput) (*DatasetLineageChangeSetOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := requireTenantAdmin(ctx, deps, input.SessionCookie.Value, ""); err != nil {
+			return nil, err
+		}
+		item, err := deps.DatasetService.PublishLineageChangeSet(ctx, tenant.ID, current.User.ID, input.ChangeSetPublicID, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "publishDatasetLineageChangeSet", err)
+		}
+		return &DatasetLineageChangeSetOutput{Body: toDatasetLineageChangeSetBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "rejectDatasetLineageChangeSet",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/lineage/change-sets/{changeSetPublicId}/reject",
+		Summary:     "lineage change set draft を reject する",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetLineageChangeSetMutateInput) (*DatasetLineageChangeSetOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := requireTenantAdmin(ctx, deps, input.SessionCookie.Value, ""); err != nil {
+			return nil, err
+		}
+		item, err := deps.DatasetService.RejectLineageChangeSet(ctx, tenant.ID, current.User.ID, input.ChangeSetPublicID, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "rejectDatasetLineageChangeSet", err)
+		}
+		return &DatasetLineageChangeSetOutput{Body: toDatasetLineageChangeSetBody(item)}, nil
+	})
 }
 
 func requireDatasetTenant(ctx context.Context, deps Dependencies, sessionID, csrfToken string) (service.CurrentSession, service.TenantAccess, error) {
@@ -1380,6 +1879,189 @@ func toDatasetWorkTablePreviewBody(item service.DatasetWorkTablePreview) Dataset
 		Columns:     item.Columns,
 		PreviewRows: item.PreviewRows,
 	}
+}
+
+func toDatasetLineageBody(item service.DatasetLineageGraph) DatasetLineageBody {
+	body := DatasetLineageBody{
+		Root:     toDatasetLineageNodeBody(item.Root),
+		Nodes:    make([]DatasetLineageNodeBody, 0, len(item.Nodes)),
+		Edges:    make([]DatasetLineageEdgeBody, 0, len(item.Edges)),
+		Timeline: make([]DatasetLineageTimelineItemBody, 0, len(item.Timeline)),
+	}
+	for _, node := range item.Nodes {
+		body.Nodes = append(body.Nodes, toDatasetLineageNodeBody(node))
+	}
+	for _, edge := range item.Edges {
+		body.Edges = append(body.Edges, DatasetLineageEdgeBody{
+			ID:           edge.ID,
+			SourceNodeID: edge.SourceNodeID,
+			TargetNodeID: edge.TargetNodeID,
+			RelationType: edge.RelationType,
+			Confidence:   edge.Confidence,
+			SourceKind:   edge.SourceKind,
+			Label:        edge.Label,
+			Description:  edge.Description,
+			Expression:   edge.Expression,
+			Editable:     edge.Editable,
+			CreatedAt:    edge.CreatedAt,
+		})
+	}
+	for _, entry := range item.Timeline {
+		body.Timeline = append(body.Timeline, DatasetLineageTimelineItemBody{
+			ID:           entry.ID,
+			NodeID:       entry.NodeID,
+			ResourceType: entry.ResourceType,
+			PublicID:     entry.PublicID,
+			RelationType: entry.RelationType,
+			Status:       entry.Status,
+			OccurredAt:   entry.OccurredAt,
+			Metadata:     entry.Metadata,
+		})
+	}
+	return body
+}
+
+func toDatasetLineageNodeBody(item service.DatasetLineageNode) DatasetLineageNodeBody {
+	return DatasetLineageNodeBody{
+		ID:           item.ID,
+		ResourceType: item.ResourceType,
+		PublicID:     item.PublicID,
+		DisplayName:  item.DisplayName,
+		Status:       item.Status,
+		NodeKind:     item.NodeKind,
+		SourceKind:   item.SourceKind,
+		ColumnName:   item.ColumnName,
+		Description:  item.Description,
+		Editable:     item.Editable,
+		Position:     toDatasetLineagePositionBody(item.Position),
+		CreatedAt:    item.CreatedAt,
+		UpdatedAt:    item.UpdatedAt,
+		Metadata:     item.Metadata,
+	}
+}
+
+func toDatasetLineagePositionBody(item *service.DatasetLineagePosition) *DatasetLineagePositionBody {
+	if item == nil {
+		return nil
+	}
+	return &DatasetLineagePositionBody{X: item.X, Y: item.Y}
+}
+
+func toDatasetLineageChangeSetBody(item service.DatasetLineageChangeSet) DatasetLineageChangeSetBody {
+	return DatasetLineageChangeSetBody{
+		PublicID:             item.PublicID,
+		QueryJobPublicID:     item.QueryJobPublicID,
+		RootResourceType:     item.RootResourceType,
+		RootResourcePublicID: item.RootResourcePublicID,
+		SourceKind:           item.SourceKind,
+		Status:               item.Status,
+		Title:                item.Title,
+		Description:          item.Description,
+		CreatedAt:            item.CreatedAt,
+		UpdatedAt:            item.UpdatedAt,
+		PublishedAt:          item.PublishedAt,
+		RejectedAt:           item.RejectedAt,
+		ArchivedAt:           item.ArchivedAt,
+	}
+}
+
+func toDatasetLineageChangeSetGraphBody(item service.DatasetLineageChangeSetWithGraph) DatasetLineageChangeSetGraphBody {
+	body := DatasetLineageChangeSetGraphBody{
+		ChangeSet: toDatasetLineageChangeSetBody(item.ChangeSet),
+		Nodes:     make([]DatasetLineageNodeBody, 0, len(item.Nodes)),
+		Edges:     make([]DatasetLineageEdgeBody, 0, len(item.Edges)),
+	}
+	for _, node := range item.Nodes {
+		body.Nodes = append(body.Nodes, toDatasetLineageNodeBody(node))
+	}
+	for _, edge := range item.Edges {
+		body.Edges = append(body.Edges, DatasetLineageEdgeBody{
+			ID:           edge.ID,
+			SourceNodeID: edge.SourceNodeID,
+			TargetNodeID: edge.TargetNodeID,
+			RelationType: edge.RelationType,
+			Confidence:   edge.Confidence,
+			SourceKind:   edge.SourceKind,
+			Label:        edge.Label,
+			Description:  edge.Description,
+			Expression:   edge.Expression,
+			Editable:     edge.Editable,
+			CreatedAt:    edge.CreatedAt,
+		})
+	}
+	return body
+}
+
+func toDatasetLineageParseRunBody(item service.DatasetLineageParseRun) DatasetLineageParseRunBody {
+	return DatasetLineageParseRunBody{
+		PublicID:          item.PublicID,
+		QueryJobPublicID:  item.QueryJobPublicID,
+		ChangeSetPublicID: item.ChangeSetPublicID,
+		Status:            item.Status,
+		TableRefCount:     item.TableRefCount,
+		ColumnEdgeCount:   item.ColumnEdgeCount,
+		ErrorSummary:      item.ErrorSummary,
+		CreatedAt:         item.CreatedAt,
+		CompletedAt:       item.CompletedAt,
+	}
+}
+
+func datasetLineageGraphInputFromBody(body DatasetLineageGraphSaveBody) service.DatasetLineageGraphInput {
+	out := service.DatasetLineageGraphInput{
+		Nodes: make([]service.DatasetLineageNodeInput, 0, len(body.Nodes)),
+		Edges: make([]service.DatasetLineageEdgeInput, 0, len(body.Edges)),
+	}
+	for _, node := range body.Nodes {
+		out.Nodes = append(out.Nodes, service.DatasetLineageNodeInput{
+			ID:           node.ID,
+			ResourceType: node.ResourceType,
+			PublicID:     node.PublicID,
+			DisplayName:  node.DisplayName,
+			NodeKind:     node.NodeKind,
+			SourceKind:   node.SourceKind,
+			ColumnName:   node.ColumnName,
+			Description:  node.Description,
+			Position:     datasetLineagePositionFromBody(node.Position),
+			Metadata:     node.Metadata,
+		})
+	}
+	for _, edge := range body.Edges {
+		out.Edges = append(out.Edges, service.DatasetLineageEdgeInput{
+			ID:           edge.ID,
+			SourceNodeID: edge.SourceNodeID,
+			TargetNodeID: edge.TargetNodeID,
+			RelationType: edge.RelationType,
+			Confidence:   edge.Confidence,
+			SourceKind:   edge.SourceKind,
+			Label:        edge.Label,
+			Description:  edge.Description,
+			Expression:   edge.Expression,
+			Metadata:     edge.Metadata,
+		})
+	}
+	return out
+}
+
+func datasetLineagePositionFromBody(body *DatasetLineagePositionBody) *service.DatasetLineagePosition {
+	if body == nil {
+		return nil
+	}
+	return &service.DatasetLineagePosition{X: body.X, Y: body.Y}
+}
+
+func datasetLineageSourcesFromQuery(value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func toDatasetSyncJobBody(item service.DatasetSyncJob) DatasetSyncJobBody {

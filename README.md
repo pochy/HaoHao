@@ -7,6 +7,7 @@ OpenAPI 3.1 優先 + Monorepo + 単一バイナリ配信を基本方針とした
 - [設計方針](CONCEPT.md)
 - [実装状況](IMPL.md)
 - [調査レポート](deep-research-report.md)
+- [データ依存グラフ / Lineage](docs/DATA_LINEAGE_DEPENDENCY_GRAPH.md)
 
 ## チュートリアル手順
 

@@ -1339,6 +1339,238 @@ code {
   min-width: 900px;
 }
 
+.lineage-compact-graph,
+.lineage-timeline,
+.lineage-flow-panel {
+  min-width: 0;
+}
+
+.lineage-control-bar,
+.lineage-view-tabs,
+.lineage-flow-toolbar,
+.lineage-flow-actions,
+.lineage-flow-toolbar-copy,
+.lineage-source-controls,
+.lineage-review-strip,
+.lineage-edge-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.lineage-control-bar {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+
+.lineage-source-option {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.lineage-view-tabs {
+  width: fit-content;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+
+.lineage-view-tabs button {
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.lineage-view-tabs button.active {
+  background: #fff;
+  color: var(--text-strong);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.lineage-flow-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.lineage-flow-toolbar {
+  justify-content: space-between;
+}
+
+.lineage-flow-toolbar-copy {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.lineage-flow-canvas {
+  height: 430px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.lineage-flow-node {
+  max-width: 210px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-strong);
+  font-size: 0.8rem;
+  white-space: pre-line;
+}
+
+.lineage-flow-node-column {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.lineage-flow-node-custom {
+  border-color: #c4b5fd;
+  background: #f5f3ff;
+}
+
+.lineage-flow-source-parser {
+  border-style: dashed;
+}
+
+.lineage-flow-source-manual {
+  border-color: #f59e0b;
+}
+
+.lineage-flow-edge.locked {
+  opacity: 0.65;
+}
+
+.lineage-edge-editor {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.lineage-edge-list,
+.lineage-timeline-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lineage-edge-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, auto) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.lineage-node {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.lineage-node strong,
+.lineage-node small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineage-node strong {
+  color: var(--text-strong);
+}
+
+.lineage-node small,
+.lineage-edge-mid small,
+.lineage-timeline-row small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.lineage-node-link:hover {
+  color: var(--accent-strong);
+}
+
+.lineage-edge-mid {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.lineage-timeline-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.lineage-timeline-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lineage-timeline-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.lineage-timeline-title strong,
+.lineage-inline-link {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineage-inline-link {
+  text-decoration: none;
+}
+
+.lineage-inline-link:hover {
+  color: var(--accent-strong);
+}
+
+.compact-empty-state {
+  padding: 12px;
+}
+
 .inline-action-link {
   display: inline-flex;
   text-decoration: none;
@@ -3406,8 +3638,13 @@ code {
   .dataset-row,
   .dataset-query-row,
   .dataset-work-table-layout,
-  .dataset-metadata-grid {
+  .dataset-metadata-grid,
+  .lineage-edge-row {
     grid-template-columns: 1fr;
+  }
+
+  .lineage-edge-mid {
+    justify-content: flex-start;
   }
 
   .drive-grid {

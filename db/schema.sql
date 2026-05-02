@@ -273,6 +273,176 @@ ALTER TABLE public.dataset_import_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS I
 
 
 --
+-- Name: dataset_lineage_change_sets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_lineage_change_sets (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    query_job_id bigint,
+    root_resource_type text NOT NULL,
+    root_resource_public_id uuid,
+    source_kind text NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    title text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    created_by_user_id bigint,
+    published_by_user_id bigint,
+    rejected_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    published_at timestamp with time zone,
+    rejected_at timestamp with time zone,
+    archived_at timestamp with time zone,
+    CONSTRAINT dataset_lineage_change_sets_root_resource_type_check CHECK ((btrim(root_resource_type) <> ''::text)),
+    CONSTRAINT dataset_lineage_change_sets_source_kind_check CHECK ((source_kind = ANY (ARRAY['parser'::text, 'manual'::text]))),
+    CONSTRAINT dataset_lineage_change_sets_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'rejected'::text, 'archived'::text]))),
+    CONSTRAINT dataset_lineage_change_sets_title_check CHECK ((btrim(title) <> ''::text))
+);
+
+
+--
+-- Name: dataset_lineage_change_sets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_lineage_change_sets ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_lineage_change_sets_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: dataset_lineage_edges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_lineage_edges (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    change_set_id bigint NOT NULL,
+    edge_key text NOT NULL,
+    source_node_key text NOT NULL,
+    target_node_key text NOT NULL,
+    relation_type text NOT NULL,
+    source_kind text NOT NULL,
+    confidence text NOT NULL,
+    label text DEFAULT ''::text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    expression text DEFAULT ''::text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT dataset_lineage_edges_confidence_check CHECK ((confidence = ANY (ARRAY['parser_exact'::text, 'parser_partial'::text, 'manual'::text]))),
+    CONSTRAINT dataset_lineage_edges_edge_key_check CHECK ((btrim(edge_key) <> ''::text)),
+    CONSTRAINT dataset_lineage_edges_no_self_loop_check CHECK ((source_node_key <> target_node_key)),
+    CONSTRAINT dataset_lineage_edges_relation_type_check CHECK ((btrim(relation_type) <> ''::text)),
+    CONSTRAINT dataset_lineage_edges_source_kind_check CHECK ((source_kind = ANY (ARRAY['parser'::text, 'manual'::text])))
+);
+
+
+--
+-- Name: dataset_lineage_edges_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_lineage_edges ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_lineage_edges_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: dataset_lineage_nodes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_lineage_nodes (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    change_set_id bigint NOT NULL,
+    node_key text NOT NULL,
+    node_kind text NOT NULL,
+    source_kind text NOT NULL,
+    resource_type text NOT NULL,
+    resource_public_id uuid,
+    parent_node_key text,
+    column_name text,
+    label text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    position_x double precision,
+    position_y double precision,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT dataset_lineage_nodes_label_check CHECK ((btrim(label) <> ''::text)),
+    CONSTRAINT dataset_lineage_nodes_node_key_check CHECK ((btrim(node_key) <> ''::text)),
+    CONSTRAINT dataset_lineage_nodes_node_kind_check CHECK ((node_kind = ANY (ARRAY['resource'::text, 'column'::text, 'custom'::text]))),
+    CONSTRAINT dataset_lineage_nodes_resource_shape_check CHECK ((((node_kind = 'resource'::text) AND (resource_public_id IS NOT NULL)) OR ((node_kind = 'column'::text) AND (column_name IS NOT NULL) AND (btrim(column_name) <> ''::text)) OR ((node_kind = 'custom'::text) AND (resource_public_id IS NULL)))),
+    CONSTRAINT dataset_lineage_nodes_resource_type_check CHECK ((btrim(resource_type) <> ''::text)),
+    CONSTRAINT dataset_lineage_nodes_source_kind_check CHECK ((source_kind = ANY (ARRAY['parser'::text, 'manual'::text])))
+);
+
+
+--
+-- Name: dataset_lineage_nodes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_lineage_nodes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_lineage_nodes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: dataset_lineage_parse_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_lineage_parse_runs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    query_job_id bigint NOT NULL,
+    change_set_id bigint,
+    requested_by_user_id bigint,
+    status text DEFAULT 'processing'::text NOT NULL,
+    table_ref_count integer DEFAULT 0 NOT NULL,
+    column_edge_count integer DEFAULT 0 NOT NULL,
+    error_summary text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    CONSTRAINT dataset_lineage_parse_runs_column_edge_count_check CHECK ((column_edge_count >= 0)),
+    CONSTRAINT dataset_lineage_parse_runs_status_check CHECK ((status = ANY (ARRAY['processing'::text, 'completed'::text, 'failed'::text]))),
+    CONSTRAINT dataset_lineage_parse_runs_table_ref_count_check CHECK ((table_ref_count >= 0))
+);
+
+
+--
+-- Name: dataset_lineage_parse_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_lineage_parse_runs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_lineage_parse_runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: dataset_query_jobs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4151,6 +4321,86 @@ ALTER TABLE ONLY public.dataset_import_jobs
 
 
 --
+-- Name: dataset_lineage_change_sets dataset_lineage_change_sets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_change_sets
+    ADD CONSTRAINT dataset_lineage_change_sets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_lineage_change_sets dataset_lineage_change_sets_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_change_sets
+    ADD CONSTRAINT dataset_lineage_change_sets_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: dataset_lineage_edges dataset_lineage_edges_change_set_edge_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_edges
+    ADD CONSTRAINT dataset_lineage_edges_change_set_edge_key_key UNIQUE (change_set_id, edge_key);
+
+
+--
+-- Name: dataset_lineage_edges dataset_lineage_edges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_edges
+    ADD CONSTRAINT dataset_lineage_edges_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_lineage_edges dataset_lineage_edges_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_edges
+    ADD CONSTRAINT dataset_lineage_edges_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: dataset_lineage_nodes dataset_lineage_nodes_change_set_node_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_nodes
+    ADD CONSTRAINT dataset_lineage_nodes_change_set_node_key_key UNIQUE (change_set_id, node_key);
+
+
+--
+-- Name: dataset_lineage_nodes dataset_lineage_nodes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_nodes
+    ADD CONSTRAINT dataset_lineage_nodes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_lineage_nodes dataset_lineage_nodes_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_nodes
+    ADD CONSTRAINT dataset_lineage_nodes_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: dataset_lineage_parse_runs dataset_lineage_parse_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_parse_runs
+    ADD CONSTRAINT dataset_lineage_parse_runs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_lineage_parse_runs dataset_lineage_parse_runs_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_parse_runs
+    ADD CONSTRAINT dataset_lineage_parse_runs_public_id_key UNIQUE (public_id);
+
+
+--
 -- Name: dataset_query_jobs dataset_query_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5303,6 +5553,48 @@ CREATE INDEX dataset_import_jobs_tenant_created_idx ON public.dataset_import_job
 
 
 --
+-- Name: dataset_lineage_change_sets_root_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_lineage_change_sets_root_idx ON public.dataset_lineage_change_sets USING btree (tenant_id, root_resource_type, root_resource_public_id, status, updated_at DESC, id DESC);
+
+
+--
+-- Name: dataset_lineage_change_sets_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_lineage_change_sets_tenant_status_idx ON public.dataset_lineage_change_sets USING btree (tenant_id, status, updated_at DESC, id DESC);
+
+
+--
+-- Name: dataset_lineage_edges_change_set_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_lineage_edges_change_set_idx ON public.dataset_lineage_edges USING btree (change_set_id, id);
+
+
+--
+-- Name: dataset_lineage_nodes_change_set_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_lineage_nodes_change_set_idx ON public.dataset_lineage_nodes USING btree (change_set_id, id);
+
+
+--
+-- Name: dataset_lineage_nodes_resource_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_lineage_nodes_resource_idx ON public.dataset_lineage_nodes USING btree (tenant_id, resource_type, resource_public_id) WHERE (resource_public_id IS NOT NULL);
+
+
+--
+-- Name: dataset_lineage_parse_runs_query_job_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_lineage_parse_runs_query_job_idx ON public.dataset_lineage_parse_runs USING btree (tenant_id, query_job_id, created_at DESC, id DESC);
+
+
+--
 -- Name: dataset_query_jobs_public_id_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5335,6 +5627,13 @@ CREATE UNIQUE INDEX dataset_sync_jobs_active_dataset_key ON public.dataset_sync_
 --
 
 CREATE INDEX dataset_sync_jobs_dataset_created_idx ON public.dataset_sync_jobs USING btree (dataset_id, created_at DESC, id DESC);
+
+
+--
+-- Name: dataset_sync_jobs_source_work_table_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_sync_jobs_source_work_table_created_idx ON public.dataset_sync_jobs USING btree (source_work_table_id, created_at DESC, id DESC);
 
 
 --
@@ -5412,6 +5711,13 @@ CREATE UNIQUE INDEX dataset_work_tables_public_id_key ON public.dataset_work_tab
 --
 
 CREATE INDEX dataset_work_tables_tenant_dataset_idx ON public.dataset_work_tables USING btree (tenant_id, source_dataset_id, updated_at DESC, id DESC) WHERE (source_dataset_id IS NOT NULL);
+
+
+--
+-- Name: dataset_work_tables_tenant_query_job_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_work_tables_tenant_query_job_idx ON public.dataset_work_tables USING btree (tenant_id, created_from_query_job_id, updated_at DESC, id DESC) WHERE (created_from_query_job_id IS NOT NULL);
 
 
 --
@@ -6802,6 +7108,126 @@ ALTER TABLE ONLY public.dataset_import_jobs
 
 ALTER TABLE ONLY public.dataset_import_jobs
     ADD CONSTRAINT dataset_import_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_lineage_change_sets dataset_lineage_change_sets_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_change_sets
+    ADD CONSTRAINT dataset_lineage_change_sets_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_lineage_change_sets dataset_lineage_change_sets_published_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_change_sets
+    ADD CONSTRAINT dataset_lineage_change_sets_published_by_user_id_fkey FOREIGN KEY (published_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_lineage_change_sets dataset_lineage_change_sets_query_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_change_sets
+    ADD CONSTRAINT dataset_lineage_change_sets_query_job_id_fkey FOREIGN KEY (query_job_id) REFERENCES public.dataset_query_jobs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_lineage_change_sets dataset_lineage_change_sets_rejected_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_change_sets
+    ADD CONSTRAINT dataset_lineage_change_sets_rejected_by_user_id_fkey FOREIGN KEY (rejected_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_lineage_change_sets dataset_lineage_change_sets_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_change_sets
+    ADD CONSTRAINT dataset_lineage_change_sets_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_lineage_edges dataset_lineage_edges_change_set_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_edges
+    ADD CONSTRAINT dataset_lineage_edges_change_set_id_fkey FOREIGN KEY (change_set_id) REFERENCES public.dataset_lineage_change_sets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_lineage_edges dataset_lineage_edges_source_node_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_edges
+    ADD CONSTRAINT dataset_lineage_edges_source_node_fkey FOREIGN KEY (change_set_id, source_node_key) REFERENCES public.dataset_lineage_nodes(change_set_id, node_key) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_lineage_edges dataset_lineage_edges_target_node_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_edges
+    ADD CONSTRAINT dataset_lineage_edges_target_node_fkey FOREIGN KEY (change_set_id, target_node_key) REFERENCES public.dataset_lineage_nodes(change_set_id, node_key) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_lineage_edges dataset_lineage_edges_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_edges
+    ADD CONSTRAINT dataset_lineage_edges_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_lineage_nodes dataset_lineage_nodes_change_set_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_nodes
+    ADD CONSTRAINT dataset_lineage_nodes_change_set_id_fkey FOREIGN KEY (change_set_id) REFERENCES public.dataset_lineage_change_sets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_lineage_nodes dataset_lineage_nodes_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_nodes
+    ADD CONSTRAINT dataset_lineage_nodes_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_lineage_parse_runs dataset_lineage_parse_runs_change_set_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_parse_runs
+    ADD CONSTRAINT dataset_lineage_parse_runs_change_set_id_fkey FOREIGN KEY (change_set_id) REFERENCES public.dataset_lineage_change_sets(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_lineage_parse_runs dataset_lineage_parse_runs_query_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_parse_runs
+    ADD CONSTRAINT dataset_lineage_parse_runs_query_job_id_fkey FOREIGN KEY (query_job_id) REFERENCES public.dataset_query_jobs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_lineage_parse_runs dataset_lineage_parse_runs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_parse_runs
+    ADD CONSTRAINT dataset_lineage_parse_runs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_lineage_parse_runs dataset_lineage_parse_runs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_lineage_parse_runs
+    ADD CONSTRAINT dataset_lineage_parse_runs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --

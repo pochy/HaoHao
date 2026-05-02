@@ -449,6 +449,280 @@ export type DatasetImportJobBody = {
     validRows: number;
 };
 
+export type DatasetLineageBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    edges: Array<DatasetLineageEdgeBody> | null;
+    nodes: Array<DatasetLineageNodeBody> | null;
+    root: DatasetLineageNodeBody;
+    timeline: Array<DatasetLineageTimelineItemBody> | null;
+};
+
+export type DatasetLineageChangeSetBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    archivedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    /**
+     * resource の説明文です。
+     */
+    description: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    publishedAt?: string;
+    queryJobPublicId?: string;
+    rejectedAt?: string;
+    rootResourcePublicId?: string;
+    rootResourceType: string;
+    sourceKind: 'parser' | 'manual';
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'draft' | 'published' | 'rejected' | 'archived';
+    title: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DatasetLineageChangeSetCreateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    rootResourcePublicId?: string;
+    rootResourceType?: string;
+    sourceKind?: 'manual' | 'parser';
+    title?: string;
+};
+
+export type DatasetLineageChangeSetGraphBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    changeSet: DatasetLineageChangeSetBody;
+    edges: Array<DatasetLineageEdgeBody> | null;
+    nodes: Array<DatasetLineageNodeBody> | null;
+};
+
+export type DatasetLineageChangeSetListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetLineageChangeSetBody> | null;
+};
+
+export type DatasetLineageEdgeBody = {
+    confidence: 'metadata' | 'parser_exact' | 'parser_partial' | 'manual';
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt?: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    editable: boolean;
+    expression?: string;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
+    id: string;
+    label?: string;
+    relationType: 'query_input' | 'query_created_work_table' | 'source_dataset' | 'promoted_dataset' | 'work_table_export' | 'export_schedule' | 'scheduled_export_run' | 'dataset_sync_source' | 'dataset_sync_target' | 'column_derives' | 'manual_dependency';
+    sourceKind?: 'metadata' | 'parser' | 'manual';
+    sourceNodeId: string;
+    targetNodeId: string;
+};
+
+export type DatasetLineageEdgeWriteBody = {
+    confidence?: 'parser_exact' | 'parser_partial' | 'manual';
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    expression?: string;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
+    id?: string;
+    label?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    relationType?: string;
+    sourceKind?: 'parser' | 'manual';
+    sourceNodeId: string;
+    targetNodeId: string;
+};
+
+export type DatasetLineageGraphSaveBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    edges: Array<DatasetLineageEdgeWriteBody> | null;
+    nodes: Array<DatasetLineageNodeWriteBody> | null;
+};
+
+export type DatasetLineageNodeBody = {
+    columnName?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt?: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    displayName: string;
+    editable: boolean;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
+    id: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    nodeKind?: 'resource' | 'column' | 'custom';
+    position?: DatasetLineagePositionBody;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId?: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
+    resourceType: 'dataset' | 'dataset_query_job' | 'dataset_work_table' | 'dataset_work_table_export' | 'dataset_work_table_export_schedule' | 'dataset_sync_job' | 'custom';
+    sourceKind?: 'metadata' | 'parser' | 'manual';
+    /**
+     * 現在の lifecycle status です。
+     */
+    status?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt?: string;
+};
+
+export type DatasetLineageNodeWriteBody = {
+    columnName?: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    displayName?: string;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
+    id: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    nodeKind?: 'resource' | 'column' | 'custom';
+    position?: DatasetLineagePositionBody;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId?: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
+    resourceType?: string;
+    sourceKind?: 'parser' | 'manual';
+};
+
+export type DatasetLineageParseRunBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    changeSetPublicId?: string;
+    columnEdgeCount: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSummary?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    queryJobPublicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'processing' | 'completed' | 'failed';
+    tableRefCount: number;
+};
+
+export type DatasetLineageParseRunListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetLineageParseRunBody> | null;
+};
+
+export type DatasetLineagePositionBody = {
+    x: number;
+    y: number;
+};
+
+export type DatasetLineageTimelineItemBody = {
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
+    id: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    nodeId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    occurredAt?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId?: string;
+    relationType: 'query_input' | 'query_created_work_table' | 'source_dataset' | 'promoted_dataset' | 'work_table_export' | 'export_schedule' | 'scheduled_export_run' | 'dataset_sync_source' | 'dataset_sync_target';
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
+    resourceType: 'dataset' | 'dataset_query_job' | 'dataset_work_table' | 'dataset_work_table_export' | 'dataset_work_table_export_schedule' | 'dataset_sync_job';
+    /**
+     * 現在の lifecycle status です。
+     */
+    status?: string;
+};
+
 export type DatasetListBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -3743,6 +4017,98 @@ export type DatasetCreateBodyWritable = {
      * 画面表示や検索で使う名前です。
      */
     name?: string;
+};
+
+export type DatasetLineageBodyWritable = {
+    edges: Array<DatasetLineageEdgeBody> | null;
+    nodes: Array<DatasetLineageNodeBody> | null;
+    root: DatasetLineageNodeBody;
+    timeline: Array<DatasetLineageTimelineItemBody> | null;
+};
+
+export type DatasetLineageChangeSetBodyWritable = {
+    archivedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    /**
+     * resource の説明文です。
+     */
+    description: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    publishedAt?: string;
+    queryJobPublicId?: string;
+    rejectedAt?: string;
+    rootResourcePublicId?: string;
+    rootResourceType: string;
+    sourceKind: 'parser' | 'manual';
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'draft' | 'published' | 'rejected' | 'archived';
+    title: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DatasetLineageChangeSetCreateBodyWritable = {
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    rootResourcePublicId?: string;
+    rootResourceType?: string;
+    sourceKind?: 'manual' | 'parser';
+    title?: string;
+};
+
+export type DatasetLineageChangeSetGraphBodyWritable = {
+    changeSet: DatasetLineageChangeSetBodyWritable;
+    edges: Array<DatasetLineageEdgeBody> | null;
+    nodes: Array<DatasetLineageNodeBody> | null;
+};
+
+export type DatasetLineageChangeSetListBodyWritable = {
+    items: Array<DatasetLineageChangeSetBodyWritable> | null;
+};
+
+export type DatasetLineageGraphSaveBodyWritable = {
+    edges: Array<DatasetLineageEdgeWriteBody> | null;
+    nodes: Array<DatasetLineageNodeWriteBody> | null;
+};
+
+export type DatasetLineageParseRunBodyWritable = {
+    changeSetPublicId?: string;
+    columnEdgeCount: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSummary?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    queryJobPublicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'processing' | 'completed' | 'failed';
+    tableRefCount: number;
+};
+
+export type DatasetLineageParseRunListBodyWritable = {
+    items: Array<DatasetLineageParseRunBodyWritable> | null;
 };
 
 export type DatasetListBodyWritable = {
@@ -8850,6 +9216,140 @@ export type GetDatasetQueryJobResponses = {
 
 export type GetDatasetQueryJobResponse = GetDatasetQueryJobResponses[keyof GetDatasetQueryJobResponses];
 
+export type GetDatasetQueryJobLineageData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `queryJobPublicId` を指定します。
+         */
+        queryJobPublicId: string;
+    };
+    query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `direction` です。
+         */
+        direction?: 'upstream' | 'downstream' | 'both';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `depth` です。
+         */
+        depth?: number;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `includeHistory` です。
+         */
+        includeHistory?: boolean;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `level` です。
+         */
+        level?: 'table' | 'column' | 'both';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `sources` です。
+         */
+        sources?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `includeDraft` です。
+         */
+        includeDraft?: boolean;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `changeSetPublicId` です。
+         */
+        changeSetPublicId?: string;
+    };
+    url: '/api/v1/dataset-query-jobs/{queryJobPublicId}/lineage';
+};
+
+export type GetDatasetQueryJobLineageErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetDatasetQueryJobLineageError = GetDatasetQueryJobLineageErrors[keyof GetDatasetQueryJobLineageErrors];
+
+export type GetDatasetQueryJobLineageResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageBody;
+};
+
+export type GetDatasetQueryJobLineageResponse = GetDatasetQueryJobLineageResponses[keyof GetDatasetQueryJobLineageResponses];
+
+export type ParseDatasetQueryJobLineageData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `queryJobPublicId` を指定します。
+         */
+        queryJobPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-query-jobs/{queryJobPublicId}/lineage/parse';
+};
+
+export type ParseDatasetQueryJobLineageErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ParseDatasetQueryJobLineageError = ParseDatasetQueryJobLineageErrors[keyof ParseDatasetQueryJobLineageErrors];
+
+export type ParseDatasetQueryJobLineageResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageParseRunBody;
+};
+
+export type ParseDatasetQueryJobLineageResponse = ParseDatasetQueryJobLineageResponses[keyof ParseDatasetQueryJobLineageResponses];
+
+export type ListDatasetQueryJobLineageParseRunsData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `queryJobPublicId` を指定します。
+         */
+        queryJobPublicId: string;
+    };
+    query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/dataset-query-jobs/{queryJobPublicId}/lineage/parse-runs';
+};
+
+export type ListDatasetQueryJobLineageParseRunsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetQueryJobLineageParseRunsError = ListDatasetQueryJobLineageParseRunsErrors[keyof ListDatasetQueryJobLineageParseRunsErrors];
+
+export type ListDatasetQueryJobLineageParseRunsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageParseRunListBody;
+};
+
+export type ListDatasetQueryJobLineageParseRunsResponse = ListDatasetQueryJobLineageParseRunsResponses[keyof ListDatasetQueryJobLineageParseRunsResponses];
+
 export type ListDatasetSourceFilesData = {
     body?: never;
     path?: never;
@@ -9365,6 +9865,69 @@ export type CreateDatasetWorkTableExportResponses = {
 
 export type CreateDatasetWorkTableExportResponse = CreateDatasetWorkTableExportResponses[keyof CreateDatasetWorkTableExportResponses];
 
+export type GetDatasetWorkTableLineageData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
+        workTablePublicId: string;
+    };
+    query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `direction` です。
+         */
+        direction?: 'upstream' | 'downstream' | 'both';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `depth` です。
+         */
+        depth?: number;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `includeHistory` です。
+         */
+        includeHistory?: boolean;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `level` です。
+         */
+        level?: 'table' | 'column' | 'both';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `sources` です。
+         */
+        sources?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `includeDraft` です。
+         */
+        includeDraft?: boolean;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `changeSetPublicId` です。
+         */
+        changeSetPublicId?: string;
+    };
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/lineage';
+};
+
+export type GetDatasetWorkTableLineageErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetDatasetWorkTableLineageError = GetDatasetWorkTableLineageErrors[keyof GetDatasetWorkTableLineageErrors];
+
+export type GetDatasetWorkTableLineageResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageBody;
+};
+
+export type GetDatasetWorkTableLineageResponse = GetDatasetWorkTableLineageResponses[keyof GetDatasetWorkTableLineageResponses];
+
 export type LinkDatasetWorkTableData = {
     /**
      * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
@@ -9682,6 +10245,69 @@ export type GetDatasetResponses = {
 };
 
 export type GetDatasetResponse = GetDatasetResponses[keyof GetDatasetResponses];
+
+export type GetDatasetLineageData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `datasetPublicId` を指定します。
+         */
+        datasetPublicId: string;
+    };
+    query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `direction` です。
+         */
+        direction?: 'upstream' | 'downstream' | 'both';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `depth` です。
+         */
+        depth?: number;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `includeHistory` です。
+         */
+        includeHistory?: boolean;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `level` です。
+         */
+        level?: 'table' | 'column' | 'both';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `sources` です。
+         */
+        sources?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `includeDraft` です。
+         */
+        includeDraft?: boolean;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `changeSetPublicId` です。
+         */
+        changeSetPublicId?: string;
+    };
+    url: '/api/v1/datasets/{datasetPublicId}/lineage';
+};
+
+export type GetDatasetLineageErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetDatasetLineageError = GetDatasetLineageErrors[keyof GetDatasetLineageErrors];
+
+export type GetDatasetLineageResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageBody;
+};
+
+export type GetDatasetLineageResponse = GetDatasetLineageResponses[keyof GetDatasetLineageResponses];
 
 export type ListDatasetScopedQueryJobsData = {
     body?: never;
@@ -13291,6 +13917,215 @@ export type AcceptTenantInvitationResponses = {
 };
 
 export type AcceptTenantInvitationResponse = AcceptTenantInvitationResponses[keyof AcceptTenantInvitationResponses];
+
+export type ListDatasetLineageChangeSetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `status` です。
+         */
+        status?: 'draft' | 'published' | 'rejected' | 'archived';
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/lineage/change-sets';
+};
+
+export type ListDatasetLineageChangeSetsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetLineageChangeSetsError = ListDatasetLineageChangeSetsErrors[keyof ListDatasetLineageChangeSetsErrors];
+
+export type ListDatasetLineageChangeSetsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageChangeSetListBody;
+};
+
+export type ListDatasetLineageChangeSetsResponse = ListDatasetLineageChangeSetsResponses[keyof ListDatasetLineageChangeSetsResponses];
+
+export type CreateDatasetLineageChangeSetData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DatasetLineageChangeSetCreateBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/lineage/change-sets';
+};
+
+export type CreateDatasetLineageChangeSetErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type CreateDatasetLineageChangeSetError = CreateDatasetLineageChangeSetErrors[keyof CreateDatasetLineageChangeSetErrors];
+
+export type CreateDatasetLineageChangeSetResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageChangeSetBody;
+};
+
+export type CreateDatasetLineageChangeSetResponse = CreateDatasetLineageChangeSetResponses[keyof CreateDatasetLineageChangeSetResponses];
+
+export type GetDatasetLineageChangeSetData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `changeSetPublicId` を指定します。
+         */
+        changeSetPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/lineage/change-sets/{changeSetPublicId}';
+};
+
+export type GetDatasetLineageChangeSetErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetDatasetLineageChangeSetError = GetDatasetLineageChangeSetErrors[keyof GetDatasetLineageChangeSetErrors];
+
+export type GetDatasetLineageChangeSetResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageChangeSetGraphBody;
+};
+
+export type GetDatasetLineageChangeSetResponse = GetDatasetLineageChangeSetResponses[keyof GetDatasetLineageChangeSetResponses];
+
+export type UpdateDatasetLineageChangeSetGraphData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DatasetLineageGraphSaveBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `changeSetPublicId` を指定します。
+         */
+        changeSetPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/lineage/change-sets/{changeSetPublicId}/graph';
+};
+
+export type UpdateDatasetLineageChangeSetGraphErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type UpdateDatasetLineageChangeSetGraphError = UpdateDatasetLineageChangeSetGraphErrors[keyof UpdateDatasetLineageChangeSetGraphErrors];
+
+export type UpdateDatasetLineageChangeSetGraphResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageChangeSetGraphBody;
+};
+
+export type UpdateDatasetLineageChangeSetGraphResponse = UpdateDatasetLineageChangeSetGraphResponses[keyof UpdateDatasetLineageChangeSetGraphResponses];
+
+export type PublishDatasetLineageChangeSetData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `changeSetPublicId` を指定します。
+         */
+        changeSetPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/lineage/change-sets/{changeSetPublicId}/publish';
+};
+
+export type PublishDatasetLineageChangeSetErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type PublishDatasetLineageChangeSetError = PublishDatasetLineageChangeSetErrors[keyof PublishDatasetLineageChangeSetErrors];
+
+export type PublishDatasetLineageChangeSetResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageChangeSetBody;
+};
+
+export type PublishDatasetLineageChangeSetResponse = PublishDatasetLineageChangeSetResponses[keyof PublishDatasetLineageChangeSetResponses];
+
+export type RejectDatasetLineageChangeSetData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `changeSetPublicId` を指定します。
+         */
+        changeSetPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/lineage/change-sets/{changeSetPublicId}/reject';
+};
+
+export type RejectDatasetLineageChangeSetErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type RejectDatasetLineageChangeSetError = RejectDatasetLineageChangeSetErrors[keyof RejectDatasetLineageChangeSetErrors];
+
+export type RejectDatasetLineageChangeSetResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetLineageChangeSetBody;
+};
+
+export type RejectDatasetLineageChangeSetResponse = RejectDatasetLineageChangeSetResponses[keyof RejectDatasetLineageChangeSetResponses];
 
 export type LoginData = {
     /**

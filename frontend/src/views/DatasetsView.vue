@@ -6,7 +6,7 @@ import { useI18n } from 'vue-i18n'
 
 import { toApiErrorMessage, toApiErrorRequestId } from '../api/client'
 import type { DatasetWorkTableExportFormat } from '../api/datasets'
-import type { DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable } from '../api/generated/types.gen'
+import type { DatasetLineageGraphSaveBodyWritable, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable } from '../api/generated/types.gen'
 import DatasetWorkTableBrowser from '../components/DatasetWorkTableBrowser.vue'
 import { useDatasetStore } from '../stores/datasets'
 import { useRealtimeStore } from '../stores/realtime'
@@ -25,6 +25,7 @@ let refreshTimer: number | undefined
 
 const selectedSourceFile = computed(() => datasetStore.selectedSourceFile)
 const requestErrorMessage = computed(() => actionErrorMessage.value || datasetStore.errorMessage)
+const canReviewLineage = computed(() => tenantStore.activeTenant?.roles?.includes('tenant_admin') ?? false)
 
 const activeTenantLabel = computed(() => (
   tenantStore.activeTenant
@@ -245,6 +246,43 @@ async function disableWorkTableExportSchedule(schedulePublicId: string) {
   }
 }
 
+async function setLineageLevel(level: 'table' | 'column' | 'both') {
+  datasetStore.setLineageLevel(level)
+  await datasetStore.loadSelectedWorkTableLineage()
+}
+
+async function toggleLineageSource(source: 'metadata' | 'parser' | 'manual') {
+  datasetStore.toggleLineageSource(source)
+  await datasetStore.loadSelectedWorkTableLineage()
+}
+
+async function saveWorkTableLineageDraft(body: DatasetLineageGraphSaveBodyWritable) {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.saveSelectedWorkTableLineageDraft(body)
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function publishLineageDraft() {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.publishSelectedLineageChangeSet()
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function rejectLineageDraft() {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.rejectSelectedLineageChangeSet()
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
 function formatActionError(error: unknown) {
   const message = toApiErrorMessage(error)
   const requestId = toApiErrorRequestId(error)
@@ -369,6 +407,14 @@ function formatActionError(error: unknown) {
       :preview="datasetStore.workTablePreview"
       :exports="datasetStore.workTableExports"
       :schedules="datasetStore.workTableExportSchedules"
+      :lineage="datasetStore.workTableLineage"
+      :lineage-loading="datasetStore.workTableLineageLoading"
+      :lineage-level="datasetStore.lineageLevel"
+      :lineage-sources="datasetStore.lineageSources"
+      :lineage-action-loading="datasetStore.lineageActionLoading"
+      :lineage-draft-source-kind="datasetStore.selectedLineageChangeSet?.changeSet.sourceKind ?? 'manual'"
+      :has-lineage-draft="Boolean(datasetStore.selectedLineageChangeSet)"
+      :can-publish-lineage="canReviewLineage"
       :loading="datasetStore.workTablesLoading"
       :preview-loading="datasetStore.workTablePreviewLoading"
       :action-loading="datasetStore.workTableActionLoading"
@@ -385,6 +431,12 @@ function formatActionError(error: unknown) {
       @create-schedule="createWorkTableExportSchedule"
       @update-schedule="updateWorkTableExportSchedule"
       @disable-schedule="disableWorkTableExportSchedule"
+      @refresh-lineage="datasetStore.loadSelectedWorkTableLineage"
+      @set-lineage-level="setLineageLevel"
+      @toggle-lineage-source="toggleLineageSource"
+      @save-lineage-draft="saveWorkTableLineageDraft"
+      @publish-lineage-draft="publishLineageDraft"
+      @reject-lineage-draft="rejectLineageDraft"
     />
   </div>
 </template>

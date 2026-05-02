@@ -5,13 +5,17 @@ import { Play, RefreshCw, RotateCw, Table2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { toApiErrorMessage, toApiErrorRequestId } from '../api/client'
-import type { DatasetQueryJobBody } from '../api/generated/types.gen'
+import type { DatasetLineageGraphSaveBodyWritable, DatasetQueryJobBody } from '../api/generated/types.gen'
 import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
+import LineageCompactGraph from '../components/LineageCompactGraph.vue'
+import LineageFlowGraph from '../components/LineageFlowGraph.vue'
+import LineageTimeline from '../components/LineageTimeline.vue'
 import { useDatasetStore } from '../stores/datasets'
 import { useRealtimeStore } from '../stores/realtime'
 import { useTenantStore } from '../stores/tenants'
 
 type DatasetTab = 'sql' | 'schema' | 'history'
+type LineageGraphTab = 'flow' | 'compact'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +29,8 @@ const actionErrorMessage = ref('')
 const deleteTargetPublicId = ref('')
 const syncConfirmOpen = ref(false)
 const activeDatasetTab = ref<DatasetTab>('sql')
+const activeLineageGraphTab = ref<LineageGraphTab>('flow')
+const lineageEditMode = ref(false)
 let refreshTimer: number | undefined
 
 const datasetPublicId = computed(() => {
@@ -54,6 +60,8 @@ const canRequestSync = computed(() => (
     && !datasetStore.hasActiveDatasetSync
     && !datasetStore.syncing
 ))
+const canReviewLineage = computed(() => tenantStore.activeTenant?.roles?.includes('tenant_admin') ?? false)
+const activeLineageDraftSource = computed(() => datasetStore.selectedLineageChangeSet?.changeSet.sourceKind ?? 'manual')
 
 const selectedTableName = computed(() => {
   const item = selectedDataset.value
@@ -108,7 +116,10 @@ watch(
         datasetStore.loadQueryJobs(publicId),
         datasetStore.loadLinkedWorkTables(publicId),
         datasetStore.loadDatasetSyncJobs(publicId),
+        datasetStore.loadDatasetLineage(publicId),
+        datasetStore.loadLineageChangeSets(),
       ])
+      await datasetStore.loadLatestQueryLineageParseRuns()
       fillSampleQuery()
     } catch (error) {
       actionErrorMessage.value = formatActionError(error)
@@ -149,6 +160,8 @@ async function refreshDatasetDetail() {
       datasetStore.loadQueryJobs(datasetPublicId.value),
       datasetStore.loadLinkedWorkTables(datasetPublicId.value),
       datasetStore.loadDatasetSyncJobs(datasetPublicId.value),
+      datasetStore.loadDatasetLineage(datasetPublicId.value),
+      datasetStore.loadLineageChangeSets(),
     ])
   } catch (error) {
     actionErrorMessage.value = formatActionError(error)
@@ -163,7 +176,75 @@ async function refreshDatasetSyncState() {
     await Promise.all([
       datasetStore.refreshSelected(),
       datasetStore.loadDatasetSyncJobs(datasetPublicId.value),
+      datasetStore.loadDatasetLineage(datasetPublicId.value),
     ])
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function refreshDatasetLineage() {
+  if (!datasetPublicId.value) {
+    return
+  }
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.loadDatasetLineage(datasetPublicId.value)
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function changeLineageLevel(event: Event) {
+  datasetStore.setLineageLevel((event.target as HTMLSelectElement).value as 'table' | 'column' | 'both')
+  await refreshDatasetLineage()
+}
+
+async function toggleLineageSource(source: 'metadata' | 'parser' | 'manual') {
+  datasetStore.toggleLineageSource(source)
+  await refreshDatasetLineage()
+}
+
+async function selectLineageDraft(event: Event) {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.selectLineageChangeSet((event.target as HTMLSelectElement).value)
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function saveDatasetLineageDraft(body: DatasetLineageGraphSaveBodyWritable) {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.saveDatasetLineageDraft(body)
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function publishLineageDraft() {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.publishSelectedLineageChangeSet()
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function rejectLineageDraft() {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.rejectSelectedLineageChangeSet()
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function parseLatestQueryLineage() {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.parseLatestQueryLineage()
   } catch (error) {
     actionErrorMessage.value = formatActionError(error)
   }
@@ -192,6 +273,7 @@ function requestSync() {
 
 function selectQueryJob(job: DatasetQueryJobBody) {
   datasetStore.latestQuery = job
+  datasetStore.loadLatestQueryLineageParseRuns()
 }
 
 async function confirmDelete() {
@@ -465,6 +547,102 @@ function formatActionError(error: unknown) {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section class="panel stack">
+          <div class="section-header">
+            <div>
+              <span class="status-pill">{{ t('datasets.lineage') }}</span>
+              <h2>{{ t('datasets.lineageGraph') }}</h2>
+              <span class="cell-subtle">{{ t('datasets.lineageMetadataConfidence') }}</span>
+            </div>
+            <button class="secondary-button compact-button" :disabled="datasetStore.datasetLineageLoading" type="button" @click="refreshDatasetLineage">
+              <RefreshCw :size="16" aria-hidden="true" />
+              {{ datasetStore.datasetLineageLoading ? t('common.loading') : t('common.refresh') }}
+            </button>
+          </div>
+
+          <div class="lineage-control-bar">
+            <label class="field compact-field">
+              <span class="field-label">{{ t('datasets.lineageLevel') }}</span>
+              <select class="field-input" :value="datasetStore.lineageLevel" @change="changeLineageLevel">
+                <option value="table">{{ t('datasets.lineageLevelTable') }}</option>
+                <option value="column">{{ t('datasets.lineageLevelColumn') }}</option>
+                <option value="both">{{ t('datasets.lineageLevelBoth') }}</option>
+              </select>
+            </label>
+            <div class="lineage-source-controls" :aria-label="t('datasets.lineageSources')">
+              <label v-for="source in ['metadata', 'parser', 'manual']" :key="source" class="lineage-source-option">
+                <input
+                  type="checkbox"
+                  :checked="datasetStore.lineageSources.includes(source as 'metadata' | 'parser' | 'manual')"
+                  @change="toggleLineageSource(source as 'metadata' | 'parser' | 'manual')"
+                >
+                <span>{{ t(`datasets.lineageSource.${source}`) }}</span>
+              </label>
+            </div>
+            <label class="field compact-field">
+              <span class="field-label">{{ t('datasets.lineageDraft') }}</span>
+              <select class="field-input" :value="datasetStore.selectedLineageChangeSet?.changeSet.publicId ?? ''" @change="selectLineageDraft">
+                <option value="">{{ t('datasets.lineagePublishedGraph') }}</option>
+                <option v-for="draft in datasetStore.lineageChangeSets" :key="draft.publicId" :value="draft.publicId">
+                  {{ draft.title }}
+                </option>
+              </select>
+            </label>
+            <button v-if="activeLineageGraphTab === 'flow'" class="secondary-button compact-button" type="button" :disabled="datasetStore.lineageActionLoading" @click="lineageEditMode = !lineageEditMode">
+              {{ lineageEditMode ? t('datasets.lineageViewMode') : t('datasets.lineageEditMode') }}
+            </button>
+            <button class="secondary-button compact-button" type="button" :disabled="!latestQuery?.publicId || datasetStore.lineageActionLoading" @click="parseLatestQueryLineage">
+              {{ t('datasets.lineageParseSql') }}
+            </button>
+          </div>
+
+          <div v-if="datasetStore.lineageParseRuns.length > 0" class="lineage-review-strip">
+            <span v-for="run in datasetStore.lineageParseRuns" :key="run.publicId" class="status-pill" :class="statusClass(run.status)">
+              {{ t('datasets.lineageParseRun') }}: {{ run.status }} / {{ run.tableRefCount }} tables / {{ run.columnEdgeCount }} columns
+            </span>
+          </div>
+
+          <p v-if="datasetStore.datasetLineageLoading">
+            {{ t('datasets.loadingLineage') }}
+          </p>
+          <template v-else>
+            <div class="lineage-view-tabs" role="tablist" :aria-label="t('datasets.lineageGraphView')">
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="activeLineageGraphTab === 'flow'"
+                :class="{ active: activeLineageGraphTab === 'flow' }"
+                @click="activeLineageGraphTab = 'flow'"
+              >
+                {{ t('datasets.lineageFlowView') }}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="activeLineageGraphTab === 'compact'"
+                :class="{ active: activeLineageGraphTab === 'compact' }"
+                @click="activeLineageGraphTab = 'compact'"
+              >
+                {{ t('datasets.lineageCompactView') }}
+              </button>
+            </div>
+            <LineageFlowGraph
+              v-if="activeLineageGraphTab === 'flow'"
+              :lineage="datasetStore.datasetLineage"
+              :editable="lineageEditMode"
+              :saving="datasetStore.lineageActionLoading"
+              :draft-source-kind="activeLineageDraftSource"
+              :has-draft="Boolean(datasetStore.selectedLineageChangeSet)"
+              :can-publish="canReviewLineage"
+              @save-draft="saveDatasetLineageDraft"
+              @publish-draft="publishLineageDraft"
+              @reject-draft="rejectLineageDraft"
+            />
+            <LineageCompactGraph v-else :lineage="datasetStore.datasetLineage" />
+            <LineageTimeline :lineage="datasetStore.datasetLineage" />
+          </template>
         </section>
 
         <section v-if="isWorkTableDataset" class="panel stack">

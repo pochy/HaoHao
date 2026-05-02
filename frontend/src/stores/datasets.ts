@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 
 import { isApiForbidden, toApiErrorMessage, toApiErrorStatus } from '../api/client'
-import type { DatasetBody, DatasetQueryJobBody, DatasetSourceFileBody, DatasetSyncJobBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
+import type { DatasetBody, DatasetLineageBody, DatasetLineageChangeSetBody, DatasetLineageChangeSetGraphBody, DatasetLineageGraphSaveBodyWritable, DatasetLineageParseRunBody, DatasetQueryJobBody, DatasetSourceFileBody, DatasetSyncJobBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
 import {
+  createLineageChangeSet,
   createWorkTableExportSchedule,
   createDatasetFromDriveFile,
   createDatasetQuery,
@@ -11,11 +12,15 @@ import {
   deleteDatasetItem,
   dropWorkTable,
   fetchDataset,
+  fetchDatasetLineage,
+  fetchDatasetLineageChangeSets,
   fetchDatasetLinkedWorkTables,
+  fetchDatasetQueryJobLineageParseRuns,
   fetchDatasetScopedQueryJobs,
   fetchDatasetSyncJobs,
   fetchDatasets,
   fetchDatasetSourceFiles,
+  fetchDatasetWorkTableLineage,
   fetchDatasetWorkTable,
   fetchDatasetWorkTablePreview,
   fetchDatasetWorkTables,
@@ -23,16 +28,21 @@ import {
   fetchManagedDatasetWorkTablePreview,
   fetchWorkTableExportSchedules,
   fetchWorkTableExports,
+  fetchLineageChangeSet,
   linkWorkTable,
+  publishLineageChangeSet,
   promoteWorkTable,
   registerWorkTable,
+  rejectLineageChangeSet,
+  requestDatasetQueryJobLineageParse,
   requestDatasetSync,
   renameWorkTable,
   requestWorkTableExport,
+  saveLineageChangeSetGraph,
   truncateWorkTable,
   updateWorkTableExportSchedule,
 } from '../api/datasets'
-import type { DatasetWorkTableExportFormat } from '../api/datasets'
+import type { DatasetLineageLevel, DatasetLineageSource, DatasetWorkTableExportFormat } from '../api/datasets'
 
 type DatasetStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
 
@@ -49,6 +59,16 @@ export const useDatasetStore = defineStore('datasets', {
     workTablePreview: null as DatasetWorkTablePreviewBody | null,
     workTableExports: [] as DatasetWorkTableExportBody[],
     workTableExportSchedules: [] as DatasetWorkTableExportScheduleBody[],
+    datasetLineage: null as DatasetLineageBody | null,
+    workTableLineage: null as DatasetLineageBody | null,
+    lineageLevel: 'table' as DatasetLineageLevel,
+    lineageSources: ['metadata', 'parser', 'manual'] as DatasetLineageSource[],
+    lineageChangeSets: [] as DatasetLineageChangeSetBody[],
+    selectedLineageChangeSet: null as DatasetLineageChangeSetGraphBody | null,
+    lineageParseRuns: [] as DatasetLineageParseRunBody[],
+    lineageActionLoading: false,
+    datasetLineageLoading: false,
+    workTableLineageLoading: false,
     workTablesLoading: false,
     workTablePreviewLoading: false,
     workTableActionLoading: false,
@@ -81,6 +101,12 @@ export const useDatasetStore = defineStore('datasets', {
       const selected = state.items.find((item) => item.publicId === state.selectedPublicId)
       return ['pending', 'processing'].includes(selected?.latestSyncJob?.status ?? '')
     },
+    lineageFetchOptions: (state) => ({
+      level: state.lineageLevel,
+      sources: state.lineageSources,
+      includeDraft: Boolean(state.selectedLineageChangeSet?.changeSet.publicId),
+      changeSetPublicId: state.selectedLineageChangeSet?.changeSet.publicId,
+    }),
   },
 
   actions: {
@@ -102,6 +128,11 @@ export const useDatasetStore = defineStore('datasets', {
         this.items = []
         this.queryJobs = []
         this.syncJobs = []
+        this.datasetLineage = null
+        this.workTableLineage = null
+        this.lineageChangeSets = []
+        this.selectedLineageChangeSet = null
+        this.lineageParseRuns = []
         this.sourceFiles = []
         this.status = toApiErrorStatus(error) === 403 || isApiForbidden(error) ? 'forbidden' : 'error'
         this.errorMessage = toApiErrorMessage(error)
@@ -131,6 +162,20 @@ export const useDatasetStore = defineStore('datasets', {
         this.syncJobs = []
         this.errorMessage = toApiErrorMessage(error)
         throw error
+      }
+    },
+
+    async loadDatasetLineage(datasetPublicId: string) {
+      this.datasetLineageLoading = true
+      this.errorMessage = ''
+      try {
+        this.datasetLineage = await fetchDatasetLineage(datasetPublicId, 'both', this.lineageFetchOptions)
+      } catch (error) {
+        this.datasetLineage = null
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.datasetLineageLoading = false
       }
     },
 
@@ -215,6 +260,7 @@ export const useDatasetStore = defineStore('datasets', {
           this.workTablePreview = null
           this.workTableExports = []
           this.workTableExportSchedules = []
+          this.workTableLineage = null
           return
         }
         await this.selectWorkTable(next)
@@ -224,6 +270,7 @@ export const useDatasetStore = defineStore('datasets', {
         this.workTablePreview = null
         this.workTableExports = []
         this.workTableExportSchedules = []
+        this.workTableLineage = null
         this.workTableErrorMessage = toApiErrorMessage(error)
       } finally {
         this.workTablesLoading = false
@@ -236,6 +283,7 @@ export const useDatasetStore = defineStore('datasets', {
       this.workTablePreview = null
       this.workTableExports = []
       this.workTableExportSchedules = []
+      this.workTableLineage = null
       this.workTablePreviewLoading = true
       this.workTableErrorMessage = ''
       try {
@@ -248,6 +296,7 @@ export const useDatasetStore = defineStore('datasets', {
           this.selectedWorkTable = detail
           this.workTableExports = exports
           this.workTableExportSchedules = schedules
+          await this.loadSelectedWorkTableLineage()
           return
         }
         const [detail, preview, exports, schedules] = existing.publicId && existing.managed
@@ -267,6 +316,9 @@ export const useDatasetStore = defineStore('datasets', {
         this.workTablePreview = preview
         this.workTableExports = exports
         this.workTableExportSchedules = schedules
+        if (detail.publicId && detail.managed) {
+          await this.loadSelectedWorkTableLineage()
+        }
       } catch (error) {
         this.workTableErrorMessage = toApiErrorMessage(error)
       } finally {
@@ -417,6 +469,7 @@ export const useDatasetStore = defineStore('datasets', {
       try {
         const item = await requestWorkTableExport(publicId, format)
         this.workTableExports = [item, ...this.workTableExports.filter((exportItem) => exportItem.publicId !== item.publicId)]
+        await this.loadSelectedWorkTableLineage()
         return item
       } catch (error) {
         this.workTableErrorMessage = toApiErrorMessage(error)
@@ -433,6 +486,7 @@ export const useDatasetStore = defineStore('datasets', {
       }
       try {
         this.workTableExports = await fetchWorkTableExports(publicId)
+        await this.loadSelectedWorkTableLineage()
       } catch (error) {
         this.workTableErrorMessage = toApiErrorMessage(error)
       }
@@ -445,8 +499,201 @@ export const useDatasetStore = defineStore('datasets', {
       }
       try {
         this.workTableExportSchedules = await fetchWorkTableExportSchedules(publicId)
+        await this.loadSelectedWorkTableLineage()
       } catch (error) {
         this.workTableErrorMessage = toApiErrorMessage(error)
+      }
+    },
+
+    async loadSelectedWorkTableLineage() {
+      const publicId = this.selectedWorkTable?.publicId
+      if (!publicId || !this.selectedWorkTable?.managed) {
+        this.workTableLineage = null
+        return
+      }
+      this.workTableLineageLoading = true
+      try {
+        this.workTableLineage = await fetchDatasetWorkTableLineage(publicId, 'both', this.lineageFetchOptions)
+      } catch (error) {
+        this.workTableLineage = null
+        this.workTableErrorMessage = toApiErrorMessage(error)
+      } finally {
+        this.workTableLineageLoading = false
+      }
+    },
+
+    setLineageLevel(level: DatasetLineageLevel) {
+      this.lineageLevel = level
+    },
+
+    toggleLineageSource(source: DatasetLineageSource) {
+      if (this.lineageSources.includes(source)) {
+        this.lineageSources = this.lineageSources.filter((item) => item !== source)
+      } else {
+        this.lineageSources = [...this.lineageSources, source]
+      }
+      if (this.lineageSources.length === 0) {
+        this.lineageSources = ['metadata']
+      }
+    },
+
+    async reloadVisibleLineage() {
+      if (this.selectedPublicId) {
+        await this.loadDatasetLineage(this.selectedPublicId)
+      }
+      if (this.selectedWorkTable?.publicId && this.selectedWorkTable.managed) {
+        await this.loadSelectedWorkTableLineage()
+      }
+    },
+
+    async loadLineageChangeSets() {
+      try {
+        this.lineageChangeSets = await fetchDatasetLineageChangeSets('draft')
+      } catch (error) {
+        this.lineageChangeSets = []
+        this.errorMessage = toApiErrorMessage(error)
+      }
+    },
+
+    async selectLineageChangeSet(publicId: string) {
+      if (!publicId) {
+        this.selectedLineageChangeSet = null
+        await this.reloadVisibleLineage()
+        return null
+      }
+      this.lineageActionLoading = true
+      try {
+        const graph = await fetchLineageChangeSet(publicId)
+        this.selectedLineageChangeSet = graph
+        await this.reloadVisibleLineage()
+        return graph
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.lineageActionLoading = false
+      }
+    },
+
+    async saveDatasetLineageDraft(body: DatasetLineageGraphSaveBodyWritable) {
+      const root = this.selectedDataset
+      if (!root?.publicId) {
+        return null
+      }
+      return this.saveLineageDraft('dataset', root.publicId, root.name, body)
+    },
+
+    async saveSelectedWorkTableLineageDraft(body: DatasetLineageGraphSaveBodyWritable) {
+      const root = this.selectedWorkTable
+      if (!root?.publicId) {
+        return null
+      }
+      return this.saveLineageDraft('dataset_work_table', root.publicId, root.displayName || root.table, body)
+    },
+
+    async saveLineageDraft(rootResourceType: string, rootResourcePublicId: string, title: string, body: DatasetLineageGraphSaveBodyWritable) {
+      this.lineageActionLoading = true
+      this.errorMessage = ''
+      this.workTableErrorMessage = ''
+      try {
+        let changeSet = this.selectedLineageChangeSet?.changeSet
+        if (!changeSet || changeSet.status !== 'draft' || changeSet.rootResourceType !== rootResourceType || changeSet.rootResourcePublicId !== rootResourcePublicId) {
+          changeSet = await createLineageChangeSet({
+            sourceKind: 'manual',
+            rootResourceType,
+            rootResourcePublicId,
+            title: `${title} lineage draft`,
+          })
+        }
+        const graph = await saveLineageChangeSetGraph(changeSet.publicId, body)
+        this.selectedLineageChangeSet = graph
+        await this.loadLineageChangeSets()
+        await this.reloadVisibleLineage()
+        return graph
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        this.workTableErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.lineageActionLoading = false
+      }
+    },
+
+    async publishSelectedLineageChangeSet() {
+      const publicId = this.selectedLineageChangeSet?.changeSet.publicId
+      if (!publicId) {
+        return null
+      }
+      this.lineageActionLoading = true
+      try {
+        const item = await publishLineageChangeSet(publicId)
+        this.selectedLineageChangeSet = null
+        await this.loadLineageChangeSets()
+        await this.reloadVisibleLineage()
+        return item
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        this.workTableErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.lineageActionLoading = false
+      }
+    },
+
+    async rejectSelectedLineageChangeSet() {
+      const publicId = this.selectedLineageChangeSet?.changeSet.publicId
+      if (!publicId) {
+        return null
+      }
+      this.lineageActionLoading = true
+      try {
+        const item = await rejectLineageChangeSet(publicId)
+        this.selectedLineageChangeSet = null
+        await this.loadLineageChangeSets()
+        await this.reloadVisibleLineage()
+        return item
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        this.workTableErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.lineageActionLoading = false
+      }
+    },
+
+    async parseLatestQueryLineage() {
+      const publicId = this.latestQuery?.publicId
+      if (!publicId) {
+        return null
+      }
+      this.lineageActionLoading = true
+      this.errorMessage = ''
+      try {
+        const graph = await requestDatasetQueryJobLineageParse(publicId)
+        this.selectedLineageChangeSet = graph
+        this.lineageParseRuns = await fetchDatasetQueryJobLineageParseRuns(publicId)
+        await this.loadLineageChangeSets()
+        await this.reloadVisibleLineage()
+        return graph
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.lineageActionLoading = false
+      }
+    },
+
+    async loadLatestQueryLineageParseRuns() {
+      const publicId = this.latestQuery?.publicId
+      if (!publicId) {
+        this.lineageParseRuns = []
+        return
+      }
+      try {
+        this.lineageParseRuns = await fetchDatasetQueryJobLineageParseRuns(publicId)
+      } catch (error) {
+        this.lineageParseRuns = []
+        this.errorMessage = toApiErrorMessage(error)
       }
     },
 
@@ -460,6 +707,7 @@ export const useDatasetStore = defineStore('datasets', {
       try {
         const item = await createWorkTableExportSchedule(publicId, body)
         this.workTableExportSchedules = [item, ...this.workTableExportSchedules.filter((schedule) => schedule.publicId !== item.publicId)]
+        await this.loadSelectedWorkTableLineage()
         return item
       } catch (error) {
         this.workTableErrorMessage = toApiErrorMessage(error)
@@ -475,6 +723,7 @@ export const useDatasetStore = defineStore('datasets', {
       try {
         const item = await updateWorkTableExportSchedule(schedulePublicId, body)
         this.workTableExportSchedules = [item, ...this.workTableExportSchedules.filter((schedule) => schedule.publicId !== item.publicId)]
+        await this.loadSelectedWorkTableLineage()
         return item
       } catch (error) {
         this.workTableErrorMessage = toApiErrorMessage(error)
@@ -490,6 +739,7 @@ export const useDatasetStore = defineStore('datasets', {
       try {
         const item = await disableWorkTableExportSchedule(schedulePublicId)
         this.workTableExportSchedules = [item, ...this.workTableExportSchedules.filter((schedule) => schedule.publicId !== item.publicId)]
+        await this.loadSelectedWorkTableLineage()
         return item
       } catch (error) {
         this.workTableErrorMessage = toApiErrorMessage(error)
@@ -604,6 +854,16 @@ export const useDatasetStore = defineStore('datasets', {
       this.workTablePreview = null
       this.workTableExports = []
       this.workTableExportSchedules = []
+      this.datasetLineage = null
+      this.workTableLineage = null
+      this.lineageLevel = 'table'
+      this.lineageSources = ['metadata', 'parser', 'manual']
+      this.lineageChangeSets = []
+      this.selectedLineageChangeSet = null
+      this.lineageParseRuns = []
+      this.lineageActionLoading = false
+      this.datasetLineageLoading = false
+      this.workTableLineageLoading = false
       this.workTablesLoading = false
       this.workTablePreviewLoading = false
       this.workTableActionLoading = false
