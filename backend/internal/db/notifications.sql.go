@@ -12,6 +12,91 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countFilteredNotificationsForUser = `-- name: CountFilteredNotificationsForUser :one
+SELECT COUNT(*)::bigint
+FROM notifications
+WHERE recipient_user_id = $1
+  AND (
+    ($2::bigint = 0 AND tenant_id IS NULL)
+    OR
+    ($2::bigint <> 0 AND (tenant_id IS NULL OR tenant_id = $2))
+  )
+  AND (
+    $3::text IS NULL
+    OR btrim($3::text) = ''
+    OR to_tsvector('simple', subject || ' ' || body || ' ' || template)
+       @@ websearch_to_tsquery('simple', $3::text)
+  )
+  AND (
+    $4::text = 'all'
+    OR ($4::text = 'unread' AND read_at IS NULL)
+    OR ($4::text = 'read' AND read_at IS NOT NULL)
+  )
+  AND (
+    $5::text IS NULL
+    OR channel = $5::text
+  )
+  AND (
+    $6::timestamptz IS NULL
+    OR created_at >= $6::timestamptz
+  )
+`
+
+type CountFilteredNotificationsForUserParams struct {
+	RecipientUserID int64              `json:"recipient_user_id"`
+	TenantID        int64              `json:"tenant_id"`
+	Q               pgtype.Text        `json:"q"`
+	ReadState       string             `json:"read_state"`
+	Channel         pgtype.Text        `json:"channel"`
+	CreatedAfter    pgtype.Timestamptz `json:"created_after"`
+}
+
+func (q *Queries) CountFilteredNotificationsForUser(ctx context.Context, arg CountFilteredNotificationsForUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countFilteredNotificationsForUser,
+		arg.RecipientUserID,
+		arg.TenantID,
+		arg.Q,
+		arg.ReadState,
+		arg.Channel,
+		arg.CreatedAfter,
+	)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countNotificationSummaryForUser = `-- name: CountNotificationSummaryForUser :one
+SELECT
+    COUNT(*)::bigint AS total_count,
+    COUNT(*) FILTER (WHERE read_at IS NULL)::bigint AS unread_count,
+    COUNT(*) FILTER (WHERE read_at IS NOT NULL)::bigint AS read_count
+FROM notifications
+WHERE recipient_user_id = $1
+  AND (
+    ($2::bigint = 0 AND tenant_id IS NULL)
+    OR
+    ($2::bigint <> 0 AND (tenant_id IS NULL OR tenant_id = $2))
+  )
+`
+
+type CountNotificationSummaryForUserParams struct {
+	RecipientUserID int64 `json:"recipient_user_id"`
+	TenantID        int64 `json:"tenant_id"`
+}
+
+type CountNotificationSummaryForUserRow struct {
+	TotalCount  int64 `json:"total_count"`
+	UnreadCount int64 `json:"unread_count"`
+	ReadCount   int64 `json:"read_count"`
+}
+
+func (q *Queries) CountNotificationSummaryForUser(ctx context.Context, arg CountNotificationSummaryForUserParams) (CountNotificationSummaryForUserRow, error) {
+	row := q.db.QueryRow(ctx, countNotificationSummaryForUser, arg.RecipientUserID, arg.TenantID)
+	var i CountNotificationSummaryForUserRow
+	err := row.Scan(&i.TotalCount, &i.UnreadCount, &i.ReadCount)
+	return i, err
+}
+
 const createNotification = `-- name: CreateNotification :one
 INSERT INTO notifications (
     tenant_id,
@@ -88,19 +173,148 @@ const listNotificationsForUser = `-- name: ListNotificationsForUser :many
 SELECT id, public_id, tenant_id, recipient_user_id, channel, template, subject, body, metadata, status, outbox_event_id, read_at, created_at, updated_at
 FROM notifications
 WHERE recipient_user_id = $1
-  AND ($2::bigint = 0 OR tenant_id = $2)
+  AND (
+    ($2::bigint = 0 AND tenant_id IS NULL)
+    OR
+    ($2::bigint <> 0 AND (tenant_id IS NULL OR tenant_id = $2))
+  )
+  AND (
+    $3::text IS NULL
+    OR btrim($3::text) = ''
+    OR to_tsvector('simple', subject || ' ' || body || ' ' || template)
+       @@ websearch_to_tsquery('simple', $3::text)
+  )
+  AND (
+    $4::text = 'all'
+    OR ($4::text = 'unread' AND read_at IS NULL)
+    OR ($4::text = 'read' AND read_at IS NOT NULL)
+  )
+  AND (
+    $5::text IS NULL
+    OR channel = $5::text
+  )
+  AND (
+    $6::timestamptz IS NULL
+    OR created_at >= $6::timestamptz
+  )
+  AND (
+    $7::timestamptz IS NULL
+    OR (created_at, id) < ($7::timestamptz, $8::bigint)
+  )
 ORDER BY created_at DESC, id DESC
-LIMIT $3
+LIMIT $9
 `
 
 type ListNotificationsForUserParams struct {
-	RecipientUserID int64 `json:"recipient_user_id"`
-	Column2         int64 `json:"column_2"`
-	Limit           int32 `json:"limit"`
+	RecipientUserID int64              `json:"recipient_user_id"`
+	TenantID        int64              `json:"tenant_id"`
+	Q               pgtype.Text        `json:"q"`
+	ReadState       string             `json:"read_state"`
+	Channel         pgtype.Text        `json:"channel"`
+	CreatedAfter    pgtype.Timestamptz `json:"created_after"`
+	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID        pgtype.Int8        `json:"cursor_id"`
+	ResultLimit     int32              `json:"result_limit"`
 }
 
 func (q *Queries) ListNotificationsForUser(ctx context.Context, arg ListNotificationsForUserParams) ([]Notification, error) {
-	rows, err := q.db.Query(ctx, listNotificationsForUser, arg.RecipientUserID, arg.Column2, arg.Limit)
+	rows, err := q.db.Query(ctx, listNotificationsForUser,
+		arg.RecipientUserID,
+		arg.TenantID,
+		arg.Q,
+		arg.ReadState,
+		arg.Channel,
+		arg.CreatedAfter,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.ResultLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Notification
+	for rows.Next() {
+		var i Notification
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.RecipientUserID,
+			&i.Channel,
+			&i.Template,
+			&i.Subject,
+			&i.Body,
+			&i.Metadata,
+			&i.Status,
+			&i.OutboxEventID,
+			&i.ReadAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markFilteredNotificationsRead = `-- name: MarkFilteredNotificationsRead :many
+UPDATE notifications
+SET
+    status = 'read',
+    read_at = COALESCE(read_at, now()),
+    updated_at = now()
+WHERE recipient_user_id = $1
+  AND read_at IS NULL
+  AND (
+    ($2::bigint = 0 AND tenant_id IS NULL)
+    OR
+    ($2::bigint <> 0 AND (tenant_id IS NULL OR tenant_id = $2))
+  )
+  AND (
+    $3::text IS NULL
+    OR btrim($3::text) = ''
+    OR to_tsvector('simple', subject || ' ' || body || ' ' || template)
+       @@ websearch_to_tsquery('simple', $3::text)
+  )
+  AND (
+    $4::text = 'all'
+    OR ($4::text = 'unread' AND read_at IS NULL)
+    OR ($4::text = 'read' AND read_at IS NOT NULL)
+  )
+  AND (
+    $5::text IS NULL
+    OR channel = $5::text
+  )
+  AND (
+    $6::timestamptz IS NULL
+    OR created_at >= $6::timestamptz
+  )
+RETURNING id, public_id, tenant_id, recipient_user_id, channel, template, subject, body, metadata, status, outbox_event_id, read_at, created_at, updated_at
+`
+
+type MarkFilteredNotificationsReadParams struct {
+	RecipientUserID int64              `json:"recipient_user_id"`
+	TenantID        int64              `json:"tenant_id"`
+	Q               pgtype.Text        `json:"q"`
+	ReadState       string             `json:"read_state"`
+	Channel         pgtype.Text        `json:"channel"`
+	CreatedAfter    pgtype.Timestamptz `json:"created_after"`
+}
+
+func (q *Queries) MarkFilteredNotificationsRead(ctx context.Context, arg MarkFilteredNotificationsReadParams) ([]Notification, error) {
+	rows, err := q.db.Query(ctx, markFilteredNotificationsRead,
+		arg.RecipientUserID,
+		arg.TenantID,
+		arg.Q,
+		arg.ReadState,
+		arg.Channel,
+		arg.CreatedAfter,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -170,4 +384,56 @@ func (q *Queries) MarkNotificationRead(ctx context.Context, arg MarkNotification
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const markNotificationsReadByPublicIDs = `-- name: MarkNotificationsReadByPublicIDs :many
+UPDATE notifications
+SET
+    status = 'read',
+    read_at = COALESCE(read_at, now()),
+    updated_at = now()
+WHERE recipient_user_id = $1
+  AND public_id = ANY($2::uuid[])
+  AND read_at IS NULL
+RETURNING id, public_id, tenant_id, recipient_user_id, channel, template, subject, body, metadata, status, outbox_event_id, read_at, created_at, updated_at
+`
+
+type MarkNotificationsReadByPublicIDsParams struct {
+	RecipientUserID int64       `json:"recipient_user_id"`
+	PublicIds       []uuid.UUID `json:"public_ids"`
+}
+
+func (q *Queries) MarkNotificationsReadByPublicIDs(ctx context.Context, arg MarkNotificationsReadByPublicIDsParams) ([]Notification, error) {
+	rows, err := q.db.Query(ctx, markNotificationsReadByPublicIDs, arg.RecipientUserID, arg.PublicIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Notification
+	for rows.Next() {
+		var i Notification
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.RecipientUserID,
+			&i.Channel,
+			&i.Template,
+			&i.Subject,
+			&i.Body,
+			&i.Metadata,
+			&i.Status,
+			&i.OutboxEventID,
+			&i.ReadAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -2814,6 +2814,25 @@ export type MachineClientRequestBody = {
     providerClientId: string;
 };
 
+export type MarkAllNotificationsReadBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    channel?: 'in_app' | 'email';
+    createdAfter?: string;
+    q?: string;
+    readState?: 'all' | 'unread' | 'read';
+};
+
+export type MarkNotificationsReadBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    publicIds: Array<string> | null;
+};
+
 export type NotificationBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -2843,12 +2862,34 @@ export type NotificationBody = {
     updatedAt: string;
 };
 
-export type NotificationListOutputBody = {
+export type NotificationBulkReadBody = {
     /**
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
     items: Array<NotificationBody> | null;
+    updatedCount: number;
+};
+
+export type NotificationListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    filteredCount: number;
+    items: Array<NotificationBody> | null;
+    nextCursor?: string;
+    readCount: number;
+    totalCount: number;
+    unreadCount: number;
+};
+
+export type NotificationReadAllBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    updatedCount: number;
 };
 
 export type PublicDriveShareLinkOutputBody = {
@@ -5407,6 +5448,17 @@ export type MachineClientRequestBodyWritable = {
     providerClientId: string;
 };
 
+export type MarkAllNotificationsReadBodyWritable = {
+    channel?: 'in_app' | 'email';
+    createdAfter?: string;
+    q?: string;
+    readState?: 'all' | 'unread' | 'read';
+};
+
+export type MarkNotificationsReadBodyWritable = {
+    publicIds: Array<string> | null;
+};
+
 export type NotificationBodyWritable = {
     body: string;
     channel: string;
@@ -5432,8 +5484,22 @@ export type NotificationBodyWritable = {
     updatedAt: string;
 };
 
-export type NotificationListOutputBodyWritable = {
+export type NotificationBulkReadBodyWritable = {
     items: Array<NotificationBodyWritable> | null;
+    updatedCount: number;
+};
+
+export type NotificationListBodyWritable = {
+    filteredCount: number;
+    items: Array<NotificationBodyWritable> | null;
+    nextCursor?: string;
+    readCount: number;
+    totalCount: number;
+    unreadCount: number;
+};
+
+export type NotificationReadAllBodyWritable = {
+    updatedCount: number;
 };
 
 export type PublicDriveShareLinkOutputBodyWritable = {
@@ -14355,6 +14421,26 @@ export type ListNotificationsData = {
     path?: never;
     query?: {
         /**
+         * 検索語または filter query です。
+         */
+        q?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `readState` です。
+         */
+        readState?: 'all' | 'unread' | 'read';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `channel` です。
+         */
+        channel?: 'in_app' | 'email';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `createdAfter` です。
+         */
+        createdAfter?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `cursor` です。
+         */
+        cursor?: string;
+        /**
          * 返却件数の上限です。大量の結果は pagination で分割してください。
          */
         limit?: number;
@@ -14375,10 +14461,78 @@ export type ListNotificationsResponses = {
     /**
      * 操作に成功し、response body に結果を返します。
      */
-    200: NotificationListOutputBody;
+    200: NotificationListBody;
 };
 
 export type ListNotificationsResponse = ListNotificationsResponses[keyof ListNotificationsResponses];
+
+export type MarkNotificationsReadData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: MarkNotificationsReadBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/notifications/read';
+};
+
+export type MarkNotificationsReadErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type MarkNotificationsReadError = MarkNotificationsReadErrors[keyof MarkNotificationsReadErrors];
+
+export type MarkNotificationsReadResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: NotificationBulkReadBody;
+};
+
+export type MarkNotificationsReadResponse = MarkNotificationsReadResponses[keyof MarkNotificationsReadResponses];
+
+export type MarkAllNotificationsReadData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: MarkAllNotificationsReadBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/notifications/read-all';
+};
+
+export type MarkAllNotificationsReadErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type MarkAllNotificationsReadError = MarkAllNotificationsReadErrors[keyof MarkAllNotificationsReadErrors];
+
+export type MarkAllNotificationsReadResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: NotificationReadAllBody;
+};
+
+export type MarkAllNotificationsReadResponse = MarkAllNotificationsReadResponses[keyof MarkAllNotificationsReadResponses];
 
 export type MarkNotificationReadData = {
     body?: never;

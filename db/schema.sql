@@ -6708,10 +6708,31 @@ CREATE UNIQUE INDEX notifications_public_id_key ON public.notifications USING bt
 
 
 --
+-- Name: notifications_recipient_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notifications_recipient_created_idx ON public.notifications USING btree (recipient_user_id, created_at DESC, id DESC);
+
+
+--
+-- Name: notifications_recipient_unread_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notifications_recipient_unread_created_idx ON public.notifications USING btree (recipient_user_id, created_at DESC, id DESC) WHERE (read_at IS NULL);
+
+
+--
 -- Name: notifications_recipient_unread_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX notifications_recipient_unread_idx ON public.notifications USING btree (recipient_user_id, created_at DESC) WHERE (read_at IS NULL);
+
+
+--
+-- Name: notifications_search_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notifications_search_idx ON public.notifications USING gin (to_tsvector('simple'::regconfig, ((((subject || ' '::text) || body) || ' '::text) || template)));
 
 
 --
