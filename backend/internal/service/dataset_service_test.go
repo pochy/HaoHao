@@ -1,10 +1,17 @@
 package service
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"example.com/haohao/backend/internal/db"
 
@@ -20,6 +27,69 @@ func (f fakeDatasetColumnType) Name() string             { return f.name }
 func (f fakeDatasetColumnType) Nullable() bool           { return f.scanType.Kind() == reflect.Ptr }
 func (f fakeDatasetColumnType) ScanType() reflect.Type   { return f.scanType }
 func (f fakeDatasetColumnType) DatabaseTypeName() string { return f.scanType.String() }
+
+type fakeDatasetRows struct {
+	columns []string
+	types   []driver.ColumnType
+	values  [][]any
+	index   int
+	err     error
+}
+
+func (f *fakeDatasetRows) Next() bool {
+	if f.index < 0 {
+		f.index = 0
+	} else {
+		f.index++
+	}
+	return f.index < len(f.values)
+}
+
+func (f *fakeDatasetRows) Scan(dest ...any) error {
+	if f.index < 0 || f.index >= len(f.values) {
+		return io.EOF
+	}
+	row := f.values[f.index]
+	for i := range dest {
+		if i >= len(row) {
+			continue
+		}
+		assignFakeScanValue(dest[i], row[i])
+	}
+	return nil
+}
+
+func (f *fakeDatasetRows) ScanStruct(dest any) error        { return nil }
+func (f *fakeDatasetRows) ColumnTypes() []driver.ColumnType { return f.types }
+func (f *fakeDatasetRows) Totals(dest ...any) error         { return nil }
+func (f *fakeDatasetRows) Columns() []string                { return f.columns }
+func (f *fakeDatasetRows) Close() error                     { return nil }
+func (f *fakeDatasetRows) Err() error                       { return f.err }
+func (f *fakeDatasetRows) HasData() bool                    { return len(f.values) > 0 }
+
+func assignFakeScanValue(dest any, value any) {
+	target := reflect.ValueOf(dest)
+	if !target.IsValid() || target.Kind() != reflect.Ptr || target.IsNil() {
+		return
+	}
+	elem := target.Elem()
+	if value == nil {
+		elem.Set(reflect.Zero(elem.Type()))
+		return
+	}
+	source := reflect.ValueOf(value)
+	if elem.Kind() == reflect.Ptr {
+		ptr := reflect.New(elem.Type().Elem())
+		if source.Type().AssignableTo(elem.Type().Elem()) {
+			ptr.Elem().Set(source)
+			elem.Set(ptr)
+		}
+		return
+	}
+	if source.Type().AssignableTo(elem.Type()) {
+		elem.Set(source)
+	}
+}
 
 func TestSanitizeDatasetColumns(t *testing.T) {
 	got := sanitizeDatasetColumns([]string{
@@ -233,5 +303,151 @@ func TestDatasetScanDestinationsUsesConcreteTypes(t *testing.T) {
 	*dest[1].(**string) = nil
 	if got := datasetScannedValue(holders[1]); got != nil {
 		t.Fatalf("datasetScannedValue(nil nullable string) = %#v", got)
+	}
+}
+
+func TestDatasetWorkTableExportFormatNormalizationAndSpec(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+		ext   string
+		ct    string
+	}{
+		{input: "", want: "csv", ext: ".csv", ct: "text/csv"},
+		{input: " JSON ", want: "json", ext: ".ndjson", ct: "application/x-ndjson"},
+		{input: "parquet", want: "parquet", ext: ".parquet", ct: "application/vnd.apache.parquet"},
+	}
+	for _, tc := range cases {
+		got, err := normalizeDatasetWorkTableExportFormat(tc.input)
+		if err != nil {
+			t.Fatalf("normalizeDatasetWorkTableExportFormat(%q) error = %v", tc.input, err)
+		}
+		if got != tc.want {
+			t.Fatalf("normalizeDatasetWorkTableExportFormat(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+		spec, ok := datasetWorkTableExportFormatSpecFor(got)
+		if !ok {
+			t.Fatalf("datasetWorkTableExportFormatSpecFor(%q) not found", got)
+		}
+		if spec.Extension != tc.ext || spec.ContentType != tc.ct {
+			t.Fatalf("spec(%q) = %#v, want ext=%q contentType=%q", got, spec, tc.ext, tc.ct)
+		}
+	}
+	if _, err := normalizeDatasetWorkTableExportFormat("xml"); !errors.Is(err, ErrInvalidDatasetInput) {
+		t.Fatalf("normalizeDatasetWorkTableExportFormat(unsupported) error = %v, want ErrInvalidDatasetInput", err)
+	}
+}
+
+func TestDatasetClickHouseTypeUnsupportedForParquet(t *testing.T) {
+	cases := []struct {
+		chType string
+		want   bool
+	}{
+		{chType: "String", want: false},
+		{chType: "Nullable(DateTime64(3))", want: false},
+		{chType: "LowCardinality(Nullable(String))", want: false},
+		{chType: "Array(String)", want: true},
+		{chType: "Nullable(Array(String))", want: true},
+		{chType: "Map(String, String)", want: true},
+		{chType: "Tuple(String, UInt64)", want: true},
+		{chType: "Nested(name String)", want: true},
+	}
+	for _, tc := range cases {
+		if got := datasetClickHouseTypeUnsupportedForParquet(tc.chType); got != tc.want {
+			t.Fatalf("datasetClickHouseTypeUnsupportedForParquet(%q) = %v, want %v", tc.chType, got, tc.want)
+		}
+	}
+}
+
+func TestWriteDatasetRowsJSONLines(t *testing.T) {
+	createdAt := time.Date(2026, 1, 2, 3, 4, 5, 600, time.UTC)
+	rows := &fakeDatasetRows{
+		index:   -1,
+		columns: []string{"id", "name", "created_at"},
+		types: []driver.ColumnType{
+			fakeDatasetColumnType{name: "id", scanType: reflect.TypeOf(uint64(0))},
+			fakeDatasetColumnType{name: "name", scanType: reflect.TypeOf((*string)(nil))},
+			fakeDatasetColumnType{name: "created_at", scanType: reflect.TypeOf(time.Time{})},
+		},
+		values: [][]any{
+			{uint64(1), "alice", createdAt},
+			{uint64(2), nil, createdAt},
+		},
+	}
+	var buf bytes.Buffer
+	if err := writeDatasetRowsJSONLines(rows, &buf); err != nil {
+		t.Fatalf("writeDatasetRowsJSONLines() error = %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("JSON lines count = %d, want 2; body=%q", len(lines), buf.String())
+	}
+	var first map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
+		t.Fatalf("unmarshal first line: %v", err)
+	}
+	if first["id"] != float64(1) || first["name"] != "alice" || first["created_at"] != "2026-01-02T03:04:05.0000006Z" {
+		t.Fatalf("first line = %#v", first)
+	}
+	var second map[string]any
+	if err := json.Unmarshal([]byte(lines[1]), &second); err != nil {
+		t.Fatalf("unmarshal second line: %v", err)
+	}
+	if second["id"] != float64(2) || second["name"] != nil {
+		t.Fatalf("second line = %#v", second)
+	}
+}
+
+func TestCopyWorkTableParquetUsesClickHouseHTTP(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		username, password, ok := r.BasicAuth()
+		if !ok || username != "default" || password != "secret" {
+			t.Fatalf("BasicAuth = %q/%q/%v", username, password, ok)
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		if got, want := string(body), "SELECT * FROM `hh_t_1_work`.`sales` FORMAT Parquet"; got != want {
+			t.Fatalf("query body = %q, want %q", got, want)
+		}
+		if got := r.URL.Query().Get("max_execution_time"); got != "11" {
+			t.Fatalf("max_execution_time = %q, want 11", got)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("PAR1fake"))
+	}))
+	defer server.Close()
+
+	service := &DatasetService{chConfig: DatasetClickHouseConfig{
+		HTTPURL:             server.URL,
+		Database:            "default",
+		Username:            "default",
+		Password:            "secret",
+		QueryMaxSeconds:     11,
+		QueryMaxMemoryBytes: 1024,
+		QueryMaxRowsToRead:  2048,
+		QueryMaxThreads:     2,
+	}}
+	var out bytes.Buffer
+	if err := service.copyWorkTableParquet(context.Background(), "hh_t_1_work", "sales", &out); err != nil {
+		t.Fatalf("copyWorkTableParquet() error = %v", err)
+	}
+	if got := out.String(); got != "PAR1fake" {
+		t.Fatalf("copyWorkTableParquet body = %q", got)
+	}
+}
+
+func TestCopyWorkTableParquetReturnsHTTPErrorBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	service := &DatasetService{chConfig: DatasetClickHouseConfig{HTTPURL: server.URL, Username: "default"}}
+	var out bytes.Buffer
+	err := service.copyWorkTableParquet(context.Background(), "hh_t_1_work", "sales", &out)
+	if err == nil || !strings.Contains(err.Error(), "boom") {
+		t.Fatalf("copyWorkTableParquet() error = %v, want body", err)
 	}
 }

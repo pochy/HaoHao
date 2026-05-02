@@ -363,7 +363,7 @@ INSERT INTO dataset_work_table_exports (
     format,
     expires_at
 ) VALUES (
-    $1, $2, $3, 'csv', $4
+    $1, $2, $3, $4, $5
 )
 RETURNING *;
 

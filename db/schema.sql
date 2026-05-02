@@ -333,7 +333,7 @@ CREATE TABLE public.dataset_work_table_exports (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
     deleted_at timestamp with time zone,
-    CONSTRAINT dataset_work_table_exports_format_check CHECK ((format = 'csv'::text)),
+    CONSTRAINT dataset_work_table_exports_format_check CHECK ((format = ANY (ARRAY['csv'::text, 'json'::text, 'parquet'::text]))),
     CONSTRAINT dataset_work_table_exports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'ready'::text, 'failed'::text, 'deleted'::text])))
 );
 

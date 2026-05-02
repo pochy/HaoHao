@@ -412,7 +412,7 @@ INSERT INTO dataset_work_table_exports (
     format,
     expires_at
 ) VALUES (
-    $1, $2, $3, 'csv', $4
+    $1, $2, $3, $4, $5
 )
 RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
 `
@@ -421,6 +421,7 @@ type CreateDatasetWorkTableExportParams struct {
 	TenantID          int64              `json:"tenant_id"`
 	WorkTableID       int64              `json:"work_table_id"`
 	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
+	Format            string             `json:"format"`
 	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
 }
 
@@ -429,6 +430,7 @@ func (q *Queries) CreateDatasetWorkTableExport(ctx context.Context, arg CreateDa
 		arg.TenantID,
 		arg.WorkTableID,
 		arg.RequestedByUserID,
+		arg.Format,
 		arg.ExpiresAt,
 	)
 	var i DatasetWorkTableExport

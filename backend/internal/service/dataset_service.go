@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/csv"
@@ -10,6 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
+	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -34,7 +36,16 @@ const (
 	datasetColumnType        = "Nullable(String)"
 	datasetInsertBatchSize   = 50000
 	datasetPreviewRowLimit   = 1000
+
+	datasetWorkTableExportFormatCSV     = "csv"
+	datasetWorkTableExportFormatJSON    = "json"
+	datasetWorkTableExportFormatParquet = "parquet"
 )
+
+type datasetWorkTableExportFormatSpec struct {
+	Extension   string
+	ContentType string
+}
 
 var (
 	ErrDatasetNotFound                = errors.New("dataset not found")
@@ -52,6 +63,7 @@ var (
 
 type DatasetClickHouseConfig struct {
 	Addr                string
+	HTTPURL             string
 	Database            string
 	Username            string
 	Password            string
@@ -1358,9 +1370,13 @@ func (s *DatasetService) HandleWorkTablePromotionRequested(ctx context.Context, 
 	return nil
 }
 
-func (s *DatasetService) CreateWorkTableExport(ctx context.Context, tenantID, userID int64, publicID string, auditCtx AuditContext) (DatasetWorkTableExport, error) {
+func (s *DatasetService) CreateWorkTableExport(ctx context.Context, tenantID, userID int64, publicID, format string, auditCtx AuditContext) (DatasetWorkTableExport, error) {
 	if s == nil || s.pool == nil || s.queries == nil || s.outbox == nil {
 		return DatasetWorkTableExport{}, fmt.Errorf("dataset service is not configured")
+	}
+	format, err := normalizeDatasetWorkTableExportFormat(format)
+	if err != nil {
+		return DatasetWorkTableExport{}, err
 	}
 	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
 	if err != nil {
@@ -1381,6 +1397,7 @@ func (s *DatasetService) CreateWorkTableExport(ctx context.Context, tenantID, us
 		TenantID:          tenantID,
 		WorkTableID:       row.ID,
 		RequestedByUserID: pgtype.Int8{Int64: userID, Valid: userID > 0},
+		Format:            format,
 		ExpiresAt:         pgTimestamp(time.Now().Add(7 * 24 * time.Hour)),
 	})
 	if err != nil {
@@ -1414,6 +1431,7 @@ func (s *DatasetService) CreateWorkTableExport(ctx context.Context, tenantID, us
 			TargetID:     row.PublicID.String(),
 			Metadata: map[string]any{
 				"export": export.PublicID.String(),
+				"format": format,
 			},
 		}); err != nil {
 			return DatasetWorkTableExport{}, err
@@ -1494,12 +1512,35 @@ func (s *DatasetService) HandleWorkTableExportRequested(ctx context.Context, ten
 		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
 		return fmt.Errorf("get export work table: %w", err)
 	}
-	var buf bytes.Buffer
-	if err := s.writeWorkTableCSV(ctx, workTable.WorkDatabase, workTable.WorkTable, &buf); err != nil {
+	spec, ok := datasetWorkTableExportFormatSpecFor(export.Format)
+	if !ok {
+		err := fmt.Errorf("%w: unsupported export format %q", ErrInvalidDatasetInput, export.Format)
 		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
+		return nil
+	}
+
+	tmp, err := os.CreateTemp("", "haohao-work-table-export-*"+spec.Extension)
+	if err != nil {
+		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: "create temporary export file failed"})
+		return fmt.Errorf("create temporary work table export file: %w", err)
+	}
+	defer func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
+	}()
+
+	if err := s.writeWorkTableExport(ctx, workTable.WorkDatabase, workTable.WorkTable, export.Format, tmp); err != nil {
+		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
+		if errors.Is(err, ErrInvalidDatasetInput) {
+			return nil
+		}
 		return err
 	}
-	file, err := s.files.CreateGeneratedFile(ctx, tenantID, optionalPgInt8(export.RequestedByUserID), "export", fmt.Sprintf("work-table-%s.csv", export.PublicID.String()), "text/csv", bytes.NewReader(buf.Bytes()))
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: "prepare export file failed"})
+		return fmt.Errorf("seek work table export file: %w", err)
+	}
+	file, err := s.files.CreateGeneratedFile(ctx, tenantID, optionalPgInt8(export.RequestedByUserID), "export", fmt.Sprintf("work-table-%s%s", export.PublicID.String(), spec.Extension), spec.ContentType, tmp)
 	if err != nil {
 		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
 		return err
@@ -1731,7 +1772,20 @@ func (s *DatasetService) replaceDatasetColumnsWithTypes(ctx context.Context, dat
 	return nil
 }
 
-func (s *DatasetService) writeWorkTableCSV(ctx context.Context, database, table string, buf *bytes.Buffer) error {
+func (s *DatasetService) writeWorkTableExport(ctx context.Context, database, table, format string, out io.Writer) error {
+	switch format {
+	case datasetWorkTableExportFormatCSV:
+		return s.writeWorkTableCSV(ctx, database, table, out)
+	case datasetWorkTableExportFormatJSON:
+		return s.writeWorkTableJSONLines(ctx, database, table, out)
+	case datasetWorkTableExportFormatParquet:
+		return s.writeWorkTableParquet(ctx, database, table, out)
+	default:
+		return fmt.Errorf("%w: unsupported export format %q", ErrInvalidDatasetInput, format)
+	}
+}
+
+func (s *DatasetService) writeWorkTableRows(ctx context.Context, database, table string, handle func(driver.Rows) error) error {
 	if _, err := s.getWorkTableMetadata(ctx, database, table); err != nil {
 		return err
 	}
@@ -1743,8 +1797,24 @@ func (s *DatasetService) writeWorkTableCSV(ctx context.Context, database, table 
 		return fmt.Errorf("query work table export: %w", err)
 	}
 	defer rows.Close()
+	if err := handle(rows); err != nil {
+		return err
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate work table export rows: %w", err)
+	}
+	return nil
+}
+
+func (s *DatasetService) writeWorkTableCSV(ctx context.Context, database, table string, out io.Writer) error {
+	return s.writeWorkTableRows(ctx, database, table, func(rows driver.Rows) error {
+		return writeDatasetRowsCSV(rows, out)
+	})
+}
+
+func writeDatasetRowsCSV(rows driver.Rows, out io.Writer) error {
 	columns := rows.Columns()
-	writer := csv.NewWriter(buf)
+	writer := csv.NewWriter(out)
 	if err := writer.Write(columns); err != nil {
 		return err
 	}
@@ -1765,12 +1835,101 @@ func (s *DatasetService) writeWorkTableCSV(ctx context.Context, database, table 
 			return err
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate work table export rows: %w", err)
-	}
 	writer.Flush()
 	if err := writer.Error(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (s *DatasetService) writeWorkTableJSONLines(ctx context.Context, database, table string, out io.Writer) error {
+	return s.writeWorkTableRows(ctx, database, table, func(rows driver.Rows) error {
+		return writeDatasetRowsJSONLines(rows, out)
+	})
+}
+
+func writeDatasetRowsJSONLines(rows driver.Rows, out io.Writer) error {
+	columns := rows.Columns()
+	columnTypes := rows.ColumnTypes()
+	encoder := json.NewEncoder(out)
+	for rows.Next() {
+		holders, dest := datasetScanDestinations(columnTypes, len(columns))
+		if err := rows.Scan(dest...); err != nil {
+			return fmt.Errorf("scan work table export row: %w", err)
+		}
+		record := make(map[string]any, len(columns))
+		for i, column := range columns {
+			record[column] = datasetJSONValue(datasetScannedValue(holders[i]))
+		}
+		if err := encoder.Encode(record); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *DatasetService) writeWorkTableParquet(ctx context.Context, database, table string, out io.Writer) error {
+	if _, err := s.getWorkTableMetadata(ctx, database, table); err != nil {
+		return err
+	}
+	columns, err := s.listWorkTableColumns(ctx, database, table)
+	if err != nil {
+		return err
+	}
+	for _, column := range columns {
+		if datasetClickHouseTypeUnsupportedForParquet(column.ClickHouseType) {
+			return fmt.Errorf("%w: parquet export does not support column %s type %s", ErrInvalidDatasetInput, column.ColumnName, column.ClickHouseType)
+		}
+	}
+	return s.copyWorkTableParquet(ctx, database, table, out)
+}
+
+func (s *DatasetService) copyWorkTableParquet(ctx context.Context, database, table string, out io.Writer) error {
+	endpoint := strings.TrimSpace(s.chConfig.HTTPURL)
+	if endpoint == "" {
+		return fmt.Errorf("%w: CLICKHOUSE_HTTP_URL is required for parquet export", ErrDatasetClickHouseNotReady)
+	}
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("%w: invalid CLICKHOUSE_HTTP_URL", ErrDatasetClickHouseNotReady)
+	}
+	query := fmt.Sprintf("SELECT * FROM %s.%s FORMAT Parquet", quoteCHIdent(database), quoteCHIdent(table))
+	values := parsed.Query()
+	if s.chConfig.Database != "" {
+		values.Set("database", s.chConfig.Database)
+	}
+	for key, value := range s.exportQuerySettings() {
+		values.Set(key, fmt.Sprint(value))
+	}
+	parsed.RawQuery = values.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, parsed.String(), strings.NewReader(query))
+	if err != nil {
+		return fmt.Errorf("create clickhouse parquet request: %w", err)
+	}
+	username := strings.TrimSpace(s.chConfig.Username)
+	if username == "" {
+		username = "default"
+	}
+	req.SetBasicAuth(username, s.chConfig.Password)
+	req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	req.Header.Set("Accept", "application/octet-stream")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("request clickhouse parquet export: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		message := strings.TrimSpace(string(body))
+		if message == "" {
+			message = resp.Status
+		}
+		return fmt.Errorf("clickhouse parquet export failed: %s", message)
+	}
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		return fmt.Errorf("copy clickhouse parquet export: %w", err)
 	}
 	return nil
 }
@@ -2334,6 +2493,66 @@ func datasetJSONValue(value any) any {
 		return item.String()
 	default:
 		return item
+	}
+}
+
+func normalizeDatasetWorkTableExportFormat(value string) (string, error) {
+	format := strings.ToLower(strings.TrimSpace(value))
+	if format == "" {
+		format = datasetWorkTableExportFormatCSV
+	}
+	if _, ok := datasetWorkTableExportFormatSpecFor(format); !ok {
+		return "", fmt.Errorf("%w: unsupported export format %q", ErrInvalidDatasetInput, value)
+	}
+	return format, nil
+}
+
+func datasetWorkTableExportFormatSpecFor(format string) (datasetWorkTableExportFormatSpec, bool) {
+	switch format {
+	case datasetWorkTableExportFormatCSV:
+		return datasetWorkTableExportFormatSpec{Extension: ".csv", ContentType: "text/csv"}, true
+	case datasetWorkTableExportFormatJSON:
+		return datasetWorkTableExportFormatSpec{Extension: ".ndjson", ContentType: "application/x-ndjson"}, true
+	case datasetWorkTableExportFormatParquet:
+		return datasetWorkTableExportFormatSpec{Extension: ".parquet", ContentType: "application/vnd.apache.parquet"}, true
+	default:
+		return datasetWorkTableExportFormatSpec{}, false
+	}
+}
+
+func datasetClickHouseTypeUnsupportedForParquet(chType string) bool {
+	base := datasetClickHouseTypeBase(chType)
+	unsupportedPrefixes := []string{
+		"array(",
+		"map(",
+		"tuple(",
+		"nested(",
+		"object(",
+		"json",
+		"variant(",
+		"dynamic",
+		"aggregatefunction(",
+		"simpleaggregatefunction(",
+	}
+	for _, prefix := range unsupportedPrefixes {
+		if strings.HasPrefix(base, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func datasetClickHouseTypeBase(chType string) string {
+	value := strings.ToLower(strings.TrimSpace(chType))
+	for {
+		switch {
+		case strings.HasPrefix(value, "nullable(") && strings.HasSuffix(value, ")"):
+			value = strings.TrimSpace(value[len("nullable(") : len(value)-1])
+		case strings.HasPrefix(value, "lowcardinality(") && strings.HasSuffix(value, ")"):
+			value = strings.TrimSpace(value[len("lowcardinality(") : len(value)-1])
+		default:
+			return value
+		}
 	}
 }
 

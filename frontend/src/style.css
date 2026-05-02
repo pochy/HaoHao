@@ -1275,6 +1275,13 @@ code {
   flex: 1 1 280px;
 }
 
+.dataset-export-format-select {
+  width: auto;
+  min-width: 150px;
+  min-height: 34px;
+  padding-block: 6px;
+}
+
 .dataset-work-table-detail h3 {
   margin: 0;
   color: var(--text-strong);

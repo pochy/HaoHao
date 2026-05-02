@@ -607,6 +607,14 @@ export type DatasetWorkTableExportBody = {
     workTableId: number;
 };
 
+export type DatasetWorkTableExportCreateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    format?: 'csv' | 'json' | 'parquet';
+};
+
 export type DatasetWorkTableExportListBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -3705,6 +3713,10 @@ export type DatasetWorkTableExportBodyWritable = {
      */
     updatedAt: string;
     workTableId: number;
+};
+
+export type DatasetWorkTableExportCreateBodyWritable = {
+    format?: 'csv' | 'json' | 'parquet';
 };
 
 export type DatasetWorkTableExportListBodyWritable = {
@@ -8929,7 +8941,10 @@ export type ListDatasetWorkTableExportsResponses = {
 export type ListDatasetWorkTableExportsResponse = ListDatasetWorkTableExportsResponses[keyof ListDatasetWorkTableExportsResponses];
 
 export type CreateDatasetWorkTableExportData = {
-    body?: never;
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body?: DatasetWorkTableExportCreateBodyWritable;
     headers: {
         /**
          * Cookie session を使う state-changing request に必要な CSRF token です。

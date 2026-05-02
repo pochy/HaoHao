@@ -120,6 +120,10 @@ type DatasetWorkTableExportListBody struct {
 	Items []DatasetWorkTableExportBody `json:"items"`
 }
 
+type DatasetWorkTableExportCreateBody struct {
+	Format string `json:"format,omitempty" enum:"csv,json,parquet" example:"csv"`
+}
+
 type DatasetWorkTablePreviewBody struct {
 	Database    string           `json:"database" example:"hh_t_1_work"`
 	Table       string           `json:"table" example:"hai_category_summary"`
@@ -293,6 +297,7 @@ type DatasetWorkTableExportCreateInput struct {
 	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
 	CSRFToken         string      `header:"X-CSRF-Token" required:"true"`
 	WorkTablePublicID string      `path:"workTablePublicId" format:"uuid"`
+	Body              *DatasetWorkTableExportCreateBody
 }
 
 type DatasetWorkTableExportByPublicIDInput struct {
@@ -631,7 +636,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		OperationID: "createDatasetWorkTableExport",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/exports",
-		Summary:     "managed work table の CSV export を request する",
+		Summary:     "managed work table の export を request する",
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableExportCreateInput) (*DatasetWorkTableExportOutput, error) {
@@ -639,7 +644,11 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		item, err := deps.DatasetService.CreateWorkTableExport(ctx, tenant.ID, current.User.ID, input.WorkTablePublicID, sessionAuditContext(ctx, current, &tenant.ID))
+		format := ""
+		if input.Body != nil {
+			format = input.Body.Format
+		}
+		item, err := deps.DatasetService.CreateWorkTableExport(ctx, tenant.ID, current.User.ID, input.WorkTablePublicID, format, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "createDatasetWorkTableExport", err)
 		}
@@ -650,7 +659,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		OperationID: "listDatasetWorkTableExports",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/exports",
-		Summary:     "managed work table の CSV export 一覧を返す",
+		Summary:     "managed work table の export 一覧を返す",
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableExportInput) (*DatasetWorkTableExportListOutput, error) {

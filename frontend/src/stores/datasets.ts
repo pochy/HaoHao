@@ -26,6 +26,7 @@ import {
   requestWorkTableExport,
   truncateWorkTable,
 } from '../api/datasets'
+import type { DatasetWorkTableExportFormat } from '../api/datasets'
 
 type DatasetStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
 
@@ -326,7 +327,7 @@ export const useDatasetStore = defineStore('datasets', {
       }
     },
 
-    async requestSelectedWorkTableExport() {
+    async requestSelectedWorkTableExport(format: DatasetWorkTableExportFormat = 'csv') {
       const publicId = this.selectedWorkTable?.publicId
       if (!publicId) {
         return null
@@ -334,7 +335,7 @@ export const useDatasetStore = defineStore('datasets', {
       this.workTableActionLoading = true
       this.workTableErrorMessage = ''
       try {
-        const item = await requestWorkTableExport(publicId)
+        const item = await requestWorkTableExport(publicId, format)
         this.workTableExports = [item, ...this.workTableExports.filter((exportItem) => exportItem.publicId !== item.publicId)]
         return item
       } catch (error) {

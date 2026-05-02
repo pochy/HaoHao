@@ -4,6 +4,7 @@ import { Database, Download, FileDown, Link2, Pencil, RefreshCw, Table2, Trash2 
 import { useI18n } from 'vue-i18n'
 
 import { workTableExportDownloadUrl } from '../api/datasets'
+import type { DatasetWorkTableExportFormat } from '../api/datasets'
 import type { DatasetBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
 import ConfirmActionDialog from './ConfirmActionDialog.vue'
 import TextInputDialog from './TextInputDialog.vue'
@@ -33,7 +34,7 @@ const emit = defineEmits<{
   truncate: []
   drop: []
   promote: [name: string]
-  export: []
+  export: [format: DatasetWorkTableExportFormat]
 }>()
 
 const { d, n, t } = useI18n()
@@ -43,8 +44,15 @@ const previewRows = computed(() => props.preview?.previewRows ?? [])
 const selectedColumns = computed(() => props.selectedTable?.columns ?? [])
 const browserTitle = computed(() => props.title || t('datasets.workTables'))
 const selectedDatasetPublicId = ref('')
+const exportFormat = ref<DatasetWorkTableExportFormat>('csv')
 const textDialog = ref<'rename' | 'promote' | ''>('')
 const confirmDialog = ref<'truncate' | 'drop' | ''>('')
+
+const exportFormatOptions: Array<{ value: DatasetWorkTableExportFormat, labelKey: string }> = [
+  { value: 'csv', labelKey: 'datasets.exportFormatCsv' },
+  { value: 'json', labelKey: 'datasets.exportFormatJsonLines' },
+  { value: 'parquet', labelKey: 'datasets.exportFormatParquet' },
+]
 
 watch(
   () => [props.selectedTable?.originDatasetPublicId, props.datasets.length] as const,
@@ -78,6 +86,19 @@ function formatBytes(value?: number | null) {
     index++
   }
   return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: size >= 10 ? 1 : 2 }).format(size)} ${units[index]}`
+}
+
+function formatExportFormat(format: string) {
+  switch (format) {
+    case 'csv':
+      return t('datasets.exportFormatCsv')
+    case 'json':
+      return t('datasets.exportFormatJson')
+    case 'parquet':
+      return t('datasets.exportFormatParquet')
+    default:
+      return format
+  }
 }
 
 function statusClass(status: string) {
@@ -192,7 +213,12 @@ function runConfirmAction() {
               <Database :size="16" aria-hidden="true" />
               {{ t('datasets.promote') }}
             </button>
-            <button class="secondary-button compact-button" type="button" :disabled="actionLoading" @click="emit('export')">
+            <select v-model="exportFormat" class="field-input dataset-export-format-select" :disabled="actionLoading" :aria-label="t('datasets.exportFormat')">
+              <option v-for="option in exportFormatOptions" :key="option.value" :value="option.value">
+                {{ t(option.labelKey) }}
+              </option>
+            </select>
+            <button class="secondary-button compact-button" type="button" :disabled="actionLoading" @click="emit('export', exportFormat)">
               <FileDown :size="16" aria-hidden="true" />
               {{ t('datasets.requestExport') }}
             </button>
@@ -297,7 +323,7 @@ function runConfirmAction() {
         <div v-if="selectedTable.managed" class="section-header compact-section-header">
           <div>
             <span class="status-pill">{{ t('datasets.exports') }}</span>
-            <h3>{{ t('datasets.csvExports') }}</h3>
+            <h3>{{ t('datasets.exportHistory') }}</h3>
           </div>
         </div>
 
@@ -314,7 +340,7 @@ function runConfirmAction() {
             <tbody>
               <tr v-for="item in exports" :key="item.publicId">
                 <td><span class="status-pill" :class="statusClass(item.status)">{{ item.status }}</span></td>
-                <td>{{ item.format }}</td>
+                <td>{{ formatExportFormat(item.format) }}</td>
                 <td>{{ formatDate(item.createdAt) }}</td>
                 <td>
                   <a

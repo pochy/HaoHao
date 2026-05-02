@@ -41,6 +41,8 @@ import type {
   DatasetWorkTableRenameBodyWritable,
 } from './generated/types.gen'
 
+export type DatasetWorkTableExportFormat = 'csv' | 'json' | 'parquet'
+
 function csrfHeaders() {
   return {
     'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
@@ -169,11 +171,12 @@ export async function promoteWorkTable(workTablePublicId: string, body: DatasetW
   }) as unknown as Promise<DatasetBody>
 }
 
-export async function requestWorkTableExport(workTablePublicId: string): Promise<DatasetWorkTableExportBody> {
+export async function requestWorkTableExport(workTablePublicId: string, format: DatasetWorkTableExportFormat = 'csv'): Promise<DatasetWorkTableExportBody> {
   await ensureCSRFCookie()
   return createDatasetWorkTableExport({
     headers: csrfHeaders(),
     path: { workTablePublicId },
+    body: { format },
   }) as unknown as Promise<DatasetWorkTableExportBody>
 }
 

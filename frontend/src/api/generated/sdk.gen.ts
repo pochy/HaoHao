@@ -2204,9 +2204,9 @@ export const getManagedDatasetWorkTable = <ThrowOnError extends boolean = false>
 });
 
 /**
- * managed work table の CSV export 一覧を返す
+ * managed work table の export 一覧を返す
  *
- * managed work table の CSV export 一覧を返す。
+ * managed work table の export 一覧を返す。
  *
  * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
  *
@@ -2225,15 +2225,16 @@ export const listDatasetWorkTableExports = <ThrowOnError extends boolean = false
 });
 
 /**
- * managed work table の CSV export を request する
+ * managed work table の export を request する
  *
- * managed work table の CSV export を request する。
+ * managed work table の export を request する。
  *
  * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
  *
  * ### 使い方
  *
  * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDatasetWorkTableExport = <ThrowOnError extends boolean = false>(options: Options<CreateDatasetWorkTableExportData, ThrowOnError>) => (options.client ?? client).post<CreateDatasetWorkTableExportResponses, CreateDatasetWorkTableExportErrors, ThrowOnError>({
     security: [{
@@ -2242,7 +2243,11 @@ export const createDatasetWorkTableExport = <ThrowOnError extends boolean = fals
             type: 'apiKey'
         }],
     url: '/api/v1/dataset-work-tables/{workTablePublicId}/exports',
-    ...options
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**

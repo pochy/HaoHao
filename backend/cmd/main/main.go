@@ -152,6 +152,7 @@ func main() {
 	customerSignalImportService := service.NewCustomerSignalImportService(pool, queries, outboxService, fileService, entitlementService, auditService)
 	datasetService := service.NewDatasetService(pool, queries, outboxService, fileService, auditService, clickHouseConn, service.DatasetClickHouseConfig{
 		Addr:                cfg.ClickHouseAddr,
+		HTTPURL:             cfg.ClickHouseHTTPURL,
 		Database:            cfg.ClickHouseDatabase,
 		Username:            cfg.ClickHouseUsername,
 		Password:            cfg.ClickHousePassword,

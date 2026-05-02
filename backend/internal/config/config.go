@@ -102,6 +102,7 @@ type Config struct {
 	RedisPassword                 string
 	RedisDB                       int
 	ClickHouseAddr                string
+	ClickHouseHTTPURL             string
 	ClickHouseDatabase            string
 	ClickHouseUsername            string
 	ClickHousePassword            string
@@ -342,6 +343,7 @@ func Load() (Config, error) {
 		RedisPassword:                 getEnv("REDIS_PASSWORD", ""),
 		RedisDB:                       getEnvInt("REDIS_DB", 0),
 		ClickHouseAddr:                strings.TrimSpace(getEnv("CLICKHOUSE_ADDR", "127.0.0.1:9000")),
+		ClickHouseHTTPURL:             strings.TrimSpace(getEnv("CLICKHOUSE_HTTP_URL", "http://127.0.0.1:8123")),
 		ClickHouseDatabase:            strings.TrimSpace(getEnv("CLICKHOUSE_DATABASE", "default")),
 		ClickHouseUsername:            strings.TrimSpace(getEnv("CLICKHOUSE_USERNAME", "default")),
 		ClickHousePassword:            getEnv("CLICKHOUSE_PASSWORD", ""),

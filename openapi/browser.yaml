@@ -1486,6 +1486,25 @@ components:
         - createdAt
         - updatedAt
       type: object
+    DatasetWorkTableExportCreateBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTableExportCreateBody.json
+          format: uri
+          readOnly: true
+          type: string
+        format:
+          enum:
+            - csv
+            - json
+            - parquet
+          examples:
+            - csv
+          type: string
+      type: object
     DatasetWorkTableExportListBody:
       additionalProperties: false
       properties:
@@ -15676,7 +15695,7 @@ paths:
   /api/v1/dataset-work-tables/{workTablePublicId}/exports:
     get:
       description: |-
-        managed work table の CSV export 一覧を返す。
+        managed work table の export 一覧を返す。
 
         file metadata、dataset、work table、query job、export の管理に使う endpoint です。
 
@@ -15755,18 +15774,19 @@ paths:
           description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - cookieAuth: []
-      summary: managed work table の CSV export 一覧を返す
+      summary: managed work table の export 一覧を返す
       tags:
         - Data & Datasets
     post:
       description: |-
-        managed work table の CSV export を request する。
+        managed work table の export を request する。
 
         file metadata、dataset、work table、query job、export の管理に使う endpoint です。
 
         ### 使い方
 
         - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
       operationId: createDatasetWorkTableExport
       parameters:
         - description: login または session refresh で発行される browser session Cookie です。
@@ -15790,6 +15810,18 @@ paths:
           schema:
             format: uuid
             type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  format: csv
+            schema:
+              $ref: "#/components/schemas/DatasetWorkTableExportCreateBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
       responses:
         "200":
           content:
@@ -15833,7 +15865,7 @@ paths:
           description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - cookieAuth: []
-      summary: managed work table の CSV export を request する
+      summary: managed work table の export を request する
       tags:
         - Data & Datasets
   /api/v1/dataset-work-tables/{workTablePublicId}/link:

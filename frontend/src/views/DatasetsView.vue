@@ -5,6 +5,7 @@ import { Database, FileText, RefreshCw, Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { toApiErrorMessage, toApiErrorRequestId } from '../api/client'
+import type { DatasetWorkTableExportFormat } from '../api/datasets'
 import DatasetWorkTableBrowser from '../components/DatasetWorkTableBrowser.vue'
 import { useDatasetStore } from '../stores/datasets'
 import { useTenantStore } from '../stores/tenants'
@@ -201,10 +202,10 @@ async function promoteWorkTable(name: string) {
   }
 }
 
-async function requestWorkTableExport() {
+async function requestWorkTableExport(format: DatasetWorkTableExportFormat) {
   actionErrorMessage.value = ''
   try {
-    await datasetStore.requestSelectedWorkTableExport()
+    await datasetStore.requestSelectedWorkTableExport(format)
   } catch (error) {
     actionErrorMessage.value = formatActionError(error)
   }
