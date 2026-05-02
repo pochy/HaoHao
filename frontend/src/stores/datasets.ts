@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia'
 
 import { isApiForbidden, toApiErrorMessage, toApiErrorStatus } from '../api/client'
-import type { DatasetBody, DatasetLineageBody, DatasetLineageChangeSetBody, DatasetLineageChangeSetGraphBody, DatasetLineageGraphSaveBodyWritable, DatasetLineageParseRunBody, DatasetQueryJobBody, DatasetSourceFileBody, DatasetSyncJobBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody, MedallionCatalogBody } from '../api/generated/types.gen'
+import type { DatasetBody, DatasetGoldPublicationBody, DatasetGoldPublicationCreateBodyWritable, DatasetGoldPublicationPreviewBody, DatasetGoldPublishRunBody, DatasetLineageBody, DatasetLineageChangeSetBody, DatasetLineageChangeSetGraphBody, DatasetLineageGraphSaveBodyWritable, DatasetLineageParseRunBody, DatasetQueryJobBody, DatasetSourceFileBody, DatasetSyncJobBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody, MedallionCatalogBody } from '../api/generated/types.gen'
 import {
+  archiveGoldPublication,
   createLineageChangeSet,
+  createGoldPublication,
   createWorkTableExportSchedule,
   createDatasetFromDriveFile,
   createDatasetQuery,
@@ -24,6 +26,10 @@ import {
   fetchDatasetWorkTable,
   fetchDatasetWorkTablePreview,
   fetchDatasetWorkTables,
+  fetchGoldPublication,
+  fetchGoldPublicationPreview,
+  fetchGoldPublications,
+  fetchGoldPublishRuns,
   fetchManagedDatasetWorkTable,
   fetchManagedDatasetWorkTablePreview,
   fetchWorkTableExportSchedules,
@@ -36,10 +42,12 @@ import {
   rejectLineageChangeSet,
   requestDatasetQueryJobLineageParse,
   requestDatasetSync,
+  refreshGoldPublication,
   renameWorkTable,
   requestWorkTableExport,
   saveLineageChangeSetGraph,
   truncateWorkTable,
+  unpublishGoldPublication,
   updateWorkTableExportSchedule,
 } from '../api/datasets'
 import { fetchMedallionResourceCatalog } from '../api/medallion'
@@ -58,10 +66,15 @@ export const useDatasetStore = defineStore('datasets', {
     linkedWorkTables: [] as DatasetWorkTableBody[],
     selectedWorkTable: null as DatasetWorkTableBody | null,
     workTablePreview: null as DatasetWorkTablePreviewBody | null,
+    goldPublications: [] as DatasetGoldPublicationBody[],
+    selectedGoldPublication: null as DatasetGoldPublicationBody | null,
+    goldPublicationPreview: null as DatasetGoldPublicationPreviewBody | null,
+    goldPublishRuns: [] as DatasetGoldPublishRunBody[],
     workTableExports: [] as DatasetWorkTableExportBody[],
     workTableExportSchedules: [] as DatasetWorkTableExportScheduleBody[],
     datasetMedallionCatalog: null as MedallionCatalogBody | null,
     workTableMedallionCatalog: null as MedallionCatalogBody | null,
+    goldMedallionCatalog: null as MedallionCatalogBody | null,
     datasetLineage: null as DatasetLineageBody | null,
     workTableLineage: null as DatasetLineageBody | null,
     lineageLevel: 'table' as DatasetLineageLevel,
@@ -74,10 +87,18 @@ export const useDatasetStore = defineStore('datasets', {
     workTableLineageLoading: false,
     workTablesLoading: false,
     workTablePreviewLoading: false,
+    goldPublicationsLoading: false,
+    goldPublicationLoading: false,
+    goldPreviewLoading: false,
+    goldRunsLoading: false,
     datasetMedallionLoading: false,
     workTableMedallionLoading: false,
+    goldMedallionLoading: false,
     workTableActionLoading: false,
+    goldActionLoading: false,
     workTableErrorMessage: '',
+    goldErrorMessage: '',
+    goldPreviewErrorMessage: '',
     queryJobs: [] as DatasetQueryJobBody[],
     syncJobs: [] as DatasetSyncJobBody[],
     latestQuery: null as DatasetQueryJobBody | null,
@@ -99,6 +120,10 @@ export const useDatasetStore = defineStore('datasets', {
     ),
     hasActiveImports: (state) => state.items.some((item) => ['pending', 'importing'].includes(item.status)),
     hasActiveWorkTableExports: (state) => state.workTableExports.some((item) => ['pending', 'processing'].includes(item.status)),
+    hasActiveGoldPublishRuns: (state) => (
+      state.goldPublishRuns.some((item) => ['pending', 'processing'].includes(item.status))
+      || state.goldPublications.some((item) => item.status === 'pending' || ['pending', 'processing'].includes(item.latestPublishRun?.status ?? ''))
+    ),
     hasActiveDatasetSync: (state) => {
       if (state.syncJobs.some((item) => ['pending', 'processing'].includes(item.status))) {
         return true
@@ -288,6 +313,90 @@ export const useDatasetStore = defineStore('datasets', {
       }
     },
 
+    async loadGoldPublications() {
+      this.goldPublicationsLoading = true
+      this.goldErrorMessage = ''
+      try {
+        this.goldPublications = await fetchGoldPublications()
+      } catch (error) {
+        this.goldPublications = []
+        this.goldErrorMessage = toApiErrorMessage(error)
+      } finally {
+        this.goldPublicationsLoading = false
+      }
+    },
+
+    async loadGoldPublication(goldPublicId: string) {
+      if (!goldPublicId) {
+        this.selectedGoldPublication = null
+        this.goldPublicationPreview = null
+        this.goldPublishRuns = []
+        this.goldMedallionCatalog = null
+        return null
+      }
+      this.goldPublicationLoading = true
+      this.goldErrorMessage = ''
+      this.goldPreviewErrorMessage = ''
+      try {
+        const item = await fetchGoldPublication(goldPublicId)
+        this.selectedGoldPublication = item
+        this.goldPublications = upsertGoldPublication(this.goldPublications, item)
+        await Promise.all([
+          this.loadGoldPublicationPreview(goldPublicId).catch(() => undefined),
+          this.loadGoldPublishRuns(goldPublicId).catch(() => undefined),
+          this.loadGoldMedallion(goldPublicId).catch(() => undefined),
+        ])
+        return item
+      } catch (error) {
+        this.selectedGoldPublication = null
+        this.goldPublicationPreview = null
+        this.goldPublishRuns = []
+        this.goldMedallionCatalog = null
+        this.goldErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.goldPublicationLoading = false
+      }
+    },
+
+    async loadGoldPublicationPreview(goldPublicId: string) {
+      if (!goldPublicId) {
+        this.goldPublicationPreview = null
+        return null
+      }
+      this.goldPreviewLoading = true
+      this.goldPreviewErrorMessage = ''
+      try {
+        const preview = await fetchGoldPublicationPreview(goldPublicId)
+        this.goldPublicationPreview = preview
+        return preview
+      } catch (error) {
+        this.goldPublicationPreview = null
+        this.goldPreviewErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.goldPreviewLoading = false
+      }
+    },
+
+    async loadGoldPublishRuns(goldPublicId: string) {
+      if (!goldPublicId) {
+        this.goldPublishRuns = []
+        return []
+      }
+      this.goldRunsLoading = true
+      try {
+        this.goldPublishRuns = await fetchGoldPublishRuns(goldPublicId)
+        return this.goldPublishRuns
+      } catch (error) {
+        this.goldPublishRuns = []
+        this.goldErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.goldRunsLoading = false
+      }
+    },
+
     async selectWorkTable(table: DatasetWorkTableBody) {
       const existing = this.workTables.find((item) => sameWorkTable(item, table)) ?? table
       this.selectedWorkTable = existing
@@ -371,6 +480,21 @@ export const useDatasetStore = defineStore('datasets', {
         this.workTableMedallionCatalog = null
       } finally {
         this.workTableMedallionLoading = false
+      }
+    },
+
+    async loadGoldMedallion(goldPublicId: string) {
+      if (!goldPublicId) {
+        this.goldMedallionCatalog = null
+        return
+      }
+      this.goldMedallionLoading = true
+      try {
+        this.goldMedallionCatalog = await fetchMedallionResourceCatalog('gold_table', goldPublicId)
+      } catch {
+        this.goldMedallionCatalog = null
+      } finally {
+        this.goldMedallionLoading = false
       }
     },
 
@@ -499,6 +623,27 @@ export const useDatasetStore = defineStore('datasets', {
         const dataset = await promoteWorkTable(publicId, { ...(name.trim() ? { name: name.trim() } : {}) })
         this.items = [dataset, ...this.items.filter((item) => item.publicId !== dataset.publicId)]
         return dataset
+      } catch (error) {
+        this.workTableErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.workTableActionLoading = false
+      }
+    },
+
+    async publishSelectedWorkTableToGold(body: DatasetGoldPublicationCreateBodyWritable) {
+      const publicId = this.selectedWorkTable?.publicId
+      if (!publicId) {
+        return null
+      }
+      this.workTableActionLoading = true
+      this.workTableErrorMessage = ''
+      try {
+        const item = await createGoldPublication(publicId, body)
+        this.goldPublications = upsertGoldPublication(this.goldPublications, item)
+        this.selectedGoldPublication = item
+        await this.loadSelectedWorkTableLineage()
+        return item
       } catch (error) {
         this.workTableErrorMessage = toApiErrorMessage(error)
         throw error
@@ -809,6 +954,114 @@ export const useDatasetStore = defineStore('datasets', {
       return true
     },
 
+    async refreshSelectedGoldPublication() {
+      const publicId = this.selectedGoldPublication?.publicId
+      if (!publicId) {
+        return null
+      }
+      this.goldActionLoading = true
+      this.goldErrorMessage = ''
+      try {
+        const run = await refreshGoldPublication(publicId)
+        this.goldPublishRuns = upsertGoldPublishRun(this.goldPublishRuns, run)
+        if (this.selectedGoldPublication) {
+          this.selectedGoldPublication = {
+            ...this.selectedGoldPublication,
+            latestPublishRun: run,
+          }
+          this.goldPublications = upsertGoldPublication(this.goldPublications, this.selectedGoldPublication)
+        }
+        return run
+      } catch (error) {
+        this.goldErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.goldActionLoading = false
+      }
+    },
+
+    async unpublishSelectedGoldPublication() {
+      const publicId = this.selectedGoldPublication?.publicId
+      if (!publicId) {
+        return null
+      }
+      this.goldActionLoading = true
+      this.goldErrorMessage = ''
+      try {
+        const item = await unpublishGoldPublication(publicId)
+        this.selectedGoldPublication = item
+        this.goldPublicationPreview = null
+        this.goldPublications = upsertGoldPublication(this.goldPublications, item)
+        await this.loadGoldMedallion(publicId).catch(() => undefined)
+        return item
+      } catch (error) {
+        this.goldErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.goldActionLoading = false
+      }
+    },
+
+    async archiveSelectedGoldPublication() {
+      const publicId = this.selectedGoldPublication?.publicId
+      if (!publicId) {
+        return null
+      }
+      this.goldActionLoading = true
+      this.goldErrorMessage = ''
+      try {
+        const item = await archiveGoldPublication(publicId)
+        this.selectedGoldPublication = item
+        this.goldPublicationPreview = null
+        this.goldPublications = this.goldPublications.filter((existing) => existing.publicId !== item.publicId)
+        await this.loadGoldMedallion(publicId).catch(() => undefined)
+        return item
+      } catch (error) {
+        this.goldErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.goldActionLoading = false
+      }
+    },
+
+    applyGoldPublishRunUpdate(update: Partial<DatasetGoldPublishRunBody> & { publicId: string }) {
+      const index = this.goldPublishRuns.findIndex((item) => item.publicId === update.publicId)
+      if (index >= 0) {
+        this.goldPublishRuns[index] = {
+          ...this.goldPublishRuns[index],
+          ...update,
+        }
+      }
+      if (this.selectedGoldPublication?.latestPublishRun?.publicId === update.publicId) {
+        this.selectedGoldPublication = {
+          ...this.selectedGoldPublication,
+          latestPublishRun: {
+            ...this.selectedGoldPublication.latestPublishRun,
+            ...update,
+          },
+        }
+        this.goldPublications = upsertGoldPublication(this.goldPublications, this.selectedGoldPublication)
+      }
+      return index >= 0 || this.selectedGoldPublication?.latestPublishRun?.publicId === update.publicId
+    },
+
+    applyGoldPublicationUpdate(update: Partial<DatasetGoldPublicationBody> & { publicId: string }) {
+      const index = this.goldPublications.findIndex((item) => item.publicId === update.publicId)
+      if (index >= 0) {
+        this.goldPublications[index] = {
+          ...this.goldPublications[index],
+          ...update,
+        }
+      }
+      if (this.selectedGoldPublication?.publicId === update.publicId) {
+        this.selectedGoldPublication = {
+          ...this.selectedGoldPublication,
+          ...update,
+        }
+      }
+      return index >= 0 || this.selectedGoldPublication?.publicId === update.publicId
+    },
+
     async importFromDriveFile(driveFilePublicId: string, name: string) {
       this.importing = true
       this.errorMessage = ''
@@ -900,8 +1153,15 @@ export const useDatasetStore = defineStore('datasets', {
       this.linkedWorkTables = []
       this.selectedWorkTable = null
       this.workTablePreview = null
+      this.goldPublications = []
+      this.selectedGoldPublication = null
+      this.goldPublicationPreview = null
+      this.goldPublishRuns = []
       this.workTableExports = []
       this.workTableExportSchedules = []
+      this.datasetMedallionCatalog = null
+      this.workTableMedallionCatalog = null
+      this.goldMedallionCatalog = null
       this.datasetLineage = null
       this.workTableLineage = null
       this.lineageLevel = 'table'
@@ -914,8 +1174,18 @@ export const useDatasetStore = defineStore('datasets', {
       this.workTableLineageLoading = false
       this.workTablesLoading = false
       this.workTablePreviewLoading = false
+      this.goldPublicationsLoading = false
+      this.goldPublicationLoading = false
+      this.goldPreviewLoading = false
+      this.goldRunsLoading = false
+      this.datasetMedallionLoading = false
+      this.workTableMedallionLoading = false
+      this.goldMedallionLoading = false
       this.workTableActionLoading = false
+      this.goldActionLoading = false
       this.workTableErrorMessage = ''
+      this.goldErrorMessage = ''
+      this.goldPreviewErrorMessage = ''
       this.queryJobs = []
       this.syncJobs = []
       this.latestQuery = null
@@ -930,4 +1200,12 @@ export const useDatasetStore = defineStore('datasets', {
 
 function sameWorkTable(a: DatasetWorkTableBody, b: DatasetWorkTableBody) {
   return a.database === b.database && a.table === b.table
+}
+
+function upsertGoldPublication(items: DatasetGoldPublicationBody[], item: DatasetGoldPublicationBody) {
+  return [item, ...items.filter((existing) => existing.publicId !== item.publicId)]
+}
+
+function upsertGoldPublishRun(items: DatasetGoldPublishRunBody[], item: DatasetGoldPublishRunBody) {
+  return [item, ...items.filter((existing) => existing.publicId !== item.publicId)].slice(0, 25)
 }

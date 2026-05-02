@@ -231,6 +231,108 @@ ALTER TABLE public.dataset_columns ALTER COLUMN id ADD GENERATED ALWAYS AS IDENT
 
 
 --
+-- Name: dataset_gold_publications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_gold_publications (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    source_work_table_id bigint NOT NULL,
+    created_by_user_id bigint,
+    updated_by_user_id bigint,
+    published_by_user_id bigint,
+    unpublished_by_user_id bigint,
+    archived_by_user_id bigint,
+    last_publish_run_id bigint,
+    display_name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    gold_database text NOT NULL,
+    gold_table text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    row_count bigint DEFAULT 0 NOT NULL,
+    total_bytes bigint DEFAULT 0 NOT NULL,
+    schema_summary jsonb DEFAULT '{}'::jsonb NOT NULL,
+    refresh_policy text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    published_at timestamp with time zone,
+    unpublished_at timestamp with time zone,
+    archived_at timestamp with time zone,
+    CONSTRAINT dataset_gold_publications_display_name_check CHECK ((btrim(display_name) <> ''::text)),
+    CONSTRAINT dataset_gold_publications_gold_database_check CHECK ((btrim(gold_database) <> ''::text)),
+    CONSTRAINT dataset_gold_publications_gold_table_check CHECK ((btrim(gold_table) <> ''::text)),
+    CONSTRAINT dataset_gold_publications_refresh_policy_check CHECK ((refresh_policy = 'manual'::text)),
+    CONSTRAINT dataset_gold_publications_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT dataset_gold_publications_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'failed'::text, 'unpublished'::text, 'archived'::text]))),
+    CONSTRAINT dataset_gold_publications_total_bytes_check CHECK ((total_bytes >= 0))
+);
+
+
+--
+-- Name: dataset_gold_publications_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_gold_publications ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_gold_publications_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: dataset_gold_publish_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_gold_publish_runs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    publication_id bigint NOT NULL,
+    source_work_table_id bigint NOT NULL,
+    requested_by_user_id bigint,
+    outbox_event_id bigint,
+    status text DEFAULT 'pending'::text NOT NULL,
+    gold_database text NOT NULL,
+    gold_table text NOT NULL,
+    internal_database text NOT NULL,
+    internal_table text NOT NULL,
+    row_count bigint DEFAULT 0 NOT NULL,
+    total_bytes bigint DEFAULT 0 NOT NULL,
+    schema_summary jsonb DEFAULT '{}'::jsonb NOT NULL,
+    error_summary text,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT dataset_gold_publish_runs_gold_database_check CHECK ((btrim(gold_database) <> ''::text)),
+    CONSTRAINT dataset_gold_publish_runs_gold_table_check CHECK ((btrim(gold_table) <> ''::text)),
+    CONSTRAINT dataset_gold_publish_runs_internal_database_check CHECK ((btrim(internal_database) <> ''::text)),
+    CONSTRAINT dataset_gold_publish_runs_internal_table_check CHECK ((btrim(internal_table) <> ''::text)),
+    CONSTRAINT dataset_gold_publish_runs_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT dataset_gold_publish_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text]))),
+    CONSTRAINT dataset_gold_publish_runs_total_bytes_check CHECK ((total_bytes >= 0))
+);
+
+
+--
+-- Name: dataset_gold_publish_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_gold_publish_runs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_gold_publish_runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: dataset_import_jobs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2465,8 +2567,6 @@ CREATE TABLE public.drive_ocr_runs (
     engine text NOT NULL,
     languages text[] DEFAULT ARRAY['jpn'::text, 'eng'::text] NOT NULL,
     structured_extractor text DEFAULT 'rules'::text NOT NULL,
-    artifact_schema_version text DEFAULT 'drive_image_pdf_v1'::text NOT NULL,
-    pipeline_config_hash text DEFAULT 'legacy'::text NOT NULL,
     status text DEFAULT 'pending'::text NOT NULL,
     reason text DEFAULT 'upload'::text NOT NULL,
     page_count integer DEFAULT 0 NOT NULL,
@@ -2481,6 +2581,8 @@ CREATE TABLE public.drive_ocr_runs (
     completed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    artifact_schema_version text DEFAULT 'drive_image_pdf_v1'::text NOT NULL,
+    pipeline_config_hash text DEFAULT 'legacy'::text NOT NULL,
     CONSTRAINT drive_ocr_runs_artifact_schema_version_check CHECK ((btrim(artifact_schema_version) <> ''::text)),
     CONSTRAINT drive_ocr_runs_engine_check CHECK ((engine = ANY (ARRAY['tesseract'::text, 'docling'::text, 'paddleocr'::text]))),
     CONSTRAINT drive_ocr_runs_page_count_check CHECK ((page_count >= 0)),
@@ -4474,6 +4576,38 @@ ALTER TABLE ONLY public.dataset_columns
 
 
 --
+-- Name: dataset_gold_publications dataset_gold_publications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publications
+    ADD CONSTRAINT dataset_gold_publications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_gold_publications dataset_gold_publications_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publications
+    ADD CONSTRAINT dataset_gold_publications_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: dataset_gold_publish_runs dataset_gold_publish_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publish_runs
+    ADD CONSTRAINT dataset_gold_publish_runs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_gold_publish_runs dataset_gold_publish_runs_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publish_runs
+    ADD CONSTRAINT dataset_gold_publish_runs_public_id_key UNIQUE (public_id);
+
+
+--
 -- Name: dataset_import_jobs dataset_import_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5778,6 +5912,69 @@ CREATE UNIQUE INDEX dataset_columns_dataset_column_name_key ON public.dataset_co
 --
 
 CREATE UNIQUE INDEX dataset_columns_dataset_ordinal_key ON public.dataset_columns USING btree (dataset_id, ordinal);
+
+
+--
+-- Name: dataset_gold_publications_active_table_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_gold_publications_active_table_key ON public.dataset_gold_publications USING btree (tenant_id, gold_database, gold_table) WHERE (archived_at IS NULL);
+
+
+--
+-- Name: dataset_gold_publications_last_publish_run_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_gold_publications_last_publish_run_idx ON public.dataset_gold_publications USING btree (last_publish_run_id) WHERE (last_publish_run_id IS NOT NULL);
+
+
+--
+-- Name: dataset_gold_publications_source_work_table_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_gold_publications_source_work_table_idx ON public.dataset_gold_publications USING btree (source_work_table_id, updated_at DESC, id DESC);
+
+
+--
+-- Name: dataset_gold_publications_tenant_status_updated_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_gold_publications_tenant_status_updated_idx ON public.dataset_gold_publications USING btree (tenant_id, status, updated_at DESC, id DESC);
+
+
+--
+-- Name: dataset_gold_publish_runs_active_publication_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_gold_publish_runs_active_publication_key ON public.dataset_gold_publish_runs USING btree (publication_id) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]));
+
+
+--
+-- Name: dataset_gold_publish_runs_outbox_event_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_gold_publish_runs_outbox_event_idx ON public.dataset_gold_publish_runs USING btree (outbox_event_id) WHERE (outbox_event_id IS NOT NULL);
+
+
+--
+-- Name: dataset_gold_publish_runs_publication_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_gold_publish_runs_publication_created_idx ON public.dataset_gold_publish_runs USING btree (publication_id, created_at DESC, id DESC);
+
+
+--
+-- Name: dataset_gold_publish_runs_source_work_table_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_gold_publish_runs_source_work_table_idx ON public.dataset_gold_publish_runs USING btree (source_work_table_id, created_at DESC, id DESC);
+
+
+--
+-- Name: dataset_gold_publish_runs_tenant_status_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_gold_publish_runs_tenant_status_created_idx ON public.dataset_gold_publish_runs USING btree (tenant_id, status, created_at DESC, id DESC);
 
 
 --
@@ -7394,6 +7591,110 @@ ALTER TABLE ONLY public.customer_signals
 
 ALTER TABLE ONLY public.dataset_columns
     ADD CONSTRAINT dataset_columns_dataset_id_fkey FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_gold_publications dataset_gold_publications_archived_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publications
+    ADD CONSTRAINT dataset_gold_publications_archived_by_user_id_fkey FOREIGN KEY (archived_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_gold_publications dataset_gold_publications_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publications
+    ADD CONSTRAINT dataset_gold_publications_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_gold_publications dataset_gold_publications_last_publish_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publications
+    ADD CONSTRAINT dataset_gold_publications_last_publish_run_id_fkey FOREIGN KEY (last_publish_run_id) REFERENCES public.dataset_gold_publish_runs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_gold_publications dataset_gold_publications_published_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publications
+    ADD CONSTRAINT dataset_gold_publications_published_by_user_id_fkey FOREIGN KEY (published_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_gold_publications dataset_gold_publications_source_work_table_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publications
+    ADD CONSTRAINT dataset_gold_publications_source_work_table_id_fkey FOREIGN KEY (source_work_table_id) REFERENCES public.dataset_work_tables(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_gold_publications dataset_gold_publications_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publications
+    ADD CONSTRAINT dataset_gold_publications_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_gold_publications dataset_gold_publications_unpublished_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publications
+    ADD CONSTRAINT dataset_gold_publications_unpublished_by_user_id_fkey FOREIGN KEY (unpublished_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_gold_publications dataset_gold_publications_updated_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publications
+    ADD CONSTRAINT dataset_gold_publications_updated_by_user_id_fkey FOREIGN KEY (updated_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_gold_publish_runs dataset_gold_publish_runs_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publish_runs
+    ADD CONSTRAINT dataset_gold_publish_runs_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_gold_publish_runs dataset_gold_publish_runs_publication_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publish_runs
+    ADD CONSTRAINT dataset_gold_publish_runs_publication_id_fkey FOREIGN KEY (publication_id) REFERENCES public.dataset_gold_publications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_gold_publish_runs dataset_gold_publish_runs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publish_runs
+    ADD CONSTRAINT dataset_gold_publish_runs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_gold_publish_runs dataset_gold_publish_runs_source_work_table_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publish_runs
+    ADD CONSTRAINT dataset_gold_publish_runs_source_work_table_id_fkey FOREIGN KEY (source_work_table_id) REFERENCES public.dataset_work_tables(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_gold_publish_runs dataset_gold_publish_runs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publish_runs
+    ADD CONSTRAINT dataset_gold_publish_runs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --

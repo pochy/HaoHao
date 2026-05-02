@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { CalendarClock, Database, Download, FileDown, Link2, Pencil, RefreshCw, Table2, Trash2 } from 'lucide-vue-next'
+import { CalendarClock, Crown, Database, Download, FileDown, Link2, Pencil, RefreshCw, Table2, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { workTableExportDownloadUrl } from '../api/datasets'
 import type { DatasetLineageLevel, DatasetLineageSource, DatasetWorkTableExportFormat, DatasetWorkTableExportFrequency } from '../api/datasets'
-import type { DatasetBody, DatasetLineageBody, DatasetLineageGraphSaveBodyWritable, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody, MedallionCatalogBody } from '../api/generated/types.gen'
+import type { DatasetBody, DatasetGoldPublicationCreateBodyWritable, DatasetLineageBody, DatasetLineageGraphSaveBodyWritable, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody, MedallionCatalogBody } from '../api/generated/types.gen'
 import ConfirmActionDialog from './ConfirmActionDialog.vue'
 import LineageCompactGraph from './LineageCompactGraph.vue'
 import LineageFlowGraph from './LineageFlowGraph.vue'
@@ -52,6 +52,7 @@ const emit = defineEmits<{
   truncate: []
   drop: []
   promote: [name: string]
+  publishGold: [body: DatasetGoldPublicationCreateBodyWritable]
   export: [format: DatasetWorkTableExportFormat]
   createSchedule: [body: DatasetWorkTableExportScheduleCreateBodyWritable]
   updateSchedule: [schedulePublicId: string, body: DatasetWorkTableExportScheduleUpdateBodyWritable]
@@ -76,7 +77,7 @@ const activeWorkTableDetailTab = ref<WorkTableDetailTab>('overview')
 const activeLineageGraphTab = ref<LineageGraphTab>('flow')
 const lineageEditMode = ref(false)
 const editingSchedulePublicId = ref('')
-const textDialog = ref<'rename' | 'promote' | ''>('')
+const textDialog = ref<'rename' | 'promote' | 'gold' | ''>('')
 const confirmDialog = ref<'truncate' | 'drop' | ''>('')
 const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 const scheduleForm = reactive({
@@ -110,6 +111,28 @@ const weekdayOptions = [
   { value: 7, labelKey: 'datasets.weekdaySunday' },
 ]
 const monthDayOptions = Array.from({ length: 28 }, (_, index) => index + 1)
+const textDialogTitle = computed(() => {
+  if (textDialog.value === 'rename') {
+    return t('datasets.renameWorkTable')
+  }
+  if (textDialog.value === 'gold') {
+    return t('datasets.publishGoldPublication')
+  }
+  return t('datasets.promoteWorkTable')
+})
+const textDialogLabel = computed(() => textDialog.value === 'rename' ? t('datasets.newTableName') : t('datasets.displayName'))
+const textDialogInitialValue = computed(() => textDialog.value === 'rename'
+  ? props.selectedTable?.table ?? ''
+  : props.selectedTable?.displayName ?? props.selectedTable?.table ?? '')
+const textDialogConfirmLabel = computed(() => {
+  if (textDialog.value === 'rename') {
+    return t('common.rename')
+  }
+  if (textDialog.value === 'gold') {
+    return t('datasets.publishGold')
+  }
+  return t('datasets.promote')
+})
 
 watch(
   () => [props.selectedTable?.originDatasetPublicId, props.datasets.length] as const,
@@ -197,7 +220,7 @@ function statusClass(status: string) {
 }
 
 function confirmText(value: string) {
-  textDialog.value = value as 'rename' | 'promote'
+  textDialog.value = value as 'rename' | 'promote' | 'gold'
 }
 
 function closeTextDialog() {
@@ -211,6 +234,9 @@ function submitTextDialog(value: string) {
     emit('rename', value)
   } else if (mode === 'promote') {
     emit('promote', value)
+  } else if (mode === 'gold') {
+    const displayName = value.trim()
+    emit('publishGold', displayName ? { displayName } : {})
   }
 }
 
@@ -376,6 +402,10 @@ function changeLineageLevel(event: Event) {
             <button class="secondary-button compact-button" type="button" :disabled="actionLoading" @click="confirmText('promote')">
               <Database :size="16" aria-hidden="true" />
               {{ t('datasets.promote') }}
+            </button>
+            <button class="primary-button compact-button" type="button" :disabled="actionLoading" @click="confirmText('gold')">
+              <Crown :size="16" aria-hidden="true" />
+              {{ t('datasets.publishGold') }}
             </button>
             <select v-model="exportFormat" class="field-input dataset-export-format-select" :disabled="actionLoading" :aria-label="t('datasets.exportFormat')">
               <option v-for="option in exportFormatOptions" :key="option.value" :value="option.value">
@@ -721,10 +751,11 @@ function changeLineageLevel(event: Event) {
 
     <TextInputDialog
       :open="textDialog !== ''"
-      :title="textDialog === 'rename' ? t('datasets.renameWorkTable') : t('datasets.promoteWorkTable')"
-      :label="textDialog === 'rename' ? t('datasets.newTableName') : t('datasets.datasetName')"
-      :initial-value="textDialog === 'rename' ? selectedTable?.table ?? '' : selectedTable?.displayName ?? selectedTable?.table ?? ''"
-      :confirm-label="textDialog === 'rename' ? t('common.rename') : t('datasets.promote')"
+      :title="textDialogTitle"
+      :label="textDialogLabel"
+      :message="textDialog === 'gold' ? t('datasets.publishGoldMessage') : ''"
+      :initial-value="textDialogInitialValue"
+      :confirm-label="textDialogConfirmLabel"
       :cancel-label="t('common.back')"
       @cancel="closeTextDialog"
       @confirm="submitTextDialog"

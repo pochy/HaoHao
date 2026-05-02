@@ -1,6 +1,8 @@
 import { readCookie } from './client'
 import {
+  archiveDatasetGoldPublication,
   createDataset,
+  createDatasetGoldPublication,
   createDatasetLineageChangeSet,
   createDatasetQueryJob,
   createDatasetScopedQueryJob,
@@ -15,6 +17,7 @@ import {
   getDatasetWorkTablePreview,
   getCsrf,
   getDataset,
+  getDatasetGoldPublication,
   getDatasetLineage,
   getDatasetLineageChangeSet,
   getDatasetQueryJobLineage,
@@ -23,6 +26,8 @@ import {
   getManagedDatasetWorkTablePreview,
   linkDatasetWorkTable,
   listDatasetLineageChangeSets,
+  listDatasetGoldPublications,
+  listDatasetGoldPublishRuns,
   listDatasetQueryJobs,
   listDatasetQueryJobLineageParseRuns,
   listDatasets,
@@ -34,18 +39,25 @@ import {
   listDatasetWorkTableExports,
   listDatasetWorkTables,
   parseDatasetQueryJobLineage,
+  previewDatasetGoldPublication,
   promoteDatasetWorkTable,
   publishDatasetLineageChangeSet,
+  refreshDatasetGoldPublication,
   registerDatasetWorkTable,
   rejectDatasetLineageChangeSet,
   renameDatasetWorkTable,
   truncateDatasetWorkTable,
+  unpublishDatasetGoldPublication,
   updateDatasetLineageChangeSetGraph,
   updateDatasetWorkTableExportSchedule,
 } from './generated/sdk.gen'
 import type {
   DatasetBody,
   DatasetCreateBodyWritable,
+  DatasetGoldPublicationBody,
+  DatasetGoldPublicationCreateBodyWritable,
+  DatasetGoldPublicationPreviewBody,
+  DatasetGoldPublishRunBody,
   DatasetLineageBody,
   DatasetLineageChangeSetBody,
   DatasetLineageChangeSetCreateBodyWritable,
@@ -145,6 +157,67 @@ export async function fetchDatasetWorkTables(): Promise<DatasetWorkTableBody[]> 
     query: { limit: 100 },
   }) as unknown as { items?: DatasetWorkTableBody[] | null }
   return data.items ?? []
+}
+
+export async function fetchGoldPublications(): Promise<DatasetGoldPublicationBody[]> {
+  const data = await listDatasetGoldPublications({
+    query: { limit: 100 },
+  }) as unknown as { items?: DatasetGoldPublicationBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchGoldPublication(goldPublicId: string): Promise<DatasetGoldPublicationBody> {
+  return getDatasetGoldPublication({
+    path: { goldPublicId },
+  }) as unknown as Promise<DatasetGoldPublicationBody>
+}
+
+export async function fetchGoldPublicationPreview(goldPublicId: string): Promise<DatasetGoldPublicationPreviewBody> {
+  return previewDatasetGoldPublication({
+    path: { goldPublicId },
+    query: { limit: 100 },
+  }) as unknown as Promise<DatasetGoldPublicationPreviewBody>
+}
+
+export async function fetchGoldPublishRuns(goldPublicId: string): Promise<DatasetGoldPublishRunBody[]> {
+  const data = await listDatasetGoldPublishRuns({
+    path: { goldPublicId },
+    query: { limit: 25 },
+  }) as unknown as { items?: DatasetGoldPublishRunBody[] | null }
+  return data.items ?? []
+}
+
+export async function createGoldPublication(workTablePublicId: string, body: DatasetGoldPublicationCreateBodyWritable): Promise<DatasetGoldPublicationBody> {
+  await ensureCSRFCookie()
+  return createDatasetGoldPublication({
+    headers: csrfHeaders(),
+    path: { workTablePublicId },
+    body,
+  }) as unknown as Promise<DatasetGoldPublicationBody>
+}
+
+export async function refreshGoldPublication(goldPublicId: string): Promise<DatasetGoldPublishRunBody> {
+  await ensureCSRFCookie()
+  return refreshDatasetGoldPublication({
+    headers: csrfHeaders(),
+    path: { goldPublicId },
+  }) as unknown as Promise<DatasetGoldPublishRunBody>
+}
+
+export async function unpublishGoldPublication(goldPublicId: string): Promise<DatasetGoldPublicationBody> {
+  await ensureCSRFCookie()
+  return unpublishDatasetGoldPublication({
+    headers: csrfHeaders(),
+    path: { goldPublicId },
+  }) as unknown as Promise<DatasetGoldPublicationBody>
+}
+
+export async function archiveGoldPublication(goldPublicId: string): Promise<DatasetGoldPublicationBody> {
+  await ensureCSRFCookie()
+  return archiveDatasetGoldPublication({
+    headers: csrfHeaders(),
+    path: { goldPublicId },
+  }) as unknown as Promise<DatasetGoldPublicationBody>
 }
 
 export async function fetchDatasetWorkTable(database: string, table: string): Promise<DatasetWorkTableBody> {

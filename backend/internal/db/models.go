@@ -111,6 +111,56 @@ type DatasetColumn struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type DatasetGoldPublication struct {
+	ID                  int64              `json:"id"`
+	PublicID            uuid.UUID          `json:"public_id"`
+	TenantID            int64              `json:"tenant_id"`
+	SourceWorkTableID   int64              `json:"source_work_table_id"`
+	CreatedByUserID     pgtype.Int8        `json:"created_by_user_id"`
+	UpdatedByUserID     pgtype.Int8        `json:"updated_by_user_id"`
+	PublishedByUserID   pgtype.Int8        `json:"published_by_user_id"`
+	UnpublishedByUserID pgtype.Int8        `json:"unpublished_by_user_id"`
+	ArchivedByUserID    pgtype.Int8        `json:"archived_by_user_id"`
+	LastPublishRunID    pgtype.Int8        `json:"last_publish_run_id"`
+	DisplayName         string             `json:"display_name"`
+	Description         string             `json:"description"`
+	GoldDatabase        string             `json:"gold_database"`
+	GoldTable           string             `json:"gold_table"`
+	Status              string             `json:"status"`
+	RowCount            int64              `json:"row_count"`
+	TotalBytes          int64              `json:"total_bytes"`
+	SchemaSummary       []byte             `json:"schema_summary"`
+	RefreshPolicy       string             `json:"refresh_policy"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	PublishedAt         pgtype.Timestamptz `json:"published_at"`
+	UnpublishedAt       pgtype.Timestamptz `json:"unpublished_at"`
+	ArchivedAt          pgtype.Timestamptz `json:"archived_at"`
+}
+
+type DatasetGoldPublishRun struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	PublicationID     int64              `json:"publication_id"`
+	SourceWorkTableID int64              `json:"source_work_table_id"`
+	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
+	OutboxEventID     pgtype.Int8        `json:"outbox_event_id"`
+	Status            string             `json:"status"`
+	GoldDatabase      string             `json:"gold_database"`
+	GoldTable         string             `json:"gold_table"`
+	InternalDatabase  string             `json:"internal_database"`
+	InternalTable     string             `json:"internal_table"`
+	RowCount          int64              `json:"row_count"`
+	TotalBytes        int64              `json:"total_bytes"`
+	SchemaSummary     []byte             `json:"schema_summary"`
+	ErrorSummary      pgtype.Text        `json:"error_summary"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DatasetImportJob struct {
 	ID                 int64              `json:"id"`
 	PublicID           uuid.UUID          `json:"public_id"`
@@ -953,8 +1003,6 @@ type DriveOcrRun struct {
 	Engine                string             `json:"engine"`
 	Languages             []string           `json:"languages"`
 	StructuredExtractor   string             `json:"structured_extractor"`
-	ArtifactSchemaVersion string             `json:"artifact_schema_version"`
-	PipelineConfigHash    string             `json:"pipeline_config_hash"`
 	Status                string             `json:"status"`
 	Reason                string             `json:"reason"`
 	PageCount             int32              `json:"page_count"`
@@ -969,6 +1017,8 @@ type DriveOcrRun struct {
 	CompletedAt           pgtype.Timestamptz `json:"completed_at"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	ArtifactSchemaVersion string             `json:"artifact_schema_version"`
+	PipelineConfigHash    string             `json:"pipeline_config_hash"`
 }
 
 type DriveOfficeEditSession struct {

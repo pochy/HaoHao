@@ -39,6 +39,7 @@ const (
 	MedallionPipelineDatasetSync       = "dataset_sync"
 	MedallionPipelineDriveOCR          = "drive_ocr"
 	MedallionPipelineProductExtraction = "product_extraction"
+	MedallionPipelineGoldPublish       = "gold_publish"
 
 	MedallionPipelineStatusPending    = "pending"
 	MedallionPipelineStatusProcessing = "processing"
@@ -360,6 +361,35 @@ func (s *MedallionCatalogService) EnsureProductExtractionAsset(ctx context.Conte
 	})
 }
 
+func (s *MedallionCatalogService) EnsureGoldTableAsset(ctx context.Context, publication DatasetGoldPublication, actorUserID *int64) (MedallionAsset, error) {
+	if err := s.ensureConfigured(); err != nil {
+		return MedallionAsset{}, err
+	}
+	metadata := map[string]any{
+		"goldDatabase":  publication.GoldDatabase,
+		"goldTable":     publication.GoldTable,
+		"refreshPolicy": publication.RefreshPolicy,
+	}
+	if publication.SourceWorkTablePublicID != "" {
+		metadata["sourceWorkTablePublicId"] = publication.SourceWorkTablePublicID
+	}
+	return s.upsertAsset(ctx, medallionAssetInput{
+		TenantID:         publication.TenantID,
+		Layer:            MedallionLayerGold,
+		ResourceKind:     MedallionResourceGoldTable,
+		ResourceID:       publication.ID,
+		ResourcePublicID: publication.PublicID,
+		DisplayName:      publication.DisplayName,
+		Status:           medallionAssetStatusFromGoldPublicationStatus(publication.Status),
+		RowCount:         &publication.RowCount,
+		ByteSize:         &publication.TotalBytes,
+		SchemaSummary:    publication.SchemaSummary,
+		Metadata:         metadata,
+		CreatedByUserID:  publication.CreatedByUserID,
+		UpdatedByUserID:  actorUserID,
+	})
+}
+
 func (s *MedallionCatalogService) RecordPipelineRun(ctx context.Context, input medallionPipelineRunInput) (MedallionPipelineRun, error) {
 	if err := s.ensureConfigured(); err != nil {
 		return MedallionPipelineRun{}, err
@@ -540,6 +570,16 @@ func (s *MedallionCatalogService) ensureResourceAsset(ctx context.Context, tenan
 			return MedallionAsset{}, false, err
 		}
 		asset, err := s.EnsureProductExtractionAsset(ctx, file, item, nil)
+		return asset, true, err
+	case MedallionResourceGoldTable:
+		if s.datasets == nil {
+			return MedallionAsset{}, false, fmt.Errorf("dataset service is not configured")
+		}
+		publication, err := s.datasets.GetGoldPublication(ctx, tenantID, publicID)
+		if err != nil {
+			return MedallionAsset{}, false, err
+		}
+		asset, err := s.EnsureGoldTableAsset(ctx, publication, nil)
 		return asset, true, err
 	default:
 		return MedallionAsset{}, false, ErrMedallionAssetNotFound
@@ -824,6 +864,19 @@ func medallionAssetStatusFromPipelineStatus(status string) string {
 		return MedallionAssetStatusSkipped
 	default:
 		return MedallionAssetStatusBuilding
+	}
+}
+
+func medallionAssetStatusFromGoldPublicationStatus(status string) string {
+	switch status {
+	case "active":
+		return MedallionAssetStatusActive
+	case "pending":
+		return MedallionAssetStatusBuilding
+	case "failed":
+		return MedallionAssetStatusFailed
+	default:
+		return MedallionAssetStatusArchived
 	}
 }
 

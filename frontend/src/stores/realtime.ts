@@ -12,6 +12,8 @@ import { useTenantStore } from './tenants'
 
 type RealtimeConnectionHandle = ReturnType<typeof connectRealtime>
 type DatasetSyncStatus = 'pending' | 'processing' | 'completed' | 'failed'
+type GoldPublishRunStatus = 'pending' | 'processing' | 'completed' | 'failed'
+type GoldPublicationStatus = 'pending' | 'active' | 'failed' | 'unpublished' | 'archived'
 
 export const useRealtimeStore = defineStore('realtime', {
   state: () => ({
@@ -184,6 +186,57 @@ async function refreshForJobEvent(event: RealtimeEvent) {
     return
   }
 
+  if (event.resourceType === 'dataset_gold_publish') {
+    const publishRunPublicId = stringPayload(payload.publishRunPublicId) || event.resourcePublicId
+    const goldPublicationPublicId = stringPayload(payload.goldPublicationPublicId)
+    const status = goldPublishRunStatusPayload(payload.status)
+    const errorSummary = stringPayload(payload.errorSummary)
+    const rowCount = numberPayload(payload.rowCount)
+    const updatedAt = event.createdAt
+    const completedAt = updatedAt && status && ['completed', 'failed'].includes(status) ? updatedAt : undefined
+    const matched = publishRunPublicId
+      ? datasetStore.applyGoldPublishRunUpdate({
+          publicId: publishRunPublicId,
+          ...(status ? { status } : {}),
+          ...(errorSummary ? { errorSummary } : {}),
+          ...(rowCount !== undefined ? { rowCount } : {}),
+          ...(updatedAt ? { updatedAt } : {}),
+          ...(completedAt ? { completedAt } : {}),
+        })
+      : false
+    const selectedMatched = Boolean(goldPublicationPublicId && datasetStore.selectedGoldPublication?.publicId === goldPublicationPublicId)
+    if (goldPublicationPublicId && (selectedMatched || matched)) {
+      await datasetStore.loadGoldPublication(goldPublicationPublicId).catch(() => undefined)
+    }
+    if (matched || selectedMatched || datasetStore.goldPublications.length > 0) {
+      await datasetStore.loadGoldPublications().catch(() => undefined)
+    }
+    return
+  }
+
+  if (event.resourceType === 'dataset_gold_publication') {
+    const goldPublicationPublicId = stringPayload(payload.goldPublicationPublicId) || event.resourcePublicId
+    const status = goldPublicationStatusPayload(payload.status)
+    const rowCount = numberPayload(payload.rowCount)
+    const updatedAt = event.createdAt
+    const matched = goldPublicationPublicId
+      ? datasetStore.applyGoldPublicationUpdate({
+          publicId: goldPublicationPublicId,
+          ...(status ? { status } : {}),
+          ...(rowCount !== undefined ? { rowCount } : {}),
+          ...(updatedAt ? { updatedAt } : {}),
+        })
+      : false
+    const selectedMatched = Boolean(goldPublicationPublicId && datasetStore.selectedGoldPublication?.publicId === goldPublicationPublicId)
+    if (goldPublicationPublicId && selectedMatched) {
+      await datasetStore.loadGoldPublication(goldPublicationPublicId).catch(() => undefined)
+    }
+    if (matched || selectedMatched || datasetStore.goldPublications.length > 0) {
+      await datasetStore.loadGoldPublications().catch(() => undefined)
+    }
+    return
+  }
+
   if (event.resourceType === 'drive_ocr_run') {
     const filePublicId = stringPayload(payload.filePublicId)
     if (filePublicId && driveStore.selectedResource?.type === 'file' && driveStore.selectedResource.publicId === filePublicId) {
@@ -274,4 +327,12 @@ function exportSourcePayload(value: unknown): 'manual' | 'scheduled' | undefined
 
 function datasetSyncStatusPayload(value: unknown): DatasetSyncStatus | undefined {
   return value === 'pending' || value === 'processing' || value === 'completed' || value === 'failed' ? value : undefined
+}
+
+function goldPublishRunStatusPayload(value: unknown): GoldPublishRunStatus | undefined {
+  return value === 'pending' || value === 'processing' || value === 'completed' || value === 'failed' ? value : undefined
+}
+
+function goldPublicationStatusPayload(value: unknown): GoldPublicationStatus | undefined {
+  return value === 'pending' || value === 'active' || value === 'failed' || value === 'unpublished' || value === 'archived' ? value : undefined
 }

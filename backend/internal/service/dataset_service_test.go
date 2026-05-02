@@ -118,6 +118,7 @@ func TestSanitizeDatasetColumns(t *testing.T) {
 func TestValidateDatasetSQLAllowsTenantScopedStatements(t *testing.T) {
 	cases := []string{
 		"SELECT * FROM hh_t_7_raw.ds_abc LIMIT 10",
+		"SELECT * FROM hh_t_7_gold.gm_sales LIMIT 10",
 		"CREATE TABLE hh_t_7_work.joined AS SELECT * FROM hh_t_7_raw.ds_abc",
 		"INSERT INTO hh_t_7_work.joined SELECT * FROM hh_t_7_raw.ds_abc",
 		"SELECT ';' AS semicolon",
@@ -132,6 +133,8 @@ func TestValidateDatasetSQLAllowsTenantScopedStatements(t *testing.T) {
 func TestValidateDatasetSQLRejectsUnsafeStatements(t *testing.T) {
 	cases := []string{
 		"SELECT * FROM hh_t_8_raw.ds_abc",
+		"SELECT * FROM hh_t_8_gold.gm_sales",
+		"SELECT * FROM hh_t_7_gold_internal.gp_run",
 		"SELECT * FROM system.tables",
 		"SELECT * FROM `system`.`tables`",
 		"SELECT * FROM default.some_table",

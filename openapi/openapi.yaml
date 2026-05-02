@@ -1023,6 +1023,324 @@ components:
       required:
         - driveFilePublicId
       type: object
+    DatasetGoldPublicationBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetGoldPublicationBody.json
+          format: uri
+          readOnly: true
+          type: string
+        archivedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          type: string
+        displayName:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Monthly sales mart
+          type: string
+        goldDatabase:
+          examples:
+            - hh_t_1_gold
+          type: string
+        goldTable:
+          examples:
+            - gm_monthly_sales
+          type: string
+        latestPublishRun:
+          $ref: "#/components/schemas/DatasetGoldPublishRunBody"
+          examples:
+            - example
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        publishedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        refreshPolicy:
+          enum:
+            - manual
+          examples:
+            - manual
+          type: string
+        rowCount:
+          examples:
+            - 1000
+          format: int64
+          type: integer
+        schemaSummary:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        sourceWorkTablePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          enum:
+            - pending
+            - active
+            - failed
+            - unpublished
+            - archived
+          examples:
+            - active
+          type: string
+        totalBytes:
+          examples:
+            - 1048576
+          format: int64
+          type: integer
+        unpublishedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - displayName
+        - goldDatabase
+        - goldTable
+        - status
+        - rowCount
+        - totalBytes
+        - refreshPolicy
+        - createdAt
+        - updatedAt
+      type: object
+    DatasetGoldPublicationCreateBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetGoldPublicationCreateBody.json
+          format: uri
+          readOnly: true
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          type: string
+        displayName:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Monthly sales mart
+          type: string
+        goldTable:
+          examples:
+            - gm_monthly_sales
+          type: string
+      type: object
+    DatasetGoldPublicationListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetGoldPublicationListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetGoldPublicationBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DatasetGoldPublicationPreviewBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetGoldPublicationPreviewBody.json
+          format: uri
+          readOnly: true
+          type: string
+        columns:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        database:
+          examples:
+            - hh_t_1_gold
+          type: string
+        previewRows:
+          examples:
+            - - {}
+          items:
+            additionalProperties: {}
+            type: object
+          type:
+            - array
+            - "null"
+        table:
+          examples:
+            - gm_monthly_sales
+          type: string
+      required:
+        - database
+        - table
+        - columns
+        - previewRows
+      type: object
+    DatasetGoldPublishRunBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetGoldPublishRunBody.json
+          format: uri
+          readOnly: true
+          type: string
+        completedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        errorSummary:
+          examples:
+            - example
+          type: string
+        goldDatabase:
+          examples:
+            - hh_t_1_gold
+          type: string
+        goldTable:
+          examples:
+            - gm_monthly_sales
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        publicationPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        rowCount:
+          examples:
+            - 1000
+          format: int64
+          type: integer
+        schemaSummary:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        sourceWorkTablePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        startedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          enum:
+            - pending
+            - processing
+            - completed
+            - failed
+          examples:
+            - completed
+          type: string
+        totalBytes:
+          examples:
+            - 1048576
+          format: int64
+          type: integer
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - status
+        - goldDatabase
+        - goldTable
+        - rowCount
+        - totalBytes
+        - createdAt
+        - updatedAt
+      type: object
+    DatasetGoldPublishRunListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetGoldPublishRunListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetGoldPublishRunBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
     DatasetImportErrorBody:
       additionalProperties: false
       properties:
@@ -19460,6 +19778,121 @@ paths:
       summary: managed work table の export を request する
       tags:
         - Data & Datasets
+  /api/v1/dataset-work-tables/{workTablePublicId}/gold-publications:
+    post:
+      description: |-
+        managed work table を Gold data mart として publish する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: createDatasetGoldPublication
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          schema:
+            type: string
+        - description: path 内の `workTablePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  description: Quarterly planning documents.
+                  displayName: Monthly sales mart
+                  goldTable: gm_monthly_sales
+            schema:
+              $ref: "#/components/schemas/DatasetGoldPublicationCreateBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    archivedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    displayName: Monthly sales mart
+                    goldDatabase: hh_t_1_gold
+                    goldTable: gm_monthly_sales
+                    latestPublishRun:
+                      completedAt: "2026-01-15T09:30:00Z"
+                      createdAt: "2026-01-15T09:30:00Z"
+                      errorSummary: example
+                      goldDatabase: hh_t_1_gold
+                      goldTable: gm_monthly_sales
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      publicationPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rowCount: 1000
+                      schemaSummary: {}
+                      sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      startedAt: "2026-01-15T09:30:00Z"
+                      status: completed
+                      totalBytes: 1048576
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedAt: "2026-01-15T09:30:00Z"
+                    refreshPolicy: manual
+                    rowCount: 1000
+                    schemaSummary: {}
+                    sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    status: active
+                    totalBytes: 1048576
+                    unpublishedAt: "2026-01-15T09:30:00Z"
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetGoldPublicationBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: managed work table を Gold data mart として publish する
+      tags:
+        - Data & Datasets
   /api/v1/dataset-work-tables/{workTablePublicId}/lineage:
     get:
       description: |-
@@ -28243,6 +28676,632 @@ paths:
       security:
         - cookieAuth: []
       summary: active tenant の file を soft delete する
+      tags:
+        - Data & Datasets
+  /api/v1/gold-publications:
+    get:
+      description: |-
+        active tenant の Gold data mart 一覧を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listDatasetGoldPublications
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - $schema: https://example.com/schemas/DatasetGoldPublicationBody.json
+                        archivedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        description: Quarterly planning documents.
+                        displayName: Monthly sales mart
+                        goldDatabase: hh_t_1_gold
+                        goldTable: gm_monthly_sales
+                        latestPublishRun: {}
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        publishedAt: "2026-01-15T09:30:00Z"
+                        refreshPolicy: manual
+                        rowCount: 1000
+                        schemaSummary: {}
+                        sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        status: active
+                        totalBytes: 1048576
+                        unpublishedAt: "2026-01-15T09:30:00Z"
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetGoldPublicationListBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: active tenant の Gold data mart 一覧を返す
+      tags:
+        - Data & Datasets
+  /api/v1/gold-publications/{goldPublicId}:
+    get:
+      description: |-
+        Gold data mart detail を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getDatasetGoldPublication
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `goldPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: goldPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DatasetGoldPublicationBody.json
+                    archivedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    displayName: Monthly sales mart
+                    goldDatabase: hh_t_1_gold
+                    goldTable: gm_monthly_sales
+                    latestPublishRun:
+                      completedAt: "2026-01-15T09:30:00Z"
+                      createdAt: "2026-01-15T09:30:00Z"
+                      errorSummary: example
+                      goldDatabase: hh_t_1_gold
+                      goldTable: gm_monthly_sales
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      publicationPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rowCount: 1000
+                      schemaSummary: {}
+                      sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      startedAt: "2026-01-15T09:30:00Z"
+                      status: completed
+                      totalBytes: 1048576
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedAt: "2026-01-15T09:30:00Z"
+                    refreshPolicy: manual
+                    rowCount: 1000
+                    schemaSummary: {}
+                    sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    status: active
+                    totalBytes: 1048576
+                    unpublishedAt: "2026-01-15T09:30:00Z"
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetGoldPublicationBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Gold data mart detail を返す
+      tags:
+        - Data & Datasets
+  /api/v1/gold-publications/{goldPublicId}/archive:
+    post:
+      description: |-
+        Gold data mart を archive する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: archiveDatasetGoldPublication
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          schema:
+            type: string
+        - description: path 内の `goldPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: goldPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DatasetGoldPublicationBody.json
+                    archivedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    displayName: Monthly sales mart
+                    goldDatabase: hh_t_1_gold
+                    goldTable: gm_monthly_sales
+                    latestPublishRun:
+                      $schema: https://example.com/schemas/DatasetGoldPublishRunBody.json
+                      completedAt: "2026-01-15T09:30:00Z"
+                      createdAt: "2026-01-15T09:30:00Z"
+                      errorSummary: example
+                      goldDatabase: hh_t_1_gold
+                      goldTable: gm_monthly_sales
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      publicationPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rowCount: 1000
+                      schemaSummary: {}
+                      sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      startedAt: "2026-01-15T09:30:00Z"
+                      status: completed
+                      totalBytes: 1048576
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedAt: "2026-01-15T09:30:00Z"
+                    refreshPolicy: manual
+                    rowCount: 1000
+                    schemaSummary: {}
+                    sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    status: active
+                    totalBytes: 1048576
+                    unpublishedAt: "2026-01-15T09:30:00Z"
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetGoldPublicationBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Gold data mart を archive する
+      tags:
+        - Data & Datasets
+  /api/v1/gold-publications/{goldPublicId}/preview:
+    get:
+      description: |-
+        Gold data mart preview rows を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: previewDatasetGoldPublication
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `goldPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: goldPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    columns:
+                      - example
+                    database: hh_t_1_gold
+                    previewRows:
+                      - {}
+                    table: gm_monthly_sales
+              schema:
+                $ref: "#/components/schemas/DatasetGoldPublicationPreviewBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Gold data mart preview rows を返す
+      tags:
+        - Data & Datasets
+  /api/v1/gold-publications/{goldPublicId}/publish-runs:
+    get:
+      description: |-
+        Gold data mart publish history を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listDatasetGoldPublishRuns
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `goldPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: goldPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - completedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        errorSummary: example
+                        goldDatabase: hh_t_1_gold
+                        goldTable: gm_monthly_sales
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        publicationPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        rowCount: 1000
+                        schemaSummary: {}
+                        sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        startedAt: "2026-01-15T09:30:00Z"
+                        status: completed
+                        totalBytes: 1048576
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetGoldPublishRunListBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Gold data mart publish history を返す
+      tags:
+        - Data & Datasets
+  /api/v1/gold-publications/{goldPublicId}/refresh:
+    post:
+      description: |-
+        Gold data mart の full publish refresh を request する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: refreshDatasetGoldPublication
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          schema:
+            type: string
+        - description: path 内の `goldPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: goldPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    completedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    errorSummary: example
+                    goldDatabase: hh_t_1_gold
+                    goldTable: gm_monthly_sales
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publicationPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    rowCount: 1000
+                    schemaSummary: {}
+                    sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    startedAt: "2026-01-15T09:30:00Z"
+                    status: completed
+                    totalBytes: 1048576
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetGoldPublishRunBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Gold data mart の full publish refresh を request する
+      tags:
+        - Data & Datasets
+  /api/v1/gold-publications/{goldPublicId}/unpublish:
+    post:
+      description: |-
+        Gold data mart を unpublish する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: unpublishDatasetGoldPublication
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          schema:
+            type: string
+        - description: path 内の `goldPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: goldPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DatasetGoldPublicationBody.json
+                    archivedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    displayName: Monthly sales mart
+                    goldDatabase: hh_t_1_gold
+                    goldTable: gm_monthly_sales
+                    latestPublishRun:
+                      $schema: https://example.com/schemas/DatasetGoldPublishRunBody.json
+                      completedAt: "2026-01-15T09:30:00Z"
+                      createdAt: "2026-01-15T09:30:00Z"
+                      errorSummary: example
+                      goldDatabase: hh_t_1_gold
+                      goldTable: gm_monthly_sales
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      publicationPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rowCount: 1000
+                      schemaSummary: {}
+                      sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      startedAt: "2026-01-15T09:30:00Z"
+                      status: completed
+                      totalBytes: 1048576
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedAt: "2026-01-15T09:30:00Z"
+                    refreshPolicy: manual
+                    rowCount: 1000
+                    schemaSummary: {}
+                    sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    status: active
+                    totalBytes: 1048576
+                    unpublishedAt: "2026-01-15T09:30:00Z"
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetGoldPublicationBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Gold data mart を unpublish する
       tags:
         - Data & Datasets
   /api/v1/integrations:

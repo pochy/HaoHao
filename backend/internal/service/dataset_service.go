@@ -69,7 +69,7 @@ var (
 	ErrUnsafeDatasetSQL                       = errors.New("unsafe dataset SQL")
 	ErrDatasetClickHouseNotReady              = errors.New("clickhouse is not configured")
 	datasetExternalFunctionPattern            = regexp.MustCompile(`(?i)\b(file|url|s3|s3cluster|hdfs|hdfscluster|postgresql|mysql|mongodb|jdbc|odbc|remote|cluster)\s*\(`)
-	datasetTenantDBPattern                    = regexp.MustCompile(`(?i)\bhh_t_([0-9]+)_(raw|work)\b`)
+	datasetTenantDBPattern                    = regexp.MustCompile(`(?i)\bhh_t_([0-9]+)_(raw|work|gold|gold_internal)\b`)
 	datasetBlockedDBPattern                   = regexp.MustCompile(`(?i)\b(system|information_schema|default)\s*\.`)
 )
 
@@ -2754,14 +2754,19 @@ func (s *DatasetService) ensureTenantSandbox(ctx context.Context, tenantID int64
 	}
 	rawDB := datasetRawDatabaseName(tenantID)
 	workDB := datasetWorkDatabaseName(tenantID)
+	goldDB := datasetGoldDatabaseName(tenantID)
+	goldInternalDB := datasetGoldInternalDatabaseName(tenantID)
 	user := datasetTenantUserName(tenantID)
 	password := s.tenantPassword(tenantID)
 	statements := []string{
 		"CREATE DATABASE IF NOT EXISTS " + quoteCHIdent(rawDB),
 		"CREATE DATABASE IF NOT EXISTS " + quoteCHIdent(workDB),
+		"CREATE DATABASE IF NOT EXISTS " + quoteCHIdent(goldDB),
+		"CREATE DATABASE IF NOT EXISTS " + quoteCHIdent(goldInternalDB),
 		fmt.Sprintf("CREATE USER IF NOT EXISTS %s IDENTIFIED WITH sha256_password BY %s", quoteCHIdent(user), quoteCHString(password)),
 		fmt.Sprintf("GRANT SELECT ON %s.* TO %s", quoteCHIdent(rawDB), quoteCHIdent(user)),
 		fmt.Sprintf("GRANT ALL ON %s.* TO %s", quoteCHIdent(workDB), quoteCHIdent(user)),
+		fmt.Sprintf("GRANT SELECT ON %s.* TO %s", quoteCHIdent(goldDB), quoteCHIdent(user)),
 	}
 	for _, statement := range statements {
 		if err := s.clickhouse.Exec(ctx, statement); err != nil {
@@ -3363,12 +3368,15 @@ func validateDatasetSQL(tenantID int64, statement string) (string, error) {
 		return "", fmt.Errorf("%w: system/default databases are not available", ErrUnsafeDatasetSQL)
 	}
 	for _, match := range datasetTenantDBPattern.FindAllStringSubmatch(identifierText, -1) {
-		if len(match) < 2 {
+		if len(match) < 3 {
 			continue
 		}
 		id, _ := strconv.ParseInt(match[1], 10, 64)
 		if id != tenantID {
 			return "", fmt.Errorf("%w: cross-tenant databases are not available", ErrUnsafeDatasetSQL)
+		}
+		if strings.EqualFold(match[2], "gold_internal") {
+			return "", fmt.Errorf("%w: gold internal databases are not available", ErrUnsafeDatasetSQL)
 		}
 	}
 	return normalized, nil
@@ -3628,6 +3636,14 @@ func datasetRawDatabaseName(tenantID int64) string {
 
 func datasetWorkDatabaseName(tenantID int64) string {
 	return fmt.Sprintf("hh_t_%d_work", tenantID)
+}
+
+func datasetGoldDatabaseName(tenantID int64) string {
+	return fmt.Sprintf("hh_t_%d_gold", tenantID)
+}
+
+func datasetGoldInternalDatabaseName(tenantID int64) string {
+	return fmt.Sprintf("hh_t_%d_gold_internal", tenantID)
 }
 
 func datasetTenantUserName(tenantID int64) string {

@@ -87,6 +87,7 @@ func RegisterSurface(api huma.API, deps Dependencies, surface Surface) {
 		registerSupportAccessRoutes(api, deps)
 		registerMachineClientRoutes(api, deps)
 		registerDatasetRoutes(api, deps)
+		registerDatasetGoldPublicationRoutes(api, deps)
 		registerDriveRoutes(api, deps)
 		registerMedallionCatalogRoutes(api, deps)
 	}

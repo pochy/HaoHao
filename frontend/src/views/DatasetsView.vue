@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Database, FileText, RefreshCw, Search } from 'lucide-vue-next'
+import { Crown, Database, FileText, RefreshCw, Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { toApiErrorMessage, toApiErrorRequestId } from '../api/client'
 import type { DatasetWorkTableExportFormat } from '../api/datasets'
-import type { DatasetLineageGraphSaveBodyWritable, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable } from '../api/generated/types.gen'
+import type { DatasetGoldPublicationCreateBodyWritable, DatasetLineageGraphSaveBodyWritable, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable } from '../api/generated/types.gen'
 import DatasetWorkTableBrowser from '../components/DatasetWorkTableBrowser.vue'
 import { useDatasetStore } from '../stores/datasets'
 import { useRealtimeStore } from '../stores/realtime'
@@ -48,6 +48,9 @@ onMounted(async () => {
       await datasetStore.refreshSelectedWorkTableExports()
       await datasetStore.refreshSelectedWorkTableExportSchedules()
     }
+    if (datasetStore.hasActiveGoldPublishRuns) {
+      await datasetStore.loadGoldPublications()
+    }
   }, 4000)
 })
 
@@ -66,6 +69,7 @@ watch(
     if (slug) {
       await datasetStore.load()
       await datasetStore.loadWorkTables()
+      await datasetStore.loadGoldPublications()
     }
   },
   { immediate: true },
@@ -99,7 +103,7 @@ function formatBytes(value: number) {
 }
 
 function statusClass(status: string) {
-  if (status === 'ready' || status === 'completed') {
+  if (status === 'ready' || status === 'completed' || status === 'active') {
     return 'success'
   }
   if (status === 'failed') {
@@ -145,6 +149,7 @@ async function refreshDatasets() {
   actionErrorMessage.value = ''
   await datasetStore.load()
   await datasetStore.loadWorkTables()
+  await datasetStore.loadGoldPublications()
 }
 
 async function searchSourceFiles() {
@@ -207,6 +212,19 @@ async function promoteWorkTable(name: string) {
     const dataset = await datasetStore.promoteSelectedWorkTable(name)
     if (dataset) {
       await router.push({ name: 'dataset-detail', params: { datasetPublicId: dataset.publicId } })
+    }
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function publishGoldPublication(body: DatasetGoldPublicationCreateBodyWritable) {
+  actionErrorMessage.value = ''
+  try {
+    const publication = await datasetStore.publishSelectedWorkTableToGold(body)
+    await datasetStore.loadGoldPublications()
+    if (publication) {
+      await router.push({ name: 'dataset-gold-detail', params: { goldPublicId: publication.publicId } })
     }
   } catch (error) {
     actionErrorMessage.value = formatActionError(error)
@@ -429,6 +447,37 @@ function formatActionError(error: unknown) {
           <div v-else-if="datasetStore.status === 'empty'" class="empty-state">
             <p>{{ t('datasets.empty') }}</p>
           </div>
+
+          <div class="section-header">
+            <div>
+              <h2>{{ t('datasets.dataMarts') }}</h2>
+              <span class="cell-subtle">{{ datasetStore.goldPublications.length }} {{ t('datasets.goldPublications') }}</span>
+            </div>
+          </div>
+
+          <p v-if="datasetStore.goldErrorMessage" class="error-message">
+            {{ datasetStore.goldErrorMessage }}
+          </p>
+
+          <div v-if="datasetStore.goldPublications.length > 0" class="dataset-list">
+            <RouterLink
+              v-for="item in datasetStore.goldPublications"
+              :key="item.publicId"
+              class="dataset-row"
+              :to="{ name: 'dataset-gold-detail', params: { goldPublicId: item.publicId } }"
+            >
+              <Crown :size="17" aria-hidden="true" />
+              <span>
+                <strong>{{ item.displayName }}</strong>
+                <small>`{{ item.goldDatabase }}`.`{{ item.goldTable }}` · {{ t('datasets.approxRows', { count: item.rowCount }) }}</small>
+              </span>
+              <span class="status-pill" :class="statusClass(item.status)">{{ item.status }}</span>
+            </RouterLink>
+          </div>
+
+          <div v-else-if="!datasetStore.goldPublicationsLoading" class="empty-state">
+            <p>{{ t('datasets.noGoldPublications') }}</p>
+          </div>
         </section>
       </div>
 
@@ -466,6 +515,7 @@ function formatActionError(error: unknown) {
           @truncate="truncateWorkTable"
           @drop="dropWorkTable"
           @promote="promoteWorkTable"
+          @publish-gold="publishGoldPublication"
           @export="requestWorkTableExport"
           @create-schedule="createWorkTableExportSchedule"
           @update-schedule="updateWorkTableExportSchedule"

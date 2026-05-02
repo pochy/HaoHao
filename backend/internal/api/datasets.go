@@ -2119,6 +2119,14 @@ func toDatasetHTTPError(ctx context.Context, deps Dependencies, operation string
 		return huma.Error409Conflict("dataset work table export is not ready")
 	case errors.Is(err, service.ErrDatasetSyncAlreadyActive):
 		return huma.Error409Conflict("dataset sync job is already active")
+	case errors.Is(err, service.ErrDatasetGoldPublicationNotFound):
+		return huma.Error404NotFound("dataset gold publication not found")
+	case errors.Is(err, service.ErrDatasetGoldPublishRunNotFound):
+		return huma.Error404NotFound("dataset gold publish run not found")
+	case errors.Is(err, service.ErrDatasetGoldPublicationConflict):
+		return huma.Error409Conflict("dataset gold publication already exists")
+	case errors.Is(err, service.ErrDatasetGoldPublishAlreadyActive):
+		return huma.Error409Conflict("dataset gold publish is already active")
 	case errors.Is(err, service.ErrInvalidDatasetInput):
 		return huma.Error400BadRequest(err.Error())
 	case errors.Is(err, service.ErrUnsafeDatasetSQL):

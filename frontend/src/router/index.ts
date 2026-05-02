@@ -22,6 +22,7 @@ const CustomerSignalsView = () => import('../views/CustomerSignalsView.vue')
 const CustomerSignalDetailView = () => import('../views/CustomerSignalDetailView.vue')
 const DatasetsView = () => import('../views/DatasetsView.vue')
 const DatasetDetailView = () => import('../views/DatasetDetailView.vue')
+const DatasetGoldDetailView = () => import('../views/DatasetGoldDetailView.vue')
 const DriveView = () => import('../views/DriveView.vue')
 const DriveGroupsView = () => import('../views/DriveGroupsView.vue')
 const PublicDriveShareView = () => import('../views/PublicDriveShareView.vue')
@@ -149,6 +150,18 @@ const router = createRouter({
         title: 'Datasets',
         group: 'Work',
         titleKey: 'nav.items.datasets',
+        groupKey: 'nav.groups.work',
+      },
+    },
+    {
+      path: '/datasets/gold/:goldPublicId',
+      name: 'dataset-gold-detail',
+      component: DatasetGoldDetailView,
+      meta: {
+        requiresAuth: true,
+        title: 'Gold Publication',
+        group: 'Work',
+        titleKey: 'routes.goldPublicationDetail',
         groupKey: 'nav.groups.work',
       },
     },

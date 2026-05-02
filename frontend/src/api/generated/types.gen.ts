@@ -416,6 +416,133 @@ export type DatasetCreateBody = {
     name?: string;
 };
 
+export type DatasetGoldPublicationBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    archivedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    displayName: string;
+    goldDatabase: string;
+    goldTable: string;
+    latestPublishRun?: DatasetGoldPublishRunBody;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    publishedAt?: string;
+    refreshPolicy: 'manual';
+    rowCount: number;
+    schemaSummary?: {
+        [key: string]: unknown;
+    };
+    sourceWorkTablePublicId?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'pending' | 'active' | 'failed' | 'unpublished' | 'archived';
+    totalBytes: number;
+    unpublishedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DatasetGoldPublicationCreateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    displayName?: string;
+    goldTable?: string;
+};
+
+export type DatasetGoldPublicationListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetGoldPublicationBody> | null;
+};
+
+export type DatasetGoldPublicationPreviewBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    columns: Array<string> | null;
+    database: string;
+    previewRows: Array<{
+        [key: string]: unknown;
+    }> | null;
+    table: string;
+};
+
+export type DatasetGoldPublishRunBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSummary?: string;
+    goldDatabase: string;
+    goldTable: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    publicationPublicId?: string;
+    rowCount: number;
+    schemaSummary?: {
+        [key: string]: unknown;
+    };
+    sourceWorkTablePublicId?: string;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    totalBytes: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DatasetGoldPublishRunListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetGoldPublishRunBody> | null;
+};
+
 export type DatasetImportErrorBody = {
     error: string;
     raw?: string;
@@ -4157,6 +4284,109 @@ export type DatasetCreateBodyWritable = {
      * 画面表示や検索で使う名前です。
      */
     name?: string;
+};
+
+export type DatasetGoldPublicationBodyWritable = {
+    archivedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    displayName: string;
+    goldDatabase: string;
+    goldTable: string;
+    latestPublishRun?: DatasetGoldPublishRunBodyWritable;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    publishedAt?: string;
+    refreshPolicy: 'manual';
+    rowCount: number;
+    schemaSummary?: {
+        [key: string]: unknown;
+    };
+    sourceWorkTablePublicId?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'pending' | 'active' | 'failed' | 'unpublished' | 'archived';
+    totalBytes: number;
+    unpublishedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DatasetGoldPublicationCreateBodyWritable = {
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    displayName?: string;
+    goldTable?: string;
+};
+
+export type DatasetGoldPublicationListBodyWritable = {
+    items: Array<DatasetGoldPublicationBodyWritable> | null;
+};
+
+export type DatasetGoldPublicationPreviewBodyWritable = {
+    columns: Array<string> | null;
+    database: string;
+    previewRows: Array<{
+        [key: string]: unknown;
+    }> | null;
+    table: string;
+};
+
+export type DatasetGoldPublishRunBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSummary?: string;
+    goldDatabase: string;
+    goldTable: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    publicationPublicId?: string;
+    rowCount: number;
+    schemaSummary?: {
+        [key: string]: unknown;
+    };
+    sourceWorkTablePublicId?: string;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    totalBytes: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DatasetGoldPublishRunListBodyWritable = {
+    items: Array<DatasetGoldPublishRunBodyWritable> | null;
 };
 
 export type DatasetLineageBodyWritable = {
@@ -10066,6 +10296,45 @@ export type CreateDatasetWorkTableExportResponses = {
 
 export type CreateDatasetWorkTableExportResponse = CreateDatasetWorkTableExportResponses[keyof CreateDatasetWorkTableExportResponses];
 
+export type CreateDatasetGoldPublicationData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DatasetGoldPublicationCreateBodyWritable;
+    headers?: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token'?: string;
+    };
+    path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
+        workTablePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/gold-publications';
+};
+
+export type CreateDatasetGoldPublicationErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type CreateDatasetGoldPublicationError = CreateDatasetGoldPublicationErrors[keyof CreateDatasetGoldPublicationErrors];
+
+export type CreateDatasetGoldPublicationResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetGoldPublicationBody;
+};
+
+export type CreateDatasetGoldPublicationResponse = CreateDatasetGoldPublicationResponses[keyof CreateDatasetGoldPublicationResponses];
+
 export type GetDatasetWorkTableLineageData = {
     body?: never;
     path: {
@@ -13906,6 +14175,244 @@ export type DeleteFileResponses = {
 };
 
 export type DeleteFileResponse = DeleteFileResponses[keyof DeleteFileResponses];
+
+export type ListDatasetGoldPublicationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/gold-publications';
+};
+
+export type ListDatasetGoldPublicationsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetGoldPublicationsError = ListDatasetGoldPublicationsErrors[keyof ListDatasetGoldPublicationsErrors];
+
+export type ListDatasetGoldPublicationsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetGoldPublicationListBody;
+};
+
+export type ListDatasetGoldPublicationsResponse = ListDatasetGoldPublicationsResponses[keyof ListDatasetGoldPublicationsResponses];
+
+export type GetDatasetGoldPublicationData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `goldPublicId` を指定します。
+         */
+        goldPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/gold-publications/{goldPublicId}';
+};
+
+export type GetDatasetGoldPublicationErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetDatasetGoldPublicationError = GetDatasetGoldPublicationErrors[keyof GetDatasetGoldPublicationErrors];
+
+export type GetDatasetGoldPublicationResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetGoldPublicationBody;
+};
+
+export type GetDatasetGoldPublicationResponse = GetDatasetGoldPublicationResponses[keyof GetDatasetGoldPublicationResponses];
+
+export type ArchiveDatasetGoldPublicationData = {
+    body?: never;
+    headers?: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token'?: string;
+    };
+    path: {
+        /**
+         * path 内の `goldPublicId` を指定します。
+         */
+        goldPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/gold-publications/{goldPublicId}/archive';
+};
+
+export type ArchiveDatasetGoldPublicationErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ArchiveDatasetGoldPublicationError = ArchiveDatasetGoldPublicationErrors[keyof ArchiveDatasetGoldPublicationErrors];
+
+export type ArchiveDatasetGoldPublicationResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetGoldPublicationBody;
+};
+
+export type ArchiveDatasetGoldPublicationResponse = ArchiveDatasetGoldPublicationResponses[keyof ArchiveDatasetGoldPublicationResponses];
+
+export type PreviewDatasetGoldPublicationData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `goldPublicId` を指定します。
+         */
+        goldPublicId: string;
+    };
+    query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/gold-publications/{goldPublicId}/preview';
+};
+
+export type PreviewDatasetGoldPublicationErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type PreviewDatasetGoldPublicationError = PreviewDatasetGoldPublicationErrors[keyof PreviewDatasetGoldPublicationErrors];
+
+export type PreviewDatasetGoldPublicationResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetGoldPublicationPreviewBody;
+};
+
+export type PreviewDatasetGoldPublicationResponse = PreviewDatasetGoldPublicationResponses[keyof PreviewDatasetGoldPublicationResponses];
+
+export type ListDatasetGoldPublishRunsData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `goldPublicId` を指定します。
+         */
+        goldPublicId: string;
+    };
+    query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/gold-publications/{goldPublicId}/publish-runs';
+};
+
+export type ListDatasetGoldPublishRunsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetGoldPublishRunsError = ListDatasetGoldPublishRunsErrors[keyof ListDatasetGoldPublishRunsErrors];
+
+export type ListDatasetGoldPublishRunsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetGoldPublishRunListBody;
+};
+
+export type ListDatasetGoldPublishRunsResponse = ListDatasetGoldPublishRunsResponses[keyof ListDatasetGoldPublishRunsResponses];
+
+export type RefreshDatasetGoldPublicationData = {
+    body?: never;
+    headers?: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token'?: string;
+    };
+    path: {
+        /**
+         * path 内の `goldPublicId` を指定します。
+         */
+        goldPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/gold-publications/{goldPublicId}/refresh';
+};
+
+export type RefreshDatasetGoldPublicationErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type RefreshDatasetGoldPublicationError = RefreshDatasetGoldPublicationErrors[keyof RefreshDatasetGoldPublicationErrors];
+
+export type RefreshDatasetGoldPublicationResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetGoldPublishRunBody;
+};
+
+export type RefreshDatasetGoldPublicationResponse = RefreshDatasetGoldPublicationResponses[keyof RefreshDatasetGoldPublicationResponses];
+
+export type UnpublishDatasetGoldPublicationData = {
+    body?: never;
+    headers?: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token'?: string;
+    };
+    path: {
+        /**
+         * path 内の `goldPublicId` を指定します。
+         */
+        goldPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/gold-publications/{goldPublicId}/unpublish';
+};
+
+export type UnpublishDatasetGoldPublicationErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type UnpublishDatasetGoldPublicationError = UnpublishDatasetGoldPublicationErrors[keyof UnpublishDatasetGoldPublicationErrors];
+
+export type UnpublishDatasetGoldPublicationResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetGoldPublicationBody;
+};
+
+export type UnpublishDatasetGoldPublicationResponse = UnpublishDatasetGoldPublicationResponses[keyof UnpublishDatasetGoldPublicationResponses];
 
 export type ListIntegrationsData = {
     body?: never;
