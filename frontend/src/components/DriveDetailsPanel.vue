@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { FileText, Info, Lock, ShieldCheck, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import type { DriveActivityBody, DriveFolderBody, DriveItemBody, DriveOcrOutputBody, DrivePermissionsBody, DriveProductExtractionItemBody } from '../api/generated/types.gen'
+import type { DriveActivityBody, DriveFolderBody, DriveItemBody, DriveOcrOutputBody, DrivePermissionsBody, DriveProductExtractionItemBody, MedallionCatalogBody } from '../api/generated/types.gen'
 import type { DriveOcrActionStatus } from '../utils/driveOcrStatus'
 import {
   driveItemContentType,
@@ -17,6 +17,7 @@ import DriveOCRRunStatus from './DriveOCRRunStatus.vue'
 import DriveOCRTextViewer from './DriveOCRTextViewer.vue'
 import DriveProductExtractionStatus from './DriveProductExtractionStatus.vue'
 import DriveProductExtractionTable from './DriveProductExtractionTable.vue'
+import MedallionCatalogPanel from './MedallionCatalogPanel.vue'
 
 const props = defineProps<{
   open: boolean
@@ -25,6 +26,8 @@ const props = defineProps<{
   permissions: DrivePermissionsBody | null
   ocrResult: DriveOcrOutputBody | null
   productExtractionItems: DriveProductExtractionItemBody[]
+  medallionCatalog: MedallionCatalogBody | null
+  medallionLoading: boolean
   ocrLoading: boolean
   ocrActionStatus: DriveOcrActionStatus
   ocrActionResourceId: string
@@ -154,6 +157,12 @@ const ocrFactStatusLabel = computed(() => {
       </dl>
 
       <div v-if="selectedItem" class="drive-metadata-stack">
+        <MedallionCatalogPanel
+          v-if="selectedItem.file"
+          :catalog="medallionCatalog"
+          :loading="medallionLoading"
+          :title="t('medallion.driveTitle')"
+        />
         <div>
           <h3>{{ t('drive.description') }}</h3>
           <p class="cell-subtle">{{ selectedDescription || t('drive.noDescription') }}</p>

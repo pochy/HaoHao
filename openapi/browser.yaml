@@ -6675,6 +6675,280 @@ components:
       required:
         - publicIds
       type: object
+    MedallionAssetBody:
+      additionalProperties: false
+      properties:
+        archivedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        byteSize:
+          examples:
+            - 1048576
+          format: int64
+          type: integer
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        displayName:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - customers.csv
+          type: string
+        layer:
+          enum:
+            - bronze
+            - silver
+            - gold
+          examples:
+            - bronze
+          type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        resourceKind:
+          examples:
+            - drive_file
+          type: string
+        resourcePublicId:
+          description: 対象 resource の public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        rowCount:
+          examples:
+            - 1000
+          format: int64
+          type: integer
+        schemaSummary:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        status:
+          description: 現在の lifecycle status です。
+          enum:
+            - active
+            - building
+            - failed
+            - skipped
+            - archived
+          examples:
+            - active
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - layer
+        - resourceKind
+        - resourcePublicId
+        - displayName
+        - status
+        - createdAt
+        - updatedAt
+      type: object
+    MedallionAssetListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/MedallionAssetListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/MedallionAssetBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    MedallionCatalogBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/MedallionCatalogBody.json
+          format: uri
+          readOnly: true
+          type: string
+        asset:
+          $ref: "#/components/schemas/MedallionAssetBody"
+          examples:
+            - example
+        downstream:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/MedallionAssetBody"
+          type:
+            - array
+            - "null"
+        pipelineRuns:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/MedallionPipelineRunBody"
+          type:
+            - array
+            - "null"
+        upstream:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/MedallionAssetBody"
+          type:
+            - array
+            - "null"
+      required:
+        - asset
+        - upstream
+        - downstream
+        - pipelineRuns
+      type: object
+    MedallionPipelineRunBody:
+      additionalProperties: false
+      properties:
+        completedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        errorSummary:
+          examples:
+            - example
+          type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        pipelineType:
+          examples:
+            - drive_ocr
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        retryable:
+          examples:
+            - true
+          type: boolean
+        runtime:
+          examples:
+            - clickhouse
+          type: string
+        sourceAssetPublicIds:
+          examples:
+            - - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        sourceResourceKind:
+          examples:
+            - support
+          type: string
+        sourceResourcePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        startedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          enum:
+            - pending
+            - processing
+            - completed
+            - failed
+            - skipped
+          examples:
+            - completed
+          type: string
+        targetAssetPublicIds:
+          examples:
+            - - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        targetResourceKind:
+          examples:
+            - support
+          type: string
+        targetResourcePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        triggerKind:
+          enum:
+            - manual
+            - upload
+            - scheduled
+            - system
+            - read_repair
+          examples:
+            - manual
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - pipelineType
+        - status
+        - triggerKind
+        - retryable
+        - createdAt
+        - updatedAt
+        - sourceAssetPublicIds
+        - targetAssetPublicIds
+      type: object
     NotificationBody:
       additionalProperties: false
       properties:
@@ -28272,6 +28546,331 @@ paths:
       summary: machine client を更新する
       tags:
         - Platform Integrations
+  /api/v1/medallion/assets:
+    get:
+      description: |-
+        active tenant の Medallion catalog asset 一覧を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listMedallionAssets
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: 結果の絞り込みや pagination に使う query parameter `layer` です。
+          example: bronze
+          explode: false
+          in: query
+          name: layer
+          schema:
+            enum:
+              - bronze
+              - silver
+              - gold
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `resourceKind` です。
+          example: drive_file
+          explode: false
+          in: query
+          name: resourceKind
+          schema:
+            enum:
+              - drive_file
+              - dataset
+              - work_table
+              - ocr_run
+              - product_extraction
+              - gold_table
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - archivedAt: "2026-01-15T09:30:00Z"
+                        byteSize: 1048576
+                        createdAt: "2026-01-15T09:30:00Z"
+                        displayName: customers.csv
+                        layer: bronze
+                        metadata: {}
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        resourceKind: drive_file
+                        resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        rowCount: 1000
+                        schemaSummary: {}
+                        status: active
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/MedallionAssetListBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: active tenant の Medallion catalog asset 一覧を返す
+      tags:
+        - Data & Datasets
+  /api/v1/medallion/assets/{assetPublicId}:
+    get:
+      description: |-
+        Medallion catalog asset detail を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getMedallionAsset
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `assetPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: assetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    asset:
+                      archivedAt: "2026-01-15T09:30:00Z"
+                      byteSize: 1048576
+                      createdAt: "2026-01-15T09:30:00Z"
+                      displayName: customers.csv
+                      layer: bronze
+                      metadata: {}
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      resourceKind: drive_file
+                      resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rowCount: 1000
+                      schemaSummary: {}
+                      status: active
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    downstream:
+                      - archivedAt: "2026-01-15T09:30:00Z"
+                        byteSize: 1048576
+                        createdAt: "2026-01-15T09:30:00Z"
+                        displayName: customers.csv
+                        layer: bronze
+                        metadata: {}
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        resourceKind: drive_file
+                        resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        rowCount: 1000
+                        schemaSummary: {}
+                        status: active
+                        updatedAt: "2026-01-15T09:30:00Z"
+                    pipelineRuns:
+                      - completedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        errorSummary: example
+                        metadata: {}
+                        pipelineType: drive_ocr
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        retryable: true
+                        runtime: clickhouse
+                        sourceAssetPublicIds:
+                          - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        sourceResourceKind: support
+                        sourceResourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        startedAt: "2026-01-15T09:30:00Z"
+                        status: completed
+                        targetAssetPublicIds:
+                          - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        targetResourceKind: support
+                        targetResourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        triggerKind: manual
+                        updatedAt: "2026-01-15T09:30:00Z"
+                    upstream:
+                      - archivedAt: "2026-01-15T09:30:00Z"
+                        byteSize: 1048576
+                        createdAt: "2026-01-15T09:30:00Z"
+                        displayName: customers.csv
+                        layer: bronze
+                        metadata: {}
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        resourceKind: drive_file
+                        resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        rowCount: 1000
+                        schemaSummary: {}
+                        status: active
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/MedallionCatalogBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Medallion catalog asset detail を返す
+      tags:
+        - Data & Datasets
+  /api/v1/medallion/resources/{resourceKind}/{resourcePublicId}:
+    get:
+      description: |-
+        resource public ID から Medallion catalog summary を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getMedallionResourceCatalog
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `resourceKind` を指定します。
+          example: drive_file
+          in: path
+          name: resourceKind
+          required: true
+          schema:
+            enum:
+              - drive_file
+              - dataset
+              - work_table
+              - ocr_run
+              - product_extraction
+              - gold_table
+            type: string
+        - description: path 内の `resourcePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: resourcePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/MedallionCatalogBody.json
+                    asset:
+                      archivedAt: "2026-01-15T09:30:00Z"
+                      byteSize: 1048576
+                      createdAt: "2026-01-15T09:30:00Z"
+                      displayName: customers.csv
+                      layer: bronze
+                      metadata: {}
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      resourceKind: drive_file
+                      resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rowCount: 1000
+                      schemaSummary: {}
+                      status: active
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    downstream:
+                      - example
+                    pipelineRuns:
+                      - example
+                    upstream:
+                      - example
+              schema:
+                $ref: "#/components/schemas/MedallionCatalogBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: resource public ID から Medallion catalog summary を返す
+      tags:
+        - Data & Datasets
   /api/v1/notifications:
     get:
       description: |-

@@ -18,6 +18,7 @@ import type {
   DriveActivityBody,
   DriveFileBody,
   DriveItemBody,
+  MedallionCatalogBody,
   DriveOcrOutputBody,
   DrivePermissionsBody,
   DriveProductExtractionItemBody,
@@ -39,12 +40,15 @@ import DriveOCRRunStatus from './DriveOCRRunStatus.vue'
 import DriveOCRTextViewer from './DriveOCRTextViewer.vue'
 import DriveProductExtractionStatus from './DriveProductExtractionStatus.vue'
 import DriveProductExtractionTable from './DriveProductExtractionTable.vue'
+import MedallionCatalogPanel from './MedallionCatalogPanel.vue'
 
 const props = defineProps<{
   selectedItem: DriveItemBody | null
   permissions: DrivePermissionsBody | null
   ocrResult: DriveOcrOutputBody | null
   productExtractionItems: DriveProductExtractionItemBody[]
+  medallionCatalog: MedallionCatalogBody | null
+  medallionLoading: boolean
   ocrLoading: boolean
   ocrActionStatus: DriveOcrActionStatus
   ocrActionResourceId: string
@@ -279,6 +283,12 @@ const productFacts = computed(() => {
             <strong class="tabular-cell">{{ formatDriveSize(file.byteSize) }}</strong>
             <small v-if="ocrRun">{{ t('drive.ocrProgress', { processed: ocrRun.processedPageCount, total: ocrRun.pageCount }) }}</small>
           </div>
+
+          <MedallionCatalogPanel
+            :catalog="medallionCatalog"
+            :loading="medallionLoading"
+            :title="t('medallion.driveTitle')"
+          />
 
           <section class="drive-file-detail-section">
             <h2>{{ primaryExtraction ? t('drive.productInfo') : t('drive.description') }}</h2>

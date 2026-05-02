@@ -30,6 +30,7 @@ type DriveService struct {
 	tenantSettings *TenantSettingsService
 	outbox         *OutboxService
 	audit          AuditRecorder
+	medallion      *MedallionCatalogService
 	now            func() time.Time
 }
 
@@ -53,6 +54,12 @@ func NewDriveService(pool *pgxpool.Pool, queries *db.Queries, files *FileService
 func (s *DriveService) SetOutboxService(outbox *OutboxService) {
 	if s != nil {
 		s.outbox = outbox
+	}
+}
+
+func (s *DriveService) SetMedallionCatalogService(medallion *MedallionCatalogService) {
+	if s != nil {
+		s.medallion = medallion
 	}
 }
 
@@ -278,6 +285,10 @@ func (s *DriveService) UploadFile(ctx context.Context, input DriveUploadFileInpu
 	s.recordDriveFilePreviewStateBestEffort(ctx, file)
 	s.indexDriveFileBestEffort(ctx, file, "file_created")
 	s.enqueueDriveOCRBestEffort(ctx, actor, file, "upload")
+	if s.medallion != nil {
+		actorID := actor.UserID
+		_, _, _ = s.medallion.EnsureDriveFileAsset(ctx, file, &actorID)
+	}
 	s.recordDriveSyncEventBestEffort(ctx, file.ResourceRef(), "file.created", file.SHA256Hex, map[string]any{"filename": file.OriginalFilename})
 	return file, nil
 }

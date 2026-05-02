@@ -819,6 +819,7 @@ code {
 .status-pill {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   width: fit-content;
   min-height: 26px;
   padding: 0 9px;
@@ -828,6 +829,10 @@ code {
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.status-pill svg {
+  flex: 0 0 auto;
 }
 
 .status-pill.success {
@@ -843,6 +848,58 @@ code {
 .status-pill.danger {
   color: var(--danger);
   background: #fee2e2;
+}
+
+.compact-empty-state {
+  padding: 12px;
+  border-radius: var(--radius-md);
+}
+
+.medallion-catalog-panel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.medallion-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.medallion-metadata-grid {
+  gap: 10px;
+}
+
+.medallion-run-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.medallion-run-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.medallion-run-row span {
+  min-width: 0;
+}
+
+.medallion-run-row strong,
+.medallion-run-row small {
+  display: block;
+  overflow-wrap: anywhere;
 }
 
 .error-message {

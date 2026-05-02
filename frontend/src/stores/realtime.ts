@@ -188,6 +188,7 @@ async function refreshForJobEvent(event: RealtimeEvent) {
     const filePublicId = stringPayload(payload.filePublicId)
     if (filePublicId && driveStore.selectedResource?.type === 'file' && driveStore.selectedResource.publicId === filePublicId) {
       await driveStore.loadOCR({ type: 'file', publicId: filePublicId }, { showLoading: false })
+      await driveStore.loadMedallion({ type: 'file', publicId: filePublicId })
       driveStore.syncOCRPollingForResource(driveStore.selectedResource)
     }
     return

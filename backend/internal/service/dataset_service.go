@@ -294,6 +294,7 @@ type DatasetService struct {
 	clickhouse driver.Conn
 	chConfig   DatasetClickHouseConfig
 	realtime   RealtimePublisher
+	medallion  *MedallionCatalogService
 }
 
 func NewDatasetService(pool *pgxpool.Pool, queries *db.Queries, outbox *OutboxService, files *FileService, audit AuditRecorder, clickhouseConn driver.Conn, chConfig DatasetClickHouseConfig) *DatasetService {
@@ -332,6 +333,12 @@ func NewDatasetService(pool *pgxpool.Pool, queries *db.Queries, outbox *OutboxSe
 func (s *DatasetService) SetRealtimeService(realtime RealtimePublisher) {
 	if s != nil {
 		s.realtime = realtime
+	}
+}
+
+func (s *DatasetService) SetMedallionCatalogService(medallion *MedallionCatalogService) {
+	if s != nil {
+		s.medallion = medallion
 	}
 }
 
@@ -497,7 +504,12 @@ func (s *DatasetService) CreateFromDriveFile(ctx context.Context, tenantID, user
 		UpdatedAt:        file.UpdatedAt,
 		DeletedAt:        file.DeletedAt,
 	}
-	return s.CreateFromSourceFile(ctx, tenantID, userID, source, name, auditCtx)
+	item, err := s.CreateFromSourceFile(ctx, tenantID, userID, source, name, auditCtx)
+	if err != nil {
+		return Dataset{}, err
+	}
+	s.recordMedallionDatasetImportRequested(ctx, tenantID, userID, file, item)
+	return item, nil
 }
 
 func (s *DatasetService) List(ctx context.Context, tenantID int64, limit int32) ([]Dataset, error) {
@@ -607,19 +619,22 @@ func (s *DatasetService) HandleImportRequested(ctx context.Context, tenantID, im
 	if result.InvalidRows > 0 {
 		errorSummary = pgtype.Text{String: fmt.Sprintf("%d invalid rows skipped", result.InvalidRows), Valid: true}
 	}
-	if _, err := s.queries.CompleteDatasetImportJob(ctx, db.CompleteDatasetImportJobParams{
+	completedJob, err := s.queries.CompleteDatasetImportJob(ctx, db.CompleteDatasetImportJobParams{
 		ID:           job.ID,
 		TotalRows:    result.TotalRows,
 		ValidRows:    result.ValidRows,
 		InvalidRows:  result.InvalidRows,
 		ErrorSample:  errorSample,
 		ErrorSummary: errorSummary,
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("complete dataset import job: %w", err)
 	}
-	if _, err := s.queries.MarkDatasetReady(ctx, db.MarkDatasetReadyParams{ID: dataset.ID, RowCount: result.ValidRows}); err != nil {
+	readyDataset, err := s.queries.MarkDatasetReady(ctx, db.MarkDatasetReadyParams{ID: dataset.ID, RowCount: result.ValidRows})
+	if err != nil {
 		return fmt.Errorf("mark dataset ready: %w", err)
 	}
+	s.recordMedallionDatasetImportFinished(ctx, tenantID, completedJob, readyDataset, MedallionPipelineStatusCompleted, "", true)
 	s.publishDatasetImportJobUpdated(ctx, tenantID, job, "completed", "", dataset.PublicID.String(), result.ValidRows)
 	s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(job.RequestedByUserID), dataset.PublicID.String(), "ready", result.ValidRows, "")
 	return nil
@@ -1084,7 +1099,9 @@ func (s *DatasetService) GetManagedWorkTable(ctx context.Context, tenantID int64
 	if err := s.hydrateWorkTableOrigins(ctx, tenantID, items); err != nil {
 		return DatasetWorkTable{}, err
 	}
-	return items[0], nil
+	item = items[0]
+	s.recordMedallionWorkTableRegistered(ctx, tenantID, 0, item)
+	return item, nil
 }
 
 func (s *DatasetService) RegisterWorkTable(ctx context.Context, tenantID, userID int64, database, table, datasetPublicID, displayName string, auditCtx AuditContext) (DatasetWorkTable, error) {
@@ -1153,6 +1170,7 @@ func (s *DatasetService) LinkWorkTable(ctx context.Context, tenantID int64, publ
 	item := datasetWorkTableFromDB(row)
 	item.OriginDatasetPublicID = dataset.PublicID
 	item.OriginDatasetName = dataset.Name
+	s.recordMedallionWorkTableRegistered(ctx, tenantID, 0, item)
 	if s.audit != nil {
 		s.audit.RecordBestEffort(ctx, AuditEventInput{
 			AuditContext: auditCtx,
@@ -1430,7 +1448,14 @@ func (s *DatasetService) PromoteWorkTable(ctx context.Context, tenantID, userID 
 	if err := tx.Commit(ctx); err != nil {
 		return Dataset{}, fmt.Errorf("commit work table promotion transaction: %w", err)
 	}
-	return s.inflateDataset(ctx, dataset)
+	result, err := s.inflateDataset(ctx, dataset)
+	if err != nil {
+		return Dataset{}, err
+	}
+	source := datasetWorkTableFromDB(row)
+	mergeWorkTableMetadata(&source, metadata)
+	s.recordMedallionWorkTablePromoteRequested(ctx, tenantID, userID, source, result)
+	return result, nil
 }
 
 func (s *DatasetService) HandleWorkTablePromotionRequested(ctx context.Context, tenantID, datasetID, workTableID int64) error {
@@ -1465,9 +1490,11 @@ func (s *DatasetService) HandleWorkTablePromotionRequested(ctx context.Context, 
 		s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(dataset.CreatedByUserID), dataset.PublicID.String(), "failed", 0, err.Error())
 		return err
 	}
-	if _, err := s.queries.MarkDatasetReady(ctx, db.MarkDatasetReadyParams{ID: dataset.ID, RowCount: metadata.TotalRows}); err != nil {
+	readyDataset, err := s.queries.MarkDatasetReady(ctx, db.MarkDatasetReadyParams{ID: dataset.ID, RowCount: metadata.TotalRows})
+	if err != nil {
 		return fmt.Errorf("mark promoted dataset ready: %w", err)
 	}
+	s.recordMedallionWorkTablePromoteFinished(ctx, tenantID, workTable, readyDataset, MedallionPipelineStatusCompleted, "", false)
 	s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(dataset.CreatedByUserID), dataset.PublicID.String(), "ready", metadata.TotalRows, "")
 	return nil
 }
@@ -1562,6 +1589,7 @@ func (s *DatasetService) RequestDatasetSync(ctx context.Context, tenantID, userI
 	if err := tx.Commit(ctx); err != nil {
 		return DatasetSyncJob{}, fmt.Errorf("commit dataset sync transaction: %w", err)
 	}
+	s.recordMedallionDatasetSyncRequested(ctx, tenantID, userID, dataset, workTable, job)
 	s.publishDatasetSyncUpdated(ctx, tenantID, job, "pending", "", 0)
 	return datasetSyncJobFromDB(job), nil
 }
@@ -1620,6 +1648,7 @@ func (s *DatasetService) HandleDatasetSyncRequested(ctx context.Context, tenantI
 		return fmt.Errorf("mark dataset sync processing: %w", err)
 	}
 	s.publishDatasetSyncUpdated(ctx, tenantID, job, "processing", "", 0)
+	s.recordMedallionDatasetSyncStatus(ctx, tenantID, job, MedallionPipelineStatusProcessing, "", false)
 
 	if job.Mode != datasetSyncModeFullRefresh {
 		s.failDatasetSyncJob(ctx, tenantID, job, fmt.Sprintf("%s: unsupported dataset sync mode %q", ErrInvalidDatasetInput.Error(), job.Mode))
@@ -1673,6 +1702,7 @@ func (s *DatasetService) HandleDatasetSyncRequested(ctx context.Context, tenantI
 	} else {
 		_, _ = s.queries.MarkDatasetSyncJobCleanupCompleted(ctx, job.ID)
 	}
+	s.recordMedallionDatasetSyncStatus(ctx, tenantID, job, MedallionPipelineStatusCompleted, "", false)
 	s.publishDatasetSyncUpdated(ctx, tenantID, job, "completed", "", metadata.TotalRows)
 	return nil
 }
@@ -2386,7 +2416,9 @@ func (s *DatasetService) registerDatasetWorkTableForRef(ctx context.Context, ten
 	if err := s.hydrateWorkTableOrigins(ctx, tenantID, items); err != nil {
 		return DatasetWorkTable{}, err
 	}
-	return items[0], nil
+	item = items[0]
+	s.recordMedallionWorkTableRegistered(ctx, tenantID, userID, item)
+	return item, nil
 }
 
 func (s *DatasetService) hydrateWorkTableOrigins(ctx context.Context, tenantID int64, items []DatasetWorkTable) error {
@@ -2824,6 +2856,322 @@ func (s *DatasetService) inflateDataset(ctx context.Context, row db.Dataset) (Da
 	return item, nil
 }
 
+func (s *DatasetService) recordMedallionDatasetImportRequested(ctx context.Context, tenantID, userID int64, file DriveFile, dataset Dataset) {
+	if s == nil || s.medallion == nil {
+		return
+	}
+	actorID := userID
+	var sourceAssets []MedallionAsset
+	if source, ok, err := s.medallion.EnsureDriveFileAsset(ctx, file, &actorID); err == nil && ok {
+		sourceAssets = append(sourceAssets, source)
+	}
+	target, err := s.medallion.EnsureDatasetAsset(ctx, dataset, &actorID)
+	if err != nil {
+		return
+	}
+	if len(sourceAssets) > 0 {
+		s.medallion.LinkAssets(ctx, tenantID, sourceAssets[0], target, "source_file", nil)
+	}
+	runKey := "dataset_import:" + dataset.PublicID
+	if dataset.ImportJob != nil && dataset.ImportJob.PublicID != "" {
+		runKey = dataset.ImportJob.PublicID
+	}
+	_, _ = s.medallion.RecordPipelineRun(ctx, medallionPipelineRunInput{
+		TenantID:               tenantID,
+		PipelineType:           MedallionPipelineDatasetImport,
+		RunKey:                 runKey,
+		SourceResourceKind:     MedallionResourceDriveFile,
+		SourceResourceID:       file.ID,
+		SourceResourcePublicID: file.PublicID,
+		TargetResourceKind:     MedallionResourceDataset,
+		TargetResourceID:       dataset.ID,
+		TargetResourcePublicID: dataset.PublicID,
+		Status:                 MedallionPipelineStatusPending,
+		Runtime:                "clickhouse",
+		TriggerKind:            MedallionTriggerManual,
+		Retryable:              true,
+		RequestedByUserID:      &actorID,
+		SourceAssets:           sourceAssets,
+		TargetAssets:           []MedallionAsset{target},
+	})
+}
+
+func (s *DatasetService) recordMedallionDatasetImportFinished(ctx context.Context, tenantID int64, job db.DatasetImportJob, row db.Dataset, status, errorSummary string, retryable bool) {
+	if s == nil || s.medallion == nil {
+		return
+	}
+	if latest, err := s.queries.GetDatasetImportJobByIDForTenant(ctx, db.GetDatasetImportJobByIDForTenantParams{ID: job.ID, TenantID: tenantID}); err == nil {
+		job = latest
+	}
+	dataset, err := s.inflateDataset(ctx, row)
+	if err != nil {
+		dataset = datasetFromDB(row)
+	}
+	actorID := optionalPgInt8(job.RequestedByUserID)
+	target, err := s.medallion.EnsureDatasetAsset(ctx, dataset, actorID)
+	if err != nil {
+		return
+	}
+	var sourceAssets []MedallionAsset
+	sourcePublicID := ""
+	if dataset.SourceFileObjectID != nil && s.medallion.drive != nil {
+		if sourceRow, err := s.medallion.drive.getDriveFileRow(ctx, tenantID, DriveResourceRef{Type: DriveResourceTypeFile, ID: *dataset.SourceFileObjectID}); err == nil {
+			file := driveFileFromDB(sourceRow)
+			sourcePublicID = file.PublicID
+			if source, ok, err := s.medallion.EnsureDriveFileAsset(ctx, file, actorID); err == nil && ok {
+				sourceAssets = append(sourceAssets, source)
+				s.medallion.LinkAssets(ctx, tenantID, source, target, "source_file", nil)
+			}
+		}
+	}
+	s.medallion.ensureDatasetEdges(ctx, dataset, target)
+	completedAt := optionalPgTime(job.CompletedAt)
+	if completedAt == nil && (status == MedallionPipelineStatusCompleted || status == MedallionPipelineStatusFailed || status == MedallionPipelineStatusSkipped) {
+		completedAt = ptrTime(time.Now())
+	}
+	_, _ = s.medallion.RecordPipelineRun(ctx, medallionPipelineRunInput{
+		TenantID:               tenantID,
+		PipelineType:           MedallionPipelineDatasetImport,
+		RunKey:                 job.PublicID.String(),
+		SourceResourceKind:     MedallionResourceDriveFile,
+		SourceResourceID:       job.SourceFileObjectID,
+		SourceResourcePublicID: sourcePublicID,
+		TargetResourceKind:     MedallionResourceDataset,
+		TargetResourceID:       dataset.ID,
+		TargetResourcePublicID: dataset.PublicID,
+		Status:                 status,
+		Runtime:                "clickhouse",
+		TriggerKind:            MedallionTriggerSystem,
+		Retryable:              retryable,
+		ErrorSummary:           errorSummary,
+		RequestedByUserID:      actorID,
+		StartedAt:              optionalPgTime(job.CreatedAt),
+		CompletedAt:            completedAt,
+		SourceAssets:           sourceAssets,
+		TargetAssets:           []MedallionAsset{target},
+	})
+}
+
+func (s *DatasetService) recordMedallionWorkTableRegistered(ctx context.Context, tenantID, userID int64, table DatasetWorkTable) {
+	if s == nil || s.medallion == nil {
+		return
+	}
+	actorID := userIDPtr(userID)
+	target, err := s.medallion.EnsureWorkTableAsset(ctx, table, actorID)
+	if err != nil {
+		return
+	}
+	var sourceAssets []MedallionAsset
+	sourceResourceKind := ""
+	sourceResourceID := int64(0)
+	sourceResourcePublicID := ""
+	if table.SourceDatasetID != nil {
+		s.medallion.ensureWorkTableEdges(ctx, table, target)
+		if row, err := s.queries.GetDatasetByIDForTenant(ctx, db.GetDatasetByIDForTenantParams{ID: *table.SourceDatasetID, TenantID: tenantID}); err == nil {
+			if dataset, err := s.inflateDataset(ctx, row); err == nil {
+				if source, err := s.medallion.EnsureDatasetAsset(ctx, dataset, actorID); err == nil {
+					sourceAssets = append(sourceAssets, source)
+					sourceResourceKind = MedallionResourceDataset
+					sourceResourceID = dataset.ID
+					sourceResourcePublicID = dataset.PublicID
+				}
+			}
+		}
+	}
+	trigger := MedallionTriggerSystem
+	if userID > 0 {
+		trigger = MedallionTriggerManual
+	}
+	_, _ = s.medallion.RecordPipelineRun(ctx, medallionPipelineRunInput{
+		TenantID:               tenantID,
+		PipelineType:           MedallionPipelineWorkTableRegister,
+		RunKey:                 "work_table_register:" + table.PublicID,
+		SourceResourceKind:     sourceResourceKind,
+		SourceResourceID:       sourceResourceID,
+		SourceResourcePublicID: sourceResourcePublicID,
+		TargetResourceKind:     MedallionResourceWorkTable,
+		TargetResourceID:       table.ID,
+		TargetResourcePublicID: table.PublicID,
+		Status:                 MedallionPipelineStatusCompleted,
+		Runtime:                "clickhouse",
+		TriggerKind:            trigger,
+		RequestedByUserID:      actorID,
+		CompletedAt:            ptrTime(time.Now()),
+		SourceAssets:           sourceAssets,
+		TargetAssets:           []MedallionAsset{target},
+	})
+}
+
+func (s *DatasetService) recordMedallionWorkTablePromoteRequested(ctx context.Context, tenantID, userID int64, table DatasetWorkTable, dataset Dataset) {
+	if s == nil || s.medallion == nil {
+		return
+	}
+	actorID := userIDPtr(userID)
+	source, sourceErr := s.medallion.EnsureWorkTableAsset(ctx, table, actorID)
+	target, targetErr := s.medallion.EnsureDatasetAsset(ctx, dataset, actorID)
+	if sourceErr != nil || targetErr != nil {
+		return
+	}
+	s.medallion.LinkAssets(ctx, tenantID, source, target, "promoted_dataset", nil)
+	_, _ = s.medallion.RecordPipelineRun(ctx, medallionPipelineRunInput{
+		TenantID:               tenantID,
+		PipelineType:           MedallionPipelineWorkTablePromote,
+		RunKey:                 "work_table_promote:" + dataset.PublicID,
+		SourceResourceKind:     MedallionResourceWorkTable,
+		SourceResourceID:       table.ID,
+		SourceResourcePublicID: table.PublicID,
+		TargetResourceKind:     MedallionResourceDataset,
+		TargetResourceID:       dataset.ID,
+		TargetResourcePublicID: dataset.PublicID,
+		Status:                 MedallionPipelineStatusPending,
+		Runtime:                "clickhouse",
+		TriggerKind:            MedallionTriggerManual,
+		Retryable:              true,
+		RequestedByUserID:      actorID,
+		SourceAssets:           []MedallionAsset{source},
+		TargetAssets:           []MedallionAsset{target},
+	})
+}
+
+func (s *DatasetService) recordMedallionWorkTablePromoteFinished(ctx context.Context, tenantID int64, workTableRow db.DatasetWorkTable, datasetRow db.Dataset, status, errorSummary string, retryable bool) {
+	if s == nil || s.medallion == nil {
+		return
+	}
+	table := datasetWorkTableFromDB(workTableRow)
+	dataset, err := s.inflateDataset(ctx, datasetRow)
+	if err != nil {
+		dataset = datasetFromDB(datasetRow)
+	}
+	actorID := optionalPgInt8(datasetRow.CreatedByUserID)
+	source, sourceErr := s.medallion.EnsureWorkTableAsset(ctx, table, actorID)
+	target, targetErr := s.medallion.EnsureDatasetAsset(ctx, dataset, actorID)
+	if sourceErr != nil || targetErr != nil {
+		return
+	}
+	s.medallion.LinkAssets(ctx, tenantID, source, target, "promoted_dataset", nil)
+	_, _ = s.medallion.RecordPipelineRun(ctx, medallionPipelineRunInput{
+		TenantID:               tenantID,
+		PipelineType:           MedallionPipelineWorkTablePromote,
+		RunKey:                 "work_table_promote:" + dataset.PublicID,
+		SourceResourceKind:     MedallionResourceWorkTable,
+		SourceResourceID:       table.ID,
+		SourceResourcePublicID: table.PublicID,
+		TargetResourceKind:     MedallionResourceDataset,
+		TargetResourceID:       dataset.ID,
+		TargetResourcePublicID: dataset.PublicID,
+		Status:                 status,
+		Runtime:                "clickhouse",
+		TriggerKind:            MedallionTriggerSystem,
+		Retryable:              retryable,
+		ErrorSummary:           errorSummary,
+		RequestedByUserID:      actorID,
+		CompletedAt:            ptrTime(time.Now()),
+		SourceAssets:           []MedallionAsset{source},
+		TargetAssets:           []MedallionAsset{target},
+	})
+}
+
+func (s *DatasetService) recordMedallionDatasetSyncRequested(ctx context.Context, tenantID, userID int64, datasetRow db.Dataset, workTableRow db.DatasetWorkTable, job db.DatasetSyncJob) {
+	if s == nil || s.medallion == nil {
+		return
+	}
+	actorID := userIDPtr(userID)
+	dataset, err := s.inflateDataset(ctx, datasetRow)
+	if err != nil {
+		dataset = datasetFromDB(datasetRow)
+	}
+	table := datasetWorkTableFromDB(workTableRow)
+	source, sourceErr := s.medallion.EnsureWorkTableAsset(ctx, table, actorID)
+	target, targetErr := s.medallion.EnsureDatasetAsset(ctx, dataset, actorID)
+	if sourceErr != nil || targetErr != nil {
+		return
+	}
+	s.medallion.LinkAssets(ctx, tenantID, source, target, "synced_dataset", nil)
+	_, _ = s.medallion.RecordPipelineRun(ctx, medallionPipelineRunInput{
+		TenantID:               tenantID,
+		PipelineType:           MedallionPipelineDatasetSync,
+		RunKey:                 job.PublicID.String(),
+		SourceResourceKind:     MedallionResourceWorkTable,
+		SourceResourceID:       table.ID,
+		SourceResourcePublicID: table.PublicID,
+		TargetResourceKind:     MedallionResourceDataset,
+		TargetResourceID:       dataset.ID,
+		TargetResourcePublicID: dataset.PublicID,
+		Status:                 MedallionPipelineStatusPending,
+		Runtime:                "clickhouse",
+		TriggerKind:            MedallionTriggerManual,
+		Retryable:              true,
+		RequestedByUserID:      actorID,
+		SourceAssets:           []MedallionAsset{source},
+		TargetAssets:           []MedallionAsset{target},
+	})
+}
+
+func (s *DatasetService) recordMedallionDatasetSyncStatus(ctx context.Context, tenantID int64, job db.DatasetSyncJob, status, errorSummary string, retryable bool) {
+	if s == nil || s.medallion == nil {
+		return
+	}
+	if latest, err := s.queries.GetDatasetSyncJobByIDForTenant(ctx, db.GetDatasetSyncJobByIDForTenantParams{ID: job.ID, TenantID: tenantID}); err == nil {
+		job = latest
+	}
+	datasetRow, err := s.queries.GetDatasetByIDForTenant(ctx, db.GetDatasetByIDForTenantParams{ID: job.DatasetID, TenantID: tenantID})
+	if err != nil {
+		return
+	}
+	workTableRow, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: job.SourceWorkTableID, TenantID: tenantID})
+	if err != nil {
+		return
+	}
+	dataset, err := s.inflateDataset(ctx, datasetRow)
+	if err != nil {
+		dataset = datasetFromDB(datasetRow)
+	}
+	table := datasetWorkTableFromDB(workTableRow)
+	actorID := optionalPgInt8(job.RequestedByUserID)
+	source, sourceErr := s.medallion.EnsureWorkTableAsset(ctx, table, actorID)
+	target, targetErr := s.medallion.EnsureDatasetAsset(ctx, dataset, actorID)
+	if sourceErr != nil || targetErr != nil {
+		return
+	}
+	s.medallion.LinkAssets(ctx, tenantID, source, target, "synced_dataset", nil)
+	startedAt := optionalPgTime(job.StartedAt)
+	if startedAt == nil {
+		startedAt = optionalPgTime(job.CreatedAt)
+	}
+	completedAt := optionalPgTime(job.CompletedAt)
+	if completedAt == nil && (status == MedallionPipelineStatusCompleted || status == MedallionPipelineStatusFailed || status == MedallionPipelineStatusSkipped) {
+		completedAt = ptrTime(time.Now())
+	}
+	_, _ = s.medallion.RecordPipelineRun(ctx, medallionPipelineRunInput{
+		TenantID:               tenantID,
+		PipelineType:           MedallionPipelineDatasetSync,
+		RunKey:                 job.PublicID.String(),
+		SourceResourceKind:     MedallionResourceWorkTable,
+		SourceResourceID:       table.ID,
+		SourceResourcePublicID: table.PublicID,
+		TargetResourceKind:     MedallionResourceDataset,
+		TargetResourceID:       dataset.ID,
+		TargetResourcePublicID: dataset.PublicID,
+		Status:                 status,
+		Runtime:                "clickhouse",
+		TriggerKind:            MedallionTriggerSystem,
+		Retryable:              retryable,
+		ErrorSummary:           errorSummary,
+		RequestedByUserID:      actorID,
+		StartedAt:              startedAt,
+		CompletedAt:            completedAt,
+		SourceAssets:           []MedallionAsset{source},
+		TargetAssets:           []MedallionAsset{target},
+	})
+}
+
+func userIDPtr(userID int64) *int64 {
+	if userID <= 0 {
+		return nil
+	}
+	return &userID
+}
+
 func (s *DatasetService) failImport(ctx context.Context, tenantID int64, job db.DatasetImportJob, datasetID int64, cause error) error {
 	message := "dataset import failed"
 	if cause != nil {
@@ -2834,6 +3182,7 @@ func (s *DatasetService) failImport(ctx context.Context, tenantID int64, job db.
 	datasetPublicID := ""
 	if dataset, err := s.queries.GetDatasetByIDForTenant(ctx, db.GetDatasetByIDForTenantParams{ID: datasetID, TenantID: tenantID}); err == nil {
 		datasetPublicID = dataset.PublicID.String()
+		s.recordMedallionDatasetImportFinished(ctx, tenantID, job, dataset, MedallionPipelineStatusFailed, "dataset import failed", true)
 		s.publishDatasetUpdated(ctx, tenantID, optionalPgInt8(job.RequestedByUserID), datasetPublicID, "failed", 0, message)
 	}
 	s.publishDatasetImportJobUpdated(ctx, tenantID, job, "failed", message, datasetPublicID, 0)
@@ -2899,6 +3248,7 @@ func (s *DatasetService) failDatasetSyncJob(ctx context.Context, tenantID int64,
 	if err == nil {
 		job = updated
 	}
+	s.recordMedallionDatasetSyncStatus(ctx, tenantID, job, MedallionPipelineStatusFailed, "dataset sync failed", true)
 	s.publishDatasetSyncUpdated(ctx, tenantID, job, "failed", message, 0)
 }
 

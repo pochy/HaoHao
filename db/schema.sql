@@ -3492,6 +3492,163 @@ ALTER TABLE public.machine_clients ALTER COLUMN id ADD GENERATED ALWAYS AS IDENT
 
 
 --
+-- Name: medallion_asset_edges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.medallion_asset_edges (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    source_asset_id bigint NOT NULL,
+    target_asset_id bigint NOT NULL,
+    relation_type text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT medallion_asset_edges_no_self_loop_check CHECK ((source_asset_id <> target_asset_id)),
+    CONSTRAINT medallion_asset_edges_relation_type_check CHECK ((btrim(relation_type) <> ''::text))
+);
+
+
+--
+-- Name: medallion_asset_edges_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.medallion_asset_edges ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.medallion_asset_edges_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: medallion_assets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.medallion_assets (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    layer text NOT NULL,
+    resource_kind text NOT NULL,
+    resource_id bigint NOT NULL,
+    resource_public_id uuid NOT NULL,
+    display_name text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    row_count bigint,
+    byte_size bigint,
+    schema_summary jsonb DEFAULT '{}'::jsonb NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by_user_id bigint,
+    updated_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    archived_at timestamp with time zone,
+    CONSTRAINT medallion_assets_byte_size_check CHECK (((byte_size IS NULL) OR (byte_size >= 0))),
+    CONSTRAINT medallion_assets_display_name_check CHECK ((btrim(display_name) <> ''::text)),
+    CONSTRAINT medallion_assets_layer_check CHECK ((layer = ANY (ARRAY['bronze'::text, 'silver'::text, 'gold'::text]))),
+    CONSTRAINT medallion_assets_resource_kind_check CHECK ((resource_kind = ANY (ARRAY['drive_file'::text, 'dataset'::text, 'work_table'::text, 'ocr_run'::text, 'product_extraction'::text, 'gold_table'::text]))),
+    CONSTRAINT medallion_assets_row_count_check CHECK (((row_count IS NULL) OR (row_count >= 0))),
+    CONSTRAINT medallion_assets_status_check CHECK ((status = ANY (ARRAY['active'::text, 'building'::text, 'failed'::text, 'skipped'::text, 'archived'::text])))
+);
+
+
+--
+-- Name: medallion_assets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.medallion_assets ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.medallion_assets_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: medallion_pipeline_run_assets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.medallion_pipeline_run_assets (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    pipeline_run_id bigint NOT NULL,
+    asset_id bigint NOT NULL,
+    role text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT medallion_pipeline_run_assets_role_check CHECK ((role = ANY (ARRAY['source'::text, 'target'::text, 'related'::text])))
+);
+
+
+--
+-- Name: medallion_pipeline_run_assets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.medallion_pipeline_run_assets ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.medallion_pipeline_run_assets_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: medallion_pipeline_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.medallion_pipeline_runs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    pipeline_type text NOT NULL,
+    run_key text NOT NULL,
+    source_resource_kind text,
+    source_resource_id bigint,
+    source_resource_public_id uuid,
+    target_resource_kind text,
+    target_resource_id bigint,
+    target_resource_public_id uuid,
+    status text DEFAULT 'pending'::text NOT NULL,
+    runtime text DEFAULT ''::text NOT NULL,
+    trigger_kind text DEFAULT 'system'::text NOT NULL,
+    retryable boolean DEFAULT false NOT NULL,
+    error_summary text,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    requested_by_user_id bigint,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT medallion_pipeline_runs_pipeline_type_check CHECK ((pipeline_type = ANY (ARRAY['dataset_import'::text, 'work_table_register'::text, 'work_table_promote'::text, 'dataset_sync'::text, 'drive_ocr'::text, 'product_extraction'::text, 'gold_publish'::text]))),
+    CONSTRAINT medallion_pipeline_runs_run_key_check CHECK ((btrim(run_key) <> ''::text)),
+    CONSTRAINT medallion_pipeline_runs_source_resource_kind_check CHECK (((source_resource_kind IS NULL) OR (source_resource_kind = ANY (ARRAY['drive_file'::text, 'dataset'::text, 'work_table'::text, 'ocr_run'::text, 'product_extraction'::text, 'gold_table'::text])))),
+    CONSTRAINT medallion_pipeline_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text]))),
+    CONSTRAINT medallion_pipeline_runs_target_resource_kind_check CHECK (((target_resource_kind IS NULL) OR (target_resource_kind = ANY (ARRAY['drive_file'::text, 'dataset'::text, 'work_table'::text, 'ocr_run'::text, 'product_extraction'::text, 'gold_table'::text])))),
+    CONSTRAINT medallion_pipeline_runs_trigger_kind_check CHECK ((trigger_kind = ANY (ARRAY['manual'::text, 'upload'::text, 'scheduled'::text, 'system'::text, 'read_repair'::text])))
+);
+
+
+--
+-- Name: medallion_pipeline_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.medallion_pipeline_runs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.medallion_pipeline_runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: notifications; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5177,6 +5334,94 @@ ALTER TABLE ONLY public.machine_clients
 
 
 --
+-- Name: medallion_asset_edges medallion_asset_edges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_asset_edges
+    ADD CONSTRAINT medallion_asset_edges_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: medallion_asset_edges medallion_asset_edges_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_asset_edges
+    ADD CONSTRAINT medallion_asset_edges_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: medallion_asset_edges medallion_asset_edges_unique_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_asset_edges
+    ADD CONSTRAINT medallion_asset_edges_unique_key UNIQUE (tenant_id, source_asset_id, target_asset_id, relation_type);
+
+
+--
+-- Name: medallion_assets medallion_assets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_assets
+    ADD CONSTRAINT medallion_assets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: medallion_assets medallion_assets_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_assets
+    ADD CONSTRAINT medallion_assets_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: medallion_assets medallion_assets_resource_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_assets
+    ADD CONSTRAINT medallion_assets_resource_key UNIQUE (tenant_id, resource_kind, resource_id);
+
+
+--
+-- Name: medallion_pipeline_run_assets medallion_pipeline_run_assets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_pipeline_run_assets
+    ADD CONSTRAINT medallion_pipeline_run_assets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: medallion_pipeline_run_assets medallion_pipeline_run_assets_unique_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_pipeline_run_assets
+    ADD CONSTRAINT medallion_pipeline_run_assets_unique_key UNIQUE (pipeline_run_id, asset_id, role);
+
+
+--
+-- Name: medallion_pipeline_runs medallion_pipeline_runs_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_pipeline_runs
+    ADD CONSTRAINT medallion_pipeline_runs_key UNIQUE (tenant_id, pipeline_type, run_key);
+
+
+--
+-- Name: medallion_pipeline_runs medallion_pipeline_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_pipeline_runs
+    ADD CONSTRAINT medallion_pipeline_runs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: medallion_pipeline_runs medallion_pipeline_runs_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_pipeline_runs
+    ADD CONSTRAINT medallion_pipeline_runs_public_id_key UNIQUE (public_id);
+
+
+--
 -- Name: notifications notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6698,6 +6943,62 @@ CREATE UNIQUE INDEX idempotency_keys_scope_key_hash_key ON public.idempotency_ke
 --
 
 CREATE INDEX machine_clients_default_tenant_id_idx ON public.machine_clients USING btree (default_tenant_id);
+
+
+--
+-- Name: medallion_asset_edges_source_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX medallion_asset_edges_source_idx ON public.medallion_asset_edges USING btree (source_asset_id, created_at DESC, id DESC);
+
+
+--
+-- Name: medallion_asset_edges_target_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX medallion_asset_edges_target_idx ON public.medallion_asset_edges USING btree (target_asset_id, created_at DESC, id DESC);
+
+
+--
+-- Name: medallion_assets_tenant_layer_updated_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX medallion_assets_tenant_layer_updated_idx ON public.medallion_assets USING btree (tenant_id, layer, updated_at DESC, id DESC);
+
+
+--
+-- Name: medallion_assets_tenant_resource_public_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX medallion_assets_tenant_resource_public_idx ON public.medallion_assets USING btree (tenant_id, resource_kind, resource_public_id);
+
+
+--
+-- Name: medallion_pipeline_run_assets_asset_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX medallion_pipeline_run_assets_asset_idx ON public.medallion_pipeline_run_assets USING btree (asset_id, created_at DESC, id DESC);
+
+
+--
+-- Name: medallion_pipeline_runs_source_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX medallion_pipeline_runs_source_idx ON public.medallion_pipeline_runs USING btree (tenant_id, source_resource_kind, source_resource_id, created_at DESC) WHERE ((source_resource_kind IS NOT NULL) AND (source_resource_id IS NOT NULL));
+
+
+--
+-- Name: medallion_pipeline_runs_target_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX medallion_pipeline_runs_target_idx ON public.medallion_pipeline_runs USING btree (tenant_id, target_resource_kind, target_resource_id, created_at DESC) WHERE ((target_resource_kind IS NOT NULL) AND (target_resource_id IS NOT NULL));
+
+
+--
+-- Name: medallion_pipeline_runs_tenant_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX medallion_pipeline_runs_tenant_created_idx ON public.medallion_pipeline_runs USING btree (tenant_id, created_at DESC, id DESC);
 
 
 --
@@ -9137,6 +9438,94 @@ ALTER TABLE ONLY public.idempotency_keys
 
 ALTER TABLE ONLY public.machine_clients
     ADD CONSTRAINT machine_clients_default_tenant_id_fkey FOREIGN KEY (default_tenant_id) REFERENCES public.tenants(id) ON DELETE SET NULL;
+
+
+--
+-- Name: medallion_asset_edges medallion_asset_edges_source_asset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_asset_edges
+    ADD CONSTRAINT medallion_asset_edges_source_asset_id_fkey FOREIGN KEY (source_asset_id) REFERENCES public.medallion_assets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: medallion_asset_edges medallion_asset_edges_target_asset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_asset_edges
+    ADD CONSTRAINT medallion_asset_edges_target_asset_id_fkey FOREIGN KEY (target_asset_id) REFERENCES public.medallion_assets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: medallion_asset_edges medallion_asset_edges_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_asset_edges
+    ADD CONSTRAINT medallion_asset_edges_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: medallion_assets medallion_assets_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_assets
+    ADD CONSTRAINT medallion_assets_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: medallion_assets medallion_assets_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_assets
+    ADD CONSTRAINT medallion_assets_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: medallion_assets medallion_assets_updated_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_assets
+    ADD CONSTRAINT medallion_assets_updated_by_user_id_fkey FOREIGN KEY (updated_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: medallion_pipeline_run_assets medallion_pipeline_run_assets_asset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_pipeline_run_assets
+    ADD CONSTRAINT medallion_pipeline_run_assets_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES public.medallion_assets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: medallion_pipeline_run_assets medallion_pipeline_run_assets_pipeline_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_pipeline_run_assets
+    ADD CONSTRAINT medallion_pipeline_run_assets_pipeline_run_id_fkey FOREIGN KEY (pipeline_run_id) REFERENCES public.medallion_pipeline_runs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: medallion_pipeline_run_assets medallion_pipeline_run_assets_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_pipeline_run_assets
+    ADD CONSTRAINT medallion_pipeline_run_assets_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: medallion_pipeline_runs medallion_pipeline_runs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_pipeline_runs
+    ADD CONSTRAINT medallion_pipeline_runs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: medallion_pipeline_runs medallion_pipeline_runs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.medallion_pipeline_runs
+    ADD CONSTRAINT medallion_pipeline_runs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --

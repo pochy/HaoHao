@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { isApiForbidden, toApiErrorMessage, toApiErrorStatus } from '../api/client'
-import type { DatasetBody, DatasetLineageBody, DatasetLineageChangeSetBody, DatasetLineageChangeSetGraphBody, DatasetLineageGraphSaveBodyWritable, DatasetLineageParseRunBody, DatasetQueryJobBody, DatasetSourceFileBody, DatasetSyncJobBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
+import type { DatasetBody, DatasetLineageBody, DatasetLineageChangeSetBody, DatasetLineageChangeSetGraphBody, DatasetLineageGraphSaveBodyWritable, DatasetLineageParseRunBody, DatasetQueryJobBody, DatasetSourceFileBody, DatasetSyncJobBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody, MedallionCatalogBody } from '../api/generated/types.gen'
 import {
   createLineageChangeSet,
   createWorkTableExportSchedule,
@@ -42,6 +42,7 @@ import {
   truncateWorkTable,
   updateWorkTableExportSchedule,
 } from '../api/datasets'
+import { fetchMedallionResourceCatalog } from '../api/medallion'
 import type { DatasetLineageLevel, DatasetLineageSource, DatasetWorkTableExportFormat } from '../api/datasets'
 
 type DatasetStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
@@ -59,6 +60,8 @@ export const useDatasetStore = defineStore('datasets', {
     workTablePreview: null as DatasetWorkTablePreviewBody | null,
     workTableExports: [] as DatasetWorkTableExportBody[],
     workTableExportSchedules: [] as DatasetWorkTableExportScheduleBody[],
+    datasetMedallionCatalog: null as MedallionCatalogBody | null,
+    workTableMedallionCatalog: null as MedallionCatalogBody | null,
     datasetLineage: null as DatasetLineageBody | null,
     workTableLineage: null as DatasetLineageBody | null,
     lineageLevel: 'table' as DatasetLineageLevel,
@@ -71,6 +74,8 @@ export const useDatasetStore = defineStore('datasets', {
     workTableLineageLoading: false,
     workTablesLoading: false,
     workTablePreviewLoading: false,
+    datasetMedallionLoading: false,
+    workTableMedallionLoading: false,
     workTableActionLoading: false,
     workTableErrorMessage: '',
     queryJobs: [] as DatasetQueryJobBody[],
@@ -130,6 +135,8 @@ export const useDatasetStore = defineStore('datasets', {
         this.syncJobs = []
         this.datasetLineage = null
         this.workTableLineage = null
+        this.datasetMedallionCatalog = null
+        this.workTableMedallionCatalog = null
         this.lineageChangeSets = []
         this.selectedLineageChangeSet = null
         this.lineageParseRuns = []
@@ -146,6 +153,7 @@ export const useDatasetStore = defineStore('datasets', {
       try {
         const item = await fetchDataset(datasetPublicId)
         this.items = [item, ...this.items.filter((existing) => existing.publicId !== item.publicId)]
+        await this.loadDatasetMedallion(item.publicId).catch(() => undefined)
         this.status = 'ready'
       } catch (error) {
         this.status = toApiErrorStatus(error) === 403 || isApiForbidden(error) ? 'forbidden' : 'error'
@@ -227,6 +235,7 @@ export const useDatasetStore = defineStore('datasets', {
       try {
         const updated = await fetchDataset(this.selectedPublicId)
         this.items = this.items.map((item) => item.publicId === updated.publicId ? updated : item)
+        await this.loadDatasetMedallion(updated.publicId).catch(() => undefined)
       } catch {
         await this.load()
       }
@@ -261,6 +270,7 @@ export const useDatasetStore = defineStore('datasets', {
           this.workTableExports = []
           this.workTableExportSchedules = []
           this.workTableLineage = null
+          this.workTableMedallionCatalog = null
           return
         }
         await this.selectWorkTable(next)
@@ -271,6 +281,7 @@ export const useDatasetStore = defineStore('datasets', {
         this.workTableExports = []
         this.workTableExportSchedules = []
         this.workTableLineage = null
+        this.workTableMedallionCatalog = null
         this.workTableErrorMessage = toApiErrorMessage(error)
       } finally {
         this.workTablesLoading = false
@@ -284,6 +295,7 @@ export const useDatasetStore = defineStore('datasets', {
       this.workTableExports = []
       this.workTableExportSchedules = []
       this.workTableLineage = null
+      this.workTableMedallionCatalog = null
       this.workTablePreviewLoading = true
       this.workTableErrorMessage = ''
       try {
@@ -296,6 +308,9 @@ export const useDatasetStore = defineStore('datasets', {
           this.selectedWorkTable = detail
           this.workTableExports = exports
           this.workTableExportSchedules = schedules
+          if (detail.publicId) {
+            await this.loadWorkTableMedallion(detail.publicId).catch(() => undefined)
+          }
           await this.loadSelectedWorkTableLineage()
           return
         }
@@ -317,12 +332,45 @@ export const useDatasetStore = defineStore('datasets', {
         this.workTableExports = exports
         this.workTableExportSchedules = schedules
         if (detail.publicId && detail.managed) {
+          await this.loadWorkTableMedallion(detail.publicId).catch(() => undefined)
+        }
+        if (detail.publicId && detail.managed) {
           await this.loadSelectedWorkTableLineage()
         }
       } catch (error) {
         this.workTableErrorMessage = toApiErrorMessage(error)
       } finally {
         this.workTablePreviewLoading = false
+      }
+    },
+
+    async loadDatasetMedallion(datasetPublicId: string) {
+      if (!datasetPublicId) {
+        this.datasetMedallionCatalog = null
+        return
+      }
+      this.datasetMedallionLoading = true
+      try {
+        this.datasetMedallionCatalog = await fetchMedallionResourceCatalog('dataset', datasetPublicId)
+      } catch {
+        this.datasetMedallionCatalog = null
+      } finally {
+        this.datasetMedallionLoading = false
+      }
+    },
+
+    async loadWorkTableMedallion(workTablePublicId: string) {
+      if (!workTablePublicId) {
+        this.workTableMedallionCatalog = null
+        return
+      }
+      this.workTableMedallionLoading = true
+      try {
+        this.workTableMedallionCatalog = await fetchMedallionResourceCatalog('work_table', workTablePublicId)
+      } catch {
+        this.workTableMedallionCatalog = null
+      } finally {
+        this.workTableMedallionLoading = false
       }
     },
 

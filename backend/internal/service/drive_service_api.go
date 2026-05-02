@@ -654,6 +654,10 @@ func (s *DriveService) UpdateFile(ctx context.Context, input DriveUpdateFileInpu
 	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.file.update", "drive_file", file.PublicID, nil)
 	s.recordDriveActivityBestEffort(ctx, actor, file.ResourceRef(), "updated", map[string]any{"filename": file.OriginalFilename})
 	s.indexDriveFileBestEffort(ctx, file, "metadata_changed")
+	if s.medallion != nil {
+		actorID := actor.UserID
+		_, _, _ = s.medallion.EnsureDriveFileAsset(ctx, file, &actorID)
+	}
 	s.recordDriveSyncEventBestEffort(ctx, file.ResourceRef(), "file.metadata_updated", file.SHA256Hex, map[string]any{"filename": file.OriginalFilename})
 	return file, nil
 }
@@ -759,6 +763,10 @@ func (s *DriveService) OverwriteFile(ctx context.Context, input DriveOverwriteFi
 	s.recordDriveFilePreviewStateBestEffort(ctx, result)
 	s.indexDriveFileBestEffort(ctx, result, "content_updated")
 	s.enqueueDriveOCRBestEffort(ctx, actor, result, "overwrite")
+	if s.medallion != nil {
+		actorID := actor.UserID
+		_, _, _ = s.medallion.EnsureDriveFileAsset(ctx, result, &actorID)
+	}
 	s.recordDriveSyncEventBestEffort(ctx, result.ResourceRef(), "file.updated", result.SHA256Hex, map[string]any{"filename": result.OriginalFilename})
 	return result, nil
 }

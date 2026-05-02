@@ -5,11 +5,12 @@ import { useI18n } from 'vue-i18n'
 
 import { workTableExportDownloadUrl } from '../api/datasets'
 import type { DatasetLineageLevel, DatasetLineageSource, DatasetWorkTableExportFormat, DatasetWorkTableExportFrequency } from '../api/datasets'
-import type { DatasetBody, DatasetLineageBody, DatasetLineageGraphSaveBodyWritable, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
+import type { DatasetBody, DatasetLineageBody, DatasetLineageGraphSaveBodyWritable, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody, MedallionCatalogBody } from '../api/generated/types.gen'
 import ConfirmActionDialog from './ConfirmActionDialog.vue'
 import LineageCompactGraph from './LineageCompactGraph.vue'
 import LineageFlowGraph from './LineageFlowGraph.vue'
 import LineageTimeline from './LineageTimeline.vue'
+import MedallionCatalogPanel from './MedallionCatalogPanel.vue'
 import TextInputDialog from './TextInputDialog.vue'
 
 type LineageGraphTab = 'flow' | 'compact'
@@ -22,6 +23,7 @@ const props = withDefaults(defineProps<{
   preview: DatasetWorkTablePreviewBody | null
   exports: DatasetWorkTableExportBody[]
   schedules: DatasetWorkTableExportScheduleBody[]
+  medallionCatalog: MedallionCatalogBody | null
   lineage: DatasetLineageBody | null
   lineageLoading: boolean
   lineageLevel: DatasetLineageLevel
@@ -32,6 +34,7 @@ const props = withDefaults(defineProps<{
   canPublishLineage: boolean
   loading: boolean
   previewLoading: boolean
+  medallionLoading: boolean
   actionLoading: boolean
   errorMessage?: string
   title?: string
@@ -431,6 +434,13 @@ function changeLineageLevel(event: Event) {
             <dd>{{ formatDate(selectedTable.createdAt) }}</dd>
           </div>
         </dl>
+
+        <MedallionCatalogPanel
+          v-if="selectedTable.managed"
+          :catalog="medallionCatalog"
+          :loading="medallionLoading"
+          :title="t('medallion.workTableTitle')"
+        />
         </div>
 
         <div v-if="selectedTable.managed && activeWorkTableDetailTab === 'lineage'" class="section-header compact-section-header">

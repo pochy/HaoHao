@@ -73,7 +73,9 @@ import type {
   DriveShareLinkBody,
   DriveStorageUsageBody,
   DriveWorkspaceBody,
+  MedallionCatalogBody,
 } from '../api/generated/types.gen'
+import { fetchMedallionResourceCatalog } from '../api/medallion'
 
 type DriveStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
 type DriveActionStatus = 'idle' | 'working'
@@ -170,6 +172,8 @@ export const useDriveStore = defineStore('drive', {
     permissions: null as DrivePermissionsBody | null,
     ocrResult: null as DriveOcrOutputBody | null,
     productExtractionItems: [] as DriveProductExtractionItemBody[],
+    medallionCatalog: null as MedallionCatalogBody | null,
+    medallionLoading: false,
     ocrLoading: false,
     ocrActionStatus: 'idle' as DriveOcrActionStatus,
     ocrActionResourceId: '',
@@ -225,6 +229,8 @@ export const useDriveStore = defineStore('drive', {
       this.permissions = null
       this.ocrResult = null
       this.productExtractionItems = []
+      this.medallionCatalog = null
+      this.medallionLoading = false
       this.clearOCRActionState()
       this.lastRawShareLink = null
       this.activityItems = []
@@ -360,6 +366,7 @@ export const useDriveStore = defineStore('drive', {
           this.loadPermissions(resource),
           this.loadActivity(resource),
           this.loadOCR(resource),
+          this.loadMedallion(resource),
         ])
         this.status = 'ready'
       } catch (error) {
@@ -864,7 +871,24 @@ export const useDriveStore = defineStore('drive', {
         await this.loadPermissions(resource)
         await this.loadActivity(resource)
         await this.loadOCR(resource)
+        await this.loadMedallion(resource)
         this.syncOCRPollingForResource(resource)
+      }
+    },
+
+    async loadMedallion(resource?: DriveResourceRef | null) {
+      const target = resource ?? this.selectedResource
+      if (!target || target.type !== 'file') {
+        this.medallionCatalog = null
+        return
+      }
+      this.medallionLoading = true
+      try {
+        this.medallionCatalog = await fetchMedallionResourceCatalog('drive_file', target.publicId)
+      } catch {
+        this.medallionCatalog = null
+      } finally {
+        this.medallionLoading = false
       }
     },
 
@@ -908,6 +932,7 @@ export const useDriveStore = defineStore('drive', {
         this.ocrActionStatus = driveOcrActionStatusFromRunStatus(job.status)
         if (this.selectedResource?.type === 'file' && this.selectedResource.publicId === file.publicId) {
           await this.loadOCR({ type: 'file', publicId: file.publicId }, { showLoading: false })
+          await this.loadMedallion({ type: 'file', publicId: file.publicId })
           const status = this.ocrResult?.run.status || job.status
           this.ocrActionStatus = driveOcrActionStatusFromRunStatus(status)
           if (!isDriveOcrTerminalStatus(status)) {
@@ -937,6 +962,7 @@ export const useDriveStore = defineStore('drive', {
         await createDriveProductExtractionJobItem(file.publicId)
         if (this.selectedResource?.type === 'file' && this.selectedResource.publicId === file.publicId) {
           await this.loadOCR({ type: 'file', publicId: file.publicId }, { showLoading: false })
+          await this.loadMedallion({ type: 'file', publicId: file.publicId })
         }
         this.productExtractionActionStatus = 'succeeded'
       } catch (error) {
@@ -995,6 +1021,7 @@ export const useDriveStore = defineStore('drive', {
       this.ocrActionStatus = 'polling'
       try {
         await this.loadOCR({ type: 'file', publicId: filePublicId }, { showLoading: false })
+        await this.loadMedallion({ type: 'file', publicId: filePublicId })
         const status = this.ocrResult?.run.status
         if (status) {
           this.ocrActionStatus = driveOcrActionStatusFromRunStatus(status)

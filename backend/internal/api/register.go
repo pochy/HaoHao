@@ -37,6 +37,7 @@ type Dependencies struct {
 	CustomerSignalSavedFilterService *service.CustomerSignalSavedFilterService
 	SupportAccessService             *service.SupportAccessService
 	DatasetService                   *service.DatasetService
+	MedallionCatalogService          *service.MedallionCatalogService
 	AuthMode                         string
 	EnableLocalPasswordLogin         bool
 	SCIMBasePath                     string
@@ -87,6 +88,7 @@ func RegisterSurface(api huma.API, deps Dependencies, surface Surface) {
 		registerMachineClientRoutes(api, deps)
 		registerDatasetRoutes(api, deps)
 		registerDriveRoutes(api, deps)
+		registerMedallionCatalogRoutes(api, deps)
 	}
 
 	if includeExternal(surface) {

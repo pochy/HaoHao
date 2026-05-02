@@ -170,6 +170,10 @@ func main() {
 		QueryMaxRowsToRead:  cfg.ClickHouseQueryMaxRowsToRead,
 		QueryMaxThreads:     cfg.ClickHouseQueryMaxThreads,
 	})
+	medallionCatalogService := service.NewMedallionCatalogService(queries, driveService, datasetService)
+	driveService.SetMedallionCatalogService(medallionCatalogService)
+	driveOCRService.SetMedallionCatalogService(medallionCatalogService)
+	datasetService.SetMedallionCatalogService(medallionCatalogService)
 	driveOCRService.SetRealtimeService(realtimeService)
 	tenantInvitationService.SetRealtimeService(realtimeService)
 	tenantDataExportService.SetRealtimeService(realtimeService)
@@ -275,7 +279,7 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	appExtras := []any{entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService, realtimeService}
+	appExtras := []any{entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService, medallionCatalogService, realtimeService}
 	markdownDocsFS, err := backendweb.MarkdownDocsFS()
 	if err != nil {
 		logger.Warn("markdown docs unavailable", "error", err)

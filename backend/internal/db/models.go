@@ -1397,6 +1397,72 @@ type MachineClient struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type MedallionAsset struct {
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	TenantID         int64              `json:"tenant_id"`
+	Layer            string             `json:"layer"`
+	ResourceKind     string             `json:"resource_kind"`
+	ResourceID       int64              `json:"resource_id"`
+	ResourcePublicID uuid.UUID          `json:"resource_public_id"`
+	DisplayName      string             `json:"display_name"`
+	Status           string             `json:"status"`
+	RowCount         pgtype.Int8        `json:"row_count"`
+	ByteSize         pgtype.Int8        `json:"byte_size"`
+	SchemaSummary    []byte             `json:"schema_summary"`
+	Metadata         []byte             `json:"metadata"`
+	CreatedByUserID  pgtype.Int8        `json:"created_by_user_id"`
+	UpdatedByUserID  pgtype.Int8        `json:"updated_by_user_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ArchivedAt       pgtype.Timestamptz `json:"archived_at"`
+}
+
+type MedallionAssetEdge struct {
+	ID            int64              `json:"id"`
+	PublicID      uuid.UUID          `json:"public_id"`
+	TenantID      int64              `json:"tenant_id"`
+	SourceAssetID int64              `json:"source_asset_id"`
+	TargetAssetID int64              `json:"target_asset_id"`
+	RelationType  string             `json:"relation_type"`
+	Metadata      []byte             `json:"metadata"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type MedallionPipelineRun struct {
+	ID                     int64              `json:"id"`
+	PublicID               uuid.UUID          `json:"public_id"`
+	TenantID               int64              `json:"tenant_id"`
+	PipelineType           string             `json:"pipeline_type"`
+	RunKey                 string             `json:"run_key"`
+	SourceResourceKind     pgtype.Text        `json:"source_resource_kind"`
+	SourceResourceID       pgtype.Int8        `json:"source_resource_id"`
+	SourceResourcePublicID pgtype.UUID        `json:"source_resource_public_id"`
+	TargetResourceKind     pgtype.Text        `json:"target_resource_kind"`
+	TargetResourceID       pgtype.Int8        `json:"target_resource_id"`
+	TargetResourcePublicID pgtype.UUID        `json:"target_resource_public_id"`
+	Status                 string             `json:"status"`
+	Runtime                string             `json:"runtime"`
+	TriggerKind            string             `json:"trigger_kind"`
+	Retryable              bool               `json:"retryable"`
+	ErrorSummary           pgtype.Text        `json:"error_summary"`
+	Metadata               []byte             `json:"metadata"`
+	RequestedByUserID      pgtype.Int8        `json:"requested_by_user_id"`
+	StartedAt              pgtype.Timestamptz `json:"started_at"`
+	CompletedAt            pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MedallionPipelineRunAsset struct {
+	ID            int64              `json:"id"`
+	TenantID      int64              `json:"tenant_id"`
+	PipelineRunID int64              `json:"pipeline_run_id"`
+	AssetID       int64              `json:"asset_id"`
+	Role          string             `json:"role"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type Notification struct {
 	ID              int64              `json:"id"`
 	PublicID        uuid.UUID          `json:"public_id"`

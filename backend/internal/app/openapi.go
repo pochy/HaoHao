@@ -81,6 +81,10 @@ func openAPIExportDependencies(cfg config.Config) backendapi.Dependencies {
 	customerSignalSavedFilterService := service.NewCustomerSignalSavedFilterService(nil, entitlementService, auditService)
 	supportAccessService := service.NewSupportAccessService(nil, nil, entitlementService, auditService, cfg.SupportAccessMaxDuration)
 	datasetService := service.NewDatasetService(nil, nil, outboxService, fileService, auditService, nil, service.DatasetClickHouseConfig{})
+	medallionCatalogService := service.NewMedallionCatalogService(nil, driveService, datasetService)
+	driveService.SetMedallionCatalogService(medallionCatalogService)
+	driveOCRService.SetMedallionCatalogService(medallionCatalogService)
+	datasetService.SetMedallionCatalogService(medallionCatalogService)
 
 	return dependenciesWithConfig(cfg, backendapi.Dependencies{
 		AuditService:                     auditService,
@@ -103,6 +107,7 @@ func openAPIExportDependencies(cfg config.Config) backendapi.Dependencies {
 		CustomerSignalSavedFilterService: customerSignalSavedFilterService,
 		SupportAccessService:             supportAccessService,
 		DatasetService:                   datasetService,
+		MedallionCatalogService:          medallionCatalogService,
 	})
 }
 

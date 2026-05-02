@@ -10,6 +10,7 @@ import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
 import LineageCompactGraph from '../components/LineageCompactGraph.vue'
 import LineageFlowGraph from '../components/LineageFlowGraph.vue'
 import LineageTimeline from '../components/LineageTimeline.vue'
+import MedallionCatalogPanel from '../components/MedallionCatalogPanel.vue'
 import { useDatasetStore } from '../stores/datasets'
 import { useRealtimeStore } from '../stores/realtime'
 import { useTenantStore } from '../stores/tenants'
@@ -528,6 +529,12 @@ function formatActionError(error: unknown) {
               <dd class="tabular-cell">{{ n(selectedDataset.importJob?.invalidRows ?? 0) }}</dd>
             </div>
           </dl>
+
+          <MedallionCatalogPanel
+            :catalog="datasetStore.datasetMedallionCatalog"
+            :loading="datasetStore.datasetMedallionLoading"
+            :title="t('medallion.datasetTitle')"
+          />
 
           <div v-if="selectedDataset.columns?.length" class="admin-table dataset-column-table">
             <table>

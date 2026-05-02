@@ -2834,6 +2834,101 @@ export type MarkNotificationsReadBody = {
     publicIds: Array<string> | null;
 };
 
+export type MedallionAssetBody = {
+    archivedAt?: string;
+    byteSize?: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    displayName: string;
+    layer: 'bronze' | 'silver' | 'gold';
+    metadata?: {
+        [key: string]: unknown;
+    };
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    resourceKind: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
+    resourcePublicId: string;
+    rowCount?: number;
+    schemaSummary?: {
+        [key: string]: unknown;
+    };
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'active' | 'building' | 'failed' | 'skipped' | 'archived';
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type MedallionAssetListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<MedallionAssetBody> | null;
+};
+
+export type MedallionCatalogBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    asset: MedallionAssetBody;
+    downstream: Array<MedallionAssetBody> | null;
+    pipelineRuns: Array<MedallionPipelineRunBody> | null;
+    upstream: Array<MedallionAssetBody> | null;
+};
+
+export type MedallionPipelineRunBody = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSummary?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    pipelineType: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    retryable: boolean;
+    runtime?: string;
+    sourceAssetPublicIds: Array<string> | null;
+    sourceResourceKind?: string;
+    sourceResourcePublicId?: string;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
+    targetAssetPublicIds: Array<string> | null;
+    targetResourceKind?: string;
+    targetResourcePublicId?: string;
+    triggerKind: 'manual' | 'upload' | 'scheduled' | 'system' | 'read_repair';
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
 export type NotificationBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -5459,6 +5554,17 @@ export type MarkAllNotificationsReadBodyWritable = {
 
 export type MarkNotificationsReadBodyWritable = {
     publicIds: Array<string> | null;
+};
+
+export type MedallionAssetListBodyWritable = {
+    items: Array<MedallionAssetBody> | null;
+};
+
+export type MedallionCatalogBodyWritable = {
+    asset: MedallionAssetBody;
+    downstream: Array<MedallionAssetBody> | null;
+    pipelineRuns: Array<MedallionPipelineRunBody> | null;
+    upstream: Array<MedallionAssetBody> | null;
 };
 
 export type NotificationBodyWritable = {
@@ -14442,6 +14548,108 @@ export type UpdateMachineClientResponses = {
 };
 
 export type UpdateMachineClientResponse = UpdateMachineClientResponses[keyof UpdateMachineClientResponses];
+
+export type ListMedallionAssetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `layer` です。
+         */
+        layer?: 'bronze' | 'silver' | 'gold';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `resourceKind` です。
+         */
+        resourceKind?: 'drive_file' | 'dataset' | 'work_table' | 'ocr_run' | 'product_extraction' | 'gold_table';
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/medallion/assets';
+};
+
+export type ListMedallionAssetsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListMedallionAssetsError = ListMedallionAssetsErrors[keyof ListMedallionAssetsErrors];
+
+export type ListMedallionAssetsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: MedallionAssetListBody;
+};
+
+export type ListMedallionAssetsResponse = ListMedallionAssetsResponses[keyof ListMedallionAssetsResponses];
+
+export type GetMedallionAssetData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `assetPublicId` を指定します。
+         */
+        assetPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/medallion/assets/{assetPublicId}';
+};
+
+export type GetMedallionAssetErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetMedallionAssetError = GetMedallionAssetErrors[keyof GetMedallionAssetErrors];
+
+export type GetMedallionAssetResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: MedallionCatalogBody;
+};
+
+export type GetMedallionAssetResponse = GetMedallionAssetResponses[keyof GetMedallionAssetResponses];
+
+export type GetMedallionResourceCatalogData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `resourceKind` を指定します。
+         */
+        resourceKind: 'drive_file' | 'dataset' | 'work_table' | 'ocr_run' | 'product_extraction' | 'gold_table';
+        /**
+         * path 内の `resourcePublicId` を指定します。
+         */
+        resourcePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/medallion/resources/{resourceKind}/{resourcePublicId}';
+};
+
+export type GetMedallionResourceCatalogErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetMedallionResourceCatalogError = GetMedallionResourceCatalogErrors[keyof GetMedallionResourceCatalogErrors];
+
+export type GetMedallionResourceCatalogResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: MedallionCatalogBody;
+};
+
+export type GetMedallionResourceCatalogResponse = GetMedallionResourceCatalogResponses[keyof GetMedallionResourceCatalogResponses];
 
 export type ListNotificationsData = {
     body?: never;
