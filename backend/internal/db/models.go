@@ -944,29 +944,31 @@ type DriveOcrPage struct {
 }
 
 type DriveOcrRun struct {
-	ID                  int64              `json:"id"`
-	PublicID            uuid.UUID          `json:"public_id"`
-	TenantID            int64              `json:"tenant_id"`
-	FileObjectID        int64              `json:"file_object_id"`
-	FileRevision        string             `json:"file_revision"`
-	ContentSha256       string             `json:"content_sha256"`
-	Engine              string             `json:"engine"`
-	Languages           []string           `json:"languages"`
-	StructuredExtractor string             `json:"structured_extractor"`
-	Status              string             `json:"status"`
-	Reason              string             `json:"reason"`
-	PageCount           int32              `json:"page_count"`
-	ProcessedPageCount  int32              `json:"processed_page_count"`
-	AverageConfidence   pgtype.Numeric     `json:"average_confidence"`
-	ExtractedText       string             `json:"extracted_text"`
-	ErrorCode           pgtype.Text        `json:"error_code"`
-	ErrorMessage        pgtype.Text        `json:"error_message"`
-	RequestedByUserID   pgtype.Int8        `json:"requested_by_user_id"`
-	OutboxEventID       pgtype.Int8        `json:"outbox_event_id"`
-	StartedAt           pgtype.Timestamptz `json:"started_at"`
-	CompletedAt         pgtype.Timestamptz `json:"completed_at"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	ID                    int64              `json:"id"`
+	PublicID              uuid.UUID          `json:"public_id"`
+	TenantID              int64              `json:"tenant_id"`
+	FileObjectID          int64              `json:"file_object_id"`
+	FileRevision          string             `json:"file_revision"`
+	ContentSha256         string             `json:"content_sha256"`
+	Engine                string             `json:"engine"`
+	Languages             []string           `json:"languages"`
+	StructuredExtractor   string             `json:"structured_extractor"`
+	ArtifactSchemaVersion string             `json:"artifact_schema_version"`
+	PipelineConfigHash    string             `json:"pipeline_config_hash"`
+	Status                string             `json:"status"`
+	Reason                string             `json:"reason"`
+	PageCount             int32              `json:"page_count"`
+	ProcessedPageCount    int32              `json:"processed_page_count"`
+	AverageConfidence     pgtype.Numeric     `json:"average_confidence"`
+	ExtractedText         string             `json:"extracted_text"`
+	ErrorCode             pgtype.Text        `json:"error_code"`
+	ErrorMessage          pgtype.Text        `json:"error_message"`
+	RequestedByUserID     pgtype.Int8        `json:"requested_by_user_id"`
+	OutboxEventID         pgtype.Int8        `json:"outbox_event_id"`
+	StartedAt             pgtype.Timestamptz `json:"started_at"`
+	CompletedAt           pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
 
 type DriveOfficeEditSession struct {

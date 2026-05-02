@@ -347,6 +347,7 @@ func driveSearchCanExtract(file DriveFile) bool {
 }
 
 func sanitizeSearchText(value string) string {
+	value = strings.ToValidUTF8(value, " ")
 	value = strings.ReplaceAll(value, "\x00", " ")
 	fields := strings.Fields(value)
 	if len(fields) == 0 {
@@ -361,12 +362,9 @@ func sanitizeSearchText(value string) string {
 func searchSnippet(text, fallback string) string {
 	text = sanitizeSearchText(text)
 	if text == "" {
-		return fallback
+		return truncateRunes(strings.ToValidUTF8(fallback, " "), 240)
 	}
-	if len(text) > 240 {
-		return text[:240]
-	}
-	return text
+	return truncateRunes(text, 240)
 }
 
 func (s *DriveService) StartEditSession(ctx context.Context, tenantID, actorUserID int64, filePublicID string, auditCtx AuditContext) (DriveEditSession, error) {

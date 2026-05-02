@@ -7,6 +7,8 @@ INSERT INTO drive_ocr_runs (
     engine,
     languages,
     structured_extractor,
+    artifact_schema_version,
+    pipeline_config_hash,
     status,
     reason,
     requested_by_user_id,
@@ -19,20 +21,31 @@ INSERT INTO drive_ocr_runs (
     sqlc.arg(engine),
     sqlc.arg(languages),
     sqlc.arg(structured_extractor),
+    sqlc.arg(artifact_schema_version),
+    sqlc.arg(pipeline_config_hash),
     'pending',
     sqlc.arg(reason),
     sqlc.narg(requested_by_user_id),
     sqlc.narg(outbox_event_id)
 )
-ON CONFLICT (file_object_id, file_revision, content_sha256, engine, structured_extractor) DO UPDATE
+ON CONFLICT (file_object_id, file_revision, content_sha256, engine, structured_extractor, pipeline_config_hash) DO UPDATE
 SET
     status = CASE
         WHEN drive_ocr_runs.status IN ('failed', 'skipped') THEN 'pending'
         ELSE drive_ocr_runs.status
     END,
+    artifact_schema_version = EXCLUDED.artifact_schema_version,
     reason = EXCLUDED.reason,
     requested_by_user_id = COALESCE(EXCLUDED.requested_by_user_id, drive_ocr_runs.requested_by_user_id),
     outbox_event_id = COALESCE(EXCLUDED.outbox_event_id, drive_ocr_runs.outbox_event_id),
+    started_at = CASE
+        WHEN drive_ocr_runs.status IN ('failed', 'skipped') THEN NULL
+        ELSE drive_ocr_runs.started_at
+    END,
+    completed_at = CASE
+        WHEN drive_ocr_runs.status IN ('failed', 'skipped') THEN NULL
+        ELSE drive_ocr_runs.completed_at
+    END,
     error_code = CASE
         WHEN drive_ocr_runs.status IN ('failed', 'skipped') THEN NULL
         ELSE drive_ocr_runs.error_code
@@ -57,6 +70,12 @@ SELECT *
 FROM drive_ocr_runs
 WHERE tenant_id = sqlc.arg(tenant_id)
   AND public_id = sqlc.arg(public_id);
+
+-- name: GetDriveOCRRunByIDForTenant :one
+SELECT *
+FROM drive_ocr_runs
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND id = sqlc.arg(id);
 
 -- name: GetLatestDriveOCRRunForFile :one
 SELECT *

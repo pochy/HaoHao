@@ -74,6 +74,7 @@ import type {
   DriveStorageUsageBody,
   DriveWorkspaceBody,
   MedallionCatalogBody,
+  MedallionPipelineRunBody,
 } from '../api/generated/types.gen'
 import { fetchMedallionResourceCatalog } from '../api/medallion'
 
@@ -101,7 +102,7 @@ export type DriveUploadQueueItem = {
 }
 
 const OCR_POLL_INTERVAL_MS = 2500
-const OCR_PRODUCT_FOLLOWUP_POLLS = 6
+const OCR_PRODUCT_FOLLOWUP_POLLS = 12
 let ocrPollTimer: ReturnType<typeof setTimeout> | null = null
 
 function clearOCRPollTimer() {
@@ -132,6 +133,34 @@ function driveItemWithDefaults(item: DriveItemBody): DriveItemBody {
 
 function statusFromError(error: unknown): DriveStatus {
   return /permission|forbidden|authorization|authz/i.test(toApiErrorMessage(error)) ? 'forbidden' : 'error'
+}
+
+function latestProductExtractionPipelineRun(catalog: MedallionCatalogBody | null): MedallionPipelineRunBody | null {
+  return catalog?.pipelineRuns?.find((run) => run.pipelineType === 'product_extraction') ?? null
+}
+
+function medallionPipelineRunIsActive(run: MedallionPipelineRunBody | null) {
+  return run?.status === 'pending' || run?.status === 'processing'
+}
+
+function medallionPipelineRunIsTerminal(run: MedallionPipelineRunBody | null) {
+  return Boolean(run && ['completed', 'failed', 'skipped'].includes(run.status))
+}
+
+function actionStatusFromMedallionRun(run: MedallionPipelineRunBody | null): DriveOcrActionStatus {
+  switch (run?.status) {
+    case 'pending':
+      return 'queued'
+    case 'processing':
+      return 'polling'
+    case 'completed':
+      return 'succeeded'
+    case 'failed':
+    case 'skipped':
+      return 'failed'
+    default:
+      return 'idle'
+  }
 }
 
 export function resourceFromDriveItem(item: DriveItemBody): DriveResourceRef | null {
@@ -958,13 +987,22 @@ export const useDriveStore = defineStore('drive', {
       this.busyResourceId = file.publicId
       this.errorMessage = ''
       try {
-        this.productExtractionActionStatus = 'polling'
-        await createDriveProductExtractionJobItem(file.publicId)
+        const job = await createDriveProductExtractionJobItem(file.publicId)
+        this.productExtractionActionStatus = driveOcrActionStatusFromRunStatus(job.status)
         if (this.selectedResource?.type === 'file' && this.selectedResource.publicId === file.publicId) {
           await this.loadOCR({ type: 'file', publicId: file.publicId }, { showLoading: false })
           await this.loadMedallion({ type: 'file', publicId: file.publicId })
+          const productRun = latestProductExtractionPipelineRun(this.medallionCatalog)
+          const productRunActionStatus = actionStatusFromMedallionRun(productRun)
+          this.productExtractionActionStatus = productRunActionStatus === 'idle' ? driveOcrActionStatusFromRunStatus(job.status) : productRunActionStatus
+          if (medallionPipelineRunIsActive(productRun) || isDriveOcrActiveStatus(job.status)) {
+            this.startOCRPolling(file.publicId)
+            return
+          }
         }
-        this.productExtractionActionStatus = 'succeeded'
+        if (this.productExtractionActionStatus === 'idle') {
+          this.productExtractionActionStatus = 'queued'
+        }
       } catch (error) {
         const message = presentDriveActionError(error)
         this.productExtractionActionStatus = 'failed'
@@ -1023,10 +1061,26 @@ export const useDriveStore = defineStore('drive', {
         await this.loadOCR({ type: 'file', publicId: filePublicId }, { showLoading: false })
         await this.loadMedallion({ type: 'file', publicId: filePublicId })
         const status = this.ocrResult?.run.status
+        const productRun = latestProductExtractionPipelineRun(this.medallionCatalog)
+        if (this.productExtractionActionResourceId === filePublicId && productRun) {
+          this.productExtractionActionStatus = actionStatusFromMedallionRun(productRun)
+          this.productExtractionErrorMessage = productRun.status === 'failed' || productRun.status === 'skipped'
+            ? productRun.errorSummary || ''
+            : ''
+          if (medallionPipelineRunIsActive(productRun)) {
+            this.scheduleOCRPoll(filePublicId)
+            return
+          }
+        }
         if (status) {
           this.ocrActionStatus = driveOcrActionStatusFromRunStatus(status)
         }
-        if (status === 'completed' && this.productExtractionItems.length === 0 && this.ocrProductFollowupPolls < OCR_PRODUCT_FOLLOWUP_POLLS) {
+        if (
+          status === 'completed'
+          && this.productExtractionItems.length === 0
+          && !medallionPipelineRunIsTerminal(productRun)
+          && this.ocrProductFollowupPolls < OCR_PRODUCT_FOLLOWUP_POLLS
+        ) {
           this.ocrActionStatus = 'polling'
           this.ocrProductFollowupPolls += 1
           this.scheduleOCRPoll(filePublicId)

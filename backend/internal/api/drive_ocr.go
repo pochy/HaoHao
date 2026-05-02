@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -54,6 +55,8 @@ type DriveOCRPageBody struct {
 	PageNumber        int      `json:"pageNumber"`
 	RawText           string   `json:"rawText"`
 	AverageConfidence *float64 `json:"averageConfidence,omitempty"`
+	LayoutJSON        any      `json:"layoutJson,omitempty"`
+	BoxesJSON         any      `json:"boxesJson,omitempty"`
 }
 
 type DriveOCROutput struct {
@@ -154,7 +157,7 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		out := &DriveOCROutput{}
 		out.Body.Run = toDriveOCRRunBody(result.Run)
 		for _, page := range result.Pages {
-			out.Body.Pages = append(out.Body.Pages, DriveOCRPageBody{PageNumber: page.PageNumber, RawText: page.RawText, AverageConfidence: page.AverageConfidence})
+			out.Body.Pages = append(out.Body.Pages, toDriveOCRPageBody(page))
 		}
 		return out, nil
 	})
@@ -200,17 +203,17 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		run, items, err := deps.DriveOCRService.RequestProductExtraction(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
+		job, err := deps.DriveOCRService.RequestProductExtraction(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveProductExtractionJobOutput{Body: DriveProductExtractionJobBody{
-			FilePublicID:   run.FilePublicID,
-			OCRRunPublicID: run.PublicID,
-			Extractor:      run.StructuredExtractor,
-			Status:         "completed",
-			ItemCount:      len(items),
-			CreatedAt:      time.Now(),
+			FilePublicID:   job.FilePublicID,
+			OCRRunPublicID: job.OCRRunPublicID,
+			Extractor:      job.Extractor,
+			Status:         job.Status,
+			ItemCount:      job.ItemCount,
+			CreatedAt:      job.CreatedAt,
 		}}, nil
 	})
 }
@@ -232,6 +235,27 @@ func toDriveOCRRunBody(run service.DriveOCRRun) DriveOCRRunBody {
 		CreatedAt:           run.CreatedAt,
 		CompletedAt:         run.CompletedAt,
 	}
+}
+
+func toDriveOCRPageBody(page service.DriveOCRPage) DriveOCRPageBody {
+	return DriveOCRPageBody{
+		PageNumber:        page.PageNumber,
+		RawText:           page.RawText,
+		AverageConfidence: page.AverageConfidence,
+		LayoutJSON:        driveOCRJSONBody(page.LayoutJSON),
+		BoxesJSON:         driveOCRJSONBody(page.BoxesJSON),
+	}
+}
+
+func driveOCRJSONBody(data []byte) any {
+	if len(data) == 0 {
+		return nil
+	}
+	var value any
+	if err := json.Unmarshal(data, &value); err != nil {
+		return nil
+	}
+	return value
 }
 
 func toDriveProductExtractionItemBody(item service.DriveProductExtractionItem) DriveProductExtractionItemBody {

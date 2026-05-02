@@ -127,6 +127,21 @@ func (h *DefaultOutboxHandler) HandleOutboxEvent(ctx context.Context, event db.O
 			return nil
 		}
 		return h.driveOCR.HandleRequested(ctx, payload.TenantID, payload.FileObjectID, payload.ActorUserID, payload.Reason, event.ID)
+	case "drive.product_extraction.requested":
+		var payload struct {
+			TenantID     int64  `json:"tenantId"`
+			FileObjectID int64  `json:"fileObjectId"`
+			OCRRunID     int64  `json:"ocrRunId"`
+			ActorUserID  int64  `json:"actorUserId"`
+			Reason       string `json:"reason"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.driveOCR == nil {
+			return nil
+		}
+		return h.driveOCR.HandleProductExtractionRequested(ctx, payload.TenantID, payload.FileObjectID, payload.OCRRunID, payload.ActorUserID, payload.Reason, event.ID)
 	case "dataset.import_requested":
 		var payload struct {
 			TenantID    int64 `json:"tenantId"`

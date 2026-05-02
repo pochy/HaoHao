@@ -54,6 +54,8 @@ INSERT INTO drive_ocr_runs (
     engine,
     languages,
     structured_extractor,
+    artifact_schema_version,
+    pipeline_config_hash,
     status,
     reason,
     requested_by_user_id,
@@ -66,20 +68,31 @@ INSERT INTO drive_ocr_runs (
     $5,
     $6,
     $7,
-    'pending',
     $8,
     $9,
-    $10
+    'pending',
+    $10,
+    $11,
+    $12
 )
-ON CONFLICT (file_object_id, file_revision, content_sha256, engine, structured_extractor) DO UPDATE
+ON CONFLICT (file_object_id, file_revision, content_sha256, engine, structured_extractor, pipeline_config_hash) DO UPDATE
 SET
     status = CASE
         WHEN drive_ocr_runs.status IN ('failed', 'skipped') THEN 'pending'
         ELSE drive_ocr_runs.status
     END,
+    artifact_schema_version = EXCLUDED.artifact_schema_version,
     reason = EXCLUDED.reason,
     requested_by_user_id = COALESCE(EXCLUDED.requested_by_user_id, drive_ocr_runs.requested_by_user_id),
     outbox_event_id = COALESCE(EXCLUDED.outbox_event_id, drive_ocr_runs.outbox_event_id),
+    started_at = CASE
+        WHEN drive_ocr_runs.status IN ('failed', 'skipped') THEN NULL
+        ELSE drive_ocr_runs.started_at
+    END,
+    completed_at = CASE
+        WHEN drive_ocr_runs.status IN ('failed', 'skipped') THEN NULL
+        ELSE drive_ocr_runs.completed_at
+    END,
     error_code = CASE
         WHEN drive_ocr_runs.status IN ('failed', 'skipped') THEN NULL
         ELSE drive_ocr_runs.error_code
@@ -89,20 +102,22 @@ SET
         ELSE drive_ocr_runs.error_message
     END,
     updated_at = now()
-RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, artifact_schema_version, pipeline_config_hash, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
 `
 
 type CreateDriveOCRRunParams struct {
-	TenantID            int64       `json:"tenant_id"`
-	FileObjectID        int64       `json:"file_object_id"`
-	FileRevision        string      `json:"file_revision"`
-	ContentSha256       string      `json:"content_sha256"`
-	Engine              string      `json:"engine"`
-	Languages           []string    `json:"languages"`
-	StructuredExtractor string      `json:"structured_extractor"`
-	Reason              string      `json:"reason"`
-	RequestedByUserID   pgtype.Int8 `json:"requested_by_user_id"`
-	OutboxEventID       pgtype.Int8 `json:"outbox_event_id"`
+	TenantID              int64       `json:"tenant_id"`
+	FileObjectID          int64       `json:"file_object_id"`
+	FileRevision          string      `json:"file_revision"`
+	ContentSha256         string      `json:"content_sha256"`
+	Engine                string      `json:"engine"`
+	Languages             []string    `json:"languages"`
+	StructuredExtractor   string      `json:"structured_extractor"`
+	ArtifactSchemaVersion string      `json:"artifact_schema_version"`
+	PipelineConfigHash    string      `json:"pipeline_config_hash"`
+	Reason                string      `json:"reason"`
+	RequestedByUserID     pgtype.Int8 `json:"requested_by_user_id"`
+	OutboxEventID         pgtype.Int8 `json:"outbox_event_id"`
 }
 
 func (q *Queries) CreateDriveOCRRun(ctx context.Context, arg CreateDriveOCRRunParams) (DriveOcrRun, error) {
@@ -114,6 +129,8 @@ func (q *Queries) CreateDriveOCRRun(ctx context.Context, arg CreateDriveOCRRunPa
 		arg.Engine,
 		arg.Languages,
 		arg.StructuredExtractor,
+		arg.ArtifactSchemaVersion,
+		arg.PipelineConfigHash,
 		arg.Reason,
 		arg.RequestedByUserID,
 		arg.OutboxEventID,
@@ -129,6 +146,8 @@ func (q *Queries) CreateDriveOCRRun(ctx context.Context, arg CreateDriveOCRRunPa
 		&i.Engine,
 		&i.Languages,
 		&i.StructuredExtractor,
+		&i.ArtifactSchemaVersion,
+		&i.PipelineConfigHash,
 		&i.Status,
 		&i.Reason,
 		&i.PageCount,
@@ -296,8 +315,53 @@ func (q *Queries) DeleteDriveProductExtractionItemsForRun(ctx context.Context, a
 	return err
 }
 
+const getDriveOCRRunByIDForTenant = `-- name: GetDriveOCRRunByIDForTenant :one
+SELECT id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, artifact_schema_version, pipeline_config_hash, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
+FROM drive_ocr_runs
+WHERE tenant_id = $1
+  AND id = $2
+`
+
+type GetDriveOCRRunByIDForTenantParams struct {
+	TenantID int64 `json:"tenant_id"`
+	ID       int64 `json:"id"`
+}
+
+func (q *Queries) GetDriveOCRRunByIDForTenant(ctx context.Context, arg GetDriveOCRRunByIDForTenantParams) (DriveOcrRun, error) {
+	row := q.db.QueryRow(ctx, getDriveOCRRunByIDForTenant, arg.TenantID, arg.ID)
+	var i DriveOcrRun
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.FileObjectID,
+		&i.FileRevision,
+		&i.ContentSha256,
+		&i.Engine,
+		&i.Languages,
+		&i.StructuredExtractor,
+		&i.ArtifactSchemaVersion,
+		&i.PipelineConfigHash,
+		&i.Status,
+		&i.Reason,
+		&i.PageCount,
+		&i.ProcessedPageCount,
+		&i.AverageConfidence,
+		&i.ExtractedText,
+		&i.ErrorCode,
+		&i.ErrorMessage,
+		&i.RequestedByUserID,
+		&i.OutboxEventID,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getDriveOCRRunByPublicID = `-- name: GetDriveOCRRunByPublicID :one
-SELECT id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
+SELECT id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, artifact_schema_version, pipeline_config_hash, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
 FROM drive_ocr_runs
 WHERE tenant_id = $1
   AND public_id = $2
@@ -321,6 +385,8 @@ func (q *Queries) GetDriveOCRRunByPublicID(ctx context.Context, arg GetDriveOCRR
 		&i.Engine,
 		&i.Languages,
 		&i.StructuredExtractor,
+		&i.ArtifactSchemaVersion,
+		&i.PipelineConfigHash,
 		&i.Status,
 		&i.Reason,
 		&i.PageCount,
@@ -340,7 +406,7 @@ func (q *Queries) GetDriveOCRRunByPublicID(ctx context.Context, arg GetDriveOCRR
 }
 
 const getLatestDriveOCRRunForFile = `-- name: GetLatestDriveOCRRunForFile :one
-SELECT id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
+SELECT id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, artifact_schema_version, pipeline_config_hash, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
 FROM drive_ocr_runs
 WHERE tenant_id = $1
   AND file_object_id = $2
@@ -366,6 +432,8 @@ func (q *Queries) GetLatestDriveOCRRunForFile(ctx context.Context, arg GetLatest
 		&i.Engine,
 		&i.Languages,
 		&i.StructuredExtractor,
+		&i.ArtifactSchemaVersion,
+		&i.PipelineConfigHash,
 		&i.Status,
 		&i.Reason,
 		&i.PageCount,
@@ -390,7 +458,7 @@ SET outbox_event_id = $1,
     updated_at = now()
 WHERE id = $2
   AND tenant_id = $3
-RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, artifact_schema_version, pipeline_config_hash, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
 `
 
 type LinkDriveOCRRunOutboxEventParams struct {
@@ -412,6 +480,8 @@ func (q *Queries) LinkDriveOCRRunOutboxEvent(ctx context.Context, arg LinkDriveO
 		&i.Engine,
 		&i.Languages,
 		&i.StructuredExtractor,
+		&i.ArtifactSchemaVersion,
+		&i.PipelineConfigHash,
 		&i.Status,
 		&i.Reason,
 		&i.PageCount,
@@ -545,7 +615,7 @@ SET status = 'completed',
     updated_at = now()
 WHERE id = $5
   AND tenant_id = $6
-RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, artifact_schema_version, pipeline_config_hash, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
 `
 
 type MarkDriveOCRRunCompletedParams struct {
@@ -577,6 +647,8 @@ func (q *Queries) MarkDriveOCRRunCompleted(ctx context.Context, arg MarkDriveOCR
 		&i.Engine,
 		&i.Languages,
 		&i.StructuredExtractor,
+		&i.ArtifactSchemaVersion,
+		&i.PipelineConfigHash,
 		&i.Status,
 		&i.Reason,
 		&i.PageCount,
@@ -604,7 +676,7 @@ SET status = 'failed',
     updated_at = now()
 WHERE id = $3
   AND tenant_id = $4
-RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, artifact_schema_version, pipeline_config_hash, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
 `
 
 type MarkDriveOCRRunFailedParams struct {
@@ -632,6 +704,8 @@ func (q *Queries) MarkDriveOCRRunFailed(ctx context.Context, arg MarkDriveOCRRun
 		&i.Engine,
 		&i.Languages,
 		&i.StructuredExtractor,
+		&i.ArtifactSchemaVersion,
+		&i.PipelineConfigHash,
 		&i.Status,
 		&i.Reason,
 		&i.PageCount,
@@ -659,7 +733,7 @@ SET status = 'running',
     updated_at = now()
 WHERE id = $1
   AND tenant_id = $2
-RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, artifact_schema_version, pipeline_config_hash, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
 `
 
 type MarkDriveOCRRunRunningParams struct {
@@ -680,6 +754,8 @@ func (q *Queries) MarkDriveOCRRunRunning(ctx context.Context, arg MarkDriveOCRRu
 		&i.Engine,
 		&i.Languages,
 		&i.StructuredExtractor,
+		&i.ArtifactSchemaVersion,
+		&i.PipelineConfigHash,
 		&i.Status,
 		&i.Reason,
 		&i.PageCount,
@@ -707,7 +783,7 @@ SET status = 'skipped',
     updated_at = now()
 WHERE id = $3
   AND tenant_id = $4
-RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, artifact_schema_version, pipeline_config_hash, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at
 `
 
 type MarkDriveOCRRunSkippedParams struct {
@@ -735,6 +811,8 @@ func (q *Queries) MarkDriveOCRRunSkipped(ctx context.Context, arg MarkDriveOCRRu
 		&i.Engine,
 		&i.Languages,
 		&i.StructuredExtractor,
+		&i.ArtifactSchemaVersion,
+		&i.PipelineConfigHash,
 		&i.Status,
 		&i.Reason,
 		&i.PageCount,

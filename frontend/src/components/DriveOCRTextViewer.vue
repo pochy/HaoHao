@@ -17,6 +17,8 @@ const pageCount = computed(() => props.pages.length)
 const currentPage = computed(() => props.pages[pageIndex.value] ?? null)
 const currentPageLabel = computed(() => (currentPage.value ? t('drive.ocrPage', { page: currentPage.value.pageNumber }) : t('drive.ocrText')))
 const currentText = computed(() => currentPage.value?.rawText?.trim() || t('drive.ocrNoText'))
+const currentLayoutCount = computed(() => objectKeyCount(currentPage.value?.layoutJson))
+const currentBoxCount = computed(() => arrayCount(currentPage.value?.boxesJson))
 
 watch(
   () => props.pages.length,
@@ -54,6 +56,17 @@ async function openDialog() {
 function closeDialog() {
   dialogRef.value?.close()
 }
+
+function objectKeyCount(value: unknown) {
+  if (!value || Array.isArray(value) || typeof value !== 'object') {
+    return 0
+  }
+  return Object.keys(value).length
+}
+
+function arrayCount(value: unknown) {
+  return Array.isArray(value) ? value.length : 0
+}
 </script>
 
 <template>
@@ -66,6 +79,8 @@ function closeDialog() {
         <div>
           <strong>{{ currentPageLabel }}</strong>
           <span class="tabular-cell">{{ t('drive.ocrPageCounter', { current: pageIndex + 1, total: pageCount }) }}</span>
+          <span v-if="currentLayoutCount > 0" class="status-pill">{{ t('drive.ocrLayoutCount', { count: currentLayoutCount }) }}</span>
+          <span v-if="currentBoxCount > 0" class="status-pill">{{ t('drive.ocrBoxCount', { count: currentBoxCount }) }}</span>
         </div>
         <div class="drive-ocr-text-controls">
           <button class="secondary-button compact-button" type="button" :disabled="pageIndex === 0" @click="previousPage">

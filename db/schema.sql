@@ -2465,6 +2465,8 @@ CREATE TABLE public.drive_ocr_runs (
     engine text NOT NULL,
     languages text[] DEFAULT ARRAY['jpn'::text, 'eng'::text] NOT NULL,
     structured_extractor text DEFAULT 'rules'::text NOT NULL,
+    artifact_schema_version text DEFAULT 'drive_image_pdf_v1'::text NOT NULL,
+    pipeline_config_hash text DEFAULT 'legacy'::text NOT NULL,
     status text DEFAULT 'pending'::text NOT NULL,
     reason text DEFAULT 'upload'::text NOT NULL,
     page_count integer DEFAULT 0 NOT NULL,
@@ -2479,8 +2481,10 @@ CREATE TABLE public.drive_ocr_runs (
     completed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drive_ocr_runs_artifact_schema_version_check CHECK ((btrim(artifact_schema_version) <> ''::text)),
     CONSTRAINT drive_ocr_runs_engine_check CHECK ((engine = ANY (ARRAY['tesseract'::text, 'docling'::text, 'paddleocr'::text]))),
     CONSTRAINT drive_ocr_runs_page_count_check CHECK ((page_count >= 0)),
+    CONSTRAINT drive_ocr_runs_pipeline_config_hash_check CHECK ((btrim(pipeline_config_hash) <> ''::text)),
     CONSTRAINT drive_ocr_runs_processed_page_count_check CHECK ((processed_page_count >= 0)),
     CONSTRAINT drive_ocr_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'completed'::text, 'failed'::text, 'skipped'::text]))),
     CONSTRAINT drive_ocr_runs_structured_extractor_check CHECK ((structured_extractor = ANY (ARRAY['rules'::text, 'ollama'::text, 'lmstudio'::text, 'gemini'::text, 'codex'::text, 'claude'::text, 'python'::text, 'ginza'::text, 'sudachipy'::text, 'docling'::text])))
@@ -6508,7 +6512,7 @@ CREATE INDEX drive_ocr_runs_file_idx ON public.drive_ocr_runs USING btree (tenan
 -- Name: drive_ocr_runs_file_revision_provider_key; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX drive_ocr_runs_file_revision_provider_key ON public.drive_ocr_runs USING btree (file_object_id, file_revision, content_sha256, engine, structured_extractor);
+CREATE UNIQUE INDEX drive_ocr_runs_file_revision_provider_key ON public.drive_ocr_runs USING btree (file_object_id, file_revision, content_sha256, engine, structured_extractor, pipeline_config_hash);
 
 
 --

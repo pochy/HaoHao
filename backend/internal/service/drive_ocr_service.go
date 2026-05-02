@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,29 +21,32 @@ import (
 )
 
 type DriveOCRRun struct {
-	ID                  int64
-	PublicID            string
-	FilePublicID        string
-	TenantID            int64
-	FileObjectID        int64
-	RequestedByUserID   *int64
-	FileRevision        string
-	ContentSHA256       string
-	Engine              string
-	Languages           []string
-	StructuredExtractor string
-	Status              string
-	Reason              string
-	PageCount           int
-	ProcessedPageCount  int
-	AverageConfidence   *float64
-	ExtractedText       string
-	ErrorCode           string
-	ErrorMessage        string
-	StartedAt           *time.Time
-	CompletedAt         *time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ID                    int64
+	PublicID              string
+	FilePublicID          string
+	TenantID              int64
+	FileObjectID          int64
+	RequestedByUserID     *int64
+	FileRevision          string
+	ContentSHA256         string
+	Engine                string
+	Languages             []string
+	StructuredExtractor   string
+	ArtifactSchemaVersion string
+	PipelineConfigHash    string
+	Status                string
+	Reason                string
+	PageCount             int
+	ProcessedPageCount    int
+	AverageConfidence     *float64
+	ExtractedText         string
+	ErrorCode             string
+	ErrorMessage          string
+	OutboxEventID         *int64
+	StartedAt             *time.Time
+	CompletedAt           *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 type DriveOCRPage struct {
@@ -57,6 +62,8 @@ type DriveOCRResult struct {
 	Run   DriveOCRRun
 	Pages []DriveOCRPage
 }
+
+const driveOCRArtifactSchemaVersion = "drive_image_pdf_v1"
 
 type DriveProductExtractionItem struct {
 	PublicID     string
@@ -80,6 +87,15 @@ type DriveProductExtractionItem struct {
 	Attributes   map[string]any
 	Confidence   *float64
 	CreatedAt    time.Time
+}
+
+type DriveProductExtractionJob struct {
+	FilePublicID   string
+	OCRRunPublicID string
+	Extractor      string
+	Status         string
+	ItemCount      int
+	CreatedAt      time.Time
 }
 
 type DriveOCRService struct {
@@ -252,7 +268,7 @@ func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObj
 			}
 			return markErr
 		}
-		return s.markRunFailed(ctx, run, "provider_failed", err)
+		return s.markRunFailed(ctx, run, driveOCRProviderFailureCode(err), err)
 	}
 	if err := s.replacePages(ctx, run, file, result.Pages); err != nil {
 		return s.markRunFailed(ctx, run, "save_pages_failed", err)
@@ -269,15 +285,12 @@ func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObj
 		return err
 	}
 	run = driveOCRRunFromDB(completed, file.PublicID)
-	productItems, err := s.replaceProductItems(ctx, policy, run, file, result)
-	if err != nil {
-		return s.markRunFailed(ctx, run, "product_extraction_failed", err)
-	}
 	if err := s.indexOCRText(ctx, file, result.FullText); err != nil {
 		return err
 	}
 	s.publishDriveOCRRunUpdated(ctx, run, "completed", "")
-	s.recordMedallionOCRRun(ctx, file, run, MedallionPipelineStatusCompleted, "", false, productItems)
+	s.recordMedallionOCRRun(ctx, file, run, MedallionPipelineStatusCompleted, "", false, nil)
+	s.scheduleProductExtraction(ctx, policy, file, run, actorUserID, reason)
 	return nil
 }
 
@@ -338,39 +351,102 @@ func (s *DriveOCRService) ListProductExtractions(ctx context.Context, tenantID, 
 	return items, nil
 }
 
-func (s *DriveOCRService) RequestProductExtraction(ctx context.Context, tenantID, actorUserID int64, filePublicID string, auditCtx AuditContext) (DriveOCRRun, []DriveProductExtractionItem, error) {
+func (s *DriveOCRService) RequestProductExtraction(ctx context.Context, tenantID, actorUserID int64, filePublicID string, auditCtx AuditContext) (DriveProductExtractionJob, error) {
 	if err := s.ensureConfigured(); err != nil {
-		return DriveOCRRun{}, nil, err
+		return DriveProductExtractionJob{}, err
 	}
 	actor, file, err := s.fileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
-		return DriveOCRRun{}, nil, err
+		return DriveProductExtractionJob{}, err
 	}
 	if err := s.drive.authz.CanEditFile(ctx, actor, file); err != nil {
 		s.drive.auditDenied(ctx, actor, "drive.product_extraction.job.create", "drive_file", file.PublicID, err, auditCtx)
-		return DriveOCRRun{}, nil, err
+		return DriveProductExtractionJob{}, err
 	}
 	policy, err := s.driveOCRPolicy(ctx, tenantID)
 	if err != nil {
-		return DriveOCRRun{}, nil, err
+		return DriveProductExtractionJob{}, err
 	}
 	if !policy.Enabled || !policy.StructuredExtractionEnabled {
-		return DriveOCRRun{}, nil, ErrDrivePolicyDenied
+		return DriveProductExtractionJob{}, ErrDrivePolicyDenied
 	}
 	row, err := s.queries.GetLatestDriveOCRRunForFile(ctx, db.GetLatestDriveOCRRunForFileParams{TenantID: tenantID, FileObjectID: file.ID})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return DriveOCRRun{}, nil, fmt.Errorf("%w: OCR must complete before product extraction", ErrDriveInvalidInput)
+		return DriveProductExtractionJob{}, fmt.Errorf("%w: OCR must complete before product extraction", ErrDriveInvalidInput)
 	}
 	if err != nil {
-		return DriveOCRRun{}, nil, fmt.Errorf("get latest drive ocr run: %w", err)
+		return DriveProductExtractionJob{}, fmt.Errorf("get latest drive ocr run: %w", err)
 	}
 	run := driveOCRRunFromDB(row, file.PublicID)
 	if run.Status != "completed" {
-		return DriveOCRRun{}, nil, fmt.Errorf("%w: OCR must complete before product extraction", ErrDriveInvalidInput)
+		return DriveProductExtractionJob{}, fmt.Errorf("%w: OCR must complete before product extraction", ErrDriveInvalidInput)
 	}
-	pageRows, err := s.queries.ListDriveOCRPages(ctx, db.ListDriveOCRPagesParams{TenantID: tenantID, OcrRunID: row.ID})
+	items, err := s.ListProductExtractions(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
-		return DriveOCRRun{}, nil, fmt.Errorf("list drive ocr pages: %w", err)
+		return DriveProductExtractionJob{}, err
+	}
+	if s.drive == nil || s.drive.outbox == nil {
+		return DriveProductExtractionJob{}, fmt.Errorf("drive product extraction outbox is not configured")
+	}
+	event, err := s.enqueueProductExtraction(ctx, file, run, actorUserID, "manual")
+	if err != nil {
+		return DriveProductExtractionJob{}, err
+	}
+	s.recordMedallionProductExtractionRun(ctx, file, run, nil, MedallionPipelineStatusPending, "", true, &actorUserID, MedallionTriggerManual, medallionProductExtractionRunKey(run, event.ID))
+	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.product_extraction.job.create", file.PublicID, map[string]any{"ocrRunPublicId": run.PublicID})
+	return DriveProductExtractionJob{
+		FilePublicID:   run.FilePublicID,
+		OCRRunPublicID: run.PublicID,
+		Extractor:      run.StructuredExtractor,
+		Status:         "pending",
+		ItemCount:      len(items),
+		CreatedAt:      event.CreatedAt.Time,
+	}, nil
+}
+
+func (s *DriveOCRService) HandleProductExtractionRequested(ctx context.Context, tenantID, fileObjectID, ocrRunID, actorUserID int64, reason string, outboxEventID int64) error {
+	if err := s.ensureConfigured(); err != nil {
+		return err
+	}
+	row, err := s.drive.getDriveFileRow(ctx, tenantID, DriveResourceRef{Type: DriveResourceTypeFile, ID: fileObjectID})
+	if errors.Is(err, ErrDriveNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	file := driveFileFromDB(row)
+	runRow, err := s.queries.GetDriveOCRRunByIDForTenant(ctx, db.GetDriveOCRRunByIDForTenantParams{TenantID: tenantID, ID: ocrRunID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if runRow.FileObjectID != file.ID {
+		return fmt.Errorf("%w: OCR run does not belong to file", ErrDriveInvalidInput)
+	}
+	run := driveOCRRunFromDB(runRow, file.PublicID)
+	actorID := &actorUserID
+	if actorUserID <= 0 {
+		actorID = nil
+	}
+	triggerKind := medallionOCRTrigger(reason)
+	if run.Status != "completed" {
+		s.recordMedallionProductExtractionRun(ctx, file, run, nil, MedallionPipelineStatusSkipped, "OCR must complete before product extraction", false, actorID, triggerKind, medallionProductExtractionRunKey(run, outboxEventID))
+		return nil
+	}
+	policy, err := s.driveOCRPolicy(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	if !policy.Enabled || !driveProductExtractionSupported(policy) {
+		s.recordMedallionProductExtractionRun(ctx, file, run, nil, MedallionPipelineStatusSkipped, "drive product extraction is disabled or unsupported", false, actorID, triggerKind, medallionProductExtractionRunKey(run, outboxEventID))
+		return nil
+	}
+	pageRows, err := s.queries.ListDriveOCRPages(ctx, db.ListDriveOCRPagesParams{TenantID: tenantID, OcrRunID: run.ID})
+	if err != nil {
+		return fmt.Errorf("list drive ocr pages: %w", err)
 	}
 	pages := make([]DriveOCRPageResult, 0, len(pageRows))
 	for _, page := range pageRows {
@@ -382,18 +458,15 @@ func (s *DriveOCRService) RequestProductExtraction(ctx context.Context, tenantID
 			BoxesJSON:         append([]byte{}, page.BoxesJson...),
 		})
 	}
+	s.recordMedallionProductExtractionRun(ctx, file, run, nil, MedallionPipelineStatusProcessing, "", true, actorID, triggerKind, medallionProductExtractionRunKey(run, outboxEventID))
 	productItems, err := s.replaceProductItems(ctx, policy, run, file, DriveOCRProviderResult{Pages: pages, FullText: run.ExtractedText, AverageConfidence: run.AverageConfidence})
 	if err != nil {
-		s.recordMedallionProductExtractionRun(ctx, file, run, nil, MedallionPipelineStatusFailed, "product extraction failed", true, &actorUserID)
-		return DriveOCRRun{}, nil, fmt.Errorf("extract drive product items: %w", err)
+		message := trimOCRProcessError(err)
+		s.recordMedallionProductExtractionRun(ctx, file, run, nil, MedallionPipelineStatusFailed, message, true, actorID, triggerKind, medallionProductExtractionRunKey(run, outboxEventID))
+		return fmt.Errorf("extract drive product items: %w", err)
 	}
-	s.recordMedallionProductExtractionRun(ctx, file, run, productItems, MedallionPipelineStatusCompleted, "", false, &actorUserID)
-	items, err := s.ListProductExtractions(ctx, tenantID, actorUserID, filePublicID)
-	if err != nil {
-		return DriveOCRRun{}, nil, err
-	}
-	s.recordAuditBestEffort(ctx, actor, auditCtx, "drive.product_extraction.job.create", file.PublicID, map[string]any{"ocrRunPublicId": run.PublicID})
-	return run, items, nil
+	s.recordMedallionProductExtractionRun(ctx, file, run, productItems, MedallionPipelineStatusCompleted, "", false, actorID, triggerKind, medallionProductExtractionRunKey(run, outboxEventID))
+	return nil
 }
 
 func (s *DriveOCRService) RuntimeStatus(ctx context.Context, tenantID int64) (DriveOCRRuntimeStatus, error) {
@@ -434,16 +507,18 @@ func (s *DriveOCRService) createRun(ctx context.Context, file DriveFile, policy 
 		reason = "upload"
 	}
 	row, err := s.queries.CreateDriveOCRRun(ctx, db.CreateDriveOCRRunParams{
-		TenantID:            file.TenantID,
-		FileObjectID:        file.ID,
-		FileRevision:        fileOCRRevision(file),
-		ContentSha256:       file.SHA256Hex,
-		Engine:              policy.OCREngine,
-		Languages:           policy.OCRLanguages,
-		StructuredExtractor: policy.StructuredExtractor,
-		Reason:              reason,
-		RequestedByUserID:   pgtype.Int8{Int64: actorUserID, Valid: actorUserID > 0},
-		OutboxEventID:       pgtype.Int8{Int64: outboxEventID, Valid: outboxEventID > 0},
+		TenantID:              file.TenantID,
+		FileObjectID:          file.ID,
+		FileRevision:          fileOCRRevision(file),
+		ContentSha256:         file.SHA256Hex,
+		Engine:                policy.OCREngine,
+		Languages:             policy.OCRLanguages,
+		StructuredExtractor:   policy.StructuredExtractor,
+		ArtifactSchemaVersion: driveOCRArtifactSchemaVersion,
+		PipelineConfigHash:    driveOCRPipelineConfigHash(policy),
+		Reason:                reason,
+		RequestedByUserID:     pgtype.Int8{Int64: actorUserID, Valid: actorUserID > 0},
+		OutboxEventID:         pgtype.Int8{Int64: outboxEventID, Valid: outboxEventID > 0},
 	})
 	if err != nil {
 		return DriveOCRRun{}, fmt.Errorf("create drive ocr run: %w", err)
@@ -469,6 +544,55 @@ func (s *DriveOCRService) enqueue(ctx context.Context, file DriveFile, actorUser
 			"reason":       reason,
 		},
 	})
+}
+
+func (s *DriveOCRService) enqueueProductExtraction(ctx context.Context, file DriveFile, run DriveOCRRun, actorUserID int64, reason string) (db.OutboxEvent, error) {
+	if s.drive == nil || s.drive.outbox == nil {
+		return db.OutboxEvent{}, fmt.Errorf("drive product extraction outbox is not configured")
+	}
+	if reason == "" {
+		reason = "manual"
+	}
+	tenantID := file.TenantID
+	return s.drive.outbox.Enqueue(ctx, OutboxEventInput{
+		TenantID:      &tenantID,
+		AggregateType: "drive_file",
+		AggregateID:   file.PublicID,
+		EventType:     "drive.product_extraction.requested",
+		Payload: map[string]any{
+			"tenantId":       file.TenantID,
+			"fileObjectId":   file.ID,
+			"filePublicId":   file.PublicID,
+			"ocrRunId":       run.ID,
+			"ocrRunPublicId": run.PublicID,
+			"actorUserId":    actorUserID,
+			"reason":         reason,
+		},
+	})
+}
+
+func (s *DriveOCRService) scheduleProductExtraction(ctx context.Context, policy DriveOCRPolicy, file DriveFile, run DriveOCRRun, actorUserID int64, reason string) {
+	if !driveProductExtractionSupported(policy) || s.extractor == nil {
+		return
+	}
+	actorID := &actorUserID
+	if actorUserID <= 0 {
+		actorID = nil
+	}
+	triggerKind := medallionOCRTrigger(reason)
+	event, err := s.enqueueProductExtraction(ctx, file, run, actorUserID, reason)
+	if err != nil {
+		message := trimOCRProcessError(err)
+		status := MedallionPipelineStatusFailed
+		retryable := true
+		if errors.Is(err, ErrInvalidOutboxEvent) || strings.Contains(message, "outbox is not configured") {
+			status = MedallionPipelineStatusSkipped
+			retryable = false
+		}
+		s.recordMedallionProductExtractionRun(ctx, file, run, nil, status, message, retryable, actorID, triggerKind, medallionProductExtractionRunKey(run, 0))
+		return
+	}
+	s.recordMedallionProductExtractionRun(ctx, file, run, nil, MedallionPipelineStatusPending, "", true, actorID, triggerKind, medallionProductExtractionRunKey(run, event.ID))
 }
 
 func (s *DriveOCRService) replacePages(ctx context.Context, run DriveOCRRun, file DriveFile, pages []DriveOCRPageResult) error {
@@ -501,12 +625,7 @@ func (s *DriveOCRService) replacePages(ctx context.Context, run DriveOCRRun, fil
 }
 
 func (s *DriveOCRService) replaceProductItems(ctx context.Context, policy DriveOCRPolicy, run DriveOCRRun, file DriveFile, result DriveOCRProviderResult) ([]db.DriveProductExtractionItem, error) {
-	if !policy.StructuredExtractionEnabled {
-		return nil, nil
-	}
-	switch policy.StructuredExtractor {
-	case "rules", "ollama", "lmstudio", "gemini", "codex", "claude", "python", "ginza", "sudachipy":
-	default:
+	if !driveProductExtractionSupported(policy) {
 		return nil, nil
 	}
 	if s.extractor == nil {
@@ -558,6 +677,18 @@ func (s *DriveOCRService) replaceProductItems(ctx context.Context, policy DriveO
 		created = append(created, row)
 	}
 	return created, nil
+}
+
+func driveProductExtractionSupported(policy DriveOCRPolicy) bool {
+	if !policy.StructuredExtractionEnabled {
+		return false
+	}
+	switch policy.StructuredExtractor {
+	case "rules", "ollama", "lmstudio", "gemini", "codex", "claude", "python", "ginza", "sudachipy":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *DriveOCRService) indexOCRText(ctx context.Context, file DriveFile, text string) error {
@@ -633,6 +764,7 @@ func (s *DriveOCRService) recordMedallionOCRRun(ctx context.Context, file DriveF
 		TriggerKind:            medallionOCRTrigger(run.Reason),
 		Retryable:              retryable,
 		ErrorSummary:           errorSummary,
+		Metadata:               medallionOCRRunMetadata(run),
 		RequestedByUserID:      actorID,
 		StartedAt:              startedAt,
 		CompletedAt:            completedAt,
@@ -641,14 +773,22 @@ func (s *DriveOCRService) recordMedallionOCRRun(ctx context.Context, file DriveF
 	})
 }
 
-func (s *DriveOCRService) recordMedallionProductExtractionRun(ctx context.Context, file DriveFile, run DriveOCRRun, productItems []db.DriveProductExtractionItem, status, errorSummary string, retryable bool, actorUserID *int64) {
+func (s *DriveOCRService) recordMedallionProductExtractionRun(ctx context.Context, file DriveFile, run DriveOCRRun, productItems []db.DriveProductExtractionItem, status, errorSummary string, retryable bool, actorUserID *int64, triggerKind string, runKey string) {
 	if s == nil || s.medallion == nil {
 		return
+	}
+	if triggerKind == "" {
+		triggerKind = MedallionTriggerManual
+	}
+	sourceAssets := make([]MedallionAsset, 0, 2)
+	if fileAsset, ok, err := s.medallion.EnsureDriveFileAsset(ctx, file, actorUserID); err == nil && ok {
+		sourceAssets = append(sourceAssets, fileAsset)
 	}
 	source, err := s.medallion.EnsureOCRRunAsset(ctx, file, run, MedallionPipelineStatusCompleted, actorUserID)
 	if err != nil {
 		return
 	}
+	sourceAssets = append(sourceAssets, source)
 	targetAssets := make([]MedallionAsset, 0, len(productItems))
 	targetKind := ""
 	targetID := int64(0)
@@ -659,6 +799,9 @@ func (s *DriveOCRService) recordMedallionProductExtractionRun(ctx context.Contex
 			continue
 		}
 		targetAssets = append(targetAssets, asset)
+		if len(sourceAssets) > 0 {
+			s.medallion.LinkAssets(ctx, file.TenantID, sourceAssets[0], asset, "source_file", nil)
+		}
 		s.medallion.LinkAssets(ctx, file.TenantID, source, asset, "product_extraction", nil)
 		if targetKind == "" {
 			targetKind = MedallionResourceProductExtraction
@@ -666,14 +809,18 @@ func (s *DriveOCRService) recordMedallionProductExtractionRun(ctx context.Contex
 			targetPublicID = item.PublicID.String()
 		}
 	}
-	completedAt := run.CompletedAt
+	var completedAt *time.Time
 	if status == MedallionPipelineStatusCompleted || status == MedallionPipelineStatusFailed || status == MedallionPipelineStatusSkipped {
 		completedAt = ptrTime(time.Now())
+	}
+	var startedAt *time.Time
+	if status == MedallionPipelineStatusProcessing {
+		startedAt = ptrTime(time.Now())
 	}
 	_, _ = s.medallion.RecordPipelineRun(ctx, medallionPipelineRunInput{
 		TenantID:               file.TenantID,
 		PipelineType:           MedallionPipelineProductExtraction,
-		RunKey:                 "product_extraction:" + run.PublicID,
+		RunKey:                 defaultString(runKey, "product_extraction:"+run.PublicID),
 		SourceResourceKind:     MedallionResourceOCRRun,
 		SourceResourceID:       run.ID,
 		SourceResourcePublicID: run.PublicID,
@@ -682,15 +829,36 @@ func (s *DriveOCRService) recordMedallionProductExtractionRun(ctx context.Contex
 		TargetResourcePublicID: targetPublicID,
 		Status:                 status,
 		Runtime:                medallionOCRRuntime(run),
-		TriggerKind:            MedallionTriggerManual,
+		TriggerKind:            triggerKind,
 		Retryable:              retryable,
 		ErrorSummary:           errorSummary,
+		Metadata:               medallionOCRRunMetadata(run),
 		RequestedByUserID:      actorUserID,
-		StartedAt:              run.StartedAt,
+		StartedAt:              startedAt,
 		CompletedAt:            completedAt,
-		SourceAssets:           []MedallionAsset{source},
+		SourceAssets:           sourceAssets,
 		TargetAssets:           targetAssets,
 	})
+}
+
+func medallionProductExtractionRunKey(run DriveOCRRun, outboxEventID int64) string {
+	if outboxEventID <= 0 {
+		return "product_extraction:" + run.PublicID
+	}
+	return fmt.Sprintf("product_extraction:%s:%d", run.PublicID, outboxEventID)
+}
+
+func medallionOCRRunMetadata(run DriveOCRRun) map[string]any {
+	metadata := map[string]any{
+		"artifactSchemaVersion": run.ArtifactSchemaVersion,
+		"pipelineConfigHash":    run.PipelineConfigHash,
+		"fileRevision":          run.FileRevision,
+		"contentSha256":         run.ContentSHA256,
+	}
+	if run.OutboxEventID != nil {
+		metadata["outboxEventId"] = *run.OutboxEventID
+	}
+	return metadata
 }
 
 func medallionOCRRuntime(run DriveOCRRun) string {
@@ -781,8 +949,8 @@ func (s *DriveOCRService) skipReason(ctx context.Context, file DriveFile, policy
 	if s.drive != nil && s.drive.driveFileUsesZeroKnowledgeEncryption(ctx, file.TenantID, file.ID) {
 		return "zero_knowledge", "zero-knowledge encrypted files are not readable by local ocr"
 	}
-	if policy.OCREngine != "tesseract" {
-		return "engine_not_configured", "optional ocr engine is not configured in this runtime"
+	if code, message := driveOCREngineSkipReason(ctx, policy); code != "" {
+		return code, message
 	}
 	if !driveOCRSupportedFile(file) {
 		return "unsupported_file", "file type is not supported by drive ocr"
@@ -793,7 +961,7 @@ func (s *DriveOCRService) skipReason(ctx context.Context, file DriveFile, policy
 func driveOCRSupportedFile(file DriveFile) bool {
 	contentType := strings.ToLower(strings.TrimSpace(file.ContentType))
 	ext := strings.ToLower(strings.TrimSpace(fileOCRExt(file.OriginalFilename)))
-	if contentType == "application/pdf" || strings.HasPrefix(contentType, "text/") || strings.Contains(contentType, "json") || strings.Contains(contentType, "xml") || strings.HasPrefix(contentType, "image/") {
+	if contentType == "application/pdf" || driveOCRTextLikeContentType(contentType) || strings.HasPrefix(contentType, "image/") {
 		return true
 	}
 	switch ext {
@@ -854,29 +1022,32 @@ func (s *DriveOCRService) recordAuditBestEffort(ctx context.Context, actor Drive
 
 func driveOCRRunFromDB(row db.DriveOcrRun, filePublicID string) DriveOCRRun {
 	return DriveOCRRun{
-		ID:                  row.ID,
-		PublicID:            row.PublicID.String(),
-		FilePublicID:        filePublicID,
-		TenantID:            row.TenantID,
-		FileObjectID:        row.FileObjectID,
-		RequestedByUserID:   optionalPgInt8(row.RequestedByUserID),
-		FileRevision:        row.FileRevision,
-		ContentSHA256:       row.ContentSha256,
-		Engine:              row.Engine,
-		Languages:           append([]string{}, row.Languages...),
-		StructuredExtractor: row.StructuredExtractor,
-		Status:              row.Status,
-		Reason:              row.Reason,
-		PageCount:           int(row.PageCount),
-		ProcessedPageCount:  int(row.ProcessedPageCount),
-		AverageConfidence:   floatFromPgNumeric(row.AverageConfidence),
-		ExtractedText:       row.ExtractedText,
-		ErrorCode:           optionalText(row.ErrorCode),
-		ErrorMessage:        optionalText(row.ErrorMessage),
-		StartedAt:           optionalPgTime(row.StartedAt),
-		CompletedAt:         optionalPgTime(row.CompletedAt),
-		CreatedAt:           row.CreatedAt.Time,
-		UpdatedAt:           row.UpdatedAt.Time,
+		ID:                    row.ID,
+		PublicID:              row.PublicID.String(),
+		FilePublicID:          filePublicID,
+		TenantID:              row.TenantID,
+		FileObjectID:          row.FileObjectID,
+		RequestedByUserID:     optionalPgInt8(row.RequestedByUserID),
+		OutboxEventID:         optionalPgInt8(row.OutboxEventID),
+		FileRevision:          row.FileRevision,
+		ContentSHA256:         row.ContentSha256,
+		Engine:                row.Engine,
+		Languages:             append([]string{}, row.Languages...),
+		StructuredExtractor:   row.StructuredExtractor,
+		ArtifactSchemaVersion: row.ArtifactSchemaVersion,
+		PipelineConfigHash:    row.PipelineConfigHash,
+		Status:                row.Status,
+		Reason:                row.Reason,
+		PageCount:             int(row.PageCount),
+		ProcessedPageCount:    int(row.ProcessedPageCount),
+		AverageConfidence:     floatFromPgNumeric(row.AverageConfidence),
+		ExtractedText:         row.ExtractedText,
+		ErrorCode:             optionalText(row.ErrorCode),
+		ErrorMessage:          optionalText(row.ErrorMessage),
+		StartedAt:             optionalPgTime(row.StartedAt),
+		CompletedAt:           optionalPgTime(row.CompletedAt),
+		CreatedAt:             row.CreatedAt.Time,
+		UpdatedAt:             row.UpdatedAt.Time,
 	}
 }
 
@@ -922,6 +1093,43 @@ func fileOCRRevision(file DriveFile) string {
 		return file.SHA256Hex
 	}
 	return driveFileContentRevision(file)
+}
+
+func driveOCRPipelineConfigHash(policy DriveOCRPolicy) string {
+	policy = normalizeDriveOCRPolicy(policy)
+	payload := struct {
+		ArtifactSchemaVersion string              `json:"artifactSchemaVersion"`
+		OCREngine             string              `json:"ocrEngine"`
+		OCRLanguages          []string            `json:"ocrLanguages"`
+		StructuredExtraction  bool                `json:"structuredExtraction"`
+		StructuredExtractor   string              `json:"structuredExtractor"`
+		Rules                 DriveOCRRulesPolicy `json:"rules"`
+		MaxPages              int                 `json:"maxPages"`
+		TimeoutSecondsPerPage int                 `json:"timeoutSecondsPerPage"`
+		OllamaBaseURL         string              `json:"ollamaBaseURL"`
+		OllamaModel           string              `json:"ollamaModel"`
+		LMStudioBaseURL       string              `json:"lmStudioBaseURL"`
+		LMStudioModel         string              `json:"lmStudioModel"`
+	}{
+		ArtifactSchemaVersion: driveOCRArtifactSchemaVersion,
+		OCREngine:             policy.OCREngine,
+		OCRLanguages:          append([]string{}, policy.OCRLanguages...),
+		StructuredExtraction:  policy.StructuredExtractionEnabled,
+		StructuredExtractor:   policy.StructuredExtractor,
+		Rules:                 policy.Rules,
+		MaxPages:              policy.MaxPages,
+		TimeoutSecondsPerPage: policy.TimeoutSecondsPerPage,
+		OllamaBaseURL:         policy.OllamaBaseURL,
+		OllamaModel:           policy.OllamaModel,
+		LMStudioBaseURL:       policy.LMStudioBaseURL,
+		LMStudioModel:         policy.LMStudioModel,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return "config-unavailable"
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func defaultString(value, fallback string) string {

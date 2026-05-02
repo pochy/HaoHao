@@ -27,7 +27,7 @@ const { t } = useI18n()
 
 const runStatus = computed(() => props.run?.status ?? '')
 const actionApplies = computed(() => props.actionResourceId === props.filePublicId)
-const actionActive = computed(() => actionApplies.value && ['requesting', 'polling'].includes(props.actionStatus))
+const actionActive = computed(() => actionApplies.value && ['requesting', 'queued', 'polling'].includes(props.actionStatus))
 const itemCount = computed(() => props.items.length)
 const statusKey = computed<ProductExtractionStatusKey>(() => {
   if (actionActive.value) {

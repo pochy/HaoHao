@@ -4990,6 +4990,12 @@ components:
             - 42.5
           format: double
           type: number
+        boxesJson:
+          examples:
+            - example
+        layoutJson:
+          examples:
+            - example
         pageNumber:
           examples:
             - 1
@@ -23163,6 +23169,8 @@ paths:
                   value:
                     pages:
                       - averageConfidence: 42.5
+                        boxesJson: example
+                        layoutJson: example
                         pageNumber: 1
                         rawText: example
                     run:

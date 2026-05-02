@@ -2098,6 +2098,8 @@ export type DriveOcrOutputBody = {
 
 export type DriveOcrPageBody = {
     averageConfidence?: number;
+    boxesJson?: unknown;
+    layoutJson?: unknown;
     pageNumber: number;
     rawText: string;
 };
