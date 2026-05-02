@@ -67,6 +67,18 @@ func TestRegisterFrontendRoutes(t *testing.T) {
 			wantStatus: http.StatusNotFound,
 		},
 		{
+			name:       "reserved openapi docs route is not spa fallback",
+			method:     http.MethodGet,
+			path:       "/docs/openapi",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "reserved openapi docs yaml route is not spa fallback",
+			method:     http.MethodGet,
+			path:       "/docs/openapi.yaml",
+			wantStatus: http.StatusNotFound,
+		},
+		{
 			name:       "reserved openapi yaml route is not spa fallback",
 			method:     http.MethodGet,
 			path:       "/openapi.yaml",
@@ -76,6 +88,12 @@ func TestRegisterFrontendRoutes(t *testing.T) {
 			name:       "reserved openapi 3 yaml route is not spa fallback",
 			method:     http.MethodGet,
 			path:       "/openapi-3.0.yaml",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "embedded docs source is not served as a static asset",
+			method:     http.MethodGet,
+			path:       "/_docs/CONCEPT.md",
 			wantStatus: http.StatusNotFound,
 		},
 		{

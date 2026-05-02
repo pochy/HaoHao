@@ -388,7 +388,7 @@ const en = {
       cookie: 'Cookie が browser に保存される',
       session: '/api/v1/session が 200 を返す',
       refresh: 'POST /api/v1/session/refresh が Cookie を rotate する',
-      docs: '/docs で OpenAPI 由来の docs を確認できる',
+      docs: '/docs/openapi で OpenAPI 由来の docs を確認できる',
     },
   },
   login: {
@@ -1373,7 +1373,7 @@ const ja: MessageSchema = {
       cookie: 'Cookie が browser に保存される',
       session: '/api/v1/session が 200 を返す',
       refresh: 'POST /api/v1/session/refresh が Cookie を rotate する',
-      docs: '/docs で OpenAPI 由来の docs を確認できる',
+      docs: '/docs/openapi で OpenAPI 由来の docs を確認できる',
     },
   },
   login: {

@@ -1,5 +1,5 @@
 export async function checkDocsAccess(): Promise<void> {
-  const response = await fetch('/docs', {
+  const response = await fetch('/docs/openapi', {
     method: 'GET',
     credentials: 'include',
     headers: {

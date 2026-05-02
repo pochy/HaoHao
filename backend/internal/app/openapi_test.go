@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	backendapi "example.com/haohao/backend/internal/api"
 	"example.com/haohao/backend/internal/config"
@@ -115,26 +116,126 @@ func TestNewOpenAPIExportRejectsInvalidSurface(t *testing.T) {
 	}
 }
 
-func TestRuntimeOpenAPIYAMLUsesFullSurface(t *testing.T) {
+func TestRuntimeOpenAPIDocsRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
+	docsFS := fstest.MapFS{
+		"CONCEPT.md":                   {Data: []byte("# Concept\n\n[Runbook](runbooks/drive-openfga-dr.md)")},
+		"runbooks/drive-openfga-dr.md": {Data: []byte("# Drive OpenFGA DR\n\nBody")},
+	}
 	application := New(config.Config{
 		AppName:      "HaoHao API",
 		AppVersion:   "test",
 		SCIMBasePath: "/api/scim/v2",
-	}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, MarkdownDocsFS{FS: docsFS})
 
-	recorder := httptest.NewRecorder()
-	application.Router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/openapi.yaml", nil))
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("/openapi.yaml status = %d body = %s", recorder.Code, recorder.Body.String())
+	tests := []struct {
+		name          string
+		path          string
+		wantStatus    int
+		wantContent   string
+		wantFragments []string
+	}{
+		{
+			name:        "docs html moved under docs openapi",
+			path:        "/docs/openapi",
+			wantStatus:  http.StatusOK,
+			wantContent: "text/html",
+			wantFragments: []string{
+				`apiDescriptionUrl="/docs/openapi.yaml"`,
+			},
+		},
+		{
+			name:        "openapi json moved under docs",
+			path:        "/docs/openapi.json",
+			wantStatus:  http.StatusOK,
+			wantContent: "application/openapi+json",
+			wantFragments: []string{
+				`"/api/v1/session"`,
+				`"/api/v1/drive/items"`,
+				`"/api/external/v1/me"`,
+				`"/api/m2m/v1/self"`,
+				`"/api/scim/v2/Users"`,
+			},
+		},
+		{
+			name:        "openapi yaml moved under docs",
+			path:        "/docs/openapi.yaml",
+			wantStatus:  http.StatusOK,
+			wantContent: "application/openapi+yaml",
+			wantFragments: []string{
+				"/api/v1/session:",
+				"/api/v1/drive/items:",
+				"/api/external/v1/me:",
+				"/api/m2m/v1/self:",
+				"/api/scim/v2/Users:",
+			},
+		},
+		{
+			name:        "markdown docs index",
+			path:        "/docs",
+			wantStatus:  http.StatusOK,
+			wantContent: "text/html",
+			wantFragments: []string{
+				"Markdown Docs",
+				"Concept",
+				"/docs/CONCEPT",
+			},
+		},
+		{
+			name:        "markdown docs document",
+			path:        "/docs/CONCEPT",
+			wantStatus:  http.StatusOK,
+			wantContent: "text/html",
+			wantFragments: []string{
+				"<h1",
+				"Concept",
+				`href="/docs/runbooks/drive-openfga-dr"`,
+			},
+		},
+		{
+			name:        "markdown docs nested document",
+			path:        "/docs/runbooks/drive-openfga-dr",
+			wantStatus:  http.StatusOK,
+			wantContent: "text/html",
+			wantFragments: []string{
+				"Drive OpenFGA DR",
+			},
+		},
+		{
+			name:       "old openapi json route removed",
+			path:       "/openapi.json",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "old openapi yaml route removed",
+			path:       "/openapi.yaml",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "old openapi 3 yaml route removed",
+			path:       "/openapi-3.0.yaml",
+			wantStatus: http.StatusNotFound,
+		},
 	}
 
-	body := recorder.Body.String()
-	for _, want := range []string{"/api/v1/session:", "/api/v1/drive/items:", "/api/external/v1/me:", "/api/m2m/v1/self:", "/api/scim/v2/Users:"} {
-		if !strings.Contains(body, want) {
-			t.Fatalf("/openapi.yaml is missing %s", want)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			application.Router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, tt.path, nil))
+			if recorder.Code != tt.wantStatus {
+				t.Fatalf("%s status = %d body = %s", tt.path, recorder.Code, recorder.Body.String())
+			}
+			if tt.wantContent != "" && !strings.HasPrefix(recorder.Header().Get("Content-Type"), tt.wantContent) {
+				t.Fatalf("%s content-type = %q, want prefix %q", tt.path, recorder.Header().Get("Content-Type"), tt.wantContent)
+			}
+			body := recorder.Body.String()
+			for _, want := range tt.wantFragments {
+				if !strings.Contains(body, want) {
+					t.Fatalf("%s is missing %s", tt.path, want)
+				}
+			}
+		})
 	}
 }
 

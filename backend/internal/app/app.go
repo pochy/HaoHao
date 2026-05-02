@@ -3,7 +3,9 @@ package app
 import (
 	"context"
 	"io"
+	"io/fs"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +28,10 @@ type App struct {
 	API    huma.API
 }
 
+type MarkdownDocsFS struct {
+	FS fs.FS
+}
+
 func New(cfg config.Config, logger *slog.Logger, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService, delegationService *service.DelegationService, provisioningService *service.ProvisioningService, authzService *service.AuthzService, auditService *service.AuditService, tenantAdminService *service.TenantAdminService, customerSignalService *service.CustomerSignalService, todoService *service.TodoService, machineClientService *service.MachineClientService, outboxService *service.OutboxService, idempotencyService *service.IdempotencyService, notificationService *service.NotificationService, tenantInvitationService *service.TenantInvitationService, fileService *service.FileService, tenantSettingsService *service.TenantSettingsService, tenantDataExportService *service.TenantDataExportService, bearerVerifier *auth.BearerVerifier, m2mVerifier *auth.M2MVerifier, redisClient *redis.Client, metrics *platform.Metrics, extras ...any) *App {
 	var entitlementService *service.EntitlementService
 	var webhookService *service.WebhookService
@@ -35,6 +41,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	var driveService *service.DriveService
 	var driveOCRService *service.DriveOCRService
 	var datasetService *service.DatasetService
+	markdownDocsFS := fs.FS(os.DirFS("docs"))
 	for _, extra := range extras {
 		switch item := extra.(type) {
 		case *service.EntitlementService:
@@ -53,6 +60,10 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 			driveOCRService = item
 		case *service.DatasetService:
 			datasetService = item
+		case MarkdownDocsFS:
+			if item.FS != nil {
+				markdownDocsFS = item.FS
+			}
 		}
 	}
 	if logger == nil {
@@ -104,6 +115,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		middleware.RequestLogger(logger),
 		middleware.Recovery(logger),
 		middleware.DocsAuth(cfg.DocsAuthRequired, sessionService, authzService),
+		middleware.MarkdownDocs(middleware.MarkdownDocsConfig{FS: markdownDocsFS}),
 		middleware.ExternalCORS("/api/external/", cfg.ExternalAllowedOrigins),
 		middleware.ExternalAuth("/api/external/", bearerVerifier, authzService, "zitadel", cfg.ExternalExpectedAudience, cfg.ExternalRequiredScopePrefix, cfg.ExternalRequiredRole, metrics),
 		middleware.M2MAuth("/api/m2m/", m2mVerifier, machineClientService, "zitadel", metrics),

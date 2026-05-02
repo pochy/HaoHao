@@ -39,3 +39,30 @@ func TestSCIMAuthRecordsNotConfiguredMetric(t *testing.T) {
 		t.Fatalf("metrics = %#v", metrics)
 	}
 }
+
+func TestIsDocsPath(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{path: "/docs/openapi", want: true},
+		{path: "/docs/openapi.json", want: true},
+		{path: "/docs/openapi.yaml", want: true},
+		{path: "/docs/openapi-3.0.json", want: true},
+		{path: "/docs/openapi-3.0.yaml", want: true},
+		{path: "/docs", want: true},
+		{path: "/docs/", want: true},
+		{path: "/docs/other", want: true},
+		{path: "/openapi.json", want: false},
+		{path: "/openapi.yaml", want: false},
+		{path: "/openapi-3.0.yaml", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			if got := isDocsPath(tt.path); got != tt.want {
+				t.Fatalf("isDocsPath(%q) = %t, want %t", tt.path, got, tt.want)
+			}
+		})
+	}
+}

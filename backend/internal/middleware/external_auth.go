@@ -330,8 +330,5 @@ func writeProblem(c *gin.Context, status int, detail string) {
 }
 
 func isDocsPath(path string) bool {
-	return path == "/docs" ||
-		strings.HasPrefix(path, "/docs/") ||
-		path == "/openapi.json" ||
-		path == "/openapi.yaml"
+	return path == "/docs" || strings.HasPrefix(path, "/docs/")
 }

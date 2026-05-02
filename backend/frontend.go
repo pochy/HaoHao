@@ -84,7 +84,9 @@ func isReservedFrontendPath(requestPath string) bool {
 		strings.HasPrefix(requestPath, "schemas/") ||
 		requestPath == "openapi" ||
 		strings.HasPrefix(requestPath, "openapi.") ||
-		strings.HasPrefix(requestPath, "openapi-")
+		strings.HasPrefix(requestPath, "openapi-") ||
+		requestPath == "_docs" ||
+		strings.HasPrefix(requestPath, "_docs/")
 }
 
 func shouldFallbackToIndex(requestPath string) bool {

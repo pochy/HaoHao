@@ -28,6 +28,8 @@ func NewOpenAPIExport(cfg config.Config, surface backendapi.Surface) (*huma.Open
 func humaConfigForSurface(cfg config.Config, surface backendapi.Surface) huma.Config {
 	humaConfig := huma.DefaultConfig(cfg.AppName, cfg.AppVersion)
 	humaConfig.Info.Description = backendapi.OpenAPIInfoDescription()
+	humaConfig.DocsPath = "/docs/openapi"
+	humaConfig.OpenAPIPath = "/docs/openapi"
 	humaConfig.Components.SecuritySchemes = securitySchemesForSurface(surface)
 	humaConfig.Tags = backendapi.OpenAPIDocTags(surface)
 	humaConfig.OnAddOperation = append(humaConfig.OnAddOperation, backendapi.EnrichOpenAPIOperation)

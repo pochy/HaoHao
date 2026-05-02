@@ -1,0 +1,363 @@
+package middleware
+
+import (
+	"bytes"
+	"errors"
+	"html/template"
+	"io/fs"
+	"net/http"
+	"net/url"
+	"path"
+	"regexp"
+	"sort"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	ghtml "github.com/yuin/goldmark/renderer/html"
+)
+
+type MarkdownDocsConfig struct {
+	FS         fs.FS
+	PathPrefix string
+	Title      string
+}
+
+type markdownDoc struct {
+	ID    string
+	Path  string
+	Title string
+}
+
+type markdownDocsPage struct {
+	Title   string
+	Docs    []markdownDoc
+	Doc     markdownDoc
+	Content template.HTML
+}
+
+var (
+	markdownDocsLinkPattern = regexp.MustCompile(`\]\(([^)\s]+\.md(?:#[^)]+)?)\)`)
+	markdownDocsRenderer    = goldmark.New(
+		goldmark.WithExtensions(extension.GFM),
+		goldmark.WithParserOptions(parser.WithAutoHeadingID()),
+		goldmark.WithRendererOptions(ghtml.WithXHTML()),
+	)
+	markdownDocsTemplate = template.Must(template.New("markdown-docs").Parse(markdownDocsHTMLTemplate))
+)
+
+func MarkdownDocs(cfg MarkdownDocsConfig) gin.HandlerFunc {
+	docsFS := cfg.FS
+	pathPrefix := strings.TrimRight(strings.TrimSpace(cfg.PathPrefix), "/")
+	if pathPrefix == "" {
+		pathPrefix = "/docs"
+	}
+	title := strings.TrimSpace(cfg.Title)
+	if title == "" {
+		title = "HaoHao Docs"
+	}
+
+	return func(c *gin.Context) {
+		if docsFS == nil || (c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead) {
+			c.Next()
+			return
+		}
+
+		requestPath := path.Clean(c.Request.URL.Path)
+		switch {
+		case requestPath == pathPrefix:
+			renderMarkdownDocsIndex(c, docsFS, title)
+		case strings.HasPrefix(requestPath, pathPrefix+"/"):
+			docID := strings.TrimPrefix(requestPath, pathPrefix+"/")
+			if strings.HasPrefix(strings.ToLower(docID), "openapi") {
+				c.Next()
+				return
+			}
+			renderMarkdownDoc(c, docsFS, title, docID)
+		default:
+			c.Next()
+		}
+	}
+}
+
+func renderMarkdownDocsIndex(c *gin.Context, docsFS fs.FS, title string) {
+	docs, err := markdownDocsCatalog(docsFS)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "failed to read docs")
+		c.Abort()
+		return
+	}
+	renderMarkdownDocsHTML(c, http.StatusOK, markdownDocsPage{
+		Title: title,
+		Docs:  docs,
+	})
+}
+
+func renderMarkdownDoc(c *gin.Context, docsFS fs.FS, title, rawDocID string) {
+	docID, err := url.PathUnescape(rawDocID)
+	if err != nil || !validMarkdownDocID(docID) {
+		c.Status(http.StatusNotFound)
+		c.Abort()
+		return
+	}
+
+	filePath := docID + ".md"
+	data, err := fs.ReadFile(docsFS, filePath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			c.Status(http.StatusNotFound)
+			c.Abort()
+			return
+		}
+		c.String(http.StatusInternalServerError, "failed to read doc")
+		c.Abort()
+		return
+	}
+
+	content, err := renderMarkdownDocContent(docsFS, docID, data)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "failed to render doc")
+		c.Abort()
+		return
+	}
+
+	doc := markdownDoc{
+		ID:    docID,
+		Path:  filePath,
+		Title: firstMarkdownHeading(data),
+	}
+	if doc.Title == "" {
+		doc.Title = strings.TrimSuffix(path.Base(filePath), ".md")
+	}
+
+	renderMarkdownDocsHTML(c, http.StatusOK, markdownDocsPage{
+		Title:   doc.Title + " - " + title,
+		Doc:     doc,
+		Content: template.HTML(content),
+	})
+}
+
+func renderMarkdownDocsHTML(c *gin.Context, status int, page markdownDocsPage) {
+	var body bytes.Buffer
+	if err := markdownDocsTemplate.Execute(&body, page); err != nil {
+		c.String(http.StatusInternalServerError, "failed to render docs")
+		c.Abort()
+		return
+	}
+
+	c.Header("Content-Security-Policy", "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; style-src 'unsafe-inline'")
+	c.Data(status, "text/html; charset=utf-8", body.Bytes())
+	c.Abort()
+}
+
+func markdownDocsCatalog(docsFS fs.FS) ([]markdownDoc, error) {
+	docs := []markdownDoc{}
+	err := fs.WalkDir(docsFS, ".", func(filePath string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			if filePath != "." && strings.HasPrefix(path.Base(filePath), ".") {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		docID, ok := markdownDocIDFromPath(filePath)
+		if !ok {
+			return nil
+		}
+		data, err := fs.ReadFile(docsFS, filePath)
+		if err != nil {
+			return err
+		}
+		title := firstMarkdownHeading(data)
+		if title == "" {
+			title = strings.TrimSuffix(path.Base(filePath), ".md")
+		}
+		docs = append(docs, markdownDoc{
+			ID:    docID,
+			Path:  filePath,
+			Title: title,
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(docs, func(i, j int) bool {
+		return docs[i].ID < docs[j].ID
+	})
+	return docs, nil
+}
+
+func markdownDocIDFromPath(filePath string) (string, bool) {
+	cleaned := path.Clean(filePath)
+	if cleaned == "." || strings.HasPrefix(cleaned, "../") || path.IsAbs(cleaned) || path.Ext(cleaned) != ".md" {
+		return "", false
+	}
+	docID := strings.TrimSuffix(cleaned, ".md")
+	if !validMarkdownDocID(docID) {
+		return "", false
+	}
+	return docID, true
+}
+
+func validMarkdownDocID(docID string) bool {
+	cleaned := path.Clean(docID)
+	if docID == "" || cleaned != docID || strings.HasPrefix(docID, "../") || strings.Contains(docID, "\\") {
+		return false
+	}
+	segments := strings.Split(docID, "/")
+	if strings.HasPrefix(strings.ToLower(segments[0]), "openapi") {
+		return false
+	}
+	for _, segment := range segments {
+		if segment == "" || segment == "." || segment == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+func firstMarkdownHeading(data []byte) string {
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "# ") {
+			return strings.TrimSpace(strings.TrimPrefix(trimmed, "# "))
+		}
+	}
+	return ""
+}
+
+func renderMarkdownDocContent(docsFS fs.FS, docID string, data []byte) (string, error) {
+	markdown := rewriteMarkdownDocLinks(docsFS, docID, string(data))
+	var body bytes.Buffer
+	if err := markdownDocsRenderer.Convert([]byte(markdown), &body); err != nil {
+		return "", err
+	}
+	return body.String(), nil
+}
+
+func rewriteMarkdownDocLinks(docsFS fs.FS, docID, markdown string) string {
+	return markdownDocsLinkPattern.ReplaceAllStringFunc(markdown, func(match string) string {
+		target := strings.TrimSuffix(strings.TrimPrefix(match, "]("), ")")
+		rewritten, ok := resolveMarkdownDocLink(docsFS, docID, target)
+		if !ok {
+			return match
+		}
+		return "](" + rewritten + ")"
+	})
+}
+
+func resolveMarkdownDocLink(docsFS fs.FS, currentDocID, target string) (string, bool) {
+	parsed, err := url.Parse(target)
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" || strings.HasPrefix(parsed.Path, "/") {
+		return "", false
+	}
+
+	currentDir := path.Dir(currentDocID)
+	if currentDir == "." {
+		currentDir = ""
+	}
+	targetPath := path.Clean(path.Join(currentDir, parsed.Path))
+	docID, ok := markdownDocIDFromPath(targetPath)
+	if !ok {
+		return "", false
+	}
+	if _, err := fs.Stat(docsFS, docID+".md"); err != nil {
+		return "", false
+	}
+
+	docURL := "/docs/" + escapeMarkdownDocID(docID)
+	if parsed.Fragment != "" {
+		docURL += "#" + url.PathEscape(parsed.Fragment)
+	}
+	return docURL, true
+}
+
+func escapeMarkdownDocID(docID string) string {
+	segments := strings.Split(docID, "/")
+	for i, segment := range segments {
+		segments[i] = url.PathEscape(segment)
+	}
+	return strings.Join(segments, "/")
+}
+
+const markdownDocsHTMLTemplate = `<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="referrer" content="no-referrer">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .Title }}</title>
+    <style>
+      :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #24272e; background: #f6f7fb; }
+      body { margin: 0; }
+      a { color: #2457c5; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .docs-shell { max-width: 1040px; margin: 0 auto; padding: 40px 24px 72px; }
+      .docs-topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+      .docs-brand { font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #5d6678; }
+      .docs-links { display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px; }
+      .docs-card { background: #fff; border: 1px solid #dfe3ec; border-radius: 8px; box-shadow: 0 1px 2px rgba(20, 28, 45, 0.05); }
+      .docs-index { padding: 28px; }
+      .docs-title { margin: 0 0 10px; font-size: 32px; line-height: 1.2; }
+      .docs-subtitle { margin: 0 0 24px; color: #5d6678; line-height: 1.6; }
+      .docs-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+      .docs-list a { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid #e5e8f0; border-radius: 8px; background: #fbfcff; }
+      .docs-list strong { color: #24272e; }
+      .docs-list span { color: #697386; font-size: 13px; }
+      .docs-article { padding: 32px; line-height: 1.75; overflow-wrap: anywhere; }
+      .docs-article h1, .docs-article h2, .docs-article h3 { line-height: 1.25; margin: 1.8em 0 0.6em; }
+      .docs-article h1:first-child { margin-top: 0; }
+      .docs-article pre { overflow-x: auto; padding: 16px; border-radius: 8px; background: #111827; color: #f9fafb; }
+      .docs-article code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 0.92em; }
+      .docs-article :not(pre) > code { padding: 0.15em 0.35em; border-radius: 4px; background: #eef2f8; color: #172033; }
+      .docs-article table { width: 100%; border-collapse: collapse; display: block; overflow-x: auto; }
+      .docs-article th, .docs-article td { border: 1px solid #dfe3ec; padding: 8px 10px; text-align: left; }
+      .docs-article blockquote { margin: 1.5em 0; padding-left: 1em; border-left: 4px solid #c5cede; color: #4d5668; }
+      .docs-breadcrumb { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; color: #697386; font-size: 14px; }
+      @media (max-width: 700px) { .docs-shell { padding: 24px 14px 48px; } .docs-topbar { align-items: flex-start; flex-direction: column; } .docs-index, .docs-article { padding: 20px; } .docs-title { font-size: 26px; } }
+    </style>
+  </head>
+  <body>
+    <main class="docs-shell">
+      <header class="docs-topbar">
+        <div class="docs-brand">HaoHao Docs</div>
+        <nav class="docs-links" aria-label="Documentation links">
+          <a href="/docs">Markdown Docs</a>
+          <a href="/docs/openapi">OpenAPI Reference</a>
+        </nav>
+      </header>
+      {{ if .Content }}
+        <nav class="docs-breadcrumb" aria-label="Breadcrumb">
+          <a href="/docs">Docs</a>
+          <span aria-hidden="true">/</span>
+          <span>{{ .Doc.Path }}</span>
+        </nav>
+        <article class="docs-card docs-article">
+          {{ .Content }}
+        </article>
+      {{ else }}
+        <section class="docs-card docs-index">
+          <h1 class="docs-title">Markdown Docs</h1>
+          <p class="docs-subtitle">Repository の <code>docs/</code> 配下にある Markdown document の目次です。Markdown file を追加すると、次回 request または rebuild 後に自動でここへ表示されます。</p>
+          <ul class="docs-list">
+            {{ range .Docs }}
+              <li>
+                <a href="/docs/{{ .ID }}">
+                  <strong>{{ .Title }}</strong>
+                  <span>{{ .Path }}</span>
+                </a>
+              </li>
+            {{ end }}
+          </ul>
+        </section>
+      {{ end }}
+    </main>
+  </body>
+</html>
+`

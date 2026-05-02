@@ -19,6 +19,7 @@ import (
 	"example.com/haohao/backend/internal/jobs"
 	"example.com/haohao/backend/internal/platform"
 	"example.com/haohao/backend/internal/service"
+	backendweb "example.com/haohao/backend/web"
 
 	"github.com/gin-gonic/gin"
 )
@@ -253,7 +254,14 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics, entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService)
+	appExtras := []any{entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService}
+	markdownDocsFS, err := backendweb.MarkdownDocsFS()
+	if err != nil {
+		logger.Warn("markdown docs unavailable", "error", err)
+	} else {
+		appExtras = append(appExtras, app.MarkdownDocsFS{FS: markdownDocsFS})
+	}
+	application := app.New(cfg, logger, sessionService, oidcLoginService, delegationService, provisioningService, authzService, auditService, tenantAdminService, customerSignalService, todoService, machineClientService, outboxService, idempotencyService, notificationService, tenantInvitationService, fileService, tenantSettingsService, tenantDataExportService, bearerVerifier, m2mVerifier, redisClient, metrics, appExtras...)
 	readiness := platform.ReadinessChecker{
 		PostgresPing:  pool.Ping,
 		RedisPing:     func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },

@@ -14,7 +14,7 @@ async function openDocs() {
 
   try {
     await checkDocsAccess()
-    window.open('/docs', '_blank', 'noreferrer')
+    window.open('/docs/openapi', '_blank', 'noreferrer')
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : t('docs.unavailable')
   } finally {

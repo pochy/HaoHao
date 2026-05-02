@@ -3,6 +3,7 @@ WORKDIR /app
 COPY frontend/package*.json ./frontend/
 RUN npm --prefix frontend ci
 COPY frontend ./frontend
+COPY docs ./docs
 RUN npm --prefix frontend run build
 
 FROM golang:1.26 AS backend-builder

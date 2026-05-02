@@ -55,7 +55,7 @@ const statusLabel = computed(() => {
       <RouterLink class="icon-button" to="/notifications" :aria-label="t('topbar.openInbox')">
         <Bell :size="17" stroke-width="1.8" aria-hidden="true" />
       </RouterLink>
-      <a class="icon-button" href="/docs" :aria-label="t('topbar.openApiDocs')">
+      <a class="icon-button" href="/docs/openapi" :aria-label="t('topbar.openApiDocs')">
         <HelpCircle :size="17" stroke-width="1.8" aria-hidden="true" />
       </a>
 
