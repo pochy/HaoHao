@@ -7,7 +7,19 @@ ZITADEL_ENV_FILE := dev/zitadel/.env
 ZITADEL_ENV_EXAMPLE := dev/zitadel/.env.example
 ZITADEL_COMPOSE_FILE := dev/zitadel/docker-compose.yml
 ZITADEL_COMPOSE := $(DOCKER_COMPOSE) --env-file $(ZITADEL_ENV_FILE) -f $(ZITADEL_COMPOSE_FILE)
-GO_BINARY_BUILD_FLAGS := -buildvcs=false -trimpath -tags "embed_frontend nomsgpack" -ldflags "-s -w -buildid="
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
+BINARY_PATH := ./bin/haohao
+BINARY_PACKAGE_BASENAME := haohao_$(GOOS)_$(GOARCH)
+BINARY_PACKAGE_GZIP := ./bin/$(BINARY_PACKAGE_BASENAME).tar.gz
+BINARY_PACKAGE_ZSTD := ./bin/$(BINARY_PACKAGE_BASENAME).tar.zst
+BINARY_MAX_BYTES ?= 57671680
+BINARY_GZIP_MAX_BYTES ?= 20971520
+GO_BINARY_TAGS := embed_frontend nomsgpack
+GO_BINARY_LDFLAGS := -s -w -buildid=
+GO_BINARY_BASE_FLAGS := -buildvcs=false -trimpath -tags "$(GO_BINARY_TAGS)" -ldflags "$(GO_BINARY_LDFLAGS)"
+GO_BINARY_BUILD_FLAGS := $(GO_BINARY_BASE_FLAGS) -gcflags=all=-l
+GO_BINARY_FAST_BUILD_FLAGS := $(GO_BINARY_BASE_FLAGS)
 
 up:
 	$(DOCKER_COMPOSE) up -d
@@ -54,7 +66,7 @@ db-down:
 # Prefer Homebrew postgresql@18's psql-18 when on PATH; override with make psql PSQL=psql
 PSQL ?= $(shell command -v psql-18 2>/dev/null || command -v psql 2>/dev/null || echo psql)
 
-.PHONY: psql sql air-check backend-dev backend-run
+.PHONY: psql sql air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check
 psql:
 	$(export-env) && $(PSQL) "$$DATABASE_URL" $(ARGS)
 
@@ -102,7 +114,47 @@ frontend-build:
 
 binary: frontend-build
 	mkdir -p bin
-	CGO_ENABLED=0 go build $(GO_BINARY_BUILD_FLAGS) -o ./bin/haohao ./backend/cmd/main
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build $(GO_BINARY_BUILD_FLAGS) -o $(BINARY_PATH) ./backend/cmd/main
+
+binary-fast: frontend-build
+	mkdir -p bin
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build $(GO_BINARY_FAST_BUILD_FLAGS) -o $(BINARY_PATH) ./backend/cmd/main
+
+binary-package: binary
+	tar -cf - -C bin haohao | gzip -9 > $(BINARY_PACKAGE_GZIP)
+
+binary-package-zstd: binary
+	@command -v zstd >/dev/null 2>&1 || { echo "zstd is required for binary-package-zstd. Install it with: brew install zstd"; exit 1; }
+	tar -cf - -C bin haohao | zstd -19 -q -c > $(BINARY_PACKAGE_ZSTD)
+
+binary-size-report: binary
+	@raw_bytes=$$(wc -c < $(BINARY_PATH) | tr -d ' '); awk -v b="$$raw_bytes" 'BEGIN { printf "raw binary: %.1f MiB (%d bytes)\n", b / 1024 / 1024, b }'
+	@gzip_bytes=$$(gzip -9c $(BINARY_PATH) | wc -c | tr -d ' '); awk -v b="$$gzip_bytes" 'BEGIN { printf "gzip -9 stream: %.1f MiB (%d bytes)\n", b / 1024 / 1024, b }'
+	@if command -v zstd >/dev/null 2>&1; then \
+		zstd_bytes=$$(zstd -19 -q -c $(BINARY_PATH) | wc -c | tr -d ' '); \
+		awk -v b="$$zstd_bytes" 'BEGIN { printf "zstd -19 stream: %.1f MiB (%d bytes)\n", b / 1024 / 1024, b }'; \
+	else \
+		echo "zstd -19 stream: zstd is not installed"; \
+	fi
+	@go version -m $(BINARY_PATH) | sed -n '/^\tbuild\t/p'
+	@if command -v otool >/dev/null 2>&1; then \
+		otool -l $(BINARY_PATH) | awk '/segname/ { seg=$$2 } /filesize/ && seg != "__PAGEZERO" { printf "%s filesize: %.1f MiB (%s bytes)\n", seg, ($$2 + 0) / 1024 / 1024, $$2 }'; \
+	elif command -v size >/dev/null 2>&1; then \
+		size $(BINARY_PATH); \
+	fi
+
+binary-size-check: binary-package
+	@raw_bytes=$$(wc -c < $(BINARY_PATH) | tr -d ' '); \
+	if [ "$$raw_bytes" -gt "$(BINARY_MAX_BYTES)" ]; then \
+		awk -v b="$$raw_bytes" -v max="$(BINARY_MAX_BYTES)" 'BEGIN { printf "raw binary is too large: %.1f MiB > %.1f MiB\n", b / 1024 / 1024, max / 1024 / 1024 }'; \
+		exit 1; \
+	fi
+	@gzip_bytes=$$(wc -c < $(BINARY_PACKAGE_GZIP) | tr -d ' '); \
+	if [ "$$gzip_bytes" -gt "$(BINARY_GZIP_MAX_BYTES)" ]; then \
+		awk -v b="$$gzip_bytes" -v max="$(BINARY_GZIP_MAX_BYTES)" 'BEGIN { printf "gzip package is too large: %.1f MiB > %.1f MiB\n", b / 1024 / 1024, max / 1024 / 1024 }'; \
+		exit 1; \
+	fi
+	@echo "binary size check passed"
 
 docker-build:
 	docker build -t haohao:dev -f docker/Dockerfile .

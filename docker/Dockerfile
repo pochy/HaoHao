@@ -13,7 +13,7 @@ COPY backend/go.mod backend/go.sum ./backend/
 RUN cd backend && go mod download
 COPY backend ./backend
 COPY --from=frontend-builder /app/backend/web/dist ./backend/web/dist
-RUN GOMEMLIMIT=512MiB GOGC=25 CGO_ENABLED=0 go build -p 1 -buildvcs=false -trimpath -tags "embed_frontend nomsgpack" -ldflags "-s -w -buildid=" -o /tmp/haohao ./backend/cmd/main
+RUN GOMEMLIMIT=512MiB GOGC=25 CGO_ENABLED=0 go build -p 1 -buildvcs=false -trimpath -tags "embed_frontend nomsgpack" -gcflags=all=-l -ldflags "-s -w -buildid=" -o /tmp/haohao ./backend/cmd/main
 
 FROM scratch
 COPY --from=backend-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
