@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { Database, Download, FileDown, Link2, Pencil, RefreshCw, Table2, Trash2 } from 'lucide-vue-next'
+import { computed, reactive, ref, watch } from 'vue'
+import { CalendarClock, Database, Download, FileDown, Link2, Pencil, RefreshCw, Table2, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { workTableExportDownloadUrl } from '../api/datasets'
-import type { DatasetWorkTableExportFormat } from '../api/datasets'
-import type { DatasetBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
+import type { DatasetWorkTableExportFormat, DatasetWorkTableExportFrequency } from '../api/datasets'
+import type { DatasetBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
 import ConfirmActionDialog from './ConfirmActionDialog.vue'
 import TextInputDialog from './TextInputDialog.vue'
 
@@ -15,6 +15,7 @@ const props = withDefaults(defineProps<{
   selectedTable: DatasetWorkTableBody | null
   preview: DatasetWorkTablePreviewBody | null
   exports: DatasetWorkTableExportBody[]
+  schedules: DatasetWorkTableExportScheduleBody[]
   loading: boolean
   previewLoading: boolean
   actionLoading: boolean
@@ -35,6 +36,9 @@ const emit = defineEmits<{
   drop: []
   promote: [name: string]
   export: [format: DatasetWorkTableExportFormat]
+  createSchedule: [body: DatasetWorkTableExportScheduleCreateBodyWritable]
+  updateSchedule: [schedulePublicId: string, body: DatasetWorkTableExportScheduleUpdateBodyWritable]
+  disableSchedule: [schedulePublicId: string]
 }>()
 
 const { d, n, t } = useI18n()
@@ -45,14 +49,41 @@ const selectedColumns = computed(() => props.selectedTable?.columns ?? [])
 const browserTitle = computed(() => props.title || t('datasets.workTables'))
 const selectedDatasetPublicId = ref('')
 const exportFormat = ref<DatasetWorkTableExportFormat>('csv')
+const editingSchedulePublicId = ref('')
 const textDialog = ref<'rename' | 'promote' | ''>('')
 const confirmDialog = ref<'truncate' | 'drop' | ''>('')
+const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+const scheduleForm = reactive({
+  format: 'csv' as DatasetWorkTableExportFormat,
+  frequency: 'daily' as DatasetWorkTableExportFrequency,
+  timezone: defaultTimezone,
+  runTime: '03:00',
+  weekday: 1,
+  monthDay: 1,
+  retentionDays: 7,
+  enabled: true,
+})
 
 const exportFormatOptions: Array<{ value: DatasetWorkTableExportFormat, labelKey: string }> = [
   { value: 'csv', labelKey: 'datasets.exportFormatCsv' },
   { value: 'json', labelKey: 'datasets.exportFormatJsonLines' },
   { value: 'parquet', labelKey: 'datasets.exportFormatParquet' },
 ]
+const scheduleFrequencyOptions: Array<{ value: DatasetWorkTableExportFrequency, labelKey: string }> = [
+  { value: 'daily', labelKey: 'datasets.frequencyDaily' },
+  { value: 'weekly', labelKey: 'datasets.frequencyWeekly' },
+  { value: 'monthly', labelKey: 'datasets.frequencyMonthly' },
+]
+const weekdayOptions = [
+  { value: 1, labelKey: 'datasets.weekdayMonday' },
+  { value: 2, labelKey: 'datasets.weekdayTuesday' },
+  { value: 3, labelKey: 'datasets.weekdayWednesday' },
+  { value: 4, labelKey: 'datasets.weekdayThursday' },
+  { value: 5, labelKey: 'datasets.weekdayFriday' },
+  { value: 6, labelKey: 'datasets.weekdaySaturday' },
+  { value: 7, labelKey: 'datasets.weekdaySunday' },
+]
+const monthDayOptions = Array.from({ length: 28 }, (_, index) => index + 1)
 
 watch(
   () => [props.selectedTable?.originDatasetPublicId, props.datasets.length] as const,
@@ -60,6 +91,11 @@ watch(
     selectedDatasetPublicId.value = props.selectedTable?.originDatasetPublicId || props.datasets[0]?.publicId || ''
   },
   { immediate: true },
+)
+
+watch(
+  () => props.selectedTable?.publicId,
+  () => resetScheduleForm(),
 )
 
 function sameWorkTable(item: DatasetWorkTableBody) {
@@ -101,6 +137,23 @@ function formatExportFormat(format: string) {
   }
 }
 
+function formatScheduleFrequency(frequency: string) {
+  switch (frequency) {
+    case 'daily':
+      return t('datasets.frequencyDaily')
+    case 'weekly':
+      return t('datasets.frequencyWeekly')
+    case 'monthly':
+      return t('datasets.frequencyMonthly')
+    default:
+      return frequency
+  }
+}
+
+function formatExportSource(source?: string) {
+  return source === 'scheduled' ? t('datasets.exportSourceScheduled') : t('datasets.exportSourceManual')
+}
+
 function statusClass(status: string) {
   if (status === 'active' || status === 'ready') {
     return 'success'
@@ -140,6 +193,51 @@ function runConfirmAction() {
   } else if (action === 'drop') {
     emit('drop')
   }
+}
+
+function resetScheduleForm() {
+  editingSchedulePublicId.value = ''
+  scheduleForm.format = 'csv'
+  scheduleForm.frequency = 'daily'
+  scheduleForm.timezone = defaultTimezone
+  scheduleForm.runTime = '03:00'
+  scheduleForm.weekday = 1
+  scheduleForm.monthDay = 1
+  scheduleForm.retentionDays = 7
+  scheduleForm.enabled = true
+}
+
+function editSchedule(item: DatasetWorkTableExportScheduleBody) {
+  editingSchedulePublicId.value = item.publicId
+  scheduleForm.format = item.format as DatasetWorkTableExportFormat
+  scheduleForm.frequency = item.frequency as DatasetWorkTableExportFrequency
+  scheduleForm.timezone = item.timezone || defaultTimezone
+  scheduleForm.runTime = item.runTime || '03:00'
+  scheduleForm.weekday = item.weekday ?? 1
+  scheduleForm.monthDay = item.monthDay ?? 1
+  scheduleForm.retentionDays = item.retentionDays || 7
+  scheduleForm.enabled = item.enabled
+}
+
+function scheduleBody(): DatasetWorkTableExportScheduleCreateBodyWritable {
+  return {
+    format: scheduleForm.format,
+    frequency: scheduleForm.frequency,
+    timezone: scheduleForm.timezone.trim() || 'UTC',
+    runTime: scheduleForm.runTime,
+    retentionDays: Number(scheduleForm.retentionDays) || 7,
+    ...(scheduleForm.frequency === 'weekly' ? { weekday: Number(scheduleForm.weekday) || 1 } : {}),
+    ...(scheduleForm.frequency === 'monthly' ? { monthDay: Number(scheduleForm.monthDay) || 1 } : {}),
+  }
+}
+
+function submitSchedule() {
+  const body = scheduleBody()
+  if (editingSchedulePublicId.value) {
+    emit('updateSchedule', editingSchedulePublicId.value, { ...body, enabled: scheduleForm.enabled })
+    return
+  }
+  emit('createSchedule', body)
 }
 </script>
 
@@ -320,6 +418,107 @@ function runConfirmAction() {
           <p>{{ t('datasets.noPreviewRows') }}</p>
         </div>
 
+        <div v-if="selectedTable.managed && selectedTable.status === 'active'" class="section-header compact-section-header">
+          <div>
+            <span class="status-pill">{{ t('datasets.scheduledExports') }}</span>
+            <h3>{{ t('datasets.exportSchedules') }}</h3>
+          </div>
+        </div>
+
+        <div v-if="selectedTable.managed && selectedTable.status === 'active'" class="dataset-export-schedule-form">
+          <label class="field compact-field">
+            <span class="field-label">{{ t('datasets.format') }}</span>
+            <select v-model="scheduleForm.format" class="field-input">
+              <option v-for="option in exportFormatOptions" :key="option.value" :value="option.value">
+                {{ t(option.labelKey) }}
+              </option>
+            </select>
+          </label>
+          <label class="field compact-field">
+            <span class="field-label">{{ t('datasets.frequency') }}</span>
+            <select v-model="scheduleForm.frequency" class="field-input">
+              <option v-for="option in scheduleFrequencyOptions" :key="option.value" :value="option.value">
+                {{ t(option.labelKey) }}
+              </option>
+            </select>
+          </label>
+          <label v-if="scheduleForm.frequency === 'weekly'" class="field compact-field">
+            <span class="field-label">{{ t('datasets.weekday') }}</span>
+            <select v-model.number="scheduleForm.weekday" class="field-input">
+              <option v-for="option in weekdayOptions" :key="option.value" :value="option.value">
+                {{ t(option.labelKey) }}
+              </option>
+            </select>
+          </label>
+          <label v-if="scheduleForm.frequency === 'monthly'" class="field compact-field">
+            <span class="field-label">{{ t('datasets.monthDay') }}</span>
+            <select v-model.number="scheduleForm.monthDay" class="field-input">
+              <option v-for="day in monthDayOptions" :key="day" :value="day">
+                {{ day }}
+              </option>
+            </select>
+          </label>
+          <label class="field compact-field">
+            <span class="field-label">{{ t('datasets.runTime') }}</span>
+            <input v-model="scheduleForm.runTime" class="field-input" type="time">
+          </label>
+          <label class="field compact-field">
+            <span class="field-label">{{ t('datasets.timezone') }}</span>
+            <input v-model="scheduleForm.timezone" class="field-input" type="text">
+          </label>
+          <label class="field compact-field">
+            <span class="field-label">{{ t('datasets.retentionDays') }}</span>
+            <input v-model.number="scheduleForm.retentionDays" class="field-input" type="number" min="1" max="365">
+          </label>
+          <label v-if="editingSchedulePublicId" class="toggle-inline">
+            <input v-model="scheduleForm.enabled" type="checkbox">
+            {{ t('common.enabled') }}
+          </label>
+          <button class="secondary-button compact-button" type="button" :disabled="actionLoading" @click="submitSchedule">
+            <CalendarClock :size="16" aria-hidden="true" />
+            {{ editingSchedulePublicId ? t('datasets.updateSchedule') : t('datasets.createSchedule') }}
+          </button>
+          <button v-if="editingSchedulePublicId" class="secondary-button compact-button" type="button" :disabled="actionLoading" @click="resetScheduleForm">
+            {{ t('common.cancel') }}
+          </button>
+        </div>
+
+        <div v-if="selectedTable.managed && schedules.length > 0" class="admin-table dataset-work-table-schedule-table">
+          <table>
+            <thead>
+              <tr>
+                <th>{{ t('common.status') }}</th>
+                <th>{{ t('datasets.format') }}</th>
+                <th>{{ t('datasets.frequency') }}</th>
+                <th>{{ t('datasets.nextRun') }}</th>
+                <th>{{ t('datasets.lastRun') }}</th>
+                <th>{{ t('common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in schedules" :key="item.publicId">
+                <td><span class="status-pill" :class="item.enabled ? 'success' : ''">{{ item.enabled ? t('common.enabled') : t('common.disabled') }}</span></td>
+                <td>{{ formatExportFormat(item.format) }}</td>
+                <td>{{ formatScheduleFrequency(item.frequency) }} · {{ item.runTime }} · {{ item.timezone }}</td>
+                <td>{{ formatDate(item.nextRunAt) }}</td>
+                <td>
+                  <span>{{ item.lastStatus || '-' }}</span>
+                  <small v-if="item.lastErrorSummary" class="cell-subtle"> · {{ item.lastErrorSummary }}</small>
+                </td>
+                <td>
+                  <button class="secondary-button compact-button" type="button" :disabled="actionLoading" @click="editSchedule(item)">
+                    <Pencil :size="16" aria-hidden="true" />
+                    {{ t('common.edit') }}
+                  </button>
+                  <button v-if="item.enabled" class="secondary-button compact-button" type="button" :disabled="actionLoading" @click="emit('disableSchedule', item.publicId)">
+                    {{ t('datasets.disableSchedule') }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         <div v-if="selectedTable.managed" class="section-header compact-section-header">
           <div>
             <span class="status-pill">{{ t('datasets.exports') }}</span>
@@ -333,6 +532,7 @@ function runConfirmAction() {
               <tr>
                 <th>{{ t('common.status') }}</th>
                 <th>{{ t('datasets.format') }}</th>
+                <th>{{ t('datasets.source') }}</th>
                 <th>{{ t('datasets.created') }}</th>
                 <th>{{ t('common.actions') }}</th>
               </tr>
@@ -341,6 +541,7 @@ function runConfirmAction() {
               <tr v-for="item in exports" :key="item.publicId">
                 <td><span class="status-pill" :class="statusClass(item.status)">{{ item.status }}</span></td>
                 <td>{{ formatExportFormat(item.format) }}</td>
+                <td>{{ formatExportSource(item.source) }}</td>
                 <td>{{ formatDate(item.createdAt) }}</td>
                 <td>
                   <a

@@ -4,8 +4,10 @@ import {
   createDatasetQueryJob,
   createDatasetScopedQueryJob,
   createDatasetWorkTableExport,
+  createDatasetWorkTableExportSchedule,
   deleteDataset,
   deleteDatasetWorkTable,
+  disableDatasetWorkTableExportSchedule,
   getDatasetWorkTableExport,
   getDatasetWorkTable,
   getDatasetWorkTablePreview,
@@ -19,12 +21,14 @@ import {
   listDatasetScopedQueryJobs,
   listDatasetScopedWorkTables,
   listDatasetSourceFiles,
+  listDatasetWorkTableExportSchedules,
   listDatasetWorkTableExports,
   listDatasetWorkTables,
   promoteDatasetWorkTable,
   registerDatasetWorkTable,
   renameDatasetWorkTable,
   truncateDatasetWorkTable,
+  updateDatasetWorkTableExportSchedule,
 } from './generated/sdk.gen'
 import type {
   DatasetBody,
@@ -34,6 +38,9 @@ import type {
   DatasetSourceFileBody,
   DatasetWorkTableBody,
   DatasetWorkTableExportBody,
+  DatasetWorkTableExportScheduleBody,
+  DatasetWorkTableExportScheduleCreateBodyWritable,
+  DatasetWorkTableExportScheduleUpdateBodyWritable,
   DatasetWorkTableLinkBodyWritable,
   DatasetWorkTablePreviewBody,
   DatasetWorkTablePromoteBodyWritable,
@@ -42,6 +49,7 @@ import type {
 } from './generated/types.gen'
 
 export type DatasetWorkTableExportFormat = 'csv' | 'json' | 'parquet'
+export type DatasetWorkTableExportFrequency = 'daily' | 'weekly' | 'monthly'
 
 function csrfHeaders() {
   return {
@@ -186,6 +194,39 @@ export async function fetchWorkTableExports(workTablePublicId: string): Promise<
     query: { limit: 25 },
   }) as unknown as { items?: DatasetWorkTableExportBody[] | null }
   return data.items ?? []
+}
+
+export async function fetchWorkTableExportSchedules(workTablePublicId: string): Promise<DatasetWorkTableExportScheduleBody[]> {
+  const data = await listDatasetWorkTableExportSchedules({
+    path: { workTablePublicId },
+  }) as unknown as { items?: DatasetWorkTableExportScheduleBody[] | null }
+  return data.items ?? []
+}
+
+export async function createWorkTableExportSchedule(workTablePublicId: string, body: DatasetWorkTableExportScheduleCreateBodyWritable): Promise<DatasetWorkTableExportScheduleBody> {
+  await ensureCSRFCookie()
+  return createDatasetWorkTableExportSchedule({
+    headers: csrfHeaders(),
+    path: { workTablePublicId },
+    body,
+  }) as unknown as Promise<DatasetWorkTableExportScheduleBody>
+}
+
+export async function updateWorkTableExportSchedule(schedulePublicId: string, body: DatasetWorkTableExportScheduleUpdateBodyWritable): Promise<DatasetWorkTableExportScheduleBody> {
+  await ensureCSRFCookie()
+  return updateDatasetWorkTableExportSchedule({
+    headers: csrfHeaders(),
+    path: { schedulePublicId },
+    body,
+  }) as unknown as Promise<DatasetWorkTableExportScheduleBody>
+}
+
+export async function disableWorkTableExportSchedule(schedulePublicId: string): Promise<DatasetWorkTableExportScheduleBody> {
+  await ensureCSRFCookie()
+  return disableDatasetWorkTableExportSchedule({
+    headers: csrfHeaders(),
+    path: { schedulePublicId },
+  }) as unknown as Promise<DatasetWorkTableExportScheduleBody>
 }
 
 export async function fetchWorkTableExport(exportPublicId: string): Promise<DatasetWorkTableExportBody> {

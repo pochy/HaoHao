@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 
 import { toApiErrorMessage, toApiErrorRequestId } from '../api/client'
 import type { DatasetWorkTableExportFormat } from '../api/datasets'
+import type { DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable } from '../api/generated/types.gen'
 import DatasetWorkTableBrowser from '../components/DatasetWorkTableBrowser.vue'
 import { useDatasetStore } from '../stores/datasets'
 import { useRealtimeStore } from '../stores/realtime'
@@ -41,6 +42,7 @@ onMounted(async () => {
     }
     if (datasetStore.hasActiveWorkTableExports) {
       await datasetStore.refreshSelectedWorkTableExports()
+      await datasetStore.refreshSelectedWorkTableExportSchedules()
     }
   }, 4000)
 })
@@ -216,6 +218,33 @@ async function requestWorkTableExport(format: DatasetWorkTableExportFormat) {
   }
 }
 
+async function createWorkTableExportSchedule(body: DatasetWorkTableExportScheduleCreateBodyWritable) {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.createSelectedWorkTableExportSchedule(body)
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function updateWorkTableExportSchedule(schedulePublicId: string, body: DatasetWorkTableExportScheduleUpdateBodyWritable) {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.updateSelectedWorkTableExportSchedule(schedulePublicId, body)
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function disableWorkTableExportSchedule(schedulePublicId: string) {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.disableSelectedWorkTableExportSchedule(schedulePublicId)
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
 function formatActionError(error: unknown) {
   const message = toApiErrorMessage(error)
   const requestId = toApiErrorRequestId(error)
@@ -339,6 +368,7 @@ function formatActionError(error: unknown) {
       :selected-table="datasetStore.selectedWorkTable"
       :preview="datasetStore.workTablePreview"
       :exports="datasetStore.workTableExports"
+      :schedules="datasetStore.workTableExportSchedules"
       :loading="datasetStore.workTablesLoading"
       :preview-loading="datasetStore.workTablePreviewLoading"
       :action-loading="datasetStore.workTableActionLoading"
@@ -352,6 +382,9 @@ function formatActionError(error: unknown) {
       @drop="dropWorkTable"
       @promote="promoteWorkTable"
       @export="requestWorkTableExport"
+      @create-schedule="createWorkTableExportSchedule"
+      @update-schedule="updateWorkTableExportSchedule"
+      @disable-schedule="disableWorkTableExportSchedule"
     />
   </div>
 </template>

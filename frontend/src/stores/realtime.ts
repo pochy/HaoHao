@@ -119,9 +119,14 @@ async function refreshForJobEvent(event: RealtimeEvent) {
 
   if (event.resourceType === 'dataset_work_table_export') {
     const exportPublicId = stringPayload(payload.exportPublicId) || event.resourcePublicId
+    const workTablePublicId = stringPayload(payload.workTablePublicId)
+    const schedulePublicId = stringPayload(payload.schedulePublicId)
     const status = stringPayload(payload.status)
     const errorSummary = stringPayload(payload.errorSummary)
     const format = stringPayload(payload.format)
+    const source = exportSourcePayload(payload.source)
+    const expiresAt = stringPayload(payload.expiresAt)
+    const scheduledFor = stringPayload(payload.scheduledFor)
     const updatedAt = event.createdAt
     const completedAt = updatedAt && ['ready', 'failed'].includes(status) ? updatedAt : undefined
     const matched = exportPublicId
@@ -129,13 +134,21 @@ async function refreshForJobEvent(event: RealtimeEvent) {
           publicId: exportPublicId,
           ...(status ? { status } : {}),
           ...(format ? { format } : {}),
+          ...(source ? { source } : {}),
+          ...(schedulePublicId ? { schedulePublicId } : {}),
+          ...(scheduledFor ? { scheduledFor } : {}),
+          ...(expiresAt ? { expiresAt } : {}),
           ...(errorSummary ? { errorSummary } : {}),
           ...(updatedAt ? { updatedAt } : {}),
           ...(completedAt ? { completedAt } : {}),
         })
       : false
-    if (matched || datasetStore.hasActiveWorkTableExports) {
+    const selectedWorkTableMatched = Boolean(workTablePublicId && datasetStore.selectedWorkTable?.publicId === workTablePublicId)
+    if (matched || selectedWorkTableMatched || datasetStore.hasActiveWorkTableExports) {
       await datasetStore.refreshSelectedWorkTableExports()
+    }
+    if (schedulePublicId && (selectedWorkTableMatched || matched)) {
+      await datasetStore.refreshSelectedWorkTableExportSchedules()
     }
     return
   }
@@ -221,4 +234,8 @@ function numberPayload(value: unknown): number | undefined {
 
 function booleanPayload(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
+}
+
+function exportSourcePayload(value: unknown): 'manual' | 'scheduled' | undefined {
+  return value === 'manual' || value === 'scheduled' ? value : undefined
 }

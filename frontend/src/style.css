@@ -1281,7 +1281,8 @@ code {
 }
 
 .dataset-work-table-actions,
-.dataset-work-table-link-row {
+.dataset-work-table-link-row,
+.dataset-export-schedule-form {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1289,9 +1290,24 @@ code {
   min-width: 0;
 }
 
-.dataset-work-table-link-row .field {
+.dataset-work-table-link-row .field,
+.dataset-export-schedule-form .field {
   min-width: min(280px, 100%);
   flex: 1 1 280px;
+}
+
+.dataset-export-schedule-form .compact-field {
+  flex-basis: 150px;
+  min-width: 140px;
+}
+
+.toggle-inline {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 34px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .dataset-export-format-select {
@@ -1317,6 +1333,10 @@ code {
 
 .dataset-work-table-export-table table {
   min-width: 640px;
+}
+
+.dataset-work-table-schedule-table table {
+  min-width: 900px;
 }
 
 .inline-action-link {

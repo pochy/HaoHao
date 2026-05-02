@@ -183,6 +183,31 @@ type DatasetWorkTableExport struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
 	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	ScheduleID        pgtype.Int8        `json:"schedule_id"`
+	ScheduledFor      pgtype.Timestamptz `json:"scheduled_for"`
+}
+
+type DatasetWorkTableExportSchedule struct {
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	TenantID         int64              `json:"tenant_id"`
+	WorkTableID      int64              `json:"work_table_id"`
+	CreatedByUserID  pgtype.Int8        `json:"created_by_user_id"`
+	Format           string             `json:"format"`
+	Frequency        string             `json:"frequency"`
+	Timezone         string             `json:"timezone"`
+	RunTime          string             `json:"run_time"`
+	Weekday          pgtype.Int2        `json:"weekday"`
+	MonthDay         pgtype.Int2        `json:"month_day"`
+	RetentionDays    int32              `json:"retention_days"`
+	Enabled          bool               `json:"enabled"`
+	NextRunAt        pgtype.Timestamptz `json:"next_run_at"`
+	LastRunAt        pgtype.Timestamptz `json:"last_run_at"`
+	LastStatus       pgtype.Text        `json:"last_status"`
+	LastErrorSummary pgtype.Text        `json:"last_error_summary"`
+	LastExportID     pgtype.Int8        `json:"last_export_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type DriveAdminContentAccessSession struct {

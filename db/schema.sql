@@ -314,6 +314,56 @@ ALTER TABLE public.dataset_query_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS ID
 
 
 --
+-- Name: dataset_work_table_export_schedules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_work_table_export_schedules (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    work_table_id bigint NOT NULL,
+    created_by_user_id bigint,
+    format text DEFAULT 'csv'::text NOT NULL,
+    frequency text NOT NULL,
+    timezone text NOT NULL,
+    run_time text NOT NULL,
+    weekday smallint,
+    month_day smallint,
+    retention_days integer DEFAULT 7 NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    next_run_at timestamp with time zone NOT NULL,
+    last_run_at timestamp with time zone,
+    last_status text,
+    last_error_summary text,
+    last_export_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT dataset_work_table_export_schedules_format_check CHECK ((format = ANY (ARRAY['csv'::text, 'json'::text, 'parquet'::text]))),
+    CONSTRAINT dataset_work_table_export_schedules_frequency_check CHECK ((frequency = ANY (ARRAY['daily'::text, 'weekly'::text, 'monthly'::text]))),
+    CONSTRAINT dataset_work_table_export_schedules_frequency_shape_check CHECK ((((frequency = 'daily'::text) AND (weekday IS NULL) AND (month_day IS NULL)) OR ((frequency = 'weekly'::text) AND (weekday IS NOT NULL) AND (month_day IS NULL)) OR ((frequency = 'monthly'::text) AND (weekday IS NULL) AND (month_day IS NOT NULL)))),
+    CONSTRAINT dataset_work_table_export_schedules_last_status_check CHECK (((last_status IS NULL) OR (last_status = ANY (ARRAY['created'::text, 'skipped'::text, 'failed'::text, 'ready'::text, 'disabled'::text])))),
+    CONSTRAINT dataset_work_table_export_schedules_month_day_check CHECK (((month_day IS NULL) OR ((month_day >= 1) AND (month_day <= 28)))),
+    CONSTRAINT dataset_work_table_export_schedules_retention_days_check CHECK (((retention_days >= 1) AND (retention_days <= 365))),
+    CONSTRAINT dataset_work_table_export_schedules_run_time_check CHECK ((run_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'::text)),
+    CONSTRAINT dataset_work_table_export_schedules_weekday_check CHECK (((weekday IS NULL) OR ((weekday >= 1) AND (weekday <= 7))))
+);
+
+
+--
+-- Name: dataset_work_table_export_schedules_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_work_table_export_schedules ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_work_table_export_schedules_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: dataset_work_table_exports; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -333,6 +383,8 @@ CREATE TABLE public.dataset_work_table_exports (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
     deleted_at timestamp with time zone,
+    schedule_id bigint,
+    scheduled_for timestamp with time zone,
     CONSTRAINT dataset_work_table_exports_format_check CHECK ((format = ANY (ARRAY['csv'::text, 'json'::text, 'parquet'::text]))),
     CONSTRAINT dataset_work_table_exports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'ready'::text, 'failed'::text, 'deleted'::text])))
 );
@@ -4054,6 +4106,22 @@ ALTER TABLE ONLY public.dataset_query_jobs
 
 
 --
+-- Name: dataset_work_table_export_schedules dataset_work_table_export_schedules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_export_schedules
+    ADD CONSTRAINT dataset_work_table_export_schedules_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_work_table_export_schedules dataset_work_table_export_schedules_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_export_schedules
+    ADD CONSTRAINT dataset_work_table_export_schedules_public_id_key UNIQUE (public_id);
+
+
+--
 -- Name: dataset_work_table_exports dataset_work_table_exports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5187,6 +5255,27 @@ CREATE INDEX dataset_query_jobs_tenant_dataset_created_idx ON public.dataset_que
 
 
 --
+-- Name: dataset_work_table_export_schedules_due_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_work_table_export_schedules_due_idx ON public.dataset_work_table_export_schedules USING btree (next_run_at, id) WHERE enabled;
+
+
+--
+-- Name: dataset_work_table_export_schedules_tenant_enabled_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_work_table_export_schedules_tenant_enabled_idx ON public.dataset_work_table_export_schedules USING btree (tenant_id, enabled, next_run_at);
+
+
+--
+-- Name: dataset_work_table_export_schedules_work_table_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_work_table_export_schedules_work_table_created_idx ON public.dataset_work_table_export_schedules USING btree (work_table_id, created_at DESC, id DESC);
+
+
+--
 -- Name: dataset_work_table_exports_pending_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5198,6 +5287,13 @@ CREATE INDEX dataset_work_table_exports_pending_idx ON public.dataset_work_table
 --
 
 CREATE UNIQUE INDEX dataset_work_table_exports_public_id_key ON public.dataset_work_table_exports USING btree (public_id);
+
+
+--
+-- Name: dataset_work_table_exports_schedule_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_work_table_exports_schedule_created_idx ON public.dataset_work_table_exports USING btree (schedule_id, created_at DESC, id DESC) WHERE (schedule_id IS NOT NULL);
 
 
 --
@@ -6643,6 +6739,38 @@ ALTER TABLE ONLY public.dataset_query_jobs
 
 
 --
+-- Name: dataset_work_table_export_schedules dataset_work_table_export_schedules_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_export_schedules
+    ADD CONSTRAINT dataset_work_table_export_schedules_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_work_table_export_schedules dataset_work_table_export_schedules_last_export_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_export_schedules
+    ADD CONSTRAINT dataset_work_table_export_schedules_last_export_id_fkey FOREIGN KEY (last_export_id) REFERENCES public.dataset_work_table_exports(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_work_table_export_schedules dataset_work_table_export_schedules_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_export_schedules
+    ADD CONSTRAINT dataset_work_table_export_schedules_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_work_table_export_schedules dataset_work_table_export_schedules_work_table_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_export_schedules
+    ADD CONSTRAINT dataset_work_table_export_schedules_work_table_id_fkey FOREIGN KEY (work_table_id) REFERENCES public.dataset_work_tables(id) ON DELETE CASCADE;
+
+
+--
 -- Name: dataset_work_table_exports dataset_work_table_exports_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6664,6 +6792,14 @@ ALTER TABLE ONLY public.dataset_work_table_exports
 
 ALTER TABLE ONLY public.dataset_work_table_exports
     ADD CONSTRAINT dataset_work_table_exports_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_work_table_exports dataset_work_table_exports_schedule_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_exports
+    ADD CONSTRAINT dataset_work_table_exports_schedule_id_fkey FOREIGN KEY (schedule_id) REFERENCES public.dataset_work_table_export_schedules(id) ON DELETE SET NULL;
 
 
 --

@@ -596,6 +596,12 @@ export type DatasetWorkTableExportBody = {
      * client や URL path で参照する public UUID です。
      */
     publicId: string;
+    schedulePublicId?: string;
+    scheduledFor?: string;
+    /**
+     * record の発生元または permission の由来です。
+     */
+    source: 'manual' | 'scheduled';
     /**
      * 現在の lifecycle status です。
      */
@@ -621,6 +627,75 @@ export type DatasetWorkTableExportListBody = {
      */
     readonly $schema?: string;
     items: Array<DatasetWorkTableExportBody> | null;
+};
+
+export type DatasetWorkTableExportScheduleBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    enabled: boolean;
+    format: 'csv' | 'json' | 'parquet';
+    frequency: 'daily' | 'weekly' | 'monthly';
+    lastErrorSummary?: string;
+    lastRunAt?: string;
+    lastStatus?: string;
+    monthDay?: number;
+    nextRunAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    retentionDays: number;
+    runTime: string;
+    timezone: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+    weekday?: number;
+    workTableId: number;
+};
+
+export type DatasetWorkTableExportScheduleCreateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    format?: 'csv' | 'json' | 'parquet';
+    frequency?: 'daily' | 'weekly' | 'monthly';
+    monthDay?: number;
+    retentionDays?: number;
+    runTime?: string;
+    timezone?: string;
+    weekday?: number;
+};
+
+export type DatasetWorkTableExportScheduleListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetWorkTableExportScheduleBody> | null;
+};
+
+export type DatasetWorkTableExportScheduleUpdateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    enabled?: boolean;
+    format?: 'csv' | 'json' | 'parquet';
+    frequency?: 'daily' | 'weekly' | 'monthly';
+    monthDay?: number;
+    retentionDays?: number;
+    runTime?: string;
+    timezone?: string;
+    weekday?: number;
 };
 
 export type DatasetWorkTableLinkBody = {
@@ -3704,6 +3779,12 @@ export type DatasetWorkTableExportBodyWritable = {
      * client や URL path で参照する public UUID です。
      */
     publicId: string;
+    schedulePublicId?: string;
+    scheduledFor?: string;
+    /**
+     * record の発生元または permission の由来です。
+     */
+    source: 'manual' | 'scheduled';
     /**
      * 現在の lifecycle status です。
      */
@@ -3721,6 +3802,59 @@ export type DatasetWorkTableExportCreateBodyWritable = {
 
 export type DatasetWorkTableExportListBodyWritable = {
     items: Array<DatasetWorkTableExportBodyWritable> | null;
+};
+
+export type DatasetWorkTableExportScheduleBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    enabled: boolean;
+    format: 'csv' | 'json' | 'parquet';
+    frequency: 'daily' | 'weekly' | 'monthly';
+    lastErrorSummary?: string;
+    lastRunAt?: string;
+    lastStatus?: string;
+    monthDay?: number;
+    nextRunAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    retentionDays: number;
+    runTime: string;
+    timezone: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+    weekday?: number;
+    workTableId: number;
+};
+
+export type DatasetWorkTableExportScheduleCreateBodyWritable = {
+    format?: 'csv' | 'json' | 'parquet';
+    frequency?: 'daily' | 'weekly' | 'monthly';
+    monthDay?: number;
+    retentionDays?: number;
+    runTime?: string;
+    timezone?: string;
+    weekday?: number;
+};
+
+export type DatasetWorkTableExportScheduleListBodyWritable = {
+    items: Array<DatasetWorkTableExportScheduleBodyWritable> | null;
+};
+
+export type DatasetWorkTableExportScheduleUpdateBodyWritable = {
+    enabled?: boolean;
+    format?: 'csv' | 'json' | 'parquet';
+    frequency?: 'daily' | 'weekly' | 'monthly';
+    monthDay?: number;
+    retentionDays?: number;
+    runTime?: string;
+    timezone?: string;
+    weekday?: number;
 };
 
 export type DatasetWorkTableLinkBodyWritable = {
@@ -8642,6 +8776,81 @@ export type ListDatasetSourceFilesResponses = {
 
 export type ListDatasetSourceFilesResponse = ListDatasetSourceFilesResponses[keyof ListDatasetSourceFilesResponses];
 
+export type UpdateDatasetWorkTableExportScheduleData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DatasetWorkTableExportScheduleUpdateBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `schedulePublicId` を指定します。
+         */
+        schedulePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-table-export-schedules/{schedulePublicId}';
+};
+
+export type UpdateDatasetWorkTableExportScheduleErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type UpdateDatasetWorkTableExportScheduleError = UpdateDatasetWorkTableExportScheduleErrors[keyof UpdateDatasetWorkTableExportScheduleErrors];
+
+export type UpdateDatasetWorkTableExportScheduleResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetWorkTableExportScheduleBody;
+};
+
+export type UpdateDatasetWorkTableExportScheduleResponse = UpdateDatasetWorkTableExportScheduleResponses[keyof UpdateDatasetWorkTableExportScheduleResponses];
+
+export type DisableDatasetWorkTableExportScheduleData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `schedulePublicId` を指定します。
+         */
+        schedulePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-table-export-schedules/{schedulePublicId}/disable';
+};
+
+export type DisableDatasetWorkTableExportScheduleErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type DisableDatasetWorkTableExportScheduleError = DisableDatasetWorkTableExportScheduleErrors[keyof DisableDatasetWorkTableExportScheduleErrors];
+
+export type DisableDatasetWorkTableExportScheduleResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetWorkTableExportScheduleBody;
+};
+
+export type DisableDatasetWorkTableExportScheduleResponse = DisableDatasetWorkTableExportScheduleResponses[keyof DisableDatasetWorkTableExportScheduleResponses];
+
 export type GetDatasetWorkTableExportData = {
     body?: never;
     path: {
@@ -8904,6 +9113,75 @@ export type GetManagedDatasetWorkTableResponses = {
 };
 
 export type GetManagedDatasetWorkTableResponse = GetManagedDatasetWorkTableResponses[keyof GetManagedDatasetWorkTableResponses];
+
+export type ListDatasetWorkTableExportSchedulesData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
+        workTablePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/export-schedules';
+};
+
+export type ListDatasetWorkTableExportSchedulesErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetWorkTableExportSchedulesError = ListDatasetWorkTableExportSchedulesErrors[keyof ListDatasetWorkTableExportSchedulesErrors];
+
+export type ListDatasetWorkTableExportSchedulesResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetWorkTableExportScheduleListBody;
+};
+
+export type ListDatasetWorkTableExportSchedulesResponse = ListDatasetWorkTableExportSchedulesResponses[keyof ListDatasetWorkTableExportSchedulesResponses];
+
+export type CreateDatasetWorkTableExportScheduleData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DatasetWorkTableExportScheduleCreateBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
+        workTablePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/export-schedules';
+};
+
+export type CreateDatasetWorkTableExportScheduleErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type CreateDatasetWorkTableExportScheduleError = CreateDatasetWorkTableExportScheduleErrors[keyof CreateDatasetWorkTableExportScheduleErrors];
+
+export type CreateDatasetWorkTableExportScheduleResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetWorkTableExportScheduleBody;
+};
+
+export type CreateDatasetWorkTableExportScheduleResponse = CreateDatasetWorkTableExportScheduleResponses[keyof CreateDatasetWorkTableExportScheduleResponses];
 
 export type ListDatasetWorkTableExportsData = {
     body?: never;

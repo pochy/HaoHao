@@ -21,6 +21,7 @@ type fakeLifecycleQueries struct {
 	deletedReadNotifications int64
 	deletedRealtimeEvents    int64
 	expiredTenantDataExports int64
+	expiredWorkTableExports  int64
 }
 
 func (q fakeLifecycleQueries) DeleteExpiredIdempotencyKeys(context.Context) (int64, error) {
@@ -45,6 +46,10 @@ func (q fakeLifecycleQueries) DeleteExpiredRealtimeEvents(context.Context) (int6
 
 func (q fakeLifecycleQueries) SoftDeleteExpiredTenantDataExports(context.Context) (int64, error) {
 	return q.expiredTenantDataExports, nil
+}
+
+func (q fakeLifecycleQueries) SoftDeleteExpiredDatasetWorkTableExports(context.Context) (int64, error) {
+	return q.expiredWorkTableExports, nil
 }
 
 type fakeDeletedFilePurger struct {

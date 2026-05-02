@@ -22,6 +22,7 @@ type dataLifecycleQueries interface {
 	DeleteReadNotificationsBefore(context.Context, pgtype.Timestamptz) (int64, error)
 	DeleteExpiredRealtimeEvents(context.Context) (int64, error)
 	SoftDeleteExpiredTenantDataExports(context.Context) (int64, error)
+	SoftDeleteExpiredDatasetWorkTableExports(context.Context) (int64, error)
 }
 
 var _ dataLifecycleQueries = (*db.Queries)(nil)
@@ -58,15 +59,16 @@ type DataLifecycleJob struct {
 }
 
 type dataLifecycleRunSummary struct {
-	ExpiredIDKeysDeleted     int64
-	TenantInvitationsExpired int64
-	ProcessedOutboxDeleted   int64
-	ReadNotificationsDeleted int64
-	RealtimeEventsDeleted    int64
-	TenantDataExportsExpired int64
-	FileBodiesClaimed        int64
-	FileBodiesPurged         int64
-	FileBodyPurgeFailed      int64
+	ExpiredIDKeysDeleted           int64
+	TenantInvitationsExpired       int64
+	ProcessedOutboxDeleted         int64
+	ReadNotificationsDeleted       int64
+	RealtimeEventsDeleted          int64
+	TenantDataExportsExpired       int64
+	DatasetWorkTableExportsExpired int64
+	FileBodiesClaimed              int64
+	FileBodiesPurged               int64
+	FileBodyPurgeFailed            int64
 }
 
 func (s dataLifecycleRunSummary) changed() bool {
@@ -76,6 +78,7 @@ func (s dataLifecycleRunSummary) changed() bool {
 		s.ReadNotificationsDeleted > 0 ||
 		s.RealtimeEventsDeleted > 0 ||
 		s.TenantDataExportsExpired > 0 ||
+		s.DatasetWorkTableExportsExpired > 0 ||
 		s.FileBodiesClaimed > 0 ||
 		s.FileBodiesPurged > 0 ||
 		s.FileBodyPurgeFailed > 0
@@ -89,6 +92,7 @@ func (s dataLifecycleRunSummary) attrs() []any {
 		"read_notifications_deleted", s.ReadNotificationsDeleted,
 		"realtime_events_deleted", s.RealtimeEventsDeleted,
 		"tenant_data_exports_expired", s.TenantDataExportsExpired,
+		"dataset_work_table_exports_expired", s.DatasetWorkTableExportsExpired,
 		"file_bodies_claimed", s.FileBodiesClaimed,
 		"file_bodies_purged", s.FileBodiesPurged,
 		"file_body_purge_failed", s.FileBodyPurgeFailed,
@@ -237,6 +241,13 @@ func (j *DataLifecycleJob) runOnceWithSummary(ctx context.Context) (dataLifecycl
 	}
 	summary.TenantDataExportsExpired = expiredExports
 	j.addItems("tenant_data_exports", expiredExports)
+
+	expiredWorkTableExports, err := j.queries.SoftDeleteExpiredDatasetWorkTableExports(ctx)
+	if err != nil {
+		return summary, fmt.Errorf("soft delete expired dataset work table exports: %w", err)
+	}
+	summary.DatasetWorkTableExportsExpired = expiredWorkTableExports
+	j.addItems("dataset_work_table_exports", expiredWorkTableExports)
 
 	return summary, nil
 }

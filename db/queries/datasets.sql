@@ -361,9 +361,11 @@ INSERT INTO dataset_work_table_exports (
     work_table_id,
     requested_by_user_id,
     format,
-    expires_at
+    expires_at,
+    schedule_id,
+    scheduled_for
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, sqlc.narg(schedule_id), sqlc.narg(scheduled_for)
 )
 RETURNING *;
 
@@ -418,4 +420,143 @@ SET
     error_summary = left($2, 1000),
     updated_at = now()
 WHERE id = $1
+RETURNING *;
+
+-- name: SoftDeleteExpiredDatasetWorkTableExports :execrows
+UPDATE dataset_work_table_exports
+SET
+    status = 'deleted',
+    deleted_at = COALESCE(deleted_at, now()),
+    updated_at = now()
+WHERE expires_at <= now()
+  AND deleted_at IS NULL
+  AND status IN ('ready', 'failed');
+
+-- name: CreateDatasetWorkTableExportSchedule :one
+INSERT INTO dataset_work_table_export_schedules (
+    tenant_id,
+    work_table_id,
+    created_by_user_id,
+    format,
+    frequency,
+    timezone,
+    run_time,
+    weekday,
+    month_day,
+    retention_days,
+    enabled,
+    next_run_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, sqlc.narg(weekday), sqlc.narg(month_day), $8, $9, $10
+)
+RETURNING *;
+
+-- name: ListDatasetWorkTableExportSchedules :many
+SELECT *
+FROM dataset_work_table_export_schedules
+WHERE tenant_id = $1
+  AND work_table_id = $2
+ORDER BY created_at DESC, id DESC;
+
+-- name: GetDatasetWorkTableExportScheduleForTenant :one
+SELECT *
+FROM dataset_work_table_export_schedules
+WHERE public_id = $1
+  AND tenant_id = $2
+LIMIT 1;
+
+-- name: GetDatasetWorkTableExportScheduleByIDForTenant :one
+SELECT *
+FROM dataset_work_table_export_schedules
+WHERE id = $1
+  AND tenant_id = $2
+LIMIT 1;
+
+-- name: UpdateDatasetWorkTableExportSchedule :one
+UPDATE dataset_work_table_export_schedules
+SET
+    format = $3,
+    frequency = $4,
+    timezone = $5,
+    run_time = $6,
+    weekday = sqlc.narg(weekday),
+    month_day = sqlc.narg(month_day),
+    retention_days = $7,
+    enabled = $8,
+    next_run_at = $9,
+    updated_at = now()
+WHERE public_id = $1
+  AND tenant_id = $2
+RETURNING *;
+
+-- name: DisableDatasetWorkTableExportSchedule :one
+UPDATE dataset_work_table_export_schedules
+SET
+    enabled = false,
+    last_status = 'disabled',
+    last_error_summary = NULL,
+    updated_at = now()
+WHERE public_id = $1
+  AND tenant_id = $2
+RETURNING *;
+
+-- name: ClaimDueDatasetWorkTableExportSchedules :many
+SELECT *
+FROM dataset_work_table_export_schedules
+WHERE enabled
+  AND next_run_at <= sqlc.arg(now)::timestamptz
+ORDER BY next_run_at, id
+LIMIT sqlc.arg(batch_limit)
+FOR UPDATE SKIP LOCKED;
+
+-- name: CountActiveDatasetWorkTableExportsForSchedule :one
+SELECT count(*)::bigint
+FROM dataset_work_table_exports
+WHERE schedule_id = $1
+  AND deleted_at IS NULL
+  AND status IN ('pending', 'processing');
+
+-- name: MarkDatasetWorkTableExportScheduleCreated :one
+UPDATE dataset_work_table_export_schedules
+SET
+    last_run_at = sqlc.arg(last_run_at),
+    last_status = 'created',
+    last_error_summary = NULL,
+    last_export_id = sqlc.arg(last_export_id),
+    next_run_at = sqlc.arg(next_run_at),
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: MarkDatasetWorkTableExportScheduleSkipped :one
+UPDATE dataset_work_table_export_schedules
+SET
+    last_run_at = sqlc.arg(last_run_at),
+    last_status = 'skipped',
+    last_error_summary = left(sqlc.arg(error_summary), 1000),
+    next_run_at = sqlc.arg(next_run_at),
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: MarkDatasetWorkTableExportScheduleFailed :one
+UPDATE dataset_work_table_export_schedules
+SET
+    enabled = sqlc.arg(enabled),
+    last_run_at = sqlc.arg(last_run_at),
+    last_status = sqlc.arg(last_status),
+    last_error_summary = left(sqlc.arg(error_summary), 1000),
+    next_run_at = sqlc.arg(next_run_at),
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: MarkDatasetWorkTableExportScheduleExportStatus :one
+UPDATE dataset_work_table_export_schedules
+SET
+    last_status = sqlc.arg(last_status),
+    last_error_summary = NULLIF(left(sqlc.arg(error_summary), 1000), ''),
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+  AND last_export_id = sqlc.arg(last_export_id)
 RETURNING *;

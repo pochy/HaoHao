@@ -40,6 +40,13 @@ const (
 	datasetWorkTableExportFormatCSV     = "csv"
 	datasetWorkTableExportFormatJSON    = "json"
 	datasetWorkTableExportFormatParquet = "parquet"
+
+	datasetWorkTableExportSourceManual    = "manual"
+	datasetWorkTableExportSourceScheduled = "scheduled"
+
+	datasetWorkTableExportFrequencyDaily   = "daily"
+	datasetWorkTableExportFrequencyWeekly  = "weekly"
+	datasetWorkTableExportFrequencyMonthly = "monthly"
 )
 
 type datasetWorkTableExportFormatSpec struct {
@@ -48,17 +55,18 @@ type datasetWorkTableExportFormatSpec struct {
 }
 
 var (
-	ErrDatasetNotFound                = errors.New("dataset not found")
-	ErrDatasetQueryNotFound           = errors.New("dataset query not found")
-	ErrDatasetWorkTableNotFound       = errors.New("dataset work table not found")
-	ErrDatasetWorkTableExportNotFound = errors.New("dataset work table export not found")
-	ErrDatasetWorkTableExportNotReady = errors.New("dataset work table export is not ready")
-	ErrInvalidDatasetInput            = errors.New("invalid dataset input")
-	ErrUnsafeDatasetSQL               = errors.New("unsafe dataset SQL")
-	ErrDatasetClickHouseNotReady      = errors.New("clickhouse is not configured")
-	datasetExternalFunctionPattern    = regexp.MustCompile(`(?i)\b(file|url|s3|s3cluster|hdfs|hdfscluster|postgresql|mysql|mongodb|jdbc|odbc|remote|cluster)\s*\(`)
-	datasetTenantDBPattern            = regexp.MustCompile(`(?i)\bhh_t_([0-9]+)_(raw|work)\b`)
-	datasetBlockedDBPattern           = regexp.MustCompile(`(?i)\b(system|information_schema|default)\s*\.`)
+	ErrDatasetNotFound                        = errors.New("dataset not found")
+	ErrDatasetQueryNotFound                   = errors.New("dataset query not found")
+	ErrDatasetWorkTableNotFound               = errors.New("dataset work table not found")
+	ErrDatasetWorkTableExportNotFound         = errors.New("dataset work table export not found")
+	ErrDatasetWorkTableExportNotReady         = errors.New("dataset work table export is not ready")
+	ErrDatasetWorkTableExportScheduleNotFound = errors.New("dataset work table export schedule not found")
+	ErrInvalidDatasetInput                    = errors.New("invalid dataset input")
+	ErrUnsafeDatasetSQL                       = errors.New("unsafe dataset SQL")
+	ErrDatasetClickHouseNotReady              = errors.New("clickhouse is not configured")
+	datasetExternalFunctionPattern            = regexp.MustCompile(`(?i)\b(file|url|s3|s3cluster|hdfs|hdfscluster|postgresql|mysql|mongodb|jdbc|odbc|remote|cluster)\s*\(`)
+	datasetTenantDBPattern                    = regexp.MustCompile(`(?i)\bhh_t_([0-9]+)_(raw|work)\b`)
+	datasetBlockedDBPattern                   = regexp.MustCompile(`(?i)\b(system|information_schema|default)\s*\.`)
 )
 
 type DatasetClickHouseConfig struct {
@@ -177,18 +185,64 @@ type DatasetWorkTablePreview struct {
 }
 
 type DatasetWorkTableExport struct {
-	ID           int64
-	PublicID     string
-	TenantID     int64
-	WorkTableID  int64
-	Format       string
-	Status       string
-	ErrorSummary string
-	FileObjectID *int64
-	ExpiresAt    time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	CompletedAt  *time.Time
+	ID               int64
+	PublicID         string
+	TenantID         int64
+	WorkTableID      int64
+	Format           string
+	Status           string
+	Source           string
+	ScheduleID       *int64
+	SchedulePublicID string
+	ScheduledFor     *time.Time
+	ErrorSummary     string
+	FileObjectID     *int64
+	ExpiresAt        time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	CompletedAt      *time.Time
+}
+
+type DatasetWorkTableExportSchedule struct {
+	ID               int64
+	PublicID         string
+	TenantID         int64
+	WorkTableID      int64
+	CreatedByUserID  *int64
+	Format           string
+	Frequency        string
+	Timezone         string
+	RunTime          string
+	Weekday          *int32
+	MonthDay         *int32
+	RetentionDays    int32
+	Enabled          bool
+	NextRunAt        time.Time
+	LastRunAt        *time.Time
+	LastStatus       string
+	LastErrorSummary string
+	LastExportID     *int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type DatasetWorkTableExportScheduleInput struct {
+	Format        string
+	Frequency     string
+	Timezone      string
+	RunTime       string
+	Weekday       *int32
+	MonthDay      *int32
+	RetentionDays int32
+	Enabled       *bool
+}
+
+type WorkTableExportScheduleRunSummary struct {
+	Claimed  int
+	Created  int
+	Skipped  int
+	Failed   int
+	Disabled int
 }
 
 type datasetWorkTableRef struct {
@@ -1407,35 +1461,9 @@ func (s *DatasetService) CreateWorkTableExport(ctx context.Context, tenantID, us
 		_ = tx.Rollback(context.Background())
 	}()
 	qtx := s.queries.WithTx(tx)
-	export, err := qtx.CreateDatasetWorkTableExport(ctx, db.CreateDatasetWorkTableExportParams{
-		TenantID:          tenantID,
-		WorkTableID:       row.ID,
-		RequestedByUserID: pgtype.Int8{Int64: userID, Valid: userID > 0},
-		Format:            format,
-		ExpiresAt:         pgTimestamp(time.Now().Add(7 * 24 * time.Hour)),
-	})
-	if err != nil {
-		return DatasetWorkTableExport{}, fmt.Errorf("create work table export: %w", err)
-	}
-	event, err := s.outbox.EnqueueWithQueries(ctx, qtx, OutboxEventInput{
-		TenantID:      &tenantID,
-		AggregateType: "dataset_work_table_export",
-		AggregateID:   export.PublicID.String(),
-		EventType:     "dataset.work_table_export_requested",
-		Payload: map[string]any{
-			"tenantId": tenantID,
-			"exportId": export.ID,
-		},
-	})
+	export, err := s.createWorkTableExportWithQueries(ctx, qtx, tenantID, row, userID, format, time.Now().Add(7*24*time.Hour), nil, nil)
 	if err != nil {
 		return DatasetWorkTableExport{}, err
-	}
-	export, err = qtx.MarkDatasetWorkTableExportProcessing(ctx, db.MarkDatasetWorkTableExportProcessingParams{
-		ID:            export.ID,
-		OutboxEventID: pgtype.Int8{Int64: event.ID, Valid: true},
-	})
-	if err != nil {
-		return DatasetWorkTableExport{}, fmt.Errorf("mark work table export processing: %w", err)
 	}
 	if s.audit != nil {
 		if err := s.audit.RecordWithQueries(ctx, qtx, AuditEventInput{
@@ -1458,6 +1486,369 @@ func (s *DatasetService) CreateWorkTableExport(ctx context.Context, tenantID, us
 	return datasetWorkTableExportFromDB(export), nil
 }
 
+func (s *DatasetService) createWorkTableExportWithQueries(ctx context.Context, qtx *db.Queries, tenantID int64, row db.DatasetWorkTable, userID int64, format string, expiresAt time.Time, scheduleID *int64, scheduledFor *time.Time) (db.DatasetWorkTableExport, error) {
+	export, err := qtx.CreateDatasetWorkTableExport(ctx, db.CreateDatasetWorkTableExportParams{
+		TenantID:          tenantID,
+		WorkTableID:       row.ID,
+		RequestedByUserID: pgtype.Int8{Int64: userID, Valid: userID > 0},
+		Format:            format,
+		ExpiresAt:         pgTimestamp(expiresAt),
+		ScheduleID:        pgInt8(scheduleID),
+		ScheduledFor:      pgTimestampPtr(scheduledFor),
+	})
+	if err != nil {
+		return db.DatasetWorkTableExport{}, fmt.Errorf("create work table export: %w", err)
+	}
+	event, err := s.outbox.EnqueueWithQueries(ctx, qtx, OutboxEventInput{
+		TenantID:      &tenantID,
+		AggregateType: "dataset_work_table_export",
+		AggregateID:   export.PublicID.String(),
+		EventType:     "dataset.work_table_export_requested",
+		Payload: map[string]any{
+			"tenantId": tenantID,
+			"exportId": export.ID,
+		},
+	})
+	if err != nil {
+		return db.DatasetWorkTableExport{}, err
+	}
+	export, err = qtx.MarkDatasetWorkTableExportProcessing(ctx, db.MarkDatasetWorkTableExportProcessingParams{
+		ID:            export.ID,
+		OutboxEventID: pgtype.Int8{Int64: event.ID, Valid: true},
+	})
+	if err != nil {
+		return db.DatasetWorkTableExport{}, fmt.Errorf("mark work table export processing: %w", err)
+	}
+	return export, nil
+}
+
+func (s *DatasetService) ListWorkTableExportSchedules(ctx context.Context, tenantID int64, publicID string) ([]DatasetWorkTableExportSchedule, error) {
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.queries.ListDatasetWorkTableExportSchedules(ctx, db.ListDatasetWorkTableExportSchedulesParams{
+		TenantID:    tenantID,
+		WorkTableID: row.ID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list work table export schedules: %w", err)
+	}
+	items := make([]DatasetWorkTableExportSchedule, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, datasetWorkTableExportScheduleFromDB(row))
+	}
+	return items, nil
+}
+
+func (s *DatasetService) CreateWorkTableExportSchedule(ctx context.Context, tenantID, userID int64, workTablePublicID string, input DatasetWorkTableExportScheduleInput, auditCtx AuditContext) (DatasetWorkTableExportSchedule, error) {
+	if s == nil || s.pool == nil || s.queries == nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("dataset service is not configured")
+	}
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, workTablePublicID)
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, err
+	}
+	if row.Status != "active" || row.DroppedAt.Valid {
+		return DatasetWorkTableExportSchedule{}, ErrDatasetWorkTableNotFound
+	}
+	normalized, nextRun, err := normalizeWorkTableExportScheduleInput(input, time.Now(), nil)
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, err
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("begin work table export schedule transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+	qtx := s.queries.WithTx(tx)
+	schedule, err := qtx.CreateDatasetWorkTableExportSchedule(ctx, db.CreateDatasetWorkTableExportScheduleParams{
+		TenantID:        tenantID,
+		WorkTableID:     row.ID,
+		CreatedByUserID: pgtype.Int8{Int64: userID, Valid: userID > 0},
+		Format:          normalized.Format,
+		Frequency:       normalized.Frequency,
+		Timezone:        normalized.Timezone,
+		RunTime:         normalized.RunTime,
+		RetentionDays:   normalized.RetentionDays,
+		Enabled:         normalized.Enabled == nil || *normalized.Enabled,
+		NextRunAt:       pgTimestamp(nextRun),
+		Weekday:         pgInt2(normalized.Weekday),
+		MonthDay:        pgInt2(normalized.MonthDay),
+	})
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("create work table export schedule: %w", err)
+	}
+	if s.audit != nil {
+		if err := s.audit.RecordWithQueries(ctx, qtx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset_work_table_export_schedule.create",
+			TargetType:   "dataset_work_table",
+			TargetID:     row.PublicID.String(),
+			Metadata: map[string]any{
+				"schedule":  schedule.PublicID.String(),
+				"format":    schedule.Format,
+				"frequency": schedule.Frequency,
+			},
+		}); err != nil {
+			return DatasetWorkTableExportSchedule{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("commit work table export schedule transaction: %w", err)
+	}
+	return datasetWorkTableExportScheduleFromDB(schedule), nil
+}
+
+func (s *DatasetService) UpdateWorkTableExportSchedule(ctx context.Context, tenantID, userID int64, schedulePublicID string, input DatasetWorkTableExportScheduleInput, auditCtx AuditContext) (DatasetWorkTableExportSchedule, error) {
+	if s == nil || s.pool == nil || s.queries == nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("dataset service is not configured")
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(schedulePublicID))
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, ErrDatasetWorkTableExportScheduleNotFound
+	}
+	existing, err := s.queries.GetDatasetWorkTableExportScheduleForTenant(ctx, db.GetDatasetWorkTableExportScheduleForTenantParams{PublicID: parsed, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DatasetWorkTableExportSchedule{}, ErrDatasetWorkTableExportScheduleNotFound
+	}
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("get work table export schedule: %w", err)
+	}
+	merged := mergeWorkTableExportScheduleInput(existing, input)
+	normalized, nextRun, err := normalizeWorkTableExportScheduleInput(merged, time.Now(), &existing)
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, err
+	}
+	enabled := existing.Enabled
+	if normalized.Enabled != nil {
+		enabled = *normalized.Enabled
+	}
+	if enabled {
+		workTable, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: existing.WorkTableID, TenantID: tenantID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DatasetWorkTableExportSchedule{}, ErrDatasetWorkTableNotFound
+		}
+		if err != nil {
+			return DatasetWorkTableExportSchedule{}, fmt.Errorf("get schedule work table: %w", err)
+		}
+		if workTable.Status != "active" || workTable.DroppedAt.Valid {
+			return DatasetWorkTableExportSchedule{}, ErrDatasetWorkTableNotFound
+		}
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("begin work table export schedule update transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+	qtx := s.queries.WithTx(tx)
+	schedule, err := qtx.UpdateDatasetWorkTableExportSchedule(ctx, db.UpdateDatasetWorkTableExportScheduleParams{
+		PublicID:      parsed,
+		TenantID:      tenantID,
+		Format:        normalized.Format,
+		Frequency:     normalized.Frequency,
+		Timezone:      normalized.Timezone,
+		RunTime:       normalized.RunTime,
+		RetentionDays: normalized.RetentionDays,
+		Enabled:       enabled,
+		NextRunAt:     pgTimestamp(nextRun),
+		Weekday:       pgInt2(normalized.Weekday),
+		MonthDay:      pgInt2(normalized.MonthDay),
+	})
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("update work table export schedule: %w", err)
+	}
+	if s.audit != nil {
+		if err := s.audit.RecordWithQueries(ctx, qtx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset_work_table_export_schedule.update",
+			TargetType:   "dataset_work_table_export_schedule",
+			TargetID:     schedule.PublicID.String(),
+			Metadata: map[string]any{
+				"format":    schedule.Format,
+				"frequency": schedule.Frequency,
+				"enabled":   schedule.Enabled,
+			},
+		}); err != nil {
+			return DatasetWorkTableExportSchedule{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("commit work table export schedule update transaction: %w", err)
+	}
+	return datasetWorkTableExportScheduleFromDB(schedule), nil
+}
+
+func (s *DatasetService) DisableWorkTableExportSchedule(ctx context.Context, tenantID, userID int64, schedulePublicID string, auditCtx AuditContext) (DatasetWorkTableExportSchedule, error) {
+	if s == nil || s.pool == nil || s.queries == nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("dataset service is not configured")
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(schedulePublicID))
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, ErrDatasetWorkTableExportScheduleNotFound
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("begin work table export schedule disable transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+	qtx := s.queries.WithTx(tx)
+	schedule, err := qtx.DisableDatasetWorkTableExportSchedule(ctx, db.DisableDatasetWorkTableExportScheduleParams{PublicID: parsed, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DatasetWorkTableExportSchedule{}, ErrDatasetWorkTableExportScheduleNotFound
+	}
+	if err != nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("disable work table export schedule: %w", err)
+	}
+	if s.audit != nil {
+		if err := s.audit.RecordWithQueries(ctx, qtx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset_work_table_export_schedule.disable",
+			TargetType:   "dataset_work_table_export_schedule",
+			TargetID:     schedule.PublicID.String(),
+			Metadata: map[string]any{
+				"actorUserId": userID,
+			},
+		}); err != nil {
+			return DatasetWorkTableExportSchedule{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return DatasetWorkTableExportSchedule{}, fmt.Errorf("commit work table export schedule disable transaction: %w", err)
+	}
+	return datasetWorkTableExportScheduleFromDB(schedule), nil
+}
+
+func (s *DatasetService) RunDueWorkTableExportSchedules(ctx context.Context, now time.Time, batchSize int32) (WorkTableExportScheduleRunSummary, error) {
+	var summary WorkTableExportScheduleRunSummary
+	if s == nil || s.pool == nil || s.queries == nil || s.outbox == nil {
+		return summary, fmt.Errorf("dataset service is not configured")
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	if batchSize <= 0 {
+		batchSize = 20
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return summary, fmt.Errorf("begin work table export schedule run transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+	qtx := s.queries.WithTx(tx)
+	schedules, err := qtx.ClaimDueDatasetWorkTableExportSchedules(ctx, db.ClaimDueDatasetWorkTableExportSchedulesParams{
+		Now:        pgTimestamp(now),
+		BatchLimit: batchSize,
+	})
+	if err != nil {
+		return summary, fmt.Errorf("claim due work table export schedules: %w", err)
+	}
+	summary.Claimed = len(schedules)
+	createdExports := make([]db.DatasetWorkTableExport, 0, len(schedules))
+	for _, schedule := range schedules {
+		nextRun, err := nextWorkTableExportScheduleRunAfter(schedule.Frequency, schedule.Timezone, schedule.RunTime, optionalPgInt2(schedule.Weekday), optionalPgInt2(schedule.MonthDay), now)
+		if err != nil {
+			_, markErr := qtx.MarkDatasetWorkTableExportScheduleFailed(ctx, db.MarkDatasetWorkTableExportScheduleFailedParams{
+				Enabled:      false,
+				LastRunAt:    pgTimestamp(now),
+				LastStatus:   pgText("disabled"),
+				ErrorSummary: err.Error(),
+				NextRunAt:    schedule.NextRunAt,
+				ID:           schedule.ID,
+			})
+			if markErr != nil {
+				return summary, fmt.Errorf("disable invalid work table export schedule: %w", markErr)
+			}
+			summary.Failed++
+			summary.Disabled++
+			continue
+		}
+		workTable, err := qtx.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: schedule.WorkTableID, TenantID: schedule.TenantID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			_, markErr := qtx.MarkDatasetWorkTableExportScheduleFailed(ctx, db.MarkDatasetWorkTableExportScheduleFailedParams{
+				Enabled:      false,
+				LastRunAt:    pgTimestamp(now),
+				LastStatus:   pgText("disabled"),
+				ErrorSummary: ErrDatasetWorkTableNotFound.Error(),
+				NextRunAt:    pgTimestamp(nextRun),
+				ID:           schedule.ID,
+			})
+			if markErr != nil {
+				return summary, fmt.Errorf("disable inactive work table export schedule: %w", markErr)
+			}
+			summary.Disabled++
+			continue
+		}
+		if err != nil {
+			return summary, fmt.Errorf("get scheduled export work table: %w", err)
+		}
+		if workTable.Status != "active" || workTable.DroppedAt.Valid {
+			_, markErr := qtx.MarkDatasetWorkTableExportScheduleFailed(ctx, db.MarkDatasetWorkTableExportScheduleFailedParams{
+				Enabled:      false,
+				LastRunAt:    pgTimestamp(now),
+				LastStatus:   pgText("disabled"),
+				ErrorSummary: ErrDatasetWorkTableNotFound.Error(),
+				NextRunAt:    pgTimestamp(nextRun),
+				ID:           schedule.ID,
+			})
+			if markErr != nil {
+				return summary, fmt.Errorf("disable inactive work table export schedule: %w", markErr)
+			}
+			summary.Disabled++
+			continue
+		}
+		activeCount, err := qtx.CountActiveDatasetWorkTableExportsForSchedule(ctx, pgtype.Int8{Int64: schedule.ID, Valid: true})
+		if err != nil {
+			return summary, fmt.Errorf("count active scheduled exports: %w", err)
+		}
+		if activeCount > 0 {
+			_, err := qtx.MarkDatasetWorkTableExportScheduleSkipped(ctx, db.MarkDatasetWorkTableExportScheduleSkippedParams{
+				LastRunAt:    pgTimestamp(now),
+				ErrorSummary: "previous scheduled export is still pending or processing",
+				NextRunAt:    pgTimestamp(nextRun),
+				ID:           schedule.ID,
+			})
+			if err != nil {
+				return summary, fmt.Errorf("mark scheduled export skipped: %w", err)
+			}
+			summary.Skipped++
+			continue
+		}
+		scheduleID := schedule.ID
+		scheduledFor := schedule.NextRunAt.Time
+		export, err := s.createWorkTableExportWithQueries(ctx, qtx, schedule.TenantID, workTable, schedule.CreatedByUserID.Int64, schedule.Format, now.Add(time.Duration(schedule.RetentionDays)*24*time.Hour), &scheduleID, &scheduledFor)
+		if err != nil {
+			return summary, err
+		}
+		_, err = qtx.MarkDatasetWorkTableExportScheduleCreated(ctx, db.MarkDatasetWorkTableExportScheduleCreatedParams{
+			LastRunAt:    pgTimestamp(now),
+			LastExportID: pgtype.Int8{Int64: export.ID, Valid: true},
+			NextRunAt:    pgTimestamp(nextRun),
+			ID:           schedule.ID,
+		})
+		if err != nil {
+			return summary, fmt.Errorf("mark scheduled export created: %w", err)
+		}
+		createdExports = append(createdExports, export)
+		summary.Created++
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return summary, fmt.Errorf("commit work table export schedule run transaction: %w", err)
+	}
+	for _, export := range createdExports {
+		s.publishWorkTableExportUpdated(ctx, export, "processing", "", "")
+	}
+	return summary, nil
+}
+
 func (s *DatasetService) ListWorkTableExports(ctx context.Context, tenantID int64, publicID string, limit int32) ([]DatasetWorkTableExport, error) {
 	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
 	if err != nil {
@@ -1478,6 +1869,7 @@ func (s *DatasetService) ListWorkTableExports(ctx context.Context, tenantID int6
 	for _, row := range rows {
 		items = append(items, datasetWorkTableExportFromDB(row))
 	}
+	s.hydrateWorkTableExportSchedulePublicIDs(ctx, tenantID, items)
 	return items, nil
 }
 
@@ -1486,7 +1878,13 @@ func (s *DatasetService) GetWorkTableExport(ctx context.Context, tenantID int64,
 	if err != nil {
 		return DatasetWorkTableExport{}, err
 	}
-	return datasetWorkTableExportFromDB(row), nil
+	item := datasetWorkTableExportFromDB(row)
+	if item.ScheduleID != nil {
+		if schedule, err := s.queries.GetDatasetWorkTableExportScheduleByIDForTenant(ctx, db.GetDatasetWorkTableExportScheduleByIDForTenantParams{ID: *item.ScheduleID, TenantID: tenantID}); err == nil {
+			item.SchedulePublicID = schedule.PublicID.String()
+		}
+	}
+	return item, nil
 }
 
 func (s *DatasetService) DownloadWorkTableExport(ctx context.Context, tenantID int64, publicID string) (FileDownload, error) {
@@ -1567,6 +1965,7 @@ func (s *DatasetService) HandleWorkTableExportRequested(ctx context.Context, ten
 	if err != nil {
 		return fmt.Errorf("mark work table export ready: %w", err)
 	}
+	s.markWorkTableExportScheduleStatus(ctx, ready, "ready", "")
 	s.publishWorkTableExportUpdated(ctx, ready, "ready", "", file.PublicID)
 	return nil
 }
@@ -1684,6 +2083,30 @@ func (s *DatasetService) getWorkTableExportRow(ctx context.Context, tenantID int
 		return db.DatasetWorkTableExport{}, fmt.Errorf("get dataset work table export: %w", err)
 	}
 	return row, nil
+}
+
+func (s *DatasetService) hydrateWorkTableExportSchedulePublicIDs(ctx context.Context, tenantID int64, items []DatasetWorkTableExport) {
+	if s == nil || s.queries == nil {
+		return
+	}
+	cache := make(map[int64]string)
+	for i := range items {
+		if items[i].ScheduleID == nil {
+			continue
+		}
+		scheduleID := *items[i].ScheduleID
+		if publicID, ok := cache[scheduleID]; ok {
+			items[i].SchedulePublicID = publicID
+			continue
+		}
+		schedule, err := s.queries.GetDatasetWorkTableExportScheduleByIDForTenant(ctx, db.GetDatasetWorkTableExportScheduleByIDForTenantParams{ID: scheduleID, TenantID: tenantID})
+		if err != nil {
+			continue
+		}
+		publicID := schedule.PublicID.String()
+		cache[scheduleID] = publicID
+		items[i].SchedulePublicID = publicID
+	}
 }
 
 func (s *DatasetService) registerDatasetWorkTableForRef(ctx context.Context, tenantID, userID int64, sourceDatasetID *int64, queryJobID *int64, database, table, displayName string) (DatasetWorkTable, error) {
@@ -2140,7 +2563,20 @@ func (s *DatasetService) markWorkTableExportFailed(ctx context.Context, export d
 	if err == nil {
 		export = updated
 	}
+	s.markWorkTableExportScheduleStatus(ctx, export, "failed", message)
 	s.publishWorkTableExportUpdated(ctx, export, "failed", message, "")
+}
+
+func (s *DatasetService) markWorkTableExportScheduleStatus(ctx context.Context, export db.DatasetWorkTableExport, status, errorSummary string) {
+	if s == nil || s.queries == nil || !export.ScheduleID.Valid {
+		return
+	}
+	_, _ = s.queries.MarkDatasetWorkTableExportScheduleExportStatus(ctx, db.MarkDatasetWorkTableExportScheduleExportStatusParams{
+		LastStatus:   pgText(status),
+		ErrorSummary: errorSummary,
+		ID:           export.ScheduleID.Int64,
+		LastExportID: pgtype.Int8{Int64: export.ID, Valid: true},
+	})
 }
 
 func (s *DatasetService) publishWorkTableExportUpdated(ctx context.Context, export db.DatasetWorkTableExport, status, errorSummary, filePublicID string) {
@@ -2151,6 +2587,22 @@ func (s *DatasetService) publishWorkTableExportUpdated(ctx context.Context, expo
 		"status":         status,
 		"exportPublicId": export.PublicID.String(),
 		"format":         export.Format,
+		"source":         datasetWorkTableExportSourceManual,
+		"expiresAt":      export.ExpiresAt.Time,
+	}
+	if export.ScheduledFor.Valid {
+		payload["source"] = datasetWorkTableExportSourceScheduled
+		payload["scheduledFor"] = export.ScheduledFor.Time
+	}
+	if s.queries != nil {
+		if workTable, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: export.WorkTableID, TenantID: export.TenantID}); err == nil {
+			payload["workTablePublicId"] = workTable.PublicID.String()
+		}
+		if export.ScheduleID.Valid {
+			if schedule, err := s.queries.GetDatasetWorkTableExportScheduleByIDForTenant(ctx, db.GetDatasetWorkTableExportScheduleByIDForTenantParams{ID: export.ScheduleID.Int64, TenantID: export.TenantID}); err == nil {
+				payload["schedulePublicId"] = schedule.PublicID.String()
+			}
+		}
 	}
 	if filePublicID != "" {
 		payload["filePublicId"] = filePublicID
@@ -2630,6 +3082,188 @@ func datasetWorkTableExportFormatSpecFor(format string) (datasetWorkTableExportF
 	}
 }
 
+func mergeWorkTableExportScheduleInput(existing db.DatasetWorkTableExportSchedule, input DatasetWorkTableExportScheduleInput) DatasetWorkTableExportScheduleInput {
+	out := DatasetWorkTableExportScheduleInput{
+		Format:        existing.Format,
+		Frequency:     existing.Frequency,
+		Timezone:      existing.Timezone,
+		RunTime:       existing.RunTime,
+		Weekday:       optionalPgInt2(existing.Weekday),
+		MonthDay:      optionalPgInt2(existing.MonthDay),
+		RetentionDays: existing.RetentionDays,
+		Enabled:       &existing.Enabled,
+	}
+	if strings.TrimSpace(input.Format) != "" {
+		out.Format = input.Format
+	}
+	if strings.TrimSpace(input.Frequency) != "" {
+		out.Frequency = input.Frequency
+	}
+	if strings.TrimSpace(input.Timezone) != "" {
+		out.Timezone = input.Timezone
+	}
+	if strings.TrimSpace(input.RunTime) != "" {
+		out.RunTime = input.RunTime
+	}
+	if input.Weekday != nil {
+		out.Weekday = input.Weekday
+	}
+	if input.MonthDay != nil {
+		out.MonthDay = input.MonthDay
+	}
+	if input.RetentionDays > 0 {
+		out.RetentionDays = input.RetentionDays
+	}
+	if input.Enabled != nil {
+		out.Enabled = input.Enabled
+	}
+	return out
+}
+
+func normalizeWorkTableExportScheduleInput(input DatasetWorkTableExportScheduleInput, now time.Time, _ *db.DatasetWorkTableExportSchedule) (DatasetWorkTableExportScheduleInput, time.Time, error) {
+	format, err := normalizeDatasetWorkTableExportFormat(input.Format)
+	if err != nil {
+		return DatasetWorkTableExportScheduleInput{}, time.Time{}, err
+	}
+	frequency := strings.ToLower(strings.TrimSpace(input.Frequency))
+	if frequency == "" {
+		frequency = datasetWorkTableExportFrequencyDaily
+	}
+	switch frequency {
+	case datasetWorkTableExportFrequencyDaily, datasetWorkTableExportFrequencyWeekly, datasetWorkTableExportFrequencyMonthly:
+	default:
+		return DatasetWorkTableExportScheduleInput{}, time.Time{}, fmt.Errorf("%w: unsupported schedule frequency %q", ErrInvalidDatasetInput, input.Frequency)
+	}
+	timezone := strings.TrimSpace(input.Timezone)
+	if timezone == "" {
+		timezone = "UTC"
+	}
+	if _, err := time.LoadLocation(timezone); err != nil {
+		return DatasetWorkTableExportScheduleInput{}, time.Time{}, fmt.Errorf("%w: invalid schedule timezone %q", ErrInvalidDatasetInput, input.Timezone)
+	}
+	runTime := strings.TrimSpace(input.RunTime)
+	if runTime == "" {
+		runTime = "03:00"
+	}
+	if _, _, err := parseWorkTableExportScheduleRunTime(runTime); err != nil {
+		return DatasetWorkTableExportScheduleInput{}, time.Time{}, err
+	}
+	retentionDays := input.RetentionDays
+	if retentionDays == 0 {
+		retentionDays = 7
+	}
+	if retentionDays < 1 || retentionDays > 365 {
+		return DatasetWorkTableExportScheduleInput{}, time.Time{}, fmt.Errorf("%w: retentionDays must be between 1 and 365", ErrInvalidDatasetInput)
+	}
+	normalized := DatasetWorkTableExportScheduleInput{
+		Format:        format,
+		Frequency:     frequency,
+		Timezone:      timezone,
+		RunTime:       runTime,
+		RetentionDays: retentionDays,
+		Enabled:       input.Enabled,
+	}
+	switch frequency {
+	case datasetWorkTableExportFrequencyDaily:
+		normalized.Weekday = nil
+		normalized.MonthDay = nil
+	case datasetWorkTableExportFrequencyWeekly:
+		if input.Weekday == nil || *input.Weekday < 1 || *input.Weekday > 7 {
+			return DatasetWorkTableExportScheduleInput{}, time.Time{}, fmt.Errorf("%w: weekday must be between 1 and 7 for weekly schedules", ErrInvalidDatasetInput)
+		}
+		weekday := *input.Weekday
+		normalized.Weekday = &weekday
+		normalized.MonthDay = nil
+	case datasetWorkTableExportFrequencyMonthly:
+		if input.MonthDay == nil || *input.MonthDay < 1 || *input.MonthDay > 28 {
+			return DatasetWorkTableExportScheduleInput{}, time.Time{}, fmt.Errorf("%w: monthDay must be between 1 and 28 for monthly schedules", ErrInvalidDatasetInput)
+		}
+		monthDay := *input.MonthDay
+		normalized.Weekday = nil
+		normalized.MonthDay = &monthDay
+	}
+	nextRun, err := nextWorkTableExportScheduleRunAfter(normalized.Frequency, normalized.Timezone, normalized.RunTime, normalized.Weekday, normalized.MonthDay, now)
+	if err != nil {
+		return DatasetWorkTableExportScheduleInput{}, time.Time{}, err
+	}
+	return normalized, nextRun, nil
+}
+
+func nextWorkTableExportScheduleRunAfter(frequency, timezone, runTime string, weekday, monthDay *int32, after time.Time) (time.Time, error) {
+	loc, err := time.LoadLocation(strings.TrimSpace(timezone))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%w: invalid schedule timezone %q", ErrInvalidDatasetInput, timezone)
+	}
+	hour, minute, err := parseWorkTableExportScheduleRunTime(runTime)
+	if err != nil {
+		return time.Time{}, err
+	}
+	local := after.In(loc)
+	candidateForDate := func(t time.Time, day int) time.Time {
+		return time.Date(t.Year(), t.Month(), day, hour, minute, 0, 0, loc)
+	}
+	var candidate time.Time
+	switch strings.ToLower(strings.TrimSpace(frequency)) {
+	case datasetWorkTableExportFrequencyDaily:
+		candidate = candidateForDate(local, local.Day())
+		if !candidate.After(local) {
+			candidate = candidate.AddDate(0, 0, 1)
+		}
+	case datasetWorkTableExportFrequencyWeekly:
+		if weekday == nil || *weekday < 1 || *weekday > 7 {
+			return time.Time{}, fmt.Errorf("%w: weekday must be between 1 and 7 for weekly schedules", ErrInvalidDatasetInput)
+		}
+		current := int32(local.Weekday())
+		if current == 0 {
+			current = 7
+		}
+		daysUntil := int(*weekday - current)
+		if daysUntil < 0 {
+			daysUntil += 7
+		}
+		base := local.AddDate(0, 0, daysUntil)
+		candidate = candidateForDate(base, base.Day())
+		if !candidate.After(local) {
+			candidate = candidate.AddDate(0, 0, 7)
+		}
+	case datasetWorkTableExportFrequencyMonthly:
+		if monthDay == nil || *monthDay < 1 || *monthDay > 28 {
+			return time.Time{}, fmt.Errorf("%w: monthDay must be between 1 and 28 for monthly schedules", ErrInvalidDatasetInput)
+		}
+		candidate = candidateForDate(local, int(*monthDay))
+		if !candidate.After(local) {
+			nextMonth := local.AddDate(0, 1, 0)
+			candidate = time.Date(nextMonth.Year(), nextMonth.Month(), int(*monthDay), hour, minute, 0, 0, loc)
+		}
+	default:
+		return time.Time{}, fmt.Errorf("%w: unsupported schedule frequency %q", ErrInvalidDatasetInput, frequency)
+	}
+	return candidate.UTC(), nil
+}
+
+func parseWorkTableExportScheduleRunTime(value string) (int, int, error) {
+	parsed, err := time.Parse("15:04", strings.TrimSpace(value))
+	if err != nil {
+		return 0, 0, fmt.Errorf("%w: runTime must use HH:MM", ErrInvalidDatasetInput)
+	}
+	return parsed.Hour(), parsed.Minute(), nil
+}
+
+func pgInt2(value *int32) pgtype.Int2 {
+	if value == nil {
+		return pgtype.Int2{}
+	}
+	return pgtype.Int2{Int16: int16(*value), Valid: true}
+}
+
+func optionalPgInt2(value pgtype.Int2) *int32 {
+	if !value.Valid {
+		return nil
+	}
+	v := int32(value.Int16)
+	return &v
+}
+
 func datasetClickHouseTypeUnsupportedForParquet(chType string) bool {
 	base := datasetClickHouseTypeBase(chType)
 	unsupportedPrefixes := []string{
@@ -2714,6 +3348,10 @@ func datasetWorkTableFromDB(row db.DatasetWorkTable) DatasetWorkTable {
 }
 
 func datasetWorkTableExportFromDB(row db.DatasetWorkTableExport) DatasetWorkTableExport {
+	source := datasetWorkTableExportSourceManual
+	if row.ScheduleID.Valid {
+		source = datasetWorkTableExportSourceScheduled
+	}
 	return DatasetWorkTableExport{
 		ID:           row.ID,
 		PublicID:     row.PublicID.String(),
@@ -2721,12 +3359,40 @@ func datasetWorkTableExportFromDB(row db.DatasetWorkTableExport) DatasetWorkTabl
 		WorkTableID:  row.WorkTableID,
 		Format:       row.Format,
 		Status:       row.Status,
+		Source:       source,
+		ScheduleID:   optionalPgInt8(row.ScheduleID),
+		ScheduledFor: optionalPgTime(row.ScheduledFor),
 		ErrorSummary: optionalText(row.ErrorSummary),
 		FileObjectID: optionalPgInt8(row.FileObjectID),
 		ExpiresAt:    row.ExpiresAt.Time,
 		CreatedAt:    row.CreatedAt.Time,
 		UpdatedAt:    row.UpdatedAt.Time,
 		CompletedAt:  optionalPgTime(row.CompletedAt),
+	}
+}
+
+func datasetWorkTableExportScheduleFromDB(row db.DatasetWorkTableExportSchedule) DatasetWorkTableExportSchedule {
+	return DatasetWorkTableExportSchedule{
+		ID:               row.ID,
+		PublicID:         row.PublicID.String(),
+		TenantID:         row.TenantID,
+		WorkTableID:      row.WorkTableID,
+		CreatedByUserID:  optionalPgInt8(row.CreatedByUserID),
+		Format:           row.Format,
+		Frequency:        row.Frequency,
+		Timezone:         row.Timezone,
+		RunTime:          row.RunTime,
+		Weekday:          optionalPgInt2(row.Weekday),
+		MonthDay:         optionalPgInt2(row.MonthDay),
+		RetentionDays:    row.RetentionDays,
+		Enabled:          row.Enabled,
+		NextRunAt:        row.NextRunAt.Time,
+		LastRunAt:        optionalPgTime(row.LastRunAt),
+		LastStatus:       optionalText(row.LastStatus),
+		LastErrorSummary: optionalText(row.LastErrorSummary),
+		LastExportID:     optionalPgInt8(row.LastExportID),
+		CreatedAt:        row.CreatedAt.Time,
+		UpdatedAt:        row.UpdatedAt.Time,
 	}
 }
 

@@ -264,6 +264,13 @@ func main() {
 		FilePurgeBatchSize:    cfg.FilePurgeBatchSize,
 		FilePurgeLockTimeout:  cfg.FilePurgeLockTimeout,
 	}, logger, metrics)
+	workTableExportScheduleJob := jobs.NewWorkTableExportScheduleJob(datasetService, jobs.WorkTableExportScheduleConfig{
+		Enabled:      cfg.WorkTableExportSchedulerEnabled,
+		Interval:     cfg.WorkTableExportSchedulerInterval,
+		Timeout:      cfg.WorkTableExportSchedulerTimeout,
+		BatchSize:    int32(cfg.WorkTableExportSchedulerBatchSize),
+		RunOnStartup: cfg.WorkTableExportSchedulerRunOnStartup,
+	}, logger, metrics)
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -310,6 +317,7 @@ func main() {
 	go reconcileScheduler.Start(shutdownCtx)
 	go outboxWorker.Start(shutdownCtx)
 	go dataLifecycleJob.Start(shutdownCtx)
+	go workTableExportScheduleJob.Start(shutdownCtx)
 
 	go func() {
 		logger.Info("listening", "url", fmt.Sprintf("http://127.0.0.1:%d", cfg.HTTPPort))

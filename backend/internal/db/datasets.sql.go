@@ -12,6 +12,62 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimDueDatasetWorkTableExportSchedules = `-- name: ClaimDueDatasetWorkTableExportSchedules :many
+SELECT id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+FROM dataset_work_table_export_schedules
+WHERE enabled
+  AND next_run_at <= $1::timestamptz
+ORDER BY next_run_at, id
+LIMIT $2
+FOR UPDATE SKIP LOCKED
+`
+
+type ClaimDueDatasetWorkTableExportSchedulesParams struct {
+	Now        pgtype.Timestamptz `json:"now"`
+	BatchLimit int32              `json:"batch_limit"`
+}
+
+func (q *Queries) ClaimDueDatasetWorkTableExportSchedules(ctx context.Context, arg ClaimDueDatasetWorkTableExportSchedulesParams) ([]DatasetWorkTableExportSchedule, error) {
+	rows, err := q.db.Query(ctx, claimDueDatasetWorkTableExportSchedules, arg.Now, arg.BatchLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetWorkTableExportSchedule
+	for rows.Next() {
+		var i DatasetWorkTableExportSchedule
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.WorkTableID,
+			&i.CreatedByUserID,
+			&i.Format,
+			&i.Frequency,
+			&i.Timezone,
+			&i.RunTime,
+			&i.Weekday,
+			&i.MonthDay,
+			&i.RetentionDays,
+			&i.Enabled,
+			&i.NextRunAt,
+			&i.LastRunAt,
+			&i.LastStatus,
+			&i.LastErrorSummary,
+			&i.LastExportID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const completeDatasetImportJob = `-- name: CompleteDatasetImportJob :one
 UPDATE dataset_import_jobs
 SET
@@ -116,6 +172,21 @@ func (q *Queries) CompleteDatasetQueryJob(ctx context.Context, arg CompleteDatas
 		&i.DatasetID,
 	)
 	return i, err
+}
+
+const countActiveDatasetWorkTableExportsForSchedule = `-- name: CountActiveDatasetWorkTableExportsForSchedule :one
+SELECT count(*)::bigint
+FROM dataset_work_table_exports
+WHERE schedule_id = $1
+  AND deleted_at IS NULL
+  AND status IN ('pending', 'processing')
+`
+
+func (q *Queries) CountActiveDatasetWorkTableExportsForSchedule(ctx context.Context, scheduleID pgtype.Int8) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveDatasetWorkTableExportsForSchedule, scheduleID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const createDataset = `-- name: CreateDataset :one
@@ -410,11 +481,13 @@ INSERT INTO dataset_work_table_exports (
     work_table_id,
     requested_by_user_id,
     format,
-    expires_at
+    expires_at,
+    schedule_id,
+    scheduled_for
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, $6, $7
 )
-RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at, schedule_id, scheduled_for
 `
 
 type CreateDatasetWorkTableExportParams struct {
@@ -423,6 +496,8 @@ type CreateDatasetWorkTableExportParams struct {
 	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
 	Format            string             `json:"format"`
 	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	ScheduleID        pgtype.Int8        `json:"schedule_id"`
+	ScheduledFor      pgtype.Timestamptz `json:"scheduled_for"`
 }
 
 func (q *Queries) CreateDatasetWorkTableExport(ctx context.Context, arg CreateDatasetWorkTableExportParams) (DatasetWorkTableExport, error) {
@@ -432,6 +507,8 @@ func (q *Queries) CreateDatasetWorkTableExport(ctx context.Context, arg CreateDa
 		arg.RequestedByUserID,
 		arg.Format,
 		arg.ExpiresAt,
+		arg.ScheduleID,
+		arg.ScheduledFor,
 	)
 	var i DatasetWorkTableExport
 	err := row.Scan(
@@ -450,6 +527,84 @@ func (q *Queries) CreateDatasetWorkTableExport(ctx context.Context, arg CreateDa
 		&i.UpdatedAt,
 		&i.CompletedAt,
 		&i.DeletedAt,
+		&i.ScheduleID,
+		&i.ScheduledFor,
+	)
+	return i, err
+}
+
+const createDatasetWorkTableExportSchedule = `-- name: CreateDatasetWorkTableExportSchedule :one
+INSERT INTO dataset_work_table_export_schedules (
+    tenant_id,
+    work_table_id,
+    created_by_user_id,
+    format,
+    frequency,
+    timezone,
+    run_time,
+    weekday,
+    month_day,
+    retention_days,
+    enabled,
+    next_run_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $11, $12, $8, $9, $10
+)
+RETURNING id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+`
+
+type CreateDatasetWorkTableExportScheduleParams struct {
+	TenantID        int64              `json:"tenant_id"`
+	WorkTableID     int64              `json:"work_table_id"`
+	CreatedByUserID pgtype.Int8        `json:"created_by_user_id"`
+	Format          string             `json:"format"`
+	Frequency       string             `json:"frequency"`
+	Timezone        string             `json:"timezone"`
+	RunTime         string             `json:"run_time"`
+	RetentionDays   int32              `json:"retention_days"`
+	Enabled         bool               `json:"enabled"`
+	NextRunAt       pgtype.Timestamptz `json:"next_run_at"`
+	Weekday         pgtype.Int2        `json:"weekday"`
+	MonthDay        pgtype.Int2        `json:"month_day"`
+}
+
+func (q *Queries) CreateDatasetWorkTableExportSchedule(ctx context.Context, arg CreateDatasetWorkTableExportScheduleParams) (DatasetWorkTableExportSchedule, error) {
+	row := q.db.QueryRow(ctx, createDatasetWorkTableExportSchedule,
+		arg.TenantID,
+		arg.WorkTableID,
+		arg.CreatedByUserID,
+		arg.Format,
+		arg.Frequency,
+		arg.Timezone,
+		arg.RunTime,
+		arg.RetentionDays,
+		arg.Enabled,
+		arg.NextRunAt,
+		arg.Weekday,
+		arg.MonthDay,
+	)
+	var i DatasetWorkTableExportSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.CreatedByUserID,
+		&i.Format,
+		&i.Frequency,
+		&i.Timezone,
+		&i.RunTime,
+		&i.Weekday,
+		&i.MonthDay,
+		&i.RetentionDays,
+		&i.Enabled,
+		&i.NextRunAt,
+		&i.LastRunAt,
+		&i.LastStatus,
+		&i.LastErrorSummary,
+		&i.LastExportID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -462,6 +617,51 @@ WHERE dataset_id = $1
 func (q *Queries) DeleteDatasetColumns(ctx context.Context, datasetID int64) error {
 	_, err := q.db.Exec(ctx, deleteDatasetColumns, datasetID)
 	return err
+}
+
+const disableDatasetWorkTableExportSchedule = `-- name: DisableDatasetWorkTableExportSchedule :one
+UPDATE dataset_work_table_export_schedules
+SET
+    enabled = false,
+    last_status = 'disabled',
+    last_error_summary = NULL,
+    updated_at = now()
+WHERE public_id = $1
+  AND tenant_id = $2
+RETURNING id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+`
+
+type DisableDatasetWorkTableExportScheduleParams struct {
+	PublicID uuid.UUID `json:"public_id"`
+	TenantID int64     `json:"tenant_id"`
+}
+
+func (q *Queries) DisableDatasetWorkTableExportSchedule(ctx context.Context, arg DisableDatasetWorkTableExportScheduleParams) (DatasetWorkTableExportSchedule, error) {
+	row := q.db.QueryRow(ctx, disableDatasetWorkTableExportSchedule, arg.PublicID, arg.TenantID)
+	var i DatasetWorkTableExportSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.CreatedByUserID,
+		&i.Format,
+		&i.Frequency,
+		&i.Timezone,
+		&i.RunTime,
+		&i.Weekday,
+		&i.MonthDay,
+		&i.RetentionDays,
+		&i.Enabled,
+		&i.NextRunAt,
+		&i.LastRunAt,
+		&i.LastStatus,
+		&i.LastErrorSummary,
+		&i.LastExportID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const failDatasetImportJob = `-- name: FailDatasetImportJob :one
@@ -783,7 +983,7 @@ func (q *Queries) GetDatasetWorkTableByIDForTenant(ctx context.Context, arg GetD
 }
 
 const getDatasetWorkTableExportByIDForTenant = `-- name: GetDatasetWorkTableExportByIDForTenant :one
-SELECT id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+SELECT id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at, schedule_id, scheduled_for
 FROM dataset_work_table_exports
 WHERE id = $1
   AND tenant_id = $2
@@ -815,12 +1015,14 @@ func (q *Queries) GetDatasetWorkTableExportByIDForTenant(ctx context.Context, ar
 		&i.UpdatedAt,
 		&i.CompletedAt,
 		&i.DeletedAt,
+		&i.ScheduleID,
+		&i.ScheduledFor,
 	)
 	return i, err
 }
 
 const getDatasetWorkTableExportForTenant = `-- name: GetDatasetWorkTableExportForTenant :one
-SELECT id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+SELECT id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at, schedule_id, scheduled_for
 FROM dataset_work_table_exports
 WHERE public_id = $1
   AND tenant_id = $2
@@ -852,6 +1054,90 @@ func (q *Queries) GetDatasetWorkTableExportForTenant(ctx context.Context, arg Ge
 		&i.UpdatedAt,
 		&i.CompletedAt,
 		&i.DeletedAt,
+		&i.ScheduleID,
+		&i.ScheduledFor,
+	)
+	return i, err
+}
+
+const getDatasetWorkTableExportScheduleByIDForTenant = `-- name: GetDatasetWorkTableExportScheduleByIDForTenant :one
+SELECT id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+FROM dataset_work_table_export_schedules
+WHERE id = $1
+  AND tenant_id = $2
+LIMIT 1
+`
+
+type GetDatasetWorkTableExportScheduleByIDForTenantParams struct {
+	ID       int64 `json:"id"`
+	TenantID int64 `json:"tenant_id"`
+}
+
+func (q *Queries) GetDatasetWorkTableExportScheduleByIDForTenant(ctx context.Context, arg GetDatasetWorkTableExportScheduleByIDForTenantParams) (DatasetWorkTableExportSchedule, error) {
+	row := q.db.QueryRow(ctx, getDatasetWorkTableExportScheduleByIDForTenant, arg.ID, arg.TenantID)
+	var i DatasetWorkTableExportSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.CreatedByUserID,
+		&i.Format,
+		&i.Frequency,
+		&i.Timezone,
+		&i.RunTime,
+		&i.Weekday,
+		&i.MonthDay,
+		&i.RetentionDays,
+		&i.Enabled,
+		&i.NextRunAt,
+		&i.LastRunAt,
+		&i.LastStatus,
+		&i.LastErrorSummary,
+		&i.LastExportID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getDatasetWorkTableExportScheduleForTenant = `-- name: GetDatasetWorkTableExportScheduleForTenant :one
+SELECT id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+FROM dataset_work_table_export_schedules
+WHERE public_id = $1
+  AND tenant_id = $2
+LIMIT 1
+`
+
+type GetDatasetWorkTableExportScheduleForTenantParams struct {
+	PublicID uuid.UUID `json:"public_id"`
+	TenantID int64     `json:"tenant_id"`
+}
+
+func (q *Queries) GetDatasetWorkTableExportScheduleForTenant(ctx context.Context, arg GetDatasetWorkTableExportScheduleForTenantParams) (DatasetWorkTableExportSchedule, error) {
+	row := q.db.QueryRow(ctx, getDatasetWorkTableExportScheduleForTenant, arg.PublicID, arg.TenantID)
+	var i DatasetWorkTableExportSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.CreatedByUserID,
+		&i.Format,
+		&i.Frequency,
+		&i.Timezone,
+		&i.RunTime,
+		&i.Weekday,
+		&i.MonthDay,
+		&i.RetentionDays,
+		&i.Enabled,
+		&i.NextRunAt,
+		&i.LastRunAt,
+		&i.LastStatus,
+		&i.LastErrorSummary,
+		&i.LastExportID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1102,8 +1388,62 @@ func (q *Queries) ListDatasetQueryJobsForDataset(ctx context.Context, arg ListDa
 	return items, nil
 }
 
+const listDatasetWorkTableExportSchedules = `-- name: ListDatasetWorkTableExportSchedules :many
+SELECT id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+FROM dataset_work_table_export_schedules
+WHERE tenant_id = $1
+  AND work_table_id = $2
+ORDER BY created_at DESC, id DESC
+`
+
+type ListDatasetWorkTableExportSchedulesParams struct {
+	TenantID    int64 `json:"tenant_id"`
+	WorkTableID int64 `json:"work_table_id"`
+}
+
+func (q *Queries) ListDatasetWorkTableExportSchedules(ctx context.Context, arg ListDatasetWorkTableExportSchedulesParams) ([]DatasetWorkTableExportSchedule, error) {
+	rows, err := q.db.Query(ctx, listDatasetWorkTableExportSchedules, arg.TenantID, arg.WorkTableID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetWorkTableExportSchedule
+	for rows.Next() {
+		var i DatasetWorkTableExportSchedule
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.WorkTableID,
+			&i.CreatedByUserID,
+			&i.Format,
+			&i.Frequency,
+			&i.Timezone,
+			&i.RunTime,
+			&i.Weekday,
+			&i.MonthDay,
+			&i.RetentionDays,
+			&i.Enabled,
+			&i.NextRunAt,
+			&i.LastRunAt,
+			&i.LastStatus,
+			&i.LastErrorSummary,
+			&i.LastExportID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDatasetWorkTableExports = `-- name: ListDatasetWorkTableExports :many
-SELECT id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+SELECT id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at, schedule_id, scheduled_for
 FROM dataset_work_table_exports
 WHERE tenant_id = $1
   AND work_table_id = $2
@@ -1143,6 +1483,8 @@ func (q *Queries) ListDatasetWorkTableExports(ctx context.Context, arg ListDatas
 			&i.UpdatedAt,
 			&i.CompletedAt,
 			&i.DeletedAt,
+			&i.ScheduleID,
+			&i.ScheduledFor,
 		); err != nil {
 			return nil, err
 		}
@@ -1530,7 +1872,7 @@ SET
     error_summary = left($2, 1000),
     updated_at = now()
 WHERE id = $1
-RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at, schedule_id, scheduled_for
 `
 
 type MarkDatasetWorkTableExportFailedParams struct {
@@ -1557,6 +1899,8 @@ func (q *Queries) MarkDatasetWorkTableExportFailed(ctx context.Context, arg Mark
 		&i.UpdatedAt,
 		&i.CompletedAt,
 		&i.DeletedAt,
+		&i.ScheduleID,
+		&i.ScheduledFor,
 	)
 	return i, err
 }
@@ -1568,7 +1912,7 @@ SET
     outbox_event_id = $2,
     updated_at = now()
 WHERE id = $1
-RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at, schedule_id, scheduled_for
 `
 
 type MarkDatasetWorkTableExportProcessingParams struct {
@@ -1595,6 +1939,8 @@ func (q *Queries) MarkDatasetWorkTableExportProcessing(ctx context.Context, arg 
 		&i.UpdatedAt,
 		&i.CompletedAt,
 		&i.DeletedAt,
+		&i.ScheduleID,
+		&i.ScheduledFor,
 	)
 	return i, err
 }
@@ -1607,7 +1953,7 @@ SET
     completed_at = now(),
     updated_at = now()
 WHERE id = $1
-RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at, schedule_id, scheduled_for
 `
 
 type MarkDatasetWorkTableExportReadyParams struct {
@@ -1634,6 +1980,221 @@ func (q *Queries) MarkDatasetWorkTableExportReady(ctx context.Context, arg MarkD
 		&i.UpdatedAt,
 		&i.CompletedAt,
 		&i.DeletedAt,
+		&i.ScheduleID,
+		&i.ScheduledFor,
+	)
+	return i, err
+}
+
+const markDatasetWorkTableExportScheduleCreated = `-- name: MarkDatasetWorkTableExportScheduleCreated :one
+UPDATE dataset_work_table_export_schedules
+SET
+    last_run_at = $1,
+    last_status = 'created',
+    last_error_summary = NULL,
+    last_export_id = $2,
+    next_run_at = $3,
+    updated_at = now()
+WHERE id = $4
+RETURNING id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+`
+
+type MarkDatasetWorkTableExportScheduleCreatedParams struct {
+	LastRunAt    pgtype.Timestamptz `json:"last_run_at"`
+	LastExportID pgtype.Int8        `json:"last_export_id"`
+	NextRunAt    pgtype.Timestamptz `json:"next_run_at"`
+	ID           int64              `json:"id"`
+}
+
+func (q *Queries) MarkDatasetWorkTableExportScheduleCreated(ctx context.Context, arg MarkDatasetWorkTableExportScheduleCreatedParams) (DatasetWorkTableExportSchedule, error) {
+	row := q.db.QueryRow(ctx, markDatasetWorkTableExportScheduleCreated,
+		arg.LastRunAt,
+		arg.LastExportID,
+		arg.NextRunAt,
+		arg.ID,
+	)
+	var i DatasetWorkTableExportSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.CreatedByUserID,
+		&i.Format,
+		&i.Frequency,
+		&i.Timezone,
+		&i.RunTime,
+		&i.Weekday,
+		&i.MonthDay,
+		&i.RetentionDays,
+		&i.Enabled,
+		&i.NextRunAt,
+		&i.LastRunAt,
+		&i.LastStatus,
+		&i.LastErrorSummary,
+		&i.LastExportID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const markDatasetWorkTableExportScheduleExportStatus = `-- name: MarkDatasetWorkTableExportScheduleExportStatus :one
+UPDATE dataset_work_table_export_schedules
+SET
+    last_status = $1,
+    last_error_summary = NULLIF(left($2, 1000), ''),
+    updated_at = now()
+WHERE id = $3
+  AND last_export_id = $4
+RETURNING id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+`
+
+type MarkDatasetWorkTableExportScheduleExportStatusParams struct {
+	LastStatus   pgtype.Text `json:"last_status"`
+	ErrorSummary string      `json:"error_summary"`
+	ID           int64       `json:"id"`
+	LastExportID pgtype.Int8 `json:"last_export_id"`
+}
+
+func (q *Queries) MarkDatasetWorkTableExportScheduleExportStatus(ctx context.Context, arg MarkDatasetWorkTableExportScheduleExportStatusParams) (DatasetWorkTableExportSchedule, error) {
+	row := q.db.QueryRow(ctx, markDatasetWorkTableExportScheduleExportStatus,
+		arg.LastStatus,
+		arg.ErrorSummary,
+		arg.ID,
+		arg.LastExportID,
+	)
+	var i DatasetWorkTableExportSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.CreatedByUserID,
+		&i.Format,
+		&i.Frequency,
+		&i.Timezone,
+		&i.RunTime,
+		&i.Weekday,
+		&i.MonthDay,
+		&i.RetentionDays,
+		&i.Enabled,
+		&i.NextRunAt,
+		&i.LastRunAt,
+		&i.LastStatus,
+		&i.LastErrorSummary,
+		&i.LastExportID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const markDatasetWorkTableExportScheduleFailed = `-- name: MarkDatasetWorkTableExportScheduleFailed :one
+UPDATE dataset_work_table_export_schedules
+SET
+    enabled = $1,
+    last_run_at = $2,
+    last_status = $3,
+    last_error_summary = left($4, 1000),
+    next_run_at = $5,
+    updated_at = now()
+WHERE id = $6
+RETURNING id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+`
+
+type MarkDatasetWorkTableExportScheduleFailedParams struct {
+	Enabled      bool               `json:"enabled"`
+	LastRunAt    pgtype.Timestamptz `json:"last_run_at"`
+	LastStatus   pgtype.Text        `json:"last_status"`
+	ErrorSummary string             `json:"error_summary"`
+	NextRunAt    pgtype.Timestamptz `json:"next_run_at"`
+	ID           int64              `json:"id"`
+}
+
+func (q *Queries) MarkDatasetWorkTableExportScheduleFailed(ctx context.Context, arg MarkDatasetWorkTableExportScheduleFailedParams) (DatasetWorkTableExportSchedule, error) {
+	row := q.db.QueryRow(ctx, markDatasetWorkTableExportScheduleFailed,
+		arg.Enabled,
+		arg.LastRunAt,
+		arg.LastStatus,
+		arg.ErrorSummary,
+		arg.NextRunAt,
+		arg.ID,
+	)
+	var i DatasetWorkTableExportSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.CreatedByUserID,
+		&i.Format,
+		&i.Frequency,
+		&i.Timezone,
+		&i.RunTime,
+		&i.Weekday,
+		&i.MonthDay,
+		&i.RetentionDays,
+		&i.Enabled,
+		&i.NextRunAt,
+		&i.LastRunAt,
+		&i.LastStatus,
+		&i.LastErrorSummary,
+		&i.LastExportID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const markDatasetWorkTableExportScheduleSkipped = `-- name: MarkDatasetWorkTableExportScheduleSkipped :one
+UPDATE dataset_work_table_export_schedules
+SET
+    last_run_at = $1,
+    last_status = 'skipped',
+    last_error_summary = left($2, 1000),
+    next_run_at = $3,
+    updated_at = now()
+WHERE id = $4
+RETURNING id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+`
+
+type MarkDatasetWorkTableExportScheduleSkippedParams struct {
+	LastRunAt    pgtype.Timestamptz `json:"last_run_at"`
+	ErrorSummary string             `json:"error_summary"`
+	NextRunAt    pgtype.Timestamptz `json:"next_run_at"`
+	ID           int64              `json:"id"`
+}
+
+func (q *Queries) MarkDatasetWorkTableExportScheduleSkipped(ctx context.Context, arg MarkDatasetWorkTableExportScheduleSkippedParams) (DatasetWorkTableExportSchedule, error) {
+	row := q.db.QueryRow(ctx, markDatasetWorkTableExportScheduleSkipped,
+		arg.LastRunAt,
+		arg.ErrorSummary,
+		arg.NextRunAt,
+		arg.ID,
+	)
+	var i DatasetWorkTableExportSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.CreatedByUserID,
+		&i.Format,
+		&i.Frequency,
+		&i.Timezone,
+		&i.RunTime,
+		&i.Weekday,
+		&i.MonthDay,
+		&i.RetentionDays,
+		&i.Enabled,
+		&i.NextRunAt,
+		&i.LastRunAt,
+		&i.LastStatus,
+		&i.LastErrorSummary,
+		&i.LastExportID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1738,6 +2299,97 @@ func (q *Queries) SoftDeleteDataset(ctx context.Context, arg SoftDeleteDatasetPa
 		&i.DeletedAt,
 		&i.SourceKind,
 		&i.SourceWorkTableID,
+	)
+	return i, err
+}
+
+const softDeleteExpiredDatasetWorkTableExports = `-- name: SoftDeleteExpiredDatasetWorkTableExports :execrows
+UPDATE dataset_work_table_exports
+SET
+    status = 'deleted',
+    deleted_at = COALESCE(deleted_at, now()),
+    updated_at = now()
+WHERE expires_at <= now()
+  AND deleted_at IS NULL
+  AND status IN ('ready', 'failed')
+`
+
+func (q *Queries) SoftDeleteExpiredDatasetWorkTableExports(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, softDeleteExpiredDatasetWorkTableExports)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateDatasetWorkTableExportSchedule = `-- name: UpdateDatasetWorkTableExportSchedule :one
+UPDATE dataset_work_table_export_schedules
+SET
+    format = $3,
+    frequency = $4,
+    timezone = $5,
+    run_time = $6,
+    weekday = $10,
+    month_day = $11,
+    retention_days = $7,
+    enabled = $8,
+    next_run_at = $9,
+    updated_at = now()
+WHERE public_id = $1
+  AND tenant_id = $2
+RETURNING id, public_id, tenant_id, work_table_id, created_by_user_id, format, frequency, timezone, run_time, weekday, month_day, retention_days, enabled, next_run_at, last_run_at, last_status, last_error_summary, last_export_id, created_at, updated_at
+`
+
+type UpdateDatasetWorkTableExportScheduleParams struct {
+	PublicID      uuid.UUID          `json:"public_id"`
+	TenantID      int64              `json:"tenant_id"`
+	Format        string             `json:"format"`
+	Frequency     string             `json:"frequency"`
+	Timezone      string             `json:"timezone"`
+	RunTime       string             `json:"run_time"`
+	RetentionDays int32              `json:"retention_days"`
+	Enabled       bool               `json:"enabled"`
+	NextRunAt     pgtype.Timestamptz `json:"next_run_at"`
+	Weekday       pgtype.Int2        `json:"weekday"`
+	MonthDay      pgtype.Int2        `json:"month_day"`
+}
+
+func (q *Queries) UpdateDatasetWorkTableExportSchedule(ctx context.Context, arg UpdateDatasetWorkTableExportScheduleParams) (DatasetWorkTableExportSchedule, error) {
+	row := q.db.QueryRow(ctx, updateDatasetWorkTableExportSchedule,
+		arg.PublicID,
+		arg.TenantID,
+		arg.Format,
+		arg.Frequency,
+		arg.Timezone,
+		arg.RunTime,
+		arg.RetentionDays,
+		arg.Enabled,
+		arg.NextRunAt,
+		arg.Weekday,
+		arg.MonthDay,
+	)
+	var i DatasetWorkTableExportSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.CreatedByUserID,
+		&i.Format,
+		&i.Frequency,
+		&i.Timezone,
+		&i.RunTime,
+		&i.Weekday,
+		&i.MonthDay,
+		&i.RetentionDays,
+		&i.Enabled,
+		&i.NextRunAt,
+		&i.LastRunAt,
+		&i.LastStatus,
+		&i.LastErrorSummary,
+		&i.LastExportID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

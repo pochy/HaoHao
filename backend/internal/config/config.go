@@ -9,119 +9,124 @@ import (
 )
 
 type Config struct {
-	AppName                       string
-	AppVersion                    string
-	HTTPPort                      int
-	AppBaseURL                    string
-	FrontendBaseURL               string
-	LogLevel                      string
-	LogFormat                     string
-	MetricsEnabled                bool
-	MetricsPath                   string
-	SecurityHeadersEnabled        bool
-	SecurityCSP                   string
-	SecurityHSTSEnabled           bool
-	SecurityHSTSMaxAge            int
-	MaxRequestBodyBytes           int64
-	DatasetMaxUploadBytes         int64
-	TrustedProxyCIDRs             []string
-	CORSAllowedOrigins            []string
-	OTELTracingEnabled            bool
-	OTELServiceName               string
-	OTELExporterOTLPEndpoint      string
-	OTELExporterOTLPInsecure      bool
-	OTELTraceSampleRatio          float64
-	DatabaseURL                   string
-	DBMigrationCheckMode          string
-	AuthMode                      string
-	ZitadelIssuer                 string
-	ZitadelClientID               string
-	ZitadelClientSecret           string
-	ZitadelRedirectURI            string
-	ZitadelPostLogoutRedirectURI  string
-	ZitadelScopes                 string
-	ExternalExpectedAudience      string
-	ExternalRequiredScopePrefix   string
-	ExternalRequiredRole          string
-	ExternalAllowedOrigins        []string
-	M2MExpectedAudience           string
-	M2MRequiredScopePrefix        string
-	DownstreamTokenEncryptionKey  string
-	DownstreamTokenKeyVersion     int
-	DownstreamRefreshTokenTTL     time.Duration
-	DownstreamAccessTokenSkew     time.Duration
-	DownstreamDefaultScopes       string
-	SCIMBasePath                  string
-	SCIMBearerAudience            string
-	SCIMRequiredScope             string
-	ReadinessTimeout              time.Duration
-	ReadinessCheckZitadel         bool
-	SCIMReconcileEnabled          bool
-	SCIMReconcileInterval         time.Duration
-	SCIMReconcileTimeout          time.Duration
-	SCIMReconcileRunOnStartup     bool
-	OutboxWorkerEnabled           bool
-	OutboxWorkerInterval          time.Duration
-	OutboxWorkerTimeout           time.Duration
-	OutboxWorkerBatchSize         int
-	OutboxWorkerMaxAttempts       int
-	IdempotencyTTL                time.Duration
-	EmailDeliveryMode             string
-	EmailFrom                     string
-	InvitationTTL                 time.Duration
-	FileStorageDriver             string
-	FileLocalDir                  string
-	FileS3Endpoint                string
-	FileS3Region                  string
-	FileS3Bucket                  string
-	FileS3AccessKeyID             string
-	FileS3SecretAccessKey         string
-	FileS3ForcePathStyle          bool
-	FileMaxBytes                  int64
-	FileAllowedMIMETypes          []string
-	RateLimitEnabled              bool
-	RateLimitLoginPerMinute       int
-	RateLimitBrowserAPIPerMinute  int
-	RateLimitExternalAPIPerMinute int
-	TenantDefaultFileQuotaBytes   int64
-	DataExportTTL                 time.Duration
-	DataLifecycleEnabled          bool
-	DataLifecycleInterval         time.Duration
-	DataLifecycleTimeout          time.Duration
-	DataLifecycleRunOnStartup     bool
-	OutboxRetention               time.Duration
-	NotificationRetention         time.Duration
-	FileDeletedRetention          time.Duration
-	FilePurgeBatchSize            int
-	FilePurgeLockTimeout          time.Duration
-	WebhookSecretEncryptionKey    string
-	WebhookSecretKeyVersion       int
-	WebhookHTTPTimeout            time.Duration
-	SupportAccessMaxDuration      time.Duration
-	RedisAddr                     string
-	RedisPassword                 string
-	RedisDB                       int
-	RealtimeEnabled               bool
-	RealtimeHeartbeatInterval     time.Duration
-	RealtimeLongPollTimeout       time.Duration
-	RealtimeEventRetention        time.Duration
-	RealtimeBackfillLimit         int
-	ClickHouseAddr                string
-	ClickHouseHTTPURL             string
-	ClickHouseDatabase            string
-	ClickHouseUsername            string
-	ClickHousePassword            string
-	ClickHouseTenantPasswordSalt  string
-	ClickHouseQueryMaxSeconds     int
-	ClickHouseQueryMaxMemoryBytes int64
-	ClickHouseQueryMaxRowsToRead  int64
-	ClickHouseQueryMaxThreads     int
-	LoginStateTTL                 time.Duration
-	SessionTTL                    time.Duration
-	CookieSecure                  bool
-	DocsAuthRequired              bool
-	EnableLocalPasswordLogin      bool
-	OpenFGA                       OpenFGAConfig
+	AppName                              string
+	AppVersion                           string
+	HTTPPort                             int
+	AppBaseURL                           string
+	FrontendBaseURL                      string
+	LogLevel                             string
+	LogFormat                            string
+	MetricsEnabled                       bool
+	MetricsPath                          string
+	SecurityHeadersEnabled               bool
+	SecurityCSP                          string
+	SecurityHSTSEnabled                  bool
+	SecurityHSTSMaxAge                   int
+	MaxRequestBodyBytes                  int64
+	DatasetMaxUploadBytes                int64
+	TrustedProxyCIDRs                    []string
+	CORSAllowedOrigins                   []string
+	OTELTracingEnabled                   bool
+	OTELServiceName                      string
+	OTELExporterOTLPEndpoint             string
+	OTELExporterOTLPInsecure             bool
+	OTELTraceSampleRatio                 float64
+	DatabaseURL                          string
+	DBMigrationCheckMode                 string
+	AuthMode                             string
+	ZitadelIssuer                        string
+	ZitadelClientID                      string
+	ZitadelClientSecret                  string
+	ZitadelRedirectURI                   string
+	ZitadelPostLogoutRedirectURI         string
+	ZitadelScopes                        string
+	ExternalExpectedAudience             string
+	ExternalRequiredScopePrefix          string
+	ExternalRequiredRole                 string
+	ExternalAllowedOrigins               []string
+	M2MExpectedAudience                  string
+	M2MRequiredScopePrefix               string
+	DownstreamTokenEncryptionKey         string
+	DownstreamTokenKeyVersion            int
+	DownstreamRefreshTokenTTL            time.Duration
+	DownstreamAccessTokenSkew            time.Duration
+	DownstreamDefaultScopes              string
+	SCIMBasePath                         string
+	SCIMBearerAudience                   string
+	SCIMRequiredScope                    string
+	ReadinessTimeout                     time.Duration
+	ReadinessCheckZitadel                bool
+	SCIMReconcileEnabled                 bool
+	SCIMReconcileInterval                time.Duration
+	SCIMReconcileTimeout                 time.Duration
+	SCIMReconcileRunOnStartup            bool
+	OutboxWorkerEnabled                  bool
+	OutboxWorkerInterval                 time.Duration
+	OutboxWorkerTimeout                  time.Duration
+	OutboxWorkerBatchSize                int
+	OutboxWorkerMaxAttempts              int
+	WorkTableExportSchedulerEnabled      bool
+	WorkTableExportSchedulerInterval     time.Duration
+	WorkTableExportSchedulerTimeout      time.Duration
+	WorkTableExportSchedulerBatchSize    int
+	WorkTableExportSchedulerRunOnStartup bool
+	IdempotencyTTL                       time.Duration
+	EmailDeliveryMode                    string
+	EmailFrom                            string
+	InvitationTTL                        time.Duration
+	FileStorageDriver                    string
+	FileLocalDir                         string
+	FileS3Endpoint                       string
+	FileS3Region                         string
+	FileS3Bucket                         string
+	FileS3AccessKeyID                    string
+	FileS3SecretAccessKey                string
+	FileS3ForcePathStyle                 bool
+	FileMaxBytes                         int64
+	FileAllowedMIMETypes                 []string
+	RateLimitEnabled                     bool
+	RateLimitLoginPerMinute              int
+	RateLimitBrowserAPIPerMinute         int
+	RateLimitExternalAPIPerMinute        int
+	TenantDefaultFileQuotaBytes          int64
+	DataExportTTL                        time.Duration
+	DataLifecycleEnabled                 bool
+	DataLifecycleInterval                time.Duration
+	DataLifecycleTimeout                 time.Duration
+	DataLifecycleRunOnStartup            bool
+	OutboxRetention                      time.Duration
+	NotificationRetention                time.Duration
+	FileDeletedRetention                 time.Duration
+	FilePurgeBatchSize                   int
+	FilePurgeLockTimeout                 time.Duration
+	WebhookSecretEncryptionKey           string
+	WebhookSecretKeyVersion              int
+	WebhookHTTPTimeout                   time.Duration
+	SupportAccessMaxDuration             time.Duration
+	RedisAddr                            string
+	RedisPassword                        string
+	RedisDB                              int
+	RealtimeEnabled                      bool
+	RealtimeHeartbeatInterval            time.Duration
+	RealtimeLongPollTimeout              time.Duration
+	RealtimeEventRetention               time.Duration
+	RealtimeBackfillLimit                int
+	ClickHouseAddr                       string
+	ClickHouseHTTPURL                    string
+	ClickHouseDatabase                   string
+	ClickHouseUsername                   string
+	ClickHousePassword                   string
+	ClickHouseTenantPasswordSalt         string
+	ClickHouseQueryMaxSeconds            int
+	ClickHouseQueryMaxMemoryBytes        int64
+	ClickHouseQueryMaxRowsToRead         int64
+	ClickHouseQueryMaxThreads            int
+	LoginStateTTL                        time.Duration
+	SessionTTL                           time.Duration
+	CookieSecure                         bool
+	DocsAuthRequired                     bool
+	EnableLocalPasswordLogin             bool
+	OpenFGA                              OpenFGAConfig
 }
 
 type OpenFGAConfig struct {
@@ -176,6 +181,14 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	outboxWorkerTimeout, err := getEnvPositiveDuration("OUTBOX_WORKER_TIMEOUT", "10m")
+	if err != nil {
+		return Config{}, err
+	}
+	workTableExportSchedulerInterval, err := getEnvPositiveDuration("WORK_TABLE_EXPORT_SCHEDULER_INTERVAL", "1m")
+	if err != nil {
+		return Config{}, err
+	}
+	workTableExportSchedulerTimeout, err := getEnvPositiveDuration("WORK_TABLE_EXPORT_SCHEDULER_TIMEOUT", "5m")
 	if err != nil {
 		return Config{}, err
 	}
@@ -267,119 +280,124 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		AppName:                       getEnv("APP_NAME", "HaoHao API"),
-		AppVersion:                    getEnv("APP_VERSION", "0.1.0"),
-		HTTPPort:                      getEnvInt("HTTP_PORT", 8080),
-		AppBaseURL:                    appBaseURL,
-		FrontendBaseURL:               frontendBaseURL,
-		LogLevel:                      getEnv("LOG_LEVEL", "info"),
-		LogFormat:                     getEnv("LOG_FORMAT", "json"),
-		MetricsEnabled:                getEnvBool("METRICS_ENABLED", true),
-		MetricsPath:                   metricsPath,
-		SecurityHeadersEnabled:        getEnvBool("SECURITY_HEADERS_ENABLED", true),
-		SecurityCSP:                   getEnv("SECURITY_CSP", "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'"),
-		SecurityHSTSEnabled:           getEnvBool("SECURITY_HSTS_ENABLED", false),
-		SecurityHSTSMaxAge:            positiveInt(getEnvInt("SECURITY_HSTS_MAX_AGE", 31536000), 31536000),
-		MaxRequestBodyBytes:           positiveInt64(getEnvInt64("MAX_REQUEST_BODY_BYTES", 104857600), 104857600),
-		DatasetMaxUploadBytes:         positiveInt64(getEnvInt64("DATASET_MAX_UPLOAD_BYTES", 10*1024*1024*1024), 10*1024*1024*1024),
-		TrustedProxyCIDRs:             getEnvCSV("TRUSTED_PROXY_CIDRS"),
-		CORSAllowedOrigins:            getEnvCSV("CORS_ALLOWED_ORIGINS"),
-		OTELTracingEnabled:            getEnvBool("OTEL_TRACING_ENABLED", false),
-		OTELServiceName:               getEnv("OTEL_SERVICE_NAME", "haohao"),
-		OTELExporterOTLPEndpoint:      getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
-		OTELExporterOTLPInsecure:      getEnvBool("OTEL_EXPORTER_OTLP_INSECURE", true),
-		OTELTraceSampleRatio:          otelTraceSampleRatio,
-		DatabaseURL:                   getEnv("DATABASE_URL", ""),
-		DBMigrationCheckMode:          dbMigrationCheckMode,
-		AuthMode:                      getEnv("AUTH_MODE", "local"),
-		ZitadelIssuer:                 strings.TrimRight(getEnv("ZITADEL_ISSUER", ""), "/"),
-		ZitadelClientID:               getEnv("ZITADEL_CLIENT_ID", ""),
-		ZitadelClientSecret:           getEnv("ZITADEL_CLIENT_SECRET", ""),
-		ZitadelRedirectURI:            getEnv("ZITADEL_REDIRECT_URI", "http://127.0.0.1:8080/api/v1/auth/callback"),
-		ZitadelPostLogoutRedirectURI:  zitadelPostLogoutRedirectURI,
-		ZitadelScopes:                 getEnv("ZITADEL_SCOPES", "openid profile email"),
-		ExternalExpectedAudience:      getEnv("EXTERNAL_EXPECTED_AUDIENCE", "haohao-external"),
-		ExternalRequiredScopePrefix:   getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", ""),
-		ExternalRequiredRole:          getEnv("EXTERNAL_REQUIRED_ROLE", "external_api_user"),
-		ExternalAllowedOrigins:        getEnvCSV("EXTERNAL_ALLOWED_ORIGINS"),
-		M2MExpectedAudience:           getEnv("M2M_EXPECTED_AUDIENCE", "haohao-m2m"),
-		M2MRequiredScopePrefix:        getEnv("M2M_REQUIRED_SCOPE_PREFIX", "m2m:"),
-		DownstreamTokenEncryptionKey:  getEnv("DOWNSTREAM_TOKEN_ENCRYPTION_KEY", ""),
-		DownstreamTokenKeyVersion:     getEnvInt("DOWNSTREAM_TOKEN_KEY_VERSION", 1),
-		DownstreamRefreshTokenTTL:     downstreamRefreshTokenTTL,
-		DownstreamAccessTokenSkew:     downstreamAccessTokenSkew,
-		DownstreamDefaultScopes:       getEnv("DOWNSTREAM_DEFAULT_SCOPES", "offline_access"),
-		SCIMBasePath:                  strings.TrimRight(getEnv("SCIM_BASE_PATH", "/api/scim/v2"), "/"),
-		SCIMBearerAudience:            getEnv("SCIM_BEARER_AUDIENCE", "scim-provisioning"),
-		SCIMRequiredScope:             getEnv("SCIM_REQUIRED_SCOPE", "scim:provision"),
-		ReadinessTimeout:              readinessTimeout,
-		ReadinessCheckZitadel:         getEnvBool("READINESS_CHECK_ZITADEL", false),
-		SCIMReconcileEnabled:          getEnvBool("SCIM_RECONCILE_ENABLED", false),
-		SCIMReconcileInterval:         scimReconcileInterval,
-		SCIMReconcileTimeout:          scimReconcileTimeout,
-		SCIMReconcileRunOnStartup:     getEnvBool("SCIM_RECONCILE_RUN_ON_STARTUP", false),
-		OutboxWorkerEnabled:           getEnvBool("OUTBOX_WORKER_ENABLED", true),
-		OutboxWorkerInterval:          outboxWorkerInterval,
-		OutboxWorkerTimeout:           outboxWorkerTimeout,
-		OutboxWorkerBatchSize:         positiveInt(getEnvInt("OUTBOX_WORKER_BATCH_SIZE", 20), 20),
-		OutboxWorkerMaxAttempts:       positiveInt(getEnvInt("OUTBOX_WORKER_MAX_ATTEMPTS", 8), 8),
-		IdempotencyTTL:                idempotencyTTL,
-		EmailDeliveryMode:             strings.ToLower(strings.TrimSpace(getEnv("EMAIL_DELIVERY_MODE", "log"))),
-		EmailFrom:                     getEnv("EMAIL_FROM", "no-reply@example.com"),
-		InvitationTTL:                 invitationTTL,
-		FileStorageDriver:             fileStorageDriver,
-		FileLocalDir:                  getEnv("FILE_LOCAL_DIR", ".data/files"),
-		FileS3Endpoint:                fileS3Endpoint,
-		FileS3Region:                  strings.TrimSpace(getEnv("FILE_S3_REGION", "us-east-1")),
-		FileS3Bucket:                  fileS3Bucket,
-		FileS3AccessKeyID:             fileS3AccessKeyID,
-		FileS3SecretAccessKey:         fileS3SecretAccessKey,
-		FileS3ForcePathStyle:          getEnvBool("FILE_S3_FORCE_PATH_STYLE", true),
-		FileMaxBytes:                  positiveInt64(getEnvInt64("FILE_MAX_BYTES", 104857600), 104857600),
-		FileAllowedMIMETypes:          getEnvCSV("FILE_ALLOWED_MIME_TYPES"),
-		RateLimitEnabled:              getEnvBool("RATE_LIMIT_ENABLED", true),
-		RateLimitLoginPerMinute:       positiveInt(getEnvInt("RATE_LIMIT_LOGIN_PER_MINUTE", 20), 20),
-		RateLimitBrowserAPIPerMinute:  positiveInt(getEnvInt("RATE_LIMIT_BROWSER_API_PER_MINUTE", 120), 120),
-		RateLimitExternalAPIPerMinute: positiveInt(getEnvInt("RATE_LIMIT_EXTERNAL_API_PER_MINUTE", 120), 120),
-		TenantDefaultFileQuotaBytes:   positiveInt64(getEnvInt64("TENANT_DEFAULT_FILE_QUOTA_BYTES", 104857600), 104857600),
-		DataExportTTL:                 dataExportTTL,
-		DataLifecycleEnabled:          getEnvBool("DATA_LIFECYCLE_ENABLED", true),
-		DataLifecycleInterval:         dataLifecycleInterval,
-		DataLifecycleTimeout:          dataLifecycleTimeout,
-		DataLifecycleRunOnStartup:     getEnvBool("DATA_LIFECYCLE_RUN_ON_STARTUP", false),
-		OutboxRetention:               outboxRetention,
-		NotificationRetention:         notificationRetention,
-		FileDeletedRetention:          fileDeletedRetention,
-		FilePurgeBatchSize:            positiveInt(getEnvInt("FILE_PURGE_BATCH_SIZE", 50), 50),
-		FilePurgeLockTimeout:          filePurgeLockTimeout,
-		WebhookSecretEncryptionKey:    getEnv("WEBHOOK_SECRET_ENCRYPTION_KEY", ""),
-		WebhookSecretKeyVersion:       positiveInt(getEnvInt("WEBHOOK_SECRET_KEY_VERSION", 1), 1),
-		WebhookHTTPTimeout:            webhookHTTPTimeout,
-		SupportAccessMaxDuration:      supportAccessMaxDuration,
-		RedisAddr:                     getEnv("REDIS_ADDR", "127.0.0.1:6379"),
-		RedisPassword:                 getEnv("REDIS_PASSWORD", ""),
-		RedisDB:                       getEnvInt("REDIS_DB", 0),
-		RealtimeEnabled:               getEnvBool("REALTIME_ENABLED", true),
-		RealtimeHeartbeatInterval:     realtimeHeartbeatInterval,
-		RealtimeLongPollTimeout:       realtimeLongPollTimeout,
-		RealtimeEventRetention:        realtimeEventRetention,
-		RealtimeBackfillLimit:         positiveInt(getEnvInt("REALTIME_BACKFILL_LIMIT", 100), 100),
-		ClickHouseAddr:                strings.TrimSpace(getEnv("CLICKHOUSE_ADDR", "127.0.0.1:9000")),
-		ClickHouseHTTPURL:             strings.TrimSpace(getEnv("CLICKHOUSE_HTTP_URL", "http://127.0.0.1:8123")),
-		ClickHouseDatabase:            strings.TrimSpace(getEnv("CLICKHOUSE_DATABASE", "default")),
-		ClickHouseUsername:            strings.TrimSpace(getEnv("CLICKHOUSE_USERNAME", "default")),
-		ClickHousePassword:            getEnv("CLICKHOUSE_PASSWORD", ""),
-		ClickHouseTenantPasswordSalt:  getEnv("CLICKHOUSE_TENANT_PASSWORD_SALT", "haohao-local-datasets"),
-		ClickHouseQueryMaxSeconds:     positiveInt(getEnvInt("CLICKHOUSE_QUERY_MAX_SECONDS", 60), 60),
-		ClickHouseQueryMaxMemoryBytes: positiveInt64(getEnvInt64("CLICKHOUSE_QUERY_MAX_MEMORY_BYTES", 1024*1024*1024), 1024*1024*1024),
-		ClickHouseQueryMaxRowsToRead:  positiveInt64(getEnvInt64("CLICKHOUSE_QUERY_MAX_ROWS_TO_READ", 100000000), 100000000),
-		ClickHouseQueryMaxThreads:     positiveInt(getEnvInt("CLICKHOUSE_QUERY_MAX_THREADS", 4), 4),
-		LoginStateTTL:                 loginStateTTL,
-		SessionTTL:                    sessionTTL,
-		CookieSecure:                  getEnvBool("COOKIE_SECURE", false),
-		DocsAuthRequired:              getEnvBool("DOCS_AUTH_REQUIRED", false),
-		EnableLocalPasswordLogin:      getEnvBool("ENABLE_LOCAL_PASSWORD_LOGIN", true),
-		OpenFGA:                       openFGAConfig,
+		AppName:                              getEnv("APP_NAME", "HaoHao API"),
+		AppVersion:                           getEnv("APP_VERSION", "0.1.0"),
+		HTTPPort:                             getEnvInt("HTTP_PORT", 8080),
+		AppBaseURL:                           appBaseURL,
+		FrontendBaseURL:                      frontendBaseURL,
+		LogLevel:                             getEnv("LOG_LEVEL", "info"),
+		LogFormat:                            getEnv("LOG_FORMAT", "json"),
+		MetricsEnabled:                       getEnvBool("METRICS_ENABLED", true),
+		MetricsPath:                          metricsPath,
+		SecurityHeadersEnabled:               getEnvBool("SECURITY_HEADERS_ENABLED", true),
+		SecurityCSP:                          getEnv("SECURITY_CSP", "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'"),
+		SecurityHSTSEnabled:                  getEnvBool("SECURITY_HSTS_ENABLED", false),
+		SecurityHSTSMaxAge:                   positiveInt(getEnvInt("SECURITY_HSTS_MAX_AGE", 31536000), 31536000),
+		MaxRequestBodyBytes:                  positiveInt64(getEnvInt64("MAX_REQUEST_BODY_BYTES", 104857600), 104857600),
+		DatasetMaxUploadBytes:                positiveInt64(getEnvInt64("DATASET_MAX_UPLOAD_BYTES", 10*1024*1024*1024), 10*1024*1024*1024),
+		TrustedProxyCIDRs:                    getEnvCSV("TRUSTED_PROXY_CIDRS"),
+		CORSAllowedOrigins:                   getEnvCSV("CORS_ALLOWED_ORIGINS"),
+		OTELTracingEnabled:                   getEnvBool("OTEL_TRACING_ENABLED", false),
+		OTELServiceName:                      getEnv("OTEL_SERVICE_NAME", "haohao"),
+		OTELExporterOTLPEndpoint:             getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
+		OTELExporterOTLPInsecure:             getEnvBool("OTEL_EXPORTER_OTLP_INSECURE", true),
+		OTELTraceSampleRatio:                 otelTraceSampleRatio,
+		DatabaseURL:                          getEnv("DATABASE_URL", ""),
+		DBMigrationCheckMode:                 dbMigrationCheckMode,
+		AuthMode:                             getEnv("AUTH_MODE", "local"),
+		ZitadelIssuer:                        strings.TrimRight(getEnv("ZITADEL_ISSUER", ""), "/"),
+		ZitadelClientID:                      getEnv("ZITADEL_CLIENT_ID", ""),
+		ZitadelClientSecret:                  getEnv("ZITADEL_CLIENT_SECRET", ""),
+		ZitadelRedirectURI:                   getEnv("ZITADEL_REDIRECT_URI", "http://127.0.0.1:8080/api/v1/auth/callback"),
+		ZitadelPostLogoutRedirectURI:         zitadelPostLogoutRedirectURI,
+		ZitadelScopes:                        getEnv("ZITADEL_SCOPES", "openid profile email"),
+		ExternalExpectedAudience:             getEnv("EXTERNAL_EXPECTED_AUDIENCE", "haohao-external"),
+		ExternalRequiredScopePrefix:          getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", ""),
+		ExternalRequiredRole:                 getEnv("EXTERNAL_REQUIRED_ROLE", "external_api_user"),
+		ExternalAllowedOrigins:               getEnvCSV("EXTERNAL_ALLOWED_ORIGINS"),
+		M2MExpectedAudience:                  getEnv("M2M_EXPECTED_AUDIENCE", "haohao-m2m"),
+		M2MRequiredScopePrefix:               getEnv("M2M_REQUIRED_SCOPE_PREFIX", "m2m:"),
+		DownstreamTokenEncryptionKey:         getEnv("DOWNSTREAM_TOKEN_ENCRYPTION_KEY", ""),
+		DownstreamTokenKeyVersion:            getEnvInt("DOWNSTREAM_TOKEN_KEY_VERSION", 1),
+		DownstreamRefreshTokenTTL:            downstreamRefreshTokenTTL,
+		DownstreamAccessTokenSkew:            downstreamAccessTokenSkew,
+		DownstreamDefaultScopes:              getEnv("DOWNSTREAM_DEFAULT_SCOPES", "offline_access"),
+		SCIMBasePath:                         strings.TrimRight(getEnv("SCIM_BASE_PATH", "/api/scim/v2"), "/"),
+		SCIMBearerAudience:                   getEnv("SCIM_BEARER_AUDIENCE", "scim-provisioning"),
+		SCIMRequiredScope:                    getEnv("SCIM_REQUIRED_SCOPE", "scim:provision"),
+		ReadinessTimeout:                     readinessTimeout,
+		ReadinessCheckZitadel:                getEnvBool("READINESS_CHECK_ZITADEL", false),
+		SCIMReconcileEnabled:                 getEnvBool("SCIM_RECONCILE_ENABLED", false),
+		SCIMReconcileInterval:                scimReconcileInterval,
+		SCIMReconcileTimeout:                 scimReconcileTimeout,
+		SCIMReconcileRunOnStartup:            getEnvBool("SCIM_RECONCILE_RUN_ON_STARTUP", false),
+		OutboxWorkerEnabled:                  getEnvBool("OUTBOX_WORKER_ENABLED", true),
+		OutboxWorkerInterval:                 outboxWorkerInterval,
+		OutboxWorkerTimeout:                  outboxWorkerTimeout,
+		OutboxWorkerBatchSize:                positiveInt(getEnvInt("OUTBOX_WORKER_BATCH_SIZE", 20), 20),
+		OutboxWorkerMaxAttempts:              positiveInt(getEnvInt("OUTBOX_WORKER_MAX_ATTEMPTS", 8), 8),
+		WorkTableExportSchedulerEnabled:      getEnvBool("WORK_TABLE_EXPORT_SCHEDULER_ENABLED", true),
+		WorkTableExportSchedulerInterval:     workTableExportSchedulerInterval,
+		WorkTableExportSchedulerTimeout:      workTableExportSchedulerTimeout,
+		WorkTableExportSchedulerBatchSize:    positiveInt(getEnvInt("WORK_TABLE_EXPORT_SCHEDULER_BATCH_SIZE", 20), 20),
+		WorkTableExportSchedulerRunOnStartup: getEnvBool("WORK_TABLE_EXPORT_SCHEDULER_RUN_ON_STARTUP", true),
+		IdempotencyTTL:                       idempotencyTTL,
+		EmailDeliveryMode:                    strings.ToLower(strings.TrimSpace(getEnv("EMAIL_DELIVERY_MODE", "log"))),
+		EmailFrom:                            getEnv("EMAIL_FROM", "no-reply@example.com"),
+		InvitationTTL:                        invitationTTL,
+		FileStorageDriver:                    fileStorageDriver,
+		FileLocalDir:                         getEnv("FILE_LOCAL_DIR", ".data/files"),
+		FileS3Endpoint:                       fileS3Endpoint,
+		FileS3Region:                         strings.TrimSpace(getEnv("FILE_S3_REGION", "us-east-1")),
+		FileS3Bucket:                         fileS3Bucket,
+		FileS3AccessKeyID:                    fileS3AccessKeyID,
+		FileS3SecretAccessKey:                fileS3SecretAccessKey,
+		FileS3ForcePathStyle:                 getEnvBool("FILE_S3_FORCE_PATH_STYLE", true),
+		FileMaxBytes:                         positiveInt64(getEnvInt64("FILE_MAX_BYTES", 104857600), 104857600),
+		FileAllowedMIMETypes:                 getEnvCSV("FILE_ALLOWED_MIME_TYPES"),
+		RateLimitEnabled:                     getEnvBool("RATE_LIMIT_ENABLED", true),
+		RateLimitLoginPerMinute:              positiveInt(getEnvInt("RATE_LIMIT_LOGIN_PER_MINUTE", 20), 20),
+		RateLimitBrowserAPIPerMinute:         positiveInt(getEnvInt("RATE_LIMIT_BROWSER_API_PER_MINUTE", 120), 120),
+		RateLimitExternalAPIPerMinute:        positiveInt(getEnvInt("RATE_LIMIT_EXTERNAL_API_PER_MINUTE", 120), 120),
+		TenantDefaultFileQuotaBytes:          positiveInt64(getEnvInt64("TENANT_DEFAULT_FILE_QUOTA_BYTES", 104857600), 104857600),
+		DataExportTTL:                        dataExportTTL,
+		DataLifecycleEnabled:                 getEnvBool("DATA_LIFECYCLE_ENABLED", true),
+		DataLifecycleInterval:                dataLifecycleInterval,
+		DataLifecycleTimeout:                 dataLifecycleTimeout,
+		DataLifecycleRunOnStartup:            getEnvBool("DATA_LIFECYCLE_RUN_ON_STARTUP", false),
+		OutboxRetention:                      outboxRetention,
+		NotificationRetention:                notificationRetention,
+		FileDeletedRetention:                 fileDeletedRetention,
+		FilePurgeBatchSize:                   positiveInt(getEnvInt("FILE_PURGE_BATCH_SIZE", 50), 50),
+		FilePurgeLockTimeout:                 filePurgeLockTimeout,
+		WebhookSecretEncryptionKey:           getEnv("WEBHOOK_SECRET_ENCRYPTION_KEY", ""),
+		WebhookSecretKeyVersion:              positiveInt(getEnvInt("WEBHOOK_SECRET_KEY_VERSION", 1), 1),
+		WebhookHTTPTimeout:                   webhookHTTPTimeout,
+		SupportAccessMaxDuration:             supportAccessMaxDuration,
+		RedisAddr:                            getEnv("REDIS_ADDR", "127.0.0.1:6379"),
+		RedisPassword:                        getEnv("REDIS_PASSWORD", ""),
+		RedisDB:                              getEnvInt("REDIS_DB", 0),
+		RealtimeEnabled:                      getEnvBool("REALTIME_ENABLED", true),
+		RealtimeHeartbeatInterval:            realtimeHeartbeatInterval,
+		RealtimeLongPollTimeout:              realtimeLongPollTimeout,
+		RealtimeEventRetention:               realtimeEventRetention,
+		RealtimeBackfillLimit:                positiveInt(getEnvInt("REALTIME_BACKFILL_LIMIT", 100), 100),
+		ClickHouseAddr:                       strings.TrimSpace(getEnv("CLICKHOUSE_ADDR", "127.0.0.1:9000")),
+		ClickHouseHTTPURL:                    strings.TrimSpace(getEnv("CLICKHOUSE_HTTP_URL", "http://127.0.0.1:8123")),
+		ClickHouseDatabase:                   strings.TrimSpace(getEnv("CLICKHOUSE_DATABASE", "default")),
+		ClickHouseUsername:                   strings.TrimSpace(getEnv("CLICKHOUSE_USERNAME", "default")),
+		ClickHousePassword:                   getEnv("CLICKHOUSE_PASSWORD", ""),
+		ClickHouseTenantPasswordSalt:         getEnv("CLICKHOUSE_TENANT_PASSWORD_SALT", "haohao-local-datasets"),
+		ClickHouseQueryMaxSeconds:            positiveInt(getEnvInt("CLICKHOUSE_QUERY_MAX_SECONDS", 60), 60),
+		ClickHouseQueryMaxMemoryBytes:        positiveInt64(getEnvInt64("CLICKHOUSE_QUERY_MAX_MEMORY_BYTES", 1024*1024*1024), 1024*1024*1024),
+		ClickHouseQueryMaxRowsToRead:         positiveInt64(getEnvInt64("CLICKHOUSE_QUERY_MAX_ROWS_TO_READ", 100000000), 100000000),
+		ClickHouseQueryMaxThreads:            positiveInt(getEnvInt("CLICKHOUSE_QUERY_MAX_THREADS", 4), 4),
+		LoginStateTTL:                        loginStateTTL,
+		SessionTTL:                           sessionTTL,
+		CookieSecure:                         getEnvBool("COOKIE_SECURE", false),
+		DocsAuthRequired:                     getEnvBool("DOCS_AUTH_REQUIRED", false),
+		EnableLocalPasswordLogin:             getEnvBool("ENABLE_LOCAL_PASSWORD_LOGIN", true),
+		OpenFGA:                              openFGAConfig,
 	}, nil
 }
 

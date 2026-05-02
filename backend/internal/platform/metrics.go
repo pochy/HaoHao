@@ -18,29 +18,32 @@ import (
 type Metrics struct {
 	registry *prometheus.Registry
 
-	httpRequestsTotal       *prometheus.CounterVec
-	httpRequestDuration     *prometheus.HistogramVec
-	dependencyPingDuration  *prometheus.HistogramVec
-	readinessFailuresTotal  *prometheus.CounterVec
-	reconcileRunsTotal      *prometheus.CounterVec
-	reconcileDuration       *prometheus.HistogramVec
-	reconcileSkippedTotal   *prometheus.CounterVec
-	authFailuresTotal       *prometheus.CounterVec
-	outboxRunsTotal         *prometheus.CounterVec
-	outboxDuration          *prometheus.HistogramVec
-	outboxEventsTotal       *prometheus.CounterVec
-	rateLimitTotal          *prometheus.CounterVec
-	dataLifecycleRunsTotal  *prometheus.CounterVec
-	dataLifecycleItemsTotal *prometheus.CounterVec
-	fileQuotaExceededTotal  *prometheus.CounterVec
-	openFGARequestsTotal    *prometheus.CounterVec
-	openFGARequestDuration  *prometheus.HistogramVec
-	driveAuthzDeniedTotal   *prometheus.CounterVec
-	realtimeConnections     prometheus.Gauge
-	realtimeEventsTotal     *prometheus.CounterVec
-	realtimeDeliveredTotal  *prometheus.CounterVec
-	realtimePublishErrors   *prometheus.CounterVec
-	realtimePollTimeouts    prometheus.Counter
+	httpRequestsTotal                 *prometheus.CounterVec
+	httpRequestDuration               *prometheus.HistogramVec
+	dependencyPingDuration            *prometheus.HistogramVec
+	readinessFailuresTotal            *prometheus.CounterVec
+	reconcileRunsTotal                *prometheus.CounterVec
+	reconcileDuration                 *prometheus.HistogramVec
+	reconcileSkippedTotal             *prometheus.CounterVec
+	authFailuresTotal                 *prometheus.CounterVec
+	outboxRunsTotal                   *prometheus.CounterVec
+	outboxDuration                    *prometheus.HistogramVec
+	outboxEventsTotal                 *prometheus.CounterVec
+	workTableExportScheduleRunsTotal  *prometheus.CounterVec
+	workTableExportScheduleDuration   *prometheus.HistogramVec
+	workTableExportScheduleItemsTotal *prometheus.CounterVec
+	rateLimitTotal                    *prometheus.CounterVec
+	dataLifecycleRunsTotal            *prometheus.CounterVec
+	dataLifecycleItemsTotal           *prometheus.CounterVec
+	fileQuotaExceededTotal            *prometheus.CounterVec
+	openFGARequestsTotal              *prometheus.CounterVec
+	openFGARequestDuration            *prometheus.HistogramVec
+	driveAuthzDeniedTotal             *prometheus.CounterVec
+	realtimeConnections               prometheus.Gauge
+	realtimeEventsTotal               *prometheus.CounterVec
+	realtimeDeliveredTotal            *prometheus.CounterVec
+	realtimePublishErrors             *prometheus.CounterVec
+	realtimePollTimeouts              prometheus.Counter
 }
 
 func NewMetrics(appVersion string) *Metrics {
@@ -125,6 +128,25 @@ func NewMetrics(appVersion string) *Metrics {
 			Help:        "Total number of handled outbox events.",
 			ConstLabels: constLabels,
 		}, []string{"event_type", "status"}),
+		workTableExportScheduleRunsTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "work_table_export_schedule_runs_total",
+			Help:        "Total number of work table export schedule job runs.",
+			ConstLabels: constLabels,
+		}, []string{"trigger", "status"}),
+		workTableExportScheduleDuration: factory.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace:   "haohao",
+			Name:        "work_table_export_schedule_duration_seconds",
+			Help:        "Work table export schedule job duration in seconds.",
+			Buckets:     []float64{0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+			ConstLabels: constLabels,
+		}, []string{"trigger", "status"}),
+		workTableExportScheduleItemsTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "work_table_export_schedule_items_total",
+			Help:        "Total number of work table export schedule items processed.",
+			ConstLabels: constLabels,
+		}, []string{"kind"}),
 		rateLimitTotal: factory.NewCounterVec(prometheus.CounterOpts{
 			Namespace:   "haohao",
 			Name:        "rate_limit_total",
@@ -310,6 +332,25 @@ func (m *Metrics) IncOutboxEvent(eventType, status string) {
 		return
 	}
 	m.outboxEventsTotal.WithLabelValues(eventType, status).Inc()
+}
+
+func (m *Metrics) ObserveWorkTableExportScheduleRun(trigger string, duration time.Duration, err error) {
+	if m == nil {
+		return
+	}
+	status := "ok"
+	if err != nil {
+		status = "error"
+	}
+	m.workTableExportScheduleRunsTotal.WithLabelValues(trigger, status).Inc()
+	m.workTableExportScheduleDuration.WithLabelValues(trigger, status).Observe(duration.Seconds())
+}
+
+func (m *Metrics) IncWorkTableExportScheduleItems(kind string, count int64) {
+	if m == nil || count <= 0 {
+		return
+	}
+	m.workTableExportScheduleItemsTotal.WithLabelValues(kind).Add(float64(count))
 }
 
 func (m *Metrics) IncRateLimit(policy, result string) {

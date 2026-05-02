@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 
 import { isApiForbidden, toApiErrorMessage, toApiErrorStatus } from '../api/client'
-import type { DatasetBody, DatasetQueryJobBody, DatasetSourceFileBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
+import type { DatasetBody, DatasetQueryJobBody, DatasetSourceFileBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
 import {
+  createWorkTableExportSchedule,
   createDatasetFromDriveFile,
   createDatasetQuery,
   createDatasetScopedQuery,
+  disableWorkTableExportSchedule,
   deleteDatasetItem,
   dropWorkTable,
   fetchDataset,
@@ -18,6 +20,7 @@ import {
   fetchDatasetWorkTables,
   fetchManagedDatasetWorkTable,
   fetchManagedDatasetWorkTablePreview,
+  fetchWorkTableExportSchedules,
   fetchWorkTableExports,
   linkWorkTable,
   promoteWorkTable,
@@ -25,6 +28,7 @@ import {
   renameWorkTable,
   requestWorkTableExport,
   truncateWorkTable,
+  updateWorkTableExportSchedule,
 } from '../api/datasets'
 import type { DatasetWorkTableExportFormat } from '../api/datasets'
 
@@ -42,6 +46,7 @@ export const useDatasetStore = defineStore('datasets', {
     selectedWorkTable: null as DatasetWorkTableBody | null,
     workTablePreview: null as DatasetWorkTablePreviewBody | null,
     workTableExports: [] as DatasetWorkTableExportBody[],
+    workTableExportSchedules: [] as DatasetWorkTableExportScheduleBody[],
     workTablesLoading: false,
     workTablePreviewLoading: false,
     workTableActionLoading: false,
@@ -144,6 +149,8 @@ export const useDatasetStore = defineStore('datasets', {
         if (!next) {
           this.selectedWorkTable = null
           this.workTablePreview = null
+          this.workTableExports = []
+          this.workTableExportSchedules = []
           return
         }
         await this.selectWorkTable(next)
@@ -151,6 +158,8 @@ export const useDatasetStore = defineStore('datasets', {
         this.workTables = []
         this.selectedWorkTable = null
         this.workTablePreview = null
+        this.workTableExports = []
+        this.workTableExportSchedules = []
         this.workTableErrorMessage = toApiErrorMessage(error)
       } finally {
         this.workTablesLoading = false
@@ -162,32 +171,38 @@ export const useDatasetStore = defineStore('datasets', {
       this.selectedWorkTable = existing
       this.workTablePreview = null
       this.workTableExports = []
+      this.workTableExportSchedules = []
       this.workTablePreviewLoading = true
       this.workTableErrorMessage = ''
       try {
         if (existing.publicId && existing.managed && existing.status !== 'active') {
-          const [detail, exports] = await Promise.all([
+          const [detail, exports, schedules] = await Promise.all([
             fetchManagedDatasetWorkTable(existing.publicId),
             fetchWorkTableExports(existing.publicId),
+            fetchWorkTableExportSchedules(existing.publicId),
           ])
           this.selectedWorkTable = detail
           this.workTableExports = exports
+          this.workTableExportSchedules = schedules
           return
         }
-        const [detail, preview, exports] = existing.publicId && existing.managed
+        const [detail, preview, exports, schedules] = existing.publicId && existing.managed
           ? await Promise.all([
               fetchManagedDatasetWorkTable(existing.publicId),
               fetchManagedDatasetWorkTablePreview(existing.publicId),
               fetchWorkTableExports(existing.publicId),
+              fetchWorkTableExportSchedules(existing.publicId),
             ])
           : await Promise.all([
               fetchDatasetWorkTable(existing.database, existing.table),
               fetchDatasetWorkTablePreview(existing.database, existing.table),
               Promise.resolve([] as DatasetWorkTableExportBody[]),
+              Promise.resolve([] as DatasetWorkTableExportScheduleBody[]),
             ])
         this.selectedWorkTable = detail
         this.workTablePreview = preview
         this.workTableExports = exports
+        this.workTableExportSchedules = schedules
       } catch (error) {
         this.workTableErrorMessage = toApiErrorMessage(error)
       } finally {
@@ -359,6 +374,67 @@ export const useDatasetStore = defineStore('datasets', {
       }
     },
 
+    async refreshSelectedWorkTableExportSchedules() {
+      const publicId = this.selectedWorkTable?.publicId
+      if (!publicId || !this.selectedWorkTable?.managed) {
+        return
+      }
+      try {
+        this.workTableExportSchedules = await fetchWorkTableExportSchedules(publicId)
+      } catch (error) {
+        this.workTableErrorMessage = toApiErrorMessage(error)
+      }
+    },
+
+    async createSelectedWorkTableExportSchedule(body: DatasetWorkTableExportScheduleCreateBodyWritable) {
+      const publicId = this.selectedWorkTable?.publicId
+      if (!publicId) {
+        return null
+      }
+      this.workTableActionLoading = true
+      this.workTableErrorMessage = ''
+      try {
+        const item = await createWorkTableExportSchedule(publicId, body)
+        this.workTableExportSchedules = [item, ...this.workTableExportSchedules.filter((schedule) => schedule.publicId !== item.publicId)]
+        return item
+      } catch (error) {
+        this.workTableErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.workTableActionLoading = false
+      }
+    },
+
+    async updateSelectedWorkTableExportSchedule(schedulePublicId: string, body: DatasetWorkTableExportScheduleUpdateBodyWritable) {
+      this.workTableActionLoading = true
+      this.workTableErrorMessage = ''
+      try {
+        const item = await updateWorkTableExportSchedule(schedulePublicId, body)
+        this.workTableExportSchedules = [item, ...this.workTableExportSchedules.filter((schedule) => schedule.publicId !== item.publicId)]
+        return item
+      } catch (error) {
+        this.workTableErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.workTableActionLoading = false
+      }
+    },
+
+    async disableSelectedWorkTableExportSchedule(schedulePublicId: string) {
+      this.workTableActionLoading = true
+      this.workTableErrorMessage = ''
+      try {
+        const item = await disableWorkTableExportSchedule(schedulePublicId)
+        this.workTableExportSchedules = [item, ...this.workTableExportSchedules.filter((schedule) => schedule.publicId !== item.publicId)]
+        return item
+      } catch (error) {
+        this.workTableErrorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.workTableActionLoading = false
+      }
+    },
+
     applyWorkTableExportUpdate(update: Partial<DatasetWorkTableExportBody> & { publicId: string }) {
       const index = this.workTableExports.findIndex((item) => item.publicId === update.publicId)
       if (index < 0) {
@@ -463,6 +539,7 @@ export const useDatasetStore = defineStore('datasets', {
       this.selectedWorkTable = null
       this.workTablePreview = null
       this.workTableExports = []
+      this.workTableExportSchedules = []
       this.workTablesLoading = false
       this.workTablePreviewLoading = false
       this.workTableActionLoading = false

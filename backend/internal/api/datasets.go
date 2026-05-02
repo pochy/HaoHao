@@ -104,16 +104,19 @@ type DatasetWorkTableListBody struct {
 }
 
 type DatasetWorkTableExportBody struct {
-	PublicID     string     `json:"publicId" format:"uuid"`
-	WorkTableID  int64      `json:"workTableId"`
-	Format       string     `json:"format" example:"csv"`
-	Status       string     `json:"status" example:"processing"`
-	ErrorSummary string     `json:"errorSummary,omitempty"`
-	FileObjectID *int64     `json:"fileObjectId,omitempty"`
-	ExpiresAt    time.Time  `json:"expiresAt" format:"date-time"`
-	CreatedAt    time.Time  `json:"createdAt" format:"date-time"`
-	UpdatedAt    time.Time  `json:"updatedAt" format:"date-time"`
-	CompletedAt  *time.Time `json:"completedAt,omitempty" format:"date-time"`
+	PublicID         string     `json:"publicId" format:"uuid"`
+	WorkTableID      int64      `json:"workTableId"`
+	Format           string     `json:"format" example:"csv"`
+	Status           string     `json:"status" example:"processing"`
+	Source           string     `json:"source" enum:"manual,scheduled" example:"manual"`
+	SchedulePublicID string     `json:"schedulePublicId,omitempty" format:"uuid"`
+	ScheduledFor     *time.Time `json:"scheduledFor,omitempty" format:"date-time"`
+	ErrorSummary     string     `json:"errorSummary,omitempty"`
+	FileObjectID     *int64     `json:"fileObjectId,omitempty"`
+	ExpiresAt        time.Time  `json:"expiresAt" format:"date-time"`
+	CreatedAt        time.Time  `json:"createdAt" format:"date-time"`
+	UpdatedAt        time.Time  `json:"updatedAt" format:"date-time"`
+	CompletedAt      *time.Time `json:"completedAt,omitempty" format:"date-time"`
 }
 
 type DatasetWorkTableExportListBody struct {
@@ -122,6 +125,50 @@ type DatasetWorkTableExportListBody struct {
 
 type DatasetWorkTableExportCreateBody struct {
 	Format string `json:"format,omitempty" enum:"csv,json,parquet" example:"csv"`
+}
+
+type DatasetWorkTableExportScheduleBody struct {
+	PublicID         string     `json:"publicId" format:"uuid"`
+	WorkTableID      int64      `json:"workTableId"`
+	Format           string     `json:"format" enum:"csv,json,parquet" example:"csv"`
+	Frequency        string     `json:"frequency" enum:"daily,weekly,monthly" example:"daily"`
+	Timezone         string     `json:"timezone" example:"Asia/Tokyo"`
+	RunTime          string     `json:"runTime" example:"03:00"`
+	Weekday          *int32     `json:"weekday,omitempty" minimum:"1" maximum:"7"`
+	MonthDay         *int32     `json:"monthDay,omitempty" minimum:"1" maximum:"28"`
+	RetentionDays    int32      `json:"retentionDays" minimum:"1" maximum:"365" example:"7"`
+	Enabled          bool       `json:"enabled"`
+	NextRunAt        time.Time  `json:"nextRunAt" format:"date-time"`
+	LastRunAt        *time.Time `json:"lastRunAt,omitempty" format:"date-time"`
+	LastStatus       string     `json:"lastStatus,omitempty"`
+	LastErrorSummary string     `json:"lastErrorSummary,omitempty"`
+	CreatedAt        time.Time  `json:"createdAt" format:"date-time"`
+	UpdatedAt        time.Time  `json:"updatedAt" format:"date-time"`
+}
+
+type DatasetWorkTableExportScheduleListBody struct {
+	Items []DatasetWorkTableExportScheduleBody `json:"items"`
+}
+
+type DatasetWorkTableExportScheduleCreateBody struct {
+	Format        string `json:"format,omitempty" enum:"csv,json,parquet" example:"csv"`
+	Frequency     string `json:"frequency,omitempty" enum:"daily,weekly,monthly" example:"daily"`
+	Timezone      string `json:"timezone,omitempty" example:"Asia/Tokyo"`
+	RunTime       string `json:"runTime,omitempty" example:"03:00"`
+	Weekday       *int32 `json:"weekday,omitempty" minimum:"1" maximum:"7"`
+	MonthDay      *int32 `json:"monthDay,omitempty" minimum:"1" maximum:"28"`
+	RetentionDays int32  `json:"retentionDays,omitempty" minimum:"1" maximum:"365" example:"7"`
+}
+
+type DatasetWorkTableExportScheduleUpdateBody struct {
+	Format        string `json:"format,omitempty" enum:"csv,json,parquet" example:"csv"`
+	Frequency     string `json:"frequency,omitempty" enum:"daily,weekly,monthly" example:"daily"`
+	Timezone      string `json:"timezone,omitempty" example:"Asia/Tokyo"`
+	RunTime       string `json:"runTime,omitempty" example:"03:00"`
+	Weekday       *int32 `json:"weekday,omitempty" minimum:"1" maximum:"7"`
+	MonthDay      *int32 `json:"monthDay,omitempty" minimum:"1" maximum:"28"`
+	RetentionDays int32  `json:"retentionDays,omitempty" minimum:"1" maximum:"365" example:"7"`
+	Enabled       *bool  `json:"enabled,omitempty"`
 }
 
 type DatasetWorkTablePreviewBody struct {
@@ -157,6 +204,14 @@ type DatasetWorkTableExportOutput struct {
 
 type DatasetWorkTableExportListOutput struct {
 	Body DatasetWorkTableExportListBody
+}
+
+type DatasetWorkTableExportScheduleOutput struct {
+	Body DatasetWorkTableExportScheduleBody
+}
+
+type DatasetWorkTableExportScheduleListOutput struct {
+	Body DatasetWorkTableExportScheduleListBody
 }
 
 type DatasetWorkTablePreviewOutput struct {
@@ -298,6 +353,31 @@ type DatasetWorkTableExportCreateInput struct {
 	CSRFToken         string      `header:"X-CSRF-Token" required:"true"`
 	WorkTablePublicID string      `path:"workTablePublicId" format:"uuid"`
 	Body              *DatasetWorkTableExportCreateBody
+}
+
+type DatasetWorkTableExportScheduleInput struct {
+	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
+	WorkTablePublicID string      `path:"workTablePublicId" format:"uuid"`
+}
+
+type DatasetWorkTableExportScheduleCreateInput struct {
+	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken         string      `header:"X-CSRF-Token" required:"true"`
+	WorkTablePublicID string      `path:"workTablePublicId" format:"uuid"`
+	Body              DatasetWorkTableExportScheduleCreateBody
+}
+
+type DatasetWorkTableExportScheduleMutateInput struct {
+	SessionCookie    http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken        string      `header:"X-CSRF-Token" required:"true"`
+	SchedulePublicID string      `path:"schedulePublicId" format:"uuid"`
+}
+
+type DatasetWorkTableExportScheduleUpdateInput struct {
+	SessionCookie    http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken        string      `header:"X-CSRF-Token" required:"true"`
+	SchedulePublicID string      `path:"schedulePublicId" format:"uuid"`
+	Body             DatasetWorkTableExportScheduleUpdateBody
 }
 
 type DatasetWorkTableExportByPublicIDInput struct {
@@ -680,6 +760,87 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID: "listDatasetWorkTableExportSchedules",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/export-schedules",
+		Summary:     "managed work table の export schedule 一覧を返す",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetWorkTableExportScheduleInput) (*DatasetWorkTableExportScheduleListOutput, error) {
+		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		items, err := deps.DatasetService.ListWorkTableExportSchedules(ctx, tenant.ID, input.WorkTablePublicID)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasetWorkTableExportSchedules", err)
+		}
+		out := &DatasetWorkTableExportScheduleListOutput{}
+		out.Body.Items = make([]DatasetWorkTableExportScheduleBody, 0, len(items))
+		for _, item := range items {
+			out.Body.Items = append(out.Body.Items, toDatasetWorkTableExportScheduleBody(item))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "createDatasetWorkTableExportSchedule",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/export-schedules",
+		Summary:     "managed work table の export schedule を作成する",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetWorkTableExportScheduleCreateInput) (*DatasetWorkTableExportScheduleOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		item, err := deps.DatasetService.CreateWorkTableExportSchedule(ctx, tenant.ID, current.User.ID, input.WorkTablePublicID, datasetWorkTableExportScheduleInputFromCreateBody(input.Body), sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "createDatasetWorkTableExportSchedule", err)
+		}
+		return &DatasetWorkTableExportScheduleOutput{Body: toDatasetWorkTableExportScheduleBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "updateDatasetWorkTableExportSchedule",
+		Method:      http.MethodPatch,
+		Path:        "/api/v1/dataset-work-table-export-schedules/{schedulePublicId}",
+		Summary:     "work table export schedule を更新する",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetWorkTableExportScheduleUpdateInput) (*DatasetWorkTableExportScheduleOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		item, err := deps.DatasetService.UpdateWorkTableExportSchedule(ctx, tenant.ID, current.User.ID, input.SchedulePublicID, datasetWorkTableExportScheduleInputFromUpdateBody(input.Body), sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "updateDatasetWorkTableExportSchedule", err)
+		}
+		return &DatasetWorkTableExportScheduleOutput{Body: toDatasetWorkTableExportScheduleBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "disableDatasetWorkTableExportSchedule",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/dataset-work-table-export-schedules/{schedulePublicId}/disable",
+		Summary:     "work table export schedule を disable する",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetWorkTableExportScheduleMutateInput) (*DatasetWorkTableExportScheduleOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		item, err := deps.DatasetService.DisableWorkTableExportSchedule(ctx, tenant.ID, current.User.ID, input.SchedulePublicID, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "disableDatasetWorkTableExportSchedule", err)
+		}
+		return &DatasetWorkTableExportScheduleOutput{Body: toDatasetWorkTableExportScheduleBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID: "getDatasetWorkTableExport",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-work-table-exports/{exportPublicId}",
@@ -1040,16 +1201,65 @@ func toDatasetWorkTableBody(item service.DatasetWorkTable) DatasetWorkTableBody 
 
 func toDatasetWorkTableExportBody(item service.DatasetWorkTableExport) DatasetWorkTableExportBody {
 	return DatasetWorkTableExportBody{
-		PublicID:     item.PublicID,
-		WorkTableID:  item.WorkTableID,
-		Format:       item.Format,
-		Status:       item.Status,
-		ErrorSummary: item.ErrorSummary,
-		FileObjectID: item.FileObjectID,
-		ExpiresAt:    item.ExpiresAt,
-		CreatedAt:    item.CreatedAt,
-		UpdatedAt:    item.UpdatedAt,
-		CompletedAt:  item.CompletedAt,
+		PublicID:         item.PublicID,
+		WorkTableID:      item.WorkTableID,
+		Format:           item.Format,
+		Status:           item.Status,
+		Source:           item.Source,
+		SchedulePublicID: item.SchedulePublicID,
+		ScheduledFor:     item.ScheduledFor,
+		ErrorSummary:     item.ErrorSummary,
+		FileObjectID:     item.FileObjectID,
+		ExpiresAt:        item.ExpiresAt,
+		CreatedAt:        item.CreatedAt,
+		UpdatedAt:        item.UpdatedAt,
+		CompletedAt:      item.CompletedAt,
+	}
+}
+
+func toDatasetWorkTableExportScheduleBody(item service.DatasetWorkTableExportSchedule) DatasetWorkTableExportScheduleBody {
+	return DatasetWorkTableExportScheduleBody{
+		PublicID:         item.PublicID,
+		WorkTableID:      item.WorkTableID,
+		Format:           item.Format,
+		Frequency:        item.Frequency,
+		Timezone:         item.Timezone,
+		RunTime:          item.RunTime,
+		Weekday:          item.Weekday,
+		MonthDay:         item.MonthDay,
+		RetentionDays:    item.RetentionDays,
+		Enabled:          item.Enabled,
+		NextRunAt:        item.NextRunAt,
+		LastRunAt:        item.LastRunAt,
+		LastStatus:       item.LastStatus,
+		LastErrorSummary: item.LastErrorSummary,
+		CreatedAt:        item.CreatedAt,
+		UpdatedAt:        item.UpdatedAt,
+	}
+}
+
+func datasetWorkTableExportScheduleInputFromCreateBody(body DatasetWorkTableExportScheduleCreateBody) service.DatasetWorkTableExportScheduleInput {
+	return service.DatasetWorkTableExportScheduleInput{
+		Format:        body.Format,
+		Frequency:     body.Frequency,
+		Timezone:      body.Timezone,
+		RunTime:       body.RunTime,
+		Weekday:       body.Weekday,
+		MonthDay:      body.MonthDay,
+		RetentionDays: body.RetentionDays,
+	}
+}
+
+func datasetWorkTableExportScheduleInputFromUpdateBody(body DatasetWorkTableExportScheduleUpdateBody) service.DatasetWorkTableExportScheduleInput {
+	return service.DatasetWorkTableExportScheduleInput{
+		Format:        body.Format,
+		Frequency:     body.Frequency,
+		Timezone:      body.Timezone,
+		RunTime:       body.RunTime,
+		Weekday:       body.Weekday,
+		MonthDay:      body.MonthDay,
+		RetentionDays: body.RetentionDays,
+		Enabled:       body.Enabled,
 	}
 }
 
@@ -1088,6 +1298,8 @@ func toDatasetHTTPError(ctx context.Context, deps Dependencies, operation string
 		return huma.Error404NotFound("dataset work table not found")
 	case errors.Is(err, service.ErrDatasetWorkTableExportNotFound):
 		return huma.Error404NotFound("dataset work table export not found")
+	case errors.Is(err, service.ErrDatasetWorkTableExportScheduleNotFound):
+		return huma.Error404NotFound("dataset work table export schedule not found")
 	case errors.Is(err, service.ErrDatasetWorkTableExportNotReady):
 		return huma.Error409Conflict("dataset work table export is not ready")
 	case errors.Is(err, service.ErrInvalidDatasetInput):

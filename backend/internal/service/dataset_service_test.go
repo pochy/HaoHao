@@ -338,6 +338,77 @@ func TestDatasetWorkTableExportFormatNormalizationAndSpec(t *testing.T) {
 	}
 }
 
+func TestWorkTableExportScheduleNextRun(t *testing.T) {
+	now := time.Date(2026, 5, 2, 2, 30, 0, 0, time.FixedZone("JST", 9*60*60))
+	weekday := int32(6)
+	monthDay := int32(2)
+	cases := []struct {
+		name      string
+		frequency string
+		runTime   string
+		weekday   *int32
+		monthDay  *int32
+		want      time.Time
+	}{
+		{
+			name:      "daily same day",
+			frequency: datasetWorkTableExportFrequencyDaily,
+			runTime:   "03:00",
+			want:      time.Date(2026, 5, 1, 18, 0, 0, 0, time.UTC),
+		},
+		{
+			name:      "weekly rolls forward",
+			frequency: datasetWorkTableExportFrequencyWeekly,
+			runTime:   "01:00",
+			weekday:   &weekday,
+			want:      time.Date(2026, 5, 8, 16, 0, 0, 0, time.UTC),
+		},
+		{
+			name:      "monthly rolls forward",
+			frequency: datasetWorkTableExportFrequencyMonthly,
+			runTime:   "02:00",
+			monthDay:  &monthDay,
+			want:      time.Date(2026, 6, 1, 17, 0, 0, 0, time.UTC),
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := nextWorkTableExportScheduleRunAfter(tc.frequency, "Asia/Tokyo", tc.runTime, tc.weekday, tc.monthDay, now)
+			if err != nil {
+				t.Fatalf("nextWorkTableExportScheduleRunAfter() error = %v", err)
+			}
+			if !got.Equal(tc.want) {
+				t.Fatalf("nextWorkTableExportScheduleRunAfter() = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeWorkTableExportScheduleInputValidation(t *testing.T) {
+	weekday := int32(1)
+	input := DatasetWorkTableExportScheduleInput{
+		Format:        "json",
+		Frequency:     "weekly",
+		Timezone:      "Asia/Tokyo",
+		RunTime:       "03:00",
+		Weekday:       &weekday,
+		RetentionDays: 14,
+	}
+	got, _, err := normalizeWorkTableExportScheduleInput(input, time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC), nil)
+	if err != nil {
+		t.Fatalf("normalizeWorkTableExportScheduleInput() error = %v", err)
+	}
+	if got.Format != "json" || got.Frequency != "weekly" || got.RetentionDays != 14 || got.Weekday == nil || *got.Weekday != 1 {
+		t.Fatalf("normalizeWorkTableExportScheduleInput() = %#v", got)
+	}
+	if _, _, err := normalizeWorkTableExportScheduleInput(DatasetWorkTableExportScheduleInput{Frequency: "weekly", Timezone: "Asia/Tokyo", RunTime: "03:00"}, time.Now(), nil); !errors.Is(err, ErrInvalidDatasetInput) {
+		t.Fatalf("weekly without weekday error = %v, want ErrInvalidDatasetInput", err)
+	}
+	if _, _, err := normalizeWorkTableExportScheduleInput(DatasetWorkTableExportScheduleInput{Timezone: "Not/AZone"}, time.Now(), nil); !errors.Is(err, ErrInvalidDatasetInput) {
+		t.Fatalf("invalid timezone error = %v, want ErrInvalidDatasetInput", err)
+	}
+}
+
 func TestDatasetClickHouseTypeUnsupportedForParquet(t *testing.T) {
 	cases := []struct {
 		chType string
