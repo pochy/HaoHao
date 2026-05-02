@@ -22,7 +22,14 @@ var (
 
 const FeatureCustomerSignalSavedFilters = "customer_signals.saved_filters"
 
+const (
+	defaultCustomerSignalSavedFilterListLimit = 25
+	maxCustomerSignalSavedFilterListLimit     = 100
+	maxCustomerSignalSavedFilterSearchLength  = 200
+)
+
 type CustomerSignalSavedFilter struct {
+	ID          int64
 	PublicID    string
 	TenantID    int64
 	OwnerUserID int64
@@ -37,6 +44,20 @@ type CustomerSignalSavedFilterInput struct {
 	Name    string
 	Query   string
 	Filters map[string]any
+}
+
+type CustomerSignalSavedFilterListInput struct {
+	Query    string
+	Status   string
+	Priority string
+	Source   string
+	Cursor   string
+	Limit    int
+}
+
+type CustomerSignalSavedFilterListResult struct {
+	Items      []CustomerSignalSavedFilter
+	NextCursor string
 }
 
 type CustomerSignalSavedFilterService struct {
@@ -65,6 +86,46 @@ func (s *CustomerSignalSavedFilterService) List(ctx context.Context, tenantID, o
 		items = append(items, customerSignalSavedFilterFromDB(row))
 	}
 	return items, nil
+}
+
+func (s *CustomerSignalSavedFilterService) Search(ctx context.Context, tenantID, ownerUserID int64, input CustomerSignalSavedFilterListInput) (CustomerSignalSavedFilterListResult, error) {
+	if err := s.requireEnabled(ctx, tenantID); err != nil {
+		return CustomerSignalSavedFilterListResult{}, err
+	}
+	normalized, cursor, err := normalizeSavedFilterListInput(input)
+	if err != nil {
+		return CustomerSignalSavedFilterListResult{}, err
+	}
+	limitPlusOne := normalized.Limit + 1
+	rows, err := s.queries.SearchCustomerSignalSavedFilters(ctx, db.SearchCustomerSignalSavedFiltersParams{
+		TenantID:        tenantID,
+		OwnerUserID:     ownerUserID,
+		Q:               pgText(normalized.Query),
+		Status:          pgText(normalized.Status),
+		Priority:        pgText(normalized.Priority),
+		Source:          pgText(normalized.Source),
+		CursorCreatedAt: pgTimestamp(cursor.CreatedAt),
+		CursorID:        pgInt8(optionalCursorID(cursor)),
+		ResultLimit:     int32(limitPlusOne),
+	})
+	if err != nil {
+		return CustomerSignalSavedFilterListResult{}, fmt.Errorf("search saved filters: %w", err)
+	}
+	items := make([]CustomerSignalSavedFilter, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, customerSignalSavedFilterFromDB(row))
+	}
+	result := CustomerSignalSavedFilterListResult{Items: items}
+	if len(result.Items) > normalized.Limit {
+		next := result.Items[normalized.Limit-1]
+		nextCursor, err := EncodeCreatedAtIDCursor(CreatedAtIDCursor{CreatedAt: next.CreatedAt, ID: next.ID})
+		if err != nil {
+			return CustomerSignalSavedFilterListResult{}, err
+		}
+		result.NextCursor = nextCursor
+		result.Items = result.Items[:normalized.Limit]
+	}
+	return result, nil
 }
 
 func (s *CustomerSignalSavedFilterService) Create(ctx context.Context, tenantID, ownerUserID int64, input CustomerSignalSavedFilterInput, auditCtx AuditContext) (CustomerSignalSavedFilter, error) {
@@ -199,8 +260,45 @@ func normalizeSavedFilterInput(input CustomerSignalSavedFilterInput) (CustomerSi
 	return input, payload, nil
 }
 
+func normalizeSavedFilterListInput(input CustomerSignalSavedFilterListInput) (CustomerSignalSavedFilterListInput, CreatedAtIDCursor, error) {
+	input.Query = strings.TrimSpace(input.Query)
+	input.Status = strings.ToLower(strings.TrimSpace(input.Status))
+	input.Priority = strings.ToLower(strings.TrimSpace(input.Priority))
+	input.Source = strings.ToLower(strings.TrimSpace(input.Source))
+	if len([]rune(input.Query)) > maxCustomerSignalSavedFilterSearchLength {
+		return CustomerSignalSavedFilterListInput{}, CreatedAtIDCursor{}, ErrInvalidCustomerSignalSavedFilter
+	}
+	if input.Status != "" {
+		if _, ok := allowedCustomerSignalStatuses[input.Status]; !ok {
+			return CustomerSignalSavedFilterListInput{}, CreatedAtIDCursor{}, ErrInvalidCustomerSignalSavedFilter
+		}
+	}
+	if input.Priority != "" {
+		if _, ok := allowedCustomerSignalPriorities[input.Priority]; !ok {
+			return CustomerSignalSavedFilterListInput{}, CreatedAtIDCursor{}, ErrInvalidCustomerSignalSavedFilter
+		}
+	}
+	if input.Source != "" {
+		if _, ok := allowedCustomerSignalSources[input.Source]; !ok {
+			return CustomerSignalSavedFilterListInput{}, CreatedAtIDCursor{}, ErrInvalidCustomerSignalSavedFilter
+		}
+	}
+	if input.Limit <= 0 {
+		input.Limit = defaultCustomerSignalSavedFilterListLimit
+	}
+	if input.Limit > maxCustomerSignalSavedFilterListLimit {
+		input.Limit = maxCustomerSignalSavedFilterListLimit
+	}
+	cursor, err := DecodeCreatedAtIDCursor(input.Cursor)
+	if err != nil {
+		return CustomerSignalSavedFilterListInput{}, CreatedAtIDCursor{}, err
+	}
+	return input, cursor, nil
+}
+
 func customerSignalSavedFilterFromDB(row db.CustomerSignalSavedFilter) CustomerSignalSavedFilter {
 	return CustomerSignalSavedFilter{
+		ID:          row.ID,
 		PublicID:    row.PublicID.String(),
 		TenantID:    row.TenantID,
 		OwnerUserID: row.OwnerUserID,

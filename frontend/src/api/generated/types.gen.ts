@@ -326,12 +326,13 @@ export type CustomerSignalSavedFilterBody = {
     updatedAt: string;
 };
 
-export type CustomerSignalSavedFilterListOutputBody = {
+export type CustomerSignalSavedFilterListBody = {
     /**
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
     items: Array<CustomerSignalSavedFilterBody> | null;
+    nextCursor?: string;
 };
 
 export type CustomerSignalSavedFilterRequestBody = {
@@ -3994,8 +3995,9 @@ export type CustomerSignalSavedFilterBodyWritable = {
     updatedAt: string;
 };
 
-export type CustomerSignalSavedFilterListOutputBodyWritable = {
+export type CustomerSignalSavedFilterListBodyWritable = {
     items: Array<CustomerSignalSavedFilterBodyWritable> | null;
+    nextCursor?: string;
 };
 
 export type CustomerSignalSavedFilterRequestBodyWritable = {
@@ -8864,7 +8866,32 @@ export type GetCsrfResponse = GetCsrfResponses[keyof GetCsrfResponses];
 export type ListCustomerSignalSavedFiltersData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * 検索語または filter query です。
+         */
+        q?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `status` です。
+         */
+        status?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `priority` です。
+         */
+        priority?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `source` です。
+         */
+        source?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `cursor` です。
+         */
+        cursor?: string;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
     url: '/api/v1/customer-signal-filters';
 };
 
@@ -8881,7 +8908,7 @@ export type ListCustomerSignalSavedFiltersResponses = {
     /**
      * 操作に成功し、response body に結果を返します。
      */
-    200: CustomerSignalSavedFilterListOutputBody;
+    200: CustomerSignalSavedFilterListBody;
 };
 
 export type ListCustomerSignalSavedFiltersResponse = ListCustomerSignalSavedFiltersResponses[keyof ListCustomerSignalSavedFiltersResponses];

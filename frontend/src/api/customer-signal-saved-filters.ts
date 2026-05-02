@@ -16,13 +16,40 @@ function csrfHeaders() {
   }
 }
 
-export async function fetchCustomerSignalSavedFilters(): Promise<CustomerSignalSavedFilterBody[]> {
+export type CustomerSignalSavedFilterListParams = {
+  q?: string
+  status?: string
+  priority?: string
+  source?: string
+  cursor?: string
+  limit?: number
+}
+
+export type CustomerSignalSavedFilterListResult = {
+  items: CustomerSignalSavedFilterBody[]
+  nextCursor: string
+}
+
+export async function fetchCustomerSignalSavedFilters(
+  params: CustomerSignalSavedFilterListParams = {},
+): Promise<CustomerSignalSavedFilterListResult> {
   const data = await listCustomerSignalSavedFilters({
+    query: {
+      q: params.q || undefined,
+      status: params.status || undefined,
+      priority: params.priority || undefined,
+      source: params.source || undefined,
+      cursor: params.cursor,
+      limit: params.limit ?? 25,
+    },
     responseStyle: 'data',
     throwOnError: true,
-  }) as unknown as { items?: CustomerSignalSavedFilterBody[] | null }
+  }) as unknown as { items?: CustomerSignalSavedFilterBody[] | null, nextCursor?: string }
 
-  return data.items ?? []
+  return {
+    items: data.items ?? [],
+    nextCursor: data.nextCursor ?? '',
+  }
 }
 
 export async function createCustomerSignalSavedFilterItem(

@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createCustomerSignalSavedFilter = `-- name: CreateCustomerSignalSavedFilter :one
@@ -131,6 +132,91 @@ type ListCustomerSignalSavedFiltersParams struct {
 
 func (q *Queries) ListCustomerSignalSavedFilters(ctx context.Context, arg ListCustomerSignalSavedFiltersParams) ([]CustomerSignalSavedFilter, error) {
 	rows, err := q.db.Query(ctx, listCustomerSignalSavedFilters, arg.TenantID, arg.OwnerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CustomerSignalSavedFilter
+	for rows.Next() {
+		var i CustomerSignalSavedFilter
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.OwnerUserID,
+			&i.Name,
+			&i.Query,
+			&i.Filters,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchCustomerSignalSavedFilters = `-- name: SearchCustomerSignalSavedFilters :many
+SELECT id, public_id, tenant_id, owner_user_id, name, query, filters, created_at, updated_at, deleted_at
+FROM customer_signal_saved_filters
+WHERE tenant_id = $1
+  AND owner_user_id = $2
+  AND deleted_at IS NULL
+  AND (
+      $3::text IS NULL
+      OR btrim($3::text) = ''
+      OR to_tsvector('simple', name || ' ' || query || ' ' || filters::text)
+         @@ websearch_to_tsquery('simple', $3::text)
+  )
+  AND (
+      $4::text IS NULL
+      OR filters->>'status' = $4::text
+  )
+  AND (
+      $5::text IS NULL
+      OR filters->>'priority' = $5::text
+  )
+  AND (
+      $6::text IS NULL
+      OR filters->>'source' = $6::text
+  )
+  AND (
+      $7::timestamptz IS NULL
+      OR (created_at, id) < ($7::timestamptz, $8::bigint)
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT $9
+`
+
+type SearchCustomerSignalSavedFiltersParams struct {
+	TenantID        int64              `json:"tenant_id"`
+	OwnerUserID     int64              `json:"owner_user_id"`
+	Q               pgtype.Text        `json:"q"`
+	Status          pgtype.Text        `json:"status"`
+	Priority        pgtype.Text        `json:"priority"`
+	Source          pgtype.Text        `json:"source"`
+	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID        pgtype.Int8        `json:"cursor_id"`
+	ResultLimit     int32              `json:"result_limit"`
+}
+
+func (q *Queries) SearchCustomerSignalSavedFilters(ctx context.Context, arg SearchCustomerSignalSavedFiltersParams) ([]CustomerSignalSavedFilter, error) {
+	rows, err := q.db.Query(ctx, searchCustomerSignalSavedFilters,
+		arg.TenantID,
+		arg.OwnerUserID,
+		arg.Q,
+		arg.Status,
+		arg.Priority,
+		arg.Source,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.ResultLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -774,13 +774,13 @@ components:
         - createdAt
         - updatedAt
       type: object
-    CustomerSignalSavedFilterListOutputBody:
+    CustomerSignalSavedFilterListBody:
       additionalProperties: false
       properties:
         $schema:
           description: A URL to the JSON Schema for this object.
           examples:
-            - https://example.com/schemas/CustomerSignalSavedFilterListOutputBody.json
+            - https://example.com/schemas/CustomerSignalSavedFilterListBody.json
           format: uri
           readOnly: true
           type: string
@@ -792,6 +792,10 @@ components:
           type:
             - array
             - "null"
+        nextCursor:
+          examples:
+            - example
+          type: string
       required:
         - items
       type: object
@@ -16596,6 +16600,51 @@ paths:
           name: SESSION_ID
           schema:
             $ref: "#/components/schemas/Cookie"
+        - description: 検索語または filter query です。
+          example: roadmap
+          explode: false
+          in: query
+          name: q
+          schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `status` です。
+          example: active
+          explode: false
+          in: query
+          name: status
+          schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `priority` です。
+          example: medium
+          explode: false
+          in: query
+          name: priority
+          schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `source` です。
+          example: support
+          explode: false
+          in: query
+          name: source
+          schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `cursor` です。
+          example: example
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            format: int64
+            maximum: 100
+            minimum: 1
+            type: integer
       responses:
         "200":
           content:
@@ -16612,8 +16661,9 @@ paths:
                         publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                         query: roadmap
                         updatedAt: "2026-01-15T09:30:00Z"
+                    nextCursor: example
               schema:
-                $ref: "#/components/schemas/CustomerSignalSavedFilterListOutputBody"
+                $ref: "#/components/schemas/CustomerSignalSavedFilterListBody"
           description: 操作に成功し、response body に結果を返します。
         default:
           content:

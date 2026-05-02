@@ -28,6 +28,12 @@ type CustomerSignalSavedFilterRequestBody struct {
 
 type ListCustomerSignalSavedFiltersInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	Query         string      `query:"q"`
+	Status        string      `query:"status"`
+	Priority      string      `query:"priority"`
+	Source        string      `query:"source"`
+	Cursor        string      `query:"cursor"`
+	Limit         int         `query:"limit" minimum:"1" maximum:"100"`
 }
 
 type CreateCustomerSignalSavedFilterInput struct {
@@ -49,10 +55,13 @@ type DeleteCustomerSignalSavedFilterInput struct {
 	FilterPublicID string      `path:"filterPublicId" format:"uuid"`
 }
 
+type CustomerSignalSavedFilterListBody struct {
+	Items      []CustomerSignalSavedFilterBody `json:"items"`
+	NextCursor string                          `json:"nextCursor,omitempty"`
+}
+
 type CustomerSignalSavedFilterListOutput struct {
-	Body struct {
-		Items []CustomerSignalSavedFilterBody `json:"items"`
-	}
+	Body CustomerSignalSavedFilterListBody
 }
 
 type CustomerSignalSavedFilterOutput struct {
@@ -67,13 +76,21 @@ func registerCustomerSignalSavedFilterRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		items, err := deps.CustomerSignalSavedFilterService.List(ctx, tenant.ID, current.User.ID)
+		result, err := deps.CustomerSignalSavedFilterService.Search(ctx, tenant.ID, current.User.ID, service.CustomerSignalSavedFilterListInput{
+			Query:    input.Query,
+			Status:   input.Status,
+			Priority: input.Priority,
+			Source:   input.Source,
+			Cursor:   input.Cursor,
+			Limit:    input.Limit,
+		})
 		if err != nil {
 			return nil, toCustomerSignalSavedFilterHTTPError(err)
 		}
 		out := &CustomerSignalSavedFilterListOutput{}
-		out.Body.Items = make([]CustomerSignalSavedFilterBody, 0, len(items))
-		for _, item := range items {
+		out.Body.Items = make([]CustomerSignalSavedFilterBody, 0, len(result.Items))
+		out.Body.NextCursor = result.NextCursor
+		for _, item := range result.Items {
 			out.Body.Items = append(out.Body.Items, toCustomerSignalSavedFilterBody(item))
 		}
 		return out, nil
@@ -127,6 +144,8 @@ func toCustomerSignalSavedFilterHTTPError(err error) error {
 	switch {
 	case errors.Is(err, service.ErrInvalidCustomerSignalSavedFilter):
 		return huma.Error400BadRequest("invalid customer signal saved filter")
+	case errors.Is(err, service.ErrInvalidCursor):
+		return huma.Error400BadRequest("invalid cursor")
 	case errors.Is(err, service.ErrSavedFilterEntitlementDenied):
 		return huma.Error403Forbidden("saved filters entitlement is disabled")
 	case errors.Is(err, service.ErrCustomerSignalSavedFilterNotFound):

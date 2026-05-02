@@ -12,6 +12,7 @@ import {
 import {
   createCustomerSignalSavedFilterItem,
   deleteCustomerSignalSavedFilterItem,
+  type CustomerSignalSavedFilterListParams,
   fetchCustomerSignalSavedFilters,
 } from '../api/customer-signal-saved-filters'
 import type {
@@ -34,17 +35,35 @@ export const useCustomerSignalStore = defineStore('customerSignals', {
       priority: '',
       source: '',
     },
+    signalLimit: 25,
     nextCursor: '',
+    savedFilterStatus: 'idle' as CustomerSignalStatus,
+    savedFiltersQuery: '',
+    savedFiltersFilters: {
+      status: '',
+      priority: '',
+      source: '',
+    },
+    savedFilterLimit: 25,
+    savedFiltersNextCursor: '',
     current: null as CustomerSignalBody | null,
     errorMessage: '',
+    savedFilterErrorMessage: '',
     creating: false,
     updating: false,
+    loadingMore: false,
+    loadingMoreSavedFilters: false,
     deletingPublicId: '',
   }),
 
   actions: {
     async load(params: CustomerSignalListParams = {}) {
-      this.status = 'loading'
+      const loadingMore = Boolean(params.cursor)
+      if (loadingMore) {
+        this.loadingMore = true
+      } else {
+        this.status = 'loading'
+      }
       this.errorMessage = ''
 
       try {
@@ -54,26 +73,57 @@ export const useCustomerSignalStore = defineStore('customerSignals', {
           priority: (params.priority ?? this.filters.priority) || undefined,
           source: (params.source ?? this.filters.source) || undefined,
           cursor: params.cursor,
-          limit: params.limit ?? 25,
+          limit: params.limit ?? this.signalLimit,
         })
         this.items = params.cursor ? [...this.items, ...(data.items ?? [])] : data.items ?? []
         this.nextCursor = data.nextCursor ?? ''
         this.status = this.items.length > 0 ? 'ready' : 'empty'
       } catch (error) {
-        this.items = []
-        this.nextCursor = ''
+        if (!loadingMore) {
+          this.items = []
+          this.nextCursor = ''
+        }
         this.status = toApiErrorStatus(error) === 403 || isApiForbidden(error)
           ? 'forbidden'
           : 'error'
         this.errorMessage = toApiErrorMessage(error)
+      } finally {
+        this.loadingMore = false
       }
     },
 
-    async loadSavedFilters() {
+    async loadSavedFilters(params: CustomerSignalSavedFilterListParams = {}) {
+      const loadingMore = Boolean(params.cursor)
+      if (loadingMore) {
+        this.loadingMoreSavedFilters = true
+      } else {
+        this.savedFilterStatus = 'loading'
+      }
+      this.savedFilterErrorMessage = ''
+
       try {
-        this.savedFilters = await fetchCustomerSignalSavedFilters()
-      } catch {
-        this.savedFilters = []
+        const data = await fetchCustomerSignalSavedFilters({
+          q: (params.q ?? this.savedFiltersQuery) || undefined,
+          status: (params.status ?? this.savedFiltersFilters.status) || undefined,
+          priority: (params.priority ?? this.savedFiltersFilters.priority) || undefined,
+          source: (params.source ?? this.savedFiltersFilters.source) || undefined,
+          cursor: params.cursor,
+          limit: params.limit ?? this.savedFilterLimit,
+        })
+        this.savedFilters = loadingMore ? [...this.savedFilters, ...data.items] : data.items
+        this.savedFiltersNextCursor = data.nextCursor
+        this.savedFilterStatus = this.savedFilters.length > 0 ? 'ready' : 'empty'
+      } catch (error) {
+        if (!loadingMore) {
+          this.savedFilters = []
+          this.savedFiltersNextCursor = ''
+        }
+        this.savedFilterStatus = toApiErrorStatus(error) === 403 || isApiForbidden(error)
+          ? 'forbidden'
+          : 'error'
+        this.savedFilterErrorMessage = toApiErrorMessage(error)
+      } finally {
+        this.loadingMoreSavedFilters = false
       }
     },
 
@@ -87,13 +137,20 @@ export const useCustomerSignalStore = defineStore('customerSignals', {
           source: this.filters.source,
         },
       })
-      this.savedFilters = [created, ...this.savedFilters]
+      await this.loadSavedFilters()
       return created
     },
 
     async deleteSavedFilter(filterPublicId: string) {
-      await deleteCustomerSignalSavedFilterItem(filterPublicId)
-      this.savedFilters = this.savedFilters.filter((item) => item.publicId !== filterPublicId)
+      this.savedFilterErrorMessage = ''
+      try {
+        await deleteCustomerSignalSavedFilterItem(filterPublicId)
+        this.savedFilters = this.savedFilters.filter((item) => item.publicId !== filterPublicId)
+        this.savedFilterStatus = this.savedFilters.length > 0 ? 'ready' : 'empty'
+      } catch (error) {
+        this.savedFilterErrorMessage = toApiErrorMessage(error)
+        throw error
+      }
     },
 
     async loadOne(signalPublicId: string) {
@@ -185,11 +242,20 @@ export const useCustomerSignalStore = defineStore('customerSignals', {
       this.savedFilters = []
       this.query = ''
       this.filters = { status: '', priority: '', source: '' }
+      this.signalLimit = 25
       this.nextCursor = ''
+      this.savedFilterStatus = 'idle'
+      this.savedFiltersQuery = ''
+      this.savedFiltersFilters = { status: '', priority: '', source: '' }
+      this.savedFilterLimit = 25
+      this.savedFiltersNextCursor = ''
       this.current = null
       this.errorMessage = ''
+      this.savedFilterErrorMessage = ''
       this.creating = false
       this.updating = false
+      this.loadingMore = false
+      this.loadingMoreSavedFilters = false
       this.deletingPublicId = ''
     },
   },

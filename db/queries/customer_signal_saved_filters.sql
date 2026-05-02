@@ -6,6 +6,37 @@ WHERE tenant_id = $1
   AND deleted_at IS NULL
 ORDER BY created_at DESC, id DESC;
 
+-- name: SearchCustomerSignalSavedFilters :many
+SELECT *
+FROM customer_signal_saved_filters
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND owner_user_id = sqlc.arg(owner_user_id)
+  AND deleted_at IS NULL
+  AND (
+      sqlc.narg(q)::text IS NULL
+      OR btrim(sqlc.narg(q)::text) = ''
+      OR to_tsvector('simple', name || ' ' || query || ' ' || filters::text)
+         @@ websearch_to_tsquery('simple', sqlc.narg(q)::text)
+  )
+  AND (
+      sqlc.narg(status)::text IS NULL
+      OR filters->>'status' = sqlc.narg(status)::text
+  )
+  AND (
+      sqlc.narg(priority)::text IS NULL
+      OR filters->>'priority' = sqlc.narg(priority)::text
+  )
+  AND (
+      sqlc.narg(source)::text IS NULL
+      OR filters->>'source' = sqlc.narg(source)::text
+  )
+  AND (
+      sqlc.narg(cursor_created_at)::timestamptz IS NULL
+      OR (created_at, id) < (sqlc.narg(cursor_created_at)::timestamptz, sqlc.narg(cursor_id)::bigint)
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT sqlc.arg(result_limit);
+
 -- name: GetCustomerSignalSavedFilterForOwner :one
 SELECT *
 FROM customer_signal_saved_filters
