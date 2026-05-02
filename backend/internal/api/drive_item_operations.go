@@ -10,7 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 )
 
-type DriveP16ListInput struct {
+type DriveItemCollectionInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
 	Limit         int32       `query:"limit" default:"100"`
 }
@@ -142,7 +142,7 @@ type DriveArchiveOutput struct {
 	Body               []byte
 }
 
-func registerDriveP16Routes(api huma.API, deps Dependencies) {
+func registerDriveItemOperationsRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{
 		OperationID: "listDriveSharedWithMe",
 		Method:      http.MethodGet,
@@ -150,7 +150,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 		Summary:     "自分に共有された Drive item を返す",
 		Tags:        []string{"drive"},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
-	}, func(ctx context.Context, input *DriveP16ListInput) (*DriveItemListOutput, error) {
+	}, func(ctx context.Context, input *DriveItemCollectionInput) (*DriveItemListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
@@ -169,7 +169,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 		Summary:     "Starred Drive item を返す",
 		Tags:        []string{"drive"},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
-	}, func(ctx context.Context, input *DriveP16ListInput) (*DriveItemListOutput, error) {
+	}, func(ctx context.Context, input *DriveItemCollectionInput) (*DriveItemListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
@@ -188,7 +188,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 		Summary:     "Recent Drive item を返す",
 		Tags:        []string{"drive"},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
-	}, func(ctx context.Context, input *DriveP16ListInput) (*DriveItemListOutput, error) {
+	}, func(ctx context.Context, input *DriveItemCollectionInput) (*DriveItemListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
@@ -207,7 +207,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 		Summary:     "Drive storage usage を返す",
 		Tags:        []string{"drive"},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
-	}, func(ctx context.Context, input *DriveP16ListInput) (*DriveStorageUsageOutput, error) {
+	}, func(ctx context.Context, input *DriveItemCollectionInput) (*DriveStorageUsageOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
@@ -264,7 +264,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 
 	registerDriveStarRoutes(api, deps)
 	registerDriveActivityRoutes(api, deps)
-	registerDriveP16MutationRoutes(api, deps)
+	registerDriveItemMutationRoutes(api, deps)
 }
 
 func registerDriveStarRoutes(api huma.API, deps Dependencies) {
@@ -389,7 +389,7 @@ func registerDriveActivityRoutes(api huma.API, deps Dependencies) {
 	})
 }
 
-func registerDriveP16MutationRoutes(api huma.API, deps Dependencies) {
+func registerDriveItemMutationRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{
 		OperationID: "downloadDriveArchive",
 		Method:      http.MethodPost,

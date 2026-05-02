@@ -146,10 +146,10 @@
 | `0013_p10_cross_cutting_extensions` | `support_agent` role、feature definitions、tenant entitlements、webhooks、deliveries、Customer Signal import jobs、saved filters、support access sessions |
 | `0014_file_lifecycle_physical_delete` | `file_objects` の `purged_at`、purge attempts、lock、last error |
 | `0015_openfga_drive` | `file_objects` の Drive 用拡張、`drive_folders`, `drive_groups`, `drive_group_members`, `drive_resource_shares`, `drive_share_links` |
-| `0016_openfga_drive_phase6` | password protected share link、外部共有 invitation、Drive group external mapping、legal hold / retention guard |
-| `0017_openfga_drive_phase7` | `drive_content_admin` role、workspace、scan/DLP state、storage metadata、admin break-glass session、file revision |
-| `0018_openfga_drive_phase8` | search index/job、edit lock/session/presence、sync/mobile offline、KMS/residency/legal/clean room table と dedicated roles |
-| `0019_openfga_drive_phase9` | Office/eDiscovery provider、HSM、on-prem gateway、E2EE、AI、marketplace table と dedicated roles |
+| `0016_openfga_drive_external_access_controls` | password protected share link、外部共有 invitation、Drive group external mapping、legal hold / retention guard |
+| `0017_openfga_drive_workspace_admin` | `drive_content_admin` role、workspace、scan/DLP state、storage metadata、admin break-glass session、file revision |
+| `0018_openfga_drive_collaboration_governance` | search index/job、edit lock/session/presence、sync/mobile offline、KMS/residency/legal/clean room table と dedicated roles |
+| `0019_openfga_drive_enterprise_integrations` | Office/eDiscovery provider、HSM、on-prem gateway、E2EE、AI、marketplace table と dedicated roles |
 
 sqlc:
 
@@ -1029,7 +1029,7 @@ RUN_DRIVE_SEARCH_SMOKE=1 RUN_DRIVE_COLLAB_SMOKE=1 RUN_DRIVE_DESKTOP_SYNC_SMOKE=1
 
 追加済み:
 
-- `0019_openfga_drive_phase9` migration。Office provider file/session/webhook、eDiscovery provider export、HSM deployment/key/binding、gateway/object/transfer、E2EE user/file key/envelope、AI job/classification/summary、marketplace app/version/install/scope/webhook delivery table を追加。
+- `0019_openfga_drive_enterprise_integrations` migration。Office provider file/session/webhook、eDiscovery provider export、HSM deployment/key/binding、gateway/object/transfer、E2EE user/file key/envelope、AI job/classification/summary、marketplace app/version/install/scope/webhook delivery table を追加。
 - Drive policy に Office/eDiscovery provider/HSM/on-prem gateway/E2EE/AI/marketplace flags を追加し、tenant admin UI から保存できるようにした。
 - Office co-authoring fake provider。session 発行は DB guard、scan/DLP guard、OpenFGA `can_view` / `can_edit` 後に行い、webhook は dedupe と stale revision reject を行う。
 - eDiscovery provider export。Phase 8 legal case / hold を fake provider export manifest に接続し、request user と approver の分離を enforced。

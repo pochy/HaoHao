@@ -212,7 +212,7 @@ type DriveMarketplaceAppsInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
 }
 
-func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
+func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{OperationID: "createDriveOfficeSession", Method: http.MethodPost, Path: "/api/v1/drive/files/{filePublicId}/office/sessions", Tags: []string{"drive-office"}, Summary: "Drive Office edit session を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveOfficeSessionCreateInput) (*DriveOfficeSessionOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {

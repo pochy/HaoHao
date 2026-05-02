@@ -193,7 +193,7 @@ func (s *DriveService) CreateOfficeSession(ctx context.Context, tenantID, actorU
 	if err := s.ensureConfigured(false); err != nil {
 		return DriveOfficeSession{}, err
 	}
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return DriveOfficeSession{}, err
 	}
@@ -204,10 +204,10 @@ func (s *DriveService) CreateOfficeSession(ctx context.Context, tenantID, actorU
 	if !policy.OfficeCoauthoringEnabled {
 		return DriveOfficeSession{}, ErrDrivePolicyDenied
 	}
-	if s.drivePhase9IsZeroKnowledge(ctx, tenantID, file.ID) {
+	if s.driveFileUsesZeroKnowledgeEncryption(ctx, tenantID, file.ID) {
 		return DriveOfficeSession{}, ErrDrivePolicyDenied
 	}
-	if !drivePhase9OfficeSupported(file) {
+	if !driveOfficeCoauthoringSupported(file) {
 		return DriveOfficeSession{}, ErrDriveInvalidInput
 	}
 	accessLevel = strings.ToLower(strings.TrimSpace(accessLevel))
@@ -243,7 +243,7 @@ VALUES ($1, $2, 'fake', $3, 'compatible', COALESCE(NULLIF($4, ''), '1'), NULLIF(
 ON CONFLICT (tenant_id, file_object_id, provider) DO UPDATE
 SET compatibility_state = 'compatible',
     updated_at = now()
-`, tenantID, file.ID, providerFileID, filePhase9Revision(file), file.SHA256Hex)
+`, tenantID, file.ID, providerFileID, driveFileContentRevision(file), file.SHA256Hex)
 	if err != nil {
 		return DriveOfficeSession{}, fmt.Errorf("upsert drive office provider file: %w", err)
 	}
@@ -252,7 +252,7 @@ SET compatibility_state = 'compatible',
 INSERT INTO drive_office_edit_sessions (tenant_id, file_object_id, actor_user_id, provider, provider_session_id, access_level, launch_url, expires_at)
 VALUES ($1, $2, $3, 'fake', $4, $5, $6, now() + interval '30 minutes')
 RETURNING public_id::text, provider, provider_session_id, access_level, launch_url, expires_at, created_at
-`, tenantID, file.ID, actor.UserID, providerSessionID+"-"+drivePhase9TokenSuffix(), accessLevel, launchURL).Scan(&out.PublicID, &out.Provider, &out.ProviderSessionID, &out.AccessLevel, &out.LaunchURL, &out.ExpiresAt, &out.CreatedAt)
+`, tenantID, file.ID, actor.UserID, providerSessionID+"-"+driveUniqueTokenSuffix(), accessLevel, launchURL).Scan(&out.PublicID, &out.Provider, &out.ProviderSessionID, &out.AccessLevel, &out.LaunchURL, &out.ExpiresAt, &out.CreatedAt)
 	if err != nil {
 		return DriveOfficeSession{}, fmt.Errorf("create drive office edit session: %w", err)
 	}
@@ -308,7 +308,7 @@ WHERE provider = $1 AND provider_file_id = $2
 	if err != nil {
 		return DriveOfficeWebhookResult{}, fmt.Errorf("get drive office provider file: %w", err)
 	}
-	payloadHash := drivePhase9Hash(provider + ":" + eventID + ":" + providerFileID + ":" + revision + ":" + input.Checksum)
+	payloadHash := driveStableHash(provider + ":" + eventID + ":" + providerFileID + ":" + revision + ":" + input.Checksum)
 	var webhookID int64
 	err = s.pool.QueryRow(ctx, `
 INSERT INTO drive_office_webhook_events (provider, provider_event_id, tenant_id, file_object_id, payload_hash, provider_revision)
@@ -323,7 +323,7 @@ RETURNING id
 		return DriveOfficeWebhookResult{}, fmt.Errorf("record drive office webhook: %w", err)
 	}
 	result := "accepted"
-	if !drivePhase9RevisionNewer(revision, currentRevision) {
+	if !driveProviderRevisionNewer(revision, currentRevision) {
 		result = "stale"
 	}
 	if result == "accepted" {
@@ -367,7 +367,7 @@ func (s *DriveService) CreateEDiscoveryConnection(ctx context.Context, tenantID,
 	if !policy.EDiscoveryProviderExportEnabled {
 		return DriveEDiscoveryConnection{}, ErrDrivePolicyDenied
 	}
-	provider = drivePhase9Default(provider, "fake")
+	provider = driveStringDefault(provider, "fake")
 	var out DriveEDiscoveryConnection
 	err = s.pool.QueryRow(ctx, `
 INSERT INTO drive_ediscovery_provider_connections (tenant_id, provider, status, created_by_user_id)
@@ -415,7 +415,7 @@ func (s *DriveService) RequestEDiscoveryExport(ctx context.Context, tenantID, ac
 	if err != nil {
 		return DriveEDiscoveryExport{}, fmt.Errorf("get drive legal case: %w", err)
 	}
-	manifestHash := drivePhase9Hash(fmt.Sprintf("%d:%s:%d", tenantID, casePublicID, s.now().UnixNano()))
+	manifestHash := driveStableHash(fmt.Sprintf("%d:%s:%d", tenantID, casePublicID, s.now().UnixNano()))
 	var out DriveEDiscoveryExport
 	err = s.pool.QueryRow(ctx, `
 INSERT INTO drive_ediscovery_exports (tenant_id, case_id, case_public_id, provider_connection_id, requested_by_user_id, status, manifest_hash)
@@ -513,9 +513,9 @@ func (s *DriveService) CreateHSMDeployment(ctx context.Context, tenantID, actorU
 	if !policy.HSMEnabled {
 		return DriveHSMDeployment{}, ErrDrivePolicyDenied
 	}
-	provider = drivePhase9Default(provider, "fake")
-	endpointURL = drivePhase9Default(endpointURL, "https://hsm.local.invalid")
-	attestation := drivePhase9Hash(provider + ":" + endpointURL)
+	provider = driveStringDefault(provider, "fake")
+	endpointURL = driveStringDefault(endpointURL, "https://hsm.local.invalid")
+	attestation := driveStableHash(provider + ":" + endpointURL)
 	var out DriveHSMDeployment
 	err = s.pool.QueryRow(ctx, `
 WITH deployment AS (
@@ -548,7 +548,7 @@ FROM deployment d CROSS JOIN key k
 }
 
 func (s *DriveService) BindHSMKeyToFile(ctx context.Context, tenantID, actorUserID int64, filePublicID, keyPublicID string, auditCtx AuditContext) error {
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return err
 	}
@@ -638,9 +638,9 @@ func (s *DriveService) RegisterGateway(ctx context.Context, tenantID, actorUserI
 	if !policy.OnPremGatewayEnabled {
 		return DriveGateway{}, ErrDrivePolicyDenied
 	}
-	name = drivePhase9Default(name, "Local Fake Gateway")
-	endpointURL = drivePhase9Default(endpointURL, "https://gateway.local.invalid")
-	fingerprint = drivePhase9Default(fingerprint, drivePhase9Hash(name)[:16])
+	name = driveStringDefault(name, "Local Fake Gateway")
+	endpointURL = driveStringDefault(endpointURL, "https://gateway.local.invalid")
+	fingerprint = driveStringDefault(fingerprint, driveStableHash(name)[:16])
 	var out DriveGateway
 	var lastSeen *time.Time
 	err = s.pool.QueryRow(ctx, `
@@ -663,7 +663,7 @@ RETURNING public_id::text, name, status, endpoint_url, certificate_fingerprint, 
 }
 
 func (s *DriveService) BindGatewayFile(ctx context.Context, tenantID, actorUserID int64, gatewayPublicID, filePublicID string, auditCtx AuditContext) (DriveGatewayObject, error) {
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return DriveGatewayObject{}, err
 	}
@@ -681,7 +681,7 @@ func (s *DriveService) BindGatewayFile(ctx context.Context, tenantID, actorUserI
 	if err != nil {
 		return DriveGatewayObject{}, fmt.Errorf("get drive gateway: %w", err)
 	}
-	manifestHash := drivePhase9Hash(file.PublicID + ":" + file.SHA256Hex)
+	manifestHash := driveStableHash(file.PublicID + ":" + file.SHA256Hex)
 	var out DriveGatewayObject
 	err = s.pool.QueryRow(ctx, `
 INSERT INTO drive_gateway_objects (tenant_id, gateway_id, file_object_id, gateway_object_key, manifest_hash, replication_status, last_verified_at)
@@ -779,7 +779,7 @@ RETURNING public_id::text, key_algorithm, status, created_at
 }
 
 func (s *DriveService) CreateE2EEFileKey(ctx context.Context, tenantID, actorUserID int64, filePublicID, algorithm, ciphertextSHA256, wrappedFileKey, wrapAlgorithm string, metadata map[string]any, auditCtx AuditContext) (DriveE2EEFileKey, error) {
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return DriveE2EEFileKey{}, err
 	}
@@ -797,9 +797,9 @@ func (s *DriveService) CreateE2EEFileKey(ctx context.Context, tenantID, actorUse
 	if err != nil {
 		return DriveE2EEFileKey{}, err
 	}
-	algorithm = drivePhase9Default(algorithm, "AES-GCM-256")
-	wrapAlgorithm = drivePhase9Default(wrapAlgorithm, "X25519+A256KW")
-	ciphertextSHA256 = drivePhase9Default(ciphertextSHA256, file.SHA256Hex)
+	algorithm = driveStringDefault(algorithm, "AES-GCM-256")
+	wrapAlgorithm = driveStringDefault(wrapAlgorithm, "X25519+A256KW")
+	ciphertextSHA256 = driveStringDefault(ciphertextSHA256, file.SHA256Hex)
 	keyBytes, err := base64.StdEncoding.DecodeString(strings.TrimSpace(wrappedFileKey))
 	if err != nil || len(keyBytes) == 0 {
 		return DriveE2EEFileKey{}, ErrDriveInvalidInput
@@ -838,7 +838,7 @@ SELECT public_id::text, key_version, encryption_algorithm, ciphertext_sha256, cr
 }
 
 func (s *DriveService) CreateE2EERecipientEnvelope(ctx context.Context, tenantID, actorUserID int64, filePublicID, recipientUserPublicID, wrappedFileKey, wrapAlgorithm string, auditCtx AuditContext) (DriveE2EEEnvelope, error) {
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return DriveE2EEEnvelope{}, err
 	}
@@ -872,7 +872,7 @@ WHERE u.public_id = $2
 	if err != nil || len(keyBytes) == 0 {
 		return DriveE2EEEnvelope{}, ErrDriveInvalidInput
 	}
-	wrapAlgorithm = drivePhase9Default(wrapAlgorithm, "X25519+A256KW")
+	wrapAlgorithm = driveStringDefault(wrapAlgorithm, "X25519+A256KW")
 	var out DriveE2EEEnvelope
 	err = s.pool.QueryRow(ctx, `
 INSERT INTO drive_e2ee_key_envelopes (tenant_id, file_key_id, recipient_user_id, recipient_key_id, wrapped_file_key, wrap_algorithm, created_by_user_id)
@@ -893,7 +893,7 @@ RETURNING encode(wrapped_file_key, 'base64'), wrap_algorithm, created_at
 }
 
 func (s *DriveService) GetE2EEEnvelope(ctx context.Context, tenantID, actorUserID int64, filePublicID string, auditCtx AuditContext) (DriveE2EEEnvelope, error) {
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return DriveE2EEEnvelope{}, err
 	}
@@ -920,7 +920,7 @@ LIMIT 1
 }
 
 func (s *DriveService) RevokeE2EEEnvelope(ctx context.Context, tenantID, actorUserID int64, filePublicID, recipientUserPublicID string, auditCtx AuditContext) error {
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return err
 	}
@@ -948,7 +948,7 @@ WHERE e.file_key_id = fk.id
 }
 
 func (s *DriveService) CreateAIJob(ctx context.Context, tenantID, actorUserID int64, filePublicID, jobType string, auditCtx AuditContext) (DriveAIJob, error) {
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return DriveAIJob{}, err
 	}
@@ -959,7 +959,7 @@ func (s *DriveService) CreateAIJob(ctx context.Context, tenantID, actorUserID in
 	if !policy.AIEnabled {
 		return DriveAIJob{}, ErrDrivePolicyDenied
 	}
-	if s.drivePhase9IsZeroKnowledge(ctx, tenantID, file.ID) {
+	if s.driveFileUsesZeroKnowledgeEncryption(ctx, tenantID, file.ID) {
 		return DriveAIJob{}, ErrDrivePolicyDenied
 	}
 	if err := s.authz.CanEditFile(ctx, actor, file); err != nil {
@@ -968,12 +968,12 @@ func (s *DriveService) CreateAIJob(ctx context.Context, tenantID, actorUserID in
 	if err := s.ensureFileDownloadAllowed(ctx, actor, file, auditCtx, "drive.ai.job.create"); err != nil {
 		return DriveAIJob{}, err
 	}
-	jobType = drivePhase9Default(jobType, "summary")
+	jobType = driveStringDefault(jobType, "summary")
 	if jobType != "summary" && jobType != "classification" {
 		return DriveAIJob{}, ErrDriveInvalidInput
 	}
 	provider := FakeDriveAIProvider{}
-	revision := filePhase9Revision(file)
+	revision := driveFileContentRevision(file)
 	var out DriveAIJob
 	err = s.pool.QueryRow(ctx, `
 INSERT INTO drive_ai_jobs (tenant_id, file_object_id, file_revision, job_type, provider, status, requested_by_user_id)
@@ -1000,7 +1000,7 @@ ON CONFLICT (file_object_id, file_revision) DO UPDATE
 SET summary_text = EXCLUDED.summary_text,
     provider = EXCLUDED.provider,
     input_hash = EXCLUDED.input_hash
-`, tenantID, file.ID, revision, summary, drivePhase9Hash(file.SHA256Hex))
+`, tenantID, file.ID, revision, summary, driveStableHash(file.SHA256Hex))
 		if err != nil {
 			return DriveAIJob{}, fmt.Errorf("save drive ai summary: %w", err)
 		}
@@ -1027,7 +1027,7 @@ SET confidence = EXCLUDED.confidence,
 }
 
 func (s *DriveService) GetAISummary(ctx context.Context, tenantID, actorUserID int64, filePublicID string, auditCtx AuditContext) (DriveAISummary, error) {
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return DriveAISummary{}, err
 	}
@@ -1054,7 +1054,7 @@ LIMIT 1
 }
 
 func (s *DriveService) ListAIClassifications(ctx context.Context, tenantID, actorUserID int64, filePublicID string) ([]DriveAIClassification, error) {
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return nil, err
 	}
@@ -1101,7 +1101,7 @@ ORDER BY a.name ASC
 		if err := rows.Scan(&item.PublicID, &item.Slug, &item.Name, &item.PublisherName, &item.Version, &manifest); err != nil {
 			return nil, fmt.Errorf("scan drive marketplace app: %w", err)
 		}
-		item.Scopes = drivePhase9ManifestScopes(manifest)
+		item.Scopes = driveMarketplaceManifestScopes(manifest)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -1139,7 +1139,7 @@ LIMIT 1
 	if err != nil {
 		return DriveMarketplaceInstallation{}, fmt.Errorf("get drive marketplace app: %w", err)
 	}
-	scopes := drivePhase9ManifestScopes(manifest)
+	scopes := driveMarketplaceManifestScopes(manifest)
 	var out DriveMarketplaceInstallation
 	err = s.pool.QueryRow(ctx, `
 WITH installation AS (
@@ -1226,7 +1226,7 @@ func (s *DriveService) UninstallMarketplaceInstallation(ctx context.Context, ten
 }
 
 func (s *DriveService) CheckMarketplaceScope(ctx context.Context, tenantID, actorUserID int64, installationPublicID, scope, filePublicID string) error {
-	actor, file, err := s.drivePhase9FileForActor(ctx, tenantID, actorUserID, filePublicID)
+	actor, file, err := s.driveFileForActor(ctx, tenantID, actorUserID, filePublicID)
 	if err != nil {
 		return err
 	}
@@ -1300,7 +1300,7 @@ func (s *DriveService) ensureDriveGatewayAvailable(ctx context.Context, tenantID
 	return nil
 }
 
-func (s *DriveService) drivePhase9FileForActor(ctx context.Context, tenantID, actorUserID int64, filePublicID string) (DriveActor, DriveFile, error) {
+func (s *DriveService) driveFileForActor(ctx context.Context, tenantID, actorUserID int64, filePublicID string) (DriveActor, DriveFile, error) {
 	actor, err := s.actor(ctx, tenantID, actorUserID)
 	if err != nil {
 		return DriveActor{}, DriveFile{}, err
@@ -1312,7 +1312,7 @@ func (s *DriveService) drivePhase9FileForActor(ctx context.Context, tenantID, ac
 	return actor, driveFileFromDB(row), nil
 }
 
-func (s *DriveService) drivePhase9IsZeroKnowledge(ctx context.Context, tenantID, fileID int64) bool {
+func (s *DriveService) driveFileUsesZeroKnowledgeEncryption(ctx context.Context, tenantID, fileID int64) bool {
 	var mode string
 	err := s.pool.QueryRow(ctx, `SELECT encryption_mode FROM file_objects WHERE id = $1 AND tenant_id = $2`, fileID, tenantID).Scan(&mode)
 	return err == nil && mode == "zero_knowledge"
@@ -1383,7 +1383,7 @@ ORDER BY sc.scope ASC
 	return out, rows.Err()
 }
 
-func drivePhase9OfficeSupported(file DriveFile) bool {
+func driveOfficeCoauthoringSupported(file DriveFile) bool {
 	ext := strings.ToLower(filepath.Ext(file.OriginalFilename))
 	switch ext {
 	case ".docx", ".xlsx", ".pptx":
@@ -1395,7 +1395,7 @@ func drivePhase9OfficeSupported(file DriveFile) bool {
 		strings.Contains(contentType, "presentationml")
 }
 
-func drivePhase9RevisionNewer(next, current string) bool {
+func driveProviderRevisionNewer(next, current string) bool {
 	nextInt, nextErr := strconv.ParseInt(strings.TrimSpace(next), 10, 64)
 	currentInt, currentErr := strconv.ParseInt(strings.TrimSpace(current), 10, 64)
 	if nextErr == nil && currentErr == nil {
@@ -1404,16 +1404,16 @@ func drivePhase9RevisionNewer(next, current string) bool {
 	return strings.TrimSpace(next) > strings.TrimSpace(current)
 }
 
-func drivePhase9Hash(value string) string {
+func driveStableHash(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
 }
 
-func drivePhase9TokenSuffix() string {
+func driveUniqueTokenSuffix() string {
 	return strconv.FormatInt(time.Now().UnixNano(), 36)
 }
 
-func drivePhase9Default(value, fallback string) string {
+func driveStringDefault(value, fallback string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return fallback
@@ -1421,7 +1421,7 @@ func drivePhase9Default(value, fallback string) string {
 	return value
 }
 
-func drivePhase9ManifestScopes(raw []byte) []string {
+func driveMarketplaceManifestScopes(raw []byte) []string {
 	var manifest struct {
 		RequestedScopes []string `json:"requestedScopes"`
 	}
@@ -1431,7 +1431,7 @@ func drivePhase9ManifestScopes(raw []byte) []string {
 	return manifest.RequestedScopes
 }
 
-func filePhase9Revision(file DriveFile) string {
+func driveFileContentRevision(file DriveFile) string {
 	if strings.TrimSpace(file.SHA256Hex) != "" {
 		return "1"
 	}

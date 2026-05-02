@@ -199,7 +199,7 @@ type DriveCleanRoomExportInput struct {
 	}
 }
 
-func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
+func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{
 		OperationID: "rebuildTenantAdminDriveSearchIndex",
 		Method:      http.MethodPost,

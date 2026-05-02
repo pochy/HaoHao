@@ -206,7 +206,7 @@ type DriveMarketplaceScopeOutput struct {
 	}
 }
 
-func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
+func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{OperationID: "createDriveEDiscoveryConnection", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/connections", Tags: []string{"drive-ediscovery"}, Summary: "Drive eDiscovery provider connection を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveEDiscoveryConnectionInput) (*DriveEDiscoveryConnectionOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {

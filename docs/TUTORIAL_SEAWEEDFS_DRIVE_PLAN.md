@@ -40,8 +40,8 @@ backend/internal/service/s3_file_storage.go
 backend/internal/service/s3_file_storage_test.go
 backend/internal/service/drive_service.go
 backend/internal/service/drive_service_api.go
-backend/internal/service/drive_phase7_service.go
-backend/internal/service/drive_phase8_service.go
+backend/internal/service/drive_workspace_admin_service.go
+backend/internal/service/drive_collaboration_governance_service.go
 backend/internal/service/file_service.go
 db/queries/file_objects.sql
 db/queries/drive_files.sql
@@ -266,8 +266,8 @@ go test ./backend/...
 ```text
 backend/internal/service/drive_service.go
 backend/internal/service/drive_service_api.go
-backend/internal/service/drive_phase7_service.go
-backend/internal/service/drive_phase8_service.go
+backend/internal/service/drive_workspace_admin_service.go
+backend/internal/service/drive_collaboration_governance_service.go
 scripts/smoke-openfga.sh
 ```
 

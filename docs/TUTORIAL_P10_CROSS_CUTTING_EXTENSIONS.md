@@ -1122,7 +1122,7 @@ func VerifyWebhookSignature(secret string, header string, body []byte, tolerance
 
 #### ファイル: `backend/internal/service/outbox_handler.go`
 
-`P7OutboxHandler` に `webhooks *WebhookService` を追加し、次を扱います。
+`DefaultOutboxHandler` に `webhooks *WebhookService` を追加し、次を扱います。
 
 ```go
 case "webhook.delivery_requested":

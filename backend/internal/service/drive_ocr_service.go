@@ -566,7 +566,7 @@ func (s *DriveOCRService) skipReason(ctx context.Context, file DriveFile, policy
 	if file.DLPBlocked {
 		return "dlp_blocked", "file is dlp blocked"
 	}
-	if s.drive != nil && s.drive.drivePhase9IsZeroKnowledge(ctx, file.TenantID, file.ID) {
+	if s.drive != nil && s.drive.driveFileUsesZeroKnowledgeEncryption(ctx, file.TenantID, file.ID) {
 		return "zero_knowledge", "zero-knowledge encrypted files are not readable by local ocr"
 	}
 	if policy.OCREngine != "tesseract" {
@@ -708,7 +708,7 @@ func fileOCRRevision(file DriveFile) string {
 	if file.SHA256Hex != "" {
 		return file.SHA256Hex
 	}
-	return filePhase9Revision(file)
+	return driveFileContentRevision(file)
 }
 
 func defaultString(value, fallback string) string {

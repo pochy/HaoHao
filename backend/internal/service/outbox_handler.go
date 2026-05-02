@@ -11,7 +11,7 @@ import (
 
 var ErrUnknownOutboxEvent = errors.New("unknown outbox event")
 
-type P7OutboxHandler struct {
+type DefaultOutboxHandler struct {
 	emailSender   EmailSender
 	notifications *NotificationService
 	invitations   *TenantInvitationService
@@ -22,8 +22,8 @@ type P7OutboxHandler struct {
 	datasets      *DatasetService
 }
 
-func NewOutboxHandler(emailSender EmailSender, notifications *NotificationService, invitations *TenantInvitationService, dataExports *TenantDataExportService, extras ...any) *P7OutboxHandler {
-	handler := &P7OutboxHandler{
+func NewOutboxHandler(emailSender EmailSender, notifications *NotificationService, invitations *TenantInvitationService, dataExports *TenantDataExportService, extras ...any) *DefaultOutboxHandler {
+	handler := &DefaultOutboxHandler{
 		emailSender:   emailSender,
 		notifications: notifications,
 		invitations:   invitations,
@@ -44,7 +44,7 @@ func NewOutboxHandler(emailSender EmailSender, notifications *NotificationServic
 	return handler
 }
 
-func (h *P7OutboxHandler) HandleOutboxEvent(ctx context.Context, event db.OutboxEvent) error {
+func (h *DefaultOutboxHandler) HandleOutboxEvent(ctx context.Context, event db.OutboxEvent) error {
 	if h == nil {
 		return nil
 	}

@@ -143,8 +143,8 @@ AI summary、classification label、Office provider preview、eDiscovery export 
 ### 対象 subsystem
 
 ```text
-db/migrations/0019_openfga_drive_phase9.up.sql
-db/migrations/0019_openfga_drive_phase9.down.sql
+db/migrations/0019_openfga_drive_enterprise_integrations.up.sql
+db/migrations/0019_openfga_drive_enterprise_integrations.down.sql
 db/queries/drive_office.sql
 backend/internal/service/drive_office_service.go
 backend/internal/service/drive_office_provider.go
@@ -324,7 +324,7 @@ smoke では次を確認します。
 ### 対象 subsystem
 
 ```text
-db/migrations/0019_openfga_drive_phase9.up.sql
+db/migrations/0019_openfga_drive_enterprise_integrations.up.sql
 db/queries/drive_ediscovery.sql
 backend/internal/service/drive_ediscovery_service.go
 backend/internal/service/drive_ediscovery_provider.go
@@ -476,7 +476,7 @@ smoke では次を確認します。
 ### 対象 subsystem
 
 ```text
-db/migrations/0019_openfga_drive_phase9.up.sql
+db/migrations/0019_openfga_drive_enterprise_integrations.up.sql
 db/queries/drive_hsm.sql
 backend/internal/service/drive_hsm_service.go
 backend/internal/service/drive_hsm_client.go
@@ -654,7 +654,7 @@ smoke では次を確認します。
 ### 対象 subsystem
 
 ```text
-db/migrations/0019_openfga_drive_phase9.up.sql
+db/migrations/0019_openfga_drive_enterprise_integrations.up.sql
 db/queries/drive_storage_gateways.sql
 backend/internal/service/drive_gateway_service.go
 backend/internal/service/drive_gateway_client.go
@@ -839,7 +839,7 @@ smoke では次を確認します。
 ### 対象 subsystem
 
 ```text
-db/migrations/0019_openfga_drive_phase9.up.sql
+db/migrations/0019_openfga_drive_enterprise_integrations.up.sql
 db/queries/drive_e2ee.sql
 backend/internal/service/drive_e2ee_service.go
 backend/internal/api/drive_e2ee.go
@@ -1026,7 +1026,7 @@ smoke では次を確認します。
 ### 対象 subsystem
 
 ```text
-db/migrations/0019_openfga_drive_phase9.up.sql
+db/migrations/0019_openfga_drive_enterprise_integrations.up.sql
 db/queries/drive_ai.sql
 backend/internal/service/drive_ai_service.go
 backend/internal/service/drive_ai_provider.go
@@ -1186,7 +1186,7 @@ smoke では次を確認します。
 ### 対象 subsystem
 
 ```text
-db/migrations/0019_openfga_drive_phase9.up.sql
+db/migrations/0019_openfga_drive_enterprise_integrations.up.sql
 db/queries/drive_marketplace.sql
 backend/internal/service/drive_marketplace_service.go
 backend/internal/service/drive_marketplace_webhook.go
@@ -1499,7 +1499,7 @@ RUN_DRIVE_MARKETPLACE_PROVIDER_DRILL=1 make smoke-openfga
 
 Phase 9 で手で編集する正本は次です。
 
-- `db/migrations/0019_openfga_drive_phase9.*.sql`
+- `db/migrations/0019_openfga_drive_enterprise_integrations.*.sql`
 - `db/queries/drive_office.sql`
 - `db/queries/drive_ediscovery.sql`
 - `db/queries/drive_hsm.sql`

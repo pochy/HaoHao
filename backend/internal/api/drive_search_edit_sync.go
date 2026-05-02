@@ -168,7 +168,7 @@ type DriveMobileOfflineReplayOutput struct {
 	}
 }
 
-func registerDrivePhase8Routes(api huma.API, deps Dependencies) {
+func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{
 		OperationID: "searchDriveDocuments",
 		Method:      http.MethodGet,
