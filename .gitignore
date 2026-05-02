@@ -3,6 +3,7 @@
 .air/
 .local/
 .data/
+.venv-paddleocr/
 
 frontend/node_modules
 frontend/dist
