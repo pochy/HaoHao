@@ -32,6 +32,8 @@ const {
   driveExternalSharingEnabled,
   driveHsmEnabled,
   driveLegalDiscoveryEnabled,
+  driveLocalSearchEmbeddingRuntime,
+  driveLocalSearchVectorEnabled,
   driveM2MApiEnabled,
   driveMarketplaceEnabled,
   driveMaxFileSizeBytes,
@@ -70,6 +72,8 @@ const {
   driveViewerDownloadEnabled,
   driveOllamaConfigVisible,
   driveLMStudioConfigVisible,
+  latestDriveLocalSearchJob,
+  latestDriveLocalSearchJobLabel,
   saveCommonSettings,
   store,
 } = useTenantAdminDetailContext()
@@ -437,6 +441,20 @@ const {
             <td>
               {{ store.driveOCRStatus?.lmStudio?.configured ? t('common.enabled') : t('common.disabled') }}
               / {{ store.driveOCRStatus?.lmStudio?.reachable ? t('tenantAdmin.status.available') : t('tenantAdmin.status.unavailable') }}
+            </td>
+          </tr>
+          <tr>
+            <td>{{ t('tenantAdmin.fields.localSearchVector') }}</td>
+            <td>
+              {{ driveLocalSearchVectorEnabled ? t('common.enabled') : t('common.disabled') }}
+              / {{ t('tenantAdmin.fields.localSearchRuntime') }}: {{ driveLocalSearchEmbeddingRuntime || 'none' }}
+            </td>
+          </tr>
+          <tr>
+            <td>{{ t('tenantAdmin.fields.localSearchLatestJob') }}</td>
+            <td>
+              {{ latestDriveLocalSearchJobLabel }}
+              <span v-if="latestDriveLocalSearchJob?.lastError" class="cell-subtle">/ {{ latestDriveLocalSearchJob.lastError }}</span>
             </td>
           </tr>
           <tr v-for="command in store.driveOCRStatus?.localCommands ?? []" :key="command.name">

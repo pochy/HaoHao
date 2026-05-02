@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
-import type { DriveFileBody, DriveItemBody } from '../api/generated/types.gen'
+import type { DriveFileBody, DriveItemBody, DriveSearchResultBody, DriveSearchResultMatchBody } from '../api/generated/types.gen'
 import {
   driveItemKind,
   driveItemName,
@@ -20,6 +20,7 @@ defineProps<{
   deletingResourceId: string
   selected?: boolean
   selectedForArchive?: boolean
+  searchResult?: DriveSearchResultBody
   trashMode?: boolean
 }>()
 
@@ -44,6 +45,23 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+function searchMatchLabel(match: DriveSearchResultMatchBody) {
+  switch (match.resourceKind) {
+    case 'ocr_run':
+      return t('drive.searchMatch.ocr')
+    case 'product_extraction':
+      return t('drive.searchMatch.product')
+    case 'gold_table':
+      return t('drive.searchMatch.gold')
+    default:
+      return t('drive.searchMatch.file')
+  }
+}
+
+function visibleMatches(result?: DriveSearchResultBody) {
+  return result?.matches?.slice(0, 3) ?? []
+}
 </script>
 
 <template>
@@ -87,6 +105,19 @@ const { t } = useI18n()
     <div v-else class="drive-folder-card-body">
       <DriveFileTypeIcon :kind="driveItemKind(item)" :size="34" />
       <span>{{ trashMode ? t('drive.deletedFolder') : t('drive.folder') }}</span>
+    </div>
+
+    <div v-if="searchResult?.snippet || visibleMatches(searchResult).length > 0" class="drive-search-summary">
+      <p v-if="searchResult?.snippet" class="drive-search-snippet">{{ searchResult.snippet }}</p>
+      <div v-if="visibleMatches(searchResult).length > 0" class="drive-search-badges">
+        <span
+          v-for="match in visibleMatches(searchResult)"
+          :key="`${match.resourceKind}:${match.resourcePublicId}`"
+          class="status-pill"
+        >
+          {{ searchMatchLabel(match) }}
+        </span>
+      </div>
     </div>
 
     <footer class="drive-item-card-meta">

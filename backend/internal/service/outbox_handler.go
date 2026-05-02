@@ -20,6 +20,7 @@ type DefaultOutboxHandler struct {
 	imports       *CustomerSignalImportService
 	driveOCR      *DriveOCRService
 	datasets      *DatasetService
+	localSearch   *LocalSearchService
 }
 
 func NewOutboxHandler(emailSender EmailSender, notifications *NotificationService, invitations *TenantInvitationService, dataExports *TenantDataExportService, extras ...any) *DefaultOutboxHandler {
@@ -39,6 +40,8 @@ func NewOutboxHandler(emailSender EmailSender, notifications *NotificationServic
 			handler.driveOCR = item
 		case *DatasetService:
 			handler.datasets = item
+		case *LocalSearchService:
+			handler.localSearch = item
 		}
 	}
 	return handler
@@ -203,6 +206,42 @@ func (h *DefaultOutboxHandler) HandleOutboxEvent(ctx context.Context, event db.O
 			return nil
 		}
 		return h.datasets.HandleGoldPublishRequested(ctx, payload.TenantID, payload.PublishRunID, event.ID)
+	case "local_search.index_requested":
+		var payload struct {
+			TenantID int64 `json:"tenantId"`
+			JobID    int64 `json:"jobId"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.localSearch == nil {
+			return nil
+		}
+		return h.localSearch.HandleIndexRequested(ctx, payload.TenantID, payload.JobID, event.ID)
+	case "local_search.rebuild_requested":
+		var payload struct {
+			TenantID int64 `json:"tenantId"`
+			JobID    int64 `json:"jobId"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.localSearch == nil {
+			return nil
+		}
+		return h.localSearch.HandleRebuildRequested(ctx, payload.TenantID, payload.JobID, event.ID)
+	case "local_search.embedding_requested":
+		var payload struct {
+			TenantID int64 `json:"tenantId"`
+			JobID    int64 `json:"jobId"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.localSearch == nil {
+			return nil
+		}
+		return h.localSearch.HandleEmbeddingRequested(ctx, payload.TenantID, payload.JobID, event.ID)
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownOutboxEvent, event.EventType)
 	}

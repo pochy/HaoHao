@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { DriveFileBody, DriveItemBody } from '../api/generated/types.gen'
+import type { DriveFileBody, DriveItemBody, DriveSearchResultBody } from '../api/generated/types.gen'
 import DriveItemCard from './DriveItemCard.vue'
 
 defineProps<{
@@ -9,6 +9,7 @@ defineProps<{
   deletingResourceId: string
   selectedResourceId: string
   selectedResourceIds: string[]
+  searchResultsByResourceId?: Record<string, DriveSearchResultBody>
   trashMode?: boolean
 }>()
 
@@ -46,6 +47,7 @@ const emit = defineEmits<{
       :deleting-resource-id="deletingResourceId"
       :selected="selectedResourceId === (item.file?.publicId ?? item.folder?.publicId)"
       :selected-for-archive="selectedResourceIds.includes(item.file?.publicId ?? item.folder?.publicId ?? '')"
+      :search-result="searchResultsByResourceId?.[item.file?.publicId ?? item.folder?.publicId ?? '']"
       :trash-mode="trashMode"
       @open-folder="emit('openFolder', $event)"
       @open-file="emit('openFile', $event)"

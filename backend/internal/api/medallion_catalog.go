@@ -61,6 +61,7 @@ type MedallionAssetListBody struct {
 
 type ListMedallionAssetsInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	Query         string      `query:"q"`
 	Layer         string      `query:"layer" enum:"bronze,silver,gold"`
 	ResourceKind  string      `query:"resourceKind" enum:"drive_file,dataset,work_table,ocr_run,product_extraction,gold_table"`
 	Limit         int32       `query:"limit" minimum:"1" maximum:"200"`
@@ -98,7 +99,7 @@ func registerMedallionCatalogRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		items, err := deps.MedallionCatalogService.ListAssets(ctx, tenant.ID, current.User.ID, input.Layer, input.ResourceKind, input.Limit)
+		items, err := deps.MedallionCatalogService.ListAssets(ctx, tenant.ID, current.User.ID, input.Layer, input.ResourceKind, input.Query, input.Limit)
 		if err != nil {
 			return nil, toMedallionHTTPError(ctx, deps, "listMedallionAssets", err)
 		}

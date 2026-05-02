@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
-import type { DriveFileBody, DriveItemBody, DrivePermissionBody } from '../api/generated/types.gen'
+import type { DriveFileBody, DriveItemBody, DrivePermissionBody, DriveSearchResultBody } from '../api/generated/types.gen'
 import { toApiErrorMessage } from '../api/client'
 import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
 import DriveCommandBar from '../components/DriveCommandBar.vue'
@@ -105,7 +105,7 @@ const sourceItems = computed(() => {
 const visibleItems = computed(() => {
   const now = Date.now()
   const filtered = sourceItems.value.filter((item) => {
-    const query = driveStore.query.trim().toLowerCase()
+    const query = searchMode.value ? '' : driveStore.query.trim().toLowerCase()
     if (query && !driveItemName(item).toLowerCase().includes(query)) {
       return false
     }
@@ -156,6 +156,15 @@ const visibleItems = computed(() => {
     }
     return (new Date(driveItemUpdatedAt(a)).getTime() - new Date(driveItemUpdatedAt(b)).getTime()) * direction
   })
+})
+const searchResultsByResourceId = computed<Record<string, DriveSearchResultBody>>(() => {
+  if (!searchMode.value) {
+    return {}
+  }
+  return Object.fromEntries(driveStore.documentSearchResults.map((result) => {
+    const publicId = result.item.file?.publicId ?? result.item.folder?.publicId ?? ''
+    return [publicId, result]
+  }).filter(([publicId]) => publicId))
 })
 const selectedArchiveItems = computed(() => visibleItems.value.filter((item) => (
   driveStore.selectedResourceIds.includes(driveItemPublicId(item))
@@ -387,6 +396,7 @@ watch(
     if (searchMode.value) {
       driveStore.status = 'idle'
       driveStore.searchResults = []
+      driveStore.documentSearchResults = []
       if (driveStore.query) {
         await driveStore.search(driveStore.query)
       }
@@ -1165,6 +1175,7 @@ async function toggleStar(item: DriveItemBody) {
           :deleting-resource-id="driveStore.deletingResourceId"
           :selected-resource-id="selectedResourceId"
           :selected-resource-ids="driveStore.selectedResourceIds"
+          :search-results-by-resource-id="searchResultsByResourceId"
           :trash-mode="trashMode"
           @open-folder="navigateFolder"
           @open-file="navigateFile"
@@ -1192,6 +1203,7 @@ async function toggleStar(item: DriveItemBody) {
           :deleting-resource-id="driveStore.deletingResourceId"
           :selected-resource-id="selectedResourceId"
           :selected-resource-ids="driveStore.selectedResourceIds"
+          :search-results-by-resource-id="searchResultsByResourceId"
           :trash-mode="trashMode"
           @open-folder="navigateFolder"
           @open-file="navigateFile"

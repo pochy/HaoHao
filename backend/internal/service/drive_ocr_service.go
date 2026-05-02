@@ -222,6 +222,9 @@ func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObj
 		if err := s.indexOCRText(ctx, file, run.ExtractedText); err != nil {
 			return err
 		}
+		if s.drive != nil && s.drive.localSearch != nil {
+			s.drive.localSearch.RequestIndexBestEffort(ctx, tenantID, LocalSearchResourceOCRRun, run.ID, run.PublicID, "ocr_completed")
+		}
 		s.publishDriveOCRRunUpdated(ctx, run, "completed", "")
 		s.recordMedallionOCRRun(ctx, file, run, MedallionPipelineStatusCompleted, "", false, nil)
 		return nil
@@ -287,6 +290,9 @@ func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObj
 	run = driveOCRRunFromDB(completed, file.PublicID)
 	if err := s.indexOCRText(ctx, file, result.FullText); err != nil {
 		return err
+	}
+	if s.drive != nil && s.drive.localSearch != nil {
+		s.drive.localSearch.RequestIndexBestEffort(ctx, tenantID, LocalSearchResourceOCRRun, run.ID, run.PublicID, "ocr_completed")
 	}
 	s.publishDriveOCRRunUpdated(ctx, run, "completed", "")
 	s.recordMedallionOCRRun(ctx, file, run, MedallionPipelineStatusCompleted, "", false, nil)
@@ -466,6 +472,11 @@ func (s *DriveOCRService) HandleProductExtractionRequested(ctx context.Context, 
 		return fmt.Errorf("extract drive product items: %w", err)
 	}
 	s.recordMedallionProductExtractionRun(ctx, file, run, productItems, MedallionPipelineStatusCompleted, "", false, actorID, triggerKind, medallionProductExtractionRunKey(run, outboxEventID))
+	if s.drive != nil && s.drive.localSearch != nil {
+		for _, item := range productItems {
+			s.drive.localSearch.RequestIndexBestEffort(ctx, tenantID, LocalSearchResourceProductExtraction, item.ID, item.PublicID.String(), "product_extraction_completed")
+		}
+	}
 	return nil
 }
 

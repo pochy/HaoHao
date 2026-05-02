@@ -1437,6 +1437,64 @@ type IdempotencyKey struct {
 	CompletedAt        pgtype.Timestamptz `json:"completed_at"`
 }
 
+type LocalSearchDocument struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	ResourceKind      string             `json:"resource_kind"`
+	ResourceID        int64              `json:"resource_id"`
+	ResourcePublicID  uuid.UUID          `json:"resource_public_id"`
+	FileObjectID      pgtype.Int8        `json:"file_object_id"`
+	MedallionAssetID  pgtype.Int8        `json:"medallion_asset_id"`
+	GoldPublicationID pgtype.Int8        `json:"gold_publication_id"`
+	Title             string             `json:"title"`
+	BodyText          string             `json:"body_text"`
+	Snippet           string             `json:"snippet"`
+	ContentHash       string             `json:"content_hash"`
+	SourceUpdatedAt   pgtype.Timestamptz `json:"source_updated_at"`
+	IndexedAt         pgtype.Timestamptz `json:"indexed_at"`
+	SearchVector      interface{}        `json:"search_vector"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type LocalSearchEmbedding struct {
+	ID           int64              `json:"id"`
+	PublicID     uuid.UUID          `json:"public_id"`
+	DocumentID   int64              `json:"document_id"`
+	ChunkOrdinal int32              `json:"chunk_ordinal"`
+	SourceText   string             `json:"source_text"`
+	Model        string             `json:"model"`
+	Dimension    int32              `json:"dimension"`
+	ContentHash  string             `json:"content_hash"`
+	Embedding    []float64          `json:"embedding"`
+	Status       string             `json:"status"`
+	ErrorSummary pgtype.Text        `json:"error_summary"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type LocalSearchIndexJob struct {
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	TenantID         int64              `json:"tenant_id"`
+	ResourceKind     pgtype.Text        `json:"resource_kind"`
+	ResourceID       pgtype.Int8        `json:"resource_id"`
+	ResourcePublicID pgtype.UUID        `json:"resource_public_id"`
+	OutboxEventID    pgtype.Int8        `json:"outbox_event_id"`
+	Reason           string             `json:"reason"`
+	Status           string             `json:"status"`
+	Attempts         int32              `json:"attempts"`
+	IndexedCount     int32              `json:"indexed_count"`
+	SkippedCount     int32              `json:"skipped_count"`
+	FailedCount      int32              `json:"failed_count"`
+	LastError        pgtype.Text        `json:"last_error"`
+	StartedAt        pgtype.Timestamptz `json:"started_at"`
+	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type MachineClient struct {
 	ID               int64              `json:"id"`
 	Provider         string             `json:"provider"`

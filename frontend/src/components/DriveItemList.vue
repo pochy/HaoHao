@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
-import type { DriveFileBody, DriveItemBody } from '../api/generated/types.gen'
+import type { DriveFileBody, DriveItemBody, DriveSearchResultBody, DriveSearchResultMatchBody } from '../api/generated/types.gen'
 import {
   driveItemKind,
   driveItemName,
@@ -13,13 +13,14 @@ import {
 import DriveFileTypeIcon from './DriveFileTypeIcon.vue'
 import DriveItemMenu from './DriveItemMenu.vue'
 
-defineProps<{
+const props = defineProps<{
   items: DriveItemBody[]
   loading: boolean
   busyResourceId: string
   deletingResourceId: string
   selectedResourceId: string
   selectedResourceIds: string[]
+  searchResultsByResourceId?: Record<string, DriveSearchResultBody>
   trashMode?: boolean
 }>()
 
@@ -44,6 +45,27 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+function searchResultFor(item: DriveItemBody) {
+  return props.searchResultsByResourceId?.[driveItemPublicId(item)]
+}
+
+function searchMatchLabel(match: DriveSearchResultMatchBody) {
+  switch (match.resourceKind) {
+    case 'ocr_run':
+      return t('drive.searchMatch.ocr')
+    case 'product_extraction':
+      return t('drive.searchMatch.product')
+    case 'gold_table':
+      return t('drive.searchMatch.gold')
+    default:
+      return t('drive.searchMatch.file')
+  }
+}
+
+function visibleMatches(result?: DriveSearchResultBody) {
+  return result?.matches?.slice(0, 3) ?? []
+}
 </script>
 
 <template>
@@ -96,6 +118,18 @@ const { t } = useI18n()
         </button>
         <span v-else class="drive-file-name">{{ driveItemName(item) }}</span>
         <span class="cell-subtle monospace-cell">{{ driveItemPublicId(item) }}</span>
+        <span v-if="searchResultFor(item)?.snippet" class="drive-search-list-snippet">
+          {{ searchResultFor(item)?.snippet }}
+        </span>
+        <span v-if="visibleMatches(searchResultFor(item)).length > 0" class="drive-search-list-badges">
+          <span
+            v-for="match in visibleMatches(searchResultFor(item))"
+            :key="`${match.resourceKind}:${match.resourcePublicId}`"
+            class="status-pill"
+          >
+            {{ searchMatchLabel(match) }}
+          </span>
+        </span>
       </div>
       <span role="cell">{{ item.folder ? t('drive.folder') : driveItemKind(item) }}</span>
       <span class="tabular-cell" role="cell">{{ formatDriveSize(item.file?.byteSize) }}</span>

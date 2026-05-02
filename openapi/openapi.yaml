@@ -5874,12 +5874,64 @@ components:
           $ref: "#/components/schemas/DriveItemBody"
           examples:
             - example
+        matches:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DriveSearchResultMatchBody"
+          type:
+            - array
+            - "null"
         snippet:
           examples:
             - example
           type: string
       required:
         - item
+      type: object
+    DriveSearchResultMatchBody:
+      additionalProperties: false
+      properties:
+        indexedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        layer:
+          enum:
+            - bronze
+            - silver
+            - gold
+          examples:
+            - bronze
+          type: string
+        medallionAssetPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        resourceKind:
+          enum:
+            - drive_file
+            - ocr_run
+            - product_extraction
+            - gold_table
+          examples:
+            - drive_file
+          type: string
+        resourcePublicId:
+          description: 対象 resource の public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        snippet:
+          examples:
+            - example
+          type: string
+      required:
+        - resourceKind
+        - resourcePublicId
       type: object
     DriveSearchResultOutputBody:
       additionalProperties: false
@@ -6854,6 +6906,136 @@ components:
             - - example
           items:
             $ref: "#/components/schemas/TenantBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    LocalSearchIndexJobBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/LocalSearchIndexJobBody.json
+          format: uri
+          readOnly: true
+          type: string
+        attempts:
+          examples:
+            - 1
+          format: int32
+          type: integer
+        completedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        failedCount:
+          examples:
+            - 3
+          format: int32
+          type: integer
+        indexedCount:
+          examples:
+            - 3
+          format: int32
+          type: integer
+        lastError:
+          examples:
+            - example
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        reason:
+          examples:
+            - example
+          type: string
+        resourceId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        resourceKind:
+          enum:
+            - drive_file
+            - ocr_run
+            - product_extraction
+            - gold_table
+          examples:
+            - drive_file
+          type: string
+        resourcePublicId:
+          description: 対象 resource の public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        skippedCount:
+          examples:
+            - 3
+          format: int32
+          type: integer
+        startedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          enum:
+            - queued
+            - processing
+            - completed
+            - failed
+            - skipped
+          examples:
+            - queued
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - reason
+        - status
+        - attempts
+        - indexedCount
+        - skippedCount
+        - failedCount
+        - createdAt
+        - updatedAt
+      type: object
+    LocalSearchIndexJobListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/LocalSearchIndexJobListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/LocalSearchIndexJobBody"
           type:
             - array
             - "null"
@@ -14306,6 +14488,195 @@ paths:
       security:
         - cookieAuth: []
       summary: Drive search index を rebuild する
+      tags:
+        - Drive Admin & Governance
+  /api/v1/admin/tenants/{tenantSlug}/drive/search/local-index/jobs:
+    get:
+      description: |-
+        Drive local search index job 一覧を返す。
+
+        tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listTenantAdminDriveLocalSearchIndexJobs
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `status` です。
+          example: queued
+          explode: false
+          in: query
+          name: status
+          schema:
+            enum:
+              - queued
+              - processing
+              - completed
+              - failed
+              - skipped
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - $schema: https://example.com/schemas/LocalSearchIndexJobBody.json
+                        attempts: 1
+                        completedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        failedCount: 3
+                        indexedCount: 3
+                        lastError: example
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        reason: example
+                        resourceId: 1
+                        resourceKind: drive_file
+                        resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        skippedCount: 3
+                        startedAt: "2026-01-15T09:30:00Z"
+                        status: queued
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/LocalSearchIndexJobListOutputBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Drive local search index job 一覧を返す
+      tags:
+        - Drive Admin & Governance
+  /api/v1/admin/tenants/{tenantSlug}/drive/search/local-index/rebuilds:
+    post:
+      description: |-
+        Drive local search index rebuild を enqueue する。
+
+        tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: createTenantAdminDriveLocalSearchRebuild
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    attempts: 1
+                    completedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    failedCount: 3
+                    indexedCount: 3
+                    lastError: example
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    reason: example
+                    resourceId: 1
+                    resourceKind: drive_file
+                    resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    skippedCount: 3
+                    startedAt: "2026-01-15T09:30:00Z"
+                    status: queued
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/LocalSearchIndexJobBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Drive local search index rebuild を enqueue する
       tags:
         - Drive Admin & Governance
   /api/v1/admin/tenants/{tenantSlug}/drive/security/encryption-policy:
@@ -27711,6 +28082,7 @@ paths:
                     items:
                       - indexedAt: "2026-01-15T09:30:00Z"
                         item: {}
+                        matches: []
                         snippet: example
               schema:
                 $ref: "#/components/schemas/DriveSearchResultOutputBody"
@@ -30888,6 +31260,13 @@ paths:
           name: SESSION_ID
           schema:
             $ref: "#/components/schemas/Cookie"
+        - description: 検索語または filter query です。
+          example: roadmap
+          explode: false
+          in: query
+          name: q
+          schema:
+            type: string
         - description: 結果の絞り込みや pagination に使う query parameter `layer` です。
           example: bronze
           explode: false

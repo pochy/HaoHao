@@ -99,6 +99,12 @@ func TestDrivePolicyFromFeaturesDefaults(t *testing.T) {
 	if got.ExternalUserSharingEnabled {
 		t.Fatal("ExternalUserSharingEnabled = true")
 	}
+	if got.LocalSearch.VectorEnabled {
+		t.Fatal("LocalSearch.VectorEnabled = true")
+	}
+	if got.LocalSearch.EmbeddingRuntime != "none" {
+		t.Fatalf("LocalSearch.EmbeddingRuntime = %q, want none", got.LocalSearch.EmbeddingRuntime)
+	}
 }
 
 func TestDrivePolicyFromFeaturesOverrides(t *testing.T) {
@@ -152,6 +158,36 @@ func TestDrivePolicyFromFeaturesOverrides(t *testing.T) {
 	}
 	if len(got.BlockedExternalDomains) != 1 || got.BlockedExternalDomains[0] != "blocked.example.com" {
 		t.Fatalf("BlockedExternalDomains = %#v", got.BlockedExternalDomains)
+	}
+}
+
+func TestDriveLocalSearchPolicyFromFeaturesOverrides(t *testing.T) {
+	got := drivePolicyFromFeatures(map[string]any{
+		"drive": map[string]any{
+			"localSearch": map[string]any{
+				"vectorEnabled":    true,
+				"embeddingRuntime": "ollama",
+				"runtimeURL":       "http://127.0.0.1:11434",
+				"model":            "nomic-embed-text",
+				"dimension":        float64(768),
+			},
+		},
+	})
+
+	if !got.LocalSearch.VectorEnabled {
+		t.Fatal("LocalSearch.VectorEnabled = false")
+	}
+	if got.LocalSearch.EmbeddingRuntime != "ollama" {
+		t.Fatalf("LocalSearch.EmbeddingRuntime = %q, want ollama", got.LocalSearch.EmbeddingRuntime)
+	}
+	if got.LocalSearch.RuntimeURL != "http://127.0.0.1:11434" {
+		t.Fatalf("LocalSearch.RuntimeURL = %q", got.LocalSearch.RuntimeURL)
+	}
+	if got.LocalSearch.Model != "nomic-embed-text" {
+		t.Fatalf("LocalSearch.Model = %q", got.LocalSearch.Model)
+	}
+	if got.LocalSearch.Dimension != 768 {
+		t.Fatalf("LocalSearch.Dimension = %d, want 768", got.LocalSearch.Dimension)
 	}
 }
 
@@ -248,6 +284,37 @@ func TestValidateDriveOCRPolicyAcceptsRulesWithoutModel(t *testing.T) {
 
 	if err := validateDriveOCRPolicy(policy); err != nil {
 		t.Fatalf("validateDriveOCRPolicy() error = %v", err)
+	}
+}
+
+func TestValidateDriveLocalSearchPolicyDefaultsDisabled(t *testing.T) {
+	policy := defaultDriveLocalSearchPolicy()
+	if err := validateDriveLocalSearchPolicy(policy); err != nil {
+		t.Fatalf("validateDriveLocalSearchPolicy() error = %v", err)
+	}
+}
+
+func TestValidateDriveLocalSearchPolicyRequiresVectorRuntimeConfig(t *testing.T) {
+	policy := defaultDriveLocalSearchPolicy()
+	policy.VectorEnabled = true
+	if err := validateDriveLocalSearchPolicy(policy); err == nil {
+		t.Fatal("validateDriveLocalSearchPolicy() error = nil, want runtime validation error")
+	}
+
+	policy.EmbeddingRuntime = "ollama"
+	policy.RuntimeURL = "http://127.0.0.1:11434"
+	policy.Model = "nomic-embed-text"
+	policy.Dimension = 768
+	if err := validateDriveLocalSearchPolicy(policy); err != nil {
+		t.Fatalf("validateDriveLocalSearchPolicy() error = %v", err)
+	}
+}
+
+func TestValidateDriveLocalSearchPolicyRejectsRemoteRuntimeURL(t *testing.T) {
+	policy := defaultDriveLocalSearchPolicy()
+	policy.RuntimeURL = "https://example.com/embed"
+	if err := validateDriveLocalSearchPolicy(policy); err == nil {
+		t.Fatal("validateDriveLocalSearchPolicy() error = nil, want runtimeURL validation error")
 	}
 }
 

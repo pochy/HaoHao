@@ -15,9 +15,10 @@ export async function fetchMedallionResourceCatalog(resourceKind: MedallionResou
   }) as unknown as Promise<MedallionCatalogBody>
 }
 
-export async function fetchMedallionAssets(layer = '', resourceKind = '', limit = 100): Promise<MedallionAssetBody[]> {
+export async function fetchMedallionAssets(layer = '', resourceKind = '', limit = 100, q = ''): Promise<MedallionAssetBody[]> {
   const data = await listMedallionAssets({
     query: {
+      ...(q ? { q } : {}),
       ...(layer ? { layer: layer as 'bronze' | 'silver' | 'gold' } : {}),
       ...(resourceKind ? { resourceKind: resourceKind as MedallionResourceKind } : {}),
       limit,

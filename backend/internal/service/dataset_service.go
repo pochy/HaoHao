@@ -285,16 +285,17 @@ type datasetWorkTableRef struct {
 }
 
 type DatasetService struct {
-	pool       *pgxpool.Pool
-	queries    *db.Queries
-	outbox     *OutboxService
-	files      *FileService
-	audit      AuditRecorder
-	chMu       sync.Mutex
-	clickhouse driver.Conn
-	chConfig   DatasetClickHouseConfig
-	realtime   RealtimePublisher
-	medallion  *MedallionCatalogService
+	pool        *pgxpool.Pool
+	queries     *db.Queries
+	outbox      *OutboxService
+	files       *FileService
+	audit       AuditRecorder
+	chMu        sync.Mutex
+	clickhouse  driver.Conn
+	chConfig    DatasetClickHouseConfig
+	realtime    RealtimePublisher
+	medallion   *MedallionCatalogService
+	localSearch *LocalSearchService
 }
 
 func NewDatasetService(pool *pgxpool.Pool, queries *db.Queries, outbox *OutboxService, files *FileService, audit AuditRecorder, clickhouseConn driver.Conn, chConfig DatasetClickHouseConfig) *DatasetService {
@@ -339,6 +340,12 @@ func (s *DatasetService) SetRealtimeService(realtime RealtimePublisher) {
 func (s *DatasetService) SetMedallionCatalogService(medallion *MedallionCatalogService) {
 	if s != nil {
 		s.medallion = medallion
+	}
+}
+
+func (s *DatasetService) SetLocalSearchService(localSearch *LocalSearchService) {
+	if s != nil {
+		s.localSearch = localSearch
 	}
 }
 

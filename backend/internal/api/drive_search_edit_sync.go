@@ -12,9 +12,19 @@ import (
 )
 
 type DriveSearchResultBody struct {
-	Item      DriveItemBody `json:"item"`
-	Snippet   string        `json:"snippet,omitempty"`
-	IndexedAt *time.Time    `json:"indexedAt,omitempty" format:"date-time"`
+	Item      DriveItemBody                `json:"item"`
+	Snippet   string                       `json:"snippet,omitempty"`
+	IndexedAt *time.Time                   `json:"indexedAt,omitempty" format:"date-time"`
+	Matches   []DriveSearchResultMatchBody `json:"matches,omitempty"`
+}
+
+type DriveSearchResultMatchBody struct {
+	ResourceKind           string     `json:"resourceKind" enum:"drive_file,ocr_run,product_extraction,gold_table"`
+	ResourcePublicID       string     `json:"resourcePublicId" format:"uuid"`
+	MedallionAssetPublicID string     `json:"medallionAssetPublicId,omitempty" format:"uuid"`
+	Layer                  string     `json:"layer,omitempty" enum:"bronze,silver,gold"`
+	Snippet                string     `json:"snippet,omitempty"`
+	IndexedAt              *time.Time `json:"indexedAt,omitempty" format:"date-time"`
 }
 
 type DriveSearchResultOutput struct {
@@ -186,17 +196,36 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 			ActorUserID: current.User.ID,
 			Query:       input.Query,
 			ContentType: input.ContentType,
-			Limit:       input.Limit,
+			Filter: service.DriveListItemsFilter{
+				Type:      input.Type,
+				Owner:     input.Owner,
+				Source:    input.Source,
+				Sort:      input.Sort,
+				Direction: input.Direction,
+			},
+			Limit: input.Limit,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveSearchResultOutput{}
 		for _, item := range results {
+			matches := make([]DriveSearchResultMatchBody, 0, len(item.Matches))
+			for _, match := range item.Matches {
+				matches = append(matches, DriveSearchResultMatchBody{
+					ResourceKind:           match.ResourceKind,
+					ResourcePublicID:       match.ResourcePublicID,
+					MedallionAssetPublicID: match.MedallionAssetPublicID,
+					Layer:                  match.Layer,
+					Snippet:                match.Snippet,
+					IndexedAt:              match.IndexedAt,
+				})
+			}
 			out.Body.Items = append(out.Body.Items, DriveSearchResultBody{
 				Item:      toDriveItemBody(item.Item),
 				Snippet:   item.Snippet,
 				IndexedAt: item.IndexedAt,
+				Matches:   matches,
 			})
 		}
 		return out, nil

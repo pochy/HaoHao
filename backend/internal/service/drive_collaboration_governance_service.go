@@ -30,6 +30,7 @@ type DriveSearchResult struct {
 	Item      DriveItem
 	Snippet   string
 	IndexedAt *time.Time
+	Matches   []LocalSearchMatch
 }
 
 type DriveIndexRebuildResult struct {
@@ -180,6 +181,12 @@ type DriveCleanRoomExport struct {
 }
 
 func (s *DriveService) SearchDocuments(ctx context.Context, input DriveSearchInput, auditCtx AuditContext) ([]DriveSearchResult, error) {
+	if s.localSearch != nil {
+		results, err := s.localSearch.SearchDriveFiles(ctx, input)
+		if err == nil && len(results) > 0 {
+			return results, nil
+		}
+	}
 	items, err := s.Search(ctx, input, auditCtx)
 	if err != nil {
 		return nil, err
@@ -274,6 +281,9 @@ func (s *DriveService) indexDriveFileBestEffort(ctx context.Context, file DriveF
 		return
 	}
 	_, _ = s.indexDriveFile(ctx, file, reason)
+	if s.localSearch != nil {
+		s.localSearch.RequestIndexBestEffort(ctx, file.TenantID, LocalSearchResourceDriveFile, file.ID, file.PublicID, reason)
+	}
 }
 
 func (s *DriveService) indexDriveFile(ctx context.Context, file DriveFile, reason string) (string, error) {

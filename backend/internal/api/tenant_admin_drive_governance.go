@@ -16,6 +16,41 @@ type TenantAdminDriveIndexRebuildInput struct {
 	TenantSlug    string      `path:"tenantSlug" minLength:"3" maxLength:"64"`
 }
 
+type TenantAdminDriveLocalSearchIndexJobsInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	TenantSlug    string      `path:"tenantSlug" minLength:"3" maxLength:"64"`
+	Status        string      `query:"status" enum:"queued,processing,completed,failed,skipped"`
+	Limit         int32       `query:"limit" default:"50" minimum:"1" maximum:"200"`
+}
+
+type LocalSearchIndexJobBody struct {
+	PublicID         string     `json:"publicId" format:"uuid"`
+	ResourceKind     string     `json:"resourceKind,omitempty" enum:"drive_file,ocr_run,product_extraction,gold_table"`
+	ResourceID       *int64     `json:"resourceId,omitempty"`
+	ResourcePublicID string     `json:"resourcePublicId,omitempty" format:"uuid"`
+	Reason           string     `json:"reason"`
+	Status           string     `json:"status" enum:"queued,processing,completed,failed,skipped"`
+	Attempts         int32      `json:"attempts"`
+	IndexedCount     int32      `json:"indexedCount"`
+	SkippedCount     int32      `json:"skippedCount"`
+	FailedCount      int32      `json:"failedCount"`
+	LastError        string     `json:"lastError,omitempty"`
+	StartedAt        *time.Time `json:"startedAt,omitempty" format:"date-time"`
+	CompletedAt      *time.Time `json:"completedAt,omitempty" format:"date-time"`
+	CreatedAt        time.Time  `json:"createdAt" format:"date-time"`
+	UpdatedAt        time.Time  `json:"updatedAt" format:"date-time"`
+}
+
+type LocalSearchIndexJobOutput struct {
+	Body LocalSearchIndexJobBody
+}
+
+type LocalSearchIndexJobListOutput struct {
+	Body struct {
+		Items []LocalSearchIndexJobBody `json:"items"`
+	}
+}
+
 type TenantAdminDriveEncryptionPolicyBody struct {
 	Mode         string    `json:"mode"`
 	Scope        string    `json:"scope"`
@@ -219,6 +254,55 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &DriveIndexRebuildOutput{Body: DriveIndexRebuildBody{Indexed: result.Indexed, Skipped: result.Skipped, Failed: result.Failed}}, nil
 	})
 
+	huma.Register(api, huma.Operation{
+		OperationID: "createTenantAdminDriveLocalSearchRebuild",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/search/local-index/rebuilds",
+		Tags:        []string{DocTagDriveAdminGovernance},
+		Summary:     "Drive local search index rebuild を enqueue する",
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *TenantAdminDriveIndexRebuildInput) (*LocalSearchIndexJobOutput, error) {
+		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+		if deps.LocalSearchService == nil {
+			return nil, huma.Error503ServiceUnavailable("local search service is not configured")
+		}
+		job, err := deps.LocalSearchService.RequestRebuild(ctx, tenant.ID, "admin_rebuild")
+		if err != nil {
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
+		}
+		return &LocalSearchIndexJobOutput{Body: toLocalSearchIndexJobBody(job)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listTenantAdminDriveLocalSearchIndexJobs",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/search/local-index/jobs",
+		Tags:        []string{DocTagDriveAdminGovernance},
+		Summary:     "Drive local search index job 一覧を返す",
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *TenantAdminDriveLocalSearchIndexJobsInput) (*LocalSearchIndexJobListOutput, error) {
+		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+		if deps.LocalSearchService == nil {
+			return nil, huma.Error503ServiceUnavailable("local search service is not configured")
+		}
+		jobs, err := deps.LocalSearchService.ListIndexJobs(ctx, tenant.ID, input.Status, input.Limit)
+		if err != nil {
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
+		}
+		out := &LocalSearchIndexJobListOutput{}
+		out.Body.Items = make([]LocalSearchIndexJobBody, 0, len(jobs))
+		for _, job := range jobs {
+			out.Body.Items = append(out.Body.Items, toLocalSearchIndexJobBody(job))
+		}
+		return out, nil
+	})
+
 	huma.Register(api, huma.Operation{OperationID: "getTenantAdminDriveEncryptionPolicy", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/security/encryption-policy", Tags: []string{DocTagDriveAdminGovernance}, Summary: "Drive encryption policy を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveEncryptionPolicyOutput, error) {
 		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
 		if err != nil {
@@ -385,6 +469,26 @@ func toTenantAdminDriveResidencyPolicyBody(item service.DriveResidencyPolicy) Te
 		PrimaryRegion: item.PrimaryRegion, AllowedRegions: item.AllowedRegions,
 		ReplicationMode: item.ReplicationMode, IndexRegion: item.IndexRegion, BackupRegion: item.BackupRegion,
 		Status: item.Status, UpdatedAt: item.UpdatedAt,
+	}
+}
+
+func toLocalSearchIndexJobBody(item service.LocalSearchIndexJob) LocalSearchIndexJobBody {
+	return LocalSearchIndexJobBody{
+		PublicID:         item.PublicID,
+		ResourceKind:     item.ResourceKind,
+		ResourceID:       item.ResourceID,
+		ResourcePublicID: item.ResourcePublicID,
+		Reason:           item.Reason,
+		Status:           item.Status,
+		Attempts:         item.Attempts,
+		IndexedCount:     item.IndexedCount,
+		SkippedCount:     item.SkippedCount,
+		FailedCount:      item.FailedCount,
+		LastError:        item.LastError,
+		StartedAt:        item.StartedAt,
+		CompletedAt:      item.CompletedAt,
+		CreatedAt:        item.CreatedAt,
+		UpdatedAt:        item.UpdatedAt,
 	}
 }
 

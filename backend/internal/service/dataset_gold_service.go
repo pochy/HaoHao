@@ -414,6 +414,7 @@ func (s *DatasetService) HandleGoldPublishRequested(ctx context.Context, tenantI
 		return fmt.Errorf("mark gold publication active: %w", err)
 	}
 	s.recordMedallionGoldPublish(ctx, tenantID, workTable, active, completed, MedallionPipelineStatusCompleted, "", false)
+	s.requestGoldLocalSearchIndex(ctx, tenantID, active, "gold_publish_completed")
 	s.publishGoldPublishRunUpdated(ctx, tenantID, completed, "completed", "")
 	s.publishGoldPublicationUpdated(ctx, tenantID, active, "active", "")
 	return nil
@@ -572,6 +573,7 @@ func (s *DatasetService) UnpublishGoldPublication(ctx context.Context, tenantID,
 	item := datasetGoldPublicationFromDB(updated)
 	s.hydrateGoldPublication(ctx, tenantID, &item)
 	s.recordMedallionGoldPublicationStatus(ctx, tenantID, updated, userID)
+	s.requestGoldLocalSearchIndex(ctx, tenantID, updated, "gold_unpublished")
 	s.publishGoldPublicationUpdated(ctx, tenantID, updated, "unpublished", "")
 	return item, nil
 }
@@ -612,6 +614,7 @@ func (s *DatasetService) ArchiveGoldPublication(ctx context.Context, tenantID, u
 	item := datasetGoldPublicationFromDB(updated)
 	s.hydrateGoldPublication(ctx, tenantID, &item)
 	s.recordMedallionGoldPublicationStatus(ctx, tenantID, updated, userID)
+	s.requestGoldLocalSearchIndex(ctx, tenantID, updated, "gold_archived")
 	s.publishGoldPublicationUpdated(ctx, tenantID, updated, "archived", "")
 	return item, nil
 }
@@ -792,6 +795,13 @@ func (s *DatasetService) recordMedallionGoldPublicationStatus(ctx context.Contex
 		actorID = &userID
 	}
 	_, _ = s.medallion.EnsureGoldTableAsset(ctx, publication, actorID)
+}
+
+func (s *DatasetService) requestGoldLocalSearchIndex(ctx context.Context, tenantID int64, publicationRow db.DatasetGoldPublication, reason string) {
+	if s == nil || s.localSearch == nil {
+		return
+	}
+	s.localSearch.RequestIndexBestEffort(ctx, tenantID, LocalSearchResourceGoldTable, publicationRow.ID, publicationRow.PublicID.String(), reason)
 }
 
 func (s *DatasetService) hydrateGoldPublication(ctx context.Context, tenantID int64, item *DatasetGoldPublication) {

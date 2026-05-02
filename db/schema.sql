@@ -3564,6 +3564,133 @@ ALTER TABLE public.idempotency_keys ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
 
 
 --
+-- Name: local_search_documents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.local_search_documents (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    resource_kind text NOT NULL,
+    resource_id bigint NOT NULL,
+    resource_public_id uuid NOT NULL,
+    file_object_id bigint,
+    medallion_asset_id bigint,
+    gold_publication_id bigint,
+    title text DEFAULT ''::text NOT NULL,
+    body_text text DEFAULT ''::text NOT NULL,
+    snippet text DEFAULT ''::text NOT NULL,
+    content_hash text DEFAULT ''::text NOT NULL,
+    source_updated_at timestamp with time zone,
+    indexed_at timestamp with time zone DEFAULT now() NOT NULL,
+    search_vector tsvector GENERATED ALWAYS AS ((setweight(to_tsvector('simple'::regconfig, COALESCE(title, ''::text)), 'A'::"char") || setweight(to_tsvector('simple'::regconfig, COALESCE(body_text, ''::text)), 'B'::"char"))) STORED,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT local_search_documents_resource_kind_check CHECK ((resource_kind = ANY (ARRAY['drive_file'::text, 'ocr_run'::text, 'product_extraction'::text, 'gold_table'::text]))),
+    CONSTRAINT local_search_documents_title_check CHECK ((btrim(title) <> ''::text))
+);
+
+
+--
+-- Name: local_search_documents_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.local_search_documents ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.local_search_documents_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: local_search_embeddings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.local_search_embeddings (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    document_id bigint NOT NULL,
+    chunk_ordinal integer NOT NULL,
+    source_text text DEFAULT ''::text NOT NULL,
+    model text DEFAULT ''::text NOT NULL,
+    dimension integer DEFAULT 0 NOT NULL,
+    content_hash text DEFAULT ''::text NOT NULL,
+    embedding double precision[],
+    status text DEFAULT 'pending'::text NOT NULL,
+    error_summary text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT local_search_embeddings_chunk_ordinal_check CHECK ((chunk_ordinal >= 0)),
+    CONSTRAINT local_search_embeddings_dimension_check CHECK ((dimension >= 0)),
+    CONSTRAINT local_search_embeddings_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
+);
+
+
+--
+-- Name: local_search_embeddings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.local_search_embeddings ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.local_search_embeddings_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: local_search_index_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.local_search_index_jobs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    resource_kind text,
+    resource_id bigint,
+    resource_public_id uuid,
+    outbox_event_id bigint,
+    reason text DEFAULT 'index_requested'::text NOT NULL,
+    status text DEFAULT 'queued'::text NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    indexed_count integer DEFAULT 0 NOT NULL,
+    skipped_count integer DEFAULT 0 NOT NULL,
+    failed_count integer DEFAULT 0 NOT NULL,
+    last_error text,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT local_search_index_jobs_attempts_check CHECK ((attempts >= 0)),
+    CONSTRAINT local_search_index_jobs_failed_count_check CHECK ((failed_count >= 0)),
+    CONSTRAINT local_search_index_jobs_indexed_count_check CHECK ((indexed_count >= 0)),
+    CONSTRAINT local_search_index_jobs_reason_check CHECK ((btrim(reason) <> ''::text)),
+    CONSTRAINT local_search_index_jobs_resource_kind_check CHECK (((resource_kind IS NULL) OR (resource_kind = ANY (ARRAY['drive_file'::text, 'ocr_run'::text, 'product_extraction'::text, 'gold_table'::text])))),
+    CONSTRAINT local_search_index_jobs_skipped_count_check CHECK ((skipped_count >= 0)),
+    CONSTRAINT local_search_index_jobs_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
+);
+
+
+--
+-- Name: local_search_index_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.local_search_index_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.local_search_index_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: machine_clients; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5456,6 +5583,70 @@ ALTER TABLE ONLY public.idempotency_keys
 
 
 --
+-- Name: local_search_documents local_search_documents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_documents
+    ADD CONSTRAINT local_search_documents_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: local_search_documents local_search_documents_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_documents
+    ADD CONSTRAINT local_search_documents_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: local_search_documents local_search_documents_resource_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_documents
+    ADD CONSTRAINT local_search_documents_resource_key UNIQUE (tenant_id, resource_kind, resource_id);
+
+
+--
+-- Name: local_search_embeddings local_search_embeddings_chunk_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_embeddings
+    ADD CONSTRAINT local_search_embeddings_chunk_key UNIQUE (document_id, chunk_ordinal, model, content_hash);
+
+
+--
+-- Name: local_search_embeddings local_search_embeddings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_embeddings
+    ADD CONSTRAINT local_search_embeddings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: local_search_embeddings local_search_embeddings_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_embeddings
+    ADD CONSTRAINT local_search_embeddings_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: local_search_index_jobs local_search_index_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_index_jobs
+    ADD CONSTRAINT local_search_index_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: local_search_index_jobs local_search_index_jobs_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_index_jobs
+    ADD CONSTRAINT local_search_index_jobs_public_id_key UNIQUE (public_id);
+
+
+--
 -- Name: machine_clients machine_clients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7140,6 +7331,76 @@ CREATE UNIQUE INDEX idempotency_keys_scope_key_hash_key ON public.idempotency_ke
 
 
 --
+-- Name: local_search_documents_file_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_documents_file_idx ON public.local_search_documents USING btree (tenant_id, file_object_id, indexed_at DESC) WHERE (file_object_id IS NOT NULL);
+
+
+--
+-- Name: local_search_documents_gold_publication_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_documents_gold_publication_idx ON public.local_search_documents USING btree (tenant_id, gold_publication_id, indexed_at DESC) WHERE (gold_publication_id IS NOT NULL);
+
+
+--
+-- Name: local_search_documents_medallion_asset_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_documents_medallion_asset_idx ON public.local_search_documents USING btree (medallion_asset_id) WHERE (medallion_asset_id IS NOT NULL);
+
+
+--
+-- Name: local_search_documents_tenant_kind_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_documents_tenant_kind_idx ON public.local_search_documents USING btree (tenant_id, resource_kind, indexed_at DESC, id DESC);
+
+
+--
+-- Name: local_search_documents_vector_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_documents_vector_idx ON public.local_search_documents USING gin (search_vector);
+
+
+--
+-- Name: local_search_embeddings_document_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_embeddings_document_idx ON public.local_search_embeddings USING btree (document_id, chunk_ordinal);
+
+
+--
+-- Name: local_search_embeddings_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_embeddings_status_idx ON public.local_search_embeddings USING btree (status, created_at DESC, id DESC);
+
+
+--
+-- Name: local_search_index_jobs_outbox_event_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_index_jobs_outbox_event_idx ON public.local_search_index_jobs USING btree (outbox_event_id) WHERE (outbox_event_id IS NOT NULL);
+
+
+--
+-- Name: local_search_index_jobs_resource_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_index_jobs_resource_idx ON public.local_search_index_jobs USING btree (tenant_id, resource_kind, resource_id, created_at DESC) WHERE ((resource_kind IS NOT NULL) AND (resource_id IS NOT NULL));
+
+
+--
+-- Name: local_search_index_jobs_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_index_jobs_tenant_status_idx ON public.local_search_index_jobs USING btree (tenant_id, status, created_at DESC, id DESC);
+
+
+--
 -- Name: machine_clients_default_tenant_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7158,6 +7419,13 @@ CREATE INDEX medallion_asset_edges_source_idx ON public.medallion_asset_edges US
 --
 
 CREATE INDEX medallion_asset_edges_target_idx ON public.medallion_asset_edges USING btree (target_asset_id, created_at DESC, id DESC);
+
+
+--
+-- Name: medallion_assets_local_search_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX medallion_assets_local_search_idx ON public.medallion_assets USING gin (to_tsvector('simple'::regconfig, ((((display_name || ' '::text) || (metadata)::text) || ' '::text) || (schema_summary)::text)));
 
 
 --
@@ -9735,6 +10003,62 @@ ALTER TABLE ONLY public.idempotency_keys
 
 ALTER TABLE ONLY public.idempotency_keys
     ADD CONSTRAINT idempotency_keys_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: local_search_documents local_search_documents_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_documents
+    ADD CONSTRAINT local_search_documents_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: local_search_documents local_search_documents_gold_publication_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_documents
+    ADD CONSTRAINT local_search_documents_gold_publication_id_fkey FOREIGN KEY (gold_publication_id) REFERENCES public.dataset_gold_publications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: local_search_documents local_search_documents_medallion_asset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_documents
+    ADD CONSTRAINT local_search_documents_medallion_asset_id_fkey FOREIGN KEY (medallion_asset_id) REFERENCES public.medallion_assets(id) ON DELETE SET NULL;
+
+
+--
+-- Name: local_search_documents local_search_documents_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_documents
+    ADD CONSTRAINT local_search_documents_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: local_search_embeddings local_search_embeddings_document_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_embeddings
+    ADD CONSTRAINT local_search_embeddings_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.local_search_documents(id) ON DELETE CASCADE;
+
+
+--
+-- Name: local_search_index_jobs local_search_index_jobs_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_index_jobs
+    ADD CONSTRAINT local_search_index_jobs_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: local_search_index_jobs local_search_index_jobs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_index_jobs
+    ADD CONSTRAINT local_search_index_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --

@@ -190,14 +190,32 @@ WHERE tenant_id = $1
       $3::text IS NULL
       OR resource_kind = $3::text
   )
-ORDER BY updated_at DESC, id DESC
-LIMIT $4
+  AND (
+      $4::text IS NULL
+      OR display_name ILIKE '%' || $4::text || '%'
+      OR metadata::text ILIKE '%' || $4::text || '%'
+      OR schema_summary::text ILIKE '%' || $4::text || '%'
+      OR to_tsvector('simple', display_name || ' ' || metadata::text || ' ' || schema_summary::text)
+         @@ websearch_to_tsquery('simple', $4::text)
+  )
+ORDER BY
+  CASE
+      WHEN $4::text IS NULL THEN 0
+      ELSE ts_rank_cd(
+          to_tsvector('simple', display_name || ' ' || metadata::text || ' ' || schema_summary::text),
+          websearch_to_tsquery('simple', $4::text)
+      )
+  END DESC,
+  updated_at DESC,
+  id DESC
+LIMIT $5
 `
 
 type ListMedallionAssetsParams struct {
 	TenantID     int64       `json:"tenant_id"`
 	Layer        pgtype.Text `json:"layer"`
 	ResourceKind pgtype.Text `json:"resource_kind"`
+	Q            pgtype.Text `json:"q"`
 	LimitCount   int32       `json:"limit_count"`
 }
 
@@ -206,6 +224,7 @@ func (q *Queries) ListMedallionAssets(ctx context.Context, arg ListMedallionAsse
 		arg.TenantID,
 		arg.Layer,
 		arg.ResourceKind,
+		arg.Q,
 		arg.LimitCount,
 	)
 	if err != nil {

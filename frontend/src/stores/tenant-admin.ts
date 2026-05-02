@@ -10,6 +10,7 @@ import type {
   TenantAdminDriveSyncOutputBody,
   TenantAdminDriveOcrStatusBody,
   TenantAdminDriveOperationsHealthBody,
+  LocalSearchIndexJobBody,
   TenantAdminTenantBody,
   TenantAdminTenantDetailBody,
   TenantAdminTenantRequestBody,
@@ -24,10 +25,12 @@ import {
   fetchTenantAdminDriveAuditEvents,
   fetchTenantAdminDriveDrift,
   fetchTenantAdminDriveInvitations,
+  fetchTenantAdminDriveLocalSearchJobs,
   fetchTenantAdminDriveOCRStatus,
   fetchTenantAdminDriveOperationsHealth,
   fetchTenantAdminDriveShareLinks,
   fetchTenantAdminDriveShares,
+  createTenantAdminDriveLocalSearchRebuildJob,
   grantTenantRole,
   rejectTenantAdminDriveApproval,
   repairTenantAdminDriveSync,
@@ -50,6 +53,7 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
     driveSync: null as TenantAdminDriveSyncOutputBody | null,
     driveHealth: null as TenantAdminDriveOperationsHealthBody | null,
     driveOCRStatus: null as TenantAdminDriveOcrStatusBody | null,
+    driveLocalSearchJobs: [] as LocalSearchIndexJobBody[],
     errorMessage: '',
     saving: false,
   }),
@@ -86,7 +90,7 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
     async loadDriveState(tenantSlug: string) {
       this.errorMessage = ''
       try {
-        const [shares, links, invitations, approvals, auditEvents, sync, health, ocrStatus] = await Promise.all([
+        const [shares, links, invitations, approvals, auditEvents, sync, health, ocrStatus, localSearchJobs] = await Promise.all([
           fetchTenantAdminDriveShares(tenantSlug),
           fetchTenantAdminDriveShareLinks(tenantSlug),
           fetchTenantAdminDriveInvitations(tenantSlug),
@@ -95,6 +99,7 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
           fetchTenantAdminDriveDrift(tenantSlug).catch(() => null),
           fetchTenantAdminDriveOperationsHealth(tenantSlug).catch(() => null),
           fetchTenantAdminDriveOCRStatus(tenantSlug).catch(() => null),
+          fetchTenantAdminDriveLocalSearchJobs(tenantSlug).catch(() => []),
         ])
         this.driveShares = shares
         this.driveShareLinks = links
@@ -104,8 +109,24 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
         this.driveSync = sync
         this.driveHealth = health
         this.driveOCRStatus = ocrStatus
+        this.driveLocalSearchJobs = localSearchJobs
       } catch (error) {
         this.errorMessage = toApiErrorMessage(error)
+      }
+    },
+
+    async rebuildDriveLocalSearchIndex(tenantSlug: string) {
+      this.saving = true
+      this.errorMessage = ''
+      try {
+        const job = await createTenantAdminDriveLocalSearchRebuildJob(tenantSlug)
+        this.driveLocalSearchJobs = [job, ...this.driveLocalSearchJobs]
+        return job
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.saving = false
       }
     },
 

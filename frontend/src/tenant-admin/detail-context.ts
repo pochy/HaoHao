@@ -54,6 +54,11 @@ export function createTenantAdminDetailContext() {
   const driveMaxPublicLinkCount = ref(1000)
   const driveM2MApiEnabled = ref(false)
   const driveSearchEnabled = ref(true)
+  const driveLocalSearchVectorEnabled = ref(false)
+  const driveLocalSearchEmbeddingRuntime = ref('none')
+  const driveLocalSearchRuntimeURL = ref('')
+  const driveLocalSearchModel = ref('')
+  const driveLocalSearchDimension = ref(0)
   const driveCollaborationEnabled = ref(false)
   const driveSyncEnabled = ref(false)
   const driveMobileOfflineEnabled = ref(false)
@@ -126,6 +131,10 @@ export function createTenantAdminDetailContext() {
       search: driveSearchEnabled.value ? t('tenantAdmin.status.searchOn') : t('tenantAdmin.status.searchOff'),
       collab: driveCollaborationEnabled.value ? t('tenantAdmin.status.collabOn') : t('tenantAdmin.status.collabOff'),
     })],
+    [t('tenantAdmin.policy.localSearch'), t('tenantAdmin.policy.localSearchValue', {
+      runtime: driveLocalSearchEmbeddingRuntime.value || 'none',
+      vector: driveLocalSearchVectorEnabled.value ? t('tenantAdmin.status.vectorOn') : t('tenantAdmin.status.vectorOff'),
+    })],
     [t('tenantAdmin.policy.syncMobile'), t('tenantAdmin.policy.syncMobileValue', {
       sync: driveSyncEnabled.value ? t('tenantAdmin.status.syncOn') : t('tenantAdmin.status.syncOff'),
       mobile: driveMobileOfflineEnabled.value ? t('tenantAdmin.status.mobileOfflineOn') : t('tenantAdmin.status.mobileOfflineOff'),
@@ -179,6 +188,19 @@ export function createTenantAdminDetailContext() {
   const driveRulesConfigVisible = computed(() => driveStructuredExtractor.value === 'rules')
   const driveOllamaConfigVisible = computed(() => driveStructuredExtractor.value === 'ollama')
   const driveLMStudioConfigVisible = computed(() => driveStructuredExtractor.value === 'lmstudio')
+  const latestDriveLocalSearchJob = computed(() => store.driveLocalSearchJobs[0] ?? null)
+  const latestDriveLocalSearchJobLabel = computed(() => {
+    const job = latestDriveLocalSearchJob.value
+    if (!job) {
+      return t('tenantAdmin.empty.driveLocalSearchJobs')
+    }
+    return t('tenantAdmin.policy.localSearchJobValue', {
+      status: job.status,
+      indexed: job.indexedCount,
+      skipped: job.skippedCount,
+      failed: job.failedCount,
+    })
+  })
 
   const canSaveSettings = computed(() => (
     Boolean(tenant.value) &&
@@ -295,6 +317,11 @@ export function createTenantAdminDetailContext() {
       driveOllamaModel.value = ''
       driveLMStudioBaseURL.value = 'http://127.0.0.1:1234'
       driveLMStudioModel.value = ''
+      driveLocalSearchVectorEnabled.value = false
+      driveLocalSearchEmbeddingRuntime.value = 'none'
+      driveLocalSearchRuntimeURL.value = ''
+      driveLocalSearchModel.value = ''
+      driveLocalSearchDimension.value = 0
       return
     }
     fileQuotaBytes.value = commonStore.settings.fileQuotaBytes
@@ -325,6 +352,14 @@ export function createTenantAdminDetailContext() {
     driveMaxPublicLinkCount.value = typeof drive.maxPublicLinkCount === 'number' ? drive.maxPublicLinkCount : 1000
     driveM2MApiEnabled.value = Boolean(drive.m2mDriveAPIEnabled)
     driveSearchEnabled.value = drive.searchEnabled !== false
+    const driveLocalSearch = typeof drive.localSearch === 'object' && drive.localSearch !== null
+      ? drive.localSearch as Record<string, unknown>
+      : {}
+    driveLocalSearchVectorEnabled.value = Boolean(driveLocalSearch.vectorEnabled)
+    driveLocalSearchEmbeddingRuntime.value = stringValue(driveLocalSearch.embeddingRuntime, 'none')
+    driveLocalSearchRuntimeURL.value = stringValue(driveLocalSearch.runtimeURL, '')
+    driveLocalSearchModel.value = stringValue(driveLocalSearch.model, '')
+    driveLocalSearchDimension.value = numberValue(driveLocalSearch.dimension, 0)
     driveCollaborationEnabled.value = Boolean(drive.collaborationEnabled)
     driveSyncEnabled.value = Boolean(drive.syncEnabled)
     driveMobileOfflineEnabled.value = Boolean(drive.mobileOfflineEnabled)
@@ -523,6 +558,13 @@ export function createTenantAdminDetailContext() {
             dlpPlanEnabled: true,
             m2mDriveAPIEnabled: driveM2MApiEnabled.value,
             searchEnabled: driveSearchEnabled.value,
+            localSearch: {
+              vectorEnabled: driveLocalSearchVectorEnabled.value,
+              embeddingRuntime: driveLocalSearchEmbeddingRuntime.value || 'none',
+              runtimeURL: driveLocalSearchRuntimeURL.value.trim(),
+              model: driveLocalSearchModel.value.trim(),
+              dimension: driveLocalSearchDimension.value,
+            },
             collaborationEnabled: driveCollaborationEnabled.value,
             syncEnabled: driveSyncEnabled.value,
             mobileOfflineEnabled: driveMobileOfflineEnabled.value,
@@ -818,6 +860,8 @@ export function createTenantAdminDetailContext() {
     driveExternalSharingEnabled,
     driveHsmEnabled,
     driveLegalDiscoveryEnabled,
+    driveLocalSearchEmbeddingRuntime,
+    driveLocalSearchVectorEnabled,
     driveM2MApiEnabled,
     driveMarketplaceEnabled,
     driveMaxFileSizeBytes,
@@ -854,6 +898,8 @@ export function createTenantAdminDetailContext() {
     driveStructuredExtractor,
     driveOllamaConfigVisible,
     driveLMStudioConfigVisible,
+    latestDriveLocalSearchJob,
+    latestDriveLocalSearchJobLabel,
     driveSyncEnabled,
     driveViewerDownloadEnabled,
     errorMessage,

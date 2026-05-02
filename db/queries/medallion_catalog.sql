@@ -72,7 +72,24 @@ WHERE tenant_id = sqlc.arg(tenant_id)
       sqlc.narg(resource_kind)::text IS NULL
       OR resource_kind = sqlc.narg(resource_kind)::text
   )
-ORDER BY updated_at DESC, id DESC
+  AND (
+      sqlc.narg(q)::text IS NULL
+      OR display_name ILIKE '%' || sqlc.narg(q)::text || '%'
+      OR metadata::text ILIKE '%' || sqlc.narg(q)::text || '%'
+      OR schema_summary::text ILIKE '%' || sqlc.narg(q)::text || '%'
+      OR to_tsvector('simple', display_name || ' ' || metadata::text || ' ' || schema_summary::text)
+         @@ websearch_to_tsquery('simple', sqlc.narg(q)::text)
+  )
+ORDER BY
+  CASE
+      WHEN sqlc.narg(q)::text IS NULL THEN 0
+      ELSE ts_rank_cd(
+          to_tsvector('simple', display_name || ' ' || metadata::text || ' ' || schema_summary::text),
+          websearch_to_tsquery('simple', sqlc.narg(q)::text)
+      )
+  END DESC,
+  updated_at DESC,
+  id DESC
 LIMIT sqlc.arg(limit_count);
 
 -- name: UpsertMedallionAssetEdge :one

@@ -49,6 +49,7 @@ import {
   restoreDriveFile,
   restoreDriveFolder,
   revokeDriveShareInvitation,
+  searchDriveDocuments,
   searchDriveItems,
   starDriveFile,
   starDriveFolder,
@@ -81,6 +82,7 @@ import type {
   DriveOcrJobBody,
   DriveOcrOutputBody,
   DriveProductExtractionJobBody,
+  DriveSearchResultBody,
   DrivePermissionsBody,
   DriveProductExtractionItemBody,
   DriveShareBody,
@@ -233,6 +235,21 @@ export async function searchDriveItemsByKeyword(query: string, contentType = '',
       ...(filters.direction ? { direction: filters.direction } : {}),
     },
   }) as unknown as { items: DriveItemBody[] | null }
+  return data.items ?? []
+}
+
+export async function searchDriveDocumentsByKeyword(query: string, contentType = '', filters: DriveListFilters = {}): Promise<DriveSearchResultBody[]> {
+  const data = await searchDriveDocuments({
+    query: {
+      q: query,
+      contentType,
+      ...(filters.type ? { type: filters.type } : {}),
+      ...(filters.owner ? { owner: filters.owner } : {}),
+      ...(filters.source ? { source: filters.source } : {}),
+      ...(filters.sort ? { sort: filters.sort } : {}),
+      ...(filters.direction ? { direction: filters.direction } : {}),
+    },
+  }) as unknown as { items: DriveSearchResultBody[] | null }
   return data.items ?? []
 }
 

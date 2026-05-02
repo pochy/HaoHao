@@ -38,6 +38,7 @@ type Dependencies struct {
 	SupportAccessService             *service.SupportAccessService
 	DatasetService                   *service.DatasetService
 	MedallionCatalogService          *service.MedallionCatalogService
+	LocalSearchService               *service.LocalSearchService
 	AuthMode                         string
 	EnableLocalPasswordLogin         bool
 	SCIMBasePath                     string

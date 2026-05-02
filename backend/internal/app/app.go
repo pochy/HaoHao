@@ -42,6 +42,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	var driveOCRService *service.DriveOCRService
 	var datasetService *service.DatasetService
 	var medallionCatalogService *service.MedallionCatalogService
+	var localSearchService *service.LocalSearchService
 	var realtimeService *service.RealtimeService
 	markdownDocsFS := fs.FS(os.DirFS("docs"))
 	for _, extra := range extras {
@@ -64,6 +65,8 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 			datasetService = item
 		case *service.MedallionCatalogService:
 			medallionCatalogService = item
+		case *service.LocalSearchService:
+			localSearchService = item
 		case *service.RealtimeService:
 			realtimeService = item
 		case MarkdownDocsFS:
@@ -160,6 +163,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		SupportAccessService:             supportAccessService,
 		DatasetService:                   datasetService,
 		MedallionCatalogService:          medallionCatalogService,
+		LocalSearchService:               localSearchService,
 	})
 	backendapi.Register(api, deps)
 	backendapi.RegisterRawFileRoutes(router, backendapi.Dependencies{

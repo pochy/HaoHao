@@ -2773,6 +2773,39 @@ code {
   font-variant-numeric: tabular-nums;
 }
 
+.drive-search-summary {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.drive-search-snippet,
+.drive-search-list-snippet {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.drive-search-badges,
+.drive-search-list-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.drive-search-list-snippet,
+.drive-search-list-badges {
+  flex-basis: 100%;
+}
+
 .drive-item-card-menu {
   position: absolute;
   top: 8px;

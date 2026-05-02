@@ -38,6 +38,7 @@ import {
   restoreDriveFileItem,
   restoreDriveFolderItem,
   revokeDriveShareItem,
+  searchDriveDocumentsByKeyword,
   searchDriveItemsByKeyword,
   starDriveItem,
   transferDriveOwner,
@@ -68,6 +69,7 @@ import type {
   DriveOcrOutputBody,
   DrivePermissionsBody,
   DriveProductExtractionItemBody,
+  DriveSearchResultBody,
   DriveShareBody,
   DriveShareInvitationBody,
   DriveShareLinkBody,
@@ -189,6 +191,7 @@ export const useDriveStore = defineStore('drive', {
     currentWorkspace: null as DriveWorkspaceBody | null,
     children: [] as DriveItemBody[],
     searchResults: [] as DriveItemBody[],
+    documentSearchResults: [] as DriveSearchResultBody[],
     sharedItems: [] as DriveItemBody[],
     starredItems: [] as DriveItemBody[],
     recentItems: [] as DriveItemBody[],
@@ -304,6 +307,7 @@ export const useDriveStore = defineStore('drive', {
       this.ownerFilter = 'all'
       this.modifiedFilter = 'any'
       this.sourceFilter = 'all'
+      this.documentSearchResults = []
     },
 
     clearSelection() {
@@ -882,10 +886,15 @@ export const useDriveStore = defineStore('drive', {
       this.status = 'loading'
       this.errorMessage = ''
       try {
-        this.searchResults = await searchDriveItemsByKeyword(query, contentType, this.listFilters())
+        this.documentSearchResults = await searchDriveDocumentsByKeyword(query, contentType, this.listFilters())
+        this.searchResults = this.documentSearchResults.map((result) => driveItemWithDefaults(result.item))
+        if (this.searchResults.length === 0) {
+          this.searchResults = await searchDriveItemsByKeyword(query, contentType, this.listFilters())
+        }
         this.status = this.searchResults.length > 0 ? 'ready' : 'empty'
       } catch (error) {
         this.searchResults = []
+        this.documentSearchResults = []
         this.setError(error)
       }
     },

@@ -95,6 +95,7 @@ type DrivePolicy struct {
 	E2EEEnabled                         bool
 	E2EEZeroKnowledgeRequired           bool
 	OCR                                 DriveOCRPolicy
+	LocalSearch                         DriveLocalSearchPolicy
 	AIEnabled                           bool
 	AITrainingOptOut                    bool
 	MarketplaceEnabled                  bool
@@ -116,6 +117,14 @@ type DriveOCRPolicy struct {
 	OllamaModel                 string
 	LMStudioBaseURL             string
 	LMStudioModel               string
+}
+
+type DriveLocalSearchPolicy struct {
+	VectorEnabled    bool
+	EmbeddingRuntime string
+	RuntimeURL       string
+	Model            string
+	Dimension        int
 }
 
 type DriveOCRRulesPolicy struct {
@@ -376,6 +385,7 @@ func defaultDrivePolicy() DrivePolicy {
 		E2EEEnabled:                         false,
 		E2EEZeroKnowledgeRequired:           true,
 		OCR:                                 defaultDriveOCRPolicy(),
+		LocalSearch:                         defaultDriveLocalSearchPolicy(),
 		AIEnabled:                           false,
 		AITrainingOptOut:                    true,
 		MarketplaceEnabled:                  false,
@@ -443,6 +453,9 @@ func drivePolicyFromFeatures(features map[string]any) DrivePolicy {
 	if ocrRaw, ok := raw["ocr"].(map[string]any); ok {
 		policy.OCR = driveOCRPolicyFromFeatureMap(ocrRaw, policy.OCR)
 	}
+	if localSearchRaw, ok := raw["localSearch"].(map[string]any); ok {
+		policy.LocalSearch = driveLocalSearchPolicyFromFeatureMap(localSearchRaw, policy.LocalSearch)
+	}
 	policy.AIEnabled = featureBool(raw, "aiEnabled", policy.AIEnabled)
 	policy.AITrainingOptOut = featureBool(raw, "aiTrainingOptOut", policy.AITrainingOptOut)
 	policy.MarketplaceEnabled = featureBool(raw, "marketplaceEnabled", policy.MarketplaceEnabled)
@@ -498,6 +511,7 @@ func normalizeDrivePolicy(policy DrivePolicy) DrivePolicy {
 		policy.AllowedRegions = defaults.AllowedRegions
 	}
 	policy.OCR = normalizeDriveOCRPolicy(policy.OCR)
+	policy.LocalSearch = normalizeDriveLocalSearchPolicy(policy.LocalSearch)
 	policy = applyDrivePlanCaps(policy)
 	return policy
 }
@@ -539,6 +553,9 @@ func normalizeDrivePolicyForSave(policy DrivePolicy) (DrivePolicy, error) {
 		return DrivePolicy{}, fmt.Errorf("%w: unsupported encryptionMode", ErrInvalidTenantSettings)
 	}
 	if err := validateDriveOCRPolicy(policy.OCR); err != nil {
+		return DrivePolicy{}, err
+	}
+	if err := validateDriveLocalSearchPolicy(policy.LocalSearch); err != nil {
 		return DrivePolicy{}, err
 	}
 	return policy, nil
@@ -596,6 +613,7 @@ func drivePolicyToFeatureMap(policy DrivePolicy) map[string]any {
 		"e2eeEnabled":                         policy.E2EEEnabled,
 		"e2eeZeroKnowledgeRequired":           policy.E2EEZeroKnowledgeRequired,
 		"ocr":                                 driveOCRPolicyToFeatureMap(policy.OCR),
+		"localSearch":                         driveLocalSearchPolicyToFeatureMap(policy.LocalSearch),
 		"aiEnabled":                           policy.AIEnabled,
 		"aiTrainingOptOut":                    policy.AITrainingOptOut,
 		"marketplaceEnabled":                  policy.MarketplaceEnabled,
@@ -665,6 +683,16 @@ func defaultDriveOCRRulesPolicy() DriveOCRRulesPolicy {
 		MaxBlockRunes:           3000,
 		ContextWindowRunes:      800,
 		PriceExtractionEnabled:  true,
+	}
+}
+
+func defaultDriveLocalSearchPolicy() DriveLocalSearchPolicy {
+	return DriveLocalSearchPolicy{
+		VectorEnabled:    false,
+		EmbeddingRuntime: "none",
+		RuntimeURL:       "",
+		Model:            "",
+		Dimension:        0,
 	}
 }
 
@@ -814,6 +842,68 @@ func driveOCRRulesPolicyToFeatureMap(policy DriveOCRRulesPolicy) map[string]any 
 		"maxBlockRunes":           policy.MaxBlockRunes,
 		"contextWindowRunes":      policy.ContextWindowRunes,
 		"priceExtractionEnabled":  policy.PriceExtractionEnabled,
+	}
+}
+
+func driveLocalSearchPolicyFromFeatureMap(raw map[string]any, fallback DriveLocalSearchPolicy) DriveLocalSearchPolicy {
+	policy := fallback
+	policy.VectorEnabled = featureBool(raw, "vectorEnabled", policy.VectorEnabled)
+	policy.EmbeddingRuntime = featureString(raw, "embeddingRuntime", policy.EmbeddingRuntime)
+	policy.RuntimeURL = featureString(raw, "runtimeURL", policy.RuntimeURL)
+	policy.Model = featureString(raw, "model", policy.Model)
+	policy.Dimension = featureNonNegativeInt(raw, "dimension", policy.Dimension)
+	return normalizeDriveLocalSearchPolicy(policy)
+}
+
+func normalizeDriveLocalSearchPolicy(policy DriveLocalSearchPolicy) DriveLocalSearchPolicy {
+	defaults := defaultDriveLocalSearchPolicy()
+	policy.EmbeddingRuntime = strings.ToLower(strings.TrimSpace(policy.EmbeddingRuntime))
+	if policy.EmbeddingRuntime == "" {
+		policy.EmbeddingRuntime = defaults.EmbeddingRuntime
+	}
+	policy.RuntimeURL = strings.TrimSpace(policy.RuntimeURL)
+	policy.Model = strings.TrimSpace(policy.Model)
+	if policy.Dimension < 0 {
+		policy.Dimension = defaults.Dimension
+	}
+	if !policy.VectorEnabled && policy.EmbeddingRuntime == "" {
+		policy.EmbeddingRuntime = defaults.EmbeddingRuntime
+	}
+	return policy
+}
+
+func validateDriveLocalSearchPolicy(policy DriveLocalSearchPolicy) error {
+	switch policy.EmbeddingRuntime {
+	case "none", "ollama", "lmstudio":
+	default:
+		return fmt.Errorf("%w: unsupported drive local search embeddingRuntime", ErrInvalidTenantSettings)
+	}
+	if strings.TrimSpace(policy.RuntimeURL) != "" && !isAllowedLocalHTTPURL(policy.RuntimeURL) {
+		return fmt.Errorf("%w: drive local search runtimeURL must be localhost or 127.0.0.1", ErrInvalidTenantSettings)
+	}
+	if !policy.VectorEnabled {
+		return nil
+	}
+	if policy.EmbeddingRuntime == "none" {
+		return fmt.Errorf("%w: drive local search vectorEnabled requires embeddingRuntime", ErrInvalidTenantSettings)
+	}
+	if strings.TrimSpace(policy.Model) == "" {
+		return fmt.Errorf("%w: drive local search model is required when vector search is enabled", ErrInvalidTenantSettings)
+	}
+	if policy.Dimension < 1 || policy.Dimension > 8192 {
+		return fmt.Errorf("%w: drive local search dimension must be between 1 and 8192", ErrInvalidTenantSettings)
+	}
+	return nil
+}
+
+func driveLocalSearchPolicyToFeatureMap(policy DriveLocalSearchPolicy) map[string]any {
+	policy = normalizeDriveLocalSearchPolicy(policy)
+	return map[string]any{
+		"vectorEnabled":    policy.VectorEnabled,
+		"embeddingRuntime": policy.EmbeddingRuntime,
+		"runtimeURL":       policy.RuntimeURL,
+		"model":            policy.Model,
+		"dimension":        policy.Dimension,
 	}
 }
 

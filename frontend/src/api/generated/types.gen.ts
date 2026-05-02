@@ -2458,6 +2458,19 @@ export type DriveRegisterDeviceBody = {
 export type DriveSearchResultBody = {
     indexedAt?: string;
     item: DriveItemBody;
+    matches?: Array<DriveSearchResultMatchBody> | null;
+    snippet?: string;
+};
+
+export type DriveSearchResultMatchBody = {
+    indexedAt?: string;
+    layer?: 'bronze' | 'silver' | 'gold';
+    medallionAssetPublicId?: string;
+    resourceKind: 'drive_file' | 'ocr_run' | 'product_extraction' | 'gold_table';
+    /**
+     * 対象 resource の public UUID です。
+     */
+    resourcePublicId: string;
     snippet?: string;
 };
 
@@ -2875,6 +2888,54 @@ export type ListTenantsBody = {
     activeTenant?: TenantBody;
     defaultTenant?: TenantBody;
     items: Array<TenantBody> | null;
+};
+
+export type LocalSearchIndexJobBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    attempts: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    failedCount: number;
+    indexedCount: number;
+    lastError?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    reason: string;
+    resourceId?: number;
+    resourceKind?: 'drive_file' | 'ocr_run' | 'product_extraction' | 'gold_table';
+    /**
+     * 対象 resource の public UUID です。
+     */
+    resourcePublicId?: string;
+    skippedCount: number;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'queued' | 'processing' | 'completed' | 'failed' | 'skipped';
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type LocalSearchIndexJobListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<LocalSearchIndexJobBody> | null;
 };
 
 export type LoginInputBody = {
@@ -5501,6 +5562,7 @@ export type DriveRegisterDeviceBodyWritable = {
 export type DriveSearchResultBodyWritable = {
     indexedAt?: string;
     item: DriveItemBodyWritable;
+    matches?: Array<DriveSearchResultMatchBody> | null;
     snippet?: string;
 };
 
@@ -5724,6 +5786,46 @@ export type ListTenantsBodyWritable = {
     activeTenant?: TenantBody;
     defaultTenant?: TenantBody;
     items: Array<TenantBody> | null;
+};
+
+export type LocalSearchIndexJobBodyWritable = {
+    attempts: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    failedCount: number;
+    indexedCount: number;
+    lastError?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    reason: string;
+    resourceId?: number;
+    resourceKind?: 'drive_file' | 'ocr_run' | 'product_extraction' | 'gold_table';
+    /**
+     * 対象 resource の public UUID です。
+     */
+    resourcePublicId?: string;
+    skippedCount: number;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'queued' | 'processing' | 'completed' | 'failed' | 'skipped';
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type LocalSearchIndexJobListOutputBodyWritable = {
+    items: Array<LocalSearchIndexJobBodyWritable> | null;
 };
 
 export type LoginInputBodyWritable = {
@@ -7894,6 +7996,81 @@ export type RebuildTenantAdminDriveSearchIndexResponses = {
 };
 
 export type RebuildTenantAdminDriveSearchIndexResponse = RebuildTenantAdminDriveSearchIndexResponses[keyof RebuildTenantAdminDriveSearchIndexResponses];
+
+export type ListTenantAdminDriveLocalSearchIndexJobsData = {
+    body?: never;
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+    };
+    query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `status` です。
+         */
+        status?: 'queued' | 'processing' | 'completed' | 'failed' | 'skipped';
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/search/local-index/jobs';
+};
+
+export type ListTenantAdminDriveLocalSearchIndexJobsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminDriveLocalSearchIndexJobsError = ListTenantAdminDriveLocalSearchIndexJobsErrors[keyof ListTenantAdminDriveLocalSearchIndexJobsErrors];
+
+export type ListTenantAdminDriveLocalSearchIndexJobsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: LocalSearchIndexJobListOutputBody;
+};
+
+export type ListTenantAdminDriveLocalSearchIndexJobsResponse = ListTenantAdminDriveLocalSearchIndexJobsResponses[keyof ListTenantAdminDriveLocalSearchIndexJobsResponses];
+
+export type CreateTenantAdminDriveLocalSearchRebuildData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/drive/search/local-index/rebuilds';
+};
+
+export type CreateTenantAdminDriveLocalSearchRebuildErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type CreateTenantAdminDriveLocalSearchRebuildError = CreateTenantAdminDriveLocalSearchRebuildErrors[keyof CreateTenantAdminDriveLocalSearchRebuildErrors];
+
+export type CreateTenantAdminDriveLocalSearchRebuildResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: LocalSearchIndexJobBody;
+};
+
+export type CreateTenantAdminDriveLocalSearchRebuildResponse = CreateTenantAdminDriveLocalSearchRebuildResponses[keyof CreateTenantAdminDriveLocalSearchRebuildResponses];
 
 export type GetTenantAdminDriveEncryptionPolicyData = {
     body?: never;
@@ -15062,6 +15239,10 @@ export type ListMedallionAssetsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 検索語または filter query です。
+         */
+        q?: string;
         /**
          * 結果の絞り込みや pagination に使う query parameter `layer` です。
          */

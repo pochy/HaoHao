@@ -31,6 +31,7 @@ type DriveService struct {
 	outbox         *OutboxService
 	audit          AuditRecorder
 	medallion      *MedallionCatalogService
+	localSearch    *LocalSearchService
 	now            func() time.Time
 }
 
@@ -60,6 +61,12 @@ func (s *DriveService) SetOutboxService(outbox *OutboxService) {
 func (s *DriveService) SetMedallionCatalogService(medallion *MedallionCatalogService) {
 	if s != nil {
 		s.medallion = medallion
+	}
+}
+
+func (s *DriveService) SetLocalSearchService(localSearch *LocalSearchService) {
+	if s != nil {
+		s.localSearch = localSearch
 	}
 }
 

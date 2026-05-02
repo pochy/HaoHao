@@ -1,6 +1,7 @@
 import { readCookie } from './client'
 import {
   approveTenantAdminDriveShareApproval,
+  createTenantAdminDriveLocalSearchRebuild,
   createTenantAdminTenant,
   deactivateTenantAdminTenant,
   getTenantAdminDriveOpenFgaDrift,
@@ -10,6 +11,7 @@ import {
   grantTenantAdminRole,
   listTenantAdminDriveAuditEvents,
   listTenantAdminDriveInvitations,
+  listTenantAdminDriveLocalSearchIndexJobs,
   listTenantAdminDriveShareApprovals,
   listTenantAdminDriveShareLinks,
   listTenantAdminDriveShares,
@@ -21,6 +23,7 @@ import {
 } from './generated/sdk.gen'
 import type {
   DriveShareInvitationBody,
+  LocalSearchIndexJobBody,
   TenantAdminDriveAuditEventBody,
   TenantAdminDriveShareLinkStateBody,
   TenantAdminDriveShareStateBody,
@@ -124,6 +127,24 @@ export async function fetchTenantAdminDriveOCRStatus(tenantSlug: string): Promis
     responseStyle: 'data',
     throwOnError: true,
   }) as unknown as Promise<TenantAdminDriveOcrStatusBody>
+}
+
+export async function fetchTenantAdminDriveLocalSearchJobs(tenantSlug: string): Promise<LocalSearchIndexJobBody[]> {
+  const data = await listTenantAdminDriveLocalSearchIndexJobs({
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: LocalSearchIndexJobBody[] | null }
+  return data.items ?? []
+}
+
+export async function createTenantAdminDriveLocalSearchRebuildJob(tenantSlug: string): Promise<LocalSearchIndexJobBody> {
+  return createTenantAdminDriveLocalSearchRebuild({
+    headers: csrfHeaders(),
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<LocalSearchIndexJobBody>
 }
 
 export async function repairTenantAdminDriveSync(tenantSlug: string): Promise<TenantAdminDriveSyncOutputBody> {

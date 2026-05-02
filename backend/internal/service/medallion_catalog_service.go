@@ -141,7 +141,7 @@ func NewMedallionCatalogService(queries *db.Queries, drive *DriveService, datase
 	return &MedallionCatalogService{queries: queries, drive: drive, datasets: datasets}
 }
 
-func (s *MedallionCatalogService) ListAssets(ctx context.Context, tenantID, actorUserID int64, layer, resourceKind string, limit int32) ([]MedallionAsset, error) {
+func (s *MedallionCatalogService) ListAssets(ctx context.Context, tenantID, actorUserID int64, layer, resourceKind, query string, limit int32) ([]MedallionAsset, error) {
 	if err := s.ensureConfigured(); err != nil {
 		return nil, err
 	}
@@ -150,10 +150,12 @@ func (s *MedallionCatalogService) ListAssets(ctx context.Context, tenantID, acto
 	}
 	layer = strings.TrimSpace(layer)
 	resourceKind = strings.TrimSpace(resourceKind)
+	query = strings.TrimSpace(query)
 	rows, err := s.queries.ListMedallionAssets(ctx, db.ListMedallionAssetsParams{
 		TenantID:     tenantID,
 		Layer:        pgText(layer),
 		ResourceKind: pgText(resourceKind),
+		Q:            pgText(query),
 		LimitCount:   limit,
 	})
 	if err != nil {
