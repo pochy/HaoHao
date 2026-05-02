@@ -61,7 +61,7 @@ func registerDriveWorkspaceRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/workspaces",
 		Summary:     "Drive workspace 一覧を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveCollaborationSync},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDriveWorkspacesInput) (*DriveWorkspaceListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -84,7 +84,7 @@ func registerDriveWorkspaceRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/workspaces",
 		Summary:     "Drive workspace を作成する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveCollaborationSync},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveWorkspaceInput) (*DriveWorkspaceOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -109,7 +109,7 @@ func registerDriveWorkspaceRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/drive/workspaces/{workspacePublicId}",
 		Summary:     "Drive workspace を更新する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveCollaborationSync},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *UpdateDriveWorkspaceInput) (*DriveWorkspaceOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -135,7 +135,7 @@ func registerDriveWorkspaceRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/workspaces/{workspacePublicId}",
 		Summary:       "Drive workspace を削除する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveCollaborationSync},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DeleteDriveWorkspaceInput) (*DriveNoContentOutput, error) {

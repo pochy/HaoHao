@@ -156,7 +156,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "listTenantAdminDriveShares",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/shares",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "tenant admin 用 Drive share state を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveSharesOutput, error) {
@@ -179,7 +179,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "listTenantAdminDriveShareLinks",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/share-links",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "tenant admin 用 Drive share link state を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveShareLinksOutput, error) {
@@ -202,7 +202,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "listTenantAdminDriveInvitations",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/invitations",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "tenant admin 用 Drive invitations を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveInvitationsOutput, error) {
@@ -225,7 +225,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "listTenantAdminDriveAuditEvents",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/audit-events",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "tenant admin 用 Drive audit events を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveAuditOutput, error) {
@@ -248,7 +248,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "listTenantAdminDriveShareApprovals",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/share-approvals",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "tenant admin 用 Drive share approvals を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveInvitationsOutput, error) {
@@ -271,7 +271,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "approveTenantAdminDriveShareApproval",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/share-approvals/{invitationPublicId}/approve",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "Drive external share approval を承認する",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveApprovalInput) (*TenantAdminNoContentOutput, error) {
@@ -289,7 +289,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "rejectTenantAdminDriveShareApproval",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/share-approvals/{invitationPublicId}/reject",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "Drive external share approval を拒否する",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveApprovalInput) (*TenantAdminNoContentOutput, error) {
@@ -307,7 +307,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "getTenantAdminDriveOpenFGADrift",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/openfga-sync/drift",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "Drive OpenFGA drift dry-run を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveSyncOutput, error) {
@@ -326,7 +326,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "repairTenantAdminDriveOpenFGASync",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/openfga-sync/repair",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "Drive OpenFGA pending sync を修復する",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveMutationInput) (*TenantAdminDriveSyncOutput, error) {
@@ -345,7 +345,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "getTenantAdminDriveOperationsHealth",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/operations/health",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "Drive / OpenFGA / storage operations health を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveOperationsHealthOutput, error) {
@@ -364,7 +364,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "checkTenantAdminDriveOperationsDrift",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/operations/drift-check",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "Drive OpenFGA drift dry-run を operation endpoint から実行する",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveMutationInput) (*TenantAdminDriveSyncOutput, error) {
@@ -383,7 +383,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "repairTenantAdminDriveOperations",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/operations/repair",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "Drive OpenFGA pending sync repair を operation endpoint から実行する",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveMutationInput) (*TenantAdminDriveSyncOutput, error) {
@@ -402,7 +402,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "startTenantAdminDriveContentAccessSession",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/content-access-sessions",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "Drive admin content break-glass session を開始する",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveAdminContentSessionInput) (*TenantAdminDriveAdminContentSessionOutput, error) {
@@ -426,7 +426,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID:   "endTenantAdminDriveContentAccessSession",
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/admin/tenants/{tenantSlug}/drive/content-access-sessions/current",
-		Tags:          []string{"tenant-admin-drive"},
+		Tags:          []string{DocTagDriveAdminGovernance},
 		Summary:       "Drive admin content break-glass session を終了する",
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
@@ -445,7 +445,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		OperationID: "getTenantAdminDriveFileMetadata",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/files/{filePublicId}/metadata",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "break-glass session 中に Drive file metadata を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveAdminContentFileInput) (*DriveFileOutput, error) {

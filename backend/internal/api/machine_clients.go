@@ -82,7 +82,7 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/machine-clients",
 		Summary:     "machine client を list する",
-		Tags:        []string{"machine-clients"},
+		Tags:        []string{DocTagPlatformIntegrations},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -107,7 +107,7 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/machine-clients",
 		Summary:     "machine client を作成する",
-		Tags:        []string{"machine-clients"},
+		Tags:        []string{DocTagPlatformIntegrations},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -128,7 +128,7 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/machine-clients/{id}",
 		Summary:     "machine client を取得する",
-		Tags:        []string{"machine-clients"},
+		Tags:        []string{DocTagPlatformIntegrations},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -148,7 +148,7 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPut,
 		Path:        "/api/v1/machine-clients/{id}",
 		Summary:     "machine client を更新する",
-		Tags:        []string{"machine-clients"},
+		Tags:        []string{DocTagPlatformIntegrations},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -169,7 +169,7 @@ func registerMachineClientRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/machine-clients/{id}",
 		Summary:       "machine client を無効化する",
-		Tags:          []string{"machine-clients"},
+		Tags:          []string{DocTagPlatformIntegrations},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},

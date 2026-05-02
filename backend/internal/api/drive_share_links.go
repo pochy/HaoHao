@@ -77,7 +77,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/files/{filePublicId}/share-links",
 		Summary:     "Drive file share link を作成する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveFileShareLinkInput) (*DriveShareLinkOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -104,7 +104,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/share-links",
 		Summary:     "Drive folder share link を作成する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveFolderShareLinkInput) (*DriveShareLinkOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -131,7 +131,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/drive/share-links/{shareLinkPublicId}",
 		Summary:     "Drive share link を更新する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *UpdateDriveShareLinkInput) (*DriveShareLinkOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -156,7 +156,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/share-links/{shareLinkPublicId}",
 		Summary:       "Drive share link を無効化する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveSharingPermissions},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DeleteDriveShareLinkInput) (*DriveNoContentOutput, error) {
@@ -175,7 +175,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/public/drive/share-links/{token}",
 		Summary:     "public Drive share link metadata を返す",
-		Tags:        []string{"drive-public"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 	}, func(ctx context.Context, input *PublicDriveShareLinkInput) (*PublicDriveShareLinkOutput, error) {
 		if deps.DriveService == nil {
 			return nil, huma.Error503ServiceUnavailable("drive service is not configured")
@@ -202,7 +202,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/public/drive/share-links/{token}/children",
 		Summary:     "public Drive folder share link children を返す",
-		Tags:        []string{"drive-public"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 	}, func(ctx context.Context, input *PublicDriveShareLinkChildrenInput) (*DriveItemListOutput, error) {
 		if deps.DriveService == nil {
 			return nil, huma.Error503ServiceUnavailable("drive service is not configured")

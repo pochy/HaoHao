@@ -57,7 +57,7 @@ func registerFileRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/files",
 		Summary:     "active tenant の file metadata を返す",
-		Tags:        []string{"files"},
+		Tags:        []string{DocTagDataDatasets},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -86,7 +86,7 @@ func registerFileRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/files/{filePublicId}",
 		Summary:       "active tenant の file を soft delete する",
-		Tags:          []string{"files"},
+		Tags:          []string{DocTagDataDatasets},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},

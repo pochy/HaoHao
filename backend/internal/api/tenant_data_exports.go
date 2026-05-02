@@ -71,7 +71,7 @@ func registerTenantDataExportRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/exports",
 		Summary:     "tenant data export 一覧を返す",
-		Tags:        []string{"tenant-data-exports"},
+		Tags:        []string{DocTagDataDatasets},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -100,7 +100,7 @@ func registerTenantDataExportRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/exports",
 		Summary:     "tenant data export を request する",
-		Tags:        []string{"tenant-data-exports"},
+		Tags:        []string{DocTagDataDatasets},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -139,7 +139,7 @@ func registerTenantDataExportRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/exports/{exportPublicId}",
 		Summary:     "tenant data export detail を返す",
-		Tags:        []string{"tenant-data-exports"},
+		Tags:        []string{DocTagDataDatasets},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -160,7 +160,7 @@ func registerTenantDataExportRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/exports/{exportPublicId}/download",
 		Summary:     "ready tenant data export を download する",
-		Tags:        []string{"tenant-data-exports"},
+		Tags:        []string{DocTagDataDatasets},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},

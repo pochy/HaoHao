@@ -83,7 +83,7 @@ func registerDriveInvitationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/files/{filePublicId}/invitations",
 		Summary:     "Drive file external share invitation を作成する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveFileInvitationInput) (*DriveShareInvitationOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -110,7 +110,7 @@ func registerDriveInvitationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/invitations",
 		Summary:     "Drive folder external share invitation を作成する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveFolderInvitationInput) (*DriveShareInvitationOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -137,7 +137,7 @@ func registerDriveInvitationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/invitations",
 		Summary:     "ログイン user 宛の Drive invitation を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDriveShareInvitationsInput) (*DriveShareInvitationListOutput, error) {
 		current, _, err := currentSessionAuthContext(ctx, deps, input.SessionCookie.Value)
@@ -160,7 +160,7 @@ func registerDriveInvitationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/invitations/{invitationPublicId}/accept",
 		Summary:     "Drive invitation を受諾する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *AcceptDriveShareInvitationInput) (*DriveShareOutput, error) {
 		current, _, err := currentSessionAuthContextWithCSRF(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -183,7 +183,7 @@ func registerDriveInvitationRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodPost,
 		Path:          "/api/v1/drive/invitations/{invitationPublicId}/revoke",
 		Summary:       "Drive invitation を revoke する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveSharingPermissions},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *RevokeDriveShareInvitationInput) (*DriveNoContentOutput, error) {

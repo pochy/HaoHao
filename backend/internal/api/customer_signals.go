@@ -97,7 +97,7 @@ func registerCustomerSignalRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/customer-signals",
 		Summary:     "active tenant の Customer Signals 一覧を返す",
-		Tags:        []string{"customer-signals"},
+		Tags:        []string{DocTagCustomerSignals},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -133,7 +133,7 @@ func registerCustomerSignalRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/customer-signals",
 		Summary:     "active tenant に Customer Signal を作成する",
-		Tags:        []string{"customer-signals"},
+		Tags:        []string{DocTagCustomerSignals},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -174,7 +174,7 @@ func registerCustomerSignalRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/customer-signals/{signalPublicId}",
 		Summary:     "active tenant の Customer Signal detail を返す",
-		Tags:        []string{"customer-signals"},
+		Tags:        []string{DocTagCustomerSignals},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -196,7 +196,7 @@ func registerCustomerSignalRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/customer-signals/{signalPublicId}",
 		Summary:     "active tenant の Customer Signal を更新する",
-		Tags:        []string{"customer-signals"},
+		Tags:        []string{DocTagCustomerSignals},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -218,7 +218,7 @@ func registerCustomerSignalRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/customer-signals/{signalPublicId}",
 		Summary:       "active tenant の Customer Signal を soft delete する",
-		Tags:          []string{"customer-signals"},
+		Tags:          []string{DocTagCustomerSignals},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},

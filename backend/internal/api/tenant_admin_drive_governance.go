@@ -204,7 +204,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		OperationID: "rebuildTenantAdminDriveSearchIndex",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/search/index/rebuild",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "Drive search index を rebuild する",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveIndexRebuildInput) (*DriveIndexRebuildOutput, error) {
@@ -219,7 +219,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &DriveIndexRebuildOutput{Body: DriveIndexRebuildBody{Indexed: result.Indexed, Skipped: result.Skipped, Failed: result.Failed}}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "getTenantAdminDriveEncryptionPolicy", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/security/encryption-policy", Tags: []string{"tenant-admin-drive"}, Summary: "Drive encryption policy を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveEncryptionPolicyOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "getTenantAdminDriveEncryptionPolicy", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/security/encryption-policy", Tags: []string{DocTagDriveAdminGovernance}, Summary: "Drive encryption policy を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveEncryptionPolicyOutput, error) {
 		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -231,7 +231,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &TenantAdminDriveEncryptionPolicyOutput{Body: toTenantAdminDriveEncryptionPolicyBody(policy)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "updateTenantAdminDriveEncryptionPolicy", Method: http.MethodPut, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/security/encryption-policy", Tags: []string{"tenant-admin-drive"}, Summary: "Drive encryption policy を更新する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveEncryptionPolicyInput) (*TenantAdminDriveEncryptionPolicyOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "updateTenantAdminDriveEncryptionPolicy", Method: http.MethodPut, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/security/encryption-policy", Tags: []string{DocTagDriveAdminGovernance}, Summary: "Drive encryption policy を更新する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveEncryptionPolicyInput) (*TenantAdminDriveEncryptionPolicyOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -243,7 +243,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &TenantAdminDriveEncryptionPolicyOutput{Body: toTenantAdminDriveEncryptionPolicyBody(policy)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "updateTenantAdminDriveKmsKeyStatus", Method: http.MethodPatch, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/security/kms-keys/{keyPublicId}", Tags: []string{"tenant-admin-drive"}, Summary: "Drive KMS key status を更新する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveKMSKeyStatusInput) (*TenantAdminDriveEncryptionPolicyOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "updateTenantAdminDriveKmsKeyStatus", Method: http.MethodPatch, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/security/kms-keys/{keyPublicId}", Tags: []string{DocTagDriveAdminGovernance}, Summary: "Drive KMS key status を更新する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveKMSKeyStatusInput) (*TenantAdminDriveEncryptionPolicyOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -255,7 +255,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &TenantAdminDriveEncryptionPolicyOutput{Body: toTenantAdminDriveEncryptionPolicyBody(policy)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "getTenantAdminDriveResidencyPolicy", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/residency-policy", Tags: []string{"tenant-admin-drive"}, Summary: "Drive residency policy を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveResidencyPolicyOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "getTenantAdminDriveResidencyPolicy", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/residency-policy", Tags: []string{DocTagDriveAdminGovernance}, Summary: "Drive residency policy を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveResidencyPolicyOutput, error) {
 		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -267,7 +267,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &TenantAdminDriveResidencyPolicyOutput{Body: toTenantAdminDriveResidencyPolicyBody(policy)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "updateTenantAdminDriveResidencyPolicy", Method: http.MethodPut, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/residency-policy", Tags: []string{"tenant-admin-drive"}, Summary: "Drive residency policy を更新する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveResidencyPolicyInput) (*TenantAdminDriveResidencyPolicyOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "updateTenantAdminDriveResidencyPolicy", Method: http.MethodPut, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/residency-policy", Tags: []string{DocTagDriveAdminGovernance}, Summary: "Drive residency policy を更新する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *TenantAdminDriveResidencyPolicyInput) (*TenantAdminDriveResidencyPolicyOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -285,7 +285,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &TenantAdminDriveResidencyPolicyOutput{Body: toTenantAdminDriveResidencyPolicyBody(policy)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createDriveLegalCase", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/legal/cases", Tags: []string{"drive-legal"}, Summary: "Drive legal case を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveLegalCaseCreateInput) (*DriveLegalCaseOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createDriveLegalCase", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/legal/cases", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive legal case を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveLegalCaseCreateInput) (*DriveLegalCaseOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -297,7 +297,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &DriveLegalCaseOutput{Body: toDriveLegalCaseBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "addDriveLegalCaseFile", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/legal/cases/{casePublicId}/files", Tags: []string{"drive-legal"}, Summary: "Drive legal case に file hold を追加する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveLegalCaseFileInput) (*DriveNoContentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "addDriveLegalCaseFile", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/legal/cases/{casePublicId}/files", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive legal case に file hold を追加する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveLegalCaseFileInput) (*DriveNoContentOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -308,7 +308,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &DriveNoContentOutput{}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createDriveLegalExport", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/legal/cases/{casePublicId}/exports", Tags: []string{"drive-legal"}, Summary: "Drive legal export を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveLegalExportCreateInput) (*DriveLegalExportOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createDriveLegalExport", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/legal/cases/{casePublicId}/exports", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive legal export を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveLegalExportCreateInput) (*DriveLegalExportOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -320,7 +320,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &DriveLegalExportOutput{Body: DriveLegalExportBody{PublicID: item.PublicID, CasePublicID: item.CasePublicID, Status: item.Status, CreatedAt: item.CreatedAt}}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createDriveCleanRoom", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms", Tags: []string{"drive-clean-room"}, Summary: "Drive clean room を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveCleanRoomCreateInput) (*DriveCleanRoomOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createDriveCleanRoom", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive clean room を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveCleanRoomCreateInput) (*DriveCleanRoomOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -332,7 +332,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &DriveCleanRoomOutput{Body: toDriveCleanRoomBody(room)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "addDriveCleanRoomParticipant", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms/{roomPublicId}/participants", Tags: []string{"drive-clean-room"}, Summary: "Drive clean room participant を追加する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveCleanRoomParticipantInput) (*DriveNoContentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "addDriveCleanRoomParticipant", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms/{roomPublicId}/participants", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive clean room participant を追加する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveCleanRoomParticipantInput) (*DriveNoContentOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -343,7 +343,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		return &DriveNoContentOutput{}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "submitDriveCleanRoomDataset", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms/{roomPublicId}/datasets", Tags: []string{"drive-clean-room"}, Summary: "Drive clean room dataset を投入する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveCleanRoomDatasetInput) (*DriveCleanRoomDatasetOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "submitDriveCleanRoomDataset", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms/{roomPublicId}/datasets", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive clean room dataset を投入する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveCleanRoomDatasetInput) (*DriveCleanRoomDatasetOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -357,7 +357,7 @@ func registerTenantAdminDriveGovernanceRoutes(api huma.API, deps Dependencies) {
 		}}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "requestDriveCleanRoomExport", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms/{roomPublicId}/exports", Tags: []string{"drive-clean-room"}, Summary: "Drive clean room export を要求する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveCleanRoomExportInput) (*DriveCleanRoomExportOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "requestDriveCleanRoomExport", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/clean-rooms/{roomPublicId}/exports", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive clean room export を要求する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveCleanRoomExportInput) (*DriveCleanRoomExportOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err

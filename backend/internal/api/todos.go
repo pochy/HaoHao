@@ -72,7 +72,7 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/todos",
 		Summary:     "active tenant の TODO 一覧を返す",
-		Tags:        []string{"todos"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -100,7 +100,7 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/todos",
 		Summary:     "active tenant に TODO を作成する",
-		Tags:        []string{"todos"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -122,7 +122,7 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/todos/{todoPublicId}",
 		Summary:     "active tenant の TODO を更新する",
-		Tags:        []string{"todos"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -147,7 +147,7 @@ func registerTodoRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/todos/{todoPublicId}",
 		Summary:       "active tenant の TODO を削除する",
-		Tags:          []string{"todos"},
+		Tags:          []string{DocTagTenantWorkspace},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},

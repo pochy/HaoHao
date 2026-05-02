@@ -62,7 +62,7 @@ type CustomerSignalSavedFilterOutput struct {
 type CustomerSignalSavedFilterNoContentOutput struct{}
 
 func registerCustomerSignalSavedFilterRoutes(api huma.API, deps Dependencies) {
-	huma.Register(api, huma.Operation{OperationID: "listCustomerSignalSavedFilters", Method: http.MethodGet, Path: "/api/v1/customer-signal-filters", Summary: "Customer Signal saved filters を返す", Tags: []string{"customer-signal-filters"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *ListCustomerSignalSavedFiltersInput) (*CustomerSignalSavedFilterListOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "listCustomerSignalSavedFilters", Method: http.MethodGet, Path: "/api/v1/customer-signal-filters", Summary: "Customer Signal saved filters を返す", Tags: []string{DocTagCustomerSignals}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *ListCustomerSignalSavedFiltersInput) (*CustomerSignalSavedFilterListOutput, error) {
 		current, tenant, err := requireCustomerSignalTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
@@ -79,7 +79,7 @@ func registerCustomerSignalSavedFilterRoutes(api huma.API, deps Dependencies) {
 		return out, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createCustomerSignalSavedFilter", Method: http.MethodPost, Path: "/api/v1/customer-signal-filters", Summary: "Customer Signal saved filter を作成する", Tags: []string{"customer-signal-filters"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *CreateCustomerSignalSavedFilterInput) (*CustomerSignalSavedFilterOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createCustomerSignalSavedFilter", Method: http.MethodPost, Path: "/api/v1/customer-signal-filters", Summary: "Customer Signal saved filter を作成する", Tags: []string{DocTagCustomerSignals}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *CreateCustomerSignalSavedFilterInput) (*CustomerSignalSavedFilterOutput, error) {
 		current, tenant, err := requireCustomerSignalTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
@@ -91,7 +91,7 @@ func registerCustomerSignalSavedFilterRoutes(api huma.API, deps Dependencies) {
 		return &CustomerSignalSavedFilterOutput{Body: toCustomerSignalSavedFilterBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "updateCustomerSignalSavedFilter", Method: http.MethodPut, Path: "/api/v1/customer-signal-filters/{filterPublicId}", Summary: "Customer Signal saved filter を更新する", Tags: []string{"customer-signal-filters"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *UpdateCustomerSignalSavedFilterInput) (*CustomerSignalSavedFilterOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "updateCustomerSignalSavedFilter", Method: http.MethodPut, Path: "/api/v1/customer-signal-filters/{filterPublicId}", Summary: "Customer Signal saved filter を更新する", Tags: []string{DocTagCustomerSignals}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *UpdateCustomerSignalSavedFilterInput) (*CustomerSignalSavedFilterOutput, error) {
 		current, tenant, err := requireCustomerSignalTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
@@ -103,7 +103,7 @@ func registerCustomerSignalSavedFilterRoutes(api huma.API, deps Dependencies) {
 		return &CustomerSignalSavedFilterOutput{Body: toCustomerSignalSavedFilterBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "deleteCustomerSignalSavedFilter", Method: http.MethodDelete, Path: "/api/v1/customer-signal-filters/{filterPublicId}", Summary: "Customer Signal saved filter を削除する", Tags: []string{"customer-signal-filters"}, DefaultStatus: http.StatusNoContent, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DeleteCustomerSignalSavedFilterInput) (*CustomerSignalSavedFilterNoContentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "deleteCustomerSignalSavedFilter", Method: http.MethodDelete, Path: "/api/v1/customer-signal-filters/{filterPublicId}", Summary: "Customer Signal saved filter を削除する", Tags: []string{DocTagCustomerSignals}, DefaultStatus: http.StatusNoContent, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DeleteCustomerSignalSavedFilterInput) (*CustomerSignalSavedFilterNoContentOutput, error) {
 		current, tenant, err := requireCustomerSignalTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err

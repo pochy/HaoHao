@@ -114,7 +114,7 @@ type WebhookDeliveryOutput struct {
 type WebhookNoContentOutput struct{}
 
 func registerWebhookRoutes(api huma.API, deps Dependencies) {
-	huma.Register(api, huma.Operation{OperationID: "listWebhooks", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks", Summary: "webhook endpoint 一覧を返す", Tags: []string{"webhooks"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookListInput) (*WebhookListOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "listWebhooks", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks", Summary: "webhook endpoint 一覧を返す", Tags: []string{DocTagPlatformIntegrations}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookListInput) (*WebhookListOutput, error) {
 		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -131,7 +131,7 @@ func registerWebhookRoutes(api huma.API, deps Dependencies) {
 		return out, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createWebhook", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks", Summary: "webhook endpoint を作成する", Tags: []string{"webhooks"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookMutateInput) (*WebhookOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createWebhook", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks", Summary: "webhook endpoint を作成する", Tags: []string{DocTagPlatformIntegrations}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookMutateInput) (*WebhookOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -143,7 +143,7 @@ func registerWebhookRoutes(api huma.API, deps Dependencies) {
 		return &WebhookOutput{Body: toWebhookEndpointBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "getWebhook", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}", Summary: "webhook endpoint detail を返す", Tags: []string{"webhooks"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookEndpointInput) (*WebhookOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "getWebhook", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}", Summary: "webhook endpoint detail を返す", Tags: []string{DocTagPlatformIntegrations}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookEndpointInput) (*WebhookOutput, error) {
 		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -155,7 +155,7 @@ func registerWebhookRoutes(api huma.API, deps Dependencies) {
 		return &WebhookOutput{Body: toWebhookEndpointBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "updateWebhook", Method: http.MethodPut, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}", Summary: "webhook endpoint を更新する", Tags: []string{"webhooks"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookUpdateInput) (*WebhookOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "updateWebhook", Method: http.MethodPut, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}", Summary: "webhook endpoint を更新する", Tags: []string{DocTagPlatformIntegrations}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookUpdateInput) (*WebhookOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -167,7 +167,7 @@ func registerWebhookRoutes(api huma.API, deps Dependencies) {
 		return &WebhookOutput{Body: toWebhookEndpointBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "rotateWebhookSecret", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/rotate-secret", Summary: "webhook secret を rotate する", Tags: []string{"webhooks"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookActionInput) (*WebhookOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "rotateWebhookSecret", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/rotate-secret", Summary: "webhook secret を rotate する", Tags: []string{DocTagPlatformIntegrations}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookActionInput) (*WebhookOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -182,7 +182,7 @@ func registerWebhookRoutes(api huma.API, deps Dependencies) {
 		return &WebhookOutput{Body: toWebhookEndpointBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "deleteWebhook", Method: http.MethodDelete, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}", Summary: "webhook endpoint を削除する", Tags: []string{"webhooks"}, DefaultStatus: http.StatusNoContent, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookActionInput) (*WebhookNoContentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "deleteWebhook", Method: http.MethodDelete, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}", Summary: "webhook endpoint を削除する", Tags: []string{DocTagPlatformIntegrations}, DefaultStatus: http.StatusNoContent, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookActionInput) (*WebhookNoContentOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -196,7 +196,7 @@ func registerWebhookRoutes(api huma.API, deps Dependencies) {
 		return &WebhookNoContentOutput{}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "listWebhookDeliveries", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/deliveries", Summary: "webhook delivery log を返す", Tags: []string{"webhooks"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookDeliveryListInput) (*WebhookDeliveryListOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "listWebhookDeliveries", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/deliveries", Summary: "webhook delivery log を返す", Tags: []string{DocTagPlatformIntegrations}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookDeliveryListInput) (*WebhookDeliveryListOutput, error) {
 		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -213,7 +213,7 @@ func registerWebhookRoutes(api huma.API, deps Dependencies) {
 		return out, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "retryWebhookDelivery", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/deliveries/{deliveryPublicId}/retry", Summary: "webhook delivery を retry する", Tags: []string{"webhooks"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookDeliveryRetryInput) (*WebhookDeliveryOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "retryWebhookDelivery", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/webhooks/{webhookPublicId}/deliveries/{deliveryPublicId}/retry", Summary: "webhook delivery を retry する", Tags: []string{DocTagPlatformIntegrations}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *WebhookDeliveryRetryInput) (*WebhookDeliveryOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err

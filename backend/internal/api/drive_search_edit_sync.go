@@ -174,7 +174,7 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/search/documents",
 		Summary:     "Drive content index 付き検索結果を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *SearchDriveItemsInput) (*DriveSearchResultOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -207,7 +207,7 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/files/{filePublicId}/edit-sessions",
 		Summary:     "Drive file edit session を開始する",
-		Tags:        []string{"drive-collaboration"},
+		Tags:        []string{DocTagDriveCollaborationSync},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFilePathInput) (*DriveEditSessionOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -226,7 +226,7 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/files/{filePublicId}/edit-sessions/{sessionPublicId}/heartbeat",
 		Summary:     "Drive file edit session lease を延長する",
-		Tags:        []string{"drive-collaboration"},
+		Tags:        []string{DocTagDriveCollaborationSync},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveEditSessionPathInput) (*DriveEditSessionOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -245,7 +245,7 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPut,
 		Path:        "/api/v1/drive/files/{filePublicId}/edit-sessions/{sessionPublicId}/content",
 		Summary:     "Drive edit session content を保存する",
-		Tags:        []string{"drive-collaboration"},
+		Tags:        []string{DocTagDriveCollaborationSync},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveEditSaveInput) (*DriveEditSaveOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -277,7 +277,7 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/files/{filePublicId}/edit-sessions/{sessionPublicId}",
 		Summary:       "Drive edit session を終了する",
-		Tags:          []string{"drive-collaboration"},
+		Tags:          []string{DocTagDriveCollaborationSync},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveEditSessionPathInput) (*DriveNoContentOutput, error) {
@@ -296,7 +296,7 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive-sync/devices/register",
 		Summary:     "Drive sync device を登録する",
-		Tags:        []string{"drive-sync"},
+		Tags:        []string{DocTagDriveCollaborationSync},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveRegisterDeviceInput) (*DriveDeviceOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -320,7 +320,7 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive-sync/delta",
 		Summary:     "Drive sync delta を返す",
-		Tags:        []string{"drive-sync"},
+		Tags:        []string{DocTagDriveCollaborationSync},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 	}, func(ctx context.Context, input *DriveSyncBearerInput) (*DriveSyncDeltaOutput, error) {
 		delta, err := deps.DriveService.SyncDelta(ctx, bearerToken(input.Authorization), input.Cursor, "", "")
@@ -335,7 +335,7 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive-sync/devices/{devicePublicId}/revoke",
 		Summary:     "Drive sync device を revoke する",
-		Tags:        []string{"drive-sync"},
+		Tags:        []string{DocTagDriveCollaborationSync},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveDeviceRevokeInput) (*DriveNoContentOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -353,7 +353,7 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive-mobile/offline/replay",
 		Summary:     "Drive mobile offline operation queue を replay する",
-		Tags:        []string{"drive-mobile"},
+		Tags:        []string{DocTagDriveCollaborationSync},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 	}, func(ctx context.Context, input *DriveMobileOfflineReplayInput) (*DriveMobileOfflineReplayOutput, error) {
 		ops := make([]service.DriveOfflineOperationInput, 0, len(input.Body.Operations))

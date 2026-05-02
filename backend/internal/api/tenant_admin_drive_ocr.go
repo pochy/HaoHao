@@ -55,7 +55,7 @@ func registerTenantAdminDriveOCRRoutes(api huma.API, deps Dependencies) {
 		OperationID: "getTenantAdminDriveOCRStatus",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/drive/ocr/status",
-		Tags:        []string{"tenant-admin-drive"},
+		Tags:        []string{DocTagDriveAdminGovernance},
 		Summary:     "tenant admin 用 Drive OCR runtime status を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *TenantAdminDriveBySlugInput) (*TenantAdminDriveOCRStatusOutput, error) {

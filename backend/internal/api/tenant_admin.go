@@ -116,7 +116,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants",
 		Summary:     "tenant admin 用の tenant 一覧を返す",
-		Tags:        []string{"tenant-admin"},
+		Tags:        []string{DocTagTenantAdministration},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -141,7 +141,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/admin/tenants",
 		Summary:     "tenant を作成する",
-		Tags:        []string{"tenant-admin"},
+		Tags:        []string{DocTagTenantAdministration},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -162,7 +162,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}",
 		Summary:     "tenant detail と membership を返す",
-		Tags:        []string{"tenant-admin"},
+		Tags:        []string{DocTagTenantAdministration},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -182,7 +182,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPut,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}",
 		Summary:     "tenant を更新する",
-		Tags:        []string{"tenant-admin"},
+		Tags:        []string{DocTagTenantAdministration},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -203,7 +203,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/admin/tenants/{tenantSlug}",
 		Summary:       "tenant を無効化する",
-		Tags:          []string{"tenant-admin"},
+		Tags:          []string{DocTagTenantAdministration},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
@@ -224,7 +224,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodPost,
 		Path:          "/api/v1/admin/tenants/{tenantSlug}/memberships",
 		Summary:       "tenant local role を付与する",
-		Tags:          []string{"tenant-admin"},
+		Tags:          []string{DocTagTenantAdministration},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
@@ -248,7 +248,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/admin/tenants/{tenantSlug}/memberships/{userPublicId}/roles/{roleCode}",
 		Summary:       "tenant local role を無効化する",
-		Tags:          []string{"tenant-admin"},
+		Tags:          []string{DocTagTenantAdministration},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},

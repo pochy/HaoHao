@@ -60,7 +60,7 @@ func registerDriveFileRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/files/{filePublicId}",
 		Summary:     "Drive file metadata を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *GetDriveFileInput) (*DriveFileOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -79,7 +79,7 @@ func registerDriveFileRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/drive/files/{filePublicId}",
 		Summary:     "Drive file metadata を更新する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *UpdateDriveFileInput) (*DriveFileOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -106,7 +106,7 @@ func registerDriveFileRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/files/{filePublicId}",
 		Summary:       "Drive file を削除する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveFilesFolders},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DeleteDriveFileInput) (*DriveNoContentOutput, error) {
@@ -125,7 +125,7 @@ func registerDriveFileRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/drive/files/{filePublicId}/inheritance",
 		Summary:     "Drive file inheritance を更新する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *UpdateDriveFileInheritanceInput) (*DriveNoContentOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)

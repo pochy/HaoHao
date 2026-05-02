@@ -56,7 +56,7 @@ type SupportAccessOutput struct {
 type SupportAccessNoContentOutput struct{}
 
 func registerSupportAccessRoutes(api huma.API, deps Dependencies) {
-	huma.Register(api, huma.Operation{OperationID: "startSupportAccess", Method: http.MethodPost, Path: "/api/v1/support/access/start", Summary: "support access を開始する", Tags: []string{"support-access"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *StartSupportAccessInput) (*SupportAccessOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "startSupportAccess", Method: http.MethodPost, Path: "/api/v1/support/access/start", Summary: "support access を開始する", Tags: []string{DocTagTenantAdministration}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *StartSupportAccessInput) (*SupportAccessOutput, error) {
 		current, authCtx, err := currentSessionAuthContextWithCSRF(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
@@ -83,7 +83,7 @@ func registerSupportAccessRoutes(api huma.API, deps Dependencies) {
 		return out, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "getCurrentSupportAccess", Method: http.MethodGet, Path: "/api/v1/support/access/current", Summary: "現在の support access を返す", Tags: []string{"support-access"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *GetSupportAccessInput) (*SupportAccessOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "getCurrentSupportAccess", Method: http.MethodGet, Path: "/api/v1/support/access/current", Summary: "現在の support access を返す", Tags: []string{DocTagTenantAdministration}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *GetSupportAccessInput) (*SupportAccessOutput, error) {
 		item, ok, err := deps.SupportAccessService.Current(ctx, input.SessionCookie.Value)
 		if err != nil {
 			return nil, toSupportAccessHTTPError(err)
@@ -97,7 +97,7 @@ func registerSupportAccessRoutes(api huma.API, deps Dependencies) {
 		return out, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "endSupportAccess", Method: http.MethodPost, Path: "/api/v1/support/access/end", Summary: "support access を終了する", Tags: []string{"support-access"}, DefaultStatus: http.StatusNoContent, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *EndSupportAccessInput) (*SupportAccessNoContentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "endSupportAccess", Method: http.MethodPost, Path: "/api/v1/support/access/end", Summary: "support access を終了する", Tags: []string{DocTagTenantAdministration}, DefaultStatus: http.StatusNoContent, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *EndSupportAccessInput) (*SupportAccessNoContentOutput, error) {
 		current, err := deps.SessionService.CurrentSessionWithCSRF(ctx, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, toHTTPErrorWithLog(ctx, deps, "", err)

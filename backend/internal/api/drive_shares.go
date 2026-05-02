@@ -87,7 +87,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/files/{filePublicId}/permissions",
 		Summary:     "Drive file permissions を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *GetDriveFilePermissionsInput) (*DrivePermissionsOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -106,7 +106,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/permissions",
 		Summary:     "Drive folder permissions を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *GetDriveFolderPermissionsInput) (*DrivePermissionsOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -125,7 +125,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/files/{filePublicId}/shares",
 		Summary:     "Drive file share を作成する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveFileShareInput) (*DriveShareOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -151,7 +151,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/shares",
 		Summary:     "Drive folder share を作成する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveFolderShareInput) (*DriveShareOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -177,7 +177,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/drive/files/{filePublicId}/shares/{sharePublicId}",
 		Summary:     "Drive file share role を更新する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *UpdateDriveFileShareInput) (*DriveShareOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -202,7 +202,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/shares/{sharePublicId}",
 		Summary:     "Drive folder share role を更新する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *UpdateDriveFolderShareInput) (*DriveShareOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -227,7 +227,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/files/{filePublicId}/shares/{sharePublicId}",
 		Summary:       "Drive file share を解除する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveSharingPermissions},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DeleteDriveFileShareInput) (*DriveNoContentOutput, error) {
@@ -246,7 +246,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/folders/{folderPublicId}/shares/{sharePublicId}",
 		Summary:       "Drive folder share を解除する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveSharingPermissions},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DeleteDriveFolderShareInput) (*DriveNoContentOutput, error) {

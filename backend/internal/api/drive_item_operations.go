@@ -148,7 +148,7 @@ func registerDriveItemOperationsRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/shared-with-me",
 		Summary:     "自分に共有された Drive item を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveItemCollectionInput) (*DriveItemListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -167,7 +167,7 @@ func registerDriveItemOperationsRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/starred",
 		Summary:     "Starred Drive item を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveItemCollectionInput) (*DriveItemListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -186,7 +186,7 @@ func registerDriveItemOperationsRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/recent",
 		Summary:     "Recent Drive item を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveItemCollectionInput) (*DriveItemListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -205,7 +205,7 @@ func registerDriveItemOperationsRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/storage",
 		Summary:     "Drive storage usage を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveItemCollectionInput) (*DriveStorageUsageOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -224,7 +224,7 @@ func registerDriveItemOperationsRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/folder-tree",
 		Summary:     "Drive folder tree を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFolderTreeInput) (*DriveFolderTreeOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -243,7 +243,7 @@ func registerDriveItemOperationsRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/share-targets",
 		Summary:     "Drive share target candidates を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveShareTargetsInput) (*DriveShareTargetsOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -273,7 +273,7 @@ func registerDriveStarRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodPost,
 		Path:          "/api/v1/drive/files/{filePublicId}/star",
 		Summary:       "Drive file に star を付ける",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveFilesFolders},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFileStarInput) (*DriveNoContentOutput, error) {
@@ -293,7 +293,7 @@ func registerDriveStarRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/files/{filePublicId}/star",
 		Summary:       "Drive file の star を外す",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveFilesFolders},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFileStarInput) (*DriveNoContentOutput, error) {
@@ -313,7 +313,7 @@ func registerDriveStarRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodPost,
 		Path:          "/api/v1/drive/folders/{folderPublicId}/star",
 		Summary:       "Drive folder に star を付ける",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveFilesFolders},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFolderStarInput) (*DriveNoContentOutput, error) {
@@ -333,7 +333,7 @@ func registerDriveStarRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/folders/{folderPublicId}/star",
 		Summary:       "Drive folder の star を外す",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveFilesFolders},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFolderStarInput) (*DriveNoContentOutput, error) {
@@ -355,7 +355,7 @@ func registerDriveActivityRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/files/{filePublicId}/activity",
 		Summary:     "Drive file activity を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFileActivityInput) (*DriveActivityListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -374,7 +374,7 @@ func registerDriveActivityRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/activity",
 		Summary:     "Drive folder activity を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFolderActivityInput) (*DriveActivityListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -395,7 +395,7 @@ func registerDriveItemMutationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/downloads/archive",
 		Summary:     "Drive items を ZIP archive として download する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 		Responses: map[string]*huma.Response{
 			"200": {
@@ -440,7 +440,7 @@ func registerDriveItemMutationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/files/{filePublicId}/copy",
 		Summary:     "Drive file を copy する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFileCopyInput) (*DriveItemOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -465,7 +465,7 @@ func registerDriveItemMutationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/copy",
 		Summary:     "Drive folder を copy する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFolderCopyInput) (*DriveItemOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -490,7 +490,7 @@ func registerDriveItemMutationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/files/{filePublicId}/owner-transfer",
 		Summary:     "Drive file owner を移譲する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFileOwnerTransferInput) (*DriveItemOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -515,7 +515,7 @@ func registerDriveItemMutationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/owner-transfer",
 		Summary:     "Drive folder owner を移譲する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFolderOwnerTransferInput) (*DriveItemOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -540,7 +540,7 @@ func registerDriveItemMutationRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/files/{filePublicId}/permanent",
 		Summary:       "Drive file を完全削除する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveFilesFolders},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFilePermanentDeleteInput) (*DriveNoContentOutput, error) {
@@ -564,7 +564,7 @@ func registerDriveItemMutationRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/folders/{folderPublicId}/permanent",
 		Summary:       "Drive folder を完全削除する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveFilesFolders},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DriveFolderPermanentDeleteInput) (*DriveNoContentOutput, error) {

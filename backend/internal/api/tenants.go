@@ -52,7 +52,7 @@ func registerTenantRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/tenants",
 		Summary:     "現在の user が利用できる tenants を返す",
-		Tags:        []string{"tenants"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -80,7 +80,7 @@ func registerTenantRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/session/tenant",
 		Summary:     "現在の session の active tenant を切り替える",
-		Tags:        []string{"tenants"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},

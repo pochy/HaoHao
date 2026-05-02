@@ -63,7 +63,13 @@ export type CreateCustomerSignalBody = {
     body?: string;
     customerName: string;
     priority?: 'low' | 'medium' | 'high' | 'urgent';
+    /**
+     * record の発生元または permission の由来です。
+     */
     source?: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    /**
+     * 現在の lifecycle status です。
+     */
     status?: 'new' | 'triaged' | 'planned' | 'closed';
     title: string;
 };
@@ -73,8 +79,14 @@ export type CreateDriveFolderBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     parentFolderPublicId?: string;
+    /**
+     * 対象 Drive workspace の public UUID です。
+     */
     workspacePublicId?: string;
 };
 
@@ -83,7 +95,13 @@ export type CreateDriveGroupBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * resource の説明文です。
+     */
     description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
 };
 
@@ -92,6 +110,9 @@ export type CreateDriveShareBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: 'owner' | 'editor' | 'viewer';
     subjectPublicId: string;
     subjectType: 'user' | 'group';
@@ -102,9 +123,18 @@ export type CreateDriveShareInvitationBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt?: string;
+    /**
+     * user または invitee の email address です。
+     */
     inviteeEmail: string;
     inviteeUserPublicId?: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: 'owner' | 'editor' | 'viewer';
 };
 
@@ -113,9 +143,21 @@ export type CreateDriveShareLinkBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * share link または permission で download を許可するかを表します。
+     */
     canDownload: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt?: string;
+    /**
+     * share link 保護などに使う secret value です。response には返しません。
+     */
     password?: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role?: 'viewer' | 'editor';
 };
 
@@ -124,6 +166,9 @@ export type CreateDriveWorkspaceBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     policyOverride?: {
         [key: string]: unknown;
@@ -144,7 +189,13 @@ export type CreateTenantInvitationRequestBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * user または invitee の email address です。
+     */
     email: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     roleCodes?: Array<string> | null;
 };
 
@@ -162,13 +213,28 @@ export type CustomerSignalBody = {
      */
     readonly $schema?: string;
     body: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     customerName: string;
     priority: 'low' | 'medium' | 'high' | 'urgent';
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * record の発生元または permission の由来です。
+     */
     source: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    /**
+     * 現在の lifecycle status です。
+     */
     status: 'new' | 'triaged' | 'planned' | 'closed';
     title: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -177,16 +243,31 @@ export type CustomerSignalImportJobBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     errorFileObjectId?: number;
     errorSummary?: string;
     inputFileObjectId: number;
     insertedRows: number;
     invalidRows: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     totalRows: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
     validRows: number;
     validateOnly: boolean;
@@ -223,13 +304,25 @@ export type CustomerSignalSavedFilterBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     filters: {
         [key: string]: unknown;
     };
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     query: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -249,6 +342,9 @@ export type CustomerSignalSavedFilterRequestBody = {
     filters?: {
         [key: string]: unknown;
     };
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     query?: string;
 };
@@ -261,12 +357,21 @@ export type DatasetBody = {
     byteSize: number;
     columns: Array<DatasetColumnBody> | null;
     contentType: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     errorSummary?: string;
     importJob?: DatasetImportJobBody;
     importedAt?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     originalFilename: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     rawDatabase: string;
     rawTable: string;
@@ -274,7 +379,13 @@ export type DatasetBody = {
     sourceFileObjectId?: number;
     sourceKind: string;
     sourceWorkTableId?: number;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
     workDatabase: string;
 };
@@ -292,6 +403,9 @@ export type DatasetCreateBody = {
      */
     readonly $schema?: string;
     driveFilePublicId: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
 };
 
@@ -302,14 +416,29 @@ export type DatasetImportErrorBody = {
 };
 
 export type DatasetImportJobBody = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     errorSample: Array<DatasetImportErrorBody> | null;
     errorSummary?: string;
     invalidRows: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     totalRows: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
     validRows: number;
 };
@@ -335,10 +464,19 @@ export type DatasetQueryJobBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     durationMs: number;
     errorSummary?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     resultColumns: Array<string> | null;
     resultRows: Array<{
@@ -346,7 +484,13 @@ export type DatasetQueryJobBody = {
     }> | null;
     rowCount: number;
     statement: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -361,10 +505,19 @@ export type DatasetQueryListBody = {
 export type DatasetSourceFileBody = {
     byteSize: number;
     contentType: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     originalFilename: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     sha256Hex: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -382,19 +535,34 @@ export type DatasetWorkTableBody = {
      */
     readonly $schema?: string;
     columns?: Array<DatasetWorkTableColumnBody> | null;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     database: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
     droppedAt?: string;
     engine: string;
     managed: boolean;
     originDatasetName?: string;
     originDatasetPublicId?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     table: string;
     totalBytes: number;
     totalRows: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -409,14 +577,32 @@ export type DatasetWorkTableExportBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     errorSummary?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
     fileObjectId?: number;
     format: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
     workTableId: number;
 };
@@ -463,6 +649,9 @@ export type DatasetWorkTablePromoteBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
 };
 
@@ -473,6 +662,9 @@ export type DatasetWorkTableRegisterBody = {
     readonly $schema?: string;
     database: string;
     datasetPublicId?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName?: string;
     table: string;
 };
@@ -487,6 +679,9 @@ export type DatasetWorkTableRenameBody = {
 
 export type DriveAiClassificationBody = {
     confidence: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     label: string;
     provider: string;
@@ -505,11 +700,23 @@ export type DriveAiJobBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     jobType: string;
     provider: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -526,9 +733,18 @@ export type DriveAiSummaryBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     provider: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     summaryText: string;
 };
@@ -537,11 +753,20 @@ export type DriveActivityBody = {
     action: string;
     actorDisplayName?: string;
     actorUserPublicId?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     metadata?: {
         [key: string]: unknown;
     };
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
 };
 
@@ -563,6 +788,9 @@ export type DriveArchiveBody = {
 };
 
 export type DriveArchiveItemBody = {
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     type: 'file' | 'folder';
 };
@@ -572,9 +800,21 @@ export type DriveCleanRoomBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -583,6 +823,9 @@ export type DriveCleanRoomCreateInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
 };
 
@@ -592,9 +835,18 @@ export type DriveCleanRoomDatasetBody = {
      */
     readonly $schema?: string;
     cleanRoomPublicId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     sourceFilePublicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -603,6 +855,9 @@ export type DriveCleanRoomDatasetInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
 };
 
@@ -611,9 +866,18 @@ export type DriveCleanRoomExportBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     deniedReason?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -630,6 +894,9 @@ export type DriveCleanRoomParticipantInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: 'participant' | 'reviewer' | 'owner';
     userPublicId: string;
 };
@@ -639,6 +906,9 @@ export type DriveCopyBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
     parentFolderPublicId?: string;
 };
@@ -648,12 +918,21 @@ export type DriveDeviceBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     deviceName: string;
     lastSeenAt?: string;
     platform: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     remoteWipeRequired: boolean;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     token?: string;
 };
@@ -671,6 +950,9 @@ export type DriveE2EeEnvelopeBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     fileKeyPublicId: string;
     recipientUserId: string;
@@ -695,9 +977,18 @@ export type DriveE2EeFileKeyBody = {
     readonly $schema?: string;
     algorithm: string;
     ciphertextSha256: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     keyVersion: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
 };
 
@@ -721,8 +1012,17 @@ export type DriveE2EeUserKeyBody = {
      */
     readonly $schema?: string;
     algorithm: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     userPublicId: string;
 };
@@ -743,9 +1043,18 @@ export type DriveEDiscoveryConnectionBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     provider: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -763,11 +1072,20 @@ export type DriveEDiscoveryExportBody = {
      */
     readonly $schema?: string;
     casePublicId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     itemCount: number;
     manifestHash?: string;
     providerExportId?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -807,11 +1125,26 @@ export type DriveEditSessionBody = {
      */
     readonly $schema?: string;
     baseRevision: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     provider: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -822,20 +1155,44 @@ export type DriveFileBody = {
     readonly $schema?: string;
     byteSize: number;
     contentType: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     deletedAt?: string;
+    /**
+     * resource の説明文です。
+     */
     description?: string;
     dlpBlocked: boolean;
     inheritanceEnabled: boolean;
     lockReason?: string;
     locked: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     lockedAt?: string;
     originalFilename: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     scanStatus: string;
     sha256Hex: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
+    /**
+     * 対象 Drive workspace の public UUID です。
+     */
     workspacePublicId?: string;
 };
 
@@ -844,13 +1201,34 @@ export type DriveFolderBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     deletedAt?: string;
+    /**
+     * resource の説明文です。
+     */
     description?: string;
     inheritanceEnabled: boolean;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
+    /**
+     * 対象 Drive workspace の public UUID です。
+     */
     workspacePublicId?: string;
 };
 
@@ -865,7 +1243,13 @@ export type DriveFolderTreeBody = {
 
 export type DriveFolderTreeNodeBody = {
     children: Array<DriveFolderTreeNodeBody> | null;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
 };
 
@@ -874,6 +1258,9 @@ export type DriveGatewayBindInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
 };
 
@@ -883,11 +1270,23 @@ export type DriveGatewayBody = {
      */
     readonly $schema?: string;
     certificateFingerprint: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     endpointUrl: string;
     lastSeenAt?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -898,6 +1297,9 @@ export type DriveGatewayInputBody = {
     readonly $schema?: string;
     certificateFingerprint?: string;
     endpointUrl?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
 };
 
@@ -906,9 +1308,15 @@ export type DriveGatewayObjectBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     gatewayPublicId: string;
     manifestHash: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -917,6 +1325,9 @@ export type DriveGatewayStatusInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: 'active' | 'disabled' | 'disconnected';
 };
 
@@ -925,11 +1336,26 @@ export type DriveGroupBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * resource の説明文です。
+     */
     description: string;
     members?: Array<string> | null;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -946,6 +1372,9 @@ export type DriveHsmBindInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     keyPublicId: string;
 };
@@ -956,13 +1385,22 @@ export type DriveHsmDeploymentBody = {
      */
     readonly $schema?: string;
     attestationHash?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     endpointUrl: string;
     healthStatus: string;
     keyPublicId: string;
     keyStatus: string;
     provider: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -980,6 +1418,9 @@ export type DriveHsmKeyStatusInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: 'active' | 'disabled' | 'destroyed' | 'unavailable';
 };
 
@@ -1013,8 +1454,14 @@ export type DriveItemBody = {
     ownerUserPublicId?: string;
     shareRole?: string;
     sharedWithMe: boolean;
+    /**
+     * record の発生元または permission の由来です。
+     */
     source?: string;
     starredByMe: boolean;
+    /**
+     * 検索や分類に使う tag 配列です。
+     */
     tags?: Array<string> | null;
     type: string;
 };
@@ -1032,10 +1479,25 @@ export type DriveLegalCaseBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * resource の説明文です。
+     */
     description: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -1044,7 +1506,13 @@ export type DriveLegalCaseCreateInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * resource の説明文です。
+     */
     description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
 };
 
@@ -1053,6 +1521,9 @@ export type DriveLegalCaseFileInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     reason?: string;
 };
@@ -1063,13 +1534,28 @@ export type DriveLegalExportBody = {
      */
     readonly $schema?: string;
     casePublicId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
 export type DriveMarketplaceAppBody = {
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     publisherName: string;
     scopes: Array<string> | null;
@@ -1092,9 +1578,18 @@ export type DriveMarketplaceInstallBody = {
     readonly $schema?: string;
     appName: string;
     appSlug: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     scopes: Array<string> | null;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -1116,10 +1611,19 @@ export type DriveMarketplaceScopeOutputBody = {
 
 export type DriveMobileOfflineOperationBody = {
     baseRevision: number;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
     operationId?: string;
     operationType: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
     resourcePublicId: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
 };
 
@@ -1146,10 +1650,22 @@ export type DriveOcrJobBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     engine: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -1170,17 +1686,32 @@ export type DriveOcrPageBody = {
 
 export type DriveOcrRunBody = {
     averageConfidence?: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     engine: string;
     errorCode?: string;
     errorMessage?: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     languages: Array<string> | null;
     pageCount: number;
     processedPageCount: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     reason: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     structuredExtractor: string;
 };
@@ -1191,12 +1722,24 @@ export type DriveOfficeSessionBody = {
      */
     readonly $schema?: string;
     accessLevel: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     launchUrl: string;
     provider: string;
     providerSessionId: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
 };
 
@@ -1240,14 +1783,35 @@ export type DriveOwnerTransferBody = {
 };
 
 export type DrivePermissionBody = {
+    /**
+     * share link または permission で download を許可するかを表します。
+     */
     canDownload?: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt?: string;
     inheritedFromId?: string;
     kind: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId?: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: string;
+    /**
+     * record の発生元または permission の由来です。
+     */
     source: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status?: string;
     subjectId?: string;
     subjectType?: string;
@@ -1272,7 +1836,13 @@ export type DriveProductExtractionItemBody = {
     brand?: string;
     category?: string;
     confidence?: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * resource の説明文です。
+     */
     description?: string;
     evidence: Array<{
         [key: string]: unknown;
@@ -1281,6 +1851,9 @@ export type DriveProductExtractionItemBody = {
     janCode?: string;
     manufacturer?: string;
     model?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     price: {
         [key: string]: unknown;
@@ -1288,6 +1861,9 @@ export type DriveProductExtractionItemBody = {
     promotion: {
         [key: string]: unknown;
     };
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     sku?: string;
     sourceText: string;
@@ -1298,11 +1874,20 @@ export type DriveProductExtractionJobBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     extractor: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     itemCount: number;
     ocrRunPublicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -1342,15 +1927,36 @@ export type DriveShareBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     createdByUserId: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
     resourcePublicId: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     subjectPublicId: string;
     subjectType: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -1360,15 +1966,39 @@ export type DriveShareInvitationBody = {
      */
     readonly $schema?: string;
     acceptToken?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
     inviteeEmailDomain: string;
     maskedInviteeEmail?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
     resourcePublicId?: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -1385,21 +2015,54 @@ export type DriveShareLinkBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * share link または permission で download を許可するかを表します。
+     */
     canDownload: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
     passwordRequired: boolean;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
     resourcePublicId: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     token?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
 export type DriveShareTargetBody = {
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     secondary?: string;
     type: string;
@@ -1428,14 +2091,29 @@ export type DriveStorageUsageBody = {
 
 export type DriveSyncDeltaEventBody = {
     action: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
     id: number;
     metadata?: {
         [key: string]: unknown;
     };
     objectVersion?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
     resourcePublicId?: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
 };
 
@@ -1456,13 +2134,25 @@ export type DriveWorkspaceBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     policyOverride?: {
         [key: string]: unknown;
     };
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     storageQuotaBytes?: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -1475,14 +2165,26 @@ export type DriveWorkspaceListOutputBody = {
 };
 
 export type EntitlementBody = {
+    /**
+     * resource の説明文です。
+     */
     description: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
     enabled: boolean;
     featureCode: string;
     limitValue: {
         [key: string]: unknown;
     };
+    /**
+     * record の発生元または permission の由来です。
+     */
     source: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -1561,13 +2263,25 @@ export type FileObjectBody = {
     attachedToType?: string;
     byteSize: number;
     contentType: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     originalFilename: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     purpose: string;
     sha256Hex: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     tenantId: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -1621,7 +2335,13 @@ export type LoginInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * user または invitee の email address です。
+     */
     email: string;
+    /**
+     * share link 保護などに使う secret value です。response には返しません。
+     */
     password: string;
 };
 
@@ -1640,12 +2360,24 @@ export type MachineClientBody = {
     readonly $schema?: string;
     active: boolean;
     allowedScopes?: Array<string> | null;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     defaultTenant?: TenantBody;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
     id: number;
     provider: string;
     providerClientId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -1657,6 +2389,9 @@ export type MachineClientRequestBody = {
     active?: boolean;
     allowedScopes?: Array<string> | null;
     defaultTenantId?: number;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
     provider?: string;
     providerClientId: string;
@@ -1669,13 +2404,25 @@ export type NotificationBody = {
     readonly $schema?: string;
     body: string;
     channel: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     readAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     subject: string;
     template: string;
     tenantId?: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -1710,6 +2457,9 @@ export type SelectTenantInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * tenant を識別する slug です。
+     */
     tenantSlug: string;
 };
 
@@ -1738,19 +2488,31 @@ export type StartSupportAccessBody = {
     durationMinutes?: number;
     impersonatedUserPublicId: string;
     reason: string;
+    /**
+     * tenant を識別する slug です。
+     */
     tenantSlug: string;
 };
 
 export type SupportAccessBody = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
     impersonatedUserDisplayName: string;
     impersonatedUserEmail: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     reason: string;
     startedAt: string;
     supportUserDisplayName: string;
     supportUserEmail: string;
     tenantDisplayName: string;
+    /**
+     * tenant を識別する slug です。
+     */
     tenantSlug: string;
 };
 
@@ -1768,8 +2530,17 @@ export type TenantAdminDriveAdminContentSessionBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     reasonCategory: string;
 };
@@ -1789,7 +2560,13 @@ export type TenantAdminDriveAuditEventBody = {
     metadata: {
         [key: string]: unknown;
     };
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     occurredAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     targetId: string;
     targetType: string;
@@ -1814,6 +2591,9 @@ export type TenantAdminDriveEncryptionPolicyBody = {
     mode: string;
     provider?: string;
     scope: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt?: string;
 };
 
@@ -1840,11 +2620,17 @@ export type TenantAdminDriveKmsKeyStatusInputBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: 'active' | 'disabled' | 'unavailable' | 'deleted';
 };
 
 export type TenantAdminDriveOcrDependencyBody = {
     available: boolean;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     version?: string;
 };
@@ -1859,6 +2645,9 @@ export type TenantAdminDriveOcrLocalCommandBody = {
     available: boolean;
     command: string;
     configured: boolean;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     version?: string;
 };
@@ -1910,20 +2699,50 @@ export type TenantAdminDriveResidencyPolicyBody = {
     indexRegion: string;
     primaryRegion: string;
     replicationMode: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt?: string;
 };
 
 export type TenantAdminDriveShareLinkStateBody = {
+    /**
+     * share link または permission で download を許可するかを表します。
+     */
     canDownload: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
     passwordRequired: boolean;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     resourceName: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
     resourcePublicId: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -1936,15 +2755,36 @@ export type TenantAdminDriveShareLinksOutputBody = {
 };
 
 export type TenantAdminDriveShareStateBody = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     resourceName: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
     resourcePublicId: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     subjectPublicId: string;
     subjectType: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -1960,7 +2800,13 @@ export type TenantAdminDriveSyncItemBody = {
     action: string;
     error?: string;
     kind: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -1975,8 +2821,17 @@ export type TenantAdminDriveSyncOutputBody = {
 
 export type TenantAdminMembershipBody = {
     deactivated: boolean;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
+    /**
+     * user または invitee の email address です。
+     */
     email: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     roles: Array<TenantAdminRoleBindingBody> | null;
     userPublicId: string;
 };
@@ -1986,13 +2841,25 @@ export type TenantAdminMembershipRequestBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     roleCode: string;
+    /**
+     * user または invitee の email address です。
+     */
     userEmail: string;
 };
 
 export type TenantAdminRoleBindingBody = {
     active: boolean;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     roleCode: string;
+    /**
+     * record の発生元または permission の由来です。
+     */
     source: string;
 };
 
@@ -2003,10 +2870,22 @@ export type TenantAdminTenantBody = {
     readonly $schema?: string;
     active: boolean;
     activeMemberCount: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
     id: number;
     slug: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -2025,14 +2904,26 @@ export type TenantAdminTenantRequestBody = {
      */
     readonly $schema?: string;
     active?: boolean;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
     slug?: string;
 };
 
 export type TenantBody = {
     default: boolean;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
     id: number;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     roles?: Array<string> | null;
     selected: boolean;
     slug: string;
@@ -2043,15 +2934,33 @@ export type TenantDataExportBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     errorSummary?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
     fileObjectId?: number;
     format: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     tenantId: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -2069,14 +2978,35 @@ export type TenantInvitationBody = {
      */
     readonly $schema?: string;
     acceptUrl?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
+    /**
+     * user または invitee の email address です。
+     */
     inviteeEmailNormalized: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     roleCodes: Array<string> | null;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     tenantId: number;
     token?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -2093,6 +3023,9 @@ export type TenantSettingsBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     features: {
         [key: string]: unknown;
@@ -2103,6 +3036,9 @@ export type TenantSettingsBody = {
     rateLimitExternalApiPerMinute?: number;
     rateLimitLoginPerMinute?: number;
     tenantId: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -2127,9 +3063,18 @@ export type TodoBody = {
      */
     readonly $schema?: string;
     completed: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     title: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -2149,7 +3094,13 @@ export type UpdateCustomerSignalBody = {
     body?: string;
     customerName?: string;
     priority?: 'low' | 'medium' | 'high' | 'urgent';
+    /**
+     * record の発生元または permission の由来です。
+     */
     source?: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    /**
+     * 現在の lifecycle status です。
+     */
     status?: 'new' | 'triaged' | 'planned' | 'closed';
     title?: string;
 };
@@ -2159,9 +3110,15 @@ export type UpdateDriveFileBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * resource の説明文です。
+     */
     description?: string;
     originalFilename?: string;
     parentFolderPublicId?: string;
+    /**
+     * 検索や分類に使う tag 配列です。
+     */
     tags?: Array<string>;
 };
 
@@ -2170,9 +3127,18 @@ export type UpdateDriveFolderBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * resource の説明文です。
+     */
     description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
     parentFolderPublicId?: string;
+    /**
+     * 検索や分類に使う tag 配列です。
+     */
     tags?: Array<string>;
 };
 
@@ -2181,6 +3147,9 @@ export type UpdateDriveShareBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: 'editor' | 'viewer';
 };
 
@@ -2189,7 +3158,13 @@ export type UpdateDriveShareLinkBody = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * share link または permission で download を許可するかを表します。
+     */
     canDownload?: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt?: string;
 };
 
@@ -2211,8 +3186,17 @@ export type UpdateTodoBody = {
 };
 
 export type UserResponse = {
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
+    /**
+     * user または invitee の email address です。
+     */
     email: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
 };
 
@@ -2234,15 +3218,27 @@ export type WebhookDeliveryBody = {
      */
     readonly $schema?: string;
     attemptCount: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     deliveredAt?: string;
     eventType: string;
     lastError?: string;
     lastHttpStatus?: number;
     maxAttempts: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     responsePreview?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -2260,13 +3256,28 @@ export type WebhookEndpointBody = {
      */
     readonly $schema?: string;
     active: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     eventTypes: Array<string> | null;
     lastDeliveryAt?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     secret?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
+    /**
+     * callback または external service の URL です。
+     */
     url: string;
 };
 
@@ -2277,7 +3288,13 @@ export type WebhookEndpointRequestBody = {
     readonly $schema?: string;
     active?: boolean;
     eventTypes: Array<string> | null;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * callback または external service の URL です。
+     */
     url: string;
 };
 
@@ -2316,43 +3333,88 @@ export type CreateCustomerSignalBodyWritable = {
     body?: string;
     customerName: string;
     priority?: 'low' | 'medium' | 'high' | 'urgent';
+    /**
+     * record の発生元または permission の由来です。
+     */
     source?: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    /**
+     * 現在の lifecycle status です。
+     */
     status?: 'new' | 'triaged' | 'planned' | 'closed';
     title: string;
 };
 
 export type CreateDriveFolderBodyWritable = {
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     parentFolderPublicId?: string;
+    /**
+     * 対象 Drive workspace の public UUID です。
+     */
     workspacePublicId?: string;
 };
 
 export type CreateDriveGroupBodyWritable = {
+    /**
+     * resource の説明文です。
+     */
     description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
 };
 
 export type CreateDriveShareBodyWritable = {
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: 'owner' | 'editor' | 'viewer';
     subjectPublicId: string;
     subjectType: 'user' | 'group';
 };
 
 export type CreateDriveShareInvitationBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt?: string;
+    /**
+     * user または invitee の email address です。
+     */
     inviteeEmail: string;
     inviteeUserPublicId?: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: 'owner' | 'editor' | 'viewer';
 };
 
 export type CreateDriveShareLinkBodyWritable = {
+    /**
+     * share link または permission で download を許可するかを表します。
+     */
     canDownload: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt?: string;
+    /**
+     * share link 保護などに使う secret value です。response には返しません。
+     */
     password?: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role?: 'viewer' | 'editor';
 };
 
 export type CreateDriveWorkspaceBodyWritable = {
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     policyOverride?: {
         [key: string]: unknown;
@@ -2365,7 +3427,13 @@ export type CreateTenantDataExportRequestBodyWritable = {
 };
 
 export type CreateTenantInvitationRequestBodyWritable = {
+    /**
+     * user または invitee の email address です。
+     */
     email: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     roleCodes?: Array<string> | null;
 };
 
@@ -2375,27 +3443,57 @@ export type CreateTodoBodyWritable = {
 
 export type CustomerSignalBodyWritable = {
     body: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     customerName: string;
     priority: 'low' | 'medium' | 'high' | 'urgent';
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * record の発生元または permission の由来です。
+     */
     source: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    /**
+     * 現在の lifecycle status です。
+     */
     status: 'new' | 'triaged' | 'planned' | 'closed';
     title: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
 export type CustomerSignalImportJobBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     errorFileObjectId?: number;
     errorSummary?: string;
     inputFileObjectId: number;
     insertedRows: number;
     invalidRows: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     totalRows: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
     validRows: number;
     validateOnly: boolean;
@@ -2416,13 +3514,25 @@ export type CustomerSignalListBodyWritable = {
 };
 
 export type CustomerSignalSavedFilterBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     filters: {
         [key: string]: unknown;
     };
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     query: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -2434,6 +3544,9 @@ export type CustomerSignalSavedFilterRequestBodyWritable = {
     filters?: {
         [key: string]: unknown;
     };
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     query?: string;
 };
@@ -2442,12 +3555,21 @@ export type DatasetBodyWritable = {
     byteSize: number;
     columns: Array<DatasetColumnBody> | null;
     contentType: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     errorSummary?: string;
     importJob?: DatasetImportJobBody;
     importedAt?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     originalFilename: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     rawDatabase: string;
     rawTable: string;
@@ -2455,13 +3577,22 @@ export type DatasetBodyWritable = {
     sourceFileObjectId?: number;
     sourceKind: string;
     sourceWorkTableId?: number;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
     workDatabase: string;
 };
 
 export type DatasetCreateBodyWritable = {
     driveFilePublicId: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
 };
 
@@ -2474,10 +3605,19 @@ export type DatasetQueryCreateBodyWritable = {
 };
 
 export type DatasetQueryJobBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     durationMs: number;
     errorSummary?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     resultColumns: Array<string> | null;
     resultRows: Array<{
@@ -2485,7 +3625,13 @@ export type DatasetQueryJobBodyWritable = {
     }> | null;
     rowCount: number;
     statement: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -2499,31 +3645,64 @@ export type DatasetSourceFileListBodyWritable = {
 
 export type DatasetWorkTableBodyWritable = {
     columns?: Array<DatasetWorkTableColumnBody> | null;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     database: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
     droppedAt?: string;
     engine: string;
     managed: boolean;
     originDatasetName?: string;
     originDatasetPublicId?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     table: string;
     totalBytes: number;
     totalRows: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
 export type DatasetWorkTableExportBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     errorSummary?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
     fileObjectId?: number;
     format: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
     workTableId: number;
 };
@@ -2550,12 +3729,18 @@ export type DatasetWorkTablePreviewBodyWritable = {
 };
 
 export type DatasetWorkTablePromoteBodyWritable = {
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
 };
 
 export type DatasetWorkTableRegisterBodyWritable = {
     database: string;
     datasetPublicId?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName?: string;
     table: string;
 };
@@ -2569,11 +3754,23 @@ export type DriveAiClassificationsOutputBodyWritable = {
 };
 
 export type DriveAiJobBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     jobType: string;
     provider: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -2582,9 +3779,18 @@ export type DriveAiJobCreateInputBodyWritable = {
 };
 
 export type DriveAiSummaryBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     provider: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     summaryText: string;
 };
@@ -2599,32 +3805,68 @@ export type DriveArchiveBodyWritable = {
 };
 
 export type DriveCleanRoomBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
 export type DriveCleanRoomCreateInputBodyWritable = {
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
 };
 
 export type DriveCleanRoomDatasetBodyWritable = {
     cleanRoomPublicId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     sourceFilePublicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
 export type DriveCleanRoomDatasetInputBodyWritable = {
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
 };
 
 export type DriveCleanRoomExportBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     deniedReason?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -2633,22 +3875,37 @@ export type DriveCleanRoomExportInputBodyWritable = {
 };
 
 export type DriveCleanRoomParticipantInputBodyWritable = {
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: 'participant' | 'reviewer' | 'owner';
     userPublicId: string;
 };
 
 export type DriveCopyBodyWritable = {
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
     parentFolderPublicId?: string;
 };
 
 export type DriveDeviceBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     deviceName: string;
     lastSeenAt?: string;
     platform: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     remoteWipeRequired: boolean;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     token?: string;
 };
@@ -2658,6 +3915,9 @@ export type DriveDeviceRevokeInputBodyWritable = {
 };
 
 export type DriveE2EeEnvelopeBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     fileKeyPublicId: string;
     recipientUserId: string;
@@ -2674,9 +3934,18 @@ export type DriveE2EeEnvelopeCreateInputBodyWritable = {
 export type DriveE2EeFileKeyBodyWritable = {
     algorithm: string;
     ciphertextSha256: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     keyVersion: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
 };
 
@@ -2692,8 +3961,17 @@ export type DriveE2EeFileKeyCreateInputBodyWritable = {
 
 export type DriveE2EeUserKeyBodyWritable = {
     algorithm: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     userPublicId: string;
 };
@@ -2706,9 +3984,18 @@ export type DriveE2EeUserKeyCreateInputBodyWritable = {
 };
 
 export type DriveEDiscoveryConnectionBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     provider: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -2718,11 +4005,20 @@ export type DriveEDiscoveryConnectionInputBodyWritable = {
 
 export type DriveEDiscoveryExportBodyWritable = {
     casePublicId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     itemCount: number;
     manifestHash?: string;
     providerExportId?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -2746,42 +4042,102 @@ export type DriveEditSaveOutputBodyWritable = {
 
 export type DriveEditSessionBodyWritable = {
     baseRevision: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     provider: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
 export type DriveFileBodyWritable = {
     byteSize: number;
     contentType: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     deletedAt?: string;
+    /**
+     * resource の説明文です。
+     */
     description?: string;
     dlpBlocked: boolean;
     inheritanceEnabled: boolean;
     lockReason?: string;
     locked: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     lockedAt?: string;
     originalFilename: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     scanStatus: string;
     sha256Hex: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
+    /**
+     * 対象 Drive workspace の public UUID です。
+     */
     workspacePublicId?: string;
 };
 
 export type DriveFolderBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     deletedAt?: string;
+    /**
+     * resource の説明文です。
+     */
     description?: string;
     inheritanceEnabled: boolean;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
+    /**
+     * 対象 Drive workspace の public UUID です。
+     */
     workspacePublicId?: string;
 };
 
@@ -2791,42 +4147,84 @@ export type DriveFolderTreeBodyWritable = {
 };
 
 export type DriveGatewayBindInputBodyWritable = {
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
 };
 
 export type DriveGatewayBodyWritable = {
     certificateFingerprint: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     endpointUrl: string;
     lastSeenAt?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
 export type DriveGatewayInputBodyWritable = {
     certificateFingerprint?: string;
     endpointUrl?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
 };
 
 export type DriveGatewayObjectBodyWritable = {
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     gatewayPublicId: string;
     manifestHash: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
 export type DriveGatewayStatusInputBodyWritable = {
+    /**
+     * 現在の lifecycle status です。
+     */
     status: 'active' | 'disabled' | 'disconnected';
 };
 
 export type DriveGroupBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * resource の説明文です。
+     */
     description: string;
     members?: Array<string> | null;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -2835,19 +4233,31 @@ export type DriveGroupListOutputBodyWritable = {
 };
 
 export type DriveHsmBindInputBodyWritable = {
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     keyPublicId: string;
 };
 
 export type DriveHsmDeploymentBodyWritable = {
     attestationHash?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     endpointUrl: string;
     healthStatus: string;
     keyPublicId: string;
     keyStatus: string;
     provider: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -2857,6 +4267,9 @@ export type DriveHsmDeploymentInputBodyWritable = {
 };
 
 export type DriveHsmKeyStatusInputBodyWritable = {
+    /**
+     * 現在の lifecycle status です。
+     */
     status: 'active' | 'disabled' | 'destroyed' | 'unavailable';
 };
 
@@ -2878,8 +4291,14 @@ export type DriveItemBodyWritable = {
     ownerUserPublicId?: string;
     shareRole?: string;
     sharedWithMe: boolean;
+    /**
+     * record の発生元または permission の由来です。
+     */
     source?: string;
     starredByMe: boolean;
+    /**
+     * 検索や分類に使う tag 配列です。
+     */
     tags?: Array<string> | null;
     type: string;
 };
@@ -2889,27 +4308,60 @@ export type DriveItemListOutputBodyWritable = {
 };
 
 export type DriveLegalCaseBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * resource の説明文です。
+     */
     description: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
 export type DriveLegalCaseCreateInputBodyWritable = {
+    /**
+     * resource の説明文です。
+     */
     description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
 };
 
 export type DriveLegalCaseFileInputBodyWritable = {
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     reason?: string;
 };
 
 export type DriveLegalExportBodyWritable = {
     casePublicId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -2920,9 +4372,18 @@ export type DriveMarketplaceAppsOutputBodyWritable = {
 export type DriveMarketplaceInstallBodyWritable = {
     appName: string;
     appSlug: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     scopes: Array<string> | null;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -2945,10 +4406,22 @@ export type DriveMobileOfflineReplayOutputBodyWritable = {
 };
 
 export type DriveOcrJobBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     engine: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -2959,12 +4432,24 @@ export type DriveOcrOutputBodyWritable = {
 
 export type DriveOfficeSessionBodyWritable = {
     accessLevel: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     launchUrl: string;
     provider: string;
     providerSessionId: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
 };
 
@@ -2997,11 +4482,20 @@ export type DrivePermissionsBodyWritable = {
 };
 
 export type DriveProductExtractionJobBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     extractor: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
     filePublicId: string;
     itemCount: number;
     ocrRunPublicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
 };
 
@@ -3025,29 +4519,74 @@ export type DriveSearchResultOutputBodyWritable = {
 };
 
 export type DriveShareBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     createdByUserId: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
     resourcePublicId: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     subjectPublicId: string;
     subjectType: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
 export type DriveShareInvitationBodyWritable = {
     acceptToken?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
     inviteeEmailDomain: string;
     maskedInviteeEmail?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
     resourcePublicId?: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3056,16 +4595,43 @@ export type DriveShareInvitationListOutputBodyWritable = {
 };
 
 export type DriveShareLinkBodyWritable = {
+    /**
+     * share link または permission で download を許可するかを表します。
+     */
     canDownload: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
     passwordRequired: boolean;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 対象 resource の public UUID です。
+     */
     resourcePublicId: string;
+    /**
+     * `file` や `folder` など、対象 resource の種類です。
+     */
     resourceType: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     token?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3091,13 +4657,25 @@ export type DriveSyncDeltaOutputBodyWritable = {
 };
 
 export type DriveWorkspaceBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
     policyOverride?: {
         [key: string]: unknown;
     };
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     storageQuotaBytes?: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3159,7 +4737,13 @@ export type ListTenantsBodyWritable = {
 };
 
 export type LoginInputBodyWritable = {
+    /**
+     * user または invitee の email address です。
+     */
     email: string;
+    /**
+     * share link 保護などに使う secret value です。response には返しません。
+     */
     password: string;
 };
 
@@ -3170,12 +4754,24 @@ export type LogoutBodyWritable = {
 export type MachineClientBodyWritable = {
     active: boolean;
     allowedScopes?: Array<string> | null;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     defaultTenant?: TenantBody;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
     id: number;
     provider: string;
     providerClientId: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3183,6 +4779,9 @@ export type MachineClientRequestBodyWritable = {
     active?: boolean;
     allowedScopes?: Array<string> | null;
     defaultTenantId?: number;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
     provider?: string;
     providerClientId: string;
@@ -3191,13 +4790,25 @@ export type MachineClientRequestBodyWritable = {
 export type NotificationBodyWritable = {
     body: string;
     channel: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     readAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     subject: string;
     template: string;
     tenantId?: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3216,6 +4827,9 @@ export type RestoreDriveResourceBodyWritable = {
 };
 
 export type SelectTenantInputBodyWritable = {
+    /**
+     * tenant を識別する slug です。
+     */
     tenantSlug: string;
 };
 
@@ -3232,6 +4846,9 @@ export type StartSupportAccessBodyWritable = {
     durationMinutes?: number;
     impersonatedUserPublicId: string;
     reason: string;
+    /**
+     * tenant を識別する slug です。
+     */
     tenantSlug: string;
 };
 
@@ -3241,8 +4858,17 @@ export type SupportAccessOutputBodyWritable = {
 };
 
 export type TenantAdminDriveAdminContentSessionBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     reasonCategory: string;
 };
@@ -3263,6 +4889,9 @@ export type TenantAdminDriveEncryptionPolicyBodyWritable = {
     mode: string;
     provider?: string;
     scope: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt?: string;
 };
 
@@ -3277,6 +4906,9 @@ export type TenantAdminDriveInvitationsOutputBodyWritable = {
 };
 
 export type TenantAdminDriveKmsKeyStatusInputBodyWritable = {
+    /**
+     * 現在の lifecycle status です。
+     */
     status: 'active' | 'disabled' | 'unavailable' | 'deleted';
 };
 
@@ -3309,7 +4941,13 @@ export type TenantAdminDriveResidencyPolicyBodyWritable = {
     indexRegion: string;
     primaryRegion: string;
     replicationMode: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt?: string;
 };
 
@@ -3327,17 +4965,35 @@ export type TenantAdminDriveSyncOutputBodyWritable = {
 };
 
 export type TenantAdminMembershipRequestBodyWritable = {
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     roleCode: string;
+    /**
+     * user または invitee の email address です。
+     */
     userEmail: string;
 };
 
 export type TenantAdminTenantBodyWritable = {
     active: boolean;
     activeMemberCount: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
     id: number;
     slug: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3348,20 +5004,41 @@ export type TenantAdminTenantDetailBodyWritable = {
 
 export type TenantAdminTenantRequestBodyWritable = {
     active?: boolean;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     displayName: string;
     slug?: string;
 };
 
 export type TenantDataExportBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     errorSummary?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
     fileObjectId?: number;
     format: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     tenantId: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3371,14 +5048,35 @@ export type TenantDataExportListOutputBodyWritable = {
 
 export type TenantInvitationBodyWritable = {
     acceptUrl?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt: string;
+    /**
+     * user または invitee の email address です。
+     */
     inviteeEmailNormalized: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     roleCodes: Array<string> | null;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
     tenantId: number;
     token?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3387,6 +5085,9 @@ export type TenantInvitationListOutputBodyWritable = {
 };
 
 export type TenantSettingsBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     features: {
         [key: string]: unknown;
@@ -3397,6 +5098,9 @@ export type TenantSettingsBodyWritable = {
     rateLimitExternalApiPerMinute?: number;
     rateLimitLoginPerMinute?: number;
     tenantId: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3413,9 +5117,18 @@ export type TenantSettingsRequestBodyWritable = {
 
 export type TodoBodyWritable = {
     completed: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     title: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3427,31 +5140,61 @@ export type UpdateCustomerSignalBodyWritable = {
     body?: string;
     customerName?: string;
     priority?: 'low' | 'medium' | 'high' | 'urgent';
+    /**
+     * record の発生元または permission の由来です。
+     */
     source?: 'support' | 'sales' | 'customer_success' | 'research' | 'internal' | 'other';
+    /**
+     * 現在の lifecycle status です。
+     */
     status?: 'new' | 'triaged' | 'planned' | 'closed';
     title?: string;
 };
 
 export type UpdateDriveFileBodyWritable = {
+    /**
+     * resource の説明文です。
+     */
     description?: string;
     originalFilename?: string;
     parentFolderPublicId?: string;
+    /**
+     * 検索や分類に使う tag 配列です。
+     */
     tags?: Array<string>;
 };
 
 export type UpdateDriveFolderBodyWritable = {
+    /**
+     * resource の説明文です。
+     */
     description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name?: string;
     parentFolderPublicId?: string;
+    /**
+     * 検索や分類に使う tag 配列です。
+     */
     tags?: Array<string>;
 };
 
 export type UpdateDriveShareBodyWritable = {
+    /**
+     * resource に対して付与する role または tenant role code です。
+     */
     role: 'editor' | 'viewer';
 };
 
 export type UpdateDriveShareLinkBodyWritable = {
+    /**
+     * share link または permission で download を許可するかを表します。
+     */
     canDownload?: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     expiresAt?: string;
 };
 
@@ -3474,15 +5217,27 @@ export type VerifyIntegrationBodyWritable = {
 
 export type WebhookDeliveryBodyWritable = {
     attemptCount: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     deliveredAt?: string;
     eventType: string;
     lastError?: string;
     lastHttpStatus?: number;
     maxAttempts: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     responsePreview?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
     status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
 };
 
@@ -3492,20 +5247,41 @@ export type WebhookDeliveryListOutputBodyWritable = {
 
 export type WebhookEndpointBodyWritable = {
     active: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     createdAt: string;
     eventTypes: Array<string> | null;
     lastDeliveryAt?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
     publicId: string;
     secret?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
     updatedAt: string;
+    /**
+     * callback または external service の URL です。
+     */
     url: string;
 };
 
 export type WebhookEndpointRequestBodyWritable = {
     active?: boolean;
     eventTypes: Array<string> | null;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
     name: string;
+    /**
+     * callback または external service の URL です。
+     */
     url: string;
 };
 
@@ -3514,8 +5290,14 @@ export type WebhookListOutputBodyWritable = {
 };
 
 export type AcceptDriveOfficeWebhookData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveOfficeWebhookInputBodyWritable;
     path: {
+        /**
+         * path 内の `provider` を指定します。
+         */
         provider: string;
     };
     query?: never;
@@ -3524,7 +5306,7 @@ export type AcceptDriveOfficeWebhookData = {
 
 export type AcceptDriveOfficeWebhookErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3533,7 +5315,7 @@ export type AcceptDriveOfficeWebhookError = AcceptDriveOfficeWebhookErrors[keyof
 
 export type AcceptDriveOfficeWebhookResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveOfficeWebhookOutputBody;
 };
@@ -3543,6 +5325,9 @@ export type AcceptDriveOfficeWebhookResponse = AcceptDriveOfficeWebhookResponses
 export type GetPublicDriveShareLinkData = {
     body?: never;
     path: {
+        /**
+         * path 内の `token` を指定します。
+         */
         token: string;
     };
     query?: never;
@@ -3551,7 +5336,7 @@ export type GetPublicDriveShareLinkData = {
 
 export type GetPublicDriveShareLinkErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3560,7 +5345,7 @@ export type GetPublicDriveShareLinkError = GetPublicDriveShareLinkErrors[keyof G
 
 export type GetPublicDriveShareLinkResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: PublicDriveShareLinkOutputBody;
 };
@@ -3570,9 +5355,15 @@ export type GetPublicDriveShareLinkResponse = GetPublicDriveShareLinkResponses[k
 export type ListPublicDriveShareLinkChildrenData = {
     body?: never;
     path: {
+        /**
+         * path 内の `token` を指定します。
+         */
         token: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/public/drive/share-links/{token}/children';
@@ -3580,7 +5371,7 @@ export type ListPublicDriveShareLinkChildrenData = {
 
 export type ListPublicDriveShareLinkChildrenErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3589,7 +5380,7 @@ export type ListPublicDriveShareLinkChildrenError = ListPublicDriveShareLinkChil
 
 export type ListPublicDriveShareLinkChildrenResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemListOutputBody;
 };
@@ -3605,7 +5396,7 @@ export type ListTenantAdminTenantsData = {
 
 export type ListTenantAdminTenantsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3614,7 +5405,7 @@ export type ListTenantAdminTenantsError = ListTenantAdminTenantsErrors[keyof Lis
 
 export type ListTenantAdminTenantsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: ListTenantAdminTenantsOutputBody;
 };
@@ -3622,8 +5413,14 @@ export type ListTenantAdminTenantsResponses = {
 export type ListTenantAdminTenantsResponse = ListTenantAdminTenantsResponses[keyof ListTenantAdminTenantsResponses];
 
 export type CreateTenantAdminTenantData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: TenantAdminTenantRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -3633,7 +5430,7 @@ export type CreateTenantAdminTenantData = {
 
 export type CreateTenantAdminTenantErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3642,7 +5439,7 @@ export type CreateTenantAdminTenantError = CreateTenantAdminTenantErrors[keyof C
 
 export type CreateTenantAdminTenantResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminTenantBody;
 };
@@ -3652,9 +5449,15 @@ export type CreateTenantAdminTenantResponse = CreateTenantAdminTenantResponses[k
 export type DeactivateTenantAdminTenantData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -3663,7 +5466,7 @@ export type DeactivateTenantAdminTenantData = {
 
 export type DeactivateTenantAdminTenantErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3672,7 +5475,7 @@ export type DeactivateTenantAdminTenantError = DeactivateTenantAdminTenantErrors
 
 export type DeactivateTenantAdminTenantResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -3682,6 +5485,9 @@ export type DeactivateTenantAdminTenantResponse = DeactivateTenantAdminTenantRes
 export type GetTenantAdminTenantData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -3690,7 +5496,7 @@ export type GetTenantAdminTenantData = {
 
 export type GetTenantAdminTenantErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3699,7 +5505,7 @@ export type GetTenantAdminTenantError = GetTenantAdminTenantErrors[keyof GetTena
 
 export type GetTenantAdminTenantResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminTenantDetailBody;
 };
@@ -3707,11 +5513,20 @@ export type GetTenantAdminTenantResponses = {
 export type GetTenantAdminTenantResponse = GetTenantAdminTenantResponses[keyof GetTenantAdminTenantResponses];
 
 export type UpdateTenantAdminTenantData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: TenantAdminTenantRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -3720,7 +5535,7 @@ export type UpdateTenantAdminTenantData = {
 
 export type UpdateTenantAdminTenantErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3729,7 +5544,7 @@ export type UpdateTenantAdminTenantError = UpdateTenantAdminTenantErrors[keyof U
 
 export type UpdateTenantAdminTenantResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminTenantBody;
 };
@@ -3739,9 +5554,15 @@ export type UpdateTenantAdminTenantResponse = UpdateTenantAdminTenantResponses[k
 export type ListTenantAdminDriveAuditEventsData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/audit-events';
@@ -3749,7 +5570,7 @@ export type ListTenantAdminDriveAuditEventsData = {
 
 export type ListTenantAdminDriveAuditEventsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3758,7 +5579,7 @@ export type ListTenantAdminDriveAuditEventsError = ListTenantAdminDriveAuditEven
 
 export type ListTenantAdminDriveAuditEventsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveAuditOutputBody;
 };
@@ -3766,11 +5587,20 @@ export type ListTenantAdminDriveAuditEventsResponses = {
 export type ListTenantAdminDriveAuditEventsResponse = ListTenantAdminDriveAuditEventsResponses[keyof ListTenantAdminDriveAuditEventsResponses];
 
 export type CreateDriveCleanRoomData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveCleanRoomCreateInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -3779,7 +5609,7 @@ export type CreateDriveCleanRoomData = {
 
 export type CreateDriveCleanRoomErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3788,7 +5618,7 @@ export type CreateDriveCleanRoomError = CreateDriveCleanRoomErrors[keyof CreateD
 
 export type CreateDriveCleanRoomResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveCleanRoomBody;
 };
@@ -3796,12 +5626,24 @@ export type CreateDriveCleanRoomResponses = {
 export type CreateDriveCleanRoomResponse = CreateDriveCleanRoomResponses[keyof CreateDriveCleanRoomResponses];
 
 export type SubmitDriveCleanRoomDatasetData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveCleanRoomDatasetInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `roomPublicId` を指定します。
+         */
         roomPublicId: string;
     };
     query?: never;
@@ -3810,7 +5652,7 @@ export type SubmitDriveCleanRoomDatasetData = {
 
 export type SubmitDriveCleanRoomDatasetErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3819,7 +5661,7 @@ export type SubmitDriveCleanRoomDatasetError = SubmitDriveCleanRoomDatasetErrors
 
 export type SubmitDriveCleanRoomDatasetResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveCleanRoomDatasetBody;
 };
@@ -3827,12 +5669,24 @@ export type SubmitDriveCleanRoomDatasetResponses = {
 export type SubmitDriveCleanRoomDatasetResponse = SubmitDriveCleanRoomDatasetResponses[keyof SubmitDriveCleanRoomDatasetResponses];
 
 export type RequestDriveCleanRoomExportData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveCleanRoomExportInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `roomPublicId` を指定します。
+         */
         roomPublicId: string;
     };
     query?: never;
@@ -3841,7 +5695,7 @@ export type RequestDriveCleanRoomExportData = {
 
 export type RequestDriveCleanRoomExportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3850,7 +5704,7 @@ export type RequestDriveCleanRoomExportError = RequestDriveCleanRoomExportErrors
 
 export type RequestDriveCleanRoomExportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveCleanRoomExportBody;
 };
@@ -3858,12 +5712,24 @@ export type RequestDriveCleanRoomExportResponses = {
 export type RequestDriveCleanRoomExportResponse = RequestDriveCleanRoomExportResponses[keyof RequestDriveCleanRoomExportResponses];
 
 export type AddDriveCleanRoomParticipantData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveCleanRoomParticipantInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `roomPublicId` を指定します。
+         */
         roomPublicId: string;
     };
     query?: never;
@@ -3872,7 +5738,7 @@ export type AddDriveCleanRoomParticipantData = {
 
 export type AddDriveCleanRoomParticipantErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3881,7 +5747,7 @@ export type AddDriveCleanRoomParticipantError = AddDriveCleanRoomParticipantErro
 
 export type AddDriveCleanRoomParticipantResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -3889,11 +5755,20 @@ export type AddDriveCleanRoomParticipantResponses = {
 export type AddDriveCleanRoomParticipantResponse = AddDriveCleanRoomParticipantResponses[keyof AddDriveCleanRoomParticipantResponses];
 
 export type StartTenantAdminDriveContentAccessSessionData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: TenantAdminDriveAdminContentSessionInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -3902,7 +5777,7 @@ export type StartTenantAdminDriveContentAccessSessionData = {
 
 export type StartTenantAdminDriveContentAccessSessionErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3911,7 +5786,7 @@ export type StartTenantAdminDriveContentAccessSessionError = StartTenantAdminDri
 
 export type StartTenantAdminDriveContentAccessSessionResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveAdminContentSessionBody;
 };
@@ -3921,9 +5796,15 @@ export type StartTenantAdminDriveContentAccessSessionResponse = StartTenantAdmin
 export type EndTenantAdminDriveContentAccessSessionData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -3932,7 +5813,7 @@ export type EndTenantAdminDriveContentAccessSessionData = {
 
 export type EndTenantAdminDriveContentAccessSessionErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3941,7 +5822,7 @@ export type EndTenantAdminDriveContentAccessSessionError = EndTenantAdminDriveCo
 
 export type EndTenantAdminDriveContentAccessSessionResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -3949,11 +5830,20 @@ export type EndTenantAdminDriveContentAccessSessionResponses = {
 export type EndTenantAdminDriveContentAccessSessionResponse = EndTenantAdminDriveContentAccessSessionResponses[keyof EndTenantAdminDriveContentAccessSessionResponses];
 
 export type CreateDriveEDiscoveryConnectionData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveEDiscoveryConnectionInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -3962,7 +5852,7 @@ export type CreateDriveEDiscoveryConnectionData = {
 
 export type CreateDriveEDiscoveryConnectionErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -3971,7 +5861,7 @@ export type CreateDriveEDiscoveryConnectionError = CreateDriveEDiscoveryConnecti
 
 export type CreateDriveEDiscoveryConnectionResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveEDiscoveryConnectionBody;
 };
@@ -3979,11 +5869,20 @@ export type CreateDriveEDiscoveryConnectionResponses = {
 export type CreateDriveEDiscoveryConnectionResponse = CreateDriveEDiscoveryConnectionResponses[keyof CreateDriveEDiscoveryConnectionResponses];
 
 export type RequestDriveEDiscoveryExportData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveEDiscoveryExportInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -3992,7 +5891,7 @@ export type RequestDriveEDiscoveryExportData = {
 
 export type RequestDriveEDiscoveryExportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4001,7 +5900,7 @@ export type RequestDriveEDiscoveryExportError = RequestDriveEDiscoveryExportErro
 
 export type RequestDriveEDiscoveryExportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveEDiscoveryExportBody;
 };
@@ -4011,10 +5910,19 @@ export type RequestDriveEDiscoveryExportResponse = RequestDriveEDiscoveryExportR
 export type ApproveDriveEDiscoveryExportData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `exportPublicId` を指定します。
+         */
         exportPublicId: string;
     };
     query?: never;
@@ -4023,7 +5931,7 @@ export type ApproveDriveEDiscoveryExportData = {
 
 export type ApproveDriveEDiscoveryExportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4032,7 +5940,7 @@ export type ApproveDriveEDiscoveryExportError = ApproveDriveEDiscoveryExportErro
 
 export type ApproveDriveEDiscoveryExportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveEDiscoveryExportBody;
 };
@@ -4042,7 +5950,13 @@ export type ApproveDriveEDiscoveryExportResponse = ApproveDriveEDiscoveryExportR
 export type GetTenantAdminDriveFileMetadataData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -4051,7 +5965,7 @@ export type GetTenantAdminDriveFileMetadataData = {
 
 export type GetTenantAdminDriveFileMetadataErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4060,7 +5974,7 @@ export type GetTenantAdminDriveFileMetadataError = GetTenantAdminDriveFileMetada
 
 export type GetTenantAdminDriveFileMetadataResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveFileBody;
 };
@@ -4068,11 +5982,20 @@ export type GetTenantAdminDriveFileMetadataResponses = {
 export type GetTenantAdminDriveFileMetadataResponse = GetTenantAdminDriveFileMetadataResponses[keyof GetTenantAdminDriveFileMetadataResponses];
 
 export type RegisterDriveGatewayData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveGatewayInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4081,7 +6004,7 @@ export type RegisterDriveGatewayData = {
 
 export type RegisterDriveGatewayErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4090,7 +6013,7 @@ export type RegisterDriveGatewayError = RegisterDriveGatewayErrors[keyof Registe
 
 export type RegisterDriveGatewayResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveGatewayBody;
 };
@@ -4098,12 +6021,24 @@ export type RegisterDriveGatewayResponses = {
 export type RegisterDriveGatewayResponse = RegisterDriveGatewayResponses[keyof RegisterDriveGatewayResponses];
 
 export type UpdateDriveGatewayStatusData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveGatewayStatusInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `gatewayPublicId` を指定します。
+         */
         gatewayPublicId: string;
     };
     query?: never;
@@ -4112,7 +6047,7 @@ export type UpdateDriveGatewayStatusData = {
 
 export type UpdateDriveGatewayStatusErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4121,7 +6056,7 @@ export type UpdateDriveGatewayStatusError = UpdateDriveGatewayStatusErrors[keyof
 
 export type UpdateDriveGatewayStatusResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveGatewayBody;
 };
@@ -4129,12 +6064,24 @@ export type UpdateDriveGatewayStatusResponses = {
 export type UpdateDriveGatewayStatusResponse = UpdateDriveGatewayStatusResponses[keyof UpdateDriveGatewayStatusResponses];
 
 export type BindDriveGatewayFileData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveGatewayBindInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `gatewayPublicId` を指定します。
+         */
         gatewayPublicId: string;
     };
     query?: never;
@@ -4143,7 +6090,7 @@ export type BindDriveGatewayFileData = {
 
 export type BindDriveGatewayFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4152,7 +6099,7 @@ export type BindDriveGatewayFileError = BindDriveGatewayFileErrors[keyof BindDri
 
 export type BindDriveGatewayFileResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveGatewayObjectBody;
 };
@@ -4160,11 +6107,20 @@ export type BindDriveGatewayFileResponses = {
 export type BindDriveGatewayFileResponse = BindDriveGatewayFileResponses[keyof BindDriveGatewayFileResponses];
 
 export type BindDriveHsmKeyData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveHsmBindInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4173,7 +6129,7 @@ export type BindDriveHsmKeyData = {
 
 export type BindDriveHsmKeyErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4182,7 +6138,7 @@ export type BindDriveHsmKeyError = BindDriveHsmKeyErrors[keyof BindDriveHsmKeyEr
 
 export type BindDriveHsmKeyResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -4190,11 +6146,20 @@ export type BindDriveHsmKeyResponses = {
 export type BindDriveHsmKeyResponse = BindDriveHsmKeyResponses[keyof BindDriveHsmKeyResponses];
 
 export type CreateDriveHsmDeploymentData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveHsmDeploymentInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4203,7 +6168,7 @@ export type CreateDriveHsmDeploymentData = {
 
 export type CreateDriveHsmDeploymentErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4212,7 +6177,7 @@ export type CreateDriveHsmDeploymentError = CreateDriveHsmDeploymentErrors[keyof
 
 export type CreateDriveHsmDeploymentResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveHsmDeploymentBody;
 };
@@ -4220,12 +6185,24 @@ export type CreateDriveHsmDeploymentResponses = {
 export type CreateDriveHsmDeploymentResponse = CreateDriveHsmDeploymentResponses[keyof CreateDriveHsmDeploymentResponses];
 
 export type UpdateDriveHsmKeyStatusData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveHsmKeyStatusInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `keyPublicId` を指定します。
+         */
         keyPublicId: string;
     };
     query?: never;
@@ -4234,7 +6211,7 @@ export type UpdateDriveHsmKeyStatusData = {
 
 export type UpdateDriveHsmKeyStatusErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4243,7 +6220,7 @@ export type UpdateDriveHsmKeyStatusError = UpdateDriveHsmKeyStatusErrors[keyof U
 
 export type UpdateDriveHsmKeyStatusResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveHsmDeploymentBody;
 };
@@ -4253,9 +6230,15 @@ export type UpdateDriveHsmKeyStatusResponse = UpdateDriveHsmKeyStatusResponses[k
 export type ListTenantAdminDriveInvitationsData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/invitations';
@@ -4263,7 +6246,7 @@ export type ListTenantAdminDriveInvitationsData = {
 
 export type ListTenantAdminDriveInvitationsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4272,7 +6255,7 @@ export type ListTenantAdminDriveInvitationsError = ListTenantAdminDriveInvitatio
 
 export type ListTenantAdminDriveInvitationsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveInvitationsOutputBody;
 };
@@ -4280,11 +6263,20 @@ export type ListTenantAdminDriveInvitationsResponses = {
 export type ListTenantAdminDriveInvitationsResponse = ListTenantAdminDriveInvitationsResponses[keyof ListTenantAdminDriveInvitationsResponses];
 
 export type CreateDriveLegalCaseData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveLegalCaseCreateInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4293,7 +6285,7 @@ export type CreateDriveLegalCaseData = {
 
 export type CreateDriveLegalCaseErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4302,7 +6294,7 @@ export type CreateDriveLegalCaseError = CreateDriveLegalCaseErrors[keyof CreateD
 
 export type CreateDriveLegalCaseResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveLegalCaseBody;
 };
@@ -4312,10 +6304,19 @@ export type CreateDriveLegalCaseResponse = CreateDriveLegalCaseResponses[keyof C
 export type CreateDriveLegalExportData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `casePublicId` を指定します。
+         */
         casePublicId: string;
     };
     query?: never;
@@ -4324,7 +6325,7 @@ export type CreateDriveLegalExportData = {
 
 export type CreateDriveLegalExportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4333,7 +6334,7 @@ export type CreateDriveLegalExportError = CreateDriveLegalExportErrors[keyof Cre
 
 export type CreateDriveLegalExportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveLegalExportBody;
 };
@@ -4341,12 +6342,24 @@ export type CreateDriveLegalExportResponses = {
 export type CreateDriveLegalExportResponse = CreateDriveLegalExportResponses[keyof CreateDriveLegalExportResponses];
 
 export type AddDriveLegalCaseFileData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveLegalCaseFileInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `casePublicId` を指定します。
+         */
         casePublicId: string;
     };
     query?: never;
@@ -4355,7 +6368,7 @@ export type AddDriveLegalCaseFileData = {
 
 export type AddDriveLegalCaseFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4364,7 +6377,7 @@ export type AddDriveLegalCaseFileError = AddDriveLegalCaseFileErrors[keyof AddDr
 
 export type AddDriveLegalCaseFileResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -4372,11 +6385,20 @@ export type AddDriveLegalCaseFileResponses = {
 export type AddDriveLegalCaseFileResponse = AddDriveLegalCaseFileResponses[keyof AddDriveLegalCaseFileResponses];
 
 export type InstallDriveMarketplaceAppData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveMarketplaceInstallInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4385,7 +6407,7 @@ export type InstallDriveMarketplaceAppData = {
 
 export type InstallDriveMarketplaceAppErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4394,7 +6416,7 @@ export type InstallDriveMarketplaceAppError = InstallDriveMarketplaceAppErrors[k
 
 export type InstallDriveMarketplaceAppResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveMarketplaceInstallBody;
 };
@@ -4404,10 +6426,19 @@ export type InstallDriveMarketplaceAppResponse = InstallDriveMarketplaceAppRespo
 export type UninstallDriveMarketplaceInstallationData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `installationPublicId` を指定します。
+         */
         installationPublicId: string;
     };
     query?: never;
@@ -4416,7 +6447,7 @@ export type UninstallDriveMarketplaceInstallationData = {
 
 export type UninstallDriveMarketplaceInstallationErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4425,7 +6456,7 @@ export type UninstallDriveMarketplaceInstallationError = UninstallDriveMarketpla
 
 export type UninstallDriveMarketplaceInstallationResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -4435,10 +6466,19 @@ export type UninstallDriveMarketplaceInstallationResponse = UninstallDriveMarket
 export type ApproveDriveMarketplaceInstallationData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `installationPublicId` を指定します。
+         */
         installationPublicId: string;
     };
     query?: never;
@@ -4447,7 +6487,7 @@ export type ApproveDriveMarketplaceInstallationData = {
 
 export type ApproveDriveMarketplaceInstallationErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4456,7 +6496,7 @@ export type ApproveDriveMarketplaceInstallationError = ApproveDriveMarketplaceIn
 
 export type ApproveDriveMarketplaceInstallationResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveMarketplaceInstallBody;
 };
@@ -4466,11 +6506,23 @@ export type ApproveDriveMarketplaceInstallationResponse = ApproveDriveMarketplac
 export type CheckDriveMarketplaceScopeData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `installationPublicId` を指定します。
+         */
         installationPublicId: string;
     };
     query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `scope` です。
+         */
         scope?: string;
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId?: string;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}/scope-check';
@@ -4478,7 +6530,7 @@ export type CheckDriveMarketplaceScopeData = {
 
 export type CheckDriveMarketplaceScopeErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4487,7 +6539,7 @@ export type CheckDriveMarketplaceScopeError = CheckDriveMarketplaceScopeErrors[k
 
 export type CheckDriveMarketplaceScopeResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveMarketplaceScopeOutputBody;
 };
@@ -4497,9 +6549,15 @@ export type CheckDriveMarketplaceScopeResponse = CheckDriveMarketplaceScopeRespo
 export type GetTenantAdminDriveOcrStatusData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/ocr/status';
@@ -4507,7 +6565,7 @@ export type GetTenantAdminDriveOcrStatusData = {
 
 export type GetTenantAdminDriveOcrStatusErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4516,7 +6574,7 @@ export type GetTenantAdminDriveOcrStatusError = GetTenantAdminDriveOcrStatusErro
 
 export type GetTenantAdminDriveOcrStatusResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveOcrStatusBody;
 };
@@ -4526,9 +6584,15 @@ export type GetTenantAdminDriveOcrStatusResponse = GetTenantAdminDriveOcrStatusR
 export type GetTenantAdminDriveOpenFgaDriftData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/openfga-sync/drift';
@@ -4536,7 +6600,7 @@ export type GetTenantAdminDriveOpenFgaDriftData = {
 
 export type GetTenantAdminDriveOpenFgaDriftErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4545,7 +6609,7 @@ export type GetTenantAdminDriveOpenFgaDriftError = GetTenantAdminDriveOpenFgaDri
 
 export type GetTenantAdminDriveOpenFgaDriftResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveSyncOutputBody;
 };
@@ -4555,9 +6619,15 @@ export type GetTenantAdminDriveOpenFgaDriftResponse = GetTenantAdminDriveOpenFga
 export type RepairTenantAdminDriveOpenFgaSyncData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4566,7 +6636,7 @@ export type RepairTenantAdminDriveOpenFgaSyncData = {
 
 export type RepairTenantAdminDriveOpenFgaSyncErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4575,7 +6645,7 @@ export type RepairTenantAdminDriveOpenFgaSyncError = RepairTenantAdminDriveOpenF
 
 export type RepairTenantAdminDriveOpenFgaSyncResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveSyncOutputBody;
 };
@@ -4585,9 +6655,15 @@ export type RepairTenantAdminDriveOpenFgaSyncResponse = RepairTenantAdminDriveOp
 export type CheckTenantAdminDriveOperationsDriftData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4596,7 +6672,7 @@ export type CheckTenantAdminDriveOperationsDriftData = {
 
 export type CheckTenantAdminDriveOperationsDriftErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4605,7 +6681,7 @@ export type CheckTenantAdminDriveOperationsDriftError = CheckTenantAdminDriveOpe
 
 export type CheckTenantAdminDriveOperationsDriftResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveSyncOutputBody;
 };
@@ -4615,9 +6691,15 @@ export type CheckTenantAdminDriveOperationsDriftResponse = CheckTenantAdminDrive
 export type GetTenantAdminDriveOperationsHealthData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/operations/health';
@@ -4625,7 +6707,7 @@ export type GetTenantAdminDriveOperationsHealthData = {
 
 export type GetTenantAdminDriveOperationsHealthErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4634,7 +6716,7 @@ export type GetTenantAdminDriveOperationsHealthError = GetTenantAdminDriveOperat
 
 export type GetTenantAdminDriveOperationsHealthResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveOperationsHealthBody;
 };
@@ -4644,9 +6726,15 @@ export type GetTenantAdminDriveOperationsHealthResponse = GetTenantAdminDriveOpe
 export type RepairTenantAdminDriveOperationsData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4655,7 +6743,7 @@ export type RepairTenantAdminDriveOperationsData = {
 
 export type RepairTenantAdminDriveOperationsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4664,7 +6752,7 @@ export type RepairTenantAdminDriveOperationsError = RepairTenantAdminDriveOperat
 
 export type RepairTenantAdminDriveOperationsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveSyncOutputBody;
 };
@@ -4674,9 +6762,15 @@ export type RepairTenantAdminDriveOperationsResponse = RepairTenantAdminDriveOpe
 export type GetTenantAdminDriveResidencyPolicyData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/residency-policy';
@@ -4684,7 +6778,7 @@ export type GetTenantAdminDriveResidencyPolicyData = {
 
 export type GetTenantAdminDriveResidencyPolicyErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4693,7 +6787,7 @@ export type GetTenantAdminDriveResidencyPolicyError = GetTenantAdminDriveResiden
 
 export type GetTenantAdminDriveResidencyPolicyResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveResidencyPolicyBody;
 };
@@ -4701,11 +6795,20 @@ export type GetTenantAdminDriveResidencyPolicyResponses = {
 export type GetTenantAdminDriveResidencyPolicyResponse = GetTenantAdminDriveResidencyPolicyResponses[keyof GetTenantAdminDriveResidencyPolicyResponses];
 
 export type UpdateTenantAdminDriveResidencyPolicyData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: TenantAdminDriveResidencyPolicyBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4714,7 +6817,7 @@ export type UpdateTenantAdminDriveResidencyPolicyData = {
 
 export type UpdateTenantAdminDriveResidencyPolicyErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4723,7 +6826,7 @@ export type UpdateTenantAdminDriveResidencyPolicyError = UpdateTenantAdminDriveR
 
 export type UpdateTenantAdminDriveResidencyPolicyResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveResidencyPolicyBody;
 };
@@ -4733,9 +6836,15 @@ export type UpdateTenantAdminDriveResidencyPolicyResponse = UpdateTenantAdminDri
 export type RebuildTenantAdminDriveSearchIndexData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4744,7 +6853,7 @@ export type RebuildTenantAdminDriveSearchIndexData = {
 
 export type RebuildTenantAdminDriveSearchIndexErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4753,7 +6862,7 @@ export type RebuildTenantAdminDriveSearchIndexError = RebuildTenantAdminDriveSea
 
 export type RebuildTenantAdminDriveSearchIndexResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveIndexRebuildBody;
 };
@@ -4763,9 +6872,15 @@ export type RebuildTenantAdminDriveSearchIndexResponse = RebuildTenantAdminDrive
 export type GetTenantAdminDriveEncryptionPolicyData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/security/encryption-policy';
@@ -4773,7 +6888,7 @@ export type GetTenantAdminDriveEncryptionPolicyData = {
 
 export type GetTenantAdminDriveEncryptionPolicyErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4782,7 +6897,7 @@ export type GetTenantAdminDriveEncryptionPolicyError = GetTenantAdminDriveEncryp
 
 export type GetTenantAdminDriveEncryptionPolicyResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveEncryptionPolicyBody;
 };
@@ -4790,11 +6905,20 @@ export type GetTenantAdminDriveEncryptionPolicyResponses = {
 export type GetTenantAdminDriveEncryptionPolicyResponse = GetTenantAdminDriveEncryptionPolicyResponses[keyof GetTenantAdminDriveEncryptionPolicyResponses];
 
 export type UpdateTenantAdminDriveEncryptionPolicyData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: TenantAdminDriveEncryptionPolicyInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -4803,7 +6927,7 @@ export type UpdateTenantAdminDriveEncryptionPolicyData = {
 
 export type UpdateTenantAdminDriveEncryptionPolicyErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4812,7 +6936,7 @@ export type UpdateTenantAdminDriveEncryptionPolicyError = UpdateTenantAdminDrive
 
 export type UpdateTenantAdminDriveEncryptionPolicyResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveEncryptionPolicyBody;
 };
@@ -4820,12 +6944,24 @@ export type UpdateTenantAdminDriveEncryptionPolicyResponses = {
 export type UpdateTenantAdminDriveEncryptionPolicyResponse = UpdateTenantAdminDriveEncryptionPolicyResponses[keyof UpdateTenantAdminDriveEncryptionPolicyResponses];
 
 export type UpdateTenantAdminDriveKmsKeyStatusData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: TenantAdminDriveKmsKeyStatusInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `keyPublicId` を指定します。
+         */
         keyPublicId: string;
     };
     query?: never;
@@ -4834,7 +6970,7 @@ export type UpdateTenantAdminDriveKmsKeyStatusData = {
 
 export type UpdateTenantAdminDriveKmsKeyStatusErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4843,7 +6979,7 @@ export type UpdateTenantAdminDriveKmsKeyStatusError = UpdateTenantAdminDriveKmsK
 
 export type UpdateTenantAdminDriveKmsKeyStatusResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveEncryptionPolicyBody;
 };
@@ -4853,9 +6989,15 @@ export type UpdateTenantAdminDriveKmsKeyStatusResponse = UpdateTenantAdminDriveK
 export type ListTenantAdminDriveShareApprovalsData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/share-approvals';
@@ -4863,7 +7005,7 @@ export type ListTenantAdminDriveShareApprovalsData = {
 
 export type ListTenantAdminDriveShareApprovalsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4872,7 +7014,7 @@ export type ListTenantAdminDriveShareApprovalsError = ListTenantAdminDriveShareA
 
 export type ListTenantAdminDriveShareApprovalsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveInvitationsOutputBody;
 };
@@ -4882,10 +7024,19 @@ export type ListTenantAdminDriveShareApprovalsResponse = ListTenantAdminDriveSha
 export type ApproveTenantAdminDriveShareApprovalData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `invitationPublicId` を指定します。
+         */
         invitationPublicId: string;
     };
     query?: never;
@@ -4894,7 +7045,7 @@ export type ApproveTenantAdminDriveShareApprovalData = {
 
 export type ApproveTenantAdminDriveShareApprovalErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4903,7 +7054,7 @@ export type ApproveTenantAdminDriveShareApprovalError = ApproveTenantAdminDriveS
 
 export type ApproveTenantAdminDriveShareApprovalResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -4913,10 +7064,19 @@ export type ApproveTenantAdminDriveShareApprovalResponse = ApproveTenantAdminDri
 export type RejectTenantAdminDriveShareApprovalData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `invitationPublicId` を指定します。
+         */
         invitationPublicId: string;
     };
     query?: never;
@@ -4925,7 +7085,7 @@ export type RejectTenantAdminDriveShareApprovalData = {
 
 export type RejectTenantAdminDriveShareApprovalErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4934,7 +7094,7 @@ export type RejectTenantAdminDriveShareApprovalError = RejectTenantAdminDriveSha
 
 export type RejectTenantAdminDriveShareApprovalResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -4944,9 +7104,15 @@ export type RejectTenantAdminDriveShareApprovalResponse = RejectTenantAdminDrive
 export type ListTenantAdminDriveShareLinksData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/share-links';
@@ -4954,7 +7120,7 @@ export type ListTenantAdminDriveShareLinksData = {
 
 export type ListTenantAdminDriveShareLinksErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4963,7 +7129,7 @@ export type ListTenantAdminDriveShareLinksError = ListTenantAdminDriveShareLinks
 
 export type ListTenantAdminDriveShareLinksResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveShareLinksOutputBody;
 };
@@ -4973,9 +7139,15 @@ export type ListTenantAdminDriveShareLinksResponse = ListTenantAdminDriveShareLi
 export type ListTenantAdminDriveSharesData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/admin/tenants/{tenantSlug}/drive/shares';
@@ -4983,7 +7155,7 @@ export type ListTenantAdminDriveSharesData = {
 
 export type ListTenantAdminDriveSharesErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -4992,7 +7164,7 @@ export type ListTenantAdminDriveSharesError = ListTenantAdminDriveSharesErrors[k
 
 export type ListTenantAdminDriveSharesResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantAdminDriveSharesOutputBody;
 };
@@ -5002,6 +7174,9 @@ export type ListTenantAdminDriveSharesResponse = ListTenantAdminDriveSharesRespo
 export type ListTenantEntitlementsData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5010,7 +7185,7 @@ export type ListTenantEntitlementsData = {
 
 export type ListTenantEntitlementsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5019,7 +7194,7 @@ export type ListTenantEntitlementsError = ListTenantEntitlementsErrors[keyof Lis
 
 export type ListTenantEntitlementsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: EntitlementListOutputBody;
 };
@@ -5027,11 +7202,20 @@ export type ListTenantEntitlementsResponses = {
 export type ListTenantEntitlementsResponse = ListTenantEntitlementsResponses[keyof ListTenantEntitlementsResponses];
 
 export type UpdateTenantEntitlementsData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: UpdateEntitlementsInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5040,7 +7224,7 @@ export type UpdateTenantEntitlementsData = {
 
 export type UpdateTenantEntitlementsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5049,7 +7233,7 @@ export type UpdateTenantEntitlementsError = UpdateTenantEntitlementsErrors[keyof
 
 export type UpdateTenantEntitlementsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: EntitlementListOutputBody;
 };
@@ -5059,6 +7243,9 @@ export type UpdateTenantEntitlementsResponse = UpdateTenantEntitlementsResponses
 export type ListTenantDataExportsData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5067,7 +7254,7 @@ export type ListTenantDataExportsData = {
 
 export type ListTenantDataExportsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5076,7 +7263,7 @@ export type ListTenantDataExportsError = ListTenantDataExportsErrors[keyof ListT
 
 export type ListTenantDataExportsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantDataExportListOutputBody;
 };
@@ -5084,12 +7271,24 @@ export type ListTenantDataExportsResponses = {
 export type ListTenantDataExportsResponse = ListTenantDataExportsResponses[keyof ListTenantDataExportsResponses];
 
 export type CreateTenantDataExportData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateTenantDataExportRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
+        /**
+         * 同じ request の retry を安全に扱うための任意 key です。同じ key は同じ method/path/body にだけ再利用できます。
+         */
         'Idempotency-Key'?: string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5098,7 +7297,7 @@ export type CreateTenantDataExportData = {
 
 export type CreateTenantDataExportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5107,7 +7306,7 @@ export type CreateTenantDataExportError = CreateTenantDataExportErrors[keyof Cre
 
 export type CreateTenantDataExportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantDataExportBody;
 };
@@ -5117,7 +7316,13 @@ export type CreateTenantDataExportResponse = CreateTenantDataExportResponses[key
 export type GetTenantDataExportData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `exportPublicId` を指定します。
+         */
         exportPublicId: string;
     };
     query?: never;
@@ -5126,7 +7331,7 @@ export type GetTenantDataExportData = {
 
 export type GetTenantDataExportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5135,7 +7340,7 @@ export type GetTenantDataExportError = GetTenantDataExportErrors[keyof GetTenant
 
 export type GetTenantDataExportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantDataExportBody;
 };
@@ -5145,7 +7350,13 @@ export type GetTenantDataExportResponse = GetTenantDataExportResponses[keyof Get
 export type DownloadTenantDataExportData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `exportPublicId` を指定します。
+         */
         exportPublicId: string;
     };
     query?: never;
@@ -5154,7 +7365,7 @@ export type DownloadTenantDataExportData = {
 
 export type DownloadTenantDataExportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5163,7 +7374,7 @@ export type DownloadTenantDataExportError = DownloadTenantDataExportErrors[keyof
 
 export type DownloadTenantDataExportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: string;
 };
@@ -5173,6 +7384,9 @@ export type DownloadTenantDataExportResponse = DownloadTenantDataExportResponses
 export type ListCustomerSignalImportsData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5181,7 +7395,7 @@ export type ListCustomerSignalImportsData = {
 
 export type ListCustomerSignalImportsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5190,7 +7404,7 @@ export type ListCustomerSignalImportsError = ListCustomerSignalImportsErrors[key
 
 export type ListCustomerSignalImportsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: CustomerSignalImportListOutputBody;
 };
@@ -5198,11 +7412,20 @@ export type ListCustomerSignalImportsResponses = {
 export type ListCustomerSignalImportsResponse = ListCustomerSignalImportsResponses[keyof ListCustomerSignalImportsResponses];
 
 export type CreateCustomerSignalImportData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CustomerSignalImportRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5211,7 +7434,7 @@ export type CreateCustomerSignalImportData = {
 
 export type CreateCustomerSignalImportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5220,7 +7443,7 @@ export type CreateCustomerSignalImportError = CreateCustomerSignalImportErrors[k
 
 export type CreateCustomerSignalImportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: CustomerSignalImportJobBody;
 };
@@ -5230,7 +7453,13 @@ export type CreateCustomerSignalImportResponse = CreateCustomerSignalImportRespo
 export type GetCustomerSignalImportData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `importPublicId` を指定します。
+         */
         importPublicId: string;
     };
     query?: never;
@@ -5239,7 +7468,7 @@ export type GetCustomerSignalImportData = {
 
 export type GetCustomerSignalImportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5248,7 +7477,7 @@ export type GetCustomerSignalImportError = GetCustomerSignalImportErrors[keyof G
 
 export type GetCustomerSignalImportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: CustomerSignalImportJobBody;
 };
@@ -5258,6 +7487,9 @@ export type GetCustomerSignalImportResponse = GetCustomerSignalImportResponses[k
 export type ListTenantInvitationsData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5266,7 +7498,7 @@ export type ListTenantInvitationsData = {
 
 export type ListTenantInvitationsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5275,7 +7507,7 @@ export type ListTenantInvitationsError = ListTenantInvitationsErrors[keyof ListT
 
 export type ListTenantInvitationsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantInvitationListOutputBody;
 };
@@ -5283,12 +7515,24 @@ export type ListTenantInvitationsResponses = {
 export type ListTenantInvitationsResponse = ListTenantInvitationsResponses[keyof ListTenantInvitationsResponses];
 
 export type CreateTenantInvitationData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateTenantInvitationRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
+        /**
+         * 同じ request の retry を安全に扱うための任意 key です。同じ key は同じ method/path/body にだけ再利用できます。
+         */
         'Idempotency-Key'?: string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5297,7 +7541,7 @@ export type CreateTenantInvitationData = {
 
 export type CreateTenantInvitationErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5306,7 +7550,7 @@ export type CreateTenantInvitationError = CreateTenantInvitationErrors[keyof Cre
 
 export type CreateTenantInvitationResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantInvitationBody;
 };
@@ -5316,10 +7560,19 @@ export type CreateTenantInvitationResponse = CreateTenantInvitationResponses[key
 export type RevokeTenantInvitationData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `invitationPublicId` を指定します。
+         */
         invitationPublicId: string;
     };
     query?: never;
@@ -5328,7 +7581,7 @@ export type RevokeTenantInvitationData = {
 
 export type RevokeTenantInvitationErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5337,7 +7590,7 @@ export type RevokeTenantInvitationError = RevokeTenantInvitationErrors[keyof Rev
 
 export type RevokeTenantInvitationResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -5345,11 +7598,20 @@ export type RevokeTenantInvitationResponses = {
 export type RevokeTenantInvitationResponse = RevokeTenantInvitationResponses[keyof RevokeTenantInvitationResponses];
 
 export type GrantTenantAdminRoleData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: TenantAdminMembershipRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5358,7 +7620,7 @@ export type GrantTenantAdminRoleData = {
 
 export type GrantTenantAdminRoleErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5367,7 +7629,7 @@ export type GrantTenantAdminRoleError = GrantTenantAdminRoleErrors[keyof GrantTe
 
 export type GrantTenantAdminRoleResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -5377,11 +7639,23 @@ export type GrantTenantAdminRoleResponse = GrantTenantAdminRoleResponses[keyof G
 export type RevokeTenantAdminRoleData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `userPublicId` を指定します。
+         */
         userPublicId: string;
+        /**
+         * path 内の `roleCode` を指定します。
+         */
         roleCode: string;
     };
     query?: never;
@@ -5390,7 +7664,7 @@ export type RevokeTenantAdminRoleData = {
 
 export type RevokeTenantAdminRoleErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5399,7 +7673,7 @@ export type RevokeTenantAdminRoleError = RevokeTenantAdminRoleErrors[keyof Revok
 
 export type RevokeTenantAdminRoleResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -5409,6 +7683,9 @@ export type RevokeTenantAdminRoleResponse = RevokeTenantAdminRoleResponses[keyof
 export type GetTenantSettingsData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5417,7 +7694,7 @@ export type GetTenantSettingsData = {
 
 export type GetTenantSettingsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5426,7 +7703,7 @@ export type GetTenantSettingsError = GetTenantSettingsErrors[keyof GetTenantSett
 
 export type GetTenantSettingsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantSettingsBody;
 };
@@ -5434,11 +7711,20 @@ export type GetTenantSettingsResponses = {
 export type GetTenantSettingsResponse = GetTenantSettingsResponses[keyof GetTenantSettingsResponses];
 
 export type UpdateTenantSettingsData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: TenantSettingsRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5447,7 +7733,7 @@ export type UpdateTenantSettingsData = {
 
 export type UpdateTenantSettingsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5456,7 +7742,7 @@ export type UpdateTenantSettingsError = UpdateTenantSettingsErrors[keyof UpdateT
 
 export type UpdateTenantSettingsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantSettingsBody;
 };
@@ -5466,6 +7752,9 @@ export type UpdateTenantSettingsResponse = UpdateTenantSettingsResponses[keyof U
 export type ListWebhooksData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5474,7 +7763,7 @@ export type ListWebhooksData = {
 
 export type ListWebhooksErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5483,7 +7772,7 @@ export type ListWebhooksError = ListWebhooksErrors[keyof ListWebhooksErrors];
 
 export type ListWebhooksResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: WebhookListOutputBody;
 };
@@ -5491,11 +7780,20 @@ export type ListWebhooksResponses = {
 export type ListWebhooksResponse = ListWebhooksResponses[keyof ListWebhooksResponses];
 
 export type CreateWebhookData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: WebhookEndpointRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
     };
     query?: never;
@@ -5504,7 +7802,7 @@ export type CreateWebhookData = {
 
 export type CreateWebhookErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5513,7 +7811,7 @@ export type CreateWebhookError = CreateWebhookErrors[keyof CreateWebhookErrors];
 
 export type CreateWebhookResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: WebhookEndpointBody;
 };
@@ -5523,10 +7821,19 @@ export type CreateWebhookResponse = CreateWebhookResponses[keyof CreateWebhookRe
 export type DeleteWebhookData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `webhookPublicId` を指定します。
+         */
         webhookPublicId: string;
     };
     query?: never;
@@ -5535,7 +7842,7 @@ export type DeleteWebhookData = {
 
 export type DeleteWebhookErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5544,7 +7851,7 @@ export type DeleteWebhookError = DeleteWebhookErrors[keyof DeleteWebhookErrors];
 
 export type DeleteWebhookResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -5554,7 +7861,13 @@ export type DeleteWebhookResponse = DeleteWebhookResponses[keyof DeleteWebhookRe
 export type GetWebhookData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `webhookPublicId` を指定します。
+         */
         webhookPublicId: string;
     };
     query?: never;
@@ -5563,7 +7876,7 @@ export type GetWebhookData = {
 
 export type GetWebhookErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5572,7 +7885,7 @@ export type GetWebhookError = GetWebhookErrors[keyof GetWebhookErrors];
 
 export type GetWebhookResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: WebhookEndpointBody;
 };
@@ -5580,12 +7893,24 @@ export type GetWebhookResponses = {
 export type GetWebhookResponse = GetWebhookResponses[keyof GetWebhookResponses];
 
 export type UpdateWebhookData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: WebhookEndpointRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `webhookPublicId` を指定します。
+         */
         webhookPublicId: string;
     };
     query?: never;
@@ -5594,7 +7919,7 @@ export type UpdateWebhookData = {
 
 export type UpdateWebhookErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5603,7 +7928,7 @@ export type UpdateWebhookError = UpdateWebhookErrors[keyof UpdateWebhookErrors];
 
 export type UpdateWebhookResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: WebhookEndpointBody;
 };
@@ -5613,7 +7938,13 @@ export type UpdateWebhookResponse = UpdateWebhookResponses[keyof UpdateWebhookRe
 export type ListWebhookDeliveriesData = {
     body?: never;
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `webhookPublicId` を指定します。
+         */
         webhookPublicId: string;
     };
     query?: never;
@@ -5622,7 +7953,7 @@ export type ListWebhookDeliveriesData = {
 
 export type ListWebhookDeliveriesErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5631,7 +7962,7 @@ export type ListWebhookDeliveriesError = ListWebhookDeliveriesErrors[keyof ListW
 
 export type ListWebhookDeliveriesResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: WebhookDeliveryListOutputBody;
 };
@@ -5641,11 +7972,23 @@ export type ListWebhookDeliveriesResponse = ListWebhookDeliveriesResponses[keyof
 export type RetryWebhookDeliveryData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `webhookPublicId` を指定します。
+         */
         webhookPublicId: string;
+        /**
+         * path 内の `deliveryPublicId` を指定します。
+         */
         deliveryPublicId: string;
     };
     query?: never;
@@ -5654,7 +7997,7 @@ export type RetryWebhookDeliveryData = {
 
 export type RetryWebhookDeliveryErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5663,7 +8006,7 @@ export type RetryWebhookDeliveryError = RetryWebhookDeliveryErrors[keyof RetryWe
 
 export type RetryWebhookDeliveryResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: WebhookDeliveryBody;
 };
@@ -5673,10 +8016,19 @@ export type RetryWebhookDeliveryResponse = RetryWebhookDeliveryResponses[keyof R
 export type RotateWebhookSecretData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
         tenantSlug: string;
+        /**
+         * path 内の `webhookPublicId` を指定します。
+         */
         webhookPublicId: string;
     };
     query?: never;
@@ -5685,7 +8037,7 @@ export type RotateWebhookSecretData = {
 
 export type RotateWebhookSecretErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5694,7 +8046,7 @@ export type RotateWebhookSecretError = RotateWebhookSecretErrors[keyof RotateWeb
 
 export type RotateWebhookSecretResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: WebhookEndpointBody;
 };
@@ -5705,9 +8057,21 @@ export type FinishOidcLoginData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `code` です。
+         */
         code?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `state` です。
+         */
         state?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `error` です。
+         */
         error?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `error_description` です。
+         */
         error_description?: string;
     };
     url: '/api/v1/auth/callback';
@@ -5715,7 +8079,7 @@ export type FinishOidcLoginData = {
 
 export type FinishOidcLoginErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5724,7 +8088,7 @@ export type FinishOidcLoginError = FinishOidcLoginErrors[keyof FinishOidcLoginEr
 
 export type FinishOidcLoginResponses = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5735,6 +8099,9 @@ export type StartOidcLoginData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `returnTo` です。
+         */
         returnTo?: string;
     };
     url: '/api/v1/auth/login';
@@ -5742,7 +8109,7 @@ export type StartOidcLoginData = {
 
 export type StartOidcLoginErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5751,7 +8118,7 @@ export type StartOidcLoginError = StartOidcLoginErrors[keyof StartOidcLoginError
 
 export type StartOidcLoginResponses = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5767,7 +8134,7 @@ export type GetAuthSettingsData = {
 
 export type GetAuthSettingsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5776,7 +8143,7 @@ export type GetAuthSettingsError = GetAuthSettingsErrors[keyof GetAuthSettingsEr
 
 export type GetAuthSettingsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: AuthSettingsBody;
 };
@@ -5792,7 +8159,7 @@ export type GetCsrfData = {
 
 export type GetCsrfErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5801,7 +8168,7 @@ export type GetCsrfError = GetCsrfErrors[keyof GetCsrfErrors];
 
 export type GetCsrfResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -5817,7 +8184,7 @@ export type ListCustomerSignalSavedFiltersData = {
 
 export type ListCustomerSignalSavedFiltersErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5826,7 +8193,7 @@ export type ListCustomerSignalSavedFiltersError = ListCustomerSignalSavedFilters
 
 export type ListCustomerSignalSavedFiltersResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: CustomerSignalSavedFilterListOutputBody;
 };
@@ -5834,8 +8201,14 @@ export type ListCustomerSignalSavedFiltersResponses = {
 export type ListCustomerSignalSavedFiltersResponse = ListCustomerSignalSavedFiltersResponses[keyof ListCustomerSignalSavedFiltersResponses];
 
 export type CreateCustomerSignalSavedFilterData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CustomerSignalSavedFilterRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -5845,7 +8218,7 @@ export type CreateCustomerSignalSavedFilterData = {
 
 export type CreateCustomerSignalSavedFilterErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5854,7 +8227,7 @@ export type CreateCustomerSignalSavedFilterError = CreateCustomerSignalSavedFilt
 
 export type CreateCustomerSignalSavedFilterResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: CustomerSignalSavedFilterBody;
 };
@@ -5864,9 +8237,15 @@ export type CreateCustomerSignalSavedFilterResponse = CreateCustomerSignalSavedF
 export type DeleteCustomerSignalSavedFilterData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `filterPublicId` を指定します。
+         */
         filterPublicId: string;
     };
     query?: never;
@@ -5875,7 +8254,7 @@ export type DeleteCustomerSignalSavedFilterData = {
 
 export type DeleteCustomerSignalSavedFilterErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5884,7 +8263,7 @@ export type DeleteCustomerSignalSavedFilterError = DeleteCustomerSignalSavedFilt
 
 export type DeleteCustomerSignalSavedFilterResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -5892,11 +8271,20 @@ export type DeleteCustomerSignalSavedFilterResponses = {
 export type DeleteCustomerSignalSavedFilterResponse = DeleteCustomerSignalSavedFilterResponses[keyof DeleteCustomerSignalSavedFilterResponses];
 
 export type UpdateCustomerSignalSavedFilterData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CustomerSignalSavedFilterRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `filterPublicId` を指定します。
+         */
         filterPublicId: string;
     };
     query?: never;
@@ -5905,7 +8293,7 @@ export type UpdateCustomerSignalSavedFilterData = {
 
 export type UpdateCustomerSignalSavedFilterErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5914,7 +8302,7 @@ export type UpdateCustomerSignalSavedFilterError = UpdateCustomerSignalSavedFilt
 
 export type UpdateCustomerSignalSavedFilterResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: CustomerSignalSavedFilterBody;
 };
@@ -5925,11 +8313,29 @@ export type ListCustomerSignalsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 検索語または filter query です。
+         */
         q?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `status` です。
+         */
         status?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `priority` です。
+         */
         priority?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `source` です。
+         */
         source?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `cursor` です。
+         */
         cursor?: string;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/customer-signals';
@@ -5937,7 +8343,7 @@ export type ListCustomerSignalsData = {
 
 export type ListCustomerSignalsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5946,7 +8352,7 @@ export type ListCustomerSignalsError = ListCustomerSignalsErrors[keyof ListCusto
 
 export type ListCustomerSignalsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: CustomerSignalListBody;
 };
@@ -5954,9 +8360,18 @@ export type ListCustomerSignalsResponses = {
 export type ListCustomerSignalsResponse = ListCustomerSignalsResponses[keyof ListCustomerSignalsResponses];
 
 export type CreateCustomerSignalData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateCustomerSignalBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
+        /**
+         * 同じ request の retry を安全に扱うための任意 key です。同じ key は同じ method/path/body にだけ再利用できます。
+         */
         'Idempotency-Key'?: string;
     };
     path?: never;
@@ -5966,7 +8381,7 @@ export type CreateCustomerSignalData = {
 
 export type CreateCustomerSignalErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -5975,7 +8390,7 @@ export type CreateCustomerSignalError = CreateCustomerSignalErrors[keyof CreateC
 
 export type CreateCustomerSignalResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: CustomerSignalBody;
 };
@@ -5985,9 +8400,15 @@ export type CreateCustomerSignalResponse = CreateCustomerSignalResponses[keyof C
 export type DeleteCustomerSignalData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `signalPublicId` を指定します。
+         */
         signalPublicId: string;
     };
     query?: never;
@@ -5996,7 +8417,7 @@ export type DeleteCustomerSignalData = {
 
 export type DeleteCustomerSignalErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6005,7 +8426,7 @@ export type DeleteCustomerSignalError = DeleteCustomerSignalErrors[keyof DeleteC
 
 export type DeleteCustomerSignalResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -6015,6 +8436,9 @@ export type DeleteCustomerSignalResponse = DeleteCustomerSignalResponses[keyof D
 export type GetCustomerSignalData = {
     body?: never;
     path: {
+        /**
+         * path 内の `signalPublicId` を指定します。
+         */
         signalPublicId: string;
     };
     query?: never;
@@ -6023,7 +8447,7 @@ export type GetCustomerSignalData = {
 
 export type GetCustomerSignalErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6032,7 +8456,7 @@ export type GetCustomerSignalError = GetCustomerSignalErrors[keyof GetCustomerSi
 
 export type GetCustomerSignalResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: CustomerSignalBody;
 };
@@ -6040,11 +8464,20 @@ export type GetCustomerSignalResponses = {
 export type GetCustomerSignalResponse = GetCustomerSignalResponses[keyof GetCustomerSignalResponses];
 
 export type UpdateCustomerSignalData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: UpdateCustomerSignalBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `signalPublicId` を指定します。
+         */
         signalPublicId: string;
     };
     query?: never;
@@ -6053,7 +8486,7 @@ export type UpdateCustomerSignalData = {
 
 export type UpdateCustomerSignalErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6062,7 +8495,7 @@ export type UpdateCustomerSignalError = UpdateCustomerSignalErrors[keyof UpdateC
 
 export type UpdateCustomerSignalResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: CustomerSignalBody;
 };
@@ -6073,6 +8506,9 @@ export type ListDatasetQueryJobsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/dataset-query-jobs';
@@ -6080,7 +8516,7 @@ export type ListDatasetQueryJobsData = {
 
 export type ListDatasetQueryJobsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6089,7 +8525,7 @@ export type ListDatasetQueryJobsError = ListDatasetQueryJobsErrors[keyof ListDat
 
 export type ListDatasetQueryJobsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetQueryListBody;
 };
@@ -6097,8 +8533,14 @@ export type ListDatasetQueryJobsResponses = {
 export type ListDatasetQueryJobsResponse = ListDatasetQueryJobsResponses[keyof ListDatasetQueryJobsResponses];
 
 export type CreateDatasetQueryJobData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DatasetQueryCreateBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -6108,7 +8550,7 @@ export type CreateDatasetQueryJobData = {
 
 export type CreateDatasetQueryJobErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6117,7 +8559,7 @@ export type CreateDatasetQueryJobError = CreateDatasetQueryJobErrors[keyof Creat
 
 export type CreateDatasetQueryJobResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetQueryJobBody;
 };
@@ -6127,6 +8569,9 @@ export type CreateDatasetQueryJobResponse = CreateDatasetQueryJobResponses[keyof
 export type GetDatasetQueryJobData = {
     body?: never;
     path: {
+        /**
+         * path 内の `queryJobPublicId` を指定します。
+         */
         queryJobPublicId: string;
     };
     query?: never;
@@ -6135,7 +8580,7 @@ export type GetDatasetQueryJobData = {
 
 export type GetDatasetQueryJobErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6144,7 +8589,7 @@ export type GetDatasetQueryJobError = GetDatasetQueryJobErrors[keyof GetDatasetQ
 
 export type GetDatasetQueryJobResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetQueryJobBody;
 };
@@ -6155,7 +8600,13 @@ export type ListDatasetSourceFilesData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 検索語または filter query です。
+         */
         q?: string;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/dataset-source-files';
@@ -6163,7 +8614,7 @@ export type ListDatasetSourceFilesData = {
 
 export type ListDatasetSourceFilesErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6172,7 +8623,7 @@ export type ListDatasetSourceFilesError = ListDatasetSourceFilesErrors[keyof Lis
 
 export type ListDatasetSourceFilesResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetSourceFileListBody;
 };
@@ -6182,6 +8633,9 @@ export type ListDatasetSourceFilesResponse = ListDatasetSourceFilesResponses[key
 export type GetDatasetWorkTableExportData = {
     body?: never;
     path: {
+        /**
+         * path 内の `exportPublicId` を指定します。
+         */
         exportPublicId: string;
     };
     query?: never;
@@ -6190,7 +8644,7 @@ export type GetDatasetWorkTableExportData = {
 
 export type GetDatasetWorkTableExportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6199,7 +8653,7 @@ export type GetDatasetWorkTableExportError = GetDatasetWorkTableExportErrors[key
 
 export type GetDatasetWorkTableExportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableExportBody;
 };
@@ -6209,6 +8663,9 @@ export type GetDatasetWorkTableExportResponse = GetDatasetWorkTableExportRespons
 export type DownloadDatasetWorkTableExportData = {
     body?: never;
     path: {
+        /**
+         * path 内の `exportPublicId` を指定します。
+         */
         exportPublicId: string;
     };
     query?: never;
@@ -6217,7 +8674,7 @@ export type DownloadDatasetWorkTableExportData = {
 
 export type DownloadDatasetWorkTableExportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6226,7 +8683,7 @@ export type DownloadDatasetWorkTableExportError = DownloadDatasetWorkTableExport
 
 export type DownloadDatasetWorkTableExportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: string;
 };
@@ -6237,6 +8694,9 @@ export type ListDatasetWorkTablesData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/dataset-work-tables';
@@ -6244,7 +8704,7 @@ export type ListDatasetWorkTablesData = {
 
 export type ListDatasetWorkTablesErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6253,7 +8713,7 @@ export type ListDatasetWorkTablesError = ListDatasetWorkTablesErrors[keyof ListD
 
 export type ListDatasetWorkTablesResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableListBody;
 };
@@ -6263,7 +8723,13 @@ export type ListDatasetWorkTablesResponse = ListDatasetWorkTablesResponses[keyof
 export type GetDatasetWorkTableData = {
     body?: never;
     path: {
+        /**
+         * path 内の `database` を指定します。
+         */
         database: string;
+        /**
+         * path 内の `table` を指定します。
+         */
         table: string;
     };
     query?: never;
@@ -6272,7 +8738,7 @@ export type GetDatasetWorkTableData = {
 
 export type GetDatasetWorkTableErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6281,7 +8747,7 @@ export type GetDatasetWorkTableError = GetDatasetWorkTableErrors[keyof GetDatase
 
 export type GetDatasetWorkTableResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableBody;
 };
@@ -6291,10 +8757,19 @@ export type GetDatasetWorkTableResponse = GetDatasetWorkTableResponses[keyof Get
 export type GetDatasetWorkTablePreviewData = {
     body?: never;
     path: {
+        /**
+         * path 内の `database` を指定します。
+         */
         database: string;
+        /**
+         * path 内の `table` を指定します。
+         */
         table: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/dataset-work-tables/by-ref/{database}/{table}/preview';
@@ -6302,7 +8777,7 @@ export type GetDatasetWorkTablePreviewData = {
 
 export type GetDatasetWorkTablePreviewErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6311,7 +8786,7 @@ export type GetDatasetWorkTablePreviewError = GetDatasetWorkTablePreviewErrors[k
 
 export type GetDatasetWorkTablePreviewResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTablePreviewBody;
 };
@@ -6319,8 +8794,14 @@ export type GetDatasetWorkTablePreviewResponses = {
 export type GetDatasetWorkTablePreviewResponse = GetDatasetWorkTablePreviewResponses[keyof GetDatasetWorkTablePreviewResponses];
 
 export type RegisterDatasetWorkTableData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DatasetWorkTableRegisterBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -6330,7 +8811,7 @@ export type RegisterDatasetWorkTableData = {
 
 export type RegisterDatasetWorkTableErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6339,7 +8820,7 @@ export type RegisterDatasetWorkTableError = RegisterDatasetWorkTableErrors[keyof
 
 export type RegisterDatasetWorkTableResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableBody;
 };
@@ -6349,9 +8830,15 @@ export type RegisterDatasetWorkTableResponse = RegisterDatasetWorkTableResponses
 export type DeleteDatasetWorkTableData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
         workTablePublicId: string;
     };
     query?: never;
@@ -6360,7 +8847,7 @@ export type DeleteDatasetWorkTableData = {
 
 export type DeleteDatasetWorkTableErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6369,7 +8856,7 @@ export type DeleteDatasetWorkTableError = DeleteDatasetWorkTableErrors[keyof Del
 
 export type DeleteDatasetWorkTableResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -6379,6 +8866,9 @@ export type DeleteDatasetWorkTableResponse = DeleteDatasetWorkTableResponses[key
 export type GetManagedDatasetWorkTableData = {
     body?: never;
     path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
         workTablePublicId: string;
     };
     query?: never;
@@ -6387,7 +8877,7 @@ export type GetManagedDatasetWorkTableData = {
 
 export type GetManagedDatasetWorkTableErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6396,7 +8886,7 @@ export type GetManagedDatasetWorkTableError = GetManagedDatasetWorkTableErrors[k
 
 export type GetManagedDatasetWorkTableResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableBody;
 };
@@ -6406,9 +8896,15 @@ export type GetManagedDatasetWorkTableResponse = GetManagedDatasetWorkTableRespo
 export type ListDatasetWorkTableExportsData = {
     body?: never;
     path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
         workTablePublicId: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/dataset-work-tables/{workTablePublicId}/exports';
@@ -6416,7 +8912,7 @@ export type ListDatasetWorkTableExportsData = {
 
 export type ListDatasetWorkTableExportsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6425,7 +8921,7 @@ export type ListDatasetWorkTableExportsError = ListDatasetWorkTableExportsErrors
 
 export type ListDatasetWorkTableExportsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableExportListBody;
 };
@@ -6435,9 +8931,15 @@ export type ListDatasetWorkTableExportsResponse = ListDatasetWorkTableExportsRes
 export type CreateDatasetWorkTableExportData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
         workTablePublicId: string;
     };
     query?: never;
@@ -6446,7 +8948,7 @@ export type CreateDatasetWorkTableExportData = {
 
 export type CreateDatasetWorkTableExportErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6455,7 +8957,7 @@ export type CreateDatasetWorkTableExportError = CreateDatasetWorkTableExportErro
 
 export type CreateDatasetWorkTableExportResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableExportBody;
 };
@@ -6463,11 +8965,20 @@ export type CreateDatasetWorkTableExportResponses = {
 export type CreateDatasetWorkTableExportResponse = CreateDatasetWorkTableExportResponses[keyof CreateDatasetWorkTableExportResponses];
 
 export type LinkDatasetWorkTableData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DatasetWorkTableLinkBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
         workTablePublicId: string;
     };
     query?: never;
@@ -6476,7 +8987,7 @@ export type LinkDatasetWorkTableData = {
 
 export type LinkDatasetWorkTableErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6485,7 +8996,7 @@ export type LinkDatasetWorkTableError = LinkDatasetWorkTableErrors[keyof LinkDat
 
 export type LinkDatasetWorkTableResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableBody;
 };
@@ -6495,9 +9006,15 @@ export type LinkDatasetWorkTableResponse = LinkDatasetWorkTableResponses[keyof L
 export type GetManagedDatasetWorkTablePreviewData = {
     body?: never;
     path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
         workTablePublicId: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/dataset-work-tables/{workTablePublicId}/preview';
@@ -6505,7 +9022,7 @@ export type GetManagedDatasetWorkTablePreviewData = {
 
 export type GetManagedDatasetWorkTablePreviewErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6514,7 +9031,7 @@ export type GetManagedDatasetWorkTablePreviewError = GetManagedDatasetWorkTableP
 
 export type GetManagedDatasetWorkTablePreviewResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTablePreviewBody;
 };
@@ -6522,11 +9039,20 @@ export type GetManagedDatasetWorkTablePreviewResponses = {
 export type GetManagedDatasetWorkTablePreviewResponse = GetManagedDatasetWorkTablePreviewResponses[keyof GetManagedDatasetWorkTablePreviewResponses];
 
 export type PromoteDatasetWorkTableData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DatasetWorkTablePromoteBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
         workTablePublicId: string;
     };
     query?: never;
@@ -6535,7 +9061,7 @@ export type PromoteDatasetWorkTableData = {
 
 export type PromoteDatasetWorkTableErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6544,7 +9070,7 @@ export type PromoteDatasetWorkTableError = PromoteDatasetWorkTableErrors[keyof P
 
 export type PromoteDatasetWorkTableResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetBody;
 };
@@ -6552,11 +9078,20 @@ export type PromoteDatasetWorkTableResponses = {
 export type PromoteDatasetWorkTableResponse = PromoteDatasetWorkTableResponses[keyof PromoteDatasetWorkTableResponses];
 
 export type RenameDatasetWorkTableData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DatasetWorkTableRenameBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
         workTablePublicId: string;
     };
     query?: never;
@@ -6565,7 +9100,7 @@ export type RenameDatasetWorkTableData = {
 
 export type RenameDatasetWorkTableErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6574,7 +9109,7 @@ export type RenameDatasetWorkTableError = RenameDatasetWorkTableErrors[keyof Ren
 
 export type RenameDatasetWorkTableResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableBody;
 };
@@ -6584,9 +9119,15 @@ export type RenameDatasetWorkTableResponse = RenameDatasetWorkTableResponses[key
 export type TruncateDatasetWorkTableData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
         workTablePublicId: string;
     };
     query?: never;
@@ -6595,7 +9136,7 @@ export type TruncateDatasetWorkTableData = {
 
 export type TruncateDatasetWorkTableErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6604,7 +9145,7 @@ export type TruncateDatasetWorkTableError = TruncateDatasetWorkTableErrors[keyof
 
 export type TruncateDatasetWorkTableResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableBody;
 };
@@ -6615,6 +9156,9 @@ export type ListDatasetsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/datasets';
@@ -6622,7 +9166,7 @@ export type ListDatasetsData = {
 
 export type ListDatasetsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6631,7 +9175,7 @@ export type ListDatasetsError = ListDatasetsErrors[keyof ListDatasetsErrors];
 
 export type ListDatasetsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetListBody;
 };
@@ -6639,8 +9183,14 @@ export type ListDatasetsResponses = {
 export type ListDatasetsResponse = ListDatasetsResponses[keyof ListDatasetsResponses];
 
 export type CreateDatasetData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DatasetCreateBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -6650,7 +9200,7 @@ export type CreateDatasetData = {
 
 export type CreateDatasetErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6659,7 +9209,7 @@ export type CreateDatasetError = CreateDatasetErrors[keyof CreateDatasetErrors];
 
 export type CreateDatasetResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetBody;
 };
@@ -6669,9 +9219,15 @@ export type CreateDatasetResponse = CreateDatasetResponses[keyof CreateDatasetRe
 export type DeleteDatasetData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `datasetPublicId` を指定します。
+         */
         datasetPublicId: string;
     };
     query?: never;
@@ -6680,7 +9236,7 @@ export type DeleteDatasetData = {
 
 export type DeleteDatasetErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6689,7 +9245,7 @@ export type DeleteDatasetError = DeleteDatasetErrors[keyof DeleteDatasetErrors];
 
 export type DeleteDatasetResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -6699,6 +9255,9 @@ export type DeleteDatasetResponse = DeleteDatasetResponses[keyof DeleteDatasetRe
 export type GetDatasetData = {
     body?: never;
     path: {
+        /**
+         * path 内の `datasetPublicId` を指定します。
+         */
         datasetPublicId: string;
     };
     query?: never;
@@ -6707,7 +9266,7 @@ export type GetDatasetData = {
 
 export type GetDatasetErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6716,7 +9275,7 @@ export type GetDatasetError = GetDatasetErrors[keyof GetDatasetErrors];
 
 export type GetDatasetResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetBody;
 };
@@ -6726,9 +9285,15 @@ export type GetDatasetResponse = GetDatasetResponses[keyof GetDatasetResponses];
 export type ListDatasetScopedQueryJobsData = {
     body?: never;
     path: {
+        /**
+         * path 内の `datasetPublicId` を指定します。
+         */
         datasetPublicId: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/datasets/{datasetPublicId}/query-jobs';
@@ -6736,7 +9301,7 @@ export type ListDatasetScopedQueryJobsData = {
 
 export type ListDatasetScopedQueryJobsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6745,7 +9310,7 @@ export type ListDatasetScopedQueryJobsError = ListDatasetScopedQueryJobsErrors[k
 
 export type ListDatasetScopedQueryJobsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetQueryListBody;
 };
@@ -6753,11 +9318,20 @@ export type ListDatasetScopedQueryJobsResponses = {
 export type ListDatasetScopedQueryJobsResponse = ListDatasetScopedQueryJobsResponses[keyof ListDatasetScopedQueryJobsResponses];
 
 export type CreateDatasetScopedQueryJobData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DatasetQueryCreateBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `datasetPublicId` を指定します。
+         */
         datasetPublicId: string;
     };
     query?: never;
@@ -6766,7 +9340,7 @@ export type CreateDatasetScopedQueryJobData = {
 
 export type CreateDatasetScopedQueryJobErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6775,7 +9349,7 @@ export type CreateDatasetScopedQueryJobError = CreateDatasetScopedQueryJobErrors
 
 export type CreateDatasetScopedQueryJobResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetQueryJobBody;
 };
@@ -6785,9 +9359,15 @@ export type CreateDatasetScopedQueryJobResponse = CreateDatasetScopedQueryJobRes
 export type ListDatasetScopedWorkTablesData = {
     body?: never;
     path: {
+        /**
+         * path 内の `datasetPublicId` を指定します。
+         */
         datasetPublicId: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/datasets/{datasetPublicId}/work-tables';
@@ -6795,7 +9375,7 @@ export type ListDatasetScopedWorkTablesData = {
 
 export type ListDatasetScopedWorkTablesErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6804,7 +9384,7 @@ export type ListDatasetScopedWorkTablesError = ListDatasetScopedWorkTablesErrors
 
 export type ListDatasetScopedWorkTablesResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DatasetWorkTableListBody;
 };
@@ -6812,8 +9392,14 @@ export type ListDatasetScopedWorkTablesResponses = {
 export type ListDatasetScopedWorkTablesResponse = ListDatasetScopedWorkTablesResponses[keyof ListDatasetScopedWorkTablesResponses];
 
 export type ReplayDriveMobileOfflineOperationsData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveMobileOfflineReplayInputBodyWritable;
     headers: {
+        /**
+         * request header `Authorization` です。
+         */
         Authorization: string;
     };
     path?: never;
@@ -6823,7 +9409,7 @@ export type ReplayDriveMobileOfflineOperationsData = {
 
 export type ReplayDriveMobileOfflineOperationsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6832,7 +9418,7 @@ export type ReplayDriveMobileOfflineOperationsError = ReplayDriveMobileOfflineOp
 
 export type ReplayDriveMobileOfflineOperationsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveMobileOfflineReplayOutputBody;
 };
@@ -6842,10 +9428,16 @@ export type ReplayDriveMobileOfflineOperationsResponse = ReplayDriveMobileOfflin
 export type GetDriveSyncDeltaData = {
     body?: never;
     headers: {
+        /**
+         * request header `Authorization` です。
+         */
         Authorization: string;
     };
     path?: never;
     query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `cursor` です。
+         */
         cursor?: string;
     };
     url: '/api/v1/drive-sync/delta';
@@ -6853,7 +9445,7 @@ export type GetDriveSyncDeltaData = {
 
 export type GetDriveSyncDeltaErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6862,7 +9454,7 @@ export type GetDriveSyncDeltaError = GetDriveSyncDeltaErrors[keyof GetDriveSyncD
 
 export type GetDriveSyncDeltaResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveSyncDeltaOutputBody;
 };
@@ -6870,8 +9462,14 @@ export type GetDriveSyncDeltaResponses = {
 export type GetDriveSyncDeltaResponse = GetDriveSyncDeltaResponses[keyof GetDriveSyncDeltaResponses];
 
 export type RegisterDriveSyncDeviceData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveRegisterDeviceBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -6881,7 +9479,7 @@ export type RegisterDriveSyncDeviceData = {
 
 export type RegisterDriveSyncDeviceErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6890,7 +9488,7 @@ export type RegisterDriveSyncDeviceError = RegisterDriveSyncDeviceErrors[keyof R
 
 export type RegisterDriveSyncDeviceResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveDeviceBody;
 };
@@ -6898,11 +9496,20 @@ export type RegisterDriveSyncDeviceResponses = {
 export type RegisterDriveSyncDeviceResponse = RegisterDriveSyncDeviceResponses[keyof RegisterDriveSyncDeviceResponses];
 
 export type RevokeDriveSyncDeviceData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveDeviceRevokeInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `devicePublicId` を指定します。
+         */
         devicePublicId: string;
     };
     query?: never;
@@ -6911,7 +9518,7 @@ export type RevokeDriveSyncDeviceData = {
 
 export type RevokeDriveSyncDeviceErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6920,7 +9527,7 @@ export type RevokeDriveSyncDeviceError = RevokeDriveSyncDeviceErrors[keyof Revok
 
 export type RevokeDriveSyncDeviceResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -6928,8 +9535,14 @@ export type RevokeDriveSyncDeviceResponses = {
 export type RevokeDriveSyncDeviceResponse = RevokeDriveSyncDeviceResponses[keyof RevokeDriveSyncDeviceResponses];
 
 export type DownloadDriveArchiveData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveArchiveBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -6939,7 +9552,7 @@ export type DownloadDriveArchiveData = {
 
 export type DownloadDriveArchiveErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6956,8 +9569,14 @@ export type DownloadDriveArchiveResponses = {
 export type DownloadDriveArchiveResponse = DownloadDriveArchiveResponses[keyof DownloadDriveArchiveResponses];
 
 export type CreateDriveE2EeUserKeyData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveE2EeUserKeyCreateInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -6967,7 +9586,7 @@ export type CreateDriveE2EeUserKeyData = {
 
 export type CreateDriveE2EeUserKeyErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -6976,7 +9595,7 @@ export type CreateDriveE2EeUserKeyError = CreateDriveE2EeUserKeyErrors[keyof Cre
 
 export type CreateDriveE2EeUserKeyResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveE2EeUserKeyBody;
 };
@@ -6986,9 +9605,15 @@ export type CreateDriveE2EeUserKeyResponse = CreateDriveE2EeUserKeyResponses[key
 export type DeleteDriveFileData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -6997,7 +9622,7 @@ export type DeleteDriveFileData = {
 
 export type DeleteDriveFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7006,7 +9631,7 @@ export type DeleteDriveFileError = DeleteDriveFileErrors[keyof DeleteDriveFileEr
 
 export type DeleteDriveFileResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -7016,6 +9641,9 @@ export type DeleteDriveFileResponse = DeleteDriveFileResponses[keyof DeleteDrive
 export type GetDriveFileData = {
     body?: never;
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7024,7 +9652,7 @@ export type GetDriveFileData = {
 
 export type GetDriveFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7033,7 +9661,7 @@ export type GetDriveFileError = GetDriveFileErrors[keyof GetDriveFileErrors];
 
 export type GetDriveFileResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveFileBody;
 };
@@ -7041,11 +9669,20 @@ export type GetDriveFileResponses = {
 export type GetDriveFileResponse = GetDriveFileResponses[keyof GetDriveFileResponses];
 
 export type UpdateDriveFileData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: UpdateDriveFileBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7054,7 +9691,7 @@ export type UpdateDriveFileData = {
 
 export type UpdateDriveFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7063,7 +9700,7 @@ export type UpdateDriveFileError = UpdateDriveFileErrors[keyof UpdateDriveFileEr
 
 export type UpdateDriveFileResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveFileBody;
 };
@@ -7073,9 +9710,15 @@ export type UpdateDriveFileResponse = UpdateDriveFileResponses[keyof UpdateDrive
 export type ListDriveFileActivityData = {
     body?: never;
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/files/{filePublicId}/activity';
@@ -7083,7 +9726,7 @@ export type ListDriveFileActivityData = {
 
 export type ListDriveFileActivityErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7092,7 +9735,7 @@ export type ListDriveFileActivityError = ListDriveFileActivityErrors[keyof ListD
 
 export type ListDriveFileActivityResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveActivityListOutputBody;
 };
@@ -7102,6 +9745,9 @@ export type ListDriveFileActivityResponse = ListDriveFileActivityResponses[keyof
 export type ListDriveAiClassificationsData = {
     body?: never;
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7110,7 +9756,7 @@ export type ListDriveAiClassificationsData = {
 
 export type ListDriveAiClassificationsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7119,7 +9765,7 @@ export type ListDriveAiClassificationsError = ListDriveAiClassificationsErrors[k
 
 export type ListDriveAiClassificationsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveAiClassificationsOutputBody;
 };
@@ -7127,11 +9773,20 @@ export type ListDriveAiClassificationsResponses = {
 export type ListDriveAiClassificationsResponse = ListDriveAiClassificationsResponses[keyof ListDriveAiClassificationsResponses];
 
 export type CreateDriveAiJobData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveAiJobCreateInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7140,7 +9795,7 @@ export type CreateDriveAiJobData = {
 
 export type CreateDriveAiJobErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7149,7 +9804,7 @@ export type CreateDriveAiJobError = CreateDriveAiJobErrors[keyof CreateDriveAiJo
 
 export type CreateDriveAiJobResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveAiJobBody;
 };
@@ -7159,6 +9814,9 @@ export type CreateDriveAiJobResponse = CreateDriveAiJobResponses[keyof CreateDri
 export type GetDriveAiSummaryData = {
     body?: never;
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7167,7 +9825,7 @@ export type GetDriveAiSummaryData = {
 
 export type GetDriveAiSummaryErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7176,7 +9834,7 @@ export type GetDriveAiSummaryError = GetDriveAiSummaryErrors[keyof GetDriveAiSum
 
 export type GetDriveAiSummaryResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveAiSummaryBody;
 };
@@ -7184,11 +9842,20 @@ export type GetDriveAiSummaryResponses = {
 export type GetDriveAiSummaryResponse = GetDriveAiSummaryResponses[keyof GetDriveAiSummaryResponses];
 
 export type CopyDriveFileData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveCopyBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7197,7 +9864,7 @@ export type CopyDriveFileData = {
 
 export type CopyDriveFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7206,7 +9873,7 @@ export type CopyDriveFileError = CopyDriveFileErrors[keyof CopyDriveFileErrors];
 
 export type CopyDriveFileResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemBody;
 };
@@ -7216,6 +9883,9 @@ export type CopyDriveFileResponse = CopyDriveFileResponses[keyof CopyDriveFileRe
 export type GetDriveE2EeEnvelopeData = {
     body?: never;
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7224,7 +9894,7 @@ export type GetDriveE2EeEnvelopeData = {
 
 export type GetDriveE2EeEnvelopeErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7233,7 +9903,7 @@ export type GetDriveE2EeEnvelopeError = GetDriveE2EeEnvelopeErrors[keyof GetDriv
 
 export type GetDriveE2EeEnvelopeResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveE2EeEnvelopeBody;
 };
@@ -7241,11 +9911,20 @@ export type GetDriveE2EeEnvelopeResponses = {
 export type GetDriveE2EeEnvelopeResponse = GetDriveE2EeEnvelopeResponses[keyof GetDriveE2EeEnvelopeResponses];
 
 export type CreateDriveE2EeEnvelopeData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveE2EeEnvelopeCreateInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7254,7 +9933,7 @@ export type CreateDriveE2EeEnvelopeData = {
 
 export type CreateDriveE2EeEnvelopeErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7263,7 +9942,7 @@ export type CreateDriveE2EeEnvelopeError = CreateDriveE2EeEnvelopeErrors[keyof C
 
 export type CreateDriveE2EeEnvelopeResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveE2EeEnvelopeBody;
 };
@@ -7273,10 +9952,19 @@ export type CreateDriveE2EeEnvelopeResponse = CreateDriveE2EeEnvelopeResponses[k
 export type RevokeDriveE2EeEnvelopeData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
+        /**
+         * path 内の `recipientUserPublicId` を指定します。
+         */
         recipientUserPublicId: string;
     };
     query?: never;
@@ -7285,7 +9973,7 @@ export type RevokeDriveE2EeEnvelopeData = {
 
 export type RevokeDriveE2EeEnvelopeErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7294,7 +9982,7 @@ export type RevokeDriveE2EeEnvelopeError = RevokeDriveE2EeEnvelopeErrors[keyof R
 
 export type RevokeDriveE2EeEnvelopeResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -7302,11 +9990,20 @@ export type RevokeDriveE2EeEnvelopeResponses = {
 export type RevokeDriveE2EeEnvelopeResponse = RevokeDriveE2EeEnvelopeResponses[keyof RevokeDriveE2EeEnvelopeResponses];
 
 export type CreateDriveE2EeFileKeyData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveE2EeFileKeyCreateInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7315,7 +10012,7 @@ export type CreateDriveE2EeFileKeyData = {
 
 export type CreateDriveE2EeFileKeyErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7324,7 +10021,7 @@ export type CreateDriveE2EeFileKeyError = CreateDriveE2EeFileKeyErrors[keyof Cre
 
 export type CreateDriveE2EeFileKeyResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveE2EeFileKeyBody;
 };
@@ -7334,9 +10031,15 @@ export type CreateDriveE2EeFileKeyResponse = CreateDriveE2EeFileKeyResponses[key
 export type StartDriveEditSessionData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7345,7 +10048,7 @@ export type StartDriveEditSessionData = {
 
 export type StartDriveEditSessionErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7354,7 +10057,7 @@ export type StartDriveEditSessionError = StartDriveEditSessionErrors[keyof Start
 
 export type StartDriveEditSessionResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveEditSessionBody;
 };
@@ -7364,10 +10067,19 @@ export type StartDriveEditSessionResponse = StartDriveEditSessionResponses[keyof
 export type EndDriveEditSessionData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
+        /**
+         * path 内の `sessionPublicId` を指定します。
+         */
         sessionPublicId: string;
     };
     query?: never;
@@ -7376,7 +10088,7 @@ export type EndDriveEditSessionData = {
 
 export type EndDriveEditSessionErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7385,7 +10097,7 @@ export type EndDriveEditSessionError = EndDriveEditSessionErrors[keyof EndDriveE
 
 export type EndDriveEditSessionResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -7393,12 +10105,24 @@ export type EndDriveEditSessionResponses = {
 export type EndDriveEditSessionResponse = EndDriveEditSessionResponses[keyof EndDriveEditSessionResponses];
 
 export type SaveDriveEditSessionContentData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveEditSaveBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
+        /**
+         * path 内の `sessionPublicId` を指定します。
+         */
         sessionPublicId: string;
     };
     query?: never;
@@ -7407,7 +10131,7 @@ export type SaveDriveEditSessionContentData = {
 
 export type SaveDriveEditSessionContentErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7416,7 +10140,7 @@ export type SaveDriveEditSessionContentError = SaveDriveEditSessionContentErrors
 
 export type SaveDriveEditSessionContentResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveEditSaveOutputBody;
 };
@@ -7426,10 +10150,19 @@ export type SaveDriveEditSessionContentResponse = SaveDriveEditSessionContentRes
 export type HeartbeatDriveEditSessionData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
+        /**
+         * path 内の `sessionPublicId` を指定します。
+         */
         sessionPublicId: string;
     };
     query?: never;
@@ -7438,7 +10171,7 @@ export type HeartbeatDriveEditSessionData = {
 
 export type HeartbeatDriveEditSessionErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7447,7 +10180,7 @@ export type HeartbeatDriveEditSessionError = HeartbeatDriveEditSessionErrors[key
 
 export type HeartbeatDriveEditSessionResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveEditSessionBody;
 };
@@ -7455,11 +10188,20 @@ export type HeartbeatDriveEditSessionResponses = {
 export type HeartbeatDriveEditSessionResponse = HeartbeatDriveEditSessionResponses[keyof HeartbeatDriveEditSessionResponses];
 
 export type UpdateDriveFileInheritanceData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveInheritanceBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7468,7 +10210,7 @@ export type UpdateDriveFileInheritanceData = {
 
 export type UpdateDriveFileInheritanceErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7477,7 +10219,7 @@ export type UpdateDriveFileInheritanceError = UpdateDriveFileInheritanceErrors[k
 
 export type UpdateDriveFileInheritanceResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -7485,11 +10227,20 @@ export type UpdateDriveFileInheritanceResponses = {
 export type UpdateDriveFileInheritanceResponse = UpdateDriveFileInheritanceResponses[keyof UpdateDriveFileInheritanceResponses];
 
 export type CreateDriveFileShareInvitationData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveShareInvitationBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7498,7 +10249,7 @@ export type CreateDriveFileShareInvitationData = {
 
 export type CreateDriveFileShareInvitationErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7507,7 +10258,7 @@ export type CreateDriveFileShareInvitationError = CreateDriveFileShareInvitation
 
 export type CreateDriveFileShareInvitationResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareInvitationBody;
 };
@@ -7517,6 +10268,9 @@ export type CreateDriveFileShareInvitationResponse = CreateDriveFileShareInvitat
 export type GetDriveOcrData = {
     body?: never;
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7525,7 +10279,7 @@ export type GetDriveOcrData = {
 
 export type GetDriveOcrErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7534,7 +10288,7 @@ export type GetDriveOcrError = GetDriveOcrErrors[keyof GetDriveOcrErrors];
 
 export type GetDriveOcrResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveOcrOutputBody;
 };
@@ -7544,9 +10298,15 @@ export type GetDriveOcrResponse = GetDriveOcrResponses[keyof GetDriveOcrResponse
 export type CreateDriveOcrJobData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7555,7 +10315,7 @@ export type CreateDriveOcrJobData = {
 
 export type CreateDriveOcrJobErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7564,7 +10324,7 @@ export type CreateDriveOcrJobError = CreateDriveOcrJobErrors[keyof CreateDriveOc
 
 export type CreateDriveOcrJobResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveOcrJobBody;
 };
@@ -7572,11 +10332,20 @@ export type CreateDriveOcrJobResponses = {
 export type CreateDriveOcrJobResponse = CreateDriveOcrJobResponses[keyof CreateDriveOcrJobResponses];
 
 export type CreateDriveOfficeSessionData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveOfficeSessionCreateInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7585,7 +10354,7 @@ export type CreateDriveOfficeSessionData = {
 
 export type CreateDriveOfficeSessionErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7594,7 +10363,7 @@ export type CreateDriveOfficeSessionError = CreateDriveOfficeSessionErrors[keyof
 
 export type CreateDriveOfficeSessionResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveOfficeSessionBody;
 };
@@ -7602,11 +10371,20 @@ export type CreateDriveOfficeSessionResponses = {
 export type CreateDriveOfficeSessionResponse = CreateDriveOfficeSessionResponses[keyof CreateDriveOfficeSessionResponses];
 
 export type TransferDriveFileOwnerData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveOwnerTransferBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7615,7 +10393,7 @@ export type TransferDriveFileOwnerData = {
 
 export type TransferDriveFileOwnerErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7624,7 +10402,7 @@ export type TransferDriveFileOwnerError = TransferDriveFileOwnerErrors[keyof Tra
 
 export type TransferDriveFileOwnerResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemBody;
 };
@@ -7634,9 +10412,15 @@ export type TransferDriveFileOwnerResponse = TransferDriveFileOwnerResponses[key
 export type PermanentlyDeleteDriveFileData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7645,7 +10429,7 @@ export type PermanentlyDeleteDriveFileData = {
 
 export type PermanentlyDeleteDriveFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7654,7 +10438,7 @@ export type PermanentlyDeleteDriveFileError = PermanentlyDeleteDriveFileErrors[k
 
 export type PermanentlyDeleteDriveFileResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -7664,6 +10448,9 @@ export type PermanentlyDeleteDriveFileResponse = PermanentlyDeleteDriveFileRespo
 export type GetDriveFilePermissionsData = {
     body?: never;
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7672,7 +10459,7 @@ export type GetDriveFilePermissionsData = {
 
 export type GetDriveFilePermissionsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7681,7 +10468,7 @@ export type GetDriveFilePermissionsError = GetDriveFilePermissionsErrors[keyof G
 
 export type GetDriveFilePermissionsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DrivePermissionsBody;
 };
@@ -7691,6 +10478,9 @@ export type GetDriveFilePermissionsResponse = GetDriveFilePermissionsResponses[k
 export type ListDriveProductExtractionsData = {
     body?: never;
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7699,7 +10489,7 @@ export type ListDriveProductExtractionsData = {
 
 export type ListDriveProductExtractionsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7708,7 +10498,7 @@ export type ListDriveProductExtractionsError = ListDriveProductExtractionsErrors
 
 export type ListDriveProductExtractionsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveProductExtractionsOutputBody;
 };
@@ -7718,9 +10508,15 @@ export type ListDriveProductExtractionsResponse = ListDriveProductExtractionsRes
 export type CreateDriveProductExtractionJobData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7729,7 +10525,7 @@ export type CreateDriveProductExtractionJobData = {
 
 export type CreateDriveProductExtractionJobErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7738,7 +10534,7 @@ export type CreateDriveProductExtractionJobError = CreateDriveProductExtractionJ
 
 export type CreateDriveProductExtractionJobResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveProductExtractionJobBody;
 };
@@ -7746,11 +10542,20 @@ export type CreateDriveProductExtractionJobResponses = {
 export type CreateDriveProductExtractionJobResponse = CreateDriveProductExtractionJobResponses[keyof CreateDriveProductExtractionJobResponses];
 
 export type RestoreDriveFileData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: RestoreDriveResourceBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7759,7 +10564,7 @@ export type RestoreDriveFileData = {
 
 export type RestoreDriveFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7768,7 +10573,7 @@ export type RestoreDriveFileError = RestoreDriveFileErrors[keyof RestoreDriveFil
 
 export type RestoreDriveFileResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveFileBody;
 };
@@ -7776,11 +10581,20 @@ export type RestoreDriveFileResponses = {
 export type RestoreDriveFileResponse = RestoreDriveFileResponses[keyof RestoreDriveFileResponses];
 
 export type CreateDriveFileShareLinkData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveShareLinkBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7789,7 +10603,7 @@ export type CreateDriveFileShareLinkData = {
 
 export type CreateDriveFileShareLinkErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7798,7 +10612,7 @@ export type CreateDriveFileShareLinkError = CreateDriveFileShareLinkErrors[keyof
 
 export type CreateDriveFileShareLinkResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareLinkBody;
 };
@@ -7806,11 +10620,20 @@ export type CreateDriveFileShareLinkResponses = {
 export type CreateDriveFileShareLinkResponse = CreateDriveFileShareLinkResponses[keyof CreateDriveFileShareLinkResponses];
 
 export type CreateDriveFileShareData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveShareBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7819,7 +10642,7 @@ export type CreateDriveFileShareData = {
 
 export type CreateDriveFileShareErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7828,7 +10651,7 @@ export type CreateDriveFileShareError = CreateDriveFileShareErrors[keyof CreateD
 
 export type CreateDriveFileShareResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareBody;
 };
@@ -7838,10 +10661,19 @@ export type CreateDriveFileShareResponse = CreateDriveFileShareResponses[keyof C
 export type DeleteDriveFileShareData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
+        /**
+         * Drive share record の public UUID です。
+         */
         sharePublicId: string;
     };
     query?: never;
@@ -7850,7 +10682,7 @@ export type DeleteDriveFileShareData = {
 
 export type DeleteDriveFileShareErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7859,7 +10691,7 @@ export type DeleteDriveFileShareError = DeleteDriveFileShareErrors[keyof DeleteD
 
 export type DeleteDriveFileShareResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -7867,12 +10699,24 @@ export type DeleteDriveFileShareResponses = {
 export type DeleteDriveFileShareResponse = DeleteDriveFileShareResponses[keyof DeleteDriveFileShareResponses];
 
 export type UpdateDriveFileShareData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: UpdateDriveShareBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
+        /**
+         * Drive share record の public UUID です。
+         */
         sharePublicId: string;
     };
     query?: never;
@@ -7881,7 +10725,7 @@ export type UpdateDriveFileShareData = {
 
 export type UpdateDriveFileShareErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7890,7 +10734,7 @@ export type UpdateDriveFileShareError = UpdateDriveFileShareErrors[keyof UpdateD
 
 export type UpdateDriveFileShareResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareBody;
 };
@@ -7900,9 +10744,15 @@ export type UpdateDriveFileShareResponse = UpdateDriveFileShareResponses[keyof U
 export type UnstarDriveFileData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7911,7 +10761,7 @@ export type UnstarDriveFileData = {
 
 export type UnstarDriveFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7920,7 +10770,7 @@ export type UnstarDriveFileError = UnstarDriveFileErrors[keyof UnstarDriveFileEr
 
 export type UnstarDriveFileResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -7930,9 +10780,15 @@ export type UnstarDriveFileResponse = UnstarDriveFileResponses[keyof UnstarDrive
 export type StarDriveFileData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -7941,7 +10797,7 @@ export type StarDriveFileData = {
 
 export type StarDriveFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7950,7 +10806,7 @@ export type StarDriveFileError = StarDriveFileErrors[keyof StarDriveFileErrors];
 
 export type StarDriveFileResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -7961,6 +10817,9 @@ export type GetDriveFolderTreeData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/folder-tree';
@@ -7968,7 +10827,7 @@ export type GetDriveFolderTreeData = {
 
 export type GetDriveFolderTreeErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -7977,7 +10836,7 @@ export type GetDriveFolderTreeError = GetDriveFolderTreeErrors[keyof GetDriveFol
 
 export type GetDriveFolderTreeResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveFolderTreeBody;
 };
@@ -7985,8 +10844,14 @@ export type GetDriveFolderTreeResponses = {
 export type GetDriveFolderTreeResponse = GetDriveFolderTreeResponses[keyof GetDriveFolderTreeResponses];
 
 export type CreateDriveFolderData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveFolderBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -7996,7 +10861,7 @@ export type CreateDriveFolderData = {
 
 export type CreateDriveFolderErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8005,7 +10870,7 @@ export type CreateDriveFolderError = CreateDriveFolderErrors[keyof CreateDriveFo
 
 export type CreateDriveFolderResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveFolderBody;
 };
@@ -8015,9 +10880,15 @@ export type CreateDriveFolderResponse = CreateDriveFolderResponses[keyof CreateD
 export type DeleteDriveFolderData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8026,7 +10897,7 @@ export type DeleteDriveFolderData = {
 
 export type DeleteDriveFolderErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8035,7 +10906,7 @@ export type DeleteDriveFolderError = DeleteDriveFolderErrors[keyof DeleteDriveFo
 
 export type DeleteDriveFolderResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8045,6 +10916,9 @@ export type DeleteDriveFolderResponse = DeleteDriveFolderResponses[keyof DeleteD
 export type GetDriveFolderData = {
     body?: never;
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8053,7 +10927,7 @@ export type GetDriveFolderData = {
 
 export type GetDriveFolderErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8062,7 +10936,7 @@ export type GetDriveFolderError = GetDriveFolderErrors[keyof GetDriveFolderError
 
 export type GetDriveFolderResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveFolderBody;
 };
@@ -8070,11 +10944,20 @@ export type GetDriveFolderResponses = {
 export type GetDriveFolderResponse = GetDriveFolderResponses[keyof GetDriveFolderResponses];
 
 export type UpdateDriveFolderData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: UpdateDriveFolderBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8083,7 +10966,7 @@ export type UpdateDriveFolderData = {
 
 export type UpdateDriveFolderErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8092,7 +10975,7 @@ export type UpdateDriveFolderError = UpdateDriveFolderErrors[keyof UpdateDriveFo
 
 export type UpdateDriveFolderResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveFolderBody;
 };
@@ -8102,9 +10985,15 @@ export type UpdateDriveFolderResponse = UpdateDriveFolderResponses[keyof UpdateD
 export type ListDriveFolderActivityData = {
     body?: never;
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/folders/{folderPublicId}/activity';
@@ -8112,7 +11001,7 @@ export type ListDriveFolderActivityData = {
 
 export type ListDriveFolderActivityErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8121,7 +11010,7 @@ export type ListDriveFolderActivityError = ListDriveFolderActivityErrors[keyof L
 
 export type ListDriveFolderActivityResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveActivityListOutputBody;
 };
@@ -8131,10 +11020,19 @@ export type ListDriveFolderActivityResponse = ListDriveFolderActivityResponses[k
 export type ListDriveFolderChildrenData = {
     body?: never;
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: {
+        /**
+         * Drive workspace の public UUID です。
+         */
         workspacePublicId?: string;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/folders/{folderPublicId}/children';
@@ -8142,7 +11040,7 @@ export type ListDriveFolderChildrenData = {
 
 export type ListDriveFolderChildrenErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8151,7 +11049,7 @@ export type ListDriveFolderChildrenError = ListDriveFolderChildrenErrors[keyof L
 
 export type ListDriveFolderChildrenResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemListOutputBody;
 };
@@ -8159,11 +11057,20 @@ export type ListDriveFolderChildrenResponses = {
 export type ListDriveFolderChildrenResponse = ListDriveFolderChildrenResponses[keyof ListDriveFolderChildrenResponses];
 
 export type CopyDriveFolderData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveCopyBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8172,7 +11079,7 @@ export type CopyDriveFolderData = {
 
 export type CopyDriveFolderErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8181,7 +11088,7 @@ export type CopyDriveFolderError = CopyDriveFolderErrors[keyof CopyDriveFolderEr
 
 export type CopyDriveFolderResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemBody;
 };
@@ -8189,11 +11096,20 @@ export type CopyDriveFolderResponses = {
 export type CopyDriveFolderResponse = CopyDriveFolderResponses[keyof CopyDriveFolderResponses];
 
 export type UpdateDriveFolderInheritanceData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveInheritanceBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8202,7 +11118,7 @@ export type UpdateDriveFolderInheritanceData = {
 
 export type UpdateDriveFolderInheritanceErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8211,7 +11127,7 @@ export type UpdateDriveFolderInheritanceError = UpdateDriveFolderInheritanceErro
 
 export type UpdateDriveFolderInheritanceResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8219,11 +11135,20 @@ export type UpdateDriveFolderInheritanceResponses = {
 export type UpdateDriveFolderInheritanceResponse = UpdateDriveFolderInheritanceResponses[keyof UpdateDriveFolderInheritanceResponses];
 
 export type CreateDriveFolderShareInvitationData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveShareInvitationBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8232,7 +11157,7 @@ export type CreateDriveFolderShareInvitationData = {
 
 export type CreateDriveFolderShareInvitationErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8241,7 +11166,7 @@ export type CreateDriveFolderShareInvitationError = CreateDriveFolderShareInvita
 
 export type CreateDriveFolderShareInvitationResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareInvitationBody;
 };
@@ -8249,11 +11174,20 @@ export type CreateDriveFolderShareInvitationResponses = {
 export type CreateDriveFolderShareInvitationResponse = CreateDriveFolderShareInvitationResponses[keyof CreateDriveFolderShareInvitationResponses];
 
 export type TransferDriveFolderOwnerData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: DriveOwnerTransferBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8262,7 +11196,7 @@ export type TransferDriveFolderOwnerData = {
 
 export type TransferDriveFolderOwnerErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8271,7 +11205,7 @@ export type TransferDriveFolderOwnerError = TransferDriveFolderOwnerErrors[keyof
 
 export type TransferDriveFolderOwnerResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemBody;
 };
@@ -8281,9 +11215,15 @@ export type TransferDriveFolderOwnerResponse = TransferDriveFolderOwnerResponses
 export type PermanentlyDeleteDriveFolderData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8292,7 +11232,7 @@ export type PermanentlyDeleteDriveFolderData = {
 
 export type PermanentlyDeleteDriveFolderErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8301,7 +11241,7 @@ export type PermanentlyDeleteDriveFolderError = PermanentlyDeleteDriveFolderErro
 
 export type PermanentlyDeleteDriveFolderResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8311,6 +11251,9 @@ export type PermanentlyDeleteDriveFolderResponse = PermanentlyDeleteDriveFolderR
 export type GetDriveFolderPermissionsData = {
     body?: never;
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8319,7 +11262,7 @@ export type GetDriveFolderPermissionsData = {
 
 export type GetDriveFolderPermissionsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8328,7 +11271,7 @@ export type GetDriveFolderPermissionsError = GetDriveFolderPermissionsErrors[key
 
 export type GetDriveFolderPermissionsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DrivePermissionsBody;
 };
@@ -8336,11 +11279,20 @@ export type GetDriveFolderPermissionsResponses = {
 export type GetDriveFolderPermissionsResponse = GetDriveFolderPermissionsResponses[keyof GetDriveFolderPermissionsResponses];
 
 export type RestoreDriveFolderData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: RestoreDriveResourceBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8349,7 +11301,7 @@ export type RestoreDriveFolderData = {
 
 export type RestoreDriveFolderErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8358,7 +11310,7 @@ export type RestoreDriveFolderError = RestoreDriveFolderErrors[keyof RestoreDriv
 
 export type RestoreDriveFolderResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveFolderBody;
 };
@@ -8366,11 +11318,20 @@ export type RestoreDriveFolderResponses = {
 export type RestoreDriveFolderResponse = RestoreDriveFolderResponses[keyof RestoreDriveFolderResponses];
 
 export type CreateDriveFolderShareLinkData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveShareLinkBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8379,7 +11340,7 @@ export type CreateDriveFolderShareLinkData = {
 
 export type CreateDriveFolderShareLinkErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8388,7 +11349,7 @@ export type CreateDriveFolderShareLinkError = CreateDriveFolderShareLinkErrors[k
 
 export type CreateDriveFolderShareLinkResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareLinkBody;
 };
@@ -8396,11 +11357,20 @@ export type CreateDriveFolderShareLinkResponses = {
 export type CreateDriveFolderShareLinkResponse = CreateDriveFolderShareLinkResponses[keyof CreateDriveFolderShareLinkResponses];
 
 export type CreateDriveFolderShareData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveShareBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8409,7 +11379,7 @@ export type CreateDriveFolderShareData = {
 
 export type CreateDriveFolderShareErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8418,7 +11388,7 @@ export type CreateDriveFolderShareError = CreateDriveFolderShareErrors[keyof Cre
 
 export type CreateDriveFolderShareResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareBody;
 };
@@ -8428,10 +11398,19 @@ export type CreateDriveFolderShareResponse = CreateDriveFolderShareResponses[key
 export type DeleteDriveFolderShareData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
+        /**
+         * Drive share record の public UUID です。
+         */
         sharePublicId: string;
     };
     query?: never;
@@ -8440,7 +11419,7 @@ export type DeleteDriveFolderShareData = {
 
 export type DeleteDriveFolderShareErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8449,7 +11428,7 @@ export type DeleteDriveFolderShareError = DeleteDriveFolderShareErrors[keyof Del
 
 export type DeleteDriveFolderShareResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8457,12 +11436,24 @@ export type DeleteDriveFolderShareResponses = {
 export type DeleteDriveFolderShareResponse = DeleteDriveFolderShareResponses[keyof DeleteDriveFolderShareResponses];
 
 export type UpdateDriveFolderShareData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: UpdateDriveShareBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
+        /**
+         * Drive share record の public UUID です。
+         */
         sharePublicId: string;
     };
     query?: never;
@@ -8471,7 +11462,7 @@ export type UpdateDriveFolderShareData = {
 
 export type UpdateDriveFolderShareErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8480,7 +11471,7 @@ export type UpdateDriveFolderShareError = UpdateDriveFolderShareErrors[keyof Upd
 
 export type UpdateDriveFolderShareResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareBody;
 };
@@ -8490,9 +11481,15 @@ export type UpdateDriveFolderShareResponse = UpdateDriveFolderShareResponses[key
 export type UnstarDriveFolderData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8501,7 +11498,7 @@ export type UnstarDriveFolderData = {
 
 export type UnstarDriveFolderErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8510,7 +11507,7 @@ export type UnstarDriveFolderError = UnstarDriveFolderErrors[keyof UnstarDriveFo
 
 export type UnstarDriveFolderResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8520,9 +11517,15 @@ export type UnstarDriveFolderResponse = UnstarDriveFolderResponses[keyof UnstarD
 export type StarDriveFolderData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId: string;
     };
     query?: never;
@@ -8531,7 +11534,7 @@ export type StarDriveFolderData = {
 
 export type StarDriveFolderErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8540,7 +11543,7 @@ export type StarDriveFolderError = StarDriveFolderErrors[keyof StarDriveFolderEr
 
 export type StarDriveFolderResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8551,6 +11554,9 @@ export type ListDriveGroupsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/groups';
@@ -8558,7 +11564,7 @@ export type ListDriveGroupsData = {
 
 export type ListDriveGroupsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8567,7 +11573,7 @@ export type ListDriveGroupsError = ListDriveGroupsErrors[keyof ListDriveGroupsEr
 
 export type ListDriveGroupsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveGroupListOutputBody;
 };
@@ -8575,8 +11581,14 @@ export type ListDriveGroupsResponses = {
 export type ListDriveGroupsResponse = ListDriveGroupsResponses[keyof ListDriveGroupsResponses];
 
 export type CreateDriveGroupData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveGroupBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -8586,7 +11598,7 @@ export type CreateDriveGroupData = {
 
 export type CreateDriveGroupErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8595,7 +11607,7 @@ export type CreateDriveGroupError = CreateDriveGroupErrors[keyof CreateDriveGrou
 
 export type CreateDriveGroupResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveGroupBody;
 };
@@ -8605,9 +11617,15 @@ export type CreateDriveGroupResponse = CreateDriveGroupResponses[keyof CreateDri
 export type DeleteDriveGroupData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `groupPublicId` を指定します。
+         */
         groupPublicId: string;
     };
     query?: never;
@@ -8616,7 +11634,7 @@ export type DeleteDriveGroupData = {
 
 export type DeleteDriveGroupErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8625,7 +11643,7 @@ export type DeleteDriveGroupError = DeleteDriveGroupErrors[keyof DeleteDriveGrou
 
 export type DeleteDriveGroupResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8635,6 +11653,9 @@ export type DeleteDriveGroupResponse = DeleteDriveGroupResponses[keyof DeleteDri
 export type GetDriveGroupData = {
     body?: never;
     path: {
+        /**
+         * path 内の `groupPublicId` を指定します。
+         */
         groupPublicId: string;
     };
     query?: never;
@@ -8643,7 +11664,7 @@ export type GetDriveGroupData = {
 
 export type GetDriveGroupErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8652,7 +11673,7 @@ export type GetDriveGroupError = GetDriveGroupErrors[keyof GetDriveGroupErrors];
 
 export type GetDriveGroupResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveGroupBody;
 };
@@ -8660,11 +11681,20 @@ export type GetDriveGroupResponses = {
 export type GetDriveGroupResponse = GetDriveGroupResponses[keyof GetDriveGroupResponses];
 
 export type UpdateDriveGroupData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveGroupBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `groupPublicId` を指定します。
+         */
         groupPublicId: string;
     };
     query?: never;
@@ -8673,7 +11703,7 @@ export type UpdateDriveGroupData = {
 
 export type UpdateDriveGroupErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8682,7 +11712,7 @@ export type UpdateDriveGroupError = UpdateDriveGroupErrors[keyof UpdateDriveGrou
 
 export type UpdateDriveGroupResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveGroupBody;
 };
@@ -8690,11 +11720,20 @@ export type UpdateDriveGroupResponses = {
 export type UpdateDriveGroupResponse = UpdateDriveGroupResponses[keyof UpdateDriveGroupResponses];
 
 export type AddDriveGroupMemberData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: AddDriveGroupMemberBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `groupPublicId` を指定します。
+         */
         groupPublicId: string;
     };
     query?: never;
@@ -8703,7 +11742,7 @@ export type AddDriveGroupMemberData = {
 
 export type AddDriveGroupMemberErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8712,7 +11751,7 @@ export type AddDriveGroupMemberError = AddDriveGroupMemberErrors[keyof AddDriveG
 
 export type AddDriveGroupMemberResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8722,10 +11761,19 @@ export type AddDriveGroupMemberResponse = AddDriveGroupMemberResponses[keyof Add
 export type DeleteDriveGroupMemberData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `groupPublicId` を指定します。
+         */
         groupPublicId: string;
+        /**
+         * path 内の `userPublicId` を指定します。
+         */
         userPublicId: string;
     };
     query?: never;
@@ -8734,7 +11782,7 @@ export type DeleteDriveGroupMemberData = {
 
 export type DeleteDriveGroupMemberErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8743,7 +11791,7 @@ export type DeleteDriveGroupMemberError = DeleteDriveGroupMemberErrors[keyof Del
 
 export type DeleteDriveGroupMemberResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8759,7 +11807,7 @@ export type ListDriveShareInvitationsData = {
 
 export type ListDriveShareInvitationsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8768,7 +11816,7 @@ export type ListDriveShareInvitationsError = ListDriveShareInvitationsErrors[key
 
 export type ListDriveShareInvitationsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareInvitationListOutputBody;
 };
@@ -8776,11 +11824,20 @@ export type ListDriveShareInvitationsResponses = {
 export type ListDriveShareInvitationsResponse = ListDriveShareInvitationsResponses[keyof ListDriveShareInvitationsResponses];
 
 export type AcceptDriveShareInvitationData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: AcceptDriveShareInvitationBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `invitationPublicId` を指定します。
+         */
         invitationPublicId: string;
     };
     query?: never;
@@ -8789,7 +11846,7 @@ export type AcceptDriveShareInvitationData = {
 
 export type AcceptDriveShareInvitationErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8798,7 +11855,7 @@ export type AcceptDriveShareInvitationError = AcceptDriveShareInvitationErrors[k
 
 export type AcceptDriveShareInvitationResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareBody;
 };
@@ -8808,9 +11865,15 @@ export type AcceptDriveShareInvitationResponse = AcceptDriveShareInvitationRespo
 export type RevokeDriveShareInvitationData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `invitationPublicId` を指定します。
+         */
         invitationPublicId: string;
     };
     query?: never;
@@ -8819,7 +11882,7 @@ export type RevokeDriveShareInvitationData = {
 
 export type RevokeDriveShareInvitationErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8828,7 +11891,7 @@ export type RevokeDriveShareInvitationError = RevokeDriveShareInvitationErrors[k
 
 export type RevokeDriveShareInvitationResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8839,14 +11902,41 @@ export type ListDriveItemsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * Drive workspace の public UUID です。
+         */
         workspacePublicId?: string;
+        /**
+         * Drive folder の public UUID です。
+         */
         folderPublicId?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `parentFolderPublicId` です。
+         */
         parentFolderPublicId?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `type` です。
+         */
         type?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `owner` です。
+         */
         owner?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `source` です。
+         */
         source?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `sort` です。
+         */
         sort?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `direction` です。
+         */
         direction?: string;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/items';
@@ -8854,7 +11944,7 @@ export type ListDriveItemsData = {
 
 export type ListDriveItemsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8863,7 +11953,7 @@ export type ListDriveItemsError = ListDriveItemsErrors[keyof ListDriveItemsError
 
 export type ListDriveItemsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemListOutputBody;
 };
@@ -8879,7 +11969,7 @@ export type ListDriveMarketplaceAppsData = {
 
 export type ListDriveMarketplaceAppsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8888,7 +11978,7 @@ export type ListDriveMarketplaceAppsError = ListDriveMarketplaceAppsErrors[keyof
 
 export type ListDriveMarketplaceAppsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveMarketplaceAppsOutputBody;
 };
@@ -8898,9 +11988,15 @@ export type ListDriveMarketplaceAppsResponse = ListDriveMarketplaceAppsResponses
 export type RevokeDriveOfficeSessionData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `sessionPublicId` を指定します。
+         */
         sessionPublicId: string;
     };
     query?: never;
@@ -8909,7 +12005,7 @@ export type RevokeDriveOfficeSessionData = {
 
 export type RevokeDriveOfficeSessionErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8918,7 +12014,7 @@ export type RevokeDriveOfficeSessionError = RevokeDriveOfficeSessionErrors[keyof
 
 export type RevokeDriveOfficeSessionResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -8929,6 +12025,9 @@ export type ListDriveRecentData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/recent';
@@ -8936,7 +12035,7 @@ export type ListDriveRecentData = {
 
 export type ListDriveRecentErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8945,7 +12044,7 @@ export type ListDriveRecentError = ListDriveRecentErrors[keyof ListDriveRecentEr
 
 export type ListDriveRecentResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemListOutputBody;
 };
@@ -8956,13 +12055,37 @@ export type SearchDriveItemsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 検索語または filter query です。
+         */
         q?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `contentType` です。
+         */
         contentType?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `type` です。
+         */
         type?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `owner` です。
+         */
         owner?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `source` です。
+         */
         source?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `sort` です。
+         */
         sort?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `direction` です。
+         */
         direction?: string;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/search';
@@ -8970,7 +12093,7 @@ export type SearchDriveItemsData = {
 
 export type SearchDriveItemsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -8979,7 +12102,7 @@ export type SearchDriveItemsError = SearchDriveItemsErrors[keyof SearchDriveItem
 
 export type SearchDriveItemsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemListOutputBody;
 };
@@ -8990,13 +12113,37 @@ export type SearchDriveDocumentsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 検索語または filter query です。
+         */
         q?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `contentType` です。
+         */
         contentType?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `type` です。
+         */
         type?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `owner` です。
+         */
         owner?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `source` です。
+         */
         source?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `sort` です。
+         */
         sort?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `direction` です。
+         */
         direction?: string;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/search/documents';
@@ -9004,7 +12151,7 @@ export type SearchDriveDocumentsData = {
 
 export type SearchDriveDocumentsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9013,7 +12160,7 @@ export type SearchDriveDocumentsError = SearchDriveDocumentsErrors[keyof SearchD
 
 export type SearchDriveDocumentsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveSearchResultOutputBody;
 };
@@ -9023,9 +12170,15 @@ export type SearchDriveDocumentsResponse = SearchDriveDocumentsResponses[keyof S
 export type DeleteDriveShareLinkData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `shareLinkPublicId` を指定します。
+         */
         shareLinkPublicId: string;
     };
     query?: never;
@@ -9034,7 +12187,7 @@ export type DeleteDriveShareLinkData = {
 
 export type DeleteDriveShareLinkErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9043,7 +12196,7 @@ export type DeleteDriveShareLinkError = DeleteDriveShareLinkErrors[keyof DeleteD
 
 export type DeleteDriveShareLinkResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -9051,11 +12204,20 @@ export type DeleteDriveShareLinkResponses = {
 export type DeleteDriveShareLinkResponse = DeleteDriveShareLinkResponses[keyof DeleteDriveShareLinkResponses];
 
 export type UpdateDriveShareLinkData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: UpdateDriveShareLinkBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `shareLinkPublicId` を指定します。
+         */
         shareLinkPublicId: string;
     };
     query?: never;
@@ -9064,7 +12226,7 @@ export type UpdateDriveShareLinkData = {
 
 export type UpdateDriveShareLinkErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9073,7 +12235,7 @@ export type UpdateDriveShareLinkError = UpdateDriveShareLinkErrors[keyof UpdateD
 
 export type UpdateDriveShareLinkResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareLinkBody;
 };
@@ -9084,7 +12246,13 @@ export type ListDriveShareTargetsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 検索語または filter query です。
+         */
         q?: string;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/share-targets';
@@ -9092,7 +12260,7 @@ export type ListDriveShareTargetsData = {
 
 export type ListDriveShareTargetsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9101,7 +12269,7 @@ export type ListDriveShareTargetsError = ListDriveShareTargetsErrors[keyof ListD
 
 export type ListDriveShareTargetsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveShareTargetsOutputBody;
 };
@@ -9112,6 +12280,9 @@ export type ListDriveSharedWithMeData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/shared-with-me';
@@ -9119,7 +12290,7 @@ export type ListDriveSharedWithMeData = {
 
 export type ListDriveSharedWithMeErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9128,7 +12299,7 @@ export type ListDriveSharedWithMeError = ListDriveSharedWithMeErrors[keyof ListD
 
 export type ListDriveSharedWithMeResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemListOutputBody;
 };
@@ -9139,6 +12310,9 @@ export type ListDriveStarredData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/starred';
@@ -9146,7 +12320,7 @@ export type ListDriveStarredData = {
 
 export type ListDriveStarredErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9155,7 +12329,7 @@ export type ListDriveStarredError = ListDriveStarredErrors[keyof ListDriveStarre
 
 export type ListDriveStarredResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemListOutputBody;
 };
@@ -9166,6 +12340,9 @@ export type GetDriveStorageUsageData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/storage';
@@ -9173,7 +12350,7 @@ export type GetDriveStorageUsageData = {
 
 export type GetDriveStorageUsageErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9182,7 +12359,7 @@ export type GetDriveStorageUsageError = GetDriveStorageUsageErrors[keyof GetDriv
 
 export type GetDriveStorageUsageResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveStorageUsageBody;
 };
@@ -9193,6 +12370,9 @@ export type ListDriveTrashItemsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/trash';
@@ -9200,7 +12380,7 @@ export type ListDriveTrashItemsData = {
 
 export type ListDriveTrashItemsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9209,7 +12389,7 @@ export type ListDriveTrashItemsError = ListDriveTrashItemsErrors[keyof ListDrive
 
 export type ListDriveTrashItemsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveItemListOutputBody;
 };
@@ -9220,6 +12400,9 @@ export type ListDriveWorkspacesData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/drive/workspaces';
@@ -9227,7 +12410,7 @@ export type ListDriveWorkspacesData = {
 
 export type ListDriveWorkspacesErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9236,7 +12419,7 @@ export type ListDriveWorkspacesError = ListDriveWorkspacesErrors[keyof ListDrive
 
 export type ListDriveWorkspacesResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveWorkspaceListOutputBody;
 };
@@ -9244,8 +12427,14 @@ export type ListDriveWorkspacesResponses = {
 export type ListDriveWorkspacesResponse = ListDriveWorkspacesResponses[keyof ListDriveWorkspacesResponses];
 
 export type CreateDriveWorkspaceData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveWorkspaceBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -9255,7 +12444,7 @@ export type CreateDriveWorkspaceData = {
 
 export type CreateDriveWorkspaceErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9264,7 +12453,7 @@ export type CreateDriveWorkspaceError = CreateDriveWorkspaceErrors[keyof CreateD
 
 export type CreateDriveWorkspaceResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveWorkspaceBody;
 };
@@ -9274,9 +12463,15 @@ export type CreateDriveWorkspaceResponse = CreateDriveWorkspaceResponses[keyof C
 export type DeleteDriveWorkspaceData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive workspace の public UUID です。
+         */
         workspacePublicId: string;
     };
     query?: never;
@@ -9285,7 +12480,7 @@ export type DeleteDriveWorkspaceData = {
 
 export type DeleteDriveWorkspaceErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9294,7 +12489,7 @@ export type DeleteDriveWorkspaceError = DeleteDriveWorkspaceErrors[keyof DeleteD
 
 export type DeleteDriveWorkspaceResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -9302,11 +12497,20 @@ export type DeleteDriveWorkspaceResponses = {
 export type DeleteDriveWorkspaceResponse = DeleteDriveWorkspaceResponses[keyof DeleteDriveWorkspaceResponses];
 
 export type UpdateDriveWorkspaceData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateDriveWorkspaceBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive workspace の public UUID です。
+         */
         workspacePublicId: string;
     };
     query?: never;
@@ -9315,7 +12519,7 @@ export type UpdateDriveWorkspaceData = {
 
 export type UpdateDriveWorkspaceErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9324,7 +12528,7 @@ export type UpdateDriveWorkspaceError = UpdateDriveWorkspaceErrors[keyof UpdateD
 
 export type UpdateDriveWorkspaceResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: DriveWorkspaceBody;
 };
@@ -9335,7 +12539,13 @@ export type ListFilesData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `attachedToType` です。
+         */
         attachedToType?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `attachedToId` です。
+         */
         attachedToId?: string;
     };
     url: '/api/v1/files';
@@ -9343,7 +12553,7 @@ export type ListFilesData = {
 
 export type ListFilesErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9352,7 +12562,7 @@ export type ListFilesError = ListFilesErrors[keyof ListFilesErrors];
 
 export type ListFilesResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: FileListOutputBody;
 };
@@ -9362,9 +12572,15 @@ export type ListFilesResponse = ListFilesResponses[keyof ListFilesResponses];
 export type DeleteFileData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * Drive file の public UUID です。
+         */
         filePublicId: string;
     };
     query?: never;
@@ -9373,7 +12589,7 @@ export type DeleteFileData = {
 
 export type DeleteFileErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9382,7 +12598,7 @@ export type DeleteFileError = DeleteFileErrors[keyof DeleteFileErrors];
 
 export type DeleteFileResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -9398,7 +12614,7 @@ export type ListIntegrationsData = {
 
 export type ListIntegrationsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9407,7 +12623,7 @@ export type ListIntegrationsError = ListIntegrationsErrors[keyof ListIntegration
 
 export type ListIntegrationsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: ListIntegrationsBody;
 };
@@ -9417,12 +12633,27 @@ export type ListIntegrationsResponse = ListIntegrationsResponses[keyof ListInteg
 export type FinishIntegrationConnectData = {
     body?: never;
     path: {
+        /**
+         * path 内の `resourceServer` を指定します。
+         */
         resourceServer: string;
     };
     query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `code` です。
+         */
         code?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `state` です。
+         */
         state?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `error` です。
+         */
         error?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `error_description` です。
+         */
         error_description?: string;
     };
     url: '/api/v1/integrations/{resourceServer}/callback';
@@ -9430,7 +12661,7 @@ export type FinishIntegrationConnectData = {
 
 export type FinishIntegrationConnectErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9439,7 +12670,7 @@ export type FinishIntegrationConnectError = FinishIntegrationConnectErrors[keyof
 
 export type FinishIntegrationConnectResponses = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9449,6 +12680,9 @@ export type FinishIntegrationConnectResponse = FinishIntegrationConnectResponses
 export type ConnectIntegrationData = {
     body?: never;
     path: {
+        /**
+         * path 内の `resourceServer` を指定します。
+         */
         resourceServer: string;
     };
     query?: never;
@@ -9457,7 +12691,7 @@ export type ConnectIntegrationData = {
 
 export type ConnectIntegrationErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9466,7 +12700,7 @@ export type ConnectIntegrationError = ConnectIntegrationErrors[keyof ConnectInte
 
 export type ConnectIntegrationResponses = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9476,9 +12710,15 @@ export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof Conne
 export type DeleteIntegrationGrantData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `resourceServer` を指定します。
+         */
         resourceServer: string;
     };
     query?: never;
@@ -9487,7 +12727,7 @@ export type DeleteIntegrationGrantData = {
 
 export type DeleteIntegrationGrantErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9496,7 +12736,7 @@ export type DeleteIntegrationGrantError = DeleteIntegrationGrantErrors[keyof Del
 
 export type DeleteIntegrationGrantResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -9506,9 +12746,15 @@ export type DeleteIntegrationGrantResponse = DeleteIntegrationGrantResponses[key
 export type VerifyIntegrationAccessData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `resourceServer` を指定します。
+         */
         resourceServer: string;
     };
     query?: never;
@@ -9517,7 +12763,7 @@ export type VerifyIntegrationAccessData = {
 
 export type VerifyIntegrationAccessErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9526,7 +12772,7 @@ export type VerifyIntegrationAccessError = VerifyIntegrationAccessErrors[keyof V
 
 export type VerifyIntegrationAccessResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: VerifyIntegrationBody;
 };
@@ -9534,9 +12780,18 @@ export type VerifyIntegrationAccessResponses = {
 export type VerifyIntegrationAccessResponse = VerifyIntegrationAccessResponses[keyof VerifyIntegrationAccessResponses];
 
 export type AcceptTenantInvitationData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: AcceptTenantInvitationRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
+        /**
+         * 同じ request の retry を安全に扱うための任意 key です。同じ key は同じ method/path/body にだけ再利用できます。
+         */
         'Idempotency-Key'?: string;
     };
     path?: never;
@@ -9546,7 +12801,7 @@ export type AcceptTenantInvitationData = {
 
 export type AcceptTenantInvitationErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9555,7 +12810,7 @@ export type AcceptTenantInvitationError = AcceptTenantInvitationErrors[keyof Acc
 
 export type AcceptTenantInvitationResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TenantInvitationBody;
 };
@@ -9563,6 +12818,9 @@ export type AcceptTenantInvitationResponses = {
 export type AcceptTenantInvitationResponse = AcceptTenantInvitationResponses[keyof AcceptTenantInvitationResponses];
 
 export type LoginData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: LoginInputBodyWritable;
     path?: never;
     query?: never;
@@ -9571,7 +12829,7 @@ export type LoginData = {
 
 export type LoginErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9580,7 +12838,7 @@ export type LoginError = LoginErrors[keyof LoginErrors];
 
 export type LoginResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: SessionBody;
 };
@@ -9590,6 +12848,9 @@ export type LoginResponse = LoginResponses[keyof LoginResponses];
 export type LogoutData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -9599,7 +12860,7 @@ export type LogoutData = {
 
 export type LogoutErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9608,7 +12869,7 @@ export type LogoutError = LogoutErrors[keyof LogoutErrors];
 
 export type LogoutResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: LogoutBody;
 };
@@ -9624,7 +12885,7 @@ export type ListMachineClientsData = {
 
 export type ListMachineClientsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9633,7 +12894,7 @@ export type ListMachineClientsError = ListMachineClientsErrors[keyof ListMachine
 
 export type ListMachineClientsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: ListMachineClientsOutputBody;
 };
@@ -9641,8 +12902,14 @@ export type ListMachineClientsResponses = {
 export type ListMachineClientsResponse = ListMachineClientsResponses[keyof ListMachineClientsResponses];
 
 export type CreateMachineClientData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: MachineClientRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -9652,7 +12919,7 @@ export type CreateMachineClientData = {
 
 export type CreateMachineClientErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9661,7 +12928,7 @@ export type CreateMachineClientError = CreateMachineClientErrors[keyof CreateMac
 
 export type CreateMachineClientResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: MachineClientBody;
 };
@@ -9671,9 +12938,15 @@ export type CreateMachineClientResponse = CreateMachineClientResponses[keyof Cre
 export type DeleteMachineClientData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `id` を指定します。
+         */
         id: number;
     };
     query?: never;
@@ -9682,7 +12955,7 @@ export type DeleteMachineClientData = {
 
 export type DeleteMachineClientErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9691,7 +12964,7 @@ export type DeleteMachineClientError = DeleteMachineClientErrors[keyof DeleteMac
 
 export type DeleteMachineClientResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -9701,6 +12974,9 @@ export type DeleteMachineClientResponse = DeleteMachineClientResponses[keyof Del
 export type GetMachineClientData = {
     body?: never;
     path: {
+        /**
+         * path 内の `id` を指定します。
+         */
         id: number;
     };
     query?: never;
@@ -9709,7 +12985,7 @@ export type GetMachineClientData = {
 
 export type GetMachineClientErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9718,7 +12994,7 @@ export type GetMachineClientError = GetMachineClientErrors[keyof GetMachineClien
 
 export type GetMachineClientResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: MachineClientBody;
 };
@@ -9726,11 +13002,20 @@ export type GetMachineClientResponses = {
 export type GetMachineClientResponse = GetMachineClientResponses[keyof GetMachineClientResponses];
 
 export type UpdateMachineClientData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: MachineClientRequestBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `id` を指定します。
+         */
         id: number;
     };
     query?: never;
@@ -9739,7 +13024,7 @@ export type UpdateMachineClientData = {
 
 export type UpdateMachineClientErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9748,7 +13033,7 @@ export type UpdateMachineClientError = UpdateMachineClientErrors[keyof UpdateMac
 
 export type UpdateMachineClientResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: MachineClientBody;
 };
@@ -9759,6 +13044,9 @@ export type ListNotificationsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
         limit?: number;
     };
     url: '/api/v1/notifications';
@@ -9766,7 +13054,7 @@ export type ListNotificationsData = {
 
 export type ListNotificationsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9775,7 +13063,7 @@ export type ListNotificationsError = ListNotificationsErrors[keyof ListNotificat
 
 export type ListNotificationsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: NotificationListOutputBody;
 };
@@ -9785,9 +13073,15 @@ export type ListNotificationsResponse = ListNotificationsResponses[keyof ListNot
 export type MarkNotificationReadData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `notificationPublicId` を指定します。
+         */
         notificationPublicId: string;
     };
     query?: never;
@@ -9796,7 +13090,7 @@ export type MarkNotificationReadData = {
 
 export type MarkNotificationReadErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9805,7 +13099,7 @@ export type MarkNotificationReadError = MarkNotificationReadErrors[keyof MarkNot
 
 export type MarkNotificationReadResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: NotificationBody;
 };
@@ -9821,7 +13115,7 @@ export type GetSessionData = {
 
 export type GetSessionErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9830,7 +13124,7 @@ export type GetSessionError = GetSessionErrors[keyof GetSessionErrors];
 
 export type GetSessionResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: SessionBody;
 };
@@ -9840,6 +13134,9 @@ export type GetSessionResponse = GetSessionResponses[keyof GetSessionResponses];
 export type RefreshSessionData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -9849,7 +13146,7 @@ export type RefreshSessionData = {
 
 export type RefreshSessionErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9858,7 +13155,7 @@ export type RefreshSessionError = RefreshSessionErrors[keyof RefreshSessionError
 
 export type RefreshSessionResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -9866,8 +13163,14 @@ export type RefreshSessionResponses = {
 export type RefreshSessionResponse = RefreshSessionResponses[keyof RefreshSessionResponses];
 
 export type SelectTenantData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: SelectTenantInputBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -9877,7 +13180,7 @@ export type SelectTenantData = {
 
 export type SelectTenantErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9886,7 +13189,7 @@ export type SelectTenantError = SelectTenantErrors[keyof SelectTenantErrors];
 
 export type SelectTenantResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: SelectTenantOutputBody;
 };
@@ -9902,7 +13205,7 @@ export type GetCurrentSupportAccessData = {
 
 export type GetCurrentSupportAccessErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9911,7 +13214,7 @@ export type GetCurrentSupportAccessError = GetCurrentSupportAccessErrors[keyof G
 
 export type GetCurrentSupportAccessResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: SupportAccessOutputBody;
 };
@@ -9921,6 +13224,9 @@ export type GetCurrentSupportAccessResponse = GetCurrentSupportAccessResponses[k
 export type EndSupportAccessData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -9930,7 +13236,7 @@ export type EndSupportAccessData = {
 
 export type EndSupportAccessErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9939,7 +13245,7 @@ export type EndSupportAccessError = EndSupportAccessErrors[keyof EndSupportAcces
 
 export type EndSupportAccessResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -9947,8 +13253,14 @@ export type EndSupportAccessResponses = {
 export type EndSupportAccessResponse = EndSupportAccessResponses[keyof EndSupportAccessResponses];
 
 export type StartSupportAccessData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: StartSupportAccessBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -9958,7 +13270,7 @@ export type StartSupportAccessData = {
 
 export type StartSupportAccessErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9967,7 +13279,7 @@ export type StartSupportAccessError = StartSupportAccessErrors[keyof StartSuppor
 
 export type StartSupportAccessResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: SupportAccessOutputBody;
 };
@@ -9983,7 +13295,7 @@ export type ListTenantsData = {
 
 export type ListTenantsErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -9992,7 +13304,7 @@ export type ListTenantsError = ListTenantsErrors[keyof ListTenantsErrors];
 
 export type ListTenantsResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: ListTenantsBody;
 };
@@ -10008,7 +13320,7 @@ export type ListTodosData = {
 
 export type ListTodosErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -10017,7 +13329,7 @@ export type ListTodosError = ListTodosErrors[keyof ListTodosErrors];
 
 export type ListTodosResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TodoListBody;
 };
@@ -10025,8 +13337,14 @@ export type ListTodosResponses = {
 export type ListTodosResponse = ListTodosResponses[keyof ListTodosResponses];
 
 export type CreateTodoData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: CreateTodoBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path?: never;
@@ -10036,7 +13354,7 @@ export type CreateTodoData = {
 
 export type CreateTodoErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -10045,7 +13363,7 @@ export type CreateTodoError = CreateTodoErrors[keyof CreateTodoErrors];
 
 export type CreateTodoResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TodoBody;
 };
@@ -10055,9 +13373,15 @@ export type CreateTodoResponse = CreateTodoResponses[keyof CreateTodoResponses];
 export type DeleteTodoData = {
     body?: never;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `todoPublicId` を指定します。
+         */
         todoPublicId: string;
     };
     query?: never;
@@ -10066,7 +13390,7 @@ export type DeleteTodoData = {
 
 export type DeleteTodoErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -10075,7 +13399,7 @@ export type DeleteTodoError = DeleteTodoErrors[keyof DeleteTodoErrors];
 
 export type DeleteTodoResponses = {
     /**
-     * No Content
+     * 操作に成功しました。response body はありません。
      */
     204: void;
 };
@@ -10083,11 +13407,20 @@ export type DeleteTodoResponses = {
 export type DeleteTodoResponse = DeleteTodoResponses[keyof DeleteTodoResponses];
 
 export type UpdateTodoData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
     body: UpdateTodoBodyWritable;
     headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
         'X-CSRF-Token': string;
     };
     path: {
+        /**
+         * path 内の `todoPublicId` を指定します。
+         */
         todoPublicId: string;
     };
     query?: never;
@@ -10096,7 +13429,7 @@ export type UpdateTodoData = {
 
 export type UpdateTodoErrors = {
     /**
-     * Error
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
      */
     default: ErrorModel;
 };
@@ -10105,7 +13438,7 @@ export type UpdateTodoError = UpdateTodoErrors[keyof UpdateTodoErrors];
 
 export type UpdateTodoResponses = {
     /**
-     * OK
+     * 操作に成功し、response body に結果を返します。
      */
     200: TodoBody;
 };

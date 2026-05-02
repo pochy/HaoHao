@@ -213,7 +213,7 @@ type DriveMarketplaceAppsInput struct {
 }
 
 func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
-	huma.Register(api, huma.Operation{OperationID: "createDriveOfficeSession", Method: http.MethodPost, Path: "/api/v1/drive/files/{filePublicId}/office/sessions", Tags: []string{"drive-office"}, Summary: "Drive Office edit session を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveOfficeSessionCreateInput) (*DriveOfficeSessionOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createDriveOfficeSession", Method: http.MethodPost, Path: "/api/v1/drive/files/{filePublicId}/office/sessions", Tags: []string{DocTagDriveCollaborationSync}, Summary: "Drive Office edit session を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveOfficeSessionCreateInput) (*DriveOfficeSessionOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
@@ -225,7 +225,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return &DriveOfficeSessionOutput{Body: toDriveOfficeSessionBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "revokeDriveOfficeSession", Method: http.MethodDelete, Path: "/api/v1/drive/office/sessions/{sessionPublicId}", Tags: []string{"drive-office"}, Summary: "Drive Office edit session を revoke する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveOfficeSessionRevokeInput) (*DriveNoContentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "revokeDriveOfficeSession", Method: http.MethodDelete, Path: "/api/v1/drive/office/sessions/{sessionPublicId}", Tags: []string{DocTagDriveCollaborationSync}, Summary: "Drive Office edit session を revoke する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveOfficeSessionRevokeInput) (*DriveNoContentOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
@@ -236,7 +236,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return &DriveNoContentOutput{}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "acceptDriveOfficeWebhook", Method: http.MethodPost, Path: "/api/office/webhooks/{provider}", Tags: []string{"drive-office"}, Summary: "Drive Office provider webhook を受け取る"}, func(ctx context.Context, input *DriveOfficeWebhookInput) (*DriveOfficeWebhookOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "acceptDriveOfficeWebhook", Method: http.MethodPost, Path: "/api/office/webhooks/{provider}", Tags: []string{DocTagDriveCollaborationSync}, Summary: "Drive Office provider webhook を受け取る"}, func(ctx context.Context, input *DriveOfficeWebhookInput) (*DriveOfficeWebhookOutput, error) {
 		item, err := deps.DriveService.AcceptOfficeWebhook(ctx, service.DriveOfficeWebhookInput{
 			Provider:        input.Provider,
 			ProviderEventID: input.Body.ProviderEventID,
@@ -255,7 +255,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return out, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createDriveE2EEUserKey", Method: http.MethodPost, Path: "/api/v1/drive/e2ee/user-keys", Tags: []string{"drive-e2ee"}, Summary: "Drive E2EE public key を登録する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveE2EEUserKeyCreateInput) (*DriveE2EEUserKeyOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createDriveE2EEUserKey", Method: http.MethodPost, Path: "/api/v1/drive/e2ee/user-keys", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive E2EE public key を登録する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveE2EEUserKeyCreateInput) (*DriveE2EEUserKeyOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
@@ -267,7 +267,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return &DriveE2EEUserKeyOutput{Body: DriveE2EEUserKeyBody{PublicID: item.PublicID, UserPublicID: item.UserPublicID, Algorithm: item.Algorithm, Status: item.Status, CreatedAt: item.CreatedAt}}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createDriveE2EEFileKey", Method: http.MethodPost, Path: "/api/v1/drive/files/{filePublicId}/e2ee/keys", Tags: []string{"drive-e2ee"}, Summary: "Drive E2EE file key metadata を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveE2EEFileKeyCreateInput) (*DriveE2EEFileKeyOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createDriveE2EEFileKey", Method: http.MethodPost, Path: "/api/v1/drive/files/{filePublicId}/e2ee/keys", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive E2EE file key metadata を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveE2EEFileKeyCreateInput) (*DriveE2EEFileKeyOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
@@ -279,7 +279,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return &DriveE2EEFileKeyOutput{Body: DriveE2EEFileKeyBody{PublicID: item.PublicID, FilePublicID: item.FilePublicID, KeyVersion: item.KeyVersion, Algorithm: item.Algorithm, CiphertextSHA256: item.CiphertextSHA256, CreatedAt: item.CreatedAt}}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createDriveE2EEEnvelope", Method: http.MethodPost, Path: "/api/v1/drive/files/{filePublicId}/e2ee/envelopes", Tags: []string{"drive-e2ee"}, Summary: "Drive E2EE recipient envelope を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveE2EEEnvelopeCreateInput) (*DriveE2EEEnvelopeOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createDriveE2EEEnvelope", Method: http.MethodPost, Path: "/api/v1/drive/files/{filePublicId}/e2ee/envelopes", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive E2EE recipient envelope を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveE2EEEnvelopeCreateInput) (*DriveE2EEEnvelopeOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
@@ -291,7 +291,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return &DriveE2EEEnvelopeOutput{Body: toDriveE2EEEnvelopeBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "getDriveE2EEEnvelope", Method: http.MethodGet, Path: "/api/v1/drive/files/{filePublicId}/e2ee/envelope", Tags: []string{"drive-e2ee"}, Summary: "Drive E2EE actor envelope を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveE2EEEnvelopeGetInput) (*DriveE2EEEnvelopeOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "getDriveE2EEEnvelope", Method: http.MethodGet, Path: "/api/v1/drive/files/{filePublicId}/e2ee/envelope", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive E2EE actor envelope を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveE2EEEnvelopeGetInput) (*DriveE2EEEnvelopeOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
@@ -303,7 +303,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return &DriveE2EEEnvelopeOutput{Body: toDriveE2EEEnvelopeBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "revokeDriveE2EEEnvelope", Method: http.MethodDelete, Path: "/api/v1/drive/files/{filePublicId}/e2ee/envelopes/{recipientUserPublicId}", Tags: []string{"drive-e2ee"}, Summary: "Drive E2EE recipient envelope を revoke する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveE2EEEnvelopeRevokeInput) (*DriveNoContentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "revokeDriveE2EEEnvelope", Method: http.MethodDelete, Path: "/api/v1/drive/files/{filePublicId}/e2ee/envelopes/{recipientUserPublicId}", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive E2EE recipient envelope を revoke する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveE2EEEnvelopeRevokeInput) (*DriveNoContentOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
@@ -314,7 +314,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return &DriveNoContentOutput{}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createDriveAIJob", Method: http.MethodPost, Path: "/api/v1/drive/files/{filePublicId}/ai/jobs", Tags: []string{"drive-ai"}, Summary: "Drive AI job を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveAIJobCreateInput) (*DriveAIJobOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createDriveAIJob", Method: http.MethodPost, Path: "/api/v1/drive/files/{filePublicId}/ai/jobs", Tags: []string{DocTagDriveAIOCR}, Summary: "Drive AI job を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveAIJobCreateInput) (*DriveAIJobOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
@@ -326,7 +326,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return &DriveAIJobOutput{Body: DriveAIJobBody{PublicID: item.PublicID, FilePublicID: item.FilePublicID, JobType: item.JobType, Provider: item.Provider, Status: item.Status, CreatedAt: item.CreatedAt}}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "getDriveAISummary", Method: http.MethodGet, Path: "/api/v1/drive/files/{filePublicId}/ai/summary", Tags: []string{"drive-ai"}, Summary: "Drive AI summary を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveAIFileInput) (*DriveAISummaryOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "getDriveAISummary", Method: http.MethodGet, Path: "/api/v1/drive/files/{filePublicId}/ai/summary", Tags: []string{DocTagDriveAIOCR}, Summary: "Drive AI summary を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveAIFileInput) (*DriveAISummaryOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
@@ -338,7 +338,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return &DriveAISummaryOutput{Body: DriveAISummaryBody{PublicID: item.PublicID, FilePublicID: item.FilePublicID, SummaryText: item.SummaryText, Provider: item.Provider, CreatedAt: item.CreatedAt}}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "listDriveAIClassifications", Method: http.MethodGet, Path: "/api/v1/drive/files/{filePublicId}/ai/classifications", Tags: []string{"drive-ai"}, Summary: "Drive AI classifications を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveAIFileInput) (*DriveAIClassificationsOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "listDriveAIClassifications", Method: http.MethodGet, Path: "/api/v1/drive/files/{filePublicId}/ai/classifications", Tags: []string{DocTagDriveAIOCR}, Summary: "Drive AI classifications を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveAIFileInput) (*DriveAIClassificationsOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
@@ -354,7 +354,7 @@ func registerDriveOfficeSecurityAIRoutes(api huma.API, deps Dependencies) {
 		return out, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "listDriveMarketplaceApps", Method: http.MethodGet, Path: "/api/v1/drive/marketplace/apps", Tags: []string{"drive-marketplace"}, Summary: "Drive marketplace catalog を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveMarketplaceAppsInput) (*DriveMarketplaceAppsOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "listDriveMarketplaceApps", Method: http.MethodGet, Path: "/api/v1/drive/marketplace/apps", Tags: []string{DocTagPlatformIntegrations}, Summary: "Drive marketplace catalog を返す", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveMarketplaceAppsInput) (*DriveMarketplaceAppsOutput, error) {
 		if _, _, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, ""); err != nil {
 			return nil, err
 		}

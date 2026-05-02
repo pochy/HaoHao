@@ -38,7 +38,7 @@ func registerExternalDriveRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/external/v1/drive/files/{fileId}/metadata",
 		Summary:     "external bearer Drive file metadata を返す",
-		Tags:        []string{"external-drive"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 	}, func(ctx context.Context, input *ExternalDriveFileInput) (*DriveFileOutput, error) {
 		authCtx, tenant, err := requireExternalDriveUser(ctx, "drive:read")
@@ -57,7 +57,7 @@ func registerExternalDriveRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodDelete,
 		Path:        "/api/external/v1/drive/files/{fileId}",
 		Summary:     "external bearer Drive file を削除する",
-		Tags:        []string{"external-drive"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 	}, func(ctx context.Context, input *ExternalDriveFileInput) (*DriveNoContentOutput, error) {
 		authCtx, tenant, err := requireExternalDriveUser(ctx, "drive:write")
@@ -75,7 +75,7 @@ func registerExternalDriveRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/external/v1/drive/folders/{folderId}/children",
 		Summary:     "external bearer Drive folder children を返す",
-		Tags:        []string{"external-drive"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 	}, func(ctx context.Context, input *ExternalDriveFolderChildrenInput) (*DriveItemListOutput, error) {
 		authCtx, tenant, err := requireExternalDriveUser(ctx, "drive:read")
@@ -99,7 +99,7 @@ func registerExternalDriveRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/external/v1/drive/folders",
 		Summary:     "external bearer Drive folder を作成する",
-		Tags:        []string{"external-drive"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 	}, func(ctx context.Context, input *ExternalDriveCreateFolderInput) (*DriveFolderOutput, error) {
 		authCtx, tenant, err := requireExternalDriveUser(ctx, "drive:write")
@@ -124,7 +124,7 @@ func registerExternalDriveRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/external/v1/drive/files/{fileId}/shares",
 		Summary:     "external bearer Drive file share を作成する",
-		Tags:        []string{"external-drive"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 	}, func(ctx context.Context, input *ExternalDriveShareInput) (*DriveShareOutput, error) {
 		authCtx, tenant, err := requireExternalDriveUser(ctx, "drive:share")

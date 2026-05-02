@@ -37,7 +37,7 @@ func registerOIDCRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodGet,
 		Path:          "/api/v1/auth/login",
 		Summary:       "OIDC login を開始する",
-		Tags:          []string{"auth"},
+		Tags:          []string{DocTagAuthSession},
 		DefaultStatus: http.StatusFound,
 	}, func(ctx context.Context, input *StartOIDCLoginInput) (*StartOIDCLoginOutput, error) {
 		if deps.OIDCLoginService == nil {
@@ -57,7 +57,7 @@ func registerOIDCRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodGet,
 		Path:          "/api/v1/auth/callback",
 		Summary:       "OIDC callback を完了する",
-		Tags:          []string{"auth"},
+		Tags:          []string{DocTagAuthSession},
 		DefaultStatus: http.StatusFound,
 	}, func(ctx context.Context, input *OIDCCallbackInput) (*OIDCCallbackOutput, error) {
 		if input.Error != "" || deps.OIDCLoginService == nil {

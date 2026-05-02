@@ -54,7 +54,7 @@ func registerTenantSettingsRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/settings",
 		Summary:     "tenant settings を返す",
-		Tags:        []string{"tenant-settings"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -78,7 +78,7 @@ func registerTenantSettingsRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPut,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/settings",
 		Summary:     "tenant settings を更新する",
-		Tags:        []string{"tenant-settings"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},

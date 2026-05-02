@@ -28,7 +28,7 @@ func registerAuthSettingsRoute(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/auth/settings",
 		Summary:     "現在の認証モード設定を返す",
-		Tags:        []string{"auth"},
+		Tags:        []string{DocTagAuthSession},
 	}, func(ctx context.Context, input *struct{}) (*GetAuthSettingsOutput, error) {
 		body := AuthSettingsBody{
 			Mode:                      deps.AuthMode,

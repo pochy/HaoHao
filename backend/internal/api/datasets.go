@@ -373,7 +373,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/datasets",
 		Summary:     "Drive CSV file から active tenant の dataset を作成する",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetCreateInput) (*DatasetOutput, error) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -400,7 +400,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/datasets",
 		Summary:     "active tenant の dataset 一覧を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDatasetsInput) (*DatasetListOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -424,7 +424,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-source-files",
 		Summary:     "Dataset に取り込める Drive CSV file 一覧を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDatasetSourceFilesInput) (*DatasetSourceFileListOutput, error) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -456,7 +456,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-work-tables",
 		Summary:     "active tenant の ClickHouse work table 一覧を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDatasetWorkTablesInput) (*DatasetWorkTableListOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -480,7 +480,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/dataset-work-tables/register",
 		Summary:     "active tenant の ClickHouse work table を管理レコード化する",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableRegisterInput) (*DatasetWorkTableOutput, error) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -499,7 +499,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}",
 		Summary:     "managed work table detail を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableByPublicIDInput) (*DatasetWorkTableOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -518,7 +518,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/preview",
 		Summary:     "managed work table preview rows を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTablePreviewByPublicIDInput) (*DatasetWorkTablePreviewOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -537,7 +537,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/link",
 		Summary:     "managed work table を dataset に紐付ける",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableLinkInput) (*DatasetWorkTableOutput, error) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -556,7 +556,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/rename",
 		Summary:     "managed work table を rename する",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableRenameInput) (*DatasetWorkTableOutput, error) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -575,7 +575,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/truncate",
 		Summary:     "managed work table を truncate する",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableMutateInput) (*DatasetWorkTableOutput, error) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -594,7 +594,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/dataset-work-tables/{workTablePublicId}",
 		Summary:       "managed work table を drop する",
-		Tags:          []string{"datasets"},
+		Tags:          []string{DocTagDataDatasets},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableMutateInput) (*DeleteDatasetOutput, error) {
@@ -613,7 +613,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/promote",
 		Summary:     "managed work table を dataset 化する",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTablePromoteInput) (*DatasetOutput, error) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -632,7 +632,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/exports",
 		Summary:     "managed work table の CSV export を request する",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableExportCreateInput) (*DatasetWorkTableExportOutput, error) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -651,7 +651,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/exports",
 		Summary:     "managed work table の CSV export 一覧を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableExportInput) (*DatasetWorkTableExportListOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -675,7 +675,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-work-table-exports/{exportPublicId}",
 		Summary:     "work table export detail を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableExportByPublicIDInput) (*DatasetWorkTableExportOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -694,7 +694,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-work-table-exports/{exportPublicId}/download",
 		Summary:     "ready work table export を download する",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableExportByPublicIDInput) (*DownloadDatasetWorkTableExportOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -722,7 +722,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-work-tables/by-ref/{database}/{table}",
 		Summary:     "active tenant の ClickHouse work table detail を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableInput) (*DatasetWorkTableOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -741,7 +741,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-work-tables/by-ref/{database}/{table}/preview",
 		Summary:     "active tenant の ClickHouse work table preview rows を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTablePreviewInput) (*DatasetWorkTablePreviewOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -760,7 +760,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/datasets/{datasetPublicId}",
 		Summary:     "active tenant の dataset detail を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetByPublicIDInput) (*DatasetOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -779,7 +779,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/datasets/{datasetPublicId}/work-tables",
 		Summary:     "dataset に紐づく managed work table 一覧を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDatasetScopedWorkTablesInput) (*DatasetWorkTableListOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -803,7 +803,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/datasets/{datasetPublicId}",
 		Summary:       "active tenant の dataset を削除する",
-		Tags:          []string{"datasets"},
+		Tags:          []string{DocTagDataDatasets},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DeleteDatasetInput) (*DeleteDatasetOutput, error) {
@@ -822,7 +822,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/datasets/{datasetPublicId}/query-jobs",
 		Summary:     "active tenant の dataset に紐づく SQL query job を作成する",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetScopedQueryCreateInput) (*DatasetQueryOutput, error) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -841,7 +841,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/datasets/{datasetPublicId}/query-jobs",
 		Summary:     "active tenant の dataset に紐づく query job 一覧を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDatasetScopedQueryJobsInput) (*DatasetQueryListOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -865,7 +865,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/dataset-query-jobs",
 		Summary:     "active tenant の dataset SQL query job を作成する",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetQueryCreateInput) (*DatasetQueryOutput, error) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -884,7 +884,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-query-jobs",
 		Summary:     "active tenant の dataset query job 一覧を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDatasetQueryJobsInput) (*DatasetQueryListOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -908,7 +908,7 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/dataset-query-jobs/{queryJobPublicId}",
 		Summary:     "active tenant の dataset query job detail を返す",
-		Tags:        []string{"datasets"},
+		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetQueryByPublicIDInput) (*DatasetQueryOutput, error) {
 		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")

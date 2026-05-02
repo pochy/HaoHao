@@ -20,6 +20,14 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 
 /**
  * Drive Office provider webhook を受け取る
+ *
+ * Drive Office provider webhook を受け取る。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const acceptDriveOfficeWebhook = <ThrowOnError extends boolean = false>(options: Options<AcceptDriveOfficeWebhookData, ThrowOnError>) => (options.client ?? client).post<AcceptDriveOfficeWebhookResponses, AcceptDriveOfficeWebhookErrors, ThrowOnError>({
     url: '/api/office/webhooks/{provider}',
@@ -32,16 +40,32 @@ export const acceptDriveOfficeWebhook = <ThrowOnError extends boolean = false>(o
 
 /**
  * public Drive share link metadata を返す
+ *
+ * public Drive share link metadata を返す。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
  */
 export const getPublicDriveShareLink = <ThrowOnError extends boolean = false>(options: Options<GetPublicDriveShareLinkData, ThrowOnError>) => (options.client ?? client).get<GetPublicDriveShareLinkResponses, GetPublicDriveShareLinkErrors, ThrowOnError>({ url: '/api/public/drive/share-links/{token}', ...options });
 
 /**
  * public Drive folder share link children を返す
+ *
+ * public Drive folder share link children を返す。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
  */
 export const listPublicDriveShareLinkChildren = <ThrowOnError extends boolean = false>(options: Options<ListPublicDriveShareLinkChildrenData, ThrowOnError>) => (options.client ?? client).get<ListPublicDriveShareLinkChildrenResponses, ListPublicDriveShareLinkChildrenErrors, ThrowOnError>({ url: '/api/public/drive/share-links/{token}/children', ...options });
 
 /**
  * tenant admin 用の tenant 一覧を返す
+ *
+ * tenant admin 用の tenant 一覧を返す。
+ *
+ * tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTenantAdminTenants = <ThrowOnError extends boolean = false>(options?: Options<ListTenantAdminTenantsData, ThrowOnError>) => (options?.client ?? client).get<ListTenantAdminTenantsResponses, ListTenantAdminTenantsErrors, ThrowOnError>({
     security: [{
@@ -55,6 +79,15 @@ export const listTenantAdminTenants = <ThrowOnError extends boolean = false>(opt
 
 /**
  * tenant を作成する
+ *
+ * tenant を作成する。
+ *
+ * tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createTenantAdminTenant = <ThrowOnError extends boolean = false>(options: Options<CreateTenantAdminTenantData, ThrowOnError>) => (options.client ?? client).post<CreateTenantAdminTenantResponses, CreateTenantAdminTenantErrors, ThrowOnError>({
     security: [{
@@ -72,6 +105,14 @@ export const createTenantAdminTenant = <ThrowOnError extends boolean = false>(op
 
 /**
  * tenant を無効化する
+ *
+ * tenant を無効化する。
+ *
+ * tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deactivateTenantAdminTenant = <ThrowOnError extends boolean = false>(options: Options<DeactivateTenantAdminTenantData, ThrowOnError>) => (options.client ?? client).delete<DeactivateTenantAdminTenantResponses, DeactivateTenantAdminTenantErrors, ThrowOnError>({
     security: [{
@@ -85,6 +126,14 @@ export const deactivateTenantAdminTenant = <ThrowOnError extends boolean = false
 
 /**
  * tenant detail と membership を返す
+ *
+ * tenant detail と membership を返す。
+ *
+ * tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getTenantAdminTenant = <ThrowOnError extends boolean = false>(options: Options<GetTenantAdminTenantData, ThrowOnError>) => (options.client ?? client).get<GetTenantAdminTenantResponses, GetTenantAdminTenantErrors, ThrowOnError>({
     security: [{
@@ -98,6 +147,15 @@ export const getTenantAdminTenant = <ThrowOnError extends boolean = false>(optio
 
 /**
  * tenant を更新する
+ *
+ * tenant を更新する。
+ *
+ * tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateTenantAdminTenant = <ThrowOnError extends boolean = false>(options: Options<UpdateTenantAdminTenantData, ThrowOnError>) => (options.client ?? client).put<UpdateTenantAdminTenantResponses, UpdateTenantAdminTenantErrors, ThrowOnError>({
     security: [{
@@ -115,6 +173,14 @@ export const updateTenantAdminTenant = <ThrowOnError extends boolean = false>(op
 
 /**
  * tenant admin 用 Drive audit events を返す
+ *
+ * tenant admin 用 Drive audit events を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTenantAdminDriveAuditEvents = <ThrowOnError extends boolean = false>(options: Options<ListTenantAdminDriveAuditEventsData, ThrowOnError>) => (options.client ?? client).get<ListTenantAdminDriveAuditEventsResponses, ListTenantAdminDriveAuditEventsErrors, ThrowOnError>({
     security: [{
@@ -128,6 +194,15 @@ export const listTenantAdminDriveAuditEvents = <ThrowOnError extends boolean = f
 
 /**
  * Drive clean room を作成する
+ *
+ * Drive clean room を作成する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveCleanRoom = <ThrowOnError extends boolean = false>(options: Options<CreateDriveCleanRoomData, ThrowOnError>) => (options.client ?? client).post<CreateDriveCleanRoomResponses, CreateDriveCleanRoomErrors, ThrowOnError>({
     security: [{
@@ -145,6 +220,15 @@ export const createDriveCleanRoom = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive clean room dataset を投入する
+ *
+ * Drive clean room dataset を投入する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const submitDriveCleanRoomDataset = <ThrowOnError extends boolean = false>(options: Options<SubmitDriveCleanRoomDatasetData, ThrowOnError>) => (options.client ?? client).post<SubmitDriveCleanRoomDatasetResponses, SubmitDriveCleanRoomDatasetErrors, ThrowOnError>({
     security: [{
@@ -162,6 +246,15 @@ export const submitDriveCleanRoomDataset = <ThrowOnError extends boolean = false
 
 /**
  * Drive clean room export を要求する
+ *
+ * Drive clean room export を要求する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const requestDriveCleanRoomExport = <ThrowOnError extends boolean = false>(options: Options<RequestDriveCleanRoomExportData, ThrowOnError>) => (options.client ?? client).post<RequestDriveCleanRoomExportResponses, RequestDriveCleanRoomExportErrors, ThrowOnError>({
     security: [{
@@ -179,6 +272,15 @@ export const requestDriveCleanRoomExport = <ThrowOnError extends boolean = false
 
 /**
  * Drive clean room participant を追加する
+ *
+ * Drive clean room participant を追加する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const addDriveCleanRoomParticipant = <ThrowOnError extends boolean = false>(options: Options<AddDriveCleanRoomParticipantData, ThrowOnError>) => (options.client ?? client).post<AddDriveCleanRoomParticipantResponses, AddDriveCleanRoomParticipantErrors, ThrowOnError>({
     security: [{
@@ -196,6 +298,15 @@ export const addDriveCleanRoomParticipant = <ThrowOnError extends boolean = fals
 
 /**
  * Drive admin content break-glass session を開始する
+ *
+ * Drive admin content break-glass session を開始する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const startTenantAdminDriveContentAccessSession = <ThrowOnError extends boolean = false>(options: Options<StartTenantAdminDriveContentAccessSessionData, ThrowOnError>) => (options.client ?? client).post<StartTenantAdminDriveContentAccessSessionResponses, StartTenantAdminDriveContentAccessSessionErrors, ThrowOnError>({
     security: [{
@@ -213,6 +324,14 @@ export const startTenantAdminDriveContentAccessSession = <ThrowOnError extends b
 
 /**
  * Drive admin content break-glass session を終了する
+ *
+ * Drive admin content break-glass session を終了する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const endTenantAdminDriveContentAccessSession = <ThrowOnError extends boolean = false>(options: Options<EndTenantAdminDriveContentAccessSessionData, ThrowOnError>) => (options.client ?? client).delete<EndTenantAdminDriveContentAccessSessionResponses, EndTenantAdminDriveContentAccessSessionErrors, ThrowOnError>({
     security: [{
@@ -226,6 +345,15 @@ export const endTenantAdminDriveContentAccessSession = <ThrowOnError extends boo
 
 /**
  * Drive eDiscovery provider connection を作成する
+ *
+ * Drive eDiscovery provider connection を作成する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveEDiscoveryConnection = <ThrowOnError extends boolean = false>(options: Options<CreateDriveEDiscoveryConnectionData, ThrowOnError>) => (options.client ?? client).post<CreateDriveEDiscoveryConnectionResponses, CreateDriveEDiscoveryConnectionErrors, ThrowOnError>({
     security: [{
@@ -243,6 +371,15 @@ export const createDriveEDiscoveryConnection = <ThrowOnError extends boolean = f
 
 /**
  * Drive eDiscovery export を request する
+ *
+ * Drive eDiscovery export を request する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const requestDriveEDiscoveryExport = <ThrowOnError extends boolean = false>(options: Options<RequestDriveEDiscoveryExportData, ThrowOnError>) => (options.client ?? client).post<RequestDriveEDiscoveryExportResponses, RequestDriveEDiscoveryExportErrors, ThrowOnError>({
     security: [{
@@ -260,6 +397,14 @@ export const requestDriveEDiscoveryExport = <ThrowOnError extends boolean = fals
 
 /**
  * Drive eDiscovery export を approve する
+ *
+ * Drive eDiscovery export を approve する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const approveDriveEDiscoveryExport = <ThrowOnError extends boolean = false>(options: Options<ApproveDriveEDiscoveryExportData, ThrowOnError>) => (options.client ?? client).post<ApproveDriveEDiscoveryExportResponses, ApproveDriveEDiscoveryExportErrors, ThrowOnError>({
     security: [{
@@ -273,6 +418,14 @@ export const approveDriveEDiscoveryExport = <ThrowOnError extends boolean = fals
 
 /**
  * break-glass session 中に Drive file metadata を返す
+ *
+ * break-glass session 中に Drive file metadata を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getTenantAdminDriveFileMetadata = <ThrowOnError extends boolean = false>(options: Options<GetTenantAdminDriveFileMetadataData, ThrowOnError>) => (options.client ?? client).get<GetTenantAdminDriveFileMetadataResponses, GetTenantAdminDriveFileMetadataErrors, ThrowOnError>({
     security: [{
@@ -286,6 +439,15 @@ export const getTenantAdminDriveFileMetadata = <ThrowOnError extends boolean = f
 
 /**
  * Drive on-prem gateway を登録する
+ *
+ * Drive on-prem gateway を登録する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const registerDriveGateway = <ThrowOnError extends boolean = false>(options: Options<RegisterDriveGatewayData, ThrowOnError>) => (options.client ?? client).post<RegisterDriveGatewayResponses, RegisterDriveGatewayErrors, ThrowOnError>({
     security: [{
@@ -303,6 +465,15 @@ export const registerDriveGateway = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive gateway status を更新する
+ *
+ * Drive gateway status を更新する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveGatewayStatus = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveGatewayStatusData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveGatewayStatusResponses, UpdateDriveGatewayStatusErrors, ThrowOnError>({
     security: [{
@@ -320,6 +491,15 @@ export const updateDriveGatewayStatus = <ThrowOnError extends boolean = false>(o
 
 /**
  * Drive file を gateway object として bind する
+ *
+ * Drive file を gateway object として bind する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const bindDriveGatewayFile = <ThrowOnError extends boolean = false>(options: Options<BindDriveGatewayFileData, ThrowOnError>) => (options.client ?? client).post<BindDriveGatewayFileResponses, BindDriveGatewayFileErrors, ThrowOnError>({
     security: [{
@@ -337,6 +517,15 @@ export const bindDriveGatewayFile = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive HSM key を file に bind する
+ *
+ * Drive HSM key を file に bind する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const bindDriveHsmKey = <ThrowOnError extends boolean = false>(options: Options<BindDriveHsmKeyData, ThrowOnError>) => (options.client ?? client).post<BindDriveHsmKeyResponses, BindDriveHsmKeyErrors, ThrowOnError>({
     security: [{
@@ -354,6 +543,15 @@ export const bindDriveHsmKey = <ThrowOnError extends boolean = false>(options: O
 
 /**
  * Drive HSM deployment を作成する
+ *
+ * Drive HSM deployment を作成する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveHsmDeployment = <ThrowOnError extends boolean = false>(options: Options<CreateDriveHsmDeploymentData, ThrowOnError>) => (options.client ?? client).post<CreateDriveHsmDeploymentResponses, CreateDriveHsmDeploymentErrors, ThrowOnError>({
     security: [{
@@ -371,6 +569,15 @@ export const createDriveHsmDeployment = <ThrowOnError extends boolean = false>(o
 
 /**
  * Drive HSM key status を更新する
+ *
+ * Drive HSM key status を更新する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveHsmKeyStatus = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveHsmKeyStatusData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveHsmKeyStatusResponses, UpdateDriveHsmKeyStatusErrors, ThrowOnError>({
     security: [{
@@ -388,6 +595,14 @@ export const updateDriveHsmKeyStatus = <ThrowOnError extends boolean = false>(op
 
 /**
  * tenant admin 用 Drive invitations を返す
+ *
+ * tenant admin 用 Drive invitations を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTenantAdminDriveInvitations = <ThrowOnError extends boolean = false>(options: Options<ListTenantAdminDriveInvitationsData, ThrowOnError>) => (options.client ?? client).get<ListTenantAdminDriveInvitationsResponses, ListTenantAdminDriveInvitationsErrors, ThrowOnError>({
     security: [{
@@ -401,6 +616,15 @@ export const listTenantAdminDriveInvitations = <ThrowOnError extends boolean = f
 
 /**
  * Drive legal case を作成する
+ *
+ * Drive legal case を作成する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveLegalCase = <ThrowOnError extends boolean = false>(options: Options<CreateDriveLegalCaseData, ThrowOnError>) => (options.client ?? client).post<CreateDriveLegalCaseResponses, CreateDriveLegalCaseErrors, ThrowOnError>({
     security: [{
@@ -418,6 +642,14 @@ export const createDriveLegalCase = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive legal export を作成する
+ *
+ * Drive legal export を作成する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const createDriveLegalExport = <ThrowOnError extends boolean = false>(options: Options<CreateDriveLegalExportData, ThrowOnError>) => (options.client ?? client).post<CreateDriveLegalExportResponses, CreateDriveLegalExportErrors, ThrowOnError>({
     security: [{
@@ -431,6 +663,15 @@ export const createDriveLegalExport = <ThrowOnError extends boolean = false>(opt
 
 /**
  * Drive legal case に file hold を追加する
+ *
+ * Drive legal case に file hold を追加する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const addDriveLegalCaseFile = <ThrowOnError extends boolean = false>(options: Options<AddDriveLegalCaseFileData, ThrowOnError>) => (options.client ?? client).post<AddDriveLegalCaseFileResponses, AddDriveLegalCaseFileErrors, ThrowOnError>({
     security: [{
@@ -448,6 +689,15 @@ export const addDriveLegalCaseFile = <ThrowOnError extends boolean = false>(opti
 
 /**
  * Drive marketplace app install を request する
+ *
+ * Drive marketplace app install を request する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const installDriveMarketplaceApp = <ThrowOnError extends boolean = false>(options: Options<InstallDriveMarketplaceAppData, ThrowOnError>) => (options.client ?? client).post<InstallDriveMarketplaceAppResponses, InstallDriveMarketplaceAppErrors, ThrowOnError>({
     security: [{
@@ -465,6 +715,14 @@ export const installDriveMarketplaceApp = <ThrowOnError extends boolean = false>
 
 /**
  * Drive marketplace app install を uninstall する
+ *
+ * Drive marketplace app install を uninstall する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const uninstallDriveMarketplaceInstallation = <ThrowOnError extends boolean = false>(options: Options<UninstallDriveMarketplaceInstallationData, ThrowOnError>) => (options.client ?? client).delete<UninstallDriveMarketplaceInstallationResponses, UninstallDriveMarketplaceInstallationErrors, ThrowOnError>({
     security: [{
@@ -478,6 +736,14 @@ export const uninstallDriveMarketplaceInstallation = <ThrowOnError extends boole
 
 /**
  * Drive marketplace app install を approve する
+ *
+ * Drive marketplace app install を approve する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const approveDriveMarketplaceInstallation = <ThrowOnError extends boolean = false>(options: Options<ApproveDriveMarketplaceInstallationData, ThrowOnError>) => (options.client ?? client).post<ApproveDriveMarketplaceInstallationResponses, ApproveDriveMarketplaceInstallationErrors, ThrowOnError>({
     security: [{
@@ -491,6 +757,14 @@ export const approveDriveMarketplaceInstallation = <ThrowOnError extends boolean
 
 /**
  * Drive marketplace scope と OpenFGA permission を確認する
+ *
+ * Drive marketplace scope と OpenFGA permission を確認する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const checkDriveMarketplaceScope = <ThrowOnError extends boolean = false>(options: Options<CheckDriveMarketplaceScopeData, ThrowOnError>) => (options.client ?? client).get<CheckDriveMarketplaceScopeResponses, CheckDriveMarketplaceScopeErrors, ThrowOnError>({
     security: [{
@@ -504,6 +778,14 @@ export const checkDriveMarketplaceScope = <ThrowOnError extends boolean = false>
 
 /**
  * tenant admin 用 Drive OCR runtime status を返す
+ *
+ * tenant admin 用 Drive OCR runtime status を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getTenantAdminDriveOcrStatus = <ThrowOnError extends boolean = false>(options: Options<GetTenantAdminDriveOcrStatusData, ThrowOnError>) => (options.client ?? client).get<GetTenantAdminDriveOcrStatusResponses, GetTenantAdminDriveOcrStatusErrors, ThrowOnError>({
     security: [{
@@ -517,6 +799,14 @@ export const getTenantAdminDriveOcrStatus = <ThrowOnError extends boolean = fals
 
 /**
  * Drive OpenFGA drift dry-run を返す
+ *
+ * Drive OpenFGA drift dry-run を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getTenantAdminDriveOpenFgaDrift = <ThrowOnError extends boolean = false>(options: Options<GetTenantAdminDriveOpenFgaDriftData, ThrowOnError>) => (options.client ?? client).get<GetTenantAdminDriveOpenFgaDriftResponses, GetTenantAdminDriveOpenFgaDriftErrors, ThrowOnError>({
     security: [{
@@ -530,6 +820,14 @@ export const getTenantAdminDriveOpenFgaDrift = <ThrowOnError extends boolean = f
 
 /**
  * Drive OpenFGA pending sync を修復する
+ *
+ * Drive OpenFGA pending sync を修復する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const repairTenantAdminDriveOpenFgaSync = <ThrowOnError extends boolean = false>(options: Options<RepairTenantAdminDriveOpenFgaSyncData, ThrowOnError>) => (options.client ?? client).post<RepairTenantAdminDriveOpenFgaSyncResponses, RepairTenantAdminDriveOpenFgaSyncErrors, ThrowOnError>({
     security: [{
@@ -543,6 +841,14 @@ export const repairTenantAdminDriveOpenFgaSync = <ThrowOnError extends boolean =
 
 /**
  * Drive OpenFGA drift dry-run を operation endpoint から実行する
+ *
+ * Drive OpenFGA drift dry-run を operation endpoint から実行する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const checkTenantAdminDriveOperationsDrift = <ThrowOnError extends boolean = false>(options: Options<CheckTenantAdminDriveOperationsDriftData, ThrowOnError>) => (options.client ?? client).post<CheckTenantAdminDriveOperationsDriftResponses, CheckTenantAdminDriveOperationsDriftErrors, ThrowOnError>({
     security: [{
@@ -556,6 +862,14 @@ export const checkTenantAdminDriveOperationsDrift = <ThrowOnError extends boolea
 
 /**
  * Drive / OpenFGA / storage operations health を返す
+ *
+ * Drive / OpenFGA / storage operations health を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getTenantAdminDriveOperationsHealth = <ThrowOnError extends boolean = false>(options: Options<GetTenantAdminDriveOperationsHealthData, ThrowOnError>) => (options.client ?? client).get<GetTenantAdminDriveOperationsHealthResponses, GetTenantAdminDriveOperationsHealthErrors, ThrowOnError>({
     security: [{
@@ -569,6 +883,14 @@ export const getTenantAdminDriveOperationsHealth = <ThrowOnError extends boolean
 
 /**
  * Drive OpenFGA pending sync repair を operation endpoint から実行する
+ *
+ * Drive OpenFGA pending sync repair を operation endpoint から実行する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const repairTenantAdminDriveOperations = <ThrowOnError extends boolean = false>(options: Options<RepairTenantAdminDriveOperationsData, ThrowOnError>) => (options.client ?? client).post<RepairTenantAdminDriveOperationsResponses, RepairTenantAdminDriveOperationsErrors, ThrowOnError>({
     security: [{
@@ -582,6 +904,14 @@ export const repairTenantAdminDriveOperations = <ThrowOnError extends boolean = 
 
 /**
  * Drive residency policy を返す
+ *
+ * Drive residency policy を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getTenantAdminDriveResidencyPolicy = <ThrowOnError extends boolean = false>(options: Options<GetTenantAdminDriveResidencyPolicyData, ThrowOnError>) => (options.client ?? client).get<GetTenantAdminDriveResidencyPolicyResponses, GetTenantAdminDriveResidencyPolicyErrors, ThrowOnError>({
     security: [{
@@ -595,6 +925,15 @@ export const getTenantAdminDriveResidencyPolicy = <ThrowOnError extends boolean 
 
 /**
  * Drive residency policy を更新する
+ *
+ * Drive residency policy を更新する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateTenantAdminDriveResidencyPolicy = <ThrowOnError extends boolean = false>(options: Options<UpdateTenantAdminDriveResidencyPolicyData, ThrowOnError>) => (options.client ?? client).put<UpdateTenantAdminDriveResidencyPolicyResponses, UpdateTenantAdminDriveResidencyPolicyErrors, ThrowOnError>({
     security: [{
@@ -612,6 +951,14 @@ export const updateTenantAdminDriveResidencyPolicy = <ThrowOnError extends boole
 
 /**
  * Drive search index を rebuild する
+ *
+ * Drive search index を rebuild する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const rebuildTenantAdminDriveSearchIndex = <ThrowOnError extends boolean = false>(options: Options<RebuildTenantAdminDriveSearchIndexData, ThrowOnError>) => (options.client ?? client).post<RebuildTenantAdminDriveSearchIndexResponses, RebuildTenantAdminDriveSearchIndexErrors, ThrowOnError>({
     security: [{
@@ -625,6 +972,14 @@ export const rebuildTenantAdminDriveSearchIndex = <ThrowOnError extends boolean 
 
 /**
  * Drive encryption policy を返す
+ *
+ * Drive encryption policy を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getTenantAdminDriveEncryptionPolicy = <ThrowOnError extends boolean = false>(options: Options<GetTenantAdminDriveEncryptionPolicyData, ThrowOnError>) => (options.client ?? client).get<GetTenantAdminDriveEncryptionPolicyResponses, GetTenantAdminDriveEncryptionPolicyErrors, ThrowOnError>({
     security: [{
@@ -638,6 +993,15 @@ export const getTenantAdminDriveEncryptionPolicy = <ThrowOnError extends boolean
 
 /**
  * Drive encryption policy を更新する
+ *
+ * Drive encryption policy を更新する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateTenantAdminDriveEncryptionPolicy = <ThrowOnError extends boolean = false>(options: Options<UpdateTenantAdminDriveEncryptionPolicyData, ThrowOnError>) => (options.client ?? client).put<UpdateTenantAdminDriveEncryptionPolicyResponses, UpdateTenantAdminDriveEncryptionPolicyErrors, ThrowOnError>({
     security: [{
@@ -655,6 +1019,15 @@ export const updateTenantAdminDriveEncryptionPolicy = <ThrowOnError extends bool
 
 /**
  * Drive KMS key status を更新する
+ *
+ * Drive KMS key status を更新する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateTenantAdminDriveKmsKeyStatus = <ThrowOnError extends boolean = false>(options: Options<UpdateTenantAdminDriveKmsKeyStatusData, ThrowOnError>) => (options.client ?? client).patch<UpdateTenantAdminDriveKmsKeyStatusResponses, UpdateTenantAdminDriveKmsKeyStatusErrors, ThrowOnError>({
     security: [{
@@ -672,6 +1045,14 @@ export const updateTenantAdminDriveKmsKeyStatus = <ThrowOnError extends boolean 
 
 /**
  * tenant admin 用 Drive share approvals を返す
+ *
+ * tenant admin 用 Drive share approvals を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTenantAdminDriveShareApprovals = <ThrowOnError extends boolean = false>(options: Options<ListTenantAdminDriveShareApprovalsData, ThrowOnError>) => (options.client ?? client).get<ListTenantAdminDriveShareApprovalsResponses, ListTenantAdminDriveShareApprovalsErrors, ThrowOnError>({
     security: [{
@@ -685,6 +1066,14 @@ export const listTenantAdminDriveShareApprovals = <ThrowOnError extends boolean 
 
 /**
  * Drive external share approval を承認する
+ *
+ * Drive external share approval を承認する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const approveTenantAdminDriveShareApproval = <ThrowOnError extends boolean = false>(options: Options<ApproveTenantAdminDriveShareApprovalData, ThrowOnError>) => (options.client ?? client).post<ApproveTenantAdminDriveShareApprovalResponses, ApproveTenantAdminDriveShareApprovalErrors, ThrowOnError>({
     security: [{
@@ -698,6 +1087,14 @@ export const approveTenantAdminDriveShareApproval = <ThrowOnError extends boolea
 
 /**
  * Drive external share approval を拒否する
+ *
+ * Drive external share approval を拒否する。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const rejectTenantAdminDriveShareApproval = <ThrowOnError extends boolean = false>(options: Options<RejectTenantAdminDriveShareApprovalData, ThrowOnError>) => (options.client ?? client).post<RejectTenantAdminDriveShareApprovalResponses, RejectTenantAdminDriveShareApprovalErrors, ThrowOnError>({
     security: [{
@@ -711,6 +1108,14 @@ export const rejectTenantAdminDriveShareApproval = <ThrowOnError extends boolean
 
 /**
  * tenant admin 用 Drive share link state を返す
+ *
+ * tenant admin 用 Drive share link state を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTenantAdminDriveShareLinks = <ThrowOnError extends boolean = false>(options: Options<ListTenantAdminDriveShareLinksData, ThrowOnError>) => (options.client ?? client).get<ListTenantAdminDriveShareLinksResponses, ListTenantAdminDriveShareLinksErrors, ThrowOnError>({
     security: [{
@@ -724,6 +1129,14 @@ export const listTenantAdminDriveShareLinks = <ThrowOnError extends boolean = fa
 
 /**
  * tenant admin 用 Drive share state を返す
+ *
+ * tenant admin 用 Drive share state を返す。
+ *
+ * tenant admin が Drive audit、policy、operations health、search index、content access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTenantAdminDriveShares = <ThrowOnError extends boolean = false>(options: Options<ListTenantAdminDriveSharesData, ThrowOnError>) => (options.client ?? client).get<ListTenantAdminDriveSharesResponses, ListTenantAdminDriveSharesErrors, ThrowOnError>({
     security: [{
@@ -737,6 +1150,14 @@ export const listTenantAdminDriveShares = <ThrowOnError extends boolean = false>
 
 /**
  * tenant entitlements を返す
+ *
+ * tenant entitlements を返す。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTenantEntitlements = <ThrowOnError extends boolean = false>(options: Options<ListTenantEntitlementsData, ThrowOnError>) => (options.client ?? client).get<ListTenantEntitlementsResponses, ListTenantEntitlementsErrors, ThrowOnError>({
     security: [{
@@ -750,6 +1171,15 @@ export const listTenantEntitlements = <ThrowOnError extends boolean = false>(opt
 
 /**
  * tenant entitlements を更新する
+ *
+ * tenant entitlements を更新する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateTenantEntitlements = <ThrowOnError extends boolean = false>(options: Options<UpdateTenantEntitlementsData, ThrowOnError>) => (options.client ?? client).put<UpdateTenantEntitlementsResponses, UpdateTenantEntitlementsErrors, ThrowOnError>({
     security: [{
@@ -767,6 +1197,14 @@ export const updateTenantEntitlements = <ThrowOnError extends boolean = false>(o
 
 /**
  * tenant data export 一覧を返す
+ *
+ * tenant data export 一覧を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTenantDataExports = <ThrowOnError extends boolean = false>(options: Options<ListTenantDataExportsData, ThrowOnError>) => (options.client ?? client).get<ListTenantDataExportsResponses, ListTenantDataExportsErrors, ThrowOnError>({
     security: [{
@@ -780,6 +1218,15 @@ export const listTenantDataExports = <ThrowOnError extends boolean = false>(opti
 
 /**
  * tenant data export を request する
+ *
+ * tenant data export を request する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createTenantDataExport = <ThrowOnError extends boolean = false>(options: Options<CreateTenantDataExportData, ThrowOnError>) => (options.client ?? client).post<CreateTenantDataExportResponses, CreateTenantDataExportErrors, ThrowOnError>({
     security: [{
@@ -797,6 +1244,14 @@ export const createTenantDataExport = <ThrowOnError extends boolean = false>(opt
 
 /**
  * tenant data export detail を返す
+ *
+ * tenant data export detail を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getTenantDataExport = <ThrowOnError extends boolean = false>(options: Options<GetTenantDataExportData, ThrowOnError>) => (options.client ?? client).get<GetTenantDataExportResponses, GetTenantDataExportErrors, ThrowOnError>({
     security: [{
@@ -810,6 +1265,14 @@ export const getTenantDataExport = <ThrowOnError extends boolean = false>(option
 
 /**
  * ready tenant data export を download する
+ *
+ * ready tenant data export を download する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const downloadTenantDataExport = <ThrowOnError extends boolean = false>(options: Options<DownloadTenantDataExportData, ThrowOnError>) => (options.client ?? client).get<DownloadTenantDataExportResponses, DownloadTenantDataExportErrors, ThrowOnError>({
     security: [{
@@ -823,6 +1286,14 @@ export const downloadTenantDataExport = <ThrowOnError extends boolean = false>(o
 
 /**
  * Customer Signals import job 一覧を返す
+ *
+ * Customer Signals import job 一覧を返す。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listCustomerSignalImports = <ThrowOnError extends boolean = false>(options: Options<ListCustomerSignalImportsData, ThrowOnError>) => (options.client ?? client).get<ListCustomerSignalImportsResponses, ListCustomerSignalImportsErrors, ThrowOnError>({
     security: [{
@@ -836,6 +1307,15 @@ export const listCustomerSignalImports = <ThrowOnError extends boolean = false>(
 
 /**
  * Customer Signals CSV import job を作成する
+ *
+ * Customer Signals CSV import job を作成する。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createCustomerSignalImport = <ThrowOnError extends boolean = false>(options: Options<CreateCustomerSignalImportData, ThrowOnError>) => (options.client ?? client).post<CreateCustomerSignalImportResponses, CreateCustomerSignalImportErrors, ThrowOnError>({
     security: [{
@@ -853,6 +1333,14 @@ export const createCustomerSignalImport = <ThrowOnError extends boolean = false>
 
 /**
  * Customer Signals import job detail を返す
+ *
+ * Customer Signals import job detail を返す。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getCustomerSignalImport = <ThrowOnError extends boolean = false>(options: Options<GetCustomerSignalImportData, ThrowOnError>) => (options.client ?? client).get<GetCustomerSignalImportResponses, GetCustomerSignalImportErrors, ThrowOnError>({
     security: [{
@@ -866,6 +1354,14 @@ export const getCustomerSignalImport = <ThrowOnError extends boolean = false>(op
 
 /**
  * tenant invitation 一覧を返す
+ *
+ * tenant invitation 一覧を返す。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTenantInvitations = <ThrowOnError extends boolean = false>(options: Options<ListTenantInvitationsData, ThrowOnError>) => (options.client ?? client).get<ListTenantInvitationsResponses, ListTenantInvitationsErrors, ThrowOnError>({
     security: [{
@@ -879,6 +1375,13 @@ export const listTenantInvitations = <ThrowOnError extends boolean = false>(opti
 
 /**
  * tenant invitation を作成する
+ *
+ * tenant に user を招待します。email と role codes を指定すると、招待 URL を含む invitation record が作成されます。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createTenantInvitation = <ThrowOnError extends boolean = false>(options: Options<CreateTenantInvitationData, ThrowOnError>) => (options.client ?? client).post<CreateTenantInvitationResponses, CreateTenantInvitationErrors, ThrowOnError>({
     security: [{
@@ -896,6 +1399,14 @@ export const createTenantInvitation = <ThrowOnError extends boolean = false>(opt
 
 /**
  * tenant invitation を revoke する
+ *
+ * tenant invitation を revoke する。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const revokeTenantInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeTenantInvitationData, ThrowOnError>) => (options.client ?? client).delete<RevokeTenantInvitationResponses, RevokeTenantInvitationErrors, ThrowOnError>({
     security: [{
@@ -909,6 +1420,15 @@ export const revokeTenantInvitation = <ThrowOnError extends boolean = false>(opt
 
 /**
  * tenant local role を付与する
+ *
+ * tenant local role を付与する。
+ *
+ * tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const grantTenantAdminRole = <ThrowOnError extends boolean = false>(options: Options<GrantTenantAdminRoleData, ThrowOnError>) => (options.client ?? client).post<GrantTenantAdminRoleResponses, GrantTenantAdminRoleErrors, ThrowOnError>({
     security: [{
@@ -926,6 +1446,14 @@ export const grantTenantAdminRole = <ThrowOnError extends boolean = false>(optio
 
 /**
  * tenant local role を無効化する
+ *
+ * tenant local role を無効化する。
+ *
+ * tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const revokeTenantAdminRole = <ThrowOnError extends boolean = false>(options: Options<RevokeTenantAdminRoleData, ThrowOnError>) => (options.client ?? client).delete<RevokeTenantAdminRoleResponses, RevokeTenantAdminRoleErrors, ThrowOnError>({
     security: [{
@@ -939,6 +1467,14 @@ export const revokeTenantAdminRole = <ThrowOnError extends boolean = false>(opti
 
 /**
  * tenant settings を返す
+ *
+ * tenant settings を返す。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getTenantSettings = <ThrowOnError extends boolean = false>(options: Options<GetTenantSettingsData, ThrowOnError>) => (options.client ?? client).get<GetTenantSettingsResponses, GetTenantSettingsErrors, ThrowOnError>({
     security: [{
@@ -952,6 +1488,15 @@ export const getTenantSettings = <ThrowOnError extends boolean = false>(options:
 
 /**
  * tenant settings を更新する
+ *
+ * tenant settings を更新する。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateTenantSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateTenantSettingsData, ThrowOnError>) => (options.client ?? client).put<UpdateTenantSettingsResponses, UpdateTenantSettingsErrors, ThrowOnError>({
     security: [{
@@ -969,6 +1514,14 @@ export const updateTenantSettings = <ThrowOnError extends boolean = false>(optio
 
 /**
  * webhook endpoint 一覧を返す
+ *
+ * webhook endpoint 一覧を返す。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listWebhooks = <ThrowOnError extends boolean = false>(options: Options<ListWebhooksData, ThrowOnError>) => (options.client ?? client).get<ListWebhooksResponses, ListWebhooksErrors, ThrowOnError>({
     security: [{
@@ -982,6 +1535,13 @@ export const listWebhooks = <ThrowOnError extends boolean = false>(options: Opti
 
 /**
  * webhook endpoint を作成する
+ *
+ * tenant admin API で webhook endpoint を登録します。作成後の delivery には署名 header が付き、secret は rotate API で更新できます。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createWebhook = <ThrowOnError extends boolean = false>(options: Options<CreateWebhookData, ThrowOnError>) => (options.client ?? client).post<CreateWebhookResponses, CreateWebhookErrors, ThrowOnError>({
     security: [{
@@ -999,6 +1559,14 @@ export const createWebhook = <ThrowOnError extends boolean = false>(options: Opt
 
 /**
  * webhook endpoint を削除する
+ *
+ * webhook endpoint を削除する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteWebhook = <ThrowOnError extends boolean = false>(options: Options<DeleteWebhookData, ThrowOnError>) => (options.client ?? client).delete<DeleteWebhookResponses, DeleteWebhookErrors, ThrowOnError>({
     security: [{
@@ -1012,6 +1580,14 @@ export const deleteWebhook = <ThrowOnError extends boolean = false>(options: Opt
 
 /**
  * webhook endpoint detail を返す
+ *
+ * webhook endpoint detail を返す。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getWebhook = <ThrowOnError extends boolean = false>(options: Options<GetWebhookData, ThrowOnError>) => (options.client ?? client).get<GetWebhookResponses, GetWebhookErrors, ThrowOnError>({
     security: [{
@@ -1025,6 +1601,15 @@ export const getWebhook = <ThrowOnError extends boolean = false>(options: Option
 
 /**
  * webhook endpoint を更新する
+ *
+ * webhook endpoint を更新する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateWebhook = <ThrowOnError extends boolean = false>(options: Options<UpdateWebhookData, ThrowOnError>) => (options.client ?? client).put<UpdateWebhookResponses, UpdateWebhookErrors, ThrowOnError>({
     security: [{
@@ -1042,6 +1627,14 @@ export const updateWebhook = <ThrowOnError extends boolean = false>(options: Opt
 
 /**
  * webhook delivery log を返す
+ *
+ * webhook delivery log を返す。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listWebhookDeliveries = <ThrowOnError extends boolean = false>(options: Options<ListWebhookDeliveriesData, ThrowOnError>) => (options.client ?? client).get<ListWebhookDeliveriesResponses, ListWebhookDeliveriesErrors, ThrowOnError>({
     security: [{
@@ -1055,6 +1648,14 @@ export const listWebhookDeliveries = <ThrowOnError extends boolean = false>(opti
 
 /**
  * webhook delivery を retry する
+ *
+ * webhook delivery を retry する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const retryWebhookDelivery = <ThrowOnError extends boolean = false>(options: Options<RetryWebhookDeliveryData, ThrowOnError>) => (options.client ?? client).post<RetryWebhookDeliveryResponses, RetryWebhookDeliveryErrors, ThrowOnError>({
     security: [{
@@ -1068,6 +1669,14 @@ export const retryWebhookDelivery = <ThrowOnError extends boolean = false>(optio
 
 /**
  * webhook secret を rotate する
+ *
+ * webhook secret を rotate する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const rotateWebhookSecret = <ThrowOnError extends boolean = false>(options: Options<RotateWebhookSecretData, ThrowOnError>) => (options.client ?? client).post<RotateWebhookSecretResponses, RotateWebhookSecretErrors, ThrowOnError>({
     security: [{
@@ -1081,21 +1690,41 @@ export const rotateWebhookSecret = <ThrowOnError extends boolean = false>(option
 
 /**
  * OIDC callback を完了する
+ *
+ * OIDC callback を完了する。
+ *
+ * login、session refresh、CSRF token 取得、認証設定確認に使う endpoint です。
  */
 export const finishOidcLogin = <ThrowOnError extends boolean = false>(options?: Options<FinishOidcLoginData, ThrowOnError>) => (options?.client ?? client).get<FinishOidcLoginResponses, FinishOidcLoginErrors, ThrowOnError>({ url: '/api/v1/auth/callback', ...options });
 
 /**
  * OIDC login を開始する
+ *
+ * OIDC login を開始する。
+ *
+ * login、session refresh、CSRF token 取得、認証設定確認に使う endpoint です。
  */
 export const startOidcLogin = <ThrowOnError extends boolean = false>(options?: Options<StartOidcLoginData, ThrowOnError>) => (options?.client ?? client).get<StartOidcLoginResponses, StartOidcLoginErrors, ThrowOnError>({ url: '/api/v1/auth/login', ...options });
 
 /**
  * 現在の認証モード設定を返す
+ *
+ * 現在の認証モード設定を返す。
+ *
+ * login、session refresh、CSRF token 取得、認証設定確認に使う endpoint です。
  */
 export const getAuthSettings = <ThrowOnError extends boolean = false>(options?: Options<GetAuthSettingsData, ThrowOnError>) => (options?.client ?? client).get<GetAuthSettingsResponses, GetAuthSettingsErrors, ThrowOnError>({ url: '/api/v1/auth/settings', ...options });
 
 /**
  * CSRF token を再発行する
+ *
+ * CSRF token を再発行する。
+ *
+ * login、session refresh、CSRF token 取得、認証設定確認に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getCsrf = <ThrowOnError extends boolean = false>(options?: Options<GetCsrfData, ThrowOnError>) => (options?.client ?? client).get<GetCsrfResponses, GetCsrfErrors, ThrowOnError>({
     security: [{
@@ -1109,6 +1738,14 @@ export const getCsrf = <ThrowOnError extends boolean = false>(options?: Options<
 
 /**
  * Customer Signal saved filters を返す
+ *
+ * Customer Signal saved filters を返す。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listCustomerSignalSavedFilters = <ThrowOnError extends boolean = false>(options?: Options<ListCustomerSignalSavedFiltersData, ThrowOnError>) => (options?.client ?? client).get<ListCustomerSignalSavedFiltersResponses, ListCustomerSignalSavedFiltersErrors, ThrowOnError>({
     security: [{
@@ -1122,6 +1759,15 @@ export const listCustomerSignalSavedFilters = <ThrowOnError extends boolean = fa
 
 /**
  * Customer Signal saved filter を作成する
+ *
+ * Customer Signal saved filter を作成する。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createCustomerSignalSavedFilter = <ThrowOnError extends boolean = false>(options: Options<CreateCustomerSignalSavedFilterData, ThrowOnError>) => (options.client ?? client).post<CreateCustomerSignalSavedFilterResponses, CreateCustomerSignalSavedFilterErrors, ThrowOnError>({
     security: [{
@@ -1139,6 +1785,14 @@ export const createCustomerSignalSavedFilter = <ThrowOnError extends boolean = f
 
 /**
  * Customer Signal saved filter を削除する
+ *
+ * Customer Signal saved filter を削除する。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteCustomerSignalSavedFilter = <ThrowOnError extends boolean = false>(options: Options<DeleteCustomerSignalSavedFilterData, ThrowOnError>) => (options.client ?? client).delete<DeleteCustomerSignalSavedFilterResponses, DeleteCustomerSignalSavedFilterErrors, ThrowOnError>({
     security: [{
@@ -1152,6 +1806,15 @@ export const deleteCustomerSignalSavedFilter = <ThrowOnError extends boolean = f
 
 /**
  * Customer Signal saved filter を更新する
+ *
+ * Customer Signal saved filter を更新する。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateCustomerSignalSavedFilter = <ThrowOnError extends boolean = false>(options: Options<UpdateCustomerSignalSavedFilterData, ThrowOnError>) => (options.client ?? client).put<UpdateCustomerSignalSavedFilterResponses, UpdateCustomerSignalSavedFilterErrors, ThrowOnError>({
     security: [{
@@ -1169,6 +1832,14 @@ export const updateCustomerSignalSavedFilter = <ThrowOnError extends boolean = f
 
 /**
  * active tenant の Customer Signals 一覧を返す
+ *
+ * active tenant の Customer Signals 一覧を返す。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listCustomerSignals = <ThrowOnError extends boolean = false>(options?: Options<ListCustomerSignalsData, ThrowOnError>) => (options?.client ?? client).get<ListCustomerSignalsResponses, ListCustomerSignalsErrors, ThrowOnError>({
     security: [{
@@ -1182,6 +1853,13 @@ export const listCustomerSignals = <ThrowOnError extends boolean = false>(option
 
 /**
  * active tenant に Customer Signal を作成する
+ *
+ * active tenant に customer signal を作成します。重複送信を避けたい場合は `Idempotency-Key` を指定してください。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createCustomerSignal = <ThrowOnError extends boolean = false>(options: Options<CreateCustomerSignalData, ThrowOnError>) => (options.client ?? client).post<CreateCustomerSignalResponses, CreateCustomerSignalErrors, ThrowOnError>({
     security: [{
@@ -1199,6 +1877,14 @@ export const createCustomerSignal = <ThrowOnError extends boolean = false>(optio
 
 /**
  * active tenant の Customer Signal を soft delete する
+ *
+ * active tenant の Customer Signal を soft delete する。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteCustomerSignal = <ThrowOnError extends boolean = false>(options: Options<DeleteCustomerSignalData, ThrowOnError>) => (options.client ?? client).delete<DeleteCustomerSignalResponses, DeleteCustomerSignalErrors, ThrowOnError>({
     security: [{
@@ -1212,6 +1898,14 @@ export const deleteCustomerSignal = <ThrowOnError extends boolean = false>(optio
 
 /**
  * active tenant の Customer Signal detail を返す
+ *
+ * active tenant の Customer Signal detail を返す。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getCustomerSignal = <ThrowOnError extends boolean = false>(options: Options<GetCustomerSignalData, ThrowOnError>) => (options.client ?? client).get<GetCustomerSignalResponses, GetCustomerSignalErrors, ThrowOnError>({
     security: [{
@@ -1225,6 +1919,15 @@ export const getCustomerSignal = <ThrowOnError extends boolean = false>(options:
 
 /**
  * active tenant の Customer Signal を更新する
+ *
+ * active tenant の Customer Signal を更新する。
+ *
+ * customer signal の作成、検索、更新、import workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateCustomerSignal = <ThrowOnError extends boolean = false>(options: Options<UpdateCustomerSignalData, ThrowOnError>) => (options.client ?? client).patch<UpdateCustomerSignalResponses, UpdateCustomerSignalErrors, ThrowOnError>({
     security: [{
@@ -1242,6 +1945,14 @@ export const updateCustomerSignal = <ThrowOnError extends boolean = false>(optio
 
 /**
  * active tenant の dataset query job 一覧を返す
+ *
+ * active tenant の dataset query job 一覧を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDatasetQueryJobs = <ThrowOnError extends boolean = false>(options?: Options<ListDatasetQueryJobsData, ThrowOnError>) => (options?.client ?? client).get<ListDatasetQueryJobsResponses, ListDatasetQueryJobsErrors, ThrowOnError>({
     security: [{
@@ -1255,6 +1966,13 @@ export const listDatasetQueryJobs = <ThrowOnError extends boolean = false>(optio
 
 /**
  * active tenant の dataset SQL query job を作成する
+ *
+ * dataset に対する SQL query job を作成します。query は tenant-scoped work table に限定して実行されます。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDatasetQueryJob = <ThrowOnError extends boolean = false>(options: Options<CreateDatasetQueryJobData, ThrowOnError>) => (options.client ?? client).post<CreateDatasetQueryJobResponses, CreateDatasetQueryJobErrors, ThrowOnError>({
     security: [{
@@ -1272,6 +1990,14 @@ export const createDatasetQueryJob = <ThrowOnError extends boolean = false>(opti
 
 /**
  * active tenant の dataset query job detail を返す
+ *
+ * active tenant の dataset query job detail を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDatasetQueryJob = <ThrowOnError extends boolean = false>(options: Options<GetDatasetQueryJobData, ThrowOnError>) => (options.client ?? client).get<GetDatasetQueryJobResponses, GetDatasetQueryJobErrors, ThrowOnError>({
     security: [{
@@ -1285,6 +2011,14 @@ export const getDatasetQueryJob = <ThrowOnError extends boolean = false>(options
 
 /**
  * Dataset に取り込める Drive CSV file 一覧を返す
+ *
+ * Dataset に取り込める Drive CSV file 一覧を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDatasetSourceFiles = <ThrowOnError extends boolean = false>(options?: Options<ListDatasetSourceFilesData, ThrowOnError>) => (options?.client ?? client).get<ListDatasetSourceFilesResponses, ListDatasetSourceFilesErrors, ThrowOnError>({
     security: [{
@@ -1298,6 +2032,14 @@ export const listDatasetSourceFiles = <ThrowOnError extends boolean = false>(opt
 
 /**
  * work table export detail を返す
+ *
+ * work table export detail を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDatasetWorkTableExport = <ThrowOnError extends boolean = false>(options: Options<GetDatasetWorkTableExportData, ThrowOnError>) => (options.client ?? client).get<GetDatasetWorkTableExportResponses, GetDatasetWorkTableExportErrors, ThrowOnError>({
     security: [{
@@ -1311,6 +2053,14 @@ export const getDatasetWorkTableExport = <ThrowOnError extends boolean = false>(
 
 /**
  * ready work table export を download する
+ *
+ * ready work table export を download する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const downloadDatasetWorkTableExport = <ThrowOnError extends boolean = false>(options: Options<DownloadDatasetWorkTableExportData, ThrowOnError>) => (options.client ?? client).get<DownloadDatasetWorkTableExportResponses, DownloadDatasetWorkTableExportErrors, ThrowOnError>({
     security: [{
@@ -1324,6 +2074,14 @@ export const downloadDatasetWorkTableExport = <ThrowOnError extends boolean = fa
 
 /**
  * active tenant の ClickHouse work table 一覧を返す
+ *
+ * active tenant の ClickHouse work table 一覧を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDatasetWorkTables = <ThrowOnError extends boolean = false>(options?: Options<ListDatasetWorkTablesData, ThrowOnError>) => (options?.client ?? client).get<ListDatasetWorkTablesResponses, ListDatasetWorkTablesErrors, ThrowOnError>({
     security: [{
@@ -1337,6 +2095,14 @@ export const listDatasetWorkTables = <ThrowOnError extends boolean = false>(opti
 
 /**
  * active tenant の ClickHouse work table detail を返す
+ *
+ * active tenant の ClickHouse work table detail を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDatasetWorkTable = <ThrowOnError extends boolean = false>(options: Options<GetDatasetWorkTableData, ThrowOnError>) => (options.client ?? client).get<GetDatasetWorkTableResponses, GetDatasetWorkTableErrors, ThrowOnError>({
     security: [{
@@ -1350,6 +2116,14 @@ export const getDatasetWorkTable = <ThrowOnError extends boolean = false>(option
 
 /**
  * active tenant の ClickHouse work table preview rows を返す
+ *
+ * active tenant の ClickHouse work table preview rows を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDatasetWorkTablePreview = <ThrowOnError extends boolean = false>(options: Options<GetDatasetWorkTablePreviewData, ThrowOnError>) => (options.client ?? client).get<GetDatasetWorkTablePreviewResponses, GetDatasetWorkTablePreviewErrors, ThrowOnError>({
     security: [{
@@ -1363,6 +2137,15 @@ export const getDatasetWorkTablePreview = <ThrowOnError extends boolean = false>
 
 /**
  * active tenant の ClickHouse work table を管理レコード化する
+ *
+ * active tenant の ClickHouse work table を管理レコード化する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const registerDatasetWorkTable = <ThrowOnError extends boolean = false>(options: Options<RegisterDatasetWorkTableData, ThrowOnError>) => (options.client ?? client).post<RegisterDatasetWorkTableResponses, RegisterDatasetWorkTableErrors, ThrowOnError>({
     security: [{
@@ -1380,6 +2163,14 @@ export const registerDatasetWorkTable = <ThrowOnError extends boolean = false>(o
 
 /**
  * managed work table を drop する
+ *
+ * managed work table を drop する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteDatasetWorkTable = <ThrowOnError extends boolean = false>(options: Options<DeleteDatasetWorkTableData, ThrowOnError>) => (options.client ?? client).delete<DeleteDatasetWorkTableResponses, DeleteDatasetWorkTableErrors, ThrowOnError>({
     security: [{
@@ -1393,6 +2184,14 @@ export const deleteDatasetWorkTable = <ThrowOnError extends boolean = false>(opt
 
 /**
  * managed work table detail を返す
+ *
+ * managed work table detail を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getManagedDatasetWorkTable = <ThrowOnError extends boolean = false>(options: Options<GetManagedDatasetWorkTableData, ThrowOnError>) => (options.client ?? client).get<GetManagedDatasetWorkTableResponses, GetManagedDatasetWorkTableErrors, ThrowOnError>({
     security: [{
@@ -1406,6 +2205,14 @@ export const getManagedDatasetWorkTable = <ThrowOnError extends boolean = false>
 
 /**
  * managed work table の CSV export 一覧を返す
+ *
+ * managed work table の CSV export 一覧を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDatasetWorkTableExports = <ThrowOnError extends boolean = false>(options: Options<ListDatasetWorkTableExportsData, ThrowOnError>) => (options.client ?? client).get<ListDatasetWorkTableExportsResponses, ListDatasetWorkTableExportsErrors, ThrowOnError>({
     security: [{
@@ -1419,6 +2226,14 @@ export const listDatasetWorkTableExports = <ThrowOnError extends boolean = false
 
 /**
  * managed work table の CSV export を request する
+ *
+ * managed work table の CSV export を request する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const createDatasetWorkTableExport = <ThrowOnError extends boolean = false>(options: Options<CreateDatasetWorkTableExportData, ThrowOnError>) => (options.client ?? client).post<CreateDatasetWorkTableExportResponses, CreateDatasetWorkTableExportErrors, ThrowOnError>({
     security: [{
@@ -1432,6 +2247,15 @@ export const createDatasetWorkTableExport = <ThrowOnError extends boolean = fals
 
 /**
  * managed work table を dataset に紐付ける
+ *
+ * managed work table を dataset に紐付ける。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const linkDatasetWorkTable = <ThrowOnError extends boolean = false>(options: Options<LinkDatasetWorkTableData, ThrowOnError>) => (options.client ?? client).post<LinkDatasetWorkTableResponses, LinkDatasetWorkTableErrors, ThrowOnError>({
     security: [{
@@ -1449,6 +2273,14 @@ export const linkDatasetWorkTable = <ThrowOnError extends boolean = false>(optio
 
 /**
  * managed work table preview rows を返す
+ *
+ * managed work table preview rows を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getManagedDatasetWorkTablePreview = <ThrowOnError extends boolean = false>(options: Options<GetManagedDatasetWorkTablePreviewData, ThrowOnError>) => (options.client ?? client).get<GetManagedDatasetWorkTablePreviewResponses, GetManagedDatasetWorkTablePreviewErrors, ThrowOnError>({
     security: [{
@@ -1462,6 +2294,15 @@ export const getManagedDatasetWorkTablePreview = <ThrowOnError extends boolean =
 
 /**
  * managed work table を dataset 化する
+ *
+ * managed work table を dataset 化する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const promoteDatasetWorkTable = <ThrowOnError extends boolean = false>(options: Options<PromoteDatasetWorkTableData, ThrowOnError>) => (options.client ?? client).post<PromoteDatasetWorkTableResponses, PromoteDatasetWorkTableErrors, ThrowOnError>({
     security: [{
@@ -1479,6 +2320,15 @@ export const promoteDatasetWorkTable = <ThrowOnError extends boolean = false>(op
 
 /**
  * managed work table を rename する
+ *
+ * managed work table を rename する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const renameDatasetWorkTable = <ThrowOnError extends boolean = false>(options: Options<RenameDatasetWorkTableData, ThrowOnError>) => (options.client ?? client).post<RenameDatasetWorkTableResponses, RenameDatasetWorkTableErrors, ThrowOnError>({
     security: [{
@@ -1496,6 +2346,14 @@ export const renameDatasetWorkTable = <ThrowOnError extends boolean = false>(opt
 
 /**
  * managed work table を truncate する
+ *
+ * managed work table を truncate する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const truncateDatasetWorkTable = <ThrowOnError extends boolean = false>(options: Options<TruncateDatasetWorkTableData, ThrowOnError>) => (options.client ?? client).post<TruncateDatasetWorkTableResponses, TruncateDatasetWorkTableErrors, ThrowOnError>({
     security: [{
@@ -1509,6 +2367,14 @@ export const truncateDatasetWorkTable = <ThrowOnError extends boolean = false>(o
 
 /**
  * active tenant の dataset 一覧を返す
+ *
+ * active tenant の dataset 一覧を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDatasets = <ThrowOnError extends boolean = false>(options?: Options<ListDatasetsData, ThrowOnError>) => (options?.client ?? client).get<ListDatasetsResponses, ListDatasetsErrors, ThrowOnError>({
     security: [{
@@ -1522,6 +2388,13 @@ export const listDatasets = <ThrowOnError extends boolean = false>(options?: Opt
 
 /**
  * Drive CSV file から active tenant の dataset を作成する
+ *
+ * Drive CSV file を dataset として登録します。取り込み対象の file は active tenant の Drive 内に存在し、dataset 作成権限が必要です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDataset = <ThrowOnError extends boolean = false>(options: Options<CreateDatasetData, ThrowOnError>) => (options.client ?? client).post<CreateDatasetResponses, CreateDatasetErrors, ThrowOnError>({
     security: [{
@@ -1539,6 +2412,14 @@ export const createDataset = <ThrowOnError extends boolean = false>(options: Opt
 
 /**
  * active tenant の dataset を削除する
+ *
+ * active tenant の dataset を削除する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteDataset = <ThrowOnError extends boolean = false>(options: Options<DeleteDatasetData, ThrowOnError>) => (options.client ?? client).delete<DeleteDatasetResponses, DeleteDatasetErrors, ThrowOnError>({
     security: [{
@@ -1552,6 +2433,14 @@ export const deleteDataset = <ThrowOnError extends boolean = false>(options: Opt
 
 /**
  * active tenant の dataset detail を返す
+ *
+ * active tenant の dataset detail を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDataset = <ThrowOnError extends boolean = false>(options: Options<GetDatasetData, ThrowOnError>) => (options.client ?? client).get<GetDatasetResponses, GetDatasetErrors, ThrowOnError>({
     security: [{
@@ -1565,6 +2454,14 @@ export const getDataset = <ThrowOnError extends boolean = false>(options: Option
 
 /**
  * active tenant の dataset に紐づく query job 一覧を返す
+ *
+ * active tenant の dataset に紐づく query job 一覧を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDatasetScopedQueryJobs = <ThrowOnError extends boolean = false>(options: Options<ListDatasetScopedQueryJobsData, ThrowOnError>) => (options.client ?? client).get<ListDatasetScopedQueryJobsResponses, ListDatasetScopedQueryJobsErrors, ThrowOnError>({
     security: [{
@@ -1578,6 +2475,15 @@ export const listDatasetScopedQueryJobs = <ThrowOnError extends boolean = false>
 
 /**
  * active tenant の dataset に紐づく SQL query job を作成する
+ *
+ * active tenant の dataset に紐づく SQL query job を作成する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDatasetScopedQueryJob = <ThrowOnError extends boolean = false>(options: Options<CreateDatasetScopedQueryJobData, ThrowOnError>) => (options.client ?? client).post<CreateDatasetScopedQueryJobResponses, CreateDatasetScopedQueryJobErrors, ThrowOnError>({
     security: [{
@@ -1595,6 +2501,14 @@ export const createDatasetScopedQueryJob = <ThrowOnError extends boolean = false
 
 /**
  * dataset に紐づく managed work table 一覧を返す
+ *
+ * dataset に紐づく managed work table 一覧を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDatasetScopedWorkTables = <ThrowOnError extends boolean = false>(options: Options<ListDatasetScopedWorkTablesData, ThrowOnError>) => (options.client ?? client).get<ListDatasetScopedWorkTablesResponses, ListDatasetScopedWorkTablesErrors, ThrowOnError>({
     security: [{
@@ -1608,6 +2522,15 @@ export const listDatasetScopedWorkTables = <ThrowOnError extends boolean = false
 
 /**
  * Drive mobile offline operation queue を replay する
+ *
+ * Drive mobile offline operation queue を replay する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const replayDriveMobileOfflineOperations = <ThrowOnError extends boolean = false>(options: Options<ReplayDriveMobileOfflineOperationsData, ThrowOnError>) => (options.client ?? client).post<ReplayDriveMobileOfflineOperationsResponses, ReplayDriveMobileOfflineOperationsErrors, ThrowOnError>({
     url: '/api/v1/drive-mobile/offline/replay',
@@ -1620,11 +2543,28 @@ export const replayDriveMobileOfflineOperations = <ThrowOnError extends boolean 
 
 /**
  * Drive sync delta を返す
+ *
+ * Drive sync delta を返す。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
  */
 export const getDriveSyncDelta = <ThrowOnError extends boolean = false>(options: Options<GetDriveSyncDeltaData, ThrowOnError>) => (options.client ?? client).get<GetDriveSyncDeltaResponses, GetDriveSyncDeltaErrors, ThrowOnError>({ url: '/api/v1/drive-sync/delta', ...options });
 
 /**
  * Drive sync device を登録する
+ *
+ * Drive sync device を登録する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const registerDriveSyncDevice = <ThrowOnError extends boolean = false>(options: Options<RegisterDriveSyncDeviceData, ThrowOnError>) => (options.client ?? client).post<RegisterDriveSyncDeviceResponses, RegisterDriveSyncDeviceErrors, ThrowOnError>({
     security: [{
@@ -1642,6 +2582,15 @@ export const registerDriveSyncDevice = <ThrowOnError extends boolean = false>(op
 
 /**
  * Drive sync device を revoke する
+ *
+ * Drive sync device を revoke する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const revokeDriveSyncDevice = <ThrowOnError extends boolean = false>(options: Options<RevokeDriveSyncDeviceData, ThrowOnError>) => (options.client ?? client).post<RevokeDriveSyncDeviceResponses, RevokeDriveSyncDeviceErrors, ThrowOnError>({
     security: [{
@@ -1659,6 +2608,15 @@ export const revokeDriveSyncDevice = <ThrowOnError extends boolean = false>(opti
 
 /**
  * Drive items を ZIP archive として download する
+ *
+ * Drive items を ZIP archive として download する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const downloadDriveArchive = <ThrowOnError extends boolean = false>(options: Options<DownloadDriveArchiveData, ThrowOnError>) => (options.client ?? client).post<DownloadDriveArchiveResponses, DownloadDriveArchiveErrors, ThrowOnError>({
     security: [{
@@ -1676,6 +2634,15 @@ export const downloadDriveArchive = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive E2EE public key を登録する
+ *
+ * Drive E2EE public key を登録する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveE2EeUserKey = <ThrowOnError extends boolean = false>(options: Options<CreateDriveE2EeUserKeyData, ThrowOnError>) => (options.client ?? client).post<CreateDriveE2EeUserKeyResponses, CreateDriveE2EeUserKeyErrors, ThrowOnError>({
     security: [{
@@ -1693,6 +2660,14 @@ export const createDriveE2EeUserKey = <ThrowOnError extends boolean = false>(opt
 
 /**
  * Drive file を削除する
+ *
+ * Drive file を削除する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteDriveFile = <ThrowOnError extends boolean = false>(options: Options<DeleteDriveFileData, ThrowOnError>) => (options.client ?? client).delete<DeleteDriveFileResponses, DeleteDriveFileErrors, ThrowOnError>({
     security: [{
@@ -1706,6 +2681,14 @@ export const deleteDriveFile = <ThrowOnError extends boolean = false>(options: O
 
 /**
  * Drive file metadata を返す
+ *
+ * Drive file metadata を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDriveFile = <ThrowOnError extends boolean = false>(options: Options<GetDriveFileData, ThrowOnError>) => (options.client ?? client).get<GetDriveFileResponses, GetDriveFileErrors, ThrowOnError>({
     security: [{
@@ -1719,6 +2702,13 @@ export const getDriveFile = <ThrowOnError extends boolean = false>(options: Opti
 
 /**
  * Drive file metadata を更新する
+ *
+ * Drive file の filename、description、tags、parent folder を更新します。ファイル本体の差し替えではなく metadata と配置の更新です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveFile = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveFileData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveFileResponses, UpdateDriveFileErrors, ThrowOnError>({
     security: [{
@@ -1736,6 +2726,14 @@ export const updateDriveFile = <ThrowOnError extends boolean = false>(options: O
 
 /**
  * Drive file activity を返す
+ *
+ * Drive file activity を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveFileActivity = <ThrowOnError extends boolean = false>(options: Options<ListDriveFileActivityData, ThrowOnError>) => (options.client ?? client).get<ListDriveFileActivityResponses, ListDriveFileActivityErrors, ThrowOnError>({
     security: [{
@@ -1749,6 +2747,14 @@ export const listDriveFileActivity = <ThrowOnError extends boolean = false>(opti
 
 /**
  * Drive AI classifications を返す
+ *
+ * Drive AI classifications を返す。
+ *
+ * Drive file の OCR、product extraction、AI summary/classification に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveAiClassifications = <ThrowOnError extends boolean = false>(options: Options<ListDriveAiClassificationsData, ThrowOnError>) => (options.client ?? client).get<ListDriveAiClassificationsResponses, ListDriveAiClassificationsErrors, ThrowOnError>({
     security: [{
@@ -1762,6 +2768,13 @@ export const listDriveAiClassifications = <ThrowOnError extends boolean = false>
 
 /**
  * Drive AI job を作成する
+ *
+ * Drive file に対する AI processing job を作成します。summary や classification のような後続取得 API と組み合わせて使います。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveAiJob = <ThrowOnError extends boolean = false>(options: Options<CreateDriveAiJobData, ThrowOnError>) => (options.client ?? client).post<CreateDriveAiJobResponses, CreateDriveAiJobErrors, ThrowOnError>({
     security: [{
@@ -1779,6 +2792,14 @@ export const createDriveAiJob = <ThrowOnError extends boolean = false>(options: 
 
 /**
  * Drive AI summary を返す
+ *
+ * Drive AI summary を返す。
+ *
+ * Drive file の OCR、product extraction、AI summary/classification に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDriveAiSummary = <ThrowOnError extends boolean = false>(options: Options<GetDriveAiSummaryData, ThrowOnError>) => (options.client ?? client).get<GetDriveAiSummaryResponses, GetDriveAiSummaryErrors, ThrowOnError>({
     security: [{
@@ -1792,6 +2813,15 @@ export const getDriveAiSummary = <ThrowOnError extends boolean = false>(options:
 
 /**
  * Drive file を copy する
+ *
+ * Drive file を copy する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const copyDriveFile = <ThrowOnError extends boolean = false>(options: Options<CopyDriveFileData, ThrowOnError>) => (options.client ?? client).post<CopyDriveFileResponses, CopyDriveFileErrors, ThrowOnError>({
     security: [{
@@ -1809,6 +2839,14 @@ export const copyDriveFile = <ThrowOnError extends boolean = false>(options: Opt
 
 /**
  * Drive E2EE actor envelope を返す
+ *
+ * Drive E2EE actor envelope を返す。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDriveE2EeEnvelope = <ThrowOnError extends boolean = false>(options: Options<GetDriveE2EeEnvelopeData, ThrowOnError>) => (options.client ?? client).get<GetDriveE2EeEnvelopeResponses, GetDriveE2EeEnvelopeErrors, ThrowOnError>({
     security: [{
@@ -1822,6 +2860,15 @@ export const getDriveE2EeEnvelope = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive E2EE recipient envelope を作成する
+ *
+ * Drive E2EE recipient envelope を作成する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveE2EeEnvelope = <ThrowOnError extends boolean = false>(options: Options<CreateDriveE2EeEnvelopeData, ThrowOnError>) => (options.client ?? client).post<CreateDriveE2EeEnvelopeResponses, CreateDriveE2EeEnvelopeErrors, ThrowOnError>({
     security: [{
@@ -1839,6 +2886,14 @@ export const createDriveE2EeEnvelope = <ThrowOnError extends boolean = false>(op
 
 /**
  * Drive E2EE recipient envelope を revoke する
+ *
+ * Drive E2EE recipient envelope を revoke する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const revokeDriveE2EeEnvelope = <ThrowOnError extends boolean = false>(options: Options<RevokeDriveE2EeEnvelopeData, ThrowOnError>) => (options.client ?? client).delete<RevokeDriveE2EeEnvelopeResponses, RevokeDriveE2EeEnvelopeErrors, ThrowOnError>({
     security: [{
@@ -1852,6 +2907,15 @@ export const revokeDriveE2EeEnvelope = <ThrowOnError extends boolean = false>(op
 
 /**
  * Drive E2EE file key metadata を作成する
+ *
+ * Drive E2EE file key metadata を作成する。
+ *
+ * Drive の encryption、HSM、legal hold、eDiscovery、clean room、gateway を扱う compliance endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveE2EeFileKey = <ThrowOnError extends boolean = false>(options: Options<CreateDriveE2EeFileKeyData, ThrowOnError>) => (options.client ?? client).post<CreateDriveE2EeFileKeyResponses, CreateDriveE2EeFileKeyErrors, ThrowOnError>({
     security: [{
@@ -1869,6 +2933,14 @@ export const createDriveE2EeFileKey = <ThrowOnError extends boolean = false>(opt
 
 /**
  * Drive file edit session を開始する
+ *
+ * Drive file edit session を開始する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const startDriveEditSession = <ThrowOnError extends boolean = false>(options: Options<StartDriveEditSessionData, ThrowOnError>) => (options.client ?? client).post<StartDriveEditSessionResponses, StartDriveEditSessionErrors, ThrowOnError>({
     security: [{
@@ -1882,6 +2954,14 @@ export const startDriveEditSession = <ThrowOnError extends boolean = false>(opti
 
 /**
  * Drive edit session を終了する
+ *
+ * Drive edit session を終了する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const endDriveEditSession = <ThrowOnError extends boolean = false>(options: Options<EndDriveEditSessionData, ThrowOnError>) => (options.client ?? client).delete<EndDriveEditSessionResponses, EndDriveEditSessionErrors, ThrowOnError>({
     security: [{
@@ -1895,6 +2975,15 @@ export const endDriveEditSession = <ThrowOnError extends boolean = false>(option
 
 /**
  * Drive edit session content を保存する
+ *
+ * Drive edit session content を保存する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const saveDriveEditSessionContent = <ThrowOnError extends boolean = false>(options: Options<SaveDriveEditSessionContentData, ThrowOnError>) => (options.client ?? client).put<SaveDriveEditSessionContentResponses, SaveDriveEditSessionContentErrors, ThrowOnError>({
     security: [{
@@ -1912,6 +3001,14 @@ export const saveDriveEditSessionContent = <ThrowOnError extends boolean = false
 
 /**
  * Drive file edit session lease を延長する
+ *
+ * Drive file edit session lease を延長する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const heartbeatDriveEditSession = <ThrowOnError extends boolean = false>(options: Options<HeartbeatDriveEditSessionData, ThrowOnError>) => (options.client ?? client).post<HeartbeatDriveEditSessionResponses, HeartbeatDriveEditSessionErrors, ThrowOnError>({
     security: [{
@@ -1925,6 +3022,15 @@ export const heartbeatDriveEditSession = <ThrowOnError extends boolean = false>(
 
 /**
  * Drive file inheritance を更新する
+ *
+ * Drive file inheritance を更新する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveFileInheritance = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveFileInheritanceData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveFileInheritanceResponses, UpdateDriveFileInheritanceErrors, ThrowOnError>({
     security: [{
@@ -1942,6 +3048,15 @@ export const updateDriveFileInheritance = <ThrowOnError extends boolean = false>
 
 /**
  * Drive file external share invitation を作成する
+ *
+ * Drive file external share invitation を作成する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveFileShareInvitation = <ThrowOnError extends boolean = false>(options: Options<CreateDriveFileShareInvitationData, ThrowOnError>) => (options.client ?? client).post<CreateDriveFileShareInvitationResponses, CreateDriveFileShareInvitationErrors, ThrowOnError>({
     security: [{
@@ -1959,6 +3074,14 @@ export const createDriveFileShareInvitation = <ThrowOnError extends boolean = fa
 
 /**
  * Drive file OCR result を返す
+ *
+ * Drive file OCR result を返す。
+ *
+ * Drive file の OCR、product extraction、AI summary/classification に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDriveOcr = <ThrowOnError extends boolean = false>(options: Options<GetDriveOcrData, ThrowOnError>) => (options.client ?? client).get<GetDriveOcrResponses, GetDriveOcrErrors, ThrowOnError>({
     security: [{
@@ -1972,6 +3095,12 @@ export const getDriveOcr = <ThrowOnError extends boolean = false>(options: Optio
 
 /**
  * Drive file OCR job を作成する
+ *
+ * Drive file の OCR job を作成します。画像/PDF から抽出された text は OCR result API で取得します。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const createDriveOcrJob = <ThrowOnError extends boolean = false>(options: Options<CreateDriveOcrJobData, ThrowOnError>) => (options.client ?? client).post<CreateDriveOcrJobResponses, CreateDriveOcrJobErrors, ThrowOnError>({
     security: [{
@@ -1985,6 +3114,15 @@ export const createDriveOcrJob = <ThrowOnError extends boolean = false>(options:
 
 /**
  * Drive Office edit session を作成する
+ *
+ * Drive Office edit session を作成する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveOfficeSession = <ThrowOnError extends boolean = false>(options: Options<CreateDriveOfficeSessionData, ThrowOnError>) => (options.client ?? client).post<CreateDriveOfficeSessionResponses, CreateDriveOfficeSessionErrors, ThrowOnError>({
     security: [{
@@ -2002,6 +3140,15 @@ export const createDriveOfficeSession = <ThrowOnError extends boolean = false>(o
 
 /**
  * Drive file owner を移譲する
+ *
+ * Drive file owner を移譲する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const transferDriveFileOwner = <ThrowOnError extends boolean = false>(options: Options<TransferDriveFileOwnerData, ThrowOnError>) => (options.client ?? client).post<TransferDriveFileOwnerResponses, TransferDriveFileOwnerErrors, ThrowOnError>({
     security: [{
@@ -2019,6 +3166,14 @@ export const transferDriveFileOwner = <ThrowOnError extends boolean = false>(opt
 
 /**
  * Drive file を完全削除する
+ *
+ * Drive file を完全削除する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const permanentlyDeleteDriveFile = <ThrowOnError extends boolean = false>(options: Options<PermanentlyDeleteDriveFileData, ThrowOnError>) => (options.client ?? client).delete<PermanentlyDeleteDriveFileResponses, PermanentlyDeleteDriveFileErrors, ThrowOnError>({
     security: [{
@@ -2032,6 +3187,14 @@ export const permanentlyDeleteDriveFile = <ThrowOnError extends boolean = false>
 
 /**
  * Drive file permissions を返す
+ *
+ * Drive file permissions を返す。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDriveFilePermissions = <ThrowOnError extends boolean = false>(options: Options<GetDriveFilePermissionsData, ThrowOnError>) => (options.client ?? client).get<GetDriveFilePermissionsResponses, GetDriveFilePermissionsErrors, ThrowOnError>({
     security: [{
@@ -2045,6 +3208,14 @@ export const getDriveFilePermissions = <ThrowOnError extends boolean = false>(op
 
 /**
  * Drive file product extraction items を返す
+ *
+ * Drive file product extraction items を返す。
+ *
+ * Drive file の OCR、product extraction、AI summary/classification に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveProductExtractions = <ThrowOnError extends boolean = false>(options: Options<ListDriveProductExtractionsData, ThrowOnError>) => (options.client ?? client).get<ListDriveProductExtractionsResponses, ListDriveProductExtractionsErrors, ThrowOnError>({
     security: [{
@@ -2058,6 +3229,12 @@ export const listDriveProductExtractions = <ThrowOnError extends boolean = false
 
 /**
  * Drive file product extraction job を作成する
+ *
+ * OCR 結果をもとに product extraction job を作成します。抽出結果は product extraction list API で確認します。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const createDriveProductExtractionJob = <ThrowOnError extends boolean = false>(options: Options<CreateDriveProductExtractionJobData, ThrowOnError>) => (options.client ?? client).post<CreateDriveProductExtractionJobResponses, CreateDriveProductExtractionJobErrors, ThrowOnError>({
     security: [{
@@ -2071,6 +3248,15 @@ export const createDriveProductExtractionJob = <ThrowOnError extends boolean = f
 
 /**
  * Drive file を trash から復元する
+ *
+ * Drive file を trash から復元する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const restoreDriveFile = <ThrowOnError extends boolean = false>(options: Options<RestoreDriveFileData, ThrowOnError>) => (options.client ?? client).post<RestoreDriveFileResponses, RestoreDriveFileErrors, ThrowOnError>({
     security: [{
@@ -2088,6 +3274,13 @@ export const restoreDriveFile = <ThrowOnError extends boolean = false>(options: 
 
 /**
  * Drive file share link を作成する
+ *
+ * Drive file に public share link を作成します。password や expiry を設定すると、link access の安全性を高められます。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveFileShareLink = <ThrowOnError extends boolean = false>(options: Options<CreateDriveFileShareLinkData, ThrowOnError>) => (options.client ?? client).post<CreateDriveFileShareLinkResponses, CreateDriveFileShareLinkErrors, ThrowOnError>({
     security: [{
@@ -2105,6 +3298,15 @@ export const createDriveFileShareLink = <ThrowOnError extends boolean = false>(o
 
 /**
  * Drive file share を作成する
+ *
+ * Drive file share を作成する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveFileShare = <ThrowOnError extends boolean = false>(options: Options<CreateDriveFileShareData, ThrowOnError>) => (options.client ?? client).post<CreateDriveFileShareResponses, CreateDriveFileShareErrors, ThrowOnError>({
     security: [{
@@ -2122,6 +3324,14 @@ export const createDriveFileShare = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive file share を解除する
+ *
+ * Drive file share を解除する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteDriveFileShare = <ThrowOnError extends boolean = false>(options: Options<DeleteDriveFileShareData, ThrowOnError>) => (options.client ?? client).delete<DeleteDriveFileShareResponses, DeleteDriveFileShareErrors, ThrowOnError>({
     security: [{
@@ -2135,6 +3345,15 @@ export const deleteDriveFileShare = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive file share role を更新する
+ *
+ * Drive file share role を更新する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveFileShare = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveFileShareData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveFileShareResponses, UpdateDriveFileShareErrors, ThrowOnError>({
     security: [{
@@ -2152,6 +3371,14 @@ export const updateDriveFileShare = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive file の star を外す
+ *
+ * Drive file の star を外す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const unstarDriveFile = <ThrowOnError extends boolean = false>(options: Options<UnstarDriveFileData, ThrowOnError>) => (options.client ?? client).delete<UnstarDriveFileResponses, UnstarDriveFileErrors, ThrowOnError>({
     security: [{
@@ -2165,6 +3392,14 @@ export const unstarDriveFile = <ThrowOnError extends boolean = false>(options: O
 
 /**
  * Drive file に star を付ける
+ *
+ * Drive file に star を付ける。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const starDriveFile = <ThrowOnError extends boolean = false>(options: Options<StarDriveFileData, ThrowOnError>) => (options.client ?? client).post<StarDriveFileResponses, StarDriveFileErrors, ThrowOnError>({
     security: [{
@@ -2178,6 +3413,14 @@ export const starDriveFile = <ThrowOnError extends boolean = false>(options: Opt
 
 /**
  * Drive folder tree を返す
+ *
+ * Drive folder tree を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDriveFolderTree = <ThrowOnError extends boolean = false>(options?: Options<GetDriveFolderTreeData, ThrowOnError>) => (options?.client ?? client).get<GetDriveFolderTreeResponses, GetDriveFolderTreeErrors, ThrowOnError>({
     security: [{
@@ -2191,6 +3434,13 @@ export const getDriveFolderTree = <ThrowOnError extends boolean = false>(options
 
 /**
  * Drive folder を作成する
+ *
+ * Drive に folder を作成します。`parentFolderPublicId` を省略すると root 配下に作成し、`workspacePublicId` を指定すると workspace 配下で管理します。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveFolder = <ThrowOnError extends boolean = false>(options: Options<CreateDriveFolderData, ThrowOnError>) => (options.client ?? client).post<CreateDriveFolderResponses, CreateDriveFolderErrors, ThrowOnError>({
     security: [{
@@ -2208,6 +3458,14 @@ export const createDriveFolder = <ThrowOnError extends boolean = false>(options:
 
 /**
  * Drive folder を削除する
+ *
+ * Drive folder を削除する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteDriveFolder = <ThrowOnError extends boolean = false>(options: Options<DeleteDriveFolderData, ThrowOnError>) => (options.client ?? client).delete<DeleteDriveFolderResponses, DeleteDriveFolderErrors, ThrowOnError>({
     security: [{
@@ -2221,6 +3479,14 @@ export const deleteDriveFolder = <ThrowOnError extends boolean = false>(options:
 
 /**
  * Drive folder detail を返す
+ *
+ * Drive folder detail を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDriveFolder = <ThrowOnError extends boolean = false>(options: Options<GetDriveFolderData, ThrowOnError>) => (options.client ?? client).get<GetDriveFolderResponses, GetDriveFolderErrors, ThrowOnError>({
     security: [{
@@ -2234,6 +3500,15 @@ export const getDriveFolder = <ThrowOnError extends boolean = false>(options: Op
 
 /**
  * Drive folder を更新する
+ *
+ * Drive folder を更新する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveFolder = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveFolderData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveFolderResponses, UpdateDriveFolderErrors, ThrowOnError>({
     security: [{
@@ -2251,6 +3526,14 @@ export const updateDriveFolder = <ThrowOnError extends boolean = false>(options:
 
 /**
  * Drive folder activity を返す
+ *
+ * Drive folder activity を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveFolderActivity = <ThrowOnError extends boolean = false>(options: Options<ListDriveFolderActivityData, ThrowOnError>) => (options.client ?? client).get<ListDriveFolderActivityResponses, ListDriveFolderActivityErrors, ThrowOnError>({
     security: [{
@@ -2264,6 +3547,14 @@ export const listDriveFolderActivity = <ThrowOnError extends boolean = false>(op
 
 /**
  * Drive folder children を返す
+ *
+ * Drive folder children を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveFolderChildren = <ThrowOnError extends boolean = false>(options: Options<ListDriveFolderChildrenData, ThrowOnError>) => (options.client ?? client).get<ListDriveFolderChildrenResponses, ListDriveFolderChildrenErrors, ThrowOnError>({
     security: [{
@@ -2277,6 +3568,15 @@ export const listDriveFolderChildren = <ThrowOnError extends boolean = false>(op
 
 /**
  * Drive folder を copy する
+ *
+ * Drive folder を copy する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const copyDriveFolder = <ThrowOnError extends boolean = false>(options: Options<CopyDriveFolderData, ThrowOnError>) => (options.client ?? client).post<CopyDriveFolderResponses, CopyDriveFolderErrors, ThrowOnError>({
     security: [{
@@ -2294,6 +3594,15 @@ export const copyDriveFolder = <ThrowOnError extends boolean = false>(options: O
 
 /**
  * Drive folder inheritance を更新する
+ *
+ * Drive folder inheritance を更新する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveFolderInheritance = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveFolderInheritanceData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveFolderInheritanceResponses, UpdateDriveFolderInheritanceErrors, ThrowOnError>({
     security: [{
@@ -2311,6 +3620,15 @@ export const updateDriveFolderInheritance = <ThrowOnError extends boolean = fals
 
 /**
  * Drive folder external share invitation を作成する
+ *
+ * Drive folder external share invitation を作成する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveFolderShareInvitation = <ThrowOnError extends boolean = false>(options: Options<CreateDriveFolderShareInvitationData, ThrowOnError>) => (options.client ?? client).post<CreateDriveFolderShareInvitationResponses, CreateDriveFolderShareInvitationErrors, ThrowOnError>({
     security: [{
@@ -2328,6 +3646,15 @@ export const createDriveFolderShareInvitation = <ThrowOnError extends boolean = 
 
 /**
  * Drive folder owner を移譲する
+ *
+ * Drive folder owner を移譲する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const transferDriveFolderOwner = <ThrowOnError extends boolean = false>(options: Options<TransferDriveFolderOwnerData, ThrowOnError>) => (options.client ?? client).post<TransferDriveFolderOwnerResponses, TransferDriveFolderOwnerErrors, ThrowOnError>({
     security: [{
@@ -2345,6 +3672,14 @@ export const transferDriveFolderOwner = <ThrowOnError extends boolean = false>(o
 
 /**
  * Drive folder を完全削除する
+ *
+ * Drive folder を完全削除する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const permanentlyDeleteDriveFolder = <ThrowOnError extends boolean = false>(options: Options<PermanentlyDeleteDriveFolderData, ThrowOnError>) => (options.client ?? client).delete<PermanentlyDeleteDriveFolderResponses, PermanentlyDeleteDriveFolderErrors, ThrowOnError>({
     security: [{
@@ -2358,6 +3693,14 @@ export const permanentlyDeleteDriveFolder = <ThrowOnError extends boolean = fals
 
 /**
  * Drive folder permissions を返す
+ *
+ * Drive folder permissions を返す。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDriveFolderPermissions = <ThrowOnError extends boolean = false>(options: Options<GetDriveFolderPermissionsData, ThrowOnError>) => (options.client ?? client).get<GetDriveFolderPermissionsResponses, GetDriveFolderPermissionsErrors, ThrowOnError>({
     security: [{
@@ -2371,6 +3714,15 @@ export const getDriveFolderPermissions = <ThrowOnError extends boolean = false>(
 
 /**
  * Drive folder を trash から復元する
+ *
+ * Drive folder を trash から復元する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const restoreDriveFolder = <ThrowOnError extends boolean = false>(options: Options<RestoreDriveFolderData, ThrowOnError>) => (options.client ?? client).post<RestoreDriveFolderResponses, RestoreDriveFolderErrors, ThrowOnError>({
     security: [{
@@ -2388,6 +3740,15 @@ export const restoreDriveFolder = <ThrowOnError extends boolean = false>(options
 
 /**
  * Drive folder share link を作成する
+ *
+ * Drive folder share link を作成する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveFolderShareLink = <ThrowOnError extends boolean = false>(options: Options<CreateDriveFolderShareLinkData, ThrowOnError>) => (options.client ?? client).post<CreateDriveFolderShareLinkResponses, CreateDriveFolderShareLinkErrors, ThrowOnError>({
     security: [{
@@ -2405,6 +3766,15 @@ export const createDriveFolderShareLink = <ThrowOnError extends boolean = false>
 
 /**
  * Drive folder share を作成する
+ *
+ * Drive folder share を作成する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveFolderShare = <ThrowOnError extends boolean = false>(options: Options<CreateDriveFolderShareData, ThrowOnError>) => (options.client ?? client).post<CreateDriveFolderShareResponses, CreateDriveFolderShareErrors, ThrowOnError>({
     security: [{
@@ -2422,6 +3792,14 @@ export const createDriveFolderShare = <ThrowOnError extends boolean = false>(opt
 
 /**
  * Drive folder share を解除する
+ *
+ * Drive folder share を解除する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteDriveFolderShare = <ThrowOnError extends boolean = false>(options: Options<DeleteDriveFolderShareData, ThrowOnError>) => (options.client ?? client).delete<DeleteDriveFolderShareResponses, DeleteDriveFolderShareErrors, ThrowOnError>({
     security: [{
@@ -2435,6 +3813,15 @@ export const deleteDriveFolderShare = <ThrowOnError extends boolean = false>(opt
 
 /**
  * Drive folder share role を更新する
+ *
+ * Drive folder share role を更新する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveFolderShare = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveFolderShareData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveFolderShareResponses, UpdateDriveFolderShareErrors, ThrowOnError>({
     security: [{
@@ -2452,6 +3839,14 @@ export const updateDriveFolderShare = <ThrowOnError extends boolean = false>(opt
 
 /**
  * Drive folder の star を外す
+ *
+ * Drive folder の star を外す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const unstarDriveFolder = <ThrowOnError extends boolean = false>(options: Options<UnstarDriveFolderData, ThrowOnError>) => (options.client ?? client).delete<UnstarDriveFolderResponses, UnstarDriveFolderErrors, ThrowOnError>({
     security: [{
@@ -2465,6 +3860,14 @@ export const unstarDriveFolder = <ThrowOnError extends boolean = false>(options:
 
 /**
  * Drive folder に star を付ける
+ *
+ * Drive folder に star を付ける。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const starDriveFolder = <ThrowOnError extends boolean = false>(options: Options<StarDriveFolderData, ThrowOnError>) => (options.client ?? client).post<StarDriveFolderResponses, StarDriveFolderErrors, ThrowOnError>({
     security: [{
@@ -2478,6 +3881,14 @@ export const starDriveFolder = <ThrowOnError extends boolean = false>(options: O
 
 /**
  * Drive groups を返す
+ *
+ * Drive groups を返す。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveGroups = <ThrowOnError extends boolean = false>(options?: Options<ListDriveGroupsData, ThrowOnError>) => (options?.client ?? client).get<ListDriveGroupsResponses, ListDriveGroupsErrors, ThrowOnError>({
     security: [{
@@ -2491,6 +3902,15 @@ export const listDriveGroups = <ThrowOnError extends boolean = false>(options?: 
 
 /**
  * Drive group を作成する
+ *
+ * Drive group を作成する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveGroup = <ThrowOnError extends boolean = false>(options: Options<CreateDriveGroupData, ThrowOnError>) => (options.client ?? client).post<CreateDriveGroupResponses, CreateDriveGroupErrors, ThrowOnError>({
     security: [{
@@ -2508,6 +3928,14 @@ export const createDriveGroup = <ThrowOnError extends boolean = false>(options: 
 
 /**
  * Drive group を削除する
+ *
+ * Drive group を削除する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteDriveGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteDriveGroupData, ThrowOnError>) => (options.client ?? client).delete<DeleteDriveGroupResponses, DeleteDriveGroupErrors, ThrowOnError>({
     security: [{
@@ -2521,6 +3949,14 @@ export const deleteDriveGroup = <ThrowOnError extends boolean = false>(options: 
 
 /**
  * Drive group detail を返す
+ *
+ * Drive group detail を返す。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDriveGroup = <ThrowOnError extends boolean = false>(options: Options<GetDriveGroupData, ThrowOnError>) => (options.client ?? client).get<GetDriveGroupResponses, GetDriveGroupErrors, ThrowOnError>({
     security: [{
@@ -2534,6 +3970,15 @@ export const getDriveGroup = <ThrowOnError extends boolean = false>(options: Opt
 
 /**
  * Drive group を更新する
+ *
+ * Drive group を更新する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveGroup = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveGroupData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveGroupResponses, UpdateDriveGroupErrors, ThrowOnError>({
     security: [{
@@ -2551,6 +3996,15 @@ export const updateDriveGroup = <ThrowOnError extends boolean = false>(options: 
 
 /**
  * Drive group member を追加する
+ *
+ * Drive group member を追加する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const addDriveGroupMember = <ThrowOnError extends boolean = false>(options: Options<AddDriveGroupMemberData, ThrowOnError>) => (options.client ?? client).post<AddDriveGroupMemberResponses, AddDriveGroupMemberErrors, ThrowOnError>({
     security: [{
@@ -2568,6 +4022,14 @@ export const addDriveGroupMember = <ThrowOnError extends boolean = false>(option
 
 /**
  * Drive group member を削除する
+ *
+ * Drive group member を削除する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteDriveGroupMember = <ThrowOnError extends boolean = false>(options: Options<DeleteDriveGroupMemberData, ThrowOnError>) => (options.client ?? client).delete<DeleteDriveGroupMemberResponses, DeleteDriveGroupMemberErrors, ThrowOnError>({
     security: [{
@@ -2581,6 +4043,14 @@ export const deleteDriveGroupMember = <ThrowOnError extends boolean = false>(opt
 
 /**
  * ログイン user 宛の Drive invitation を返す
+ *
+ * ログイン user 宛の Drive invitation を返す。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveShareInvitations = <ThrowOnError extends boolean = false>(options?: Options<ListDriveShareInvitationsData, ThrowOnError>) => (options?.client ?? client).get<ListDriveShareInvitationsResponses, ListDriveShareInvitationsErrors, ThrowOnError>({
     security: [{
@@ -2594,6 +4064,15 @@ export const listDriveShareInvitations = <ThrowOnError extends boolean = false>(
 
 /**
  * Drive invitation を受諾する
+ *
+ * Drive invitation を受諾する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const acceptDriveShareInvitation = <ThrowOnError extends boolean = false>(options: Options<AcceptDriveShareInvitationData, ThrowOnError>) => (options.client ?? client).post<AcceptDriveShareInvitationResponses, AcceptDriveShareInvitationErrors, ThrowOnError>({
     security: [{
@@ -2611,6 +4090,14 @@ export const acceptDriveShareInvitation = <ThrowOnError extends boolean = false>
 
 /**
  * Drive invitation を revoke する
+ *
+ * Drive invitation を revoke する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const revokeDriveShareInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeDriveShareInvitationData, ThrowOnError>) => (options.client ?? client).post<RevokeDriveShareInvitationResponses, RevokeDriveShareInvitationErrors, ThrowOnError>({
     security: [{
@@ -2624,6 +4111,14 @@ export const revokeDriveShareInvitation = <ThrowOnError extends boolean = false>
 
 /**
  * Drive item 一覧を返す
+ *
+ * Drive item 一覧を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveItems = <ThrowOnError extends boolean = false>(options?: Options<ListDriveItemsData, ThrowOnError>) => (options?.client ?? client).get<ListDriveItemsResponses, ListDriveItemsErrors, ThrowOnError>({
     security: [{
@@ -2637,6 +4132,14 @@ export const listDriveItems = <ThrowOnError extends boolean = false>(options?: O
 
 /**
  * Drive marketplace catalog を返す
+ *
+ * Drive marketplace catalog を返す。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveMarketplaceApps = <ThrowOnError extends boolean = false>(options?: Options<ListDriveMarketplaceAppsData, ThrowOnError>) => (options?.client ?? client).get<ListDriveMarketplaceAppsResponses, ListDriveMarketplaceAppsErrors, ThrowOnError>({
     security: [{
@@ -2650,6 +4153,14 @@ export const listDriveMarketplaceApps = <ThrowOnError extends boolean = false>(o
 
 /**
  * Drive Office edit session を revoke する
+ *
+ * Drive Office edit session を revoke する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const revokeDriveOfficeSession = <ThrowOnError extends boolean = false>(options: Options<RevokeDriveOfficeSessionData, ThrowOnError>) => (options.client ?? client).delete<RevokeDriveOfficeSessionResponses, RevokeDriveOfficeSessionErrors, ThrowOnError>({
     security: [{
@@ -2663,6 +4174,14 @@ export const revokeDriveOfficeSession = <ThrowOnError extends boolean = false>(o
 
 /**
  * Recent Drive item を返す
+ *
+ * Recent Drive item を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveRecent = <ThrowOnError extends boolean = false>(options?: Options<ListDriveRecentData, ThrowOnError>) => (options?.client ?? client).get<ListDriveRecentResponses, ListDriveRecentErrors, ThrowOnError>({
     security: [{
@@ -2676,6 +4195,14 @@ export const listDriveRecent = <ThrowOnError extends boolean = false>(options?: 
 
 /**
  * Drive item を検索する
+ *
+ * Drive item を検索する。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const searchDriveItems = <ThrowOnError extends boolean = false>(options?: Options<SearchDriveItemsData, ThrowOnError>) => (options?.client ?? client).get<SearchDriveItemsResponses, SearchDriveItemsErrors, ThrowOnError>({
     security: [{
@@ -2689,6 +4216,14 @@ export const searchDriveItems = <ThrowOnError extends boolean = false>(options?:
 
 /**
  * Drive content index 付き検索結果を返す
+ *
+ * Drive content index 付き検索結果を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const searchDriveDocuments = <ThrowOnError extends boolean = false>(options?: Options<SearchDriveDocumentsData, ThrowOnError>) => (options?.client ?? client).get<SearchDriveDocumentsResponses, SearchDriveDocumentsErrors, ThrowOnError>({
     security: [{
@@ -2702,6 +4237,14 @@ export const searchDriveDocuments = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive share link を無効化する
+ *
+ * Drive share link を無効化する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteDriveShareLink = <ThrowOnError extends boolean = false>(options: Options<DeleteDriveShareLinkData, ThrowOnError>) => (options.client ?? client).delete<DeleteDriveShareLinkResponses, DeleteDriveShareLinkErrors, ThrowOnError>({
     security: [{
@@ -2715,6 +4258,15 @@ export const deleteDriveShareLink = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive share link を更新する
+ *
+ * Drive share link を更新する。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveShareLink = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveShareLinkData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveShareLinkResponses, UpdateDriveShareLinkErrors, ThrowOnError>({
     security: [{
@@ -2732,6 +4284,14 @@ export const updateDriveShareLink = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive share target candidates を返す
+ *
+ * Drive share target candidates を返す。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveShareTargets = <ThrowOnError extends boolean = false>(options?: Options<ListDriveShareTargetsData, ThrowOnError>) => (options?.client ?? client).get<ListDriveShareTargetsResponses, ListDriveShareTargetsErrors, ThrowOnError>({
     security: [{
@@ -2745,6 +4305,14 @@ export const listDriveShareTargets = <ThrowOnError extends boolean = false>(opti
 
 /**
  * 自分に共有された Drive item を返す
+ *
+ * 自分に共有された Drive item を返す。
+ *
+ * Drive resource の共有、権限、share link、招待、group を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveSharedWithMe = <ThrowOnError extends boolean = false>(options?: Options<ListDriveSharedWithMeData, ThrowOnError>) => (options?.client ?? client).get<ListDriveSharedWithMeResponses, ListDriveSharedWithMeErrors, ThrowOnError>({
     security: [{
@@ -2758,6 +4326,14 @@ export const listDriveSharedWithMe = <ThrowOnError extends boolean = false>(opti
 
 /**
  * Starred Drive item を返す
+ *
+ * Starred Drive item を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveStarred = <ThrowOnError extends boolean = false>(options?: Options<ListDriveStarredData, ThrowOnError>) => (options?.client ?? client).get<ListDriveStarredResponses, ListDriveStarredErrors, ThrowOnError>({
     security: [{
@@ -2771,6 +4347,14 @@ export const listDriveStarred = <ThrowOnError extends boolean = false>(options?:
 
 /**
  * Drive storage usage を返す
+ *
+ * Drive storage usage を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getDriveStorageUsage = <ThrowOnError extends boolean = false>(options?: Options<GetDriveStorageUsageData, ThrowOnError>) => (options?.client ?? client).get<GetDriveStorageUsageResponses, GetDriveStorageUsageErrors, ThrowOnError>({
     security: [{
@@ -2784,6 +4368,14 @@ export const getDriveStorageUsage = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive trash item 一覧を返す
+ *
+ * Drive trash item 一覧を返す。
+ *
+ * Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveTrashItems = <ThrowOnError extends boolean = false>(options?: Options<ListDriveTrashItemsData, ThrowOnError>) => (options?.client ?? client).get<ListDriveTrashItemsResponses, ListDriveTrashItemsErrors, ThrowOnError>({
     security: [{
@@ -2797,6 +4389,14 @@ export const listDriveTrashItems = <ThrowOnError extends boolean = false>(option
 
 /**
  * Drive workspace 一覧を返す
+ *
+ * Drive workspace 一覧を返す。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listDriveWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListDriveWorkspacesData, ThrowOnError>) => (options?.client ?? client).get<ListDriveWorkspacesResponses, ListDriveWorkspacesErrors, ThrowOnError>({
     security: [{
@@ -2810,6 +4410,15 @@ export const listDriveWorkspaces = <ThrowOnError extends boolean = false>(option
 
 /**
  * Drive workspace を作成する
+ *
+ * Drive workspace を作成する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createDriveWorkspace = <ThrowOnError extends boolean = false>(options: Options<CreateDriveWorkspaceData, ThrowOnError>) => (options.client ?? client).post<CreateDriveWorkspaceResponses, CreateDriveWorkspaceErrors, ThrowOnError>({
     security: [{
@@ -2827,6 +4436,14 @@ export const createDriveWorkspace = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive workspace を削除する
+ *
+ * Drive workspace を削除する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteDriveWorkspace = <ThrowOnError extends boolean = false>(options: Options<DeleteDriveWorkspaceData, ThrowOnError>) => (options.client ?? client).delete<DeleteDriveWorkspaceResponses, DeleteDriveWorkspaceErrors, ThrowOnError>({
     security: [{
@@ -2840,6 +4457,15 @@ export const deleteDriveWorkspace = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Drive workspace を更新する
+ *
+ * Drive workspace を更新する。
+ *
+ * Drive workspace、collaborative editing、office session、sync/offline workflow に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateDriveWorkspace = <ThrowOnError extends boolean = false>(options: Options<UpdateDriveWorkspaceData, ThrowOnError>) => (options.client ?? client).patch<UpdateDriveWorkspaceResponses, UpdateDriveWorkspaceErrors, ThrowOnError>({
     security: [{
@@ -2857,6 +4483,14 @@ export const updateDriveWorkspace = <ThrowOnError extends boolean = false>(optio
 
 /**
  * active tenant の file metadata を返す
+ *
+ * active tenant の file metadata を返す。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listFiles = <ThrowOnError extends boolean = false>(options?: Options<ListFilesData, ThrowOnError>) => (options?.client ?? client).get<ListFilesResponses, ListFilesErrors, ThrowOnError>({
     security: [{
@@ -2870,6 +4504,14 @@ export const listFiles = <ThrowOnError extends boolean = false>(options?: Option
 
 /**
  * active tenant の file を soft delete する
+ *
+ * active tenant の file を soft delete する。
+ *
+ * file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteFile = <ThrowOnError extends boolean = false>(options: Options<DeleteFileData, ThrowOnError>) => (options.client ?? client).delete<DeleteFileResponses, DeleteFileErrors, ThrowOnError>({
     security: [{
@@ -2883,6 +4525,14 @@ export const deleteFile = <ThrowOnError extends boolean = false>(options: Option
 
 /**
  * downstream integration の接続状態を返す
+ *
+ * downstream integration の接続状態を返す。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listIntegrations = <ThrowOnError extends boolean = false>(options?: Options<ListIntegrationsData, ThrowOnError>) => (options?.client ?? client).get<ListIntegrationsResponses, ListIntegrationsErrors, ThrowOnError>({
     security: [{
@@ -2896,6 +4546,14 @@ export const listIntegrations = <ThrowOnError extends boolean = false>(options?:
 
 /**
  * downstream integration consent callback を完了する
+ *
+ * downstream integration consent callback を完了する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const finishIntegrationConnect = <ThrowOnError extends boolean = false>(options: Options<FinishIntegrationConnectData, ThrowOnError>) => (options.client ?? client).get<FinishIntegrationConnectResponses, FinishIntegrationConnectErrors, ThrowOnError>({
     security: [{
@@ -2909,6 +4567,14 @@ export const finishIntegrationConnect = <ThrowOnError extends boolean = false>(o
 
 /**
  * downstream integration consent を開始する
+ *
+ * downstream integration consent を開始する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const connectIntegration = <ThrowOnError extends boolean = false>(options: Options<ConnectIntegrationData, ThrowOnError>) => (options.client ?? client).get<ConnectIntegrationResponses, ConnectIntegrationErrors, ThrowOnError>({
     security: [{
@@ -2922,6 +4588,14 @@ export const connectIntegration = <ThrowOnError extends boolean = false>(options
 
 /**
  * downstream integration grant を削除する
+ *
+ * downstream integration grant を削除する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteIntegrationGrant = <ThrowOnError extends boolean = false>(options: Options<DeleteIntegrationGrantData, ThrowOnError>) => (options.client ?? client).delete<DeleteIntegrationGrantResponses, DeleteIntegrationGrantErrors, ThrowOnError>({
     security: [{
@@ -2935,6 +4609,14 @@ export const deleteIntegrationGrant = <ThrowOnError extends boolean = false>(opt
 
 /**
  * downstream access token を backend 内で取得できるか検証する
+ *
+ * downstream access token を backend 内で取得できるか検証する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const verifyIntegrationAccess = <ThrowOnError extends boolean = false>(options: Options<VerifyIntegrationAccessData, ThrowOnError>) => (options.client ?? client).post<VerifyIntegrationAccessResponses, VerifyIntegrationAccessErrors, ThrowOnError>({
     security: [{
@@ -2948,6 +4630,15 @@ export const verifyIntegrationAccess = <ThrowOnError extends boolean = false>(op
 
 /**
  * tenant invitation を accept する
+ *
+ * tenant invitation を accept する。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const acceptTenantInvitation = <ThrowOnError extends boolean = false>(options: Options<AcceptTenantInvitationData, ThrowOnError>) => (options.client ?? client).post<AcceptTenantInvitationResponses, AcceptTenantInvitationErrors, ThrowOnError>({
     security: [{
@@ -2965,6 +4656,12 @@ export const acceptTenantInvitation = <ThrowOnError extends boolean = false>(opt
 
 /**
  * ログインして Cookie セッションを払い出す
+ *
+ * local password login が有効な環境で、email/password を検証して Cookie session を発行します。成功時は `SESSION_ID` Cookie が返り、以後の browser API はその Cookie と必要に応じて `X-CSRF-Token` を送ります。
+ *
+ * ### 使い方
+ *
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>) => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
     url: '/api/v1/login',
@@ -2977,6 +4674,14 @@ export const login = <ThrowOnError extends boolean = false>(options: Options<Log
 
 /**
  * セッションを破棄する
+ *
+ * セッションを破棄する。
+ *
+ * login、session refresh、CSRF token 取得、認証設定確認に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const logout = <ThrowOnError extends boolean = false>(options: Options<LogoutData, ThrowOnError>) => (options.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({
     security: [{
@@ -2990,6 +4695,14 @@ export const logout = <ThrowOnError extends boolean = false>(options: Options<Lo
 
 /**
  * machine client を list する
+ *
+ * machine client を list する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listMachineClients = <ThrowOnError extends boolean = false>(options?: Options<ListMachineClientsData, ThrowOnError>) => (options?.client ?? client).get<ListMachineClientsResponses, ListMachineClientsErrors, ThrowOnError>({
     security: [{
@@ -3003,6 +4716,15 @@ export const listMachineClients = <ThrowOnError extends boolean = false>(options
 
 /**
  * machine client を作成する
+ *
+ * machine client を作成する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createMachineClient = <ThrowOnError extends boolean = false>(options: Options<CreateMachineClientData, ThrowOnError>) => (options.client ?? client).post<CreateMachineClientResponses, CreateMachineClientErrors, ThrowOnError>({
     security: [{
@@ -3020,6 +4742,14 @@ export const createMachineClient = <ThrowOnError extends boolean = false>(option
 
 /**
  * machine client を無効化する
+ *
+ * machine client を無効化する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteMachineClient = <ThrowOnError extends boolean = false>(options: Options<DeleteMachineClientData, ThrowOnError>) => (options.client ?? client).delete<DeleteMachineClientResponses, DeleteMachineClientErrors, ThrowOnError>({
     security: [{
@@ -3033,6 +4763,14 @@ export const deleteMachineClient = <ThrowOnError extends boolean = false>(option
 
 /**
  * machine client を取得する
+ *
+ * machine client を取得する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getMachineClient = <ThrowOnError extends boolean = false>(options: Options<GetMachineClientData, ThrowOnError>) => (options.client ?? client).get<GetMachineClientResponses, GetMachineClientErrors, ThrowOnError>({
     security: [{
@@ -3046,6 +4784,15 @@ export const getMachineClient = <ThrowOnError extends boolean = false>(options: 
 
 /**
  * machine client を更新する
+ *
+ * machine client を更新する。
+ *
+ * integration、machine client、entitlement、webhook の管理に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateMachineClient = <ThrowOnError extends boolean = false>(options: Options<UpdateMachineClientData, ThrowOnError>) => (options.client ?? client).put<UpdateMachineClientResponses, UpdateMachineClientErrors, ThrowOnError>({
     security: [{
@@ -3063,6 +4810,14 @@ export const updateMachineClient = <ThrowOnError extends boolean = false>(option
 
 /**
  * 現在の user 宛の notifications を返す
+ *
+ * 現在の user 宛の notifications を返す。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listNotifications = <ThrowOnError extends boolean = false>(options?: Options<ListNotificationsData, ThrowOnError>) => (options?.client ?? client).get<ListNotificationsResponses, ListNotificationsErrors, ThrowOnError>({
     security: [{
@@ -3076,6 +4831,14 @@ export const listNotifications = <ThrowOnError extends boolean = false>(options?
 
 /**
  * notification を既読にする
+ *
+ * notification を既読にする。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const markNotificationRead = <ThrowOnError extends boolean = false>(options: Options<MarkNotificationReadData, ThrowOnError>) => (options.client ?? client).post<MarkNotificationReadResponses, MarkNotificationReadErrors, ThrowOnError>({
     security: [{
@@ -3089,6 +4852,14 @@ export const markNotificationRead = <ThrowOnError extends boolean = false>(optio
 
 /**
  * 現在のセッションを返す
+ *
+ * 現在のセッションを返す。
+ *
+ * login、session refresh、CSRF token 取得、認証設定確認に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getSession = <ThrowOnError extends boolean = false>(options?: Options<GetSessionData, ThrowOnError>) => (options?.client ?? client).get<GetSessionResponses, GetSessionErrors, ThrowOnError>({
     security: [{
@@ -3102,6 +4873,14 @@ export const getSession = <ThrowOnError extends boolean = false>(options?: Optio
 
 /**
  * セッションを再発行する
+ *
+ * セッションを再発行する。
+ *
+ * login、session refresh、CSRF token 取得、認証設定確認に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const refreshSession = <ThrowOnError extends boolean = false>(options: Options<RefreshSessionData, ThrowOnError>) => (options.client ?? client).post<RefreshSessionResponses, RefreshSessionErrors, ThrowOnError>({
     security: [{
@@ -3115,6 +4894,13 @@ export const refreshSession = <ThrowOnError extends boolean = false>(options: Op
 
 /**
  * 現在の session の active tenant を切り替える
+ *
+ * ログイン中の session に active tenant を設定します。tenant-scoped API はここで選択した tenant を既定の操作対象として扱います。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const selectTenant = <ThrowOnError extends boolean = false>(options: Options<SelectTenantData, ThrowOnError>) => (options.client ?? client).post<SelectTenantResponses, SelectTenantErrors, ThrowOnError>({
     security: [{
@@ -3132,6 +4918,14 @@ export const selectTenant = <ThrowOnError extends boolean = false>(options: Opti
 
 /**
  * 現在の support access を返す
+ *
+ * 現在の support access を返す。
+ *
+ * tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const getCurrentSupportAccess = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentSupportAccessData, ThrowOnError>) => (options?.client ?? client).get<GetCurrentSupportAccessResponses, GetCurrentSupportAccessErrors, ThrowOnError>({
     security: [{
@@ -3145,6 +4939,14 @@ export const getCurrentSupportAccess = <ThrowOnError extends boolean = false>(op
 
 /**
  * support access を終了する
+ *
+ * support access を終了する。
+ *
+ * tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const endSupportAccess = <ThrowOnError extends boolean = false>(options: Options<EndSupportAccessData, ThrowOnError>) => (options.client ?? client).post<EndSupportAccessResponses, EndSupportAccessErrors, ThrowOnError>({
     security: [{
@@ -3158,6 +4960,15 @@ export const endSupportAccess = <ThrowOnError extends boolean = false>(options: 
 
 /**
  * support access を開始する
+ *
+ * support access を開始する。
+ *
+ * tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const startSupportAccess = <ThrowOnError extends boolean = false>(options: Options<StartSupportAccessData, ThrowOnError>) => (options.client ?? client).post<StartSupportAccessResponses, StartSupportAccessErrors, ThrowOnError>({
     security: [{
@@ -3175,6 +4986,14 @@ export const startSupportAccess = <ThrowOnError extends boolean = false>(options
 
 /**
  * 現在の user が利用できる tenants を返す
+ *
+ * 現在の user が利用できる tenants を返す。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTenants = <ThrowOnError extends boolean = false>(options?: Options<ListTenantsData, ThrowOnError>) => (options?.client ?? client).get<ListTenantsResponses, ListTenantsErrors, ThrowOnError>({
     security: [{
@@ -3188,6 +5007,14 @@ export const listTenants = <ThrowOnError extends boolean = false>(options?: Opti
 
 /**
  * active tenant の TODO 一覧を返す
+ *
+ * active tenant の TODO 一覧を返す。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const listTodos = <ThrowOnError extends boolean = false>(options?: Options<ListTodosData, ThrowOnError>) => (options?.client ?? client).get<ListTodosResponses, ListTodosErrors, ThrowOnError>({
     security: [{
@@ -3201,6 +5028,15 @@ export const listTodos = <ThrowOnError extends boolean = false>(options?: Option
 
 /**
  * active tenant に TODO を作成する
+ *
+ * active tenant に TODO を作成する。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const createTodo = <ThrowOnError extends boolean = false>(options: Options<CreateTodoData, ThrowOnError>) => (options.client ?? client).post<CreateTodoResponses, CreateTodoErrors, ThrowOnError>({
     security: [{
@@ -3218,6 +5054,14 @@ export const createTodo = <ThrowOnError extends boolean = false>(options: Option
 
 /**
  * active tenant の TODO を削除する
+ *
+ * active tenant の TODO を削除する。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
  */
 export const deleteTodo = <ThrowOnError extends boolean = false>(options: Options<DeleteTodoData, ThrowOnError>) => (options.client ?? client).delete<DeleteTodoResponses, DeleteTodoErrors, ThrowOnError>({
     security: [{
@@ -3231,6 +5075,15 @@ export const deleteTodo = <ThrowOnError extends boolean = false>(options: Option
 
 /**
  * active tenant の TODO を更新する
+ *
+ * active tenant の TODO を更新する。
+ *
+ * active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+ *
+ * ### 使い方
+ *
+ * - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+ * - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
  */
 export const updateTodo = <ThrowOnError extends boolean = false>(options: Options<UpdateTodoData, ThrowOnError>) => (options.client ?? client).patch<UpdateTodoResponses, UpdateTodoErrors, ThrowOnError>({
     security: [{

@@ -108,7 +108,7 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		OperationID: "createDriveOCRJob",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/files/{filePublicId}/ocr/jobs",
-		Tags:        []string{"drive-ocr"},
+		Tags:        []string{DocTagDriveAIOCR},
 		Summary:     "Drive file OCR job を作成する",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveOCRJobInput) (*DriveOCRJobOutput, error) {
@@ -136,7 +136,7 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		OperationID: "getDriveOCR",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/files/{filePublicId}/ocr",
-		Tags:        []string{"drive-ocr"},
+		Tags:        []string{DocTagDriveAIOCR},
 		Summary:     "Drive file OCR result を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *GetDriveOCRInput) (*DriveOCROutput, error) {
@@ -163,7 +163,7 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		OperationID: "listDriveProductExtractions",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/files/{filePublicId}/product-extractions",
-		Tags:        []string{"drive-ocr"},
+		Tags:        []string{DocTagDriveAIOCR},
 		Summary:     "Drive file product extraction items を返す",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *GetDriveOCRInput) (*DriveProductExtractionsOutput, error) {
@@ -189,7 +189,7 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		OperationID: "createDriveProductExtractionJob",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/files/{filePublicId}/product-extractions/jobs",
-		Tags:        []string{"drive-ocr"},
+		Tags:        []string{DocTagDriveAIOCR},
 		Summary:     "Drive file product extraction job を作成する",
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveOCRJobInput) (*DriveProductExtractionJobOutput, error) {

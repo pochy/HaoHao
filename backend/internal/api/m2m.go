@@ -27,7 +27,7 @@ func registerM2MRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/m2m/v1/self",
 		Summary:     "現在の M2M machine client を返す",
-		Tags:        []string{"m2m"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security: []map[string][]string{
 			{"m2mBearerAuth": {}},
 		},

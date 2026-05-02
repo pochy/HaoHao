@@ -79,7 +79,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/session",
 		Summary:     "現在のセッションを返す",
-		Tags:        []string{"session"},
+		Tags:        []string{DocTagAuthSession},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -102,7 +102,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/login",
 		Summary:     "ログインして Cookie セッションを払い出す",
-		Tags:        []string{"session"},
+		Tags:        []string{DocTagAuthSession},
 	}, func(ctx context.Context, input *LoginInput) (*LoginOutput, error) {
 		user, sessionID, csrfToken, err := deps.SessionService.Login(ctx, input.Body.Email, input.Body.Password, auditRequest(ctx))
 		if err != nil {
@@ -125,7 +125,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodGet,
 		Path:          "/api/v1/csrf",
 		Summary:       "CSRF token を再発行する",
-		Tags:          []string{"session"},
+		Tags:          []string{DocTagAuthSession},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
@@ -148,7 +148,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodPost,
 		Path:          "/api/v1/session/refresh",
 		Summary:       "セッションを再発行する",
-		Tags:          []string{"session"},
+		Tags:          []string{DocTagAuthSession},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
@@ -172,7 +172,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodPost,
 		Path:          "/api/v1/logout",
 		Summary:       "セッションを破棄する",
-		Tags:          []string{"session"},
+		Tags:          []string{DocTagAuthSession},
 		DefaultStatus: http.StatusOK,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},

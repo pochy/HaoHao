@@ -3,6 +3,7 @@ package app
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -101,6 +102,8 @@ func TestNewOpenAPIExportSurfaces(t *testing.T) {
 					t.Fatalf("blocked security scheme %s is present", scheme)
 				}
 			}
+			assertOpenAPIDocTags(t, spec, tt.surface)
+			assertOpenAPIDocumentationContent(t, spec)
 		})
 	}
 }
@@ -146,4 +149,205 @@ func pathWithPrefix(paths map[string]*huma.PathItem, prefix string) bool {
 
 func hasSecurityScheme(spec *huma.OpenAPI, name string) bool {
 	return spec.Components != nil && spec.Components.SecuritySchemes != nil && spec.Components.SecuritySchemes[name] != nil
+}
+
+func assertOpenAPIDocumentationContent(t *testing.T, spec *huma.OpenAPI) {
+	t.Helper()
+
+	if spec.Info == nil || strings.TrimSpace(spec.Info.Description) == "" {
+		t.Fatal("OpenAPI info.description is empty")
+	}
+	for _, term := range []string{"SESSION_ID", "X-CSRF-Token", "Idempotency-Key", "Problem Details"} {
+		if !strings.Contains(spec.Info.Description, term) {
+			t.Fatalf("OpenAPI info.description is missing %q", term)
+		}
+	}
+
+	commonParams := map[string]struct{}{
+		"SESSION_ID":        {},
+		"X-CSRF-Token":      {},
+		"Idempotency-Key":   {},
+		"tenantSlug":        {},
+		"filePublicId":      {},
+		"folderPublicId":    {},
+		"workspacePublicId": {},
+		"limit":             {},
+		"offset":            {},
+	}
+
+	operations := map[string]*huma.Operation{}
+	forEachOpenAPIOperation(spec, func(method, path string, op *huma.Operation) {
+		context := method + " " + path
+		operations[op.OperationID] = op
+
+		if strings.TrimSpace(op.Description) == "" {
+			t.Fatalf("%s (%s) description is empty", context, op.OperationID)
+		}
+
+		for _, param := range op.Parameters {
+			if param == nil {
+				continue
+			}
+			if _, ok := commonParams[param.Name]; !ok {
+				continue
+			}
+			if strings.TrimSpace(param.Description) == "" {
+				t.Fatalf("%s (%s) common parameter %s description is empty", context, op.OperationID, param.Name)
+			}
+			if param.Example == nil && len(param.Examples) == 0 {
+				t.Fatalf("%s (%s) common parameter %s example is missing", context, op.OperationID, param.Name)
+			}
+		}
+
+		if op.RequestBody != nil {
+			for contentType, media := range op.RequestBody.Content {
+				if !isJSONOpenAPIContentType(contentType) {
+					continue
+				}
+				if media == nil || (media.Example == nil && len(media.Examples) == 0) {
+					t.Fatalf("%s (%s) JSON request body example is missing for %s", context, op.OperationID, contentType)
+				}
+			}
+		}
+
+		defaultResponse := op.Responses["default"]
+		if defaultResponse == nil {
+			t.Fatalf("%s (%s) default error response is missing", context, op.OperationID)
+		}
+		if strings.TrimSpace(defaultResponse.Description) == "" {
+			t.Fatalf("%s (%s) default error response description is empty", context, op.OperationID)
+		}
+		problemMedia := defaultResponse.Content["application/problem+json"]
+		if problemMedia == nil {
+			t.Fatalf("%s (%s) default error response application/problem+json content is missing", context, op.OperationID)
+		}
+		if problemMedia.Example == nil && len(problemMedia.Examples) == 0 {
+			t.Fatalf("%s (%s) default error response example is missing", context, op.OperationID)
+		}
+	})
+
+	assertOperationJSONRequestExampleField(t, operations, "login", "email")
+	assertOperationJSONRequestExampleField(t, operations, "createCustomerSignal", "customerName")
+	assertOperationJSONRequestExampleField(t, operations, "createDriveFolder", "name")
+	assertOperationJSONRequestExampleField(t, operations, "createWebhook", "url")
+}
+
+func assertOperationJSONRequestExampleField(t *testing.T, operations map[string]*huma.Operation, operationID, field string) {
+	t.Helper()
+
+	op := operations[operationID]
+	if op == nil || op.RequestBody == nil {
+		return
+	}
+	media := op.RequestBody.Content["application/json"]
+	if media == nil {
+		t.Fatalf("%s application/json request body is missing", operationID)
+	}
+	example, ok := openAPIMediaExampleValue(media).(map[string]any)
+	if !ok {
+		t.Fatalf("%s request example = %#v, want object", operationID, openAPIMediaExampleValue(media))
+	}
+	if _, ok := example[field]; !ok {
+		t.Fatalf("%s request example is missing field %q: %#v", operationID, field, example)
+	}
+}
+
+func openAPIMediaExampleValue(media *huma.MediaType) any {
+	if media == nil {
+		return nil
+	}
+	if media.Example != nil {
+		return media.Example
+	}
+	if media.Examples["default"] != nil {
+		return media.Examples["default"].Value
+	}
+	for _, example := range media.Examples {
+		if example != nil {
+			return example.Value
+		}
+	}
+	return nil
+}
+
+func isJSONOpenAPIContentType(contentType string) bool {
+	return contentType == "application/json" || contentType == "application/problem+json" || strings.HasSuffix(contentType, "+json")
+}
+
+func assertOpenAPIDocTags(t *testing.T, spec *huma.OpenAPI, surface backendapi.Surface) {
+	t.Helper()
+
+	gotRootTags := openAPITagNames(spec.Tags)
+	wantRootTags := backendapi.OpenAPIDocTagNames(surface)
+	if !slices.Equal(gotRootTags, wantRootTags) {
+		t.Fatalf("root tags for %s = %#v, want %#v", surface, gotRootTags, wantRootTags)
+	}
+
+	allowedTags := map[string]struct{}{}
+	for _, tag := range gotRootTags {
+		allowedTags[tag] = struct{}{}
+		assertNoLegacyDocTag(t, "root", tag)
+	}
+
+	forEachOpenAPIOperation(spec, func(method, path string, op *huma.Operation) {
+		if len(op.Tags) != 1 {
+			t.Fatalf("%s %s tags = %#v, want exactly one docs category tag", method, path, op.Tags)
+		}
+		tag := op.Tags[0]
+		if _, ok := allowedTags[tag]; !ok {
+			t.Fatalf("%s %s tag %q is not declared in root tags %#v", method, path, tag, gotRootTags)
+		}
+		assertNoLegacyDocTag(t, method+" "+path, tag)
+	})
+}
+
+func openAPITagNames(tags []*huma.Tag) []string {
+	names := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		names = append(names, tag.Name)
+	}
+	return names
+}
+
+func forEachOpenAPIOperation(spec *huma.OpenAPI, fn func(method, path string, op *huma.Operation)) {
+	for path, item := range spec.Paths {
+		for _, operation := range []struct {
+			method string
+			op     *huma.Operation
+		}{
+			{http.MethodGet, item.Get},
+			{http.MethodPost, item.Post},
+			{http.MethodPut, item.Put},
+			{http.MethodPatch, item.Patch},
+			{http.MethodDelete, item.Delete},
+			{http.MethodHead, item.Head},
+			{http.MethodOptions, item.Options},
+			{http.MethodTrace, item.Trace},
+		} {
+			if operation.op != nil {
+				fn(operation.method, path, operation.op)
+			}
+		}
+	}
+}
+
+func assertNoLegacyDocTag(t *testing.T, context, tag string) {
+	t.Helper()
+
+	legacyTags := map[string]struct{}{
+		"auth": {}, "customer-signal-filters": {}, "customer-signal-imports": {},
+		"customer-signals": {}, "datasets": {}, "drive": {}, "drive-ai": {},
+		"drive-clean-room": {}, "drive-collaboration": {}, "drive-e2ee": {},
+		"drive-ediscovery": {}, "drive-gateway": {}, "drive-hsm": {},
+		"drive-legal": {}, "drive-marketplace": {}, "drive-mobile": {},
+		"drive-ocr": {}, "drive-office": {}, "drive-public": {}, "drive-sync": {},
+		"entitlements": {}, "external": {}, "external-drive": {}, "files": {},
+		"integrations": {}, "m2m": {}, "machine-clients": {}, "notifications": {},
+		"scim": {}, "session": {}, "support-access": {}, "tenant-admin": {},
+		"tenant-admin-drive": {}, "tenant-data-exports": {}, "tenant-invitations": {},
+		"tenant-settings": {}, "tenants": {}, "todos": {}, "webhooks": {},
+	}
+	if _, ok := legacyTags[tag]; ok {
+		t.Fatalf("%s still uses legacy OpenAPI tag %q", context, tag)
+	}
 }

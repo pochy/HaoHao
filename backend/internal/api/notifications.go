@@ -51,7 +51,7 @@ func registerNotificationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/notifications",
 		Summary:     "現在の user 宛の notifications を返す",
-		Tags:        []string{"notifications"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -84,7 +84,7 @@ func registerNotificationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/notifications/{notificationPublicId}/read",
 		Summary:     "notification を既読にする",
-		Tags:        []string{"notifications"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},

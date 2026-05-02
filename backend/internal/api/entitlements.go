@@ -53,7 +53,7 @@ func registerEntitlementRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/entitlements",
 		Summary:     "tenant entitlements を返す",
-		Tags:        []string{"entitlements"},
+		Tags:        []string{DocTagPlatformIntegrations},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListEntitlementsInput) (*EntitlementListOutput, error) {
 		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
@@ -80,7 +80,7 @@ func registerEntitlementRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPut,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/entitlements",
 		Summary:     "tenant entitlements を更新する",
-		Tags:        []string{"entitlements"},
+		Tags:        []string{DocTagPlatformIntegrations},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *UpdateEntitlementsInput) (*EntitlementListOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)

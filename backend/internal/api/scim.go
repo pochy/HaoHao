@@ -92,7 +92,7 @@ func registerSCIMRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        usersPath,
 		Summary:     "SCIM user を作成または upsert する",
-		Tags:        []string{"scim"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
 		},
@@ -112,7 +112,7 @@ func registerSCIMRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        usersPath,
 		Summary:     "SCIM user を list する",
-		Tags:        []string{"scim"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
 		},
@@ -150,7 +150,7 @@ func registerSCIMRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        usersPath + "/{id}",
 		Summary:     "SCIM user を取得する",
-		Tags:        []string{"scim"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
 		},
@@ -170,7 +170,7 @@ func registerSCIMRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPut,
 		Path:        usersPath + "/{id}",
 		Summary:     "SCIM user を置換する",
-		Tags:        []string{"scim"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
 		},
@@ -198,7 +198,7 @@ func registerSCIMRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        usersPath + "/{id}",
 		Summary:     "SCIM user を patch する",
-		Tags:        []string{"scim"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
 		},
@@ -233,7 +233,7 @@ func registerSCIMRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          usersPath + "/{id}",
 		Summary:       "SCIM user を deactivate する",
-		Tags:          []string{"scim"},
+		Tags:          []string{DocTagExternalAPIs},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"bearerAuth": {}},

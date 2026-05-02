@@ -76,7 +76,7 @@ func registerTenantInvitationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/invitations",
 		Summary:     "tenant invitation 一覧を返す",
-		Tags:        []string{"tenant-invitations"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -102,7 +102,7 @@ func registerTenantInvitationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/admin/tenants/{tenantSlug}/invitations",
 		Summary:     "tenant invitation を作成する",
-		Tags:        []string{"tenant-invitations"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -149,7 +149,7 @@ func registerTenantInvitationRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/admin/tenants/{tenantSlug}/invitations/{invitationPublicId}",
 		Summary:       "tenant invitation を revoke する",
-		Tags:          []string{"tenant-invitations"},
+		Tags:          []string{DocTagTenantWorkspace},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
@@ -170,7 +170,7 @@ func registerTenantInvitationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/invitations/accept",
 		Summary:     "tenant invitation を accept する",
-		Tags:        []string{"tenant-invitations"},
+		Tags:        []string{DocTagTenantWorkspace},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},

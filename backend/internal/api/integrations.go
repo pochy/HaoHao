@@ -90,7 +90,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/integrations",
 		Summary:     "downstream integration の接続状態を返す",
-		Tags:        []string{"integrations"},
+		Tags:        []string{DocTagPlatformIntegrations},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -125,7 +125,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodGet,
 		Path:          "/api/v1/integrations/{resourceServer}/connect",
 		Summary:       "downstream integration consent を開始する",
-		Tags:          []string{"integrations"},
+		Tags:          []string{DocTagPlatformIntegrations},
 		DefaultStatus: http.StatusFound,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
@@ -163,7 +163,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodGet,
 		Path:          "/api/v1/integrations/{resourceServer}/callback",
 		Summary:       "downstream integration consent callback を完了する",
-		Tags:          []string{"integrations"},
+		Tags:          []string{DocTagPlatformIntegrations},
 		DefaultStatus: http.StatusFound,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
@@ -206,7 +206,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/integrations/{resourceServer}/verify",
 		Summary:     "downstream access token を backend 内で取得できるか検証する",
-		Tags:        []string{"integrations"},
+		Tags:        []string{DocTagPlatformIntegrations},
 		Security: []map[string][]string{
 			{"cookieAuth": {}},
 		},
@@ -248,7 +248,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/integrations/{resourceServer}/grant",
 		Summary:       "downstream integration grant を削除する",
-		Tags:          []string{"integrations"},
+		Tags:          []string{DocTagPlatformIntegrations},
 		DefaultStatus: http.StatusNoContent,
 		Security: []map[string][]string{
 			{"cookieAuth": {}},

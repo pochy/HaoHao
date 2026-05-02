@@ -207,7 +207,7 @@ type DriveMarketplaceScopeOutput struct {
 }
 
 func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) {
-	huma.Register(api, huma.Operation{OperationID: "createDriveEDiscoveryConnection", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/connections", Tags: []string{"drive-ediscovery"}, Summary: "Drive eDiscovery provider connection を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveEDiscoveryConnectionInput) (*DriveEDiscoveryConnectionOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createDriveEDiscoveryConnection", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/connections", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive eDiscovery provider connection を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveEDiscoveryConnectionInput) (*DriveEDiscoveryConnectionOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -219,7 +219,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveEDiscoveryConnectionOutput{Body: DriveEDiscoveryConnectionBody{PublicID: item.PublicID, Provider: item.Provider, Status: item.Status, CreatedAt: item.CreatedAt}}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "requestDriveEDiscoveryExport", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/exports", Tags: []string{"drive-ediscovery"}, Summary: "Drive eDiscovery export を request する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveEDiscoveryExportInput) (*DriveEDiscoveryExportOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "requestDriveEDiscoveryExport", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/exports", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive eDiscovery export を request する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveEDiscoveryExportInput) (*DriveEDiscoveryExportOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -231,7 +231,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveEDiscoveryExportOutput{Body: toDriveEDiscoveryExportBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "approveDriveEDiscoveryExport", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/exports/{exportPublicId}/approve", Tags: []string{"drive-ediscovery"}, Summary: "Drive eDiscovery export を approve する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveEDiscoveryExportApproveInput) (*DriveEDiscoveryExportOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "approveDriveEDiscoveryExport", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/ediscovery/exports/{exportPublicId}/approve", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive eDiscovery export を approve する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveEDiscoveryExportApproveInput) (*DriveEDiscoveryExportOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -243,7 +243,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveEDiscoveryExportOutput{Body: toDriveEDiscoveryExportBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createDriveHSMDeployment", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/hsm/deployments", Tags: []string{"drive-hsm"}, Summary: "Drive HSM deployment を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveHSMDeploymentInput) (*DriveHSMDeploymentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createDriveHSMDeployment", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/hsm/deployments", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive HSM deployment を作成する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveHSMDeploymentInput) (*DriveHSMDeploymentOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -255,7 +255,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveHSMDeploymentOutput{Body: toDriveHSMDeploymentBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "bindDriveHSMKey", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/hsm/bindings", Tags: []string{"drive-hsm"}, Summary: "Drive HSM key を file に bind する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveHSMBindInput) (*DriveNoContentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "bindDriveHSMKey", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/hsm/bindings", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive HSM key を file に bind する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveHSMBindInput) (*DriveNoContentOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -266,7 +266,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveNoContentOutput{}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "updateDriveHSMKeyStatus", Method: http.MethodPatch, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/hsm/keys/{keyPublicId}", Tags: []string{"drive-hsm"}, Summary: "Drive HSM key status を更新する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveHSMKeyStatusInput) (*DriveHSMDeploymentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "updateDriveHSMKeyStatus", Method: http.MethodPatch, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/hsm/keys/{keyPublicId}", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive HSM key status を更新する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveHSMKeyStatusInput) (*DriveHSMDeploymentOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -278,7 +278,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveHSMDeploymentOutput{Body: toDriveHSMDeploymentBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "registerDriveGateway", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/gateways", Tags: []string{"drive-gateway"}, Summary: "Drive on-prem gateway を登録する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveGatewayInput) (*DriveGatewayOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "registerDriveGateway", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/gateways", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive on-prem gateway を登録する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveGatewayInput) (*DriveGatewayOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -290,7 +290,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveGatewayOutput{Body: toDriveGatewayBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "bindDriveGatewayFile", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/gateways/{gatewayPublicId}/objects", Tags: []string{"drive-gateway"}, Summary: "Drive file を gateway object として bind する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveGatewayBindInput) (*DriveGatewayObjectOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "bindDriveGatewayFile", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/gateways/{gatewayPublicId}/objects", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive file を gateway object として bind する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveGatewayBindInput) (*DriveGatewayObjectOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -302,7 +302,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveGatewayObjectOutput{Body: DriveGatewayObjectBody{GatewayPublicID: item.GatewayPublicID, FilePublicID: item.FilePublicID, ManifestHash: item.ManifestHash, Status: item.Status}}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "updateDriveGatewayStatus", Method: http.MethodPatch, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/gateways/{gatewayPublicId}", Tags: []string{"drive-gateway"}, Summary: "Drive gateway status を更新する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveGatewayStatusInput) (*DriveGatewayOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "updateDriveGatewayStatus", Method: http.MethodPatch, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/gateways/{gatewayPublicId}", Tags: []string{DocTagDriveSecurityCompliance}, Summary: "Drive gateway status を更新する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveGatewayStatusInput) (*DriveGatewayOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -314,7 +314,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveGatewayOutput{Body: toDriveGatewayBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "installDriveMarketplaceApp", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations", Tags: []string{"drive-marketplace"}, Summary: "Drive marketplace app install を request する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveMarketplaceInstallInput) (*DriveMarketplaceInstallOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "installDriveMarketplaceApp", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations", Tags: []string{DocTagPlatformIntegrations}, Summary: "Drive marketplace app install を request する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveMarketplaceInstallInput) (*DriveMarketplaceInstallOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -326,7 +326,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveMarketplaceInstallOutput{Body: toDriveMarketplaceInstallBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "approveDriveMarketplaceInstallation", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}/approve", Tags: []string{"drive-marketplace"}, Summary: "Drive marketplace app install を approve する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveMarketplaceApproveInput) (*DriveMarketplaceInstallOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "approveDriveMarketplaceInstallation", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}/approve", Tags: []string{DocTagPlatformIntegrations}, Summary: "Drive marketplace app install を approve する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveMarketplaceApproveInput) (*DriveMarketplaceInstallOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -338,7 +338,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveMarketplaceInstallOutput{Body: toDriveMarketplaceInstallBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "uninstallDriveMarketplaceInstallation", Method: http.MethodDelete, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}", Tags: []string{"drive-marketplace"}, Summary: "Drive marketplace app install を uninstall する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveMarketplaceApproveInput) (*DriveNoContentOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "uninstallDriveMarketplaceInstallation", Method: http.MethodDelete, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}", Tags: []string{DocTagPlatformIntegrations}, Summary: "Drive marketplace app install を uninstall する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveMarketplaceApproveInput) (*DriveNoContentOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -349,7 +349,7 @@ func registerTenantAdminDriveIntegrationRoutes(api huma.API, deps Dependencies) 
 		return &DriveNoContentOutput{}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "checkDriveMarketplaceScope", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}/scope-check", Tags: []string{"drive-marketplace"}, Summary: "Drive marketplace scope と OpenFGA permission を確認する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveMarketplaceScopeInput) (*DriveMarketplaceScopeOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "checkDriveMarketplaceScope", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/drive/marketplace/installations/{installationPublicId}/scope-check", Tags: []string{DocTagPlatformIntegrations}, Summary: "Drive marketplace scope と OpenFGA permission を確認する", Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DriveMarketplaceScopeInput) (*DriveMarketplaceScopeOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
 		if err != nil {
 			return nil, err

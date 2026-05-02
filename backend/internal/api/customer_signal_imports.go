@@ -61,7 +61,7 @@ type CustomerSignalImportOutput struct {
 }
 
 func registerCustomerSignalImportRoutes(api huma.API, deps Dependencies) {
-	huma.Register(api, huma.Operation{OperationID: "listCustomerSignalImports", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/imports", Summary: "Customer Signals import job 一覧を返す", Tags: []string{"customer-signal-imports"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *ListCustomerSignalImportsInput) (*CustomerSignalImportListOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "listCustomerSignalImports", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/imports", Summary: "Customer Signals import job 一覧を返す", Tags: []string{DocTagCustomerSignals}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *ListCustomerSignalImportsInput) (*CustomerSignalImportListOutput, error) {
 		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -78,7 +78,7 @@ func registerCustomerSignalImportRoutes(api huma.API, deps Dependencies) {
 		return out, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "createCustomerSignalImport", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/imports", Summary: "Customer Signals CSV import job を作成する", Tags: []string{"customer-signal-imports"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *CreateCustomerSignalImportInput) (*CustomerSignalImportOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "createCustomerSignalImport", Method: http.MethodPost, Path: "/api/v1/admin/tenants/{tenantSlug}/imports", Summary: "Customer Signals CSV import job を作成する", Tags: []string{DocTagCustomerSignals}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *CreateCustomerSignalImportInput) (*CustomerSignalImportOutput, error) {
 		current, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
@@ -93,7 +93,7 @@ func registerCustomerSignalImportRoutes(api huma.API, deps Dependencies) {
 		return &CustomerSignalImportOutput{Body: toCustomerSignalImportJobBody(item)}, nil
 	})
 
-	huma.Register(api, huma.Operation{OperationID: "getCustomerSignalImport", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/imports/{importPublicId}", Summary: "Customer Signals import job detail を返す", Tags: []string{"customer-signal-imports"}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *GetCustomerSignalImportInput) (*CustomerSignalImportOutput, error) {
+	huma.Register(api, huma.Operation{OperationID: "getCustomerSignalImport", Method: http.MethodGet, Path: "/api/v1/admin/tenants/{tenantSlug}/imports/{importPublicId}", Summary: "Customer Signals import job detail を返す", Tags: []string{DocTagCustomerSignals}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *GetCustomerSignalImportInput) (*CustomerSignalImportOutput, error) {
 		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug)
 		if err != nil {
 			return nil, err

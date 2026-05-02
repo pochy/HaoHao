@@ -125,7 +125,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/folders",
 		Summary:     "Drive folder を作成する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveFolderInput) (*DriveFolderOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -150,7 +150,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/folders/{folderPublicId}",
 		Summary:     "Drive folder detail を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *GetDriveFolderInput) (*DriveFolderOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -179,7 +179,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/drive/folders/{folderPublicId}",
 		Summary:     "Drive folder を更新する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *UpdateDriveFolderInput) (*DriveFolderOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -206,7 +206,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/folders/{folderPublicId}",
 		Summary:       "Drive folder を削除する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveFilesFolders},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DeleteDriveFolderInput) (*DriveNoContentOutput, error) {
@@ -225,7 +225,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/children",
 		Summary:     "Drive folder children を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDriveChildrenInput) (*DriveItemListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -250,7 +250,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/inheritance",
 		Summary:     "Drive folder inheritance を更新する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *UpdateDriveFolderInheritanceInput) (*DriveNoContentOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -274,7 +274,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/items",
 		Summary:     "Drive item 一覧を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDriveItemsInput) (*DriveItemListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -310,7 +310,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/search",
 		Summary:     "Drive item を検索する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *SearchDriveItemsInput) (*DriveItemListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")

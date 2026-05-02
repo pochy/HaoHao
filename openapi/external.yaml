@@ -11,11 +11,19 @@ components:
           readOnly: true
           type: string
         name:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Acme
           maxLength: 255
           type: string
         parentFolderPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
         workspacePublicId:
+          description: 対象 Drive workspace の public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           format: uuid
           type: string
       required:
@@ -32,17 +40,24 @@ components:
           readOnly: true
           type: string
         role:
+          description: resource に対して付与する role または tenant role code です。
           enum:
             - owner
             - editor
             - viewer
+          examples:
+            - owner
           type: string
         subjectPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
         subjectType:
           enum:
             - user
             - group
+          examples:
+            - user
           type: string
       required:
         - subjectType
@@ -60,6 +75,8 @@ components:
           readOnly: true
           type: string
         byteSize:
+          examples:
+            - 1048576
           format: int64
           type: integer
         contentType:
@@ -67,22 +84,42 @@ components:
             - text/markdown
           type: string
         createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
         deletedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
         description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
           type: string
         dlpBlocked:
+          examples:
+            - false
           type: boolean
         inheritanceEnabled:
+          examples:
+            - true
           type: boolean
         lockReason:
+          examples:
+            - example
           type: string
         locked:
+          examples:
+            - true
           type: boolean
         lockedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
         originalFilename:
@@ -90,19 +127,33 @@ components:
             - spec.md
           type: string
         publicId:
+          description: client や URL path で参照する public UUID です。
           examples:
             - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
         scanStatus:
+          examples:
+            - active
           type: string
         sha256Hex:
+          examples:
+            - 3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7
           type: string
         status:
+          description: 現在の lifecycle status です。
+          examples:
+            - active
           type: string
         updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
         workspacePublicId:
+          description: 対象 Drive workspace の public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
       required:
         - publicId
@@ -129,27 +180,46 @@ components:
           readOnly: true
           type: string
         createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
         deletedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
         description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
           type: string
         inheritanceEnabled:
+          examples:
+            - true
           type: boolean
         name:
+          description: 画面表示や検索で使う名前です。
           examples:
             - Project
           type: string
         publicId:
+          description: client や URL path で参照する public UUID です。
           examples:
             - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
         updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
         workspacePublicId:
+          description: 対象 Drive workspace の public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
       required:
         - publicId
@@ -163,25 +233,45 @@ components:
       properties:
         file:
           $ref: "#/components/schemas/DriveFileBody"
+          examples:
+            - example
         folder:
           $ref: "#/components/schemas/DriveFolderBody"
+          examples:
+            - example
         ownedByMe:
+          examples:
+            - true
           type: boolean
         ownerDisplayName:
+          examples:
+            - Acme
           type: string
         ownerUserPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
         shareRole:
+          examples:
+            - viewer
           type: string
         sharedWithMe:
+          examples:
+            - true
           type: boolean
         source:
+          description: record の発生元または permission の由来です。
           examples:
             - upload
           type: string
         starredByMe:
+          examples:
+            - true
           type: boolean
         tags:
+          description: 検索や分類に使う tag 配列です。
+          examples:
+            - - example
           items:
             type: string
           type:
@@ -208,6 +298,8 @@ components:
           readOnly: true
           type: string
         items:
+          examples:
+            - - example
           items:
             $ref: "#/components/schemas/DriveItemBody"
           type:
@@ -227,32 +319,53 @@ components:
           readOnly: true
           type: string
         createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
         createdByUserId:
+          examples:
+            - 1
           format: int64
           type: integer
         publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
         resourcePublicId:
+          description: 対象 resource の public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
         resourceType:
+          description: "`file` や `folder` など、対象 resource の種類です。"
           examples:
             - file
           type: string
         role:
+          description: resource に対して付与する role または tenant role code です。
           examples:
             - viewer
           type: string
         status:
+          description: 現在の lifecycle status です。
+          examples:
+            - active
           type: string
         subjectPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
         subjectType:
           examples:
             - user
           type: string
         updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
       required:
@@ -272,12 +385,18 @@ components:
       properties:
         location:
           description: Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
+          examples:
+            - example
           type: string
         message:
           description: Error message text
+          examples:
+            - example
           type: string
         value:
           description: The value at the given location
+          examples:
+            - example
       type: object
     ErrorModel:
       additionalProperties: false
@@ -296,6 +415,8 @@ components:
           type: string
         errors:
           description: Optional list of individual error details
+          examples:
+            - - example
           items:
             $ref: "#/components/schemas/ErrorDetail"
           type:
@@ -338,12 +459,16 @@ components:
           type: string
         activeTenant:
           $ref: "#/components/schemas/TenantBody"
+          examples:
+            - example
         authorizedParty:
           examples:
             - "312345678901234568"
           type: string
         defaultTenant:
           $ref: "#/components/schemas/TenantBody"
+          examples:
+            - example
         groups:
           examples:
             - - external_api_user
@@ -357,6 +482,7 @@ components:
             - zitadel
           type: string
         roles:
+          description: resource に対して付与する role または tenant role code です。
           examples:
             - - todo_user
           items:
@@ -377,6 +503,8 @@ components:
             - "312345678901234567"
           type: string
         tenants:
+          examples:
+            - - example
           items:
             $ref: "#/components/schemas/TenantBody"
           type:
@@ -384,6 +512,8 @@ components:
             - "null"
         user:
           $ref: "#/components/schemas/UserResponse"
+          examples:
+            - example
       required:
         - provider
         - subject
@@ -412,11 +542,15 @@ components:
             - "null"
         defaultTenant:
           $ref: "#/components/schemas/TenantBody"
+          examples:
+            - example
         displayName:
+          description: 画面表示や検索で使う名前です。
           examples:
             - worker
           type: string
         id:
+          description: 内部 ID または protocol 上の識別子です。
           examples:
             - 1
           format: int64
@@ -430,6 +564,8 @@ components:
       additionalProperties: false
       properties:
         value:
+          examples:
+            - example
           type: string
       required:
         - value
@@ -445,24 +581,34 @@ components:
           readOnly: true
           type: string
         Resources:
+          examples:
+            - - support
           items:
             $ref: "#/components/schemas/SCIMUserBody"
           type:
             - array
             - "null"
         itemsPerPage:
+          examples:
+            - 1
           format: int64
           type: integer
         schemas:
+          examples:
+            - - example
           items:
             type: string
           type:
             - array
             - "null"
         startIndex:
+          examples:
+            - 1
           format: int32
           type: integer
         totalResults:
+          examples:
+            - 1
           format: int64
           type: integer
       required:
@@ -483,12 +629,16 @@ components:
           readOnly: true
           type: string
         Operations:
+          examples:
+            - - example
           items:
             $ref: "#/components/schemas/SCIMPatchOperation"
           type:
             - array
             - "null"
         schemas:
+          examples:
+            - - example
           items:
             type: string
           type:
@@ -501,10 +651,16 @@ components:
       additionalProperties: false
       properties:
         op:
+          examples:
+            - example
           type: string
         path:
+          examples:
+            - example
           type: string
-        value: {}
+        value:
+          examples:
+            - example
       required:
         - op
       type: object
@@ -519,27 +675,43 @@ components:
           readOnly: true
           type: string
         active:
+          examples:
+            - true
           type: boolean
         displayName:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Acme
           type: string
         externalId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
         groups:
+          examples:
+            - - example
           items:
             $ref: "#/components/schemas/SCIMGroupBody"
           type:
             - array
             - "null"
         id:
+          description: 内部 ID または protocol 上の識別子です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           format: uuid
           type: string
         schemas:
+          examples:
+            - - example
           items:
             type: string
           type:
             - array
             - "null"
         userName:
+          examples:
+            - demo@example.com
           format: email
           type: string
       type: object
@@ -551,15 +723,18 @@ components:
             - true
           type: boolean
         displayName:
+          description: 画面表示や検索で使う名前です。
           examples:
             - acme
           type: string
         id:
+          description: 内部 ID または protocol 上の識別子です。
           examples:
             - 1
           format: int64
           type: integer
         roles:
+          description: resource に対して付与する role または tenant role code です。
           examples:
             - - todo_user
           items:
@@ -586,15 +761,18 @@ components:
       additionalProperties: false
       properties:
         displayName:
+          description: 画面表示や検索で使う名前です。
           examples:
             - Demo User
           type: string
         email:
+          description: user または invitee の email address です。
           examples:
             - demo@example.com
           format: email
           type: string
         publicId:
+          description: client や URL path で参照する public UUID です。
           examples:
             - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           format: uuid
@@ -614,20 +792,51 @@ components:
       scheme: bearer
       type: http
 info:
+  description: |-
+    HaoHao API は browser session API、tenant 管理 API、Drive API、external integration API をまとめた OpenAPI document です。
+
+    ## 認証
+
+    - browser API は `SESSION_ID` Cookie を使います。状態を変更する request では `X-CSRF-Token` も送ってください。
+    - external / M2M / SCIM API は Bearer token を使います。必要な audience、scope、role は環境設定で制御されます。
+    - tenant-scoped browser API は active tenant を前提にします。必要に応じて tenant select API で active tenant を切り替えます。
+
+    ## Request の基本
+
+    - UUID は OpenAPI 上では `format: uuid` として表します。
+    - timestamp は RFC3339 UTC の `date-time` です。
+    - list API の `limit` / `offset` は pagination に使います。
+    - `Idempotency-Key` がある mutation API は、同じ key と同じ body の retry に対して保存済み response を返します。
+
+    ## Error response
+
+    error は Problem Details 形式です。validation error、認証エラー、認可エラー、not found、conflict、rate limit、server error は `application/problem+json` の `default` response として表します。
   title: HaoHao API
   version: 0.1.0
 openapi: 3.1.0
 paths:
   /api/external/v1/drive/files/{fileId}:
     delete:
+      description: |-
+        external bearer Drive file を削除する。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
       operationId: deleteExternalDriveFile
       parameters:
-        - in: header
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: header
           name: X-Tenant-ID
           required: true
           schema:
             type: string
-        - in: path
+        - description: path 内の `fileId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
           name: fileId
           required: true
           schema:
@@ -635,28 +844,53 @@ paths:
             type: string
       responses:
         "204":
-          description: No Content
+          description: 操作に成功しました。response body はありません。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: external bearer Drive file を削除する
       tags:
-        - external-drive
+        - External APIs
   /api/external/v1/drive/files/{fileId}/metadata:
     get:
+      description: |-
+        external bearer Drive file metadata を返す。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
       operationId: getExternalDriveFileMetadata
       parameters:
-        - in: header
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: header
           name: X-Tenant-ID
           required: true
           schema:
             type: string
-        - in: path
+        - description: path 内の `fileId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
           name: fileId
           required: true
           schema:
@@ -666,30 +900,78 @@ paths:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    byteSize: 1048576
+                    contentType: text/markdown
+                    createdAt: "2026-01-15T09:30:00Z"
+                    deletedAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    dlpBlocked: false
+                    inheritanceEnabled: true
+                    lockReason: example
+                    locked: true
+                    lockedAt: "2026-01-15T09:30:00Z"
+                    originalFilename: spec.md
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    scanStatus: active
+                    sha256Hex: 3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7
+                    status: active
+                    updatedAt: "2026-01-15T09:30:00Z"
+                    workspacePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
               schema:
                 $ref: "#/components/schemas/DriveFileBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: external bearer Drive file metadata を返す
       tags:
-        - external-drive
+        - External APIs
   /api/external/v1/drive/files/{fileId}/shares:
     post:
+      description: |-
+        external bearer Drive file share を作成する。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
       operationId: createExternalDriveFileShare
       parameters:
-        - in: header
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: header
           name: X-Tenant-ID
           required: true
           schema:
             type: string
-        - in: path
+        - description: path 内の `fileId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
           name: fileId
           required: true
           schema:
@@ -698,32 +980,80 @@ paths:
       requestBody:
         content:
           application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  role: owner
+                  subjectPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  subjectType: user
             schema:
               $ref: "#/components/schemas/CreateDriveShareBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
         required: true
       responses:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    createdAt: "2026-01-15T09:30:00Z"
+                    createdByUserId: 1
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    resourceType: file
+                    role: viewer
+                    status: active
+                    subjectPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    subjectType: user
+                    updatedAt: "2026-01-15T09:30:00Z"
               schema:
                 $ref: "#/components/schemas/DriveShareBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: external bearer Drive file share を作成する
       tags:
-        - external-drive
+        - External APIs
   /api/external/v1/drive/folders:
     post:
+      description: |-
+        external bearer Drive folder を作成する。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
       operationId: createExternalDriveFolder
       parameters:
-        - in: header
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: header
           name: X-Tenant-ID
           required: true
           schema:
@@ -731,42 +1061,91 @@ paths:
       requestBody:
         content:
           application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  name: Acme
+                  parentFolderPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  workspacePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
             schema:
               $ref: "#/components/schemas/CreateDriveFolderBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
         required: true
       responses:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    createdAt: "2026-01-15T09:30:00Z"
+                    deletedAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    inheritanceEnabled: true
+                    name: Project
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    updatedAt: "2026-01-15T09:30:00Z"
+                    workspacePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
               schema:
                 $ref: "#/components/schemas/DriveFolderBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: external bearer Drive folder を作成する
       tags:
-        - external-drive
+        - External APIs
   /api/external/v1/drive/folders/{folderId}/children:
     get:
+      description: |-
+        external bearer Drive folder children を返す。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
       operationId: listExternalDriveFolderChildren
       parameters:
-        - in: header
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: header
           name: X-Tenant-ID
           required: true
           schema:
             type: string
-        - in: path
+        - description: path 内の `folderId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
           name: folderId
           required: true
           schema:
             type: string
-        - explode: false
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
           in: query
           name: limit
           schema:
@@ -777,25 +1156,63 @@ paths:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - file: {}
+                        folder: {}
+                        ownedByMe: true
+                        ownerDisplayName: Acme
+                        ownerUserPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        shareRole: viewer
+                        sharedWithMe: true
+                        source: upload
+                        starredByMe: true
+                        tags:
+                          - example
+                        type: file
               schema:
                 $ref: "#/components/schemas/DriveItemListOutputBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: external bearer Drive folder children を返す
       tags:
-        - external-drive
+        - External APIs
   /api/external/v1/me:
     get:
+      description: |-
+        Bearer token で認証された external principal と tenant-aware context を返します。外部連携クライアントの認証確認に使います。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
       operationId: getExternalMe
       parameters:
         - description: tenant slug for tenant-aware bearer context
+          example: acme
           in: header
           name: X-Tenant-ID
           schema:
@@ -807,51 +1224,157 @@ paths:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    activeTenant:
+                      default: true
+                      displayName: acme
+                      id: 1
+                      roles:
+                        - todo_user
+                      selected: true
+                      slug: acme
+                    authorizedParty: "312345678901234568"
+                    defaultTenant:
+                      default: true
+                      displayName: acme
+                      id: 1
+                      roles:
+                        - todo_user
+                      selected: true
+                      slug: acme
+                    groups:
+                      - external_api_user
+                    provider: zitadel
+                    roles:
+                      - todo_user
+                    scopes:
+                      - external:read
+                    subject: "312345678901234567"
+                    tenants:
+                      - default: true
+                        displayName: acme
+                        id: 1
+                        roles:
+                          - todo_user
+                        selected: true
+                        slug: acme
+                    user:
+                      displayName: Demo User
+                      email: demo@example.com
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
               schema:
                 $ref: "#/components/schemas/ExternalMeBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: 現在の external bearer principal を返す
       tags:
-        - external
+        - External APIs
   /api/m2m/v1/self:
     get:
+      description: |-
+        現在の M2M machine client を返す。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
       operationId: getM2MSelf
       responses:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    active: true
+                    allowedScopes:
+                      - m2m:read
+                    defaultTenant:
+                      default: true
+                      displayName: acme
+                      id: 1
+                      roles:
+                        - todo_user
+                      selected: true
+                      slug: acme
+                    displayName: worker
+                    id: 1
               schema:
                 $ref: "#/components/schemas/M2MSelfBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - m2mBearerAuth: []
       summary: 現在の M2M machine client を返す
       tags:
-        - m2m
+        - External APIs
   /api/scim/v2/Users:
     get:
+      description: |-
+        SCIM user を list する。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
       operationId: scimListUsers
       parameters:
-        - explode: false
+        - description: 結果の絞り込みや pagination に使う query parameter `filter` です。
+          example: example
+          explode: false
           in: query
           name: filter
           schema:
             type: string
-        - explode: false
+        - description: 結果の絞り込みや pagination に使う query parameter `startIndex` です。
+          example: 1
+          explode: false
           in: query
           name: startIndex
           schema:
@@ -859,7 +1382,9 @@ paths:
             format: int32
             minimum: 1
             type: integer
-        - explode: false
+        - description: 結果の絞り込みや pagination に使う query parameter `count` です。
+          example: 3
+          explode: false
           in: query
           name: count
           schema:
@@ -872,51 +1397,145 @@ paths:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    Resources:
+                      - $schema: https://example.com/schemas/SCIMUserBody.json
+                        active: true
+                        displayName: Acme
+                        externalId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        groups:
+                          - example
+                        id: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        schemas:
+                          - example
+                        userName: demo@example.com
+                    itemsPerPage: 1
+                    schemas:
+                      - example
+                    startIndex: 1
+                    totalResults: 1
               schema:
                 $ref: "#/components/schemas/SCIMListResponseBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: SCIM user を list する
       tags:
-        - scim
+        - External APIs
     post:
+      description: |-
+        SCIM user を作成または upsert する。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
       operationId: scimCreateUser
       requestBody:
         content:
           application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  active: true
+                  displayName: Acme
+                  externalId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  groups:
+                    - value: example
+                  schemas:
+                    - example
+                  userName: demo@example.com
             schema:
               $ref: "#/components/schemas/SCIMUserBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
         required: true
       responses:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    active: true
+                    displayName: Acme
+                    externalId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    groups:
+                      - value: example
+                    id: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    schemas:
+                      - example
+                    userName: demo@example.com
               schema:
                 $ref: "#/components/schemas/SCIMUserBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: SCIM user を作成または upsert する
       tags:
-        - scim
+        - External APIs
   /api/scim/v2/Users/{id}:
     delete:
+      description: |-
+        SCIM user を deactivate する。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
       operationId: scimDeleteUser
       parameters:
-        - in: path
+        - description: path 内の `id` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
           name: id
           required: true
           schema:
@@ -924,22 +1543,45 @@ paths:
             type: string
       responses:
         "204":
-          description: No Content
+          description: 操作に成功しました。response body はありません。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: SCIM user を deactivate する
       tags:
-        - scim
+        - External APIs
     get:
+      description: |-
+        SCIM user を取得する。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
       operationId: scimGetUser
       parameters:
-        - in: path
+        - description: path 内の `id` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
           name: id
           required: true
           schema:
@@ -949,24 +1591,63 @@ paths:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/SCIMUserBody.json
+                    active: true
+                    displayName: Acme
+                    externalId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    groups:
+                      - example
+                    id: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    schemas:
+                      - example
+                    userName: demo@example.com
               schema:
                 $ref: "#/components/schemas/SCIMUserBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: SCIM user を取得する
       tags:
-        - scim
+        - External APIs
     patch:
+      description: |-
+        SCIM user を patch する。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
       operationId: scimPatchUser
       parameters:
-        - in: path
+        - description: path 内の `id` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
           name: id
           required: true
           schema:
@@ -975,31 +1656,82 @@ paths:
       requestBody:
         content:
           application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  Operations:
+                    - op: example
+                      path: example
+                      value: example
+                  schemas:
+                    - example
             schema:
               $ref: "#/components/schemas/SCIMPatchInputBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
         required: true
       responses:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/SCIMUserBody.json
+                    active: true
+                    displayName: Acme
+                    externalId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    groups:
+                      - example
+                    id: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    schemas:
+                      - example
+                    userName: demo@example.com
               schema:
                 $ref: "#/components/schemas/SCIMUserBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: SCIM user を patch する
       tags:
-        - scim
+        - External APIs
     put:
+      description: |-
+        SCIM user を置換する。
+
+        browser Cookie に依存しない external client、M2M、SCIM integration 用 endpoint です。
+
+        ### 使い方
+
+        - Bearer token が必要です。token の audience、scope、role は環境設定に従って検証されます。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
       operationId: scimReplaceUser
       parameters:
-        - in: path
+        - description: path 内の `id` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
           name: id
           required: true
           schema:
@@ -1008,24 +1740,69 @@ paths:
       requestBody:
         content:
           application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  active: true
+                  displayName: Acme
+                  externalId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  groups:
+                    - example
+                  schemas:
+                    - example
+                  userName: demo@example.com
             schema:
               $ref: "#/components/schemas/SCIMUserBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
         required: true
       responses:
         "200":
           content:
             application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/SCIMUserBody.json
+                    active: true
+                    displayName: Acme
+                    externalId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    groups:
+                      - example
+                    id: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    schemas:
+                      - example
+                    userName: demo@example.com
               schema:
                 $ref: "#/components/schemas/SCIMUserBody"
-          description: OK
+          description: 操作に成功し、response body に結果を返します。
         default:
           content:
             application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
               schema:
                 $ref: "#/components/schemas/ErrorModel"
-          description: Error
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
       security:
         - bearerAuth: []
       summary: SCIM user を置換する
       tags:
-        - scim
+        - External APIs
+tags:
+  - description: Bearer, M2M, SCIM, and external Drive integration APIs.
+    name: External APIs

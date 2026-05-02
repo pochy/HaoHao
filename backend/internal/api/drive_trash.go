@@ -38,7 +38,7 @@ func registerDriveTrashRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/trash",
 		Summary:     "Drive trash item 一覧を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDriveTrashInput) (*DriveItemListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -61,7 +61,7 @@ func registerDriveTrashRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/files/{filePublicId}/restore",
 		Summary:     "Drive file を trash から復元する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *RestoreDriveFileInput) (*DriveFileOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -85,7 +85,7 @@ func registerDriveTrashRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/folders/{folderPublicId}/restore",
 		Summary:     "Drive folder を trash から復元する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveFilesFolders},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *RestoreDriveFolderInput) (*DriveFolderOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)

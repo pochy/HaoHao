@@ -75,7 +75,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/groups",
 		Summary:     "Drive groups を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDriveGroupsInput) (*DriveGroupListOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -99,7 +99,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPost,
 		Path:        "/api/v1/drive/groups",
 		Summary:     "Drive group を作成する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *CreateDriveGroupInput) (*DriveGroupOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -118,7 +118,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/drive/groups/{groupPublicId}",
 		Summary:     "Drive group detail を返す",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *GetDriveGroupInput) (*DriveGroupOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
@@ -137,7 +137,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodPatch,
 		Path:        "/api/v1/drive/groups/{groupPublicId}",
 		Summary:     "Drive group を更新する",
-		Tags:        []string{"drive"},
+		Tags:        []string{DocTagDriveSharingPermissions},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *UpdateDriveGroupInput) (*DriveGroupOutput, error) {
 		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
@@ -156,7 +156,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/groups/{groupPublicId}",
 		Summary:       "Drive group を削除する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveSharingPermissions},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DeleteDriveGroupInput) (*DriveNoContentOutput, error) {
@@ -175,7 +175,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodPost,
 		Path:          "/api/v1/drive/groups/{groupPublicId}/members",
 		Summary:       "Drive group member を追加する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveSharingPermissions},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *AddDriveGroupMemberInput) (*DriveNoContentOutput, error) {
@@ -194,7 +194,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		Method:        http.MethodDelete,
 		Path:          "/api/v1/drive/groups/{groupPublicId}/members/{userPublicId}",
 		Summary:       "Drive group member を削除する",
-		Tags:          []string{"drive"},
+		Tags:          []string{DocTagDriveSharingPermissions},
 		DefaultStatus: http.StatusNoContent,
 		Security:      []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DeleteDriveGroupMemberInput) (*DriveNoContentOutput, error) {

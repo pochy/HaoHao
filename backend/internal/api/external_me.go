@@ -38,7 +38,7 @@ func registerExternalRoutes(api huma.API, deps Dependencies) {
 		Method:      http.MethodGet,
 		Path:        "/api/external/v1/me",
 		Summary:     "現在の external bearer principal を返す",
-		Tags:        []string{"external"},
+		Tags:        []string{DocTagExternalAPIs},
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
 		},
