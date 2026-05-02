@@ -1056,6 +1056,10 @@ code {
   overflow: auto;
 }
 
+.dataset-home-panel {
+  max-width: 760px;
+}
+
 .dataset-main {
   display: grid;
   gap: 16px;
@@ -1130,6 +1134,7 @@ code {
   color: var(--text);
   background: #fff;
   text-align: left;
+  text-decoration: none;
 }
 
 .dataset-row {
@@ -1195,6 +1200,21 @@ code {
   max-width: 360px;
 }
 
+.dataset-query-error-panel {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  background: #fef2f2;
+}
+
+.dataset-query-error-panel p {
+  margin: 0;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+
 .dataset-query-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -1204,11 +1224,82 @@ code {
   padding: 10px 12px;
 }
 
-.dataset-query-row .monospace-cell {
+.dataset-query-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dataset-query-row .monospace-cell,
+.dataset-query-error-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dataset-query-error-text {
+  color: var(--danger);
+  font-size: 0.8rem;
+}
+
+.dataset-work-table-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.dataset-work-table-list {
+  max-height: min(52dvh, 520px);
+  overflow: auto;
+}
+
+.dataset-work-table-detail {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.dataset-work-table-actions,
+.dataset-work-table-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+}
+
+.dataset-work-table-link-row .field {
+  min-width: min(280px, 100%);
+  flex: 1 1 280px;
+}
+
+.dataset-work-table-detail h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+}
+
+.dataset-work-table-preview-table table {
+  min-width: 720px;
+}
+
+.dataset-work-table-preview-table td {
+  max-width: 360px;
+}
+
+.dataset-work-table-export-table table {
+  min-width: 640px;
+}
+
+.inline-action-link {
+  display: inline-flex;
+  text-decoration: none;
+}
+
+.compact-work-table-list {
+  max-height: 340px;
 }
 
 .inline-edit-form {
@@ -3268,6 +3359,7 @@ code {
 
   .dataset-row,
   .dataset-query-row,
+  .dataset-work-table-layout,
   .dataset-metadata-grid {
     grid-template-columns: 1fr;
   }

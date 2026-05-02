@@ -84,7 +84,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		}
 		groups, err := deps.DriveService.ListGroups(ctx, tenant.ID, current.User.ID, input.Limit)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveGroupListOutput{}
 		out.Body.Items = make([]DriveGroupBody, 0, len(groups))
@@ -108,7 +108,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		}
 		group, err := deps.DriveService.CreateGroup(ctx, tenant.ID, current.User.ID, input.Body.Name, input.Body.Description, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveGroupOutput{Body: toDriveGroupBody(group, nil)}, nil
 	})
@@ -127,7 +127,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		}
 		group, members, err := deps.DriveService.GetGroup(ctx, tenant.ID, current.User.ID, input.GroupPublicID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveGroupOutput{Body: toDriveGroupBody(group, members)}, nil
 	})
@@ -146,7 +146,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 		}
 		group, err := deps.DriveService.UpdateGroup(ctx, tenant.ID, current.User.ID, input.GroupPublicID, input.Body.Name, input.Body.Description, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveGroupOutput{Body: toDriveGroupBody(group, nil)}, nil
 	})
@@ -165,7 +165,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.DeleteGroup(ctx, tenant.ID, current.User.ID, input.GroupPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -184,7 +184,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.AddGroupMemberByPublicID(ctx, tenant.ID, current.User.ID, input.GroupPublicID, input.Body.UserPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -203,7 +203,7 @@ func registerDriveGroupRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.RemoveGroupMemberByPublicID(ctx, tenant.ID, current.User.ID, input.GroupPublicID, input.UserPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})

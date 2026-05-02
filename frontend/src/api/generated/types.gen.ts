@@ -271,6 +271,9 @@ export type DatasetBody = {
     rawDatabase: string;
     rawTable: string;
     rowCount: number;
+    sourceFileObjectId?: number;
+    sourceKind: string;
+    sourceWorkTableId?: number;
     status: string;
     updatedAt: string;
     workDatabase: string;
@@ -371,6 +374,115 @@ export type DatasetSourceFileListBody = {
      */
     readonly $schema?: string;
     items: Array<DatasetSourceFileBody> | null;
+};
+
+export type DatasetWorkTableBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    columns?: Array<DatasetWorkTableColumnBody> | null;
+    createdAt: string;
+    database: string;
+    displayName: string;
+    droppedAt?: string;
+    engine: string;
+    managed: boolean;
+    originDatasetName?: string;
+    originDatasetPublicId?: string;
+    publicId?: string;
+    status: string;
+    table: string;
+    totalBytes: number;
+    totalRows: number;
+    updatedAt: string;
+};
+
+export type DatasetWorkTableColumnBody = {
+    clickHouseType: string;
+    columnName: string;
+    ordinal: number;
+};
+
+export type DatasetWorkTableExportBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    completedAt?: string;
+    createdAt: string;
+    errorSummary?: string;
+    expiresAt: string;
+    fileObjectId?: number;
+    format: string;
+    publicId: string;
+    status: string;
+    updatedAt: string;
+    workTableId: number;
+};
+
+export type DatasetWorkTableExportListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetWorkTableExportBody> | null;
+};
+
+export type DatasetWorkTableLinkBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    datasetPublicId: string;
+};
+
+export type DatasetWorkTableListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetWorkTableBody> | null;
+};
+
+export type DatasetWorkTablePreviewBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    columns: Array<string> | null;
+    database: string;
+    previewRows: Array<{
+        [key: string]: unknown;
+    }> | null;
+    table: string;
+};
+
+export type DatasetWorkTablePromoteBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    name?: string;
+};
+
+export type DatasetWorkTableRegisterBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    database: string;
+    datasetPublicId?: string;
+    displayName?: string;
+    table: string;
+};
+
+export type DatasetWorkTableRenameBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    table: string;
 };
 
 export type DriveAiClassificationBody = {
@@ -2340,6 +2452,9 @@ export type DatasetBodyWritable = {
     rawDatabase: string;
     rawTable: string;
     rowCount: number;
+    sourceFileObjectId?: number;
+    sourceKind: string;
+    sourceWorkTableId?: number;
     status: string;
     updatedAt: string;
     workDatabase: string;
@@ -2380,6 +2495,73 @@ export type DatasetQueryListBodyWritable = {
 
 export type DatasetSourceFileListBodyWritable = {
     items: Array<DatasetSourceFileBody> | null;
+};
+
+export type DatasetWorkTableBodyWritable = {
+    columns?: Array<DatasetWorkTableColumnBody> | null;
+    createdAt: string;
+    database: string;
+    displayName: string;
+    droppedAt?: string;
+    engine: string;
+    managed: boolean;
+    originDatasetName?: string;
+    originDatasetPublicId?: string;
+    publicId?: string;
+    status: string;
+    table: string;
+    totalBytes: number;
+    totalRows: number;
+    updatedAt: string;
+};
+
+export type DatasetWorkTableExportBodyWritable = {
+    completedAt?: string;
+    createdAt: string;
+    errorSummary?: string;
+    expiresAt: string;
+    fileObjectId?: number;
+    format: string;
+    publicId: string;
+    status: string;
+    updatedAt: string;
+    workTableId: number;
+};
+
+export type DatasetWorkTableExportListBodyWritable = {
+    items: Array<DatasetWorkTableExportBodyWritable> | null;
+};
+
+export type DatasetWorkTableLinkBodyWritable = {
+    datasetPublicId: string;
+};
+
+export type DatasetWorkTableListBodyWritable = {
+    items: Array<DatasetWorkTableBodyWritable> | null;
+};
+
+export type DatasetWorkTablePreviewBodyWritable = {
+    columns: Array<string> | null;
+    database: string;
+    previewRows: Array<{
+        [key: string]: unknown;
+    }> | null;
+    table: string;
+};
+
+export type DatasetWorkTablePromoteBodyWritable = {
+    name?: string;
+};
+
+export type DatasetWorkTableRegisterBodyWritable = {
+    database: string;
+    datasetPublicId?: string;
+    displayName?: string;
+    table: string;
+};
+
+export type DatasetWorkTableRenameBodyWritable = {
+    table: string;
 };
 
 export type DriveAiClassificationsOutputBodyWritable = {
@@ -5997,6 +6179,438 @@ export type ListDatasetSourceFilesResponses = {
 
 export type ListDatasetSourceFilesResponse = ListDatasetSourceFilesResponses[keyof ListDatasetSourceFilesResponses];
 
+export type GetDatasetWorkTableExportData = {
+    body?: never;
+    path: {
+        exportPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-table-exports/{exportPublicId}';
+};
+
+export type GetDatasetWorkTableExportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDatasetWorkTableExportError = GetDatasetWorkTableExportErrors[keyof GetDatasetWorkTableExportErrors];
+
+export type GetDatasetWorkTableExportResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableExportBody;
+};
+
+export type GetDatasetWorkTableExportResponse = GetDatasetWorkTableExportResponses[keyof GetDatasetWorkTableExportResponses];
+
+export type DownloadDatasetWorkTableExportData = {
+    body?: never;
+    path: {
+        exportPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-table-exports/{exportPublicId}/download';
+};
+
+export type DownloadDatasetWorkTableExportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DownloadDatasetWorkTableExportError = DownloadDatasetWorkTableExportErrors[keyof DownloadDatasetWorkTableExportErrors];
+
+export type DownloadDatasetWorkTableExportResponses = {
+    /**
+     * OK
+     */
+    200: string;
+};
+
+export type DownloadDatasetWorkTableExportResponse = DownloadDatasetWorkTableExportResponses[keyof DownloadDatasetWorkTableExportResponses];
+
+export type ListDatasetWorkTablesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/dataset-work-tables';
+};
+
+export type ListDatasetWorkTablesErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetWorkTablesError = ListDatasetWorkTablesErrors[keyof ListDatasetWorkTablesErrors];
+
+export type ListDatasetWorkTablesResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableListBody;
+};
+
+export type ListDatasetWorkTablesResponse = ListDatasetWorkTablesResponses[keyof ListDatasetWorkTablesResponses];
+
+export type GetDatasetWorkTableData = {
+    body?: never;
+    path: {
+        database: string;
+        table: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/by-ref/{database}/{table}';
+};
+
+export type GetDatasetWorkTableErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDatasetWorkTableError = GetDatasetWorkTableErrors[keyof GetDatasetWorkTableErrors];
+
+export type GetDatasetWorkTableResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableBody;
+};
+
+export type GetDatasetWorkTableResponse = GetDatasetWorkTableResponses[keyof GetDatasetWorkTableResponses];
+
+export type GetDatasetWorkTablePreviewData = {
+    body?: never;
+    path: {
+        database: string;
+        table: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/dataset-work-tables/by-ref/{database}/{table}/preview';
+};
+
+export type GetDatasetWorkTablePreviewErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetDatasetWorkTablePreviewError = GetDatasetWorkTablePreviewErrors[keyof GetDatasetWorkTablePreviewErrors];
+
+export type GetDatasetWorkTablePreviewResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTablePreviewBody;
+};
+
+export type GetDatasetWorkTablePreviewResponse = GetDatasetWorkTablePreviewResponses[keyof GetDatasetWorkTablePreviewResponses];
+
+export type RegisterDatasetWorkTableData = {
+    body: DatasetWorkTableRegisterBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/dataset-work-tables/register';
+};
+
+export type RegisterDatasetWorkTableErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RegisterDatasetWorkTableError = RegisterDatasetWorkTableErrors[keyof RegisterDatasetWorkTableErrors];
+
+export type RegisterDatasetWorkTableResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableBody;
+};
+
+export type RegisterDatasetWorkTableResponse = RegisterDatasetWorkTableResponses[keyof RegisterDatasetWorkTableResponses];
+
+export type DeleteDatasetWorkTableData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        workTablePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}';
+};
+
+export type DeleteDatasetWorkTableErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DeleteDatasetWorkTableError = DeleteDatasetWorkTableErrors[keyof DeleteDatasetWorkTableErrors];
+
+export type DeleteDatasetWorkTableResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteDatasetWorkTableResponse = DeleteDatasetWorkTableResponses[keyof DeleteDatasetWorkTableResponses];
+
+export type GetManagedDatasetWorkTableData = {
+    body?: never;
+    path: {
+        workTablePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}';
+};
+
+export type GetManagedDatasetWorkTableErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetManagedDatasetWorkTableError = GetManagedDatasetWorkTableErrors[keyof GetManagedDatasetWorkTableErrors];
+
+export type GetManagedDatasetWorkTableResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableBody;
+};
+
+export type GetManagedDatasetWorkTableResponse = GetManagedDatasetWorkTableResponses[keyof GetManagedDatasetWorkTableResponses];
+
+export type ListDatasetWorkTableExportsData = {
+    body?: never;
+    path: {
+        workTablePublicId: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/exports';
+};
+
+export type ListDatasetWorkTableExportsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetWorkTableExportsError = ListDatasetWorkTableExportsErrors[keyof ListDatasetWorkTableExportsErrors];
+
+export type ListDatasetWorkTableExportsResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableExportListBody;
+};
+
+export type ListDatasetWorkTableExportsResponse = ListDatasetWorkTableExportsResponses[keyof ListDatasetWorkTableExportsResponses];
+
+export type CreateDatasetWorkTableExportData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        workTablePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/exports';
+};
+
+export type CreateDatasetWorkTableExportErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDatasetWorkTableExportError = CreateDatasetWorkTableExportErrors[keyof CreateDatasetWorkTableExportErrors];
+
+export type CreateDatasetWorkTableExportResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableExportBody;
+};
+
+export type CreateDatasetWorkTableExportResponse = CreateDatasetWorkTableExportResponses[keyof CreateDatasetWorkTableExportResponses];
+
+export type LinkDatasetWorkTableData = {
+    body: DatasetWorkTableLinkBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        workTablePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/link';
+};
+
+export type LinkDatasetWorkTableErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type LinkDatasetWorkTableError = LinkDatasetWorkTableErrors[keyof LinkDatasetWorkTableErrors];
+
+export type LinkDatasetWorkTableResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableBody;
+};
+
+export type LinkDatasetWorkTableResponse = LinkDatasetWorkTableResponses[keyof LinkDatasetWorkTableResponses];
+
+export type GetManagedDatasetWorkTablePreviewData = {
+    body?: never;
+    path: {
+        workTablePublicId: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/preview';
+};
+
+export type GetManagedDatasetWorkTablePreviewErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetManagedDatasetWorkTablePreviewError = GetManagedDatasetWorkTablePreviewErrors[keyof GetManagedDatasetWorkTablePreviewErrors];
+
+export type GetManagedDatasetWorkTablePreviewResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTablePreviewBody;
+};
+
+export type GetManagedDatasetWorkTablePreviewResponse = GetManagedDatasetWorkTablePreviewResponses[keyof GetManagedDatasetWorkTablePreviewResponses];
+
+export type PromoteDatasetWorkTableData = {
+    body: DatasetWorkTablePromoteBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        workTablePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/promote';
+};
+
+export type PromoteDatasetWorkTableErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type PromoteDatasetWorkTableError = PromoteDatasetWorkTableErrors[keyof PromoteDatasetWorkTableErrors];
+
+export type PromoteDatasetWorkTableResponses = {
+    /**
+     * OK
+     */
+    200: DatasetBody;
+};
+
+export type PromoteDatasetWorkTableResponse = PromoteDatasetWorkTableResponses[keyof PromoteDatasetWorkTableResponses];
+
+export type RenameDatasetWorkTableData = {
+    body: DatasetWorkTableRenameBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        workTablePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/rename';
+};
+
+export type RenameDatasetWorkTableErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RenameDatasetWorkTableError = RenameDatasetWorkTableErrors[keyof RenameDatasetWorkTableErrors];
+
+export type RenameDatasetWorkTableResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableBody;
+};
+
+export type RenameDatasetWorkTableResponse = RenameDatasetWorkTableResponses[keyof RenameDatasetWorkTableResponses];
+
+export type TruncateDatasetWorkTableData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        workTablePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/truncate';
+};
+
+export type TruncateDatasetWorkTableErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type TruncateDatasetWorkTableError = TruncateDatasetWorkTableErrors[keyof TruncateDatasetWorkTableErrors];
+
+export type TruncateDatasetWorkTableResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableBody;
+};
+
+export type TruncateDatasetWorkTableResponse = TruncateDatasetWorkTableResponses[keyof TruncateDatasetWorkTableResponses];
+
 export type ListDatasetsData = {
     body?: never;
     path?: never;
@@ -6108,6 +6722,94 @@ export type GetDatasetResponses = {
 };
 
 export type GetDatasetResponse = GetDatasetResponses[keyof GetDatasetResponses];
+
+export type ListDatasetScopedQueryJobsData = {
+    body?: never;
+    path: {
+        datasetPublicId: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/datasets/{datasetPublicId}/query-jobs';
+};
+
+export type ListDatasetScopedQueryJobsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetScopedQueryJobsError = ListDatasetScopedQueryJobsErrors[keyof ListDatasetScopedQueryJobsErrors];
+
+export type ListDatasetScopedQueryJobsResponses = {
+    /**
+     * OK
+     */
+    200: DatasetQueryListBody;
+};
+
+export type ListDatasetScopedQueryJobsResponse = ListDatasetScopedQueryJobsResponses[keyof ListDatasetScopedQueryJobsResponses];
+
+export type CreateDatasetScopedQueryJobData = {
+    body: DatasetQueryCreateBodyWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        datasetPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/datasets/{datasetPublicId}/query-jobs';
+};
+
+export type CreateDatasetScopedQueryJobErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type CreateDatasetScopedQueryJobError = CreateDatasetScopedQueryJobErrors[keyof CreateDatasetScopedQueryJobErrors];
+
+export type CreateDatasetScopedQueryJobResponses = {
+    /**
+     * OK
+     */
+    200: DatasetQueryJobBody;
+};
+
+export type CreateDatasetScopedQueryJobResponse = CreateDatasetScopedQueryJobResponses[keyof CreateDatasetScopedQueryJobResponses];
+
+export type ListDatasetScopedWorkTablesData = {
+    body?: never;
+    path: {
+        datasetPublicId: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/datasets/{datasetPublicId}/work-tables';
+};
+
+export type ListDatasetScopedWorkTablesErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetScopedWorkTablesError = ListDatasetScopedWorkTablesErrors[keyof ListDatasetScopedWorkTablesErrors];
+
+export type ListDatasetScopedWorkTablesResponses = {
+    /**
+     * OK
+     */
+    200: DatasetWorkTableListBody;
+};
+
+export type ListDatasetScopedWorkTablesResponse = ListDatasetScopedWorkTablesResponses[keyof ListDatasetScopedWorkTablesResponses];
 
 export type ReplayDriveMobileOfflineOperationsData = {
     body: DriveMobileOfflineReplayInputBodyWritable;

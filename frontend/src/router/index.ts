@@ -11,6 +11,7 @@ import InvitationAcceptView from '../views/InvitationAcceptView.vue'
 import NotificationsView from '../views/NotificationsView.vue'
 import CustomerSignalDetailView from '../views/CustomerSignalDetailView.vue'
 import CustomerSignalsView from '../views/CustomerSignalsView.vue'
+import DatasetDetailView from '../views/DatasetDetailView.vue'
 import DatasetsView from '../views/DatasetsView.vue'
 import DriveGroupsView from '../views/DriveGroupsView.vue'
 import DriveView from '../views/DriveView.vue'
@@ -147,6 +148,18 @@ const router = createRouter({
         title: 'Datasets',
         group: 'Work',
         titleKey: 'nav.items.datasets',
+        groupKey: 'nav.groups.work',
+      },
+    },
+    {
+      path: '/datasets/:datasetPublicId',
+      name: 'dataset-detail',
+      component: DatasetDetailView,
+      meta: {
+        requiresAuth: true,
+        title: 'Dataset Detail',
+        group: 'Work',
+        titleKey: 'routes.datasetDetail',
         groupKey: 'nav.groups.work',
       },
     },

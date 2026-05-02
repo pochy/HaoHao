@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/csv"
@@ -36,14 +37,17 @@ const (
 )
 
 var (
-	ErrDatasetNotFound             = errors.New("dataset not found")
-	ErrDatasetQueryNotFound        = errors.New("dataset query not found")
-	ErrInvalidDatasetInput         = errors.New("invalid dataset input")
-	ErrUnsafeDatasetSQL            = errors.New("unsafe dataset SQL")
-	ErrDatasetClickHouseNotReady   = errors.New("clickhouse is not configured")
-	datasetExternalFunctionPattern = regexp.MustCompile(`(?i)\b(file|url|s3|s3cluster|hdfs|hdfscluster|postgresql|mysql|mongodb|jdbc|odbc|remote|cluster)\s*\(`)
-	datasetTenantDBPattern         = regexp.MustCompile(`(?i)\bhh_t_([0-9]+)_(raw|work)\b`)
-	datasetBlockedDBPattern        = regexp.MustCompile(`(?i)\b(system|information_schema|default)\s*\.`)
+	ErrDatasetNotFound                = errors.New("dataset not found")
+	ErrDatasetQueryNotFound           = errors.New("dataset query not found")
+	ErrDatasetWorkTableNotFound       = errors.New("dataset work table not found")
+	ErrDatasetWorkTableExportNotFound = errors.New("dataset work table export not found")
+	ErrDatasetWorkTableExportNotReady = errors.New("dataset work table export is not ready")
+	ErrInvalidDatasetInput            = errors.New("invalid dataset input")
+	ErrUnsafeDatasetSQL               = errors.New("unsafe dataset SQL")
+	ErrDatasetClickHouseNotReady      = errors.New("clickhouse is not configured")
+	datasetExternalFunctionPattern    = regexp.MustCompile(`(?i)\b(file|url|s3|s3cluster|hdfs|hdfscluster|postgresql|mysql|mongodb|jdbc|odbc|remote|cluster)\s*\(`)
+	datasetTenantDBPattern            = regexp.MustCompile(`(?i)\bhh_t_([0-9]+)_(raw|work)\b`)
+	datasetBlockedDBPattern           = regexp.MustCompile(`(?i)\b(system|information_schema|default)\s*\.`)
 )
 
 type DatasetClickHouseConfig struct {
@@ -63,7 +67,9 @@ type Dataset struct {
 	PublicID           string
 	TenantID           int64
 	CreatedByUserID    *int64
-	SourceFileObjectID int64
+	SourceFileObjectID *int64
+	SourceKind         string
+	SourceWorkTableID  *int64
 	Name               string
 	OriginalFilename   string
 	ContentType        string
@@ -109,6 +115,7 @@ type DatasetImportError struct {
 
 type DatasetQueryJob struct {
 	PublicID      string
+	DatasetID     *int64
 	Statement     string
 	Status        string
 	ResultColumns []string
@@ -119,6 +126,62 @@ type DatasetQueryJob struct {
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	CompletedAt   *time.Time
+}
+
+type DatasetWorkTable struct {
+	ID                    int64
+	PublicID              string
+	TenantID              int64
+	SourceDatasetID       *int64
+	OriginDatasetPublicID string
+	OriginDatasetName     string
+	CreatedFromQueryJobID *int64
+	CreatedByUserID       *int64
+	Database              string
+	Table                 string
+	DisplayName           string
+	Status                string
+	Managed               bool
+	Engine                string
+	TotalRows             int64
+	TotalBytes            int64
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	DroppedAt             *time.Time
+	Columns               []DatasetWorkTableColumn
+}
+
+type DatasetWorkTableColumn struct {
+	Ordinal        int32
+	ColumnName     string
+	ClickHouseType string
+}
+
+type DatasetWorkTablePreview struct {
+	Database    string
+	Table       string
+	Columns     []string
+	PreviewRows []map[string]any
+}
+
+type DatasetWorkTableExport struct {
+	ID           int64
+	PublicID     string
+	TenantID     int64
+	WorkTableID  int64
+	Format       string
+	Status       string
+	ErrorSummary string
+	FileObjectID *int64
+	ExpiresAt    time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	CompletedAt  *time.Time
+}
+
+type datasetWorkTableRef struct {
+	Database string
+	Table    string
 }
 
 type DatasetService struct {
@@ -251,7 +314,7 @@ func (s *DatasetService) CreateFromSourceFile(ctx context.Context, tenantID, use
 	row, err := qtx.CreateDataset(ctx, db.CreateDatasetParams{
 		TenantID:           tenantID,
 		CreatedByUserID:    pgtype.Int8{Int64: userID, Valid: true},
-		SourceFileObjectID: file.ID,
+		SourceFileObjectID: pgtype.Int8{Int64: file.ID, Valid: true},
 		Name:               displayName,
 		OriginalFilename:   file.OriginalFilename,
 		ContentType:        file.ContentType,
@@ -594,6 +657,18 @@ func (s *DatasetService) recreateRawTable(ctx context.Context, dataset db.Datase
 }
 
 func (s *DatasetService) CreateQueryJob(ctx context.Context, tenantID, userID int64, statement string) (DatasetQueryJob, error) {
+	return s.createQueryJob(ctx, tenantID, userID, nil, statement)
+}
+
+func (s *DatasetService) CreateQueryJobForDataset(ctx context.Context, tenantID, userID int64, datasetPublicID, statement string) (DatasetQueryJob, error) {
+	dataset, err := s.Get(ctx, tenantID, datasetPublicID)
+	if err != nil {
+		return DatasetQueryJob{}, err
+	}
+	return s.createQueryJob(ctx, tenantID, userID, &dataset.ID, statement)
+}
+
+func (s *DatasetService) createQueryJob(ctx context.Context, tenantID, userID int64, datasetID *int64, statement string) (DatasetQueryJob, error) {
 	if s == nil || s.queries == nil {
 		return DatasetQueryJob{}, fmt.Errorf("dataset service is not configured")
 	}
@@ -607,6 +682,7 @@ func (s *DatasetService) CreateQueryJob(ctx context.Context, tenantID, userID in
 	start := time.Now()
 	job, err := s.queries.CreateDatasetQueryJob(ctx, db.CreateDatasetQueryJobParams{
 		TenantID:          tenantID,
+		DatasetID:         pgtype.Int8{Int64: derefInt64(datasetID), Valid: datasetID != nil},
 		RequestedByUserID: pgtype.Int8{Int64: userID, Valid: userID > 0},
 		Statement:         normalized,
 	})
@@ -637,6 +713,11 @@ func (s *DatasetService) CreateQueryJob(ctx context.Context, tenantID, userID in
 	})
 	if err != nil {
 		return DatasetQueryJob{}, fmt.Errorf("complete dataset query job: %w", err)
+	}
+	if datasetID != nil {
+		for _, ref := range parseDatasetCreateTableRefs(tenantID, normalized) {
+			_, _ = s.registerDatasetWorkTableForRef(ctx, tenantID, userID, datasetID, &completed.ID, ref.Database, ref.Table, ref.Table)
+		}
 	}
 	return datasetQueryJobFromDB(completed), nil
 }
@@ -677,6 +758,1023 @@ func (s *DatasetService) ListQueryJobs(ctx context.Context, tenantID int64, limi
 	return items, nil
 }
 
+func (s *DatasetService) ListQueryJobsForDataset(ctx context.Context, tenantID int64, datasetPublicID string, limit int32) ([]DatasetQueryJob, error) {
+	if s == nil || s.queries == nil {
+		return nil, fmt.Errorf("dataset service is not configured")
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 25
+	}
+	dataset, err := s.Get(ctx, tenantID, datasetPublicID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.queries.ListDatasetQueryJobsForDataset(ctx, db.ListDatasetQueryJobsForDatasetParams{
+		TenantID:  tenantID,
+		DatasetID: pgtype.Int8{Int64: dataset.ID, Valid: true},
+		Limit:     limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list dataset query jobs for dataset: %w", err)
+	}
+	items := make([]DatasetQueryJob, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, datasetQueryJobFromDB(row))
+	}
+	return items, nil
+}
+
+func (s *DatasetService) ListWorkTables(ctx context.Context, tenantID int64, limit int32) ([]DatasetWorkTable, error) {
+	if s == nil || s.queries == nil {
+		return nil, fmt.Errorf("dataset service is not configured")
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	if err := s.ensureTenantSandbox(ctx, tenantID); err != nil {
+		return nil, err
+	}
+	chItems, err := s.listClickHouseWorkTables(ctx, tenantID, limit)
+	if err != nil {
+		return nil, err
+	}
+	managedRows, err := s.queries.ListDatasetWorkTables(ctx, db.ListDatasetWorkTablesParams{
+		TenantID: tenantID,
+		Limit:    limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list managed dataset work tables: %w", err)
+	}
+	chByRef := make(map[string]DatasetWorkTable, len(chItems))
+	for _, item := range chItems {
+		chByRef[workTableKey(item.Database, item.Table)] = item
+	}
+	activeManagedRefs := map[string]bool{}
+	items := make([]DatasetWorkTable, 0, len(managedRows)+len(chItems))
+	for _, row := range managedRows {
+		item := datasetWorkTableFromDB(row)
+		if item.Status == "active" {
+			key := workTableKey(item.Database, item.Table)
+			activeManagedRefs[key] = true
+			if meta, ok := chByRef[key]; ok {
+				mergeWorkTableMetadata(&item, meta)
+			}
+		}
+		items = append(items, item)
+	}
+	for _, item := range chItems {
+		if activeManagedRefs[workTableKey(item.Database, item.Table)] {
+			continue
+		}
+		items = append(items, item)
+	}
+	if err := s.hydrateWorkTableOrigins(ctx, tenantID, items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (s *DatasetService) listClickHouseWorkTables(ctx context.Context, tenantID int64, limit int32) ([]DatasetWorkTable, error) {
+	rows, err := s.clickhouse.Query(
+		clickhouse.Context(ctx, clickhouse.WithSettings(s.querySettings())),
+		fmt.Sprintf(`
+SELECT
+	database,
+	name,
+	engine,
+	ifNull(total_rows, toUInt64(0)) AS total_rows,
+	ifNull(total_bytes, toUInt64(0)) AS total_bytes,
+	metadata_modification_time
+FROM system.tables
+WHERE database = ? AND is_temporary = 0
+ORDER BY name ASC
+LIMIT %d`, limit),
+		datasetWorkDatabaseName(tenantID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list dataset work tables: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]DatasetWorkTable, 0)
+	for rows.Next() {
+		var item DatasetWorkTable
+		var totalRows uint64
+		var totalBytes uint64
+		if err := rows.Scan(&item.Database, &item.Table, &item.Engine, &totalRows, &totalBytes, &item.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan dataset work table: %w", err)
+		}
+		item.DisplayName = item.Table
+		item.Status = "unmanaged"
+		item.UpdatedAt = item.CreatedAt
+		item.TotalRows = uint64ToDatasetInt64(totalRows)
+		item.TotalBytes = uint64ToDatasetInt64(totalBytes)
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate dataset work tables: %w", err)
+	}
+	return items, nil
+}
+
+func (s *DatasetService) GetWorkTable(ctx context.Context, tenantID int64, database, table string) (DatasetWorkTable, error) {
+	if s == nil || s.queries == nil {
+		return DatasetWorkTable{}, fmt.Errorf("dataset service is not configured")
+	}
+	database, table, err := validateDatasetWorkTableRef(tenantID, database, table)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	if err := s.ensureTenantSandbox(ctx, tenantID); err != nil {
+		return DatasetWorkTable{}, err
+	}
+	item, err := s.getWorkTableMetadata(ctx, database, table)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	columns, err := s.listWorkTableColumns(ctx, database, table)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	if row, err := s.queries.GetActiveDatasetWorkTableByRefForTenant(ctx, db.GetActiveDatasetWorkTableByRefForTenantParams{
+		TenantID:     tenantID,
+		WorkDatabase: database,
+		WorkTable:    table,
+	}); err == nil {
+		managed := datasetWorkTableFromDB(row)
+		mergeWorkTableMetadata(&managed, item)
+		managed.Columns = columns
+		managedItems := []DatasetWorkTable{managed}
+		if err := s.hydrateWorkTableOrigins(ctx, tenantID, managedItems); err != nil {
+			return DatasetWorkTable{}, err
+		}
+		return managedItems[0], nil
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return DatasetWorkTable{}, fmt.Errorf("get managed dataset work table by ref: %w", err)
+	}
+	item.Columns = columns
+	item.DisplayName = item.Table
+	item.Status = "unmanaged"
+	item.UpdatedAt = item.CreatedAt
+	return item, nil
+}
+
+func (s *DatasetService) ListWorkTablesForDataset(ctx context.Context, tenantID int64, datasetPublicID string, limit int32) ([]DatasetWorkTable, error) {
+	if s == nil || s.queries == nil {
+		return nil, fmt.Errorf("dataset service is not configured")
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	dataset, err := s.Get(ctx, tenantID, datasetPublicID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.queries.ListDatasetWorkTablesForDataset(ctx, db.ListDatasetWorkTablesForDatasetParams{
+		TenantID:        tenantID,
+		SourceDatasetID: pgtype.Int8{Int64: dataset.ID, Valid: true},
+		Limit:           limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list dataset work tables for dataset: %w", err)
+	}
+	items := make([]DatasetWorkTable, 0, len(rows))
+	for _, row := range rows {
+		item := datasetWorkTableFromDB(row)
+		if meta, err := s.getWorkTableMetadata(ctx, item.Database, item.Table); err == nil {
+			mergeWorkTableMetadata(&item, meta)
+		} else if !errors.Is(err, ErrDatasetWorkTableNotFound) {
+			return nil, err
+		}
+		item.OriginDatasetPublicID = dataset.PublicID
+		item.OriginDatasetName = dataset.Name
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (s *DatasetService) GetManagedWorkTable(ctx context.Context, tenantID int64, publicID string) (DatasetWorkTable, error) {
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	item := datasetWorkTableFromDB(row)
+	if item.Status == "active" {
+		metadata, err := s.getWorkTableMetadata(ctx, item.Database, item.Table)
+		if err != nil {
+			return DatasetWorkTable{}, err
+		}
+		columns, err := s.listWorkTableColumns(ctx, item.Database, item.Table)
+		if err != nil {
+			return DatasetWorkTable{}, err
+		}
+		mergeWorkTableMetadata(&item, metadata)
+		item.Columns = columns
+	}
+	items := []DatasetWorkTable{item}
+	if err := s.hydrateWorkTableOrigins(ctx, tenantID, items); err != nil {
+		return DatasetWorkTable{}, err
+	}
+	return items[0], nil
+}
+
+func (s *DatasetService) RegisterWorkTable(ctx context.Context, tenantID, userID int64, database, table, datasetPublicID, displayName string, auditCtx AuditContext) (DatasetWorkTable, error) {
+	if s == nil || s.queries == nil {
+		return DatasetWorkTable{}, fmt.Errorf("dataset service is not configured")
+	}
+	database, table, err := validateDatasetWorkTableRef(tenantID, database, table)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	var sourceDatasetID *int64
+	var origin Dataset
+	if strings.TrimSpace(datasetPublicID) != "" {
+		origin, err = s.Get(ctx, tenantID, datasetPublicID)
+		if err != nil {
+			return DatasetWorkTable{}, err
+		}
+		sourceDatasetID = &origin.ID
+	}
+	item, err := s.registerDatasetWorkTableForRef(ctx, tenantID, userID, sourceDatasetID, nil, database, table, displayName)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	if origin.ID > 0 {
+		item.OriginDatasetPublicID = origin.PublicID
+		item.OriginDatasetName = origin.Name
+	}
+	if s.audit != nil {
+		s.audit.RecordBestEffort(ctx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset_work_table.register",
+			TargetType:   "dataset_work_table",
+			TargetID:     item.PublicID,
+			Metadata: map[string]any{
+				"database": database,
+				"table":    table,
+			},
+		})
+	}
+	return item, nil
+}
+
+func (s *DatasetService) LinkWorkTable(ctx context.Context, tenantID int64, publicID, datasetPublicID string, auditCtx AuditContext) (DatasetWorkTable, error) {
+	if s == nil || s.queries == nil {
+		return DatasetWorkTable{}, fmt.Errorf("dataset service is not configured")
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(publicID))
+	if err != nil {
+		return DatasetWorkTable{}, ErrDatasetWorkTableNotFound
+	}
+	dataset, err := s.Get(ctx, tenantID, datasetPublicID)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	row, err := s.queries.LinkDatasetWorkTableToDataset(ctx, db.LinkDatasetWorkTableToDatasetParams{
+		PublicID:        parsed,
+		TenantID:        tenantID,
+		SourceDatasetID: pgtype.Int8{Int64: dataset.ID, Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DatasetWorkTable{}, ErrDatasetWorkTableNotFound
+	}
+	if err != nil {
+		return DatasetWorkTable{}, fmt.Errorf("link dataset work table: %w", err)
+	}
+	item := datasetWorkTableFromDB(row)
+	item.OriginDatasetPublicID = dataset.PublicID
+	item.OriginDatasetName = dataset.Name
+	if s.audit != nil {
+		s.audit.RecordBestEffort(ctx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset_work_table.link",
+			TargetType:   "dataset_work_table",
+			TargetID:     item.PublicID,
+			Metadata: map[string]any{
+				"dataset": dataset.PublicID,
+			},
+		})
+	}
+	return item, nil
+}
+
+func (s *DatasetService) PreviewWorkTable(ctx context.Context, tenantID int64, database, table string, limit int32) (DatasetWorkTablePreview, error) {
+	if s == nil {
+		return DatasetWorkTablePreview{}, fmt.Errorf("dataset service is not configured")
+	}
+	database, table, err := validateDatasetWorkTableRef(tenantID, database, table)
+	if err != nil {
+		return DatasetWorkTablePreview{}, err
+	}
+	if limit <= 0 || limit > datasetPreviewRowLimit {
+		limit = 100
+	}
+	if err := s.ensureTenantSandbox(ctx, tenantID); err != nil {
+		return DatasetWorkTablePreview{}, err
+	}
+	if _, err := s.getWorkTableMetadata(ctx, database, table); err != nil {
+		return DatasetWorkTablePreview{}, err
+	}
+	conn, err := s.openTenantConn(ctx, tenantID)
+	if err != nil {
+		return DatasetWorkTablePreview{}, err
+	}
+	defer conn.Close()
+
+	query := fmt.Sprintf("SELECT * FROM %s.%s LIMIT %d", quoteCHIdent(database), quoteCHIdent(table), limit)
+	rows, err := conn.Query(clickhouse.Context(ctx, clickhouse.WithSettings(s.querySettings())), query)
+	if err != nil {
+		return DatasetWorkTablePreview{}, fmt.Errorf("preview dataset work table: %w", err)
+	}
+	defer rows.Close()
+	columns, previewRows, err := scanDatasetRows(rows, int(limit))
+	if err != nil {
+		return DatasetWorkTablePreview{}, fmt.Errorf("scan dataset work table preview: %w", err)
+	}
+	return DatasetWorkTablePreview{
+		Database:    database,
+		Table:       table,
+		Columns:     columns,
+		PreviewRows: previewRows,
+	}, nil
+}
+
+func (s *DatasetService) PreviewManagedWorkTable(ctx context.Context, tenantID int64, publicID string, limit int32) (DatasetWorkTablePreview, error) {
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
+	if err != nil {
+		return DatasetWorkTablePreview{}, err
+	}
+	if row.Status != "active" || row.DroppedAt.Valid {
+		return DatasetWorkTablePreview{}, ErrDatasetWorkTableNotFound
+	}
+	return s.PreviewWorkTable(ctx, tenantID, row.WorkDatabase, row.WorkTable, limit)
+}
+
+func (s *DatasetService) RenameWorkTable(ctx context.Context, tenantID int64, publicID, newTable string, auditCtx AuditContext) (DatasetWorkTable, error) {
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	if row.Status != "active" || row.DroppedAt.Valid {
+		return DatasetWorkTable{}, ErrDatasetWorkTableNotFound
+	}
+	database, newTable, err := validateDatasetWorkTableRef(tenantID, row.WorkDatabase, newTable)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	if row.WorkTable == newTable {
+		return s.GetManagedWorkTable(ctx, tenantID, publicID)
+	}
+	if _, err := s.getWorkTableMetadata(ctx, database, newTable); err == nil {
+		return DatasetWorkTable{}, fmt.Errorf("%w: destination work table already exists", ErrInvalidDatasetInput)
+	} else if !errors.Is(err, ErrDatasetWorkTableNotFound) {
+		return DatasetWorkTable{}, err
+	}
+	statement := fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(row.WorkDatabase), quoteCHIdent(row.WorkTable), quoteCHIdent(database), quoteCHIdent(newTable))
+	if err := s.clickhouse.Exec(ctx, statement); err != nil {
+		return DatasetWorkTable{}, fmt.Errorf("rename dataset work table: %w", err)
+	}
+	metadata, err := s.getWorkTableMetadata(ctx, database, newTable)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	updated, err := s.queries.RenameDatasetWorkTableRecord(ctx, db.RenameDatasetWorkTableRecordParams{
+		PublicID:    row.PublicID,
+		TenantID:    tenantID,
+		WorkTable:   newTable,
+		DisplayName: newTable,
+		RowCount:    metadata.TotalRows,
+		TotalBytes:  metadata.TotalBytes,
+		Engine:      metadata.Engine,
+	})
+	if err != nil {
+		return DatasetWorkTable{}, fmt.Errorf("update renamed dataset work table: %w", err)
+	}
+	item := datasetWorkTableFromDB(updated)
+	mergeWorkTableMetadata(&item, metadata)
+	if s.audit != nil {
+		s.audit.RecordBestEffort(ctx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset_work_table.rename",
+			TargetType:   "dataset_work_table",
+			TargetID:     item.PublicID,
+			Metadata: map[string]any{
+				"from": row.WorkTable,
+				"to":   newTable,
+			},
+		})
+	}
+	return item, nil
+}
+
+func (s *DatasetService) TruncateWorkTable(ctx context.Context, tenantID int64, publicID string, auditCtx AuditContext) (DatasetWorkTable, error) {
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	if row.Status != "active" || row.DroppedAt.Valid {
+		return DatasetWorkTable{}, ErrDatasetWorkTableNotFound
+	}
+	if err := s.clickhouse.Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s.%s", quoteCHIdent(row.WorkDatabase), quoteCHIdent(row.WorkTable))); err != nil {
+		return DatasetWorkTable{}, fmt.Errorf("truncate dataset work table: %w", err)
+	}
+	metadata, err := s.getWorkTableMetadata(ctx, row.WorkDatabase, row.WorkTable)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	updated, err := s.queries.UpdateDatasetWorkTableStats(ctx, db.UpdateDatasetWorkTableStatsParams{
+		PublicID:   row.PublicID,
+		TenantID:   tenantID,
+		RowCount:   metadata.TotalRows,
+		TotalBytes: metadata.TotalBytes,
+		Engine:     metadata.Engine,
+	})
+	if err != nil {
+		return DatasetWorkTable{}, fmt.Errorf("update truncated dataset work table: %w", err)
+	}
+	item := datasetWorkTableFromDB(updated)
+	mergeWorkTableMetadata(&item, metadata)
+	if s.audit != nil {
+		s.audit.RecordBestEffort(ctx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset_work_table.truncate",
+			TargetType:   "dataset_work_table",
+			TargetID:     item.PublicID,
+			Metadata: map[string]any{
+				"database": row.WorkDatabase,
+				"table":    row.WorkTable,
+			},
+		})
+	}
+	return item, nil
+}
+
+func (s *DatasetService) DropWorkTable(ctx context.Context, tenantID int64, publicID string, auditCtx AuditContext) error {
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
+	if err != nil {
+		return err
+	}
+	if row.Status != "active" || row.DroppedAt.Valid {
+		return ErrDatasetWorkTableNotFound
+	}
+	if err := s.clickhouse.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(row.WorkDatabase), quoteCHIdent(row.WorkTable))); err != nil {
+		return fmt.Errorf("drop dataset work table: %w", err)
+	}
+	dropped, err := s.queries.MarkDatasetWorkTableDropped(ctx, db.MarkDatasetWorkTableDroppedParams{PublicID: row.PublicID, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrDatasetWorkTableNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("mark dataset work table dropped: %w", err)
+	}
+	if s.audit != nil {
+		s.audit.RecordBestEffort(ctx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset_work_table.drop",
+			TargetType:   "dataset_work_table",
+			TargetID:     dropped.PublicID.String(),
+			Metadata: map[string]any{
+				"database": row.WorkDatabase,
+				"table":    row.WorkTable,
+			},
+		})
+	}
+	return nil
+}
+
+func (s *DatasetService) PromoteWorkTable(ctx context.Context, tenantID, userID int64, publicID, name string, auditCtx AuditContext) (Dataset, error) {
+	if s == nil || s.pool == nil || s.queries == nil || s.outbox == nil {
+		return Dataset{}, fmt.Errorf("dataset service is not configured")
+	}
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
+	if err != nil {
+		return Dataset{}, err
+	}
+	if row.Status != "active" || row.DroppedAt.Valid {
+		return Dataset{}, ErrDatasetWorkTableNotFound
+	}
+	metadata, err := s.getWorkTableMetadata(ctx, row.WorkDatabase, row.WorkTable)
+	if err != nil {
+		return Dataset{}, err
+	}
+	displayName := strings.TrimSpace(name)
+	if displayName == "" {
+		displayName = row.DisplayName
+	}
+	if displayName == "" {
+		displayName = row.WorkTable
+	}
+	if len(displayName) > 160 {
+		displayName = displayName[:160]
+	}
+	rawTable := "ds_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Dataset{}, fmt.Errorf("begin work table promotion transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+	qtx := s.queries.WithTx(tx)
+	dataset, err := qtx.CreateDatasetFromWorkTable(ctx, db.CreateDatasetFromWorkTableParams{
+		TenantID:          tenantID,
+		CreatedByUserID:   pgtype.Int8{Int64: userID, Valid: userID > 0},
+		SourceWorkTableID: pgtype.Int8{Int64: row.ID, Valid: true},
+		Name:              displayName,
+		OriginalFilename:  row.WorkTable + ".work-table",
+		ContentType:       "application/vnd.haohao.work-table",
+		ByteSize:          metadata.TotalBytes,
+		RawDatabase:       datasetRawDatabaseName(tenantID),
+		RawTable:          rawTable,
+		WorkDatabase:      datasetWorkDatabaseName(tenantID),
+		RowCount:          0,
+	})
+	if err != nil {
+		return Dataset{}, fmt.Errorf("create promoted dataset: %w", err)
+	}
+	if _, err := s.outbox.EnqueueWithQueries(ctx, qtx, OutboxEventInput{
+		TenantID:      &tenantID,
+		AggregateType: "dataset",
+		AggregateID:   dataset.PublicID.String(),
+		EventType:     "dataset.work_table_promote_requested",
+		Payload: map[string]any{
+			"tenantId":    tenantID,
+			"datasetId":   dataset.ID,
+			"workTableId": row.ID,
+		},
+	}); err != nil {
+		return Dataset{}, fmt.Errorf("enqueue work table promotion: %w", err)
+	}
+	if s.audit != nil {
+		if err := s.audit.RecordWithQueries(ctx, qtx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset_work_table.promote",
+			TargetType:   "dataset_work_table",
+			TargetID:     row.PublicID.String(),
+			Metadata: map[string]any{
+				"dataset": dataset.PublicID.String(),
+			},
+		}); err != nil {
+			return Dataset{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Dataset{}, fmt.Errorf("commit work table promotion transaction: %w", err)
+	}
+	return s.inflateDataset(ctx, dataset)
+}
+
+func (s *DatasetService) HandleWorkTablePromotionRequested(ctx context.Context, tenantID, datasetID, workTableID int64) error {
+	if s == nil || s.queries == nil {
+		return fmt.Errorf("dataset service is not configured")
+	}
+	dataset, err := s.queries.GetDatasetByIDForTenant(ctx, db.GetDatasetByIDForTenantParams{ID: datasetID, TenantID: tenantID})
+	if err != nil {
+		return fmt.Errorf("get promoted dataset: %w", err)
+	}
+	workTable, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: workTableID, TenantID: tenantID})
+	if err != nil {
+		_, _ = s.queries.MarkDatasetFailed(ctx, db.MarkDatasetFailedParams{ID: datasetID, Left: err.Error()})
+		return fmt.Errorf("get source work table: %w", err)
+	}
+	if workTable.Status != "active" || workTable.DroppedAt.Valid {
+		err := ErrDatasetWorkTableNotFound
+		_, _ = s.queries.MarkDatasetFailed(ctx, db.MarkDatasetFailedParams{ID: datasetID, Left: err.Error()})
+		return err
+	}
+	_, _ = s.queries.MarkDatasetImporting(ctx, dataset.ID)
+	if err := s.copyWorkTableToDatasetRaw(ctx, tenantID, dataset, workTable); err != nil {
+		_, _ = s.queries.MarkDatasetFailed(ctx, db.MarkDatasetFailedParams{ID: datasetID, Left: err.Error()})
+		return err
+	}
+	metadata, err := s.getWorkTableMetadata(ctx, dataset.RawDatabase, dataset.RawTable)
+	if err != nil {
+		_, _ = s.queries.MarkDatasetFailed(ctx, db.MarkDatasetFailedParams{ID: datasetID, Left: err.Error()})
+		return err
+	}
+	if _, err := s.queries.MarkDatasetReady(ctx, db.MarkDatasetReadyParams{ID: dataset.ID, RowCount: metadata.TotalRows}); err != nil {
+		return fmt.Errorf("mark promoted dataset ready: %w", err)
+	}
+	return nil
+}
+
+func (s *DatasetService) CreateWorkTableExport(ctx context.Context, tenantID, userID int64, publicID string, auditCtx AuditContext) (DatasetWorkTableExport, error) {
+	if s == nil || s.pool == nil || s.queries == nil || s.outbox == nil {
+		return DatasetWorkTableExport{}, fmt.Errorf("dataset service is not configured")
+	}
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
+	if err != nil {
+		return DatasetWorkTableExport{}, err
+	}
+	if row.Status != "active" || row.DroppedAt.Valid {
+		return DatasetWorkTableExport{}, ErrDatasetWorkTableNotFound
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return DatasetWorkTableExport{}, fmt.Errorf("begin work table export transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+	qtx := s.queries.WithTx(tx)
+	export, err := qtx.CreateDatasetWorkTableExport(ctx, db.CreateDatasetWorkTableExportParams{
+		TenantID:          tenantID,
+		WorkTableID:       row.ID,
+		RequestedByUserID: pgtype.Int8{Int64: userID, Valid: userID > 0},
+		ExpiresAt:         pgTimestamp(time.Now().Add(7 * 24 * time.Hour)),
+	})
+	if err != nil {
+		return DatasetWorkTableExport{}, fmt.Errorf("create work table export: %w", err)
+	}
+	event, err := s.outbox.EnqueueWithQueries(ctx, qtx, OutboxEventInput{
+		TenantID:      &tenantID,
+		AggregateType: "dataset_work_table_export",
+		AggregateID:   export.PublicID.String(),
+		EventType:     "dataset.work_table_export_requested",
+		Payload: map[string]any{
+			"tenantId": tenantID,
+			"exportId": export.ID,
+		},
+	})
+	if err != nil {
+		return DatasetWorkTableExport{}, err
+	}
+	export, err = qtx.MarkDatasetWorkTableExportProcessing(ctx, db.MarkDatasetWorkTableExportProcessingParams{
+		ID:            export.ID,
+		OutboxEventID: pgtype.Int8{Int64: event.ID, Valid: true},
+	})
+	if err != nil {
+		return DatasetWorkTableExport{}, fmt.Errorf("mark work table export processing: %w", err)
+	}
+	if s.audit != nil {
+		if err := s.audit.RecordWithQueries(ctx, qtx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset_work_table.export",
+			TargetType:   "dataset_work_table",
+			TargetID:     row.PublicID.String(),
+			Metadata: map[string]any{
+				"export": export.PublicID.String(),
+			},
+		}); err != nil {
+			return DatasetWorkTableExport{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return DatasetWorkTableExport{}, fmt.Errorf("commit work table export transaction: %w", err)
+	}
+	return datasetWorkTableExportFromDB(export), nil
+}
+
+func (s *DatasetService) ListWorkTableExports(ctx context.Context, tenantID int64, publicID string, limit int32) ([]DatasetWorkTableExport, error) {
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 25
+	}
+	rows, err := s.queries.ListDatasetWorkTableExports(ctx, db.ListDatasetWorkTableExportsParams{
+		TenantID:    tenantID,
+		WorkTableID: row.ID,
+		Limit:       limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list work table exports: %w", err)
+	}
+	items := make([]DatasetWorkTableExport, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, datasetWorkTableExportFromDB(row))
+	}
+	return items, nil
+}
+
+func (s *DatasetService) GetWorkTableExport(ctx context.Context, tenantID int64, publicID string) (DatasetWorkTableExport, error) {
+	row, err := s.getWorkTableExportRow(ctx, tenantID, publicID)
+	if err != nil {
+		return DatasetWorkTableExport{}, err
+	}
+	return datasetWorkTableExportFromDB(row), nil
+}
+
+func (s *DatasetService) DownloadWorkTableExport(ctx context.Context, tenantID int64, publicID string) (FileDownload, error) {
+	row, err := s.getWorkTableExportRow(ctx, tenantID, publicID)
+	if err != nil {
+		return FileDownload{}, err
+	}
+	if row.Status != "ready" || !row.FileObjectID.Valid || row.ExpiresAt.Time.Before(time.Now()) {
+		return FileDownload{}, ErrDatasetWorkTableExportNotReady
+	}
+	file, err := s.queries.GetFileObjectByIDForTenant(ctx, db.GetFileObjectByIDForTenantParams{ID: row.FileObjectID.Int64, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return FileDownload{}, ErrDatasetWorkTableExportNotReady
+	}
+	if err != nil {
+		return FileDownload{}, fmt.Errorf("get work table export file: %w", err)
+	}
+	body, err := s.files.storage.Open(ctx, file.StorageKey)
+	if err != nil {
+		return FileDownload{}, err
+	}
+	return FileDownload{File: fileObjectFromDB(file), Body: body}, nil
+}
+
+func (s *DatasetService) HandleWorkTableExportRequested(ctx context.Context, tenantID, exportID int64) error {
+	if s == nil || s.queries == nil || s.files == nil {
+		return fmt.Errorf("dataset service is not configured")
+	}
+	export, err := s.queries.GetDatasetWorkTableExportByIDForTenant(ctx, db.GetDatasetWorkTableExportByIDForTenantParams{ID: exportID, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrDatasetWorkTableExportNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get work table export: %w", err)
+	}
+	workTable, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: export.WorkTableID, TenantID: tenantID})
+	if err != nil {
+		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
+		return fmt.Errorf("get export work table: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := s.writeWorkTableCSV(ctx, workTable.WorkDatabase, workTable.WorkTable, &buf); err != nil {
+		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
+		return err
+	}
+	file, err := s.files.CreateGeneratedFile(ctx, tenantID, optionalPgInt8(export.RequestedByUserID), "export", fmt.Sprintf("work-table-%s.csv", export.PublicID.String()), "text/csv", bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		_, _ = s.queries.MarkDatasetWorkTableExportFailed(ctx, db.MarkDatasetWorkTableExportFailedParams{ID: exportID, Left: err.Error()})
+		return err
+	}
+	if _, err := s.queries.MarkDatasetWorkTableExportReady(ctx, db.MarkDatasetWorkTableExportReadyParams{
+		ID:           exportID,
+		FileObjectID: pgtype.Int8{Int64: file.ID, Valid: true},
+	}); err != nil {
+		return fmt.Errorf("mark work table export ready: %w", err)
+	}
+	return nil
+}
+
+func (s *DatasetService) getWorkTableMetadata(ctx context.Context, database, table string) (DatasetWorkTable, error) {
+	rows, err := s.clickhouse.Query(
+		clickhouse.Context(ctx, clickhouse.WithSettings(s.querySettings())),
+		`
+SELECT
+	database,
+	name,
+	engine,
+	ifNull(total_rows, toUInt64(0)) AS total_rows,
+	ifNull(total_bytes, toUInt64(0)) AS total_bytes,
+	metadata_modification_time
+FROM system.tables
+WHERE database = ? AND name = ? AND is_temporary = 0
+LIMIT 1`,
+		database,
+		table,
+	)
+	if err != nil {
+		return DatasetWorkTable{}, fmt.Errorf("get dataset work table: %w", err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return DatasetWorkTable{}, fmt.Errorf("iterate dataset work table: %w", err)
+		}
+		return DatasetWorkTable{}, ErrDatasetWorkTableNotFound
+	}
+	var item DatasetWorkTable
+	var totalRows uint64
+	var totalBytes uint64
+	if err := rows.Scan(&item.Database, &item.Table, &item.Engine, &totalRows, &totalBytes, &item.CreatedAt); err != nil {
+		return DatasetWorkTable{}, fmt.Errorf("scan dataset work table: %w", err)
+	}
+	item.TotalRows = uint64ToDatasetInt64(totalRows)
+	item.TotalBytes = uint64ToDatasetInt64(totalBytes)
+	if rows.Next() {
+		return DatasetWorkTable{}, fmt.Errorf("get dataset work table returned multiple rows")
+	}
+	if err := rows.Err(); err != nil {
+		return DatasetWorkTable{}, fmt.Errorf("iterate dataset work table: %w", err)
+	}
+	return item, nil
+}
+
+func (s *DatasetService) listWorkTableColumns(ctx context.Context, database, table string) ([]DatasetWorkTableColumn, error) {
+	rows, err := s.clickhouse.Query(
+		clickhouse.Context(ctx, clickhouse.WithSettings(s.querySettings())),
+		`
+SELECT position, name, type
+FROM system.columns
+WHERE database = ? AND table = ?
+ORDER BY position ASC`,
+		database,
+		table,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list dataset work table columns: %w", err)
+	}
+	defer rows.Close()
+
+	columns := make([]DatasetWorkTableColumn, 0)
+	for rows.Next() {
+		var position uint64
+		var column DatasetWorkTableColumn
+		if err := rows.Scan(&position, &column.ColumnName, &column.ClickHouseType); err != nil {
+			return nil, fmt.Errorf("scan dataset work table column: %w", err)
+		}
+		column.Ordinal = int32(uint64ToDatasetInt64(position))
+		columns = append(columns, column)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate dataset work table columns: %w", err)
+	}
+	return columns, nil
+}
+
+func (s *DatasetService) getManagedWorkTableRow(ctx context.Context, tenantID int64, publicID string) (db.DatasetWorkTable, error) {
+	if s == nil || s.queries == nil {
+		return db.DatasetWorkTable{}, fmt.Errorf("dataset service is not configured")
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(publicID))
+	if err != nil {
+		return db.DatasetWorkTable{}, ErrDatasetWorkTableNotFound
+	}
+	row, err := s.queries.GetDatasetWorkTableForTenant(ctx, db.GetDatasetWorkTableForTenantParams{PublicID: parsed, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.DatasetWorkTable{}, ErrDatasetWorkTableNotFound
+	}
+	if err != nil {
+		return db.DatasetWorkTable{}, fmt.Errorf("get managed dataset work table: %w", err)
+	}
+	if _, _, err := validateDatasetWorkTableRef(tenantID, row.WorkDatabase, row.WorkTable); err != nil {
+		return db.DatasetWorkTable{}, err
+	}
+	return row, nil
+}
+
+func (s *DatasetService) getWorkTableExportRow(ctx context.Context, tenantID int64, publicID string) (db.DatasetWorkTableExport, error) {
+	if s == nil || s.queries == nil {
+		return db.DatasetWorkTableExport{}, fmt.Errorf("dataset service is not configured")
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(publicID))
+	if err != nil {
+		return db.DatasetWorkTableExport{}, ErrDatasetWorkTableExportNotFound
+	}
+	row, err := s.queries.GetDatasetWorkTableExportForTenant(ctx, db.GetDatasetWorkTableExportForTenantParams{PublicID: parsed, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.DatasetWorkTableExport{}, ErrDatasetWorkTableExportNotFound
+	}
+	if err != nil {
+		return db.DatasetWorkTableExport{}, fmt.Errorf("get dataset work table export: %w", err)
+	}
+	return row, nil
+}
+
+func (s *DatasetService) registerDatasetWorkTableForRef(ctx context.Context, tenantID, userID int64, sourceDatasetID *int64, queryJobID *int64, database, table, displayName string) (DatasetWorkTable, error) {
+	database, table, err := validateDatasetWorkTableRef(tenantID, database, table)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	metadata, err := s.getWorkTableMetadata(ctx, database, table)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	if strings.TrimSpace(displayName) == "" {
+		displayName = table
+	}
+	row, err := s.queries.UpsertDatasetWorkTable(ctx, db.UpsertDatasetWorkTableParams{
+		TenantID:              tenantID,
+		SourceDatasetID:       pgInt8(sourceDatasetID),
+		CreatedFromQueryJobID: pgInt8(queryJobID),
+		CreatedByUserID:       pgtype.Int8{Int64: userID, Valid: userID > 0},
+		WorkDatabase:          database,
+		WorkTable:             table,
+		DisplayName:           displayName,
+		RowCount:              metadata.TotalRows,
+		TotalBytes:            metadata.TotalBytes,
+		Engine:                metadata.Engine,
+	})
+	if err != nil {
+		return DatasetWorkTable{}, fmt.Errorf("register dataset work table: %w", err)
+	}
+	item := datasetWorkTableFromDB(row)
+	mergeWorkTableMetadata(&item, metadata)
+	columns, err := s.listWorkTableColumns(ctx, database, table)
+	if err != nil {
+		return DatasetWorkTable{}, err
+	}
+	item.Columns = columns
+	items := []DatasetWorkTable{item}
+	if err := s.hydrateWorkTableOrigins(ctx, tenantID, items); err != nil {
+		return DatasetWorkTable{}, err
+	}
+	return items[0], nil
+}
+
+func (s *DatasetService) hydrateWorkTableOrigins(ctx context.Context, tenantID int64, items []DatasetWorkTable) error {
+	for i := range items {
+		if items[i].SourceDatasetID == nil {
+			continue
+		}
+		dataset, err := s.queries.GetDatasetByIDForTenant(ctx, db.GetDatasetByIDForTenantParams{ID: *items[i].SourceDatasetID, TenantID: tenantID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("hydrate work table source dataset: %w", err)
+		}
+		items[i].OriginDatasetPublicID = dataset.PublicID.String()
+		items[i].OriginDatasetName = dataset.Name
+	}
+	return nil
+}
+
+func (s *DatasetService) copyWorkTableToDatasetRaw(ctx context.Context, tenantID int64, dataset db.Dataset, workTable db.DatasetWorkTable) error {
+	if err := s.ensureTenantSandbox(ctx, tenantID); err != nil {
+		return err
+	}
+	columns, err := s.listWorkTableColumns(ctx, workTable.WorkDatabase, workTable.WorkTable)
+	if err != nil {
+		return err
+	}
+	if len(columns) == 0 {
+		return fmt.Errorf("%w: work table has no columns", ErrInvalidDatasetInput)
+	}
+	if err := s.replaceDatasetColumnsWithTypes(ctx, dataset.ID, columns); err != nil {
+		return err
+	}
+	target := fmt.Sprintf("%s.%s", quoteCHIdent(dataset.RawDatabase), quoteCHIdent(dataset.RawTable))
+	source := fmt.Sprintf("%s.%s", quoteCHIdent(workTable.WorkDatabase), quoteCHIdent(workTable.WorkTable))
+	if err := s.clickhouse.Exec(ctx, "DROP TABLE IF EXISTS "+target); err != nil {
+		return fmt.Errorf("drop promoted dataset raw table: %w", err)
+	}
+	statement := fmt.Sprintf("CREATE TABLE %s ENGINE = MergeTree ORDER BY tuple() AS SELECT * FROM %s", target, source)
+	if err := s.clickhouse.Exec(ctx, statement); err != nil {
+		return fmt.Errorf("copy work table to raw dataset: %w", err)
+	}
+	return nil
+}
+
+func (s *DatasetService) replaceDatasetColumnsWithTypes(ctx context.Context, datasetID int64, columns []DatasetWorkTableColumn) error {
+	if err := s.queries.DeleteDatasetColumns(ctx, datasetID); err != nil {
+		return fmt.Errorf("delete dataset columns: %w", err)
+	}
+	for i, column := range columns {
+		if _, err := s.queries.CreateDatasetColumn(ctx, db.CreateDatasetColumnParams{
+			DatasetID:      datasetID,
+			Ordinal:        int32(i + 1),
+			OriginalName:   column.ColumnName,
+			ColumnName:     column.ColumnName,
+			ClickhouseType: column.ClickHouseType,
+		}); err != nil {
+			return fmt.Errorf("create dataset column: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *DatasetService) writeWorkTableCSV(ctx context.Context, database, table string, buf *bytes.Buffer) error {
+	if _, err := s.getWorkTableMetadata(ctx, database, table); err != nil {
+		return err
+	}
+	rows, err := s.clickhouse.Query(
+		clickhouse.Context(ctx, clickhouse.WithSettings(s.exportQuerySettings())),
+		fmt.Sprintf("SELECT * FROM %s.%s", quoteCHIdent(database), quoteCHIdent(table)),
+	)
+	if err != nil {
+		return fmt.Errorf("query work table export: %w", err)
+	}
+	defer rows.Close()
+	columns := rows.Columns()
+	writer := csv.NewWriter(buf)
+	if err := writer.Write(columns); err != nil {
+		return err
+	}
+	columnTypes := rows.ColumnTypes()
+	for rows.Next() {
+		holders, dest := datasetScanDestinations(columnTypes, len(columns))
+		if err := rows.Scan(dest...); err != nil {
+			return fmt.Errorf("scan work table export row: %w", err)
+		}
+		record := make([]string, len(columns))
+		for i := range columns {
+			value := datasetJSONValue(datasetScannedValue(holders[i]))
+			if value != nil {
+				record[i] = fmt.Sprint(value)
+			}
+		}
+		if err := writer.Write(record); err != nil {
+			return err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate work table export rows: %w", err)
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *DatasetService) executeTenantSQL(ctx context.Context, tenantID int64, statement string) ([]string, []map[string]any, error) {
 	if err := s.ensureTenantSandbox(ctx, tenantID); err != nil {
 		return nil, nil, err
@@ -694,27 +1792,7 @@ func (s *DatasetService) executeTenantSQL(ctx context.Context, tenantID int64, s
 			return nil, nil, err
 		}
 		defer rows.Close()
-		columns := rows.Columns()
-		columnTypes := rows.ColumnTypes()
-		resultRows := make([]map[string]any, 0)
-		for rows.Next() {
-			holders, dest := datasetScanDestinations(columnTypes, len(columns))
-			if err := rows.Scan(dest...); err != nil {
-				return columns, resultRows, err
-			}
-			row := make(map[string]any, len(columns))
-			for i, column := range columns {
-				row[column] = datasetJSONValue(datasetScannedValue(holders[i]))
-			}
-			resultRows = append(resultRows, row)
-			if len(resultRows) >= datasetPreviewRowLimit {
-				break
-			}
-		}
-		if err := rows.Err(); err != nil {
-			return columns, resultRows, err
-		}
-		return columns, resultRows, nil
+		return scanDatasetRows(rows, datasetPreviewRowLimit)
 	}
 	if err := conn.Exec(queryCtx, statement); err != nil {
 		return nil, nil, err
@@ -774,6 +1852,15 @@ func (s *DatasetService) querySettings() clickhouse.Settings {
 		"max_result_rows":      datasetPreviewRowLimit,
 		"result_overflow_mode": "break",
 		"max_threads":          s.chConfig.QueryMaxThreads,
+	}
+}
+
+func (s *DatasetService) exportQuerySettings() clickhouse.Settings {
+	return clickhouse.Settings{
+		"max_execution_time": s.chConfig.QueryMaxSeconds,
+		"max_memory_usage":   s.chConfig.QueryMaxMemoryBytes,
+		"max_rows_to_read":   s.chConfig.QueryMaxRowsToRead,
+		"max_threads":        s.chConfig.QueryMaxThreads,
 	}
 }
 
@@ -842,6 +1929,27 @@ func validateDatasetSQL(tenantID int64, statement string) (string, error) {
 	return normalized, nil
 }
 
+func validateDatasetWorkTableRef(tenantID int64, database, table string) (string, string, error) {
+	database = strings.TrimSpace(database)
+	table = strings.TrimSpace(table)
+	if database != datasetWorkDatabaseName(tenantID) {
+		return "", "", ErrDatasetWorkTableNotFound
+	}
+	if table == "" || len(table) > 256 || hasDatasetIdentifierControlRune(table) {
+		return "", "", ErrInvalidDatasetInput
+	}
+	return database, table, nil
+}
+
+func hasDatasetIdentifierControlRune(value string) bool {
+	for _, r := range value {
+		if unicode.IsControl(r) {
+			return true
+		}
+	}
+	return false
+}
+
 func hasMultipleDatasetStatements(statement string) bool {
 	inSingle := false
 	inDouble := false
@@ -900,6 +2008,114 @@ func datasetSQLReturnsRows(statement string) bool {
 	default:
 		return false
 	}
+}
+
+func parseDatasetCreateTableRefs(tenantID int64, statement string) []datasetWorkTableRef {
+	tokens := datasetSQLTokens(stripDatasetSQLComments(statement))
+	refs := make([]datasetWorkTableRef, 0)
+	for i := 0; i < len(tokens); i++ {
+		if !strings.EqualFold(tokens[i], "create") {
+			continue
+		}
+		j := i + 1
+		if j+1 < len(tokens) && strings.EqualFold(tokens[j], "or") && strings.EqualFold(tokens[j+1], "replace") {
+			j += 2
+		}
+		if j < len(tokens) && strings.EqualFold(tokens[j], "temporary") {
+			j++
+		}
+		if j >= len(tokens) || !strings.EqualFold(tokens[j], "table") {
+			continue
+		}
+		j++
+		if j+2 < len(tokens) && strings.EqualFold(tokens[j], "if") && strings.EqualFold(tokens[j+1], "not") && strings.EqualFold(tokens[j+2], "exists") {
+			j += 3
+		}
+		if j >= len(tokens) || tokens[j] == "(" {
+			continue
+		}
+		database := datasetWorkDatabaseName(tenantID)
+		table := unquoteDatasetIdentifier(tokens[j])
+		if j+2 < len(tokens) && tokens[j+1] == "." {
+			database = unquoteDatasetIdentifier(tokens[j])
+			table = unquoteDatasetIdentifier(tokens[j+2])
+		}
+		if database == datasetWorkDatabaseName(tenantID) && table != "" {
+			refs = append(refs, datasetWorkTableRef{Database: database, Table: table})
+		}
+	}
+	return refs
+}
+
+func datasetSQLTokens(statement string) []string {
+	tokens := make([]string, 0)
+	for i := 0; i < len(statement); {
+		r := rune(statement[i])
+		if unicode.IsSpace(r) {
+			i++
+			continue
+		}
+		switch statement[i] {
+		case '.', '(':
+			tokens = append(tokens, string(statement[i]))
+			i++
+			continue
+		case '`', '"':
+			quote := statement[i]
+			start := i
+			i++
+			for i < len(statement) {
+				if statement[i] == quote {
+					if i+1 < len(statement) && statement[i+1] == quote {
+						i += 2
+						continue
+					}
+					i++
+					break
+				}
+				i++
+			}
+			tokens = append(tokens, statement[start:i])
+			continue
+		case '\'':
+			i++
+			for i < len(statement) {
+				if statement[i] == '\\' && i+1 < len(statement) {
+					i += 2
+					continue
+				}
+				if statement[i] == '\'' {
+					i++
+					break
+				}
+				i++
+			}
+			continue
+		}
+		start := i
+		for i < len(statement) {
+			ch := statement[i]
+			if unicode.IsSpace(rune(ch)) || ch == '.' || ch == '(' || ch == '`' || ch == '"' || ch == '\'' {
+				break
+			}
+			i++
+		}
+		tokens = append(tokens, statement[start:i])
+	}
+	return tokens
+}
+
+func unquoteDatasetIdentifier(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) >= 2 {
+		first := value[0]
+		last := value[len(value)-1]
+		if (first == '`' && last == '`') || (first == '"' && last == '"') {
+			inner := value[1 : len(value)-1]
+			return strings.ReplaceAll(inner, string([]byte{first, first}), string(first))
+		}
+	}
+	return value
 }
 
 func sanitizeDatasetColumns(header []string) []string {
@@ -1054,6 +2270,33 @@ func datasetScanDestinations(columnTypes []driver.ColumnType, columnCount int) (
 	return holders, dest
 }
 
+func scanDatasetRows(rows driver.Rows, limit int) ([]string, []map[string]any, error) {
+	if limit <= 0 || limit > datasetPreviewRowLimit {
+		limit = datasetPreviewRowLimit
+	}
+	columns := rows.Columns()
+	columnTypes := rows.ColumnTypes()
+	resultRows := make([]map[string]any, 0)
+	for rows.Next() {
+		holders, dest := datasetScanDestinations(columnTypes, len(columns))
+		if err := rows.Scan(dest...); err != nil {
+			return columns, resultRows, err
+		}
+		row := make(map[string]any, len(columns))
+		for i, column := range columns {
+			row[column] = datasetJSONValue(datasetScannedValue(holders[i]))
+		}
+		resultRows = append(resultRows, row)
+		if len(resultRows) >= limit {
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return columns, resultRows, err
+	}
+	return columns, resultRows, nil
+}
+
 func datasetScannedValue(holder any) any {
 	value := reflect.ValueOf(holder)
 	if !value.IsValid() {
@@ -1069,6 +2312,14 @@ func datasetScannedValue(holder any) any {
 		return nil
 	}
 	return value.Interface()
+}
+
+func uint64ToDatasetInt64(value uint64) int64 {
+	const maxInt64AsUint64 = uint64(1<<63 - 1)
+	if value > maxInt64AsUint64 {
+		return int64(maxInt64AsUint64)
+	}
+	return int64(value)
 }
 
 func datasetJSONValue(value any) any {
@@ -1092,7 +2343,9 @@ func datasetFromDB(row db.Dataset) Dataset {
 		PublicID:           row.PublicID.String(),
 		TenantID:           row.TenantID,
 		CreatedByUserID:    optionalPgInt8(row.CreatedByUserID),
-		SourceFileObjectID: row.SourceFileObjectID,
+		SourceFileObjectID: optionalPgInt8(row.SourceFileObjectID),
+		SourceKind:         row.SourceKind,
+		SourceWorkTableID:  optionalPgInt8(row.SourceWorkTableID),
 		Name:               row.Name,
 		OriginalFilename:   row.OriginalFilename,
 		ContentType:        row.ContentType,
@@ -1107,6 +2360,66 @@ func datasetFromDB(row db.Dataset) Dataset {
 		UpdatedAt:          row.UpdatedAt.Time,
 		ImportedAt:         optionalPgTime(row.ImportedAt),
 	}
+}
+
+func datasetWorkTableFromDB(row db.DatasetWorkTable) DatasetWorkTable {
+	return DatasetWorkTable{
+		ID:                    row.ID,
+		PublicID:              row.PublicID.String(),
+		TenantID:              row.TenantID,
+		SourceDatasetID:       optionalPgInt8(row.SourceDatasetID),
+		CreatedFromQueryJobID: optionalPgInt8(row.CreatedFromQueryJobID),
+		CreatedByUserID:       optionalPgInt8(row.CreatedByUserID),
+		Database:              row.WorkDatabase,
+		Table:                 row.WorkTable,
+		DisplayName:           row.DisplayName,
+		Status:                row.Status,
+		Managed:               true,
+		Engine:                row.Engine,
+		TotalRows:             row.RowCount,
+		TotalBytes:            row.TotalBytes,
+		CreatedAt:             row.CreatedAt.Time,
+		UpdatedAt:             row.UpdatedAt.Time,
+		DroppedAt:             optionalPgTime(row.DroppedAt),
+	}
+}
+
+func datasetWorkTableExportFromDB(row db.DatasetWorkTableExport) DatasetWorkTableExport {
+	return DatasetWorkTableExport{
+		ID:           row.ID,
+		PublicID:     row.PublicID.String(),
+		TenantID:     row.TenantID,
+		WorkTableID:  row.WorkTableID,
+		Format:       row.Format,
+		Status:       row.Status,
+		ErrorSummary: optionalText(row.ErrorSummary),
+		FileObjectID: optionalPgInt8(row.FileObjectID),
+		ExpiresAt:    row.ExpiresAt.Time,
+		CreatedAt:    row.CreatedAt.Time,
+		UpdatedAt:    row.UpdatedAt.Time,
+		CompletedAt:  optionalPgTime(row.CompletedAt),
+	}
+}
+
+func mergeWorkTableMetadata(item *DatasetWorkTable, metadata DatasetWorkTable) {
+	item.Database = metadata.Database
+	item.Table = metadata.Table
+	if item.DisplayName == "" {
+		item.DisplayName = metadata.Table
+	}
+	item.Engine = metadata.Engine
+	item.TotalRows = metadata.TotalRows
+	item.TotalBytes = metadata.TotalBytes
+	if !metadata.CreatedAt.IsZero() {
+		item.CreatedAt = metadata.CreatedAt
+	}
+	if item.UpdatedAt.IsZero() {
+		item.UpdatedAt = item.CreatedAt
+	}
+}
+
+func workTableKey(database, table string) string {
+	return database + "\x00" + table
 }
 
 func datasetColumnFromDB(row db.DatasetColumn) DatasetColumn {
@@ -1148,6 +2461,7 @@ func datasetQueryJobFromDB(row db.DatasetQueryJob) DatasetQueryJob {
 	}
 	return DatasetQueryJob{
 		PublicID:      row.PublicID.String(),
+		DatasetID:     optionalPgInt8(row.DatasetID),
 		Statement:     row.Statement,
 		Status:        row.Status,
 		ResultColumns: columns,
@@ -1159,4 +2473,11 @@ func datasetQueryJobFromDB(row db.DatasetQueryJob) DatasetQueryJob {
 		UpdatedAt:     row.UpdatedAt.Time,
 		CompletedAt:   optionalPgTime(row.CompletedAt),
 	}
+}
+
+func derefInt64(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
 }

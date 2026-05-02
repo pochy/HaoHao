@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log/slog"
 	"time"
 
 	"example.com/haohao/backend/internal/service"
@@ -9,6 +10,7 @@ import (
 )
 
 type Dependencies struct {
+	Logger                           *slog.Logger
 	SessionService                   *service.SessionService
 	OIDCLoginService                 *service.OIDCLoginService
 	DelegationService                *service.DelegationService

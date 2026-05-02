@@ -78,7 +78,7 @@ SET
     completed_at = now(),
     updated_at = now()
 WHERE id = $1
-RETURNING id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at
+RETURNING id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at, dataset_id
 `
 
 type CompleteDatasetQueryJobParams struct {
@@ -113,6 +113,7 @@ func (q *Queries) CompleteDatasetQueryJob(ctx context.Context, arg CompleteDatas
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+		&i.DatasetID,
 	)
 	return i, err
 }
@@ -122,6 +123,7 @@ INSERT INTO datasets (
     tenant_id,
     created_by_user_id,
     source_file_object_id,
+    source_kind,
     name,
     original_filename,
     content_type,
@@ -130,15 +132,15 @@ INSERT INTO datasets (
     raw_table,
     work_database
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, 'file', $4, $5, $6, $7, $8, $9, $10
 )
-RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at
+RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
 `
 
 type CreateDatasetParams struct {
 	TenantID           int64       `json:"tenant_id"`
 	CreatedByUserID    pgtype.Int8 `json:"created_by_user_id"`
-	SourceFileObjectID int64       `json:"source_file_object_id"`
+	SourceFileObjectID pgtype.Int8 `json:"source_file_object_id"`
 	Name               string      `json:"name"`
 	OriginalFilename   string      `json:"original_filename"`
 	ContentType        string      `json:"content_type"`
@@ -182,6 +184,8 @@ func (q *Queries) CreateDataset(ctx context.Context, arg CreateDatasetParams) (D
 		&i.UpdatedAt,
 		&i.ImportedAt,
 		&i.DeletedAt,
+		&i.SourceKind,
+		&i.SourceWorkTableID,
 	)
 	return i, err
 }
@@ -224,6 +228,83 @@ func (q *Queries) CreateDatasetColumn(ctx context.Context, arg CreateDatasetColu
 		&i.ColumnName,
 		&i.ClickhouseType,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createDatasetFromWorkTable = `-- name: CreateDatasetFromWorkTable :one
+INSERT INTO datasets (
+    tenant_id,
+    created_by_user_id,
+    source_kind,
+    source_work_table_id,
+    name,
+    original_filename,
+    content_type,
+    byte_size,
+    raw_database,
+    raw_table,
+    work_database,
+    status,
+    row_count,
+    imported_at
+) VALUES (
+    $1, $2, 'work_table', $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11, NULL
+)
+RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
+`
+
+type CreateDatasetFromWorkTableParams struct {
+	TenantID          int64       `json:"tenant_id"`
+	CreatedByUserID   pgtype.Int8 `json:"created_by_user_id"`
+	SourceWorkTableID pgtype.Int8 `json:"source_work_table_id"`
+	Name              string      `json:"name"`
+	OriginalFilename  string      `json:"original_filename"`
+	ContentType       string      `json:"content_type"`
+	ByteSize          int64       `json:"byte_size"`
+	RawDatabase       string      `json:"raw_database"`
+	RawTable          string      `json:"raw_table"`
+	WorkDatabase      string      `json:"work_database"`
+	RowCount          int64       `json:"row_count"`
+}
+
+func (q *Queries) CreateDatasetFromWorkTable(ctx context.Context, arg CreateDatasetFromWorkTableParams) (Dataset, error) {
+	row := q.db.QueryRow(ctx, createDatasetFromWorkTable,
+		arg.TenantID,
+		arg.CreatedByUserID,
+		arg.SourceWorkTableID,
+		arg.Name,
+		arg.OriginalFilename,
+		arg.ContentType,
+		arg.ByteSize,
+		arg.RawDatabase,
+		arg.RawTable,
+		arg.WorkDatabase,
+		arg.RowCount,
+	)
+	var i Dataset
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.CreatedByUserID,
+		&i.SourceFileObjectID,
+		&i.Name,
+		&i.OriginalFilename,
+		&i.ContentType,
+		&i.ByteSize,
+		&i.RawDatabase,
+		&i.RawTable,
+		&i.WorkDatabase,
+		&i.Status,
+		&i.RowCount,
+		&i.ErrorSummary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ImportedAt,
+		&i.DeletedAt,
+		&i.SourceKind,
+		&i.SourceWorkTableID,
 	)
 	return i, err
 }
@@ -279,22 +360,29 @@ func (q *Queries) CreateDatasetImportJob(ctx context.Context, arg CreateDatasetI
 const createDatasetQueryJob = `-- name: CreateDatasetQueryJob :one
 INSERT INTO dataset_query_jobs (
     tenant_id,
+    dataset_id,
     requested_by_user_id,
     statement
 ) VALUES (
-    $1, $2, $3
+    $1, $2, $3, $4
 )
-RETURNING id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at
+RETURNING id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at, dataset_id
 `
 
 type CreateDatasetQueryJobParams struct {
 	TenantID          int64       `json:"tenant_id"`
+	DatasetID         pgtype.Int8 `json:"dataset_id"`
 	RequestedByUserID pgtype.Int8 `json:"requested_by_user_id"`
 	Statement         string      `json:"statement"`
 }
 
 func (q *Queries) CreateDatasetQueryJob(ctx context.Context, arg CreateDatasetQueryJobParams) (DatasetQueryJob, error) {
-	row := q.db.QueryRow(ctx, createDatasetQueryJob, arg.TenantID, arg.RequestedByUserID, arg.Statement)
+	row := q.db.QueryRow(ctx, createDatasetQueryJob,
+		arg.TenantID,
+		arg.DatasetID,
+		arg.RequestedByUserID,
+		arg.Statement,
+	)
 	var i DatasetQueryJob
 	err := row.Scan(
 		&i.ID,
@@ -311,6 +399,55 @@ func (q *Queries) CreateDatasetQueryJob(ctx context.Context, arg CreateDatasetQu
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+		&i.DatasetID,
+	)
+	return i, err
+}
+
+const createDatasetWorkTableExport = `-- name: CreateDatasetWorkTableExport :one
+INSERT INTO dataset_work_table_exports (
+    tenant_id,
+    work_table_id,
+    requested_by_user_id,
+    format,
+    expires_at
+) VALUES (
+    $1, $2, $3, 'csv', $4
+)
+RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+`
+
+type CreateDatasetWorkTableExportParams struct {
+	TenantID          int64              `json:"tenant_id"`
+	WorkTableID       int64              `json:"work_table_id"`
+	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CreateDatasetWorkTableExport(ctx context.Context, arg CreateDatasetWorkTableExportParams) (DatasetWorkTableExport, error) {
+	row := q.db.QueryRow(ctx, createDatasetWorkTableExport,
+		arg.TenantID,
+		arg.WorkTableID,
+		arg.RequestedByUserID,
+		arg.ExpiresAt,
+	)
+	var i DatasetWorkTableExport
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.RequestedByUserID,
+		&i.FileObjectID,
+		&i.OutboxEventID,
+		&i.Format,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.ErrorSummary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -374,7 +511,7 @@ SET
     completed_at = now(),
     updated_at = now()
 WHERE id = $1
-RETURNING id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at
+RETURNING id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at, dataset_id
 `
 
 type FailDatasetQueryJobParams struct {
@@ -401,12 +538,54 @@ func (q *Queries) FailDatasetQueryJob(ctx context.Context, arg FailDatasetQueryJ
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+		&i.DatasetID,
+	)
+	return i, err
+}
+
+const getActiveDatasetWorkTableByRefForTenant = `-- name: GetActiveDatasetWorkTableByRefForTenant :one
+SELECT id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+FROM dataset_work_tables
+WHERE tenant_id = $1
+  AND work_database = $2
+  AND work_table = $3
+  AND status = 'active'
+  AND dropped_at IS NULL
+LIMIT 1
+`
+
+type GetActiveDatasetWorkTableByRefForTenantParams struct {
+	TenantID     int64  `json:"tenant_id"`
+	WorkDatabase string `json:"work_database"`
+	WorkTable    string `json:"work_table"`
+}
+
+func (q *Queries) GetActiveDatasetWorkTableByRefForTenant(ctx context.Context, arg GetActiveDatasetWorkTableByRefForTenantParams) (DatasetWorkTable, error) {
+	row := q.db.QueryRow(ctx, getActiveDatasetWorkTableByRefForTenant, arg.TenantID, arg.WorkDatabase, arg.WorkTable)
+	var i DatasetWorkTable
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.SourceDatasetID,
+		&i.CreatedFromQueryJobID,
+		&i.CreatedByUserID,
+		&i.WorkDatabase,
+		&i.WorkTable,
+		&i.DisplayName,
+		&i.Status,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.Engine,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DroppedAt,
 	)
 	return i, err
 }
 
 const getDatasetByIDForTenant = `-- name: GetDatasetByIDForTenant :one
-SELECT id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at
+SELECT id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
 FROM datasets
 WHERE id = $1
   AND tenant_id = $2
@@ -442,12 +621,14 @@ func (q *Queries) GetDatasetByIDForTenant(ctx context.Context, arg GetDatasetByI
 		&i.UpdatedAt,
 		&i.ImportedAt,
 		&i.DeletedAt,
+		&i.SourceKind,
+		&i.SourceWorkTableID,
 	)
 	return i, err
 }
 
 const getDatasetForTenant = `-- name: GetDatasetForTenant :one
-SELECT id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at
+SELECT id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
 FROM datasets
 WHERE public_id = $1
   AND tenant_id = $2
@@ -483,6 +664,8 @@ func (q *Queries) GetDatasetForTenant(ctx context.Context, arg GetDatasetForTena
 		&i.UpdatedAt,
 		&i.ImportedAt,
 		&i.DeletedAt,
+		&i.SourceKind,
+		&i.SourceWorkTableID,
 	)
 	return i, err
 }
@@ -525,7 +708,7 @@ func (q *Queries) GetDatasetImportJobByIDForTenant(ctx context.Context, arg GetD
 }
 
 const getDatasetQueryJobForTenant = `-- name: GetDatasetQueryJobForTenant :one
-SELECT id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at
+SELECT id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at, dataset_id
 FROM dataset_query_jobs
 WHERE public_id = $1
   AND tenant_id = $2
@@ -555,6 +738,155 @@ func (q *Queries) GetDatasetQueryJobForTenant(ctx context.Context, arg GetDatase
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+		&i.DatasetID,
+	)
+	return i, err
+}
+
+const getDatasetWorkTableByIDForTenant = `-- name: GetDatasetWorkTableByIDForTenant :one
+SELECT id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+FROM dataset_work_tables
+WHERE id = $1
+  AND tenant_id = $2
+LIMIT 1
+`
+
+type GetDatasetWorkTableByIDForTenantParams struct {
+	ID       int64 `json:"id"`
+	TenantID int64 `json:"tenant_id"`
+}
+
+func (q *Queries) GetDatasetWorkTableByIDForTenant(ctx context.Context, arg GetDatasetWorkTableByIDForTenantParams) (DatasetWorkTable, error) {
+	row := q.db.QueryRow(ctx, getDatasetWorkTableByIDForTenant, arg.ID, arg.TenantID)
+	var i DatasetWorkTable
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.SourceDatasetID,
+		&i.CreatedFromQueryJobID,
+		&i.CreatedByUserID,
+		&i.WorkDatabase,
+		&i.WorkTable,
+		&i.DisplayName,
+		&i.Status,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.Engine,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DroppedAt,
+	)
+	return i, err
+}
+
+const getDatasetWorkTableExportByIDForTenant = `-- name: GetDatasetWorkTableExportByIDForTenant :one
+SELECT id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+FROM dataset_work_table_exports
+WHERE id = $1
+  AND tenant_id = $2
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+type GetDatasetWorkTableExportByIDForTenantParams struct {
+	ID       int64 `json:"id"`
+	TenantID int64 `json:"tenant_id"`
+}
+
+func (q *Queries) GetDatasetWorkTableExportByIDForTenant(ctx context.Context, arg GetDatasetWorkTableExportByIDForTenantParams) (DatasetWorkTableExport, error) {
+	row := q.db.QueryRow(ctx, getDatasetWorkTableExportByIDForTenant, arg.ID, arg.TenantID)
+	var i DatasetWorkTableExport
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.RequestedByUserID,
+		&i.FileObjectID,
+		&i.OutboxEventID,
+		&i.Format,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.ErrorSummary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getDatasetWorkTableExportForTenant = `-- name: GetDatasetWorkTableExportForTenant :one
+SELECT id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+FROM dataset_work_table_exports
+WHERE public_id = $1
+  AND tenant_id = $2
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+type GetDatasetWorkTableExportForTenantParams struct {
+	PublicID uuid.UUID `json:"public_id"`
+	TenantID int64     `json:"tenant_id"`
+}
+
+func (q *Queries) GetDatasetWorkTableExportForTenant(ctx context.Context, arg GetDatasetWorkTableExportForTenantParams) (DatasetWorkTableExport, error) {
+	row := q.db.QueryRow(ctx, getDatasetWorkTableExportForTenant, arg.PublicID, arg.TenantID)
+	var i DatasetWorkTableExport
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.RequestedByUserID,
+		&i.FileObjectID,
+		&i.OutboxEventID,
+		&i.Format,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.ErrorSummary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getDatasetWorkTableForTenant = `-- name: GetDatasetWorkTableForTenant :one
+SELECT id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+FROM dataset_work_tables
+WHERE public_id = $1
+  AND tenant_id = $2
+LIMIT 1
+`
+
+type GetDatasetWorkTableForTenantParams struct {
+	PublicID uuid.UUID `json:"public_id"`
+	TenantID int64     `json:"tenant_id"`
+}
+
+func (q *Queries) GetDatasetWorkTableForTenant(ctx context.Context, arg GetDatasetWorkTableForTenantParams) (DatasetWorkTable, error) {
+	row := q.db.QueryRow(ctx, getDatasetWorkTableForTenant, arg.PublicID, arg.TenantID)
+	var i DatasetWorkTable
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.SourceDatasetID,
+		&i.CreatedFromQueryJobID,
+		&i.CreatedByUserID,
+		&i.WorkDatabase,
+		&i.WorkTable,
+		&i.DisplayName,
+		&i.Status,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.Engine,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DroppedAt,
 	)
 	return i, err
 }
@@ -587,6 +919,48 @@ func (q *Queries) GetLatestDatasetImportJob(ctx context.Context, datasetID int64
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+	)
+	return i, err
+}
+
+const linkDatasetWorkTableToDataset = `-- name: LinkDatasetWorkTableToDataset :one
+UPDATE dataset_work_tables
+SET
+    source_dataset_id = $3,
+    updated_at = now()
+WHERE public_id = $1
+  AND tenant_id = $2
+  AND status = 'active'
+  AND dropped_at IS NULL
+RETURNING id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+`
+
+type LinkDatasetWorkTableToDatasetParams struct {
+	PublicID        uuid.UUID   `json:"public_id"`
+	TenantID        int64       `json:"tenant_id"`
+	SourceDatasetID pgtype.Int8 `json:"source_dataset_id"`
+}
+
+func (q *Queries) LinkDatasetWorkTableToDataset(ctx context.Context, arg LinkDatasetWorkTableToDatasetParams) (DatasetWorkTable, error) {
+	row := q.db.QueryRow(ctx, linkDatasetWorkTableToDataset, arg.PublicID, arg.TenantID, arg.SourceDatasetID)
+	var i DatasetWorkTable
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.SourceDatasetID,
+		&i.CreatedFromQueryJobID,
+		&i.CreatedByUserID,
+		&i.WorkDatabase,
+		&i.WorkTable,
+		&i.DisplayName,
+		&i.Status,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.Engine,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DroppedAt,
 	)
 	return i, err
 }
@@ -627,7 +1001,7 @@ func (q *Queries) ListDatasetColumns(ctx context.Context, datasetID int64) ([]Da
 }
 
 const listDatasetQueryJobs = `-- name: ListDatasetQueryJobs :many
-SELECT id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at
+SELECT id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at, dataset_id
 FROM dataset_query_jobs
 WHERE tenant_id = $1
 ORDER BY created_at DESC, id DESC
@@ -663,6 +1037,213 @@ func (q *Queries) ListDatasetQueryJobs(ctx context.Context, arg ListDatasetQuery
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CompletedAt,
+			&i.DatasetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDatasetQueryJobsForDataset = `-- name: ListDatasetQueryJobsForDataset :many
+SELECT id, public_id, tenant_id, requested_by_user_id, statement, status, result_columns, result_rows, row_count, error_summary, duration_ms, created_at, updated_at, completed_at, dataset_id
+FROM dataset_query_jobs
+WHERE tenant_id = $1
+  AND dataset_id = $2
+ORDER BY created_at DESC, id DESC
+LIMIT $3
+`
+
+type ListDatasetQueryJobsForDatasetParams struct {
+	TenantID  int64       `json:"tenant_id"`
+	DatasetID pgtype.Int8 `json:"dataset_id"`
+	Limit     int32       `json:"limit"`
+}
+
+func (q *Queries) ListDatasetQueryJobsForDataset(ctx context.Context, arg ListDatasetQueryJobsForDatasetParams) ([]DatasetQueryJob, error) {
+	rows, err := q.db.Query(ctx, listDatasetQueryJobsForDataset, arg.TenantID, arg.DatasetID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetQueryJob
+	for rows.Next() {
+		var i DatasetQueryJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.RequestedByUserID,
+			&i.Statement,
+			&i.Status,
+			&i.ResultColumns,
+			&i.ResultRows,
+			&i.RowCount,
+			&i.ErrorSummary,
+			&i.DurationMs,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+			&i.DatasetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDatasetWorkTableExports = `-- name: ListDatasetWorkTableExports :many
+SELECT id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+FROM dataset_work_table_exports
+WHERE tenant_id = $1
+  AND work_table_id = $2
+  AND deleted_at IS NULL
+ORDER BY created_at DESC, id DESC
+LIMIT $3
+`
+
+type ListDatasetWorkTableExportsParams struct {
+	TenantID    int64 `json:"tenant_id"`
+	WorkTableID int64 `json:"work_table_id"`
+	Limit       int32 `json:"limit"`
+}
+
+func (q *Queries) ListDatasetWorkTableExports(ctx context.Context, arg ListDatasetWorkTableExportsParams) ([]DatasetWorkTableExport, error) {
+	rows, err := q.db.Query(ctx, listDatasetWorkTableExports, arg.TenantID, arg.WorkTableID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetWorkTableExport
+	for rows.Next() {
+		var i DatasetWorkTableExport
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.WorkTableID,
+			&i.RequestedByUserID,
+			&i.FileObjectID,
+			&i.OutboxEventID,
+			&i.Format,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.ErrorSummary,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDatasetWorkTables = `-- name: ListDatasetWorkTables :many
+SELECT id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+FROM dataset_work_tables
+WHERE tenant_id = $1
+ORDER BY updated_at DESC, id DESC
+LIMIT $2
+`
+
+type ListDatasetWorkTablesParams struct {
+	TenantID int64 `json:"tenant_id"`
+	Limit    int32 `json:"limit"`
+}
+
+func (q *Queries) ListDatasetWorkTables(ctx context.Context, arg ListDatasetWorkTablesParams) ([]DatasetWorkTable, error) {
+	rows, err := q.db.Query(ctx, listDatasetWorkTables, arg.TenantID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetWorkTable
+	for rows.Next() {
+		var i DatasetWorkTable
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.SourceDatasetID,
+			&i.CreatedFromQueryJobID,
+			&i.CreatedByUserID,
+			&i.WorkDatabase,
+			&i.WorkTable,
+			&i.DisplayName,
+			&i.Status,
+			&i.RowCount,
+			&i.TotalBytes,
+			&i.Engine,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DroppedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDatasetWorkTablesForDataset = `-- name: ListDatasetWorkTablesForDataset :many
+SELECT id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+FROM dataset_work_tables
+WHERE tenant_id = $1
+  AND source_dataset_id = $2
+  AND status = 'active'
+ORDER BY updated_at DESC, id DESC
+LIMIT $3
+`
+
+type ListDatasetWorkTablesForDatasetParams struct {
+	TenantID        int64       `json:"tenant_id"`
+	SourceDatasetID pgtype.Int8 `json:"source_dataset_id"`
+	Limit           int32       `json:"limit"`
+}
+
+func (q *Queries) ListDatasetWorkTablesForDataset(ctx context.Context, arg ListDatasetWorkTablesForDatasetParams) ([]DatasetWorkTable, error) {
+	rows, err := q.db.Query(ctx, listDatasetWorkTablesForDataset, arg.TenantID, arg.SourceDatasetID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetWorkTable
+	for rows.Next() {
+		var i DatasetWorkTable
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.SourceDatasetID,
+			&i.CreatedFromQueryJobID,
+			&i.CreatedByUserID,
+			&i.WorkDatabase,
+			&i.WorkTable,
+			&i.DisplayName,
+			&i.Status,
+			&i.RowCount,
+			&i.TotalBytes,
+			&i.Engine,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DroppedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -675,7 +1256,7 @@ func (q *Queries) ListDatasetQueryJobs(ctx context.Context, arg ListDatasetQuery
 }
 
 const listDatasets = `-- name: ListDatasets :many
-SELECT id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at
+SELECT id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
 FROM datasets
 WHERE tenant_id = $1
   AND deleted_at IS NULL
@@ -717,6 +1298,8 @@ func (q *Queries) ListDatasets(ctx context.Context, arg ListDatasetsParams) ([]D
 			&i.UpdatedAt,
 			&i.ImportedAt,
 			&i.DeletedAt,
+			&i.SourceKind,
+			&i.SourceWorkTableID,
 		); err != nil {
 			return nil, err
 		}
@@ -735,7 +1318,7 @@ SET
     error_summary = left($2, 1000),
     updated_at = now()
 WHERE id = $1
-RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at
+RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
 `
 
 type MarkDatasetFailedParams struct {
@@ -766,6 +1349,8 @@ func (q *Queries) MarkDatasetFailed(ctx context.Context, arg MarkDatasetFailedPa
 		&i.UpdatedAt,
 		&i.ImportedAt,
 		&i.DeletedAt,
+		&i.SourceKind,
+		&i.SourceWorkTableID,
 	)
 	return i, err
 }
@@ -816,7 +1401,7 @@ SET
     error_summary = NULL,
     updated_at = now()
 WHERE id = $1
-RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at
+RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
 `
 
 func (q *Queries) MarkDatasetImporting(ctx context.Context, id int64) (Dataset, error) {
@@ -842,6 +1427,8 @@ func (q *Queries) MarkDatasetImporting(ctx context.Context, id int64) (Dataset, 
 		&i.UpdatedAt,
 		&i.ImportedAt,
 		&i.DeletedAt,
+		&i.SourceKind,
+		&i.SourceWorkTableID,
 	)
 	return i, err
 }
@@ -855,7 +1442,7 @@ SET
     imported_at = now(),
     updated_at = now()
 WHERE id = $1
-RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at
+RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
 `
 
 type MarkDatasetReadyParams struct {
@@ -886,6 +1473,223 @@ func (q *Queries) MarkDatasetReady(ctx context.Context, arg MarkDatasetReadyPara
 		&i.UpdatedAt,
 		&i.ImportedAt,
 		&i.DeletedAt,
+		&i.SourceKind,
+		&i.SourceWorkTableID,
+	)
+	return i, err
+}
+
+const markDatasetWorkTableDropped = `-- name: MarkDatasetWorkTableDropped :one
+UPDATE dataset_work_tables
+SET
+    status = 'dropped',
+    dropped_at = COALESCE(dropped_at, now()),
+    updated_at = now()
+WHERE public_id = $1
+  AND tenant_id = $2
+  AND status = 'active'
+  AND dropped_at IS NULL
+RETURNING id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+`
+
+type MarkDatasetWorkTableDroppedParams struct {
+	PublicID uuid.UUID `json:"public_id"`
+	TenantID int64     `json:"tenant_id"`
+}
+
+func (q *Queries) MarkDatasetWorkTableDropped(ctx context.Context, arg MarkDatasetWorkTableDroppedParams) (DatasetWorkTable, error) {
+	row := q.db.QueryRow(ctx, markDatasetWorkTableDropped, arg.PublicID, arg.TenantID)
+	var i DatasetWorkTable
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.SourceDatasetID,
+		&i.CreatedFromQueryJobID,
+		&i.CreatedByUserID,
+		&i.WorkDatabase,
+		&i.WorkTable,
+		&i.DisplayName,
+		&i.Status,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.Engine,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DroppedAt,
+	)
+	return i, err
+}
+
+const markDatasetWorkTableExportFailed = `-- name: MarkDatasetWorkTableExportFailed :one
+UPDATE dataset_work_table_exports
+SET
+    status = 'failed',
+    error_summary = left($2, 1000),
+    updated_at = now()
+WHERE id = $1
+RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+`
+
+type MarkDatasetWorkTableExportFailedParams struct {
+	ID   int64  `json:"id"`
+	Left string `json:"left"`
+}
+
+func (q *Queries) MarkDatasetWorkTableExportFailed(ctx context.Context, arg MarkDatasetWorkTableExportFailedParams) (DatasetWorkTableExport, error) {
+	row := q.db.QueryRow(ctx, markDatasetWorkTableExportFailed, arg.ID, arg.Left)
+	var i DatasetWorkTableExport
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.RequestedByUserID,
+		&i.FileObjectID,
+		&i.OutboxEventID,
+		&i.Format,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.ErrorSummary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const markDatasetWorkTableExportProcessing = `-- name: MarkDatasetWorkTableExportProcessing :one
+UPDATE dataset_work_table_exports
+SET
+    status = 'processing',
+    outbox_event_id = $2,
+    updated_at = now()
+WHERE id = $1
+RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+`
+
+type MarkDatasetWorkTableExportProcessingParams struct {
+	ID            int64       `json:"id"`
+	OutboxEventID pgtype.Int8 `json:"outbox_event_id"`
+}
+
+func (q *Queries) MarkDatasetWorkTableExportProcessing(ctx context.Context, arg MarkDatasetWorkTableExportProcessingParams) (DatasetWorkTableExport, error) {
+	row := q.db.QueryRow(ctx, markDatasetWorkTableExportProcessing, arg.ID, arg.OutboxEventID)
+	var i DatasetWorkTableExport
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.RequestedByUserID,
+		&i.FileObjectID,
+		&i.OutboxEventID,
+		&i.Format,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.ErrorSummary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const markDatasetWorkTableExportReady = `-- name: MarkDatasetWorkTableExportReady :one
+UPDATE dataset_work_table_exports
+SET
+    status = 'ready',
+    file_object_id = $2,
+    completed_at = now(),
+    updated_at = now()
+WHERE id = $1
+RETURNING id, public_id, tenant_id, work_table_id, requested_by_user_id, file_object_id, outbox_event_id, format, status, expires_at, error_summary, created_at, updated_at, completed_at, deleted_at
+`
+
+type MarkDatasetWorkTableExportReadyParams struct {
+	ID           int64       `json:"id"`
+	FileObjectID pgtype.Int8 `json:"file_object_id"`
+}
+
+func (q *Queries) MarkDatasetWorkTableExportReady(ctx context.Context, arg MarkDatasetWorkTableExportReadyParams) (DatasetWorkTableExport, error) {
+	row := q.db.QueryRow(ctx, markDatasetWorkTableExportReady, arg.ID, arg.FileObjectID)
+	var i DatasetWorkTableExport
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.WorkTableID,
+		&i.RequestedByUserID,
+		&i.FileObjectID,
+		&i.OutboxEventID,
+		&i.Format,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.ErrorSummary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const renameDatasetWorkTableRecord = `-- name: RenameDatasetWorkTableRecord :one
+UPDATE dataset_work_tables
+SET
+    work_table = $3,
+    display_name = $4,
+    row_count = $5,
+    total_bytes = $6,
+    engine = $7,
+    updated_at = now()
+WHERE public_id = $1
+  AND tenant_id = $2
+  AND status = 'active'
+  AND dropped_at IS NULL
+RETURNING id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+`
+
+type RenameDatasetWorkTableRecordParams struct {
+	PublicID    uuid.UUID `json:"public_id"`
+	TenantID    int64     `json:"tenant_id"`
+	WorkTable   string    `json:"work_table"`
+	DisplayName string    `json:"display_name"`
+	RowCount    int64     `json:"row_count"`
+	TotalBytes  int64     `json:"total_bytes"`
+	Engine      string    `json:"engine"`
+}
+
+func (q *Queries) RenameDatasetWorkTableRecord(ctx context.Context, arg RenameDatasetWorkTableRecordParams) (DatasetWorkTable, error) {
+	row := q.db.QueryRow(ctx, renameDatasetWorkTableRecord,
+		arg.PublicID,
+		arg.TenantID,
+		arg.WorkTable,
+		arg.DisplayName,
+		arg.RowCount,
+		arg.TotalBytes,
+		arg.Engine,
+	)
+	var i DatasetWorkTable
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.SourceDatasetID,
+		&i.CreatedFromQueryJobID,
+		&i.CreatedByUserID,
+		&i.WorkDatabase,
+		&i.WorkTable,
+		&i.DisplayName,
+		&i.Status,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.Engine,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DroppedAt,
 	)
 	return i, err
 }
@@ -899,7 +1703,7 @@ SET
 WHERE public_id = $1
   AND tenant_id = $2
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at
+RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
 `
 
 type SoftDeleteDatasetParams struct {
@@ -930,6 +1734,135 @@ func (q *Queries) SoftDeleteDataset(ctx context.Context, arg SoftDeleteDatasetPa
 		&i.UpdatedAt,
 		&i.ImportedAt,
 		&i.DeletedAt,
+		&i.SourceKind,
+		&i.SourceWorkTableID,
+	)
+	return i, err
+}
+
+const updateDatasetWorkTableStats = `-- name: UpdateDatasetWorkTableStats :one
+UPDATE dataset_work_tables
+SET
+    row_count = $3,
+    total_bytes = $4,
+    engine = $5,
+    updated_at = now()
+WHERE public_id = $1
+  AND tenant_id = $2
+RETURNING id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+`
+
+type UpdateDatasetWorkTableStatsParams struct {
+	PublicID   uuid.UUID `json:"public_id"`
+	TenantID   int64     `json:"tenant_id"`
+	RowCount   int64     `json:"row_count"`
+	TotalBytes int64     `json:"total_bytes"`
+	Engine     string    `json:"engine"`
+}
+
+func (q *Queries) UpdateDatasetWorkTableStats(ctx context.Context, arg UpdateDatasetWorkTableStatsParams) (DatasetWorkTable, error) {
+	row := q.db.QueryRow(ctx, updateDatasetWorkTableStats,
+		arg.PublicID,
+		arg.TenantID,
+		arg.RowCount,
+		arg.TotalBytes,
+		arg.Engine,
+	)
+	var i DatasetWorkTable
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.SourceDatasetID,
+		&i.CreatedFromQueryJobID,
+		&i.CreatedByUserID,
+		&i.WorkDatabase,
+		&i.WorkTable,
+		&i.DisplayName,
+		&i.Status,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.Engine,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DroppedAt,
+	)
+	return i, err
+}
+
+const upsertDatasetWorkTable = `-- name: UpsertDatasetWorkTable :one
+INSERT INTO dataset_work_tables (
+    tenant_id,
+    source_dataset_id,
+    created_from_query_job_id,
+    created_by_user_id,
+    work_database,
+    work_table,
+    display_name,
+    row_count,
+    total_bytes,
+    engine
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+)
+ON CONFLICT (tenant_id, work_database, work_table)
+WHERE status = 'active' AND dropped_at IS NULL
+DO UPDATE SET
+    source_dataset_id = COALESCE(EXCLUDED.source_dataset_id, dataset_work_tables.source_dataset_id),
+    created_from_query_job_id = COALESCE(EXCLUDED.created_from_query_job_id, dataset_work_tables.created_from_query_job_id),
+    created_by_user_id = COALESCE(EXCLUDED.created_by_user_id, dataset_work_tables.created_by_user_id),
+    display_name = EXCLUDED.display_name,
+    row_count = EXCLUDED.row_count,
+    total_bytes = EXCLUDED.total_bytes,
+    engine = EXCLUDED.engine,
+    updated_at = now()
+RETURNING id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
+`
+
+type UpsertDatasetWorkTableParams struct {
+	TenantID              int64       `json:"tenant_id"`
+	SourceDatasetID       pgtype.Int8 `json:"source_dataset_id"`
+	CreatedFromQueryJobID pgtype.Int8 `json:"created_from_query_job_id"`
+	CreatedByUserID       pgtype.Int8 `json:"created_by_user_id"`
+	WorkDatabase          string      `json:"work_database"`
+	WorkTable             string      `json:"work_table"`
+	DisplayName           string      `json:"display_name"`
+	RowCount              int64       `json:"row_count"`
+	TotalBytes            int64       `json:"total_bytes"`
+	Engine                string      `json:"engine"`
+}
+
+func (q *Queries) UpsertDatasetWorkTable(ctx context.Context, arg UpsertDatasetWorkTableParams) (DatasetWorkTable, error) {
+	row := q.db.QueryRow(ctx, upsertDatasetWorkTable,
+		arg.TenantID,
+		arg.SourceDatasetID,
+		arg.CreatedFromQueryJobID,
+		arg.CreatedByUserID,
+		arg.WorkDatabase,
+		arg.WorkTable,
+		arg.DisplayName,
+		arg.RowCount,
+		arg.TotalBytes,
+		arg.Engine,
+	)
+	var i DatasetWorkTable
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.SourceDatasetID,
+		&i.CreatedFromQueryJobID,
+		&i.CreatedByUserID,
+		&i.WorkDatabase,
+		&i.WorkTable,
+		&i.DisplayName,
+		&i.Status,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.Engine,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DroppedAt,
 	)
 	return i, err
 }

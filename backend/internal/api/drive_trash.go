@@ -51,7 +51,7 @@ func registerDriveTrashRoutes(api huma.API, deps Dependencies) {
 			Limit:       input.Limit,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveItemListOutput(items), nil
 	})
@@ -75,7 +75,7 @@ func registerDriveTrashRoutes(api huma.API, deps Dependencies) {
 			ParentFolderPublicID: input.Body.ParentFolderPublicID,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveFileOutput{Body: toDriveFileBody(file)}, nil
 	})
@@ -99,7 +99,7 @@ func registerDriveTrashRoutes(api huma.API, deps Dependencies) {
 			ParentFolderPublicID: input.Body.ParentFolderPublicID,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveFolderOutput{Body: toDriveFolderBody(folder)}, nil
 	})

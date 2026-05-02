@@ -70,7 +70,7 @@ func registerDriveWorkspaceRoutes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListWorkspaces(ctx, tenant.ID, current.User.ID, input.Limit)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveWorkspaceListOutput{}
 		for _, item := range items {
@@ -99,7 +99,7 @@ func registerDriveWorkspaceRoutes(api huma.API, deps Dependencies) {
 			PolicyOverrideJSON: drivePolicyOverrideJSON(input.Body.PolicyOverride),
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveWorkspaceOutput{Body: toDriveWorkspaceBody(workspace)}, nil
 	})
@@ -125,7 +125,7 @@ func registerDriveWorkspaceRoutes(api huma.API, deps Dependencies) {
 			PolicyOverrideJSON: drivePolicyOverrideJSON(input.Body.PolicyOverride),
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveWorkspaceOutput{Body: toDriveWorkspaceBody(workspace)}, nil
 	})
@@ -144,7 +144,7 @@ func registerDriveWorkspaceRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.DeleteWorkspace(ctx, tenant.ID, current.User.ID, input.WorkspacePublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})

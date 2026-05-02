@@ -94,7 +94,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 			Password:    input.Body.Password,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareLinkOutput{Body: toDriveShareLinkBody(link, true)}, nil
 	})
@@ -121,7 +121,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 			Password:    input.Body.Password,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareLinkOutput{Body: toDriveShareLinkBody(link, true)}, nil
 	})
@@ -146,7 +146,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 			ExpiresAt:   input.Body.ExpiresAt,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareLinkOutput{Body: toDriveShareLinkBody(link, false)}, nil
 	})
@@ -165,7 +165,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.DisableShareLink(ctx, service.DriveDisableShareLinkInput{TenantID: tenant.ID, ActorUserID: current.User.ID, ShareLinkID: input.ShareLinkPublicID}, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -182,7 +182,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 		}
 		link, file, folder, err := deps.DriveService.PublicShareLinkMetadata(ctx, input.Token)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &PublicDriveShareLinkOutput{}
 		out.Body.Link = toDriveShareLinkBody(link, false)
@@ -209,7 +209,7 @@ func registerDriveShareLinkRoutes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.PublicShareLinkFolderChildrenWithVerification(ctx, input.Token, input.VerificationCookie.Value, input.Limit)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveItemListOutput(items), nil
 	})

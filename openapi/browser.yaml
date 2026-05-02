@@ -714,6 +714,16 @@ components:
             - 10000000
           format: int64
           type: integer
+        sourceFileObjectId:
+          format: int64
+          type: integer
+        sourceKind:
+          examples:
+            - file
+          type: string
+        sourceWorkTableId:
+          format: int64
+          type: integer
         status:
           examples:
             - ready
@@ -727,6 +737,7 @@ components:
           type: string
       required:
         - publicId
+        - sourceKind
         - name
         - originalFilename
         - contentType
@@ -1028,6 +1039,301 @@ components:
             - "null"
       required:
         - items
+      type: object
+    DatasetWorkTableBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTableBody.json
+          format: uri
+          readOnly: true
+          type: string
+        columns:
+          items:
+            $ref: "#/components/schemas/DatasetWorkTableColumnBody"
+          type:
+            - array
+            - "null"
+        createdAt:
+          format: date-time
+          type: string
+        database:
+          examples:
+            - hh_t_1_work
+          type: string
+        displayName:
+          examples:
+            - hai_category_summary
+          type: string
+        droppedAt:
+          format: date-time
+          type: string
+        engine:
+          examples:
+            - MergeTree
+          type: string
+        managed:
+          type: boolean
+        originDatasetName:
+          type: string
+        originDatasetPublicId:
+          format: uuid
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        status:
+          examples:
+            - active
+          type: string
+        table:
+          examples:
+            - hai_category_summary
+          type: string
+        totalBytes:
+          examples:
+            - 1048576
+          format: int64
+          type: integer
+        totalRows:
+          examples:
+            - 1000
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - database
+        - table
+        - displayName
+        - status
+        - managed
+        - engine
+        - totalRows
+        - totalBytes
+        - createdAt
+        - updatedAt
+      type: object
+    DatasetWorkTableColumnBody:
+      additionalProperties: false
+      properties:
+        clickHouseType:
+          examples:
+            - Nullable(String)
+          type: string
+        columnName:
+          examples:
+            - category
+          type: string
+        ordinal:
+          examples:
+            - 1
+          format: int32
+          type: integer
+      required:
+        - ordinal
+        - columnName
+        - clickHouseType
+      type: object
+    DatasetWorkTableExportBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTableExportBody.json
+          format: uri
+          readOnly: true
+          type: string
+        completedAt:
+          format: date-time
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        errorSummary:
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        fileObjectId:
+          format: int64
+          type: integer
+        format:
+          examples:
+            - csv
+          type: string
+        publicId:
+          format: uuid
+          type: string
+        status:
+          examples:
+            - processing
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        workTableId:
+          format: int64
+          type: integer
+      required:
+        - publicId
+        - workTableId
+        - format
+        - status
+        - expiresAt
+        - createdAt
+        - updatedAt
+      type: object
+    DatasetWorkTableExportListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTableExportListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DatasetWorkTableExportBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DatasetWorkTableLinkBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTableLinkBody.json
+          format: uri
+          readOnly: true
+          type: string
+        datasetPublicId:
+          format: uuid
+          type: string
+      required:
+        - datasetPublicId
+      type: object
+    DatasetWorkTableListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTableListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/DatasetWorkTableBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DatasetWorkTablePreviewBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTablePreviewBody.json
+          format: uri
+          readOnly: true
+          type: string
+        columns:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        database:
+          examples:
+            - hh_t_1_work
+          type: string
+        previewRows:
+          items:
+            additionalProperties: {}
+            type: object
+          type:
+            - array
+            - "null"
+        table:
+          examples:
+            - hai_category_summary
+          type: string
+      required:
+        - database
+        - table
+        - columns
+        - previewRows
+      type: object
+    DatasetWorkTablePromoteBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTablePromoteBody.json
+          format: uri
+          readOnly: true
+          type: string
+        name:
+          maxLength: 160
+          type: string
+      type: object
+    DatasetWorkTableRegisterBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTableRegisterBody.json
+          format: uri
+          readOnly: true
+          type: string
+        database:
+          maxLength: 128
+          type: string
+        datasetPublicId:
+          format: uuid
+          type: string
+        displayName:
+          maxLength: 160
+          type: string
+        table:
+          maxLength: 256
+          type: string
+      required:
+        - database
+        - table
+      type: object
+    DatasetWorkTableRenameBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTableRenameBody.json
+          format: uri
+          readOnly: true
+          type: string
+        table:
+          maxLength: 256
+          type: string
+      required:
+        - table
       type: object
     DriveAIClassificationBody:
       additionalProperties: false
@@ -9118,6 +9424,583 @@ paths:
       summary: Dataset に取り込める Drive CSV file 一覧を返す
       tags:
         - datasets
+  /api/v1/dataset-work-table-exports/{exportPublicId}:
+    get:
+      operationId: getDatasetWorkTableExport
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: exportPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableExportBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: work table export detail を返す
+      tags:
+        - datasets
+  /api/v1/dataset-work-table-exports/{exportPublicId}/download:
+    get:
+      operationId: downloadDatasetWorkTableExport
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: exportPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                contentEncoding: base64
+                type: string
+          description: OK
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+            Content-Type:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: ready work table export を download する
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables:
+    get:
+      operationId: listDatasetWorkTables
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableListBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の ClickHouse work table 一覧を返す
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables/by-ref/{database}/{table}:
+    get:
+      operationId: getDatasetWorkTable
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: database
+          required: true
+          schema:
+            maxLength: 128
+            type: string
+        - in: path
+          name: table
+          required: true
+          schema:
+            maxLength: 256
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の ClickHouse work table detail を返す
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables/by-ref/{database}/{table}/preview:
+    get:
+      operationId: getDatasetWorkTablePreview
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: database
+          required: true
+          schema:
+            maxLength: 128
+            type: string
+        - in: path
+          name: table
+          required: true
+          schema:
+            maxLength: 256
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            maximum: 1000
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTablePreviewBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の ClickHouse work table preview rows を返す
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables/register:
+    post:
+      operationId: registerDatasetWorkTable
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetWorkTableRegisterBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の ClickHouse work table を管理レコード化する
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables/{workTablePublicId}:
+    delete:
+      operationId: deleteDatasetWorkTable
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: managed work table を drop する
+      tags:
+        - datasets
+    get:
+      operationId: getManagedDatasetWorkTable
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: managed work table detail を返す
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables/{workTablePublicId}/exports:
+    get:
+      operationId: listDatasetWorkTableExports
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 25
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableExportListBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: managed work table の CSV export 一覧を返す
+      tags:
+        - datasets
+    post:
+      operationId: createDatasetWorkTableExport
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableExportBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: managed work table の CSV export を request する
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables/{workTablePublicId}/link:
+    post:
+      operationId: linkDatasetWorkTable
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetWorkTableLinkBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: managed work table を dataset に紐付ける
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables/{workTablePublicId}/preview:
+    get:
+      operationId: getManagedDatasetWorkTablePreview
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            maximum: 1000
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTablePreviewBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: managed work table preview rows を返す
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables/{workTablePublicId}/promote:
+    post:
+      operationId: promoteDatasetWorkTable
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetWorkTablePromoteBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: managed work table を dataset 化する
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables/{workTablePublicId}/rename:
+    post:
+      operationId: renameDatasetWorkTable
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetWorkTableRenameBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: managed work table を rename する
+      tags:
+        - datasets
+  /api/v1/dataset-work-tables/{workTablePublicId}/truncate:
+    post:
+      operationId: truncateDatasetWorkTable
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: managed work table を truncate する
+      tags:
+        - datasets
   /api/v1/datasets:
     get:
       operationId: listDatasets
@@ -9251,6 +10134,130 @@ paths:
       security:
         - cookieAuth: []
       summary: active tenant の dataset detail を返す
+      tags:
+        - datasets
+  /api/v1/datasets/{datasetPublicId}/query-jobs:
+    get:
+      operationId: listDatasetScopedQueryJobs
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: datasetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 25
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetQueryListBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset に紐づく query job 一覧を返す
+      tags:
+        - datasets
+    post:
+      operationId: createDatasetScopedQueryJob
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: datasetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetQueryCreateBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetQueryJobBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset に紐づく SQL query job を作成する
+      tags:
+        - datasets
+  /api/v1/datasets/{datasetPublicId}/work-tables:
+    get:
+      operationId: listDatasetScopedWorkTables
+      parameters:
+        - in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - in: path
+          name: datasetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableListBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - cookieAuth: []
+      summary: dataset に紐づく managed work table 一覧を返す
       tags:
         - datasets
   /api/v1/drive-mobile/offline/replay:

@@ -2,12 +2,29 @@ import { readCookie } from './client'
 import {
   createDataset,
   createDatasetQueryJob,
+  createDatasetScopedQueryJob,
+  createDatasetWorkTableExport,
   deleteDataset,
+  deleteDatasetWorkTable,
+  getDatasetWorkTableExport,
+  getDatasetWorkTable,
+  getDatasetWorkTablePreview,
   getCsrf,
   getDataset,
+  getManagedDatasetWorkTable,
+  getManagedDatasetWorkTablePreview,
+  linkDatasetWorkTable,
   listDatasetQueryJobs,
   listDatasets,
+  listDatasetScopedQueryJobs,
+  listDatasetScopedWorkTables,
   listDatasetSourceFiles,
+  listDatasetWorkTableExports,
+  listDatasetWorkTables,
+  promoteDatasetWorkTable,
+  registerDatasetWorkTable,
+  renameDatasetWorkTable,
+  truncateDatasetWorkTable,
 } from './generated/sdk.gen'
 import type {
   DatasetBody,
@@ -15,6 +32,13 @@ import type {
   DatasetQueryCreateBodyWritable,
   DatasetQueryJobBody,
   DatasetSourceFileBody,
+  DatasetWorkTableBody,
+  DatasetWorkTableExportBody,
+  DatasetWorkTableLinkBodyWritable,
+  DatasetWorkTablePreviewBody,
+  DatasetWorkTablePromoteBodyWritable,
+  DatasetWorkTableRegisterBodyWritable,
+  DatasetWorkTableRenameBodyWritable,
 } from './generated/types.gen'
 
 function csrfHeaders() {
@@ -53,6 +77,124 @@ export async function fetchDatasetSourceFiles(query = ''): Promise<DatasetSource
   return data.items ?? []
 }
 
+export async function fetchDatasetWorkTables(): Promise<DatasetWorkTableBody[]> {
+  const data = await listDatasetWorkTables({
+    query: { limit: 100 },
+  }) as unknown as { items?: DatasetWorkTableBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchDatasetWorkTable(database: string, table: string): Promise<DatasetWorkTableBody> {
+  return getDatasetWorkTable({
+    path: { database, table },
+  }) as unknown as Promise<DatasetWorkTableBody>
+}
+
+export async function fetchDatasetWorkTablePreview(database: string, table: string): Promise<DatasetWorkTablePreviewBody> {
+  return getDatasetWorkTablePreview({
+    path: { database, table },
+    query: { limit: 100 },
+  }) as unknown as Promise<DatasetWorkTablePreviewBody>
+}
+
+export async function registerWorkTable(body: DatasetWorkTableRegisterBodyWritable): Promise<DatasetWorkTableBody> {
+  await ensureCSRFCookie()
+  return registerDatasetWorkTable({
+    headers: csrfHeaders(),
+    body,
+  }) as unknown as Promise<DatasetWorkTableBody>
+}
+
+export async function fetchManagedDatasetWorkTable(workTablePublicId: string): Promise<DatasetWorkTableBody> {
+  return getManagedDatasetWorkTable({
+    path: { workTablePublicId },
+  }) as unknown as Promise<DatasetWorkTableBody>
+}
+
+export async function fetchManagedDatasetWorkTablePreview(workTablePublicId: string): Promise<DatasetWorkTablePreviewBody> {
+  return getManagedDatasetWorkTablePreview({
+    path: { workTablePublicId },
+    query: { limit: 100 },
+  }) as unknown as Promise<DatasetWorkTablePreviewBody>
+}
+
+export async function fetchDatasetLinkedWorkTables(datasetPublicId: string): Promise<DatasetWorkTableBody[]> {
+  const data = await listDatasetScopedWorkTables({
+    path: { datasetPublicId },
+    query: { limit: 100 },
+  }) as unknown as { items?: DatasetWorkTableBody[] | null }
+  return data.items ?? []
+}
+
+export async function linkWorkTable(workTablePublicId: string, body: DatasetWorkTableLinkBodyWritable): Promise<DatasetWorkTableBody> {
+  await ensureCSRFCookie()
+  return linkDatasetWorkTable({
+    headers: csrfHeaders(),
+    path: { workTablePublicId },
+    body,
+  }) as unknown as Promise<DatasetWorkTableBody>
+}
+
+export async function renameWorkTable(workTablePublicId: string, body: DatasetWorkTableRenameBodyWritable): Promise<DatasetWorkTableBody> {
+  await ensureCSRFCookie()
+  return renameDatasetWorkTable({
+    headers: csrfHeaders(),
+    path: { workTablePublicId },
+    body,
+  }) as unknown as Promise<DatasetWorkTableBody>
+}
+
+export async function truncateWorkTable(workTablePublicId: string): Promise<DatasetWorkTableBody> {
+  await ensureCSRFCookie()
+  return truncateDatasetWorkTable({
+    headers: csrfHeaders(),
+    path: { workTablePublicId },
+  }) as unknown as Promise<DatasetWorkTableBody>
+}
+
+export async function dropWorkTable(workTablePublicId: string): Promise<void> {
+  await ensureCSRFCookie()
+  await deleteDatasetWorkTable({
+    headers: csrfHeaders(),
+    path: { workTablePublicId },
+  })
+}
+
+export async function promoteWorkTable(workTablePublicId: string, body: DatasetWorkTablePromoteBodyWritable): Promise<DatasetBody> {
+  await ensureCSRFCookie()
+  return promoteDatasetWorkTable({
+    headers: csrfHeaders(),
+    path: { workTablePublicId },
+    body,
+  }) as unknown as Promise<DatasetBody>
+}
+
+export async function requestWorkTableExport(workTablePublicId: string): Promise<DatasetWorkTableExportBody> {
+  await ensureCSRFCookie()
+  return createDatasetWorkTableExport({
+    headers: csrfHeaders(),
+    path: { workTablePublicId },
+  }) as unknown as Promise<DatasetWorkTableExportBody>
+}
+
+export async function fetchWorkTableExports(workTablePublicId: string): Promise<DatasetWorkTableExportBody[]> {
+  const data = await listDatasetWorkTableExports({
+    path: { workTablePublicId },
+    query: { limit: 25 },
+  }) as unknown as { items?: DatasetWorkTableExportBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchWorkTableExport(exportPublicId: string): Promise<DatasetWorkTableExportBody> {
+  return getDatasetWorkTableExport({
+    path: { exportPublicId },
+  }) as unknown as Promise<DatasetWorkTableExportBody>
+}
+
+export function workTableExportDownloadUrl(exportPublicId: string): string {
+  return `/api/v1/dataset-work-table-exports/${encodeURIComponent(exportPublicId)}/download`
+}
+
 export async function createDatasetFromDriveFile(body: DatasetCreateBodyWritable): Promise<DatasetBody> {
   await ensureCSRFCookie()
   return createDataset({
@@ -62,6 +204,7 @@ export async function createDatasetFromDriveFile(body: DatasetCreateBodyWritable
 }
 
 export async function deleteDatasetItem(datasetPublicId: string): Promise<void> {
+  await ensureCSRFCookie()
   await deleteDataset({
     headers: csrfHeaders(),
     path: { datasetPublicId },
@@ -69,14 +212,32 @@ export async function deleteDatasetItem(datasetPublicId: string): Promise<void> 
 }
 
 export async function createDatasetQuery(body: DatasetQueryCreateBodyWritable): Promise<DatasetQueryJobBody> {
+  await ensureCSRFCookie()
   return createDatasetQueryJob({
     headers: csrfHeaders(),
     body,
   }) as unknown as Promise<DatasetQueryJobBody>
 }
 
+export async function createDatasetScopedQuery(datasetPublicId: string, body: DatasetQueryCreateBodyWritable): Promise<DatasetQueryJobBody> {
+  await ensureCSRFCookie()
+  return createDatasetScopedQueryJob({
+    headers: csrfHeaders(),
+    path: { datasetPublicId },
+    body,
+  }) as unknown as Promise<DatasetQueryJobBody>
+}
+
 export async function fetchDatasetQueryJobs(): Promise<DatasetQueryJobBody[]> {
   const data = await listDatasetQueryJobs({
+    query: { limit: 25 },
+  }) as unknown as { items?: DatasetQueryJobBody[] | null }
+  return data.items ?? []
+}
+
+export async function fetchDatasetScopedQueryJobs(datasetPublicId: string): Promise<DatasetQueryJobBody[]> {
+  const data = await listDatasetScopedQueryJobs({
+    path: { datasetPublicId },
     query: { limit: 25 },
   }) as unknown as { items?: DatasetQueryJobBody[] | null }
   return data.items ?? []

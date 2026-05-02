@@ -220,7 +220,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.CreateOfficeSession(ctx, tenant.ID, current.User.ID, input.FilePublicID, input.Body.AccessLevel, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveOfficeSessionOutput{Body: toDriveOfficeSessionBody(item)}, nil
 	})
@@ -231,7 +231,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.RevokeOfficeSession(ctx, tenant.ID, current.User.ID, input.SessionPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -245,7 +245,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 			Checksum:        input.Body.Checksum,
 		})
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveOfficeWebhookOutput{}
 		out.Body.ProviderEventID = item.ProviderEventID
@@ -262,7 +262,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.CreateE2EEUserKey(ctx, tenant.ID, current.User.ID, input.Body.Algorithm, input.Body.PublicKey, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveE2EEUserKeyOutput{Body: DriveE2EEUserKeyBody{PublicID: item.PublicID, UserPublicID: item.UserPublicID, Algorithm: item.Algorithm, Status: item.Status, CreatedAt: item.CreatedAt}}, nil
 	})
@@ -274,7 +274,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.CreateE2EEFileKey(ctx, tenant.ID, current.User.ID, input.FilePublicID, input.Body.Algorithm, input.Body.CiphertextSHA256, input.Body.WrappedFileKey, input.Body.WrapAlgorithm, input.Body.Metadata, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveE2EEFileKeyOutput{Body: DriveE2EEFileKeyBody{PublicID: item.PublicID, FilePublicID: item.FilePublicID, KeyVersion: item.KeyVersion, Algorithm: item.Algorithm, CiphertextSHA256: item.CiphertextSHA256, CreatedAt: item.CreatedAt}}, nil
 	})
@@ -286,7 +286,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.CreateE2EERecipientEnvelope(ctx, tenant.ID, current.User.ID, input.FilePublicID, input.Body.RecipientUserPublicID, input.Body.WrappedFileKey, input.Body.WrapAlgorithm, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveE2EEEnvelopeOutput{Body: toDriveE2EEEnvelopeBody(item)}, nil
 	})
@@ -298,7 +298,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.GetE2EEEnvelope(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveE2EEEnvelopeOutput{Body: toDriveE2EEEnvelopeBody(item)}, nil
 	})
@@ -309,7 +309,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.RevokeE2EEEnvelope(ctx, tenant.ID, current.User.ID, input.FilePublicID, input.RecipientUserPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -321,7 +321,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.CreateAIJob(ctx, tenant.ID, current.User.ID, input.FilePublicID, input.Body.JobType, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveAIJobOutput{Body: DriveAIJobBody{PublicID: item.PublicID, FilePublicID: item.FilePublicID, JobType: item.JobType, Provider: item.Provider, Status: item.Status, CreatedAt: item.CreatedAt}}, nil
 	})
@@ -333,7 +333,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.GetAISummary(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveAISummaryOutput{Body: DriveAISummaryBody{PublicID: item.PublicID, FilePublicID: item.FilePublicID, SummaryText: item.SummaryText, Provider: item.Provider, CreatedAt: item.CreatedAt}}, nil
 	})
@@ -345,7 +345,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListAIClassifications(ctx, tenant.ID, current.User.ID, input.FilePublicID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveAIClassificationsOutput{}
 		for _, item := range items {
@@ -360,7 +360,7 @@ func registerDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListMarketplaceApps(ctx)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveMarketplaceAppsOutput{}
 		for _, item := range items {

@@ -86,7 +86,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 	}, func(ctx context.Context, input *GetSessionInput) (*GetSessionOutput, error) {
 		current, err := deps.SessionService.CurrentSession(ctx, input.SessionCookie.Value)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 
 		body := SessionBody{User: toUserResponse(current.User)}
@@ -106,7 +106,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 	}, func(ctx context.Context, input *LoginInput) (*LoginOutput, error) {
 		user, sessionID, csrfToken, err := deps.SessionService.Login(ctx, input.Body.Email, input.Body.Password, auditRequest(ctx))
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 
 		return &LoginOutput{
@@ -133,7 +133,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 	}, func(ctx context.Context, input *GetCSRFInput) (*GetCSRFOutput, error) {
 		csrfToken, err := deps.SessionService.ReissueCSRF(ctx, input.SessionCookie.Value)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 
 		return &GetCSRFOutput{
@@ -156,7 +156,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 	}, func(ctx context.Context, input *RefreshSessionInput) (*RefreshSessionOutput, error) {
 		sessionID, csrfToken, err := deps.SessionService.RefreshSession(ctx, input.SessionCookie.Value, input.CSRFToken, auditRequest(ctx))
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 
 		return &RefreshSessionOutput{
@@ -180,7 +180,7 @@ func registerSessionRoutes(api huma.API, deps Dependencies) {
 	}, func(ctx context.Context, input *LogoutInput) (*LogoutOutput, error) {
 		idTokenHint, err := deps.SessionService.Logout(ctx, input.SessionCookie.Value, input.CSRFToken, auditRequest(ctx))
 		if err != nil && !errors.Is(err, service.ErrUnauthorized) {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 
 		return &LogoutOutput{
@@ -204,16 +204,5 @@ func toUserResponse(user service.User) UserResponse {
 }
 
 func toHTTPError(err error) error {
-	switch {
-	case errors.Is(err, service.ErrInvalidCredentials):
-		return huma.Error401Unauthorized("invalid credentials")
-	case errors.Is(err, service.ErrUnauthorized):
-		return huma.Error401Unauthorized("missing or expired session")
-	case errors.Is(err, service.ErrInvalidCSRFToken):
-		return huma.Error403Forbidden("invalid csrf token")
-	case errors.Is(err, service.ErrAuthModeUnsupported):
-		return huma.Error501NotImplemented("password login is disabled for the current auth mode")
-	default:
-		return huma.Error500InternalServerError("internal server error")
-	}
+	return toHTTPErrorWithLog(context.Background(), Dependencies{}, "", err)
 }

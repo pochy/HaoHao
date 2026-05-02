@@ -24,6 +24,7 @@ func RequestLogger(logger *slog.Logger) gin.HandlerFunc {
 			path = "unmatched"
 		}
 		attrs := []any{
+			"log_type", "access",
 			"request_id", RequestIDFromContext(c),
 			"method", c.Request.Method,
 			"path", path,

@@ -139,6 +139,31 @@ func (h *P7OutboxHandler) HandleOutboxEvent(ctx context.Context, event db.Outbox
 			return nil
 		}
 		return h.datasets.HandleImportRequested(ctx, payload.TenantID, payload.ImportJobID, event.ID)
+	case "dataset.work_table_promote_requested":
+		var payload struct {
+			TenantID    int64 `json:"tenantId"`
+			DatasetID   int64 `json:"datasetId"`
+			WorkTableID int64 `json:"workTableId"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.datasets == nil {
+			return nil
+		}
+		return h.datasets.HandleWorkTablePromotionRequested(ctx, payload.TenantID, payload.DatasetID, payload.WorkTableID)
+	case "dataset.work_table_export_requested":
+		var payload struct {
+			TenantID int64 `json:"tenantId"`
+			ExportID int64 `json:"exportId"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.datasets == nil {
+			return nil
+		}
+		return h.datasets.HandleWorkTableExportRequested(ctx, payload.TenantID, payload.ExportID)
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownOutboxEvent, event.EventType)
 	}

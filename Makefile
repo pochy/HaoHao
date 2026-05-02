@@ -88,10 +88,10 @@ air-check:
 		exit 1; \
 	}
 
-backend-dev: air-check
+backend-dev: air-check db-up
 	$(export-env) && $(AIR_BIN) -c .air.toml
 
-backend-run:
+backend-run: db-up
 	$(export-env) && go run ./backend/cmd/main
 
 frontend-dev:

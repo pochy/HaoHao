@@ -102,7 +102,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 			Resolver:             browserAPIRateLimitResolver(sessionService, tenantSettingsService, rateLimitDefaults),
 		}, metrics),
 		middleware.RequestLogger(logger),
-		gin.Recovery(),
+		middleware.Recovery(logger),
 		middleware.DocsAuth(cfg.DocsAuthRequired, sessionService, authzService),
 		middleware.ExternalCORS("/api/external/", cfg.ExternalAllowedOrigins),
 		middleware.ExternalAuth("/api/external/", bearerVerifier, authzService, "zitadel", cfg.ExternalExpectedAudience, cfg.ExternalRequiredScopePrefix, cfg.ExternalRequiredRole, metrics),
@@ -114,6 +114,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	api := humagin.New(router, humaConfigForSurface(cfg, backendapi.SurfaceFull))
 
 	deps := dependenciesWithConfig(cfg, backendapi.Dependencies{
+		Logger:                           logger,
 		SessionService:                   sessionService,
 		OIDCLoginService:                 oidcLoginService,
 		DelegationService:                delegationService,
@@ -142,6 +143,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	})
 	backendapi.Register(api, deps)
 	backendapi.RegisterRawFileRoutes(router, backendapi.Dependencies{
+		Logger:                logger,
 		SessionService:        sessionService,
 		AuthzService:          authzService,
 		FileService:           fileService,

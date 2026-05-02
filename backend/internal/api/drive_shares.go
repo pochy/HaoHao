@@ -96,7 +96,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 		}
 		permissions, err := deps.DriveService.ListPermissions(ctx, tenant.ID, current.User.ID, service.DriveResourceRef{Type: service.DriveResourceTypeFile, PublicID: input.FilePublicID, TenantID: tenant.ID}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DrivePermissionsOutput{Body: toDrivePermissionsBody(permissions)}, nil
 	})
@@ -115,7 +115,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 		}
 		permissions, err := deps.DriveService.ListPermissions(ctx, tenant.ID, current.User.ID, service.DriveResourceRef{Type: service.DriveResourceTypeFolder, PublicID: input.FolderPublicID, TenantID: tenant.ID}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DrivePermissionsOutput{Body: toDrivePermissionsBody(permissions)}, nil
 	})
@@ -141,7 +141,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 			Role:            service.DriveRole(input.Body.Role),
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareOutput{Body: toDriveShareBody(share)}, nil
 	})
@@ -167,7 +167,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 			Role:            service.DriveRole(input.Body.Role),
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareOutput{Body: toDriveShareBody(share)}, nil
 	})
@@ -192,7 +192,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 			Role:        service.DriveRole(input.Body.Role),
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareOutput{Body: toDriveShareBody(share)}, nil
 	})
@@ -217,7 +217,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 			Role:        service.DriveRole(input.Body.Role),
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareOutput{Body: toDriveShareBody(share)}, nil
 	})
@@ -236,7 +236,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.RevokeShare(ctx, service.DriveRevokeShareInput{TenantID: tenant.ID, ActorUserID: current.User.ID, ShareID: input.SharePublicID}, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -255,7 +255,7 @@ func registerDriveShareRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.RevokeShare(ctx, service.DriveRevokeShareInput{TenantID: tenant.ID, ActorUserID: current.User.ID, ShareID: input.SharePublicID}, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})

@@ -32,6 +32,7 @@ type Config struct {
 	OTELExporterOTLPInsecure      bool
 	OTELTraceSampleRatio          float64
 	DatabaseURL                   string
+	DBMigrationCheckMode          string
 	AuthMode                      string
 	ZitadelIssuer                 string
 	ZitadelClientID               string
@@ -222,6 +223,10 @@ func Load() (Config, error) {
 	zitadelPostLogoutRedirectURI := resolveZitadelPostLogoutRedirectURI(frontendBaseURL, getEnv("ZITADEL_POST_LOGOUT_REDIRECT_URI", defaultZitadelPostLogoutRedirectURI(frontendBaseURL)), frontendEmbedded)
 	metricsPath := normalizePath(getEnv("METRICS_PATH", "/metrics"), "/metrics")
 	otelTraceSampleRatio := clampFloat64(getEnvFloat64("OTEL_TRACES_SAMPLER_RATIO", 0.1), 0, 1)
+	dbMigrationCheckMode, err := normalizeDBMigrationCheckMode(getEnv("DB_MIGRATION_CHECK_MODE", "warn"))
+	if err != nil {
+		return Config{}, err
+	}
 	openFGAConfig := OpenFGAConfig{
 		Enabled:              getEnvBool("OPENFGA_ENABLED", false),
 		APIURL:               strings.TrimRight(strings.TrimSpace(getEnv("OPENFGA_API_URL", "http://127.0.0.1:8088")), "/"),
@@ -267,6 +272,7 @@ func Load() (Config, error) {
 		OTELExporterOTLPInsecure:      getEnvBool("OTEL_EXPORTER_OTLP_INSECURE", true),
 		OTELTraceSampleRatio:          otelTraceSampleRatio,
 		DatabaseURL:                   getEnv("DATABASE_URL", ""),
+		DBMigrationCheckMode:          dbMigrationCheckMode,
 		AuthMode:                      getEnv("AUTH_MODE", "local"),
 		ZitadelIssuer:                 strings.TrimRight(getEnv("ZITADEL_ISSUER", ""), "/"),
 		ZitadelClientID:               getEnv("ZITADEL_CLIENT_ID", ""),
@@ -393,6 +399,19 @@ func validateFileStorageConfig(driver, endpoint, bucket, accessKeyID, secretAcce
 		return nil
 	default:
 		return fmt.Errorf("unsupported FILE_STORAGE_DRIVER %q", driver)
+	}
+}
+
+func normalizeDBMigrationCheckMode(value string) (string, error) {
+	mode := strings.ToLower(strings.TrimSpace(value))
+	if mode == "" {
+		mode = "warn"
+	}
+	switch mode {
+	case "warn", "fail", "off":
+		return mode, nil
+	default:
+		return "", fmt.Errorf("DB_MIGRATION_CHECK_MODE must be warn, fail, or off")
 	}
 }
 

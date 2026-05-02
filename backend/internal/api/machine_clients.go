@@ -203,7 +203,7 @@ func requireMachineClientAdmin(ctx context.Context, deps Dependencies, sessionID
 			errors.Is(err, service.ErrInvalidCSRFToken) ||
 			errors.Is(err, service.ErrAuthModeUnsupported) ||
 			errors.Is(err, service.ErrInvalidCredentials) {
-			return service.CurrentSession{}, toHTTPError(err)
+			return service.CurrentSession{}, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return service.CurrentSession{}, err
 	}

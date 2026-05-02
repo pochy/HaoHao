@@ -66,6 +66,9 @@ func main() {
 		fatal(logger, "connect postgres", err)
 	}
 	defer pool.Close()
+	if err := platform.CheckMigrationVersion(ctx, pool, "db/migrations", cfg.DBMigrationCheckMode, logger); err != nil {
+		fatal(logger, "check database migrations", err)
+	}
 
 	redisClient, err := platform.NewRedisClient(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
 	if err != nil {

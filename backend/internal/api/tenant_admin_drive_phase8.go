@@ -214,7 +214,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		result, err := deps.DriveService.RebuildDriveSearchIndex(ctx, tenant.ID, current.User.ID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveIndexRebuildOutput{Body: DriveIndexRebuildBody{Indexed: result.Indexed, Skipped: result.Skipped, Failed: result.Failed}}, nil
 	})
@@ -226,7 +226,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		policy, err := deps.DriveService.GetEncryptionPolicy(ctx, tenant.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminDriveEncryptionPolicyOutput{Body: toTenantAdminDriveEncryptionPolicyBody(policy)}, nil
 	})
@@ -238,7 +238,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		policy, err := deps.DriveService.UpsertEncryptionPolicy(ctx, tenant.ID, current.User.ID, input.Body.Mode, input.Body.Provider, input.Body.KeyRef, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminDriveEncryptionPolicyOutput{Body: toTenantAdminDriveEncryptionPolicyBody(policy)}, nil
 	})
@@ -250,7 +250,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		policy, err := deps.DriveService.SetEncryptionKeyStatus(ctx, tenant.ID, current.User.ID, input.KeyPublicID, input.Body.Status, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminDriveEncryptionPolicyOutput{Body: toTenantAdminDriveEncryptionPolicyBody(policy)}, nil
 	})
@@ -262,7 +262,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		policy, err := deps.DriveService.GetResidencyPolicy(ctx, tenant.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminDriveResidencyPolicyOutput{Body: toTenantAdminDriveResidencyPolicyBody(policy)}, nil
 	})
@@ -280,7 +280,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 			BackupRegion:    input.Body.BackupRegion,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminDriveResidencyPolicyOutput{Body: toTenantAdminDriveResidencyPolicyBody(policy)}, nil
 	})
@@ -292,7 +292,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.CreateLegalCase(ctx, tenant.ID, current.User.ID, input.Body.Name, input.Body.Description, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveLegalCaseOutput{Body: toDriveLegalCaseBody(item)}, nil
 	})
@@ -303,7 +303,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.AddLegalCaseFile(ctx, tenant.ID, current.User.ID, input.CasePublicID, input.Body.FilePublicID, input.Body.Reason, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -315,7 +315,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.CreateLegalExport(ctx, tenant.ID, current.User.ID, input.CasePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveLegalExportOutput{Body: DriveLegalExportBody{PublicID: item.PublicID, CasePublicID: item.CasePublicID, Status: item.Status, CreatedAt: item.CreatedAt}}, nil
 	})
@@ -327,7 +327,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		room, err := deps.DriveService.CreateCleanRoom(ctx, tenant.ID, current.User.ID, input.Body.Name, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveCleanRoomOutput{Body: toDriveCleanRoomBody(room)}, nil
 	})
@@ -338,7 +338,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.AddCleanRoomParticipant(ctx, tenant.ID, current.User.ID, input.RoomPublicID, input.Body.UserPublicID, input.Body.Role, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -350,7 +350,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		dataset, err := deps.DriveService.SubmitCleanRoomDataset(ctx, tenant.ID, current.User.ID, input.RoomPublicID, input.Body.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveCleanRoomDatasetOutput{Body: DriveCleanRoomDatasetBody{
 			PublicID: dataset.PublicID, CleanRoomPublicID: dataset.CleanRoomPublicID, SourceFilePublicID: dataset.SourceFilePublicID, Status: dataset.Status, CreatedAt: dataset.CreatedAt,
@@ -367,7 +367,7 @@ func registerTenantAdminDrivePhase8Routes(api huma.API, deps Dependencies) {
 			if export.PublicID != "" {
 				return &DriveCleanRoomExportOutput{Body: toDriveCleanRoomExportBody(export)}, nil
 			}
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveCleanRoomExportOutput{Body: toDriveCleanRoomExportBody(export)}, nil
 	})

@@ -68,7 +68,7 @@ func registerTenantAdminDriveOCRRoutes(api huma.API, deps Dependencies) {
 		}
 		status, err := deps.DriveOCRService.RuntimeStatus(ctx, tenant.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminDriveOCRStatusOutput{Body: toTenantAdminDriveOCRStatusBody(status)}, nil
 	})

@@ -82,7 +82,7 @@ type Dataset struct {
 	PublicID           uuid.UUID          `json:"public_id"`
 	TenantID           int64              `json:"tenant_id"`
 	CreatedByUserID    pgtype.Int8        `json:"created_by_user_id"`
-	SourceFileObjectID int64              `json:"source_file_object_id"`
+	SourceFileObjectID pgtype.Int8        `json:"source_file_object_id"`
 	Name               string             `json:"name"`
 	OriginalFilename   string             `json:"original_filename"`
 	ContentType        string             `json:"content_type"`
@@ -97,6 +97,8 @@ type Dataset struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	ImportedAt         pgtype.Timestamptz `json:"imported_at"`
 	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	SourceKind         string             `json:"source_kind"`
+	SourceWorkTableID  pgtype.Int8        `json:"source_work_table_id"`
 }
 
 type DatasetColumn struct {
@@ -143,6 +145,44 @@ type DatasetQueryJob struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	DatasetID         pgtype.Int8        `json:"dataset_id"`
+}
+
+type DatasetWorkTable struct {
+	ID                    int64              `json:"id"`
+	PublicID              uuid.UUID          `json:"public_id"`
+	TenantID              int64              `json:"tenant_id"`
+	SourceDatasetID       pgtype.Int8        `json:"source_dataset_id"`
+	CreatedFromQueryJobID pgtype.Int8        `json:"created_from_query_job_id"`
+	CreatedByUserID       pgtype.Int8        `json:"created_by_user_id"`
+	WorkDatabase          string             `json:"work_database"`
+	WorkTable             string             `json:"work_table"`
+	DisplayName           string             `json:"display_name"`
+	Status                string             `json:"status"`
+	RowCount              int64              `json:"row_count"`
+	TotalBytes            int64              `json:"total_bytes"`
+	Engine                string             `json:"engine"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	DroppedAt             pgtype.Timestamptz `json:"dropped_at"`
+}
+
+type DatasetWorkTableExport struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	WorkTableID       int64              `json:"work_table_id"`
+	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
+	FileObjectID      pgtype.Int8        `json:"file_object_id"`
+	OutboxEventID     pgtype.Int8        `json:"outbox_event_id"`
+	Format            string             `json:"format"`
+	Status            string             `json:"status"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	ErrorSummary      pgtype.Text        `json:"error_summary"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type DriveAdminContentAccessSession struct {

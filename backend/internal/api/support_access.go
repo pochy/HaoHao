@@ -100,7 +100,7 @@ func registerSupportAccessRoutes(api huma.API, deps Dependencies) {
 	huma.Register(api, huma.Operation{OperationID: "endSupportAccess", Method: http.MethodPost, Path: "/api/v1/support/access/end", Summary: "support access を終了する", Tags: []string{"support-access"}, DefaultStatus: http.StatusNoContent, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *EndSupportAccessInput) (*SupportAccessNoContentOutput, error) {
 		current, err := deps.SessionService.CurrentSessionWithCSRF(ctx, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		auditUserID := current.User.ID
 		if current.ActorUser != nil {

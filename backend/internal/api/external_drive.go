@@ -47,7 +47,7 @@ func registerExternalDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		file, err := deps.DriveService.GetFile(ctx, tenant.ID, authCtx.User.ID, input.FilePublicID, externalDriveAuditContext(authCtx, tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveFileOutput{Body: toDriveFileBody(file)}, nil
 	})
@@ -65,7 +65,7 @@ func registerExternalDriveRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.DeleteFile(ctx, tenant.ID, authCtx.User.ID, input.FilePublicID, externalDriveAuditContext(authCtx, tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -89,7 +89,7 @@ func registerExternalDriveRoutes(api huma.API, deps Dependencies) {
 			Limit:                input.Limit,
 		}, externalDriveAuditContext(authCtx, tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveItemListOutput(items), nil
 	})
@@ -114,7 +114,7 @@ func registerExternalDriveRoutes(api huma.API, deps Dependencies) {
 			Name:                 input.Body.Name,
 		}, externalDriveAuditContext(authCtx, tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveFolderOutput{Body: toDriveFolderBody(folder)}, nil
 	})
@@ -140,7 +140,7 @@ func registerExternalDriveRoutes(api huma.API, deps Dependencies) {
 			Role:            service.DriveRole(input.Body.Role),
 		}, externalDriveAuditContext(authCtx, tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareOutput{Body: toDriveShareBody(share)}, nil
 	})

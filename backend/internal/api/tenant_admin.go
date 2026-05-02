@@ -285,7 +285,7 @@ func requireTenantAdmin(ctx context.Context, deps Dependencies, sessionID, csrfT
 		if errors.As(err, &statusErr) {
 			return service.CurrentSession{}, err
 		}
-		return service.CurrentSession{}, toHTTPError(err)
+		return service.CurrentSession{}, toHTTPErrorWithLog(ctx, deps, "", err)
 	}
 	if !authCtx.HasRole("tenant_admin") {
 		return service.CurrentSession{}, huma.Error403Forbidden("tenant_admin role is required")

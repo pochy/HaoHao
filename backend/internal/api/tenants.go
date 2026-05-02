@@ -59,7 +59,7 @@ func registerTenantRoutes(api huma.API, deps Dependencies) {
 	}, func(ctx context.Context, input *ListTenantsInput) (*ListTenantsOutput, error) {
 		_, authCtx, err := currentSessionAuthContext(ctx, deps, input.SessionCookie.Value)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 
 		out := &ListTenantsOutput{}
@@ -87,7 +87,7 @@ func registerTenantRoutes(api huma.API, deps Dependencies) {
 	}, func(ctx context.Context, input *SelectTenantInput) (*SelectTenantOutput, error) {
 		current, err := deps.SessionService.CurrentSessionWithCSRF(ctx, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		if deps.AuthzService == nil {
 			return nil, huma.Error503ServiceUnavailable("tenant auth is not configured")
@@ -95,10 +95,10 @@ func registerTenantRoutes(api huma.API, deps Dependencies) {
 
 		tenant, err := deps.AuthzService.SelectTenant(ctx, current.User, input.Body.TenantSlug)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		if err := deps.SessionService.SetActiveTenant(ctx, input.SessionCookie.Value, input.CSRFToken, tenant.ID, auditRequest(ctx)); err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 
 		out := &SelectTenantOutput{}

@@ -1,42 +1,26 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Database, FileText, Play, RefreshCw, Search } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
+import { Database, FileText, RefreshCw, Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { toApiErrorMessage, toApiErrorRequestId } from '../api/client'
-import type { DatasetQueryJobBody } from '../api/generated/types.gen'
-import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
+import DatasetWorkTableBrowser from '../components/DatasetWorkTableBrowser.vue'
 import { useDatasetStore } from '../stores/datasets'
 import { useTenantStore } from '../stores/tenants'
 
-type DatasetTab = 'sql' | 'schema' | 'history'
-
 const datasetStore = useDatasetStore()
 const tenantStore = useTenantStore()
-const { d, n, t } = useI18n()
+const router = useRouter()
+const { d, t } = useI18n()
 
 const sourceSearch = ref('')
 const datasetName = ref('')
-const statement = ref('')
 const actionErrorMessage = ref('')
-const deleteTargetPublicId = ref('')
-const activeDatasetTab = ref<DatasetTab>('sql')
 let refreshTimer: number | undefined
 
-const selectedDataset = computed(() => datasetStore.selectedDataset)
 const selectedSourceFile = computed(() => datasetStore.selectedSourceFile)
-const latestQuery = computed(() => datasetStore.latestQuery ?? datasetStore.queryJobs[0] ?? null)
-const resultColumns = computed(() => latestQuery.value?.resultColumns ?? [])
-const resultRows = computed(() => latestQuery.value?.resultRows ?? [])
 const requestErrorMessage = computed(() => actionErrorMessage.value || datasetStore.errorMessage)
-
-const selectedTableName = computed(() => {
-  const item = selectedDataset.value
-  if (!item) {
-    return ''
-  }
-  return `\`${item.rawDatabase}\`.\`${item.rawTable}\``
-})
 
 const activeTenantLabel = computed(() => (
   tenantStore.activeTenant
@@ -65,23 +49,14 @@ watch(
   () => tenantStore.activeTenant?.slug,
   async (slug) => {
     actionErrorMessage.value = ''
-    statement.value = ''
+    datasetName.value = ''
     datasetStore.reset()
     if (slug) {
       await datasetStore.load()
-      fillSampleQuery()
+      await datasetStore.loadWorkTables()
     }
   },
   { immediate: true },
-)
-
-watch(
-  () => selectedDataset.value?.publicId,
-  () => {
-    if (!statement.value.trim()) {
-      fillSampleQuery()
-    }
-  },
 )
 
 watch(
@@ -144,9 +119,11 @@ async function importDataset() {
   }
   actionErrorMessage.value = ''
   try {
-    await datasetStore.importFromDriveFile(source.publicId, datasetName.value)
+    const created = await datasetStore.importFromDriveFile(source.publicId, datasetName.value)
     datasetName.value = ''
-    fillSampleQuery()
+    if (created) {
+      await router.push({ name: 'dataset-detail', params: { datasetPublicId: created.publicId } })
+    }
   } catch (error) {
     actionErrorMessage.value = formatActionError(error)
   }
@@ -155,6 +132,7 @@ async function importDataset() {
 async function refreshDatasets() {
   actionErrorMessage.value = ''
   await datasetStore.load()
+  await datasetStore.loadWorkTables()
 }
 
 async function searchSourceFiles() {
@@ -166,47 +144,67 @@ async function searchSourceFiles() {
   }
 }
 
-function selectDataset(publicId: string) {
-  datasetStore.selectedPublicId = publicId
-  fillSampleQuery()
-}
-
-function fillSampleQuery() {
-  if (!selectedTableName.value) {
-    return
-  }
-  statement.value = `SELECT *\nFROM ${selectedTableName.value}\nLIMIT 100`
-}
-
-async function runQuery() {
-  if (!statement.value.trim()) {
-    return
-  }
+async function registerWorkTable(datasetPublicId: string) {
   actionErrorMessage.value = ''
   try {
-    await datasetStore.run(statement.value)
+    await datasetStore.registerSelectedWorkTable(datasetPublicId)
   } catch (error) {
     actionErrorMessage.value = formatActionError(error)
   }
 }
 
-function requestDelete(publicId: string) {
-  deleteTargetPublicId.value = publicId
-}
-
-function selectQueryJob(job: DatasetQueryJobBody) {
-  datasetStore.latestQuery = job
-}
-
-async function confirmDelete() {
-  const publicId = deleteTargetPublicId.value
-  deleteTargetPublicId.value = ''
-  if (!publicId) {
-    return
-  }
+async function linkWorkTable(datasetPublicId: string) {
   actionErrorMessage.value = ''
   try {
-    await datasetStore.remove(publicId)
+    await datasetStore.linkSelectedWorkTable(datasetPublicId)
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function renameWorkTable(tableName: string) {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.renameSelectedWorkTable(tableName)
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function truncateWorkTable() {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.truncateSelectedWorkTable()
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function dropWorkTable() {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.dropSelectedWorkTable()
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function promoteWorkTable(name: string) {
+  actionErrorMessage.value = ''
+  try {
+    const dataset = await datasetStore.promoteSelectedWorkTable(name)
+    if (dataset) {
+      await router.push({ name: 'dataset-detail', params: { datasetPublicId: dataset.publicId } })
+    }
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function requestWorkTableExport() {
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.requestSelectedWorkTableExport()
   } catch (error) {
     actionErrorMessage.value = formatActionError(error)
   }
@@ -242,313 +240,112 @@ function formatActionError(error: unknown) {
       {{ requestErrorMessage }}
     </p>
 
-    <div class="dataset-layout">
-      <section class="panel stack dataset-sidebar-panel">
-        <form class="dataset-source-form" @submit.prevent="importDataset">
-          <div class="section-header compact-section-header">
-            <div>
-              <h2>{{ t('datasets.driveSources') }}</h2>
-              <span class="cell-subtle">{{ datasetStore.sourceFiles.length }} {{ t('common.files') }}</span>
-            </div>
-            <RouterLink class="secondary-button compact-button" to="/drive">
-              <FileText :size="16" aria-hidden="true" />
-              Drive
-            </RouterLink>
-          </div>
-
-          <div class="dataset-source-search">
-            <input
-              v-model="sourceSearch"
-              class="field-input"
-              maxlength="120"
-              autocomplete="off"
-              :placeholder="t('datasets.sourceSearchPlaceholder')"
-              @keydown.enter.prevent="searchSourceFiles"
-            >
-            <button class="icon-button" type="button" :aria-label="t('common.search')" :title="t('common.search')" @click="searchSourceFiles">
-              <Search :size="17" aria-hidden="true" />
-            </button>
-          </div>
-
-          <div v-if="datasetStore.sourceFiles.length > 0" class="dataset-list dataset-source-list">
-            <button
-              v-for="file in datasetStore.sourceFiles"
-              :key="file.publicId"
-              class="dataset-row"
-              :class="{ active: file.publicId === selectedSourceFile?.publicId }"
-              type="button"
-              @click="selectSourceFile(file.publicId)"
-            >
-              <FileText :size="17" aria-hidden="true" />
-              <span>
-                <strong>{{ file.originalFilename }}</strong>
-                <small>{{ formatBytes(file.byteSize) }} · {{ formatDate(file.updatedAt) }}</small>
-              </span>
-            </button>
-          </div>
-
-          <div v-else class="empty-state">
-            <p>{{ t('datasets.noDriveSources') }}</p>
-          </div>
-
-          <label class="field">
-            <span class="field-label">{{ t('datasets.datasetName') }}</span>
-            <input v-model="datasetName" class="field-input" maxlength="160" autocomplete="off">
-          </label>
-          <button class="primary-button" :disabled="!selectedSourceFile || datasetStore.importing" type="submit">
-            <Database :size="17" aria-hidden="true" />
-            {{ datasetStore.importing ? t('datasets.importing') : t('datasets.importFromDrive') }}
-          </button>
-        </form>
-
-        <div class="section-header">
+    <section class="panel stack dataset-home-panel">
+      <form class="dataset-source-form" @submit.prevent="importDataset">
+        <div class="section-header compact-section-header">
           <div>
-            <h2>{{ t('datasets.datasets') }}</h2>
-            <span class="cell-subtle">{{ datasetStore.items.length }} {{ t('common.files') }}</span>
+            <h2>{{ t('datasets.driveSources') }}</h2>
+            <span class="cell-subtle">{{ datasetStore.sourceFiles.length }} {{ t('common.files') }}</span>
           </div>
+          <RouterLink class="secondary-button compact-button" to="/drive">
+            <FileText :size="16" aria-hidden="true" />
+            Drive
+          </RouterLink>
         </div>
 
-        <div v-if="datasetStore.items.length > 0" class="dataset-list">
+        <div class="dataset-source-search">
+          <input
+            v-model="sourceSearch"
+            class="field-input"
+            maxlength="120"
+            autocomplete="off"
+            :placeholder="t('datasets.sourceSearchPlaceholder')"
+            @keydown.enter.prevent="searchSourceFiles"
+          >
+          <button class="icon-button" type="button" :aria-label="t('common.search')" :title="t('common.search')" @click="searchSourceFiles">
+            <Search :size="17" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div v-if="datasetStore.sourceFiles.length > 0" class="dataset-list dataset-source-list">
           <button
-            v-for="item in datasetStore.items"
-            :key="item.publicId"
+            v-for="file in datasetStore.sourceFiles"
+            :key="file.publicId"
             class="dataset-row"
-            :class="{ active: item.publicId === selectedDataset?.publicId }"
+            :class="{ active: file.publicId === selectedSourceFile?.publicId }"
             type="button"
-            @click="selectDataset(item.publicId)"
+            @click="selectSourceFile(file.publicId)"
           >
-            <Database :size="17" aria-hidden="true" />
+            <FileText :size="17" aria-hidden="true" />
             <span>
-              <strong>{{ item.name }}</strong>
-              <small>{{ item.rawTable }} · {{ formatBytes(item.byteSize) }}</small>
+              <strong>{{ file.originalFilename }}</strong>
+              <small>{{ formatBytes(file.byteSize) }} · {{ formatDate(file.updatedAt) }}</small>
             </span>
-            <span class="status-pill" :class="statusClass(item.status)">{{ item.status }}</span>
           </button>
         </div>
 
-        <div v-else-if="datasetStore.status === 'empty'" class="empty-state">
-          <p>{{ t('datasets.empty') }}</p>
-        </div>
-      </section>
-
-      <main class="dataset-main">
-        <div class="dataset-tabs" role="tablist" :aria-label="t('datasets.tabs')">
-          <button
-            id="dataset-tab-sql"
-            type="button"
-            role="tab"
-            :aria-selected="activeDatasetTab === 'sql'"
-            aria-controls="dataset-panel-sql"
-            :class="{ active: activeDatasetTab === 'sql' }"
-            @click="activeDatasetTab = 'sql'"
-          >
-            {{ t('datasets.sql') }}
-          </button>
-          <button
-            id="dataset-tab-schema"
-            type="button"
-            role="tab"
-            :aria-selected="activeDatasetTab === 'schema'"
-            aria-controls="dataset-panel-schema"
-            :class="{ active: activeDatasetTab === 'schema' }"
-            @click="activeDatasetTab = 'schema'"
-          >
-            {{ t('datasets.schema') }}
-          </button>
-          <button
-            id="dataset-tab-history"
-            type="button"
-            role="tab"
-            :aria-selected="activeDatasetTab === 'history'"
-            aria-controls="dataset-panel-history"
-            :class="{ active: activeDatasetTab === 'history' }"
-            @click="activeDatasetTab = 'history'"
-          >
-            {{ t('datasets.history') }}
-          </button>
+        <div v-else class="empty-state">
+          <p>{{ t('datasets.noDriveSources') }}</p>
         </div>
 
-        <div
-          v-if="activeDatasetTab === 'sql'"
-          id="dataset-panel-sql"
-          class="dataset-tab-panel"
-          role="tabpanel"
-          aria-labelledby="dataset-tab-sql"
+        <label class="field">
+          <span class="field-label">{{ t('datasets.datasetName') }}</span>
+          <input v-model="datasetName" class="field-input" maxlength="160" autocomplete="off">
+        </label>
+        <button class="primary-button" :disabled="!selectedSourceFile || datasetStore.importing" type="submit">
+          <Database :size="17" aria-hidden="true" />
+          {{ datasetStore.importing ? t('datasets.importing') : t('datasets.importFromDrive') }}
+        </button>
+      </form>
+
+      <div class="section-header">
+        <div>
+          <h2>{{ t('datasets.datasets') }}</h2>
+          <span class="cell-subtle">{{ datasetStore.items.length }} {{ t('common.files') }}</span>
+        </div>
+      </div>
+
+      <div v-if="datasetStore.items.length > 0" class="dataset-list">
+        <RouterLink
+          v-for="item in datasetStore.items"
+          :key="item.publicId"
+          class="dataset-row"
+          :to="{ name: 'dataset-detail', params: { datasetPublicId: item.publicId } }"
         >
-          <section class="panel stack">
-            <div class="section-header">
-              <div>
-                <span class="status-pill">{{ t('datasets.sql') }}</span>
-                <h2>{{ t('datasets.editor') }}</h2>
-              </div>
-              <button class="secondary-button" :disabled="!selectedDataset" type="button" @click="fillSampleQuery">
-                {{ t('datasets.sample') }}
-              </button>
-            </div>
+          <Database :size="17" aria-hidden="true" />
+          <span>
+            <strong>{{ item.name }}</strong>
+            <small>{{ item.rawTable }} · {{ formatBytes(item.byteSize) }}</small>
+          </span>
+          <span class="status-pill" :class="statusClass(item.status)">{{ item.status }}</span>
+        </RouterLink>
+      </div>
 
-            <textarea
-              v-model="statement"
-              class="field-input textarea-input dataset-sql-input"
-              spellcheck="false"
-              :placeholder="t('datasets.sqlPlaceholder')"
-            />
+      <div v-else-if="datasetStore.status === 'empty'" class="empty-state">
+        <p>{{ t('datasets.empty') }}</p>
+      </div>
 
-            <div class="action-row">
-              <button class="primary-button" :disabled="datasetStore.executing || statement.trim() === ''" type="button" @click="runQuery">
-                <Play :size="17" aria-hidden="true" />
-                {{ datasetStore.executing ? t('datasets.running') : t('datasets.run') }}
-              </button>
-            </div>
+    </section>
 
-            <p v-if="requestErrorMessage" class="error-message dataset-sql-error">
-              {{ requestErrorMessage }}
-            </p>
-          </section>
-
-          <section class="panel stack">
-            <div class="section-header">
-              <div>
-                <span class="status-pill">{{ t('datasets.results') }}</span>
-                <h2>{{ latestQuery?.status ?? t('common.none') }}</h2>
-                <span v-if="latestQuery" class="cell-subtle tabular-cell">{{ latestQuery.durationMs }} ms · {{ latestQuery.rowCount }} rows</span>
-              </div>
-            </div>
-
-            <p v-if="latestQuery?.errorSummary" class="error-message">
-              {{ latestQuery.errorSummary }}
-            </p>
-
-            <div v-if="resultColumns.length > 0" class="admin-table dataset-result-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th v-for="column in resultColumns" :key="column">{{ column }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, rowIndex) in resultRows" :key="rowIndex">
-                    <td v-for="column in resultColumns" :key="column" class="monospace-cell">
-                      {{ row[column] ?? 'NULL' }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div v-else class="empty-state">
-              <p>{{ t('datasets.noResults') }}</p>
-            </div>
-          </section>
-        </div>
-
-        <div
-          v-else-if="activeDatasetTab === 'schema'"
-          id="dataset-panel-schema"
-          class="dataset-tab-panel"
-          role="tabpanel"
-          aria-labelledby="dataset-tab-schema"
-        >
-          <section class="panel stack">
-            <div class="section-header">
-              <div>
-                <span class="status-pill">{{ t('datasets.schema') }}</span>
-                <h2>{{ selectedDataset?.name ?? t('datasets.noDataset') }}</h2>
-                <span v-if="selectedDataset" class="cell-subtle monospace-cell">{{ selectedTableName }}</span>
-              </div>
-              <button
-                v-if="selectedDataset"
-                class="secondary-button danger-button"
-                :disabled="datasetStore.deletingPublicId === selectedDataset.publicId"
-                type="button"
-                @click="requestDelete(selectedDataset.publicId)"
-              >
-                {{ datasetStore.deletingPublicId === selectedDataset.publicId ? t('common.deleting') : t('common.delete') }}
-              </button>
-            </div>
-
-            <dl v-if="selectedDataset" class="metadata-grid dataset-metadata-grid">
-              <div>
-                <dt>{{ t('common.status') }}</dt>
-                <dd><span class="status-pill" :class="statusClass(selectedDataset.status)">{{ selectedDataset.status }}</span></dd>
-              </div>
-              <div>
-                <dt>{{ t('datasets.rows') }}</dt>
-                <dd class="tabular-cell">{{ n(selectedDataset.rowCount) }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('datasets.imported') }}</dt>
-                <dd>{{ formatDate(selectedDataset.importedAt) }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('datasets.invalidRows') }}</dt>
-                <dd class="tabular-cell">{{ n(selectedDataset.importJob?.invalidRows ?? 0) }}</dd>
-              </div>
-            </dl>
-
-            <div v-if="selectedDataset?.columns?.length" class="admin-table dataset-column-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>{{ t('datasets.column') }}</th>
-                    <th>{{ t('datasets.original') }}</th>
-                    <th>{{ t('datasets.type') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="column in selectedDataset.columns" :key="column.columnName">
-                    <td class="monospace-cell">{{ column.columnName }}</td>
-                    <td>{{ column.originalName || '-' }}</td>
-                    <td class="monospace-cell">{{ column.clickHouseType }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-
-        <div
-          v-else
-          id="dataset-panel-history"
-          class="dataset-tab-panel"
-          role="tabpanel"
-          aria-labelledby="dataset-tab-history"
-        >
-          <section class="panel stack">
-            <div class="section-header">
-              <div>
-                <span class="status-pill">{{ t('datasets.history') }}</span>
-                <h2>{{ t('datasets.recentQueries') }}</h2>
-              </div>
-            </div>
-            <div v-if="datasetStore.queryJobs.length > 0" class="list-stack">
-              <button
-                v-for="job in datasetStore.queryJobs"
-                :key="job.publicId"
-                class="dataset-query-row"
-                type="button"
-                @click="selectQueryJob(job)"
-              >
-                <span class="status-pill" :class="statusClass(job.status)">{{ job.status }}</span>
-                <span class="monospace-cell">{{ job.statement }}</span>
-                <span class="cell-subtle tabular-cell">{{ formatDate(job.createdAt) }} · {{ job.durationMs }} ms</span>
-              </button>
-            </div>
-            <div v-else class="empty-state">
-              <p>{{ t('datasets.noQueryHistory') }}</p>
-            </div>
-          </section>
-        </div>
-      </main>
-    </div>
-
-    <ConfirmActionDialog
-      :open="deleteTargetPublicId !== ''"
-      :title="t('datasets.deleteTitle')"
-      :message="t('datasets.deleteMessage')"
-      :confirm-label="t('common.delete')"
-      :cancel-label="t('common.back')"
-      @cancel="deleteTargetPublicId = ''"
-      @confirm="confirmDelete"
+    <DatasetWorkTableBrowser
+      :tables="datasetStore.workTables"
+      :datasets="datasetStore.items"
+      :selected-table="datasetStore.selectedWorkTable"
+      :preview="datasetStore.workTablePreview"
+      :exports="datasetStore.workTableExports"
+      :loading="datasetStore.workTablesLoading"
+      :preview-loading="datasetStore.workTablePreviewLoading"
+      :action-loading="datasetStore.workTableActionLoading"
+      :error-message="datasetStore.workTableErrorMessage"
+      @refresh="datasetStore.loadWorkTables"
+      @select="datasetStore.selectWorkTable"
+      @register="registerWorkTable"
+      @link="linkWorkTable"
+      @rename="renameWorkTable"
+      @truncate="truncateWorkTable"
+      @drop="dropWorkTable"
+      @promote="promoteWorkTable"
+      @export="requestWorkTableExport"
     />
   </div>
 </template>

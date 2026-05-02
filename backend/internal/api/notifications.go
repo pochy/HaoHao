@@ -61,7 +61,7 @@ func registerNotificationRoutes(api huma.API, deps Dependencies) {
 		}
 		current, authCtx, err := currentSessionAuthContext(ctx, deps, input.SessionCookie.Value)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		var tenantID *int64
 		if authCtx.ActiveTenant != nil {
@@ -94,7 +94,7 @@ func registerNotificationRoutes(api huma.API, deps Dependencies) {
 		}
 		current, authCtx, err := currentSessionAuthContextWithCSRF(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		var tenantID *int64
 		if authCtx.ActiveTenant != nil {

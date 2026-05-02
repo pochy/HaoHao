@@ -27,7 +27,7 @@ func requireActiveTenantRole(ctx context.Context, deps Dependencies, sessionID, 
 		if errors.As(err, &statusErr) {
 			return service.CurrentSession{}, service.TenantAccess{}, err
 		}
-		return service.CurrentSession{}, service.TenantAccess{}, toHTTPError(err)
+		return service.CurrentSession{}, service.TenantAccess{}, toHTTPErrorWithLog(ctx, deps, "", err)
 	}
 	if authCtx.ActiveTenant == nil {
 		return service.CurrentSession{}, service.TenantAccess{}, huma.Error409Conflict("active tenant is required")

@@ -66,7 +66,41 @@ func TestRequestLoggerWritesStructuredLog(t *testing.T) {
 	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
 
 	logLine := output.String()
-	for _, want := range []string{`"msg":"http request"`, `"status":204`, `"request_id":`} {
+	for _, want := range []string{`"msg":"http request"`, `"log_type":"access"`, `"status":204`, `"request_id":`} {
+		if !strings.Contains(logLine, want) {
+			t.Fatalf("log line %q does not contain %q", logLine, want)
+		}
+	}
+}
+
+func TestRecoveryLogsPanicWithStackAndRequestID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var output bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&output, nil))
+	router := gin.New()
+	router.Use(RequestID(), Recovery(logger))
+	router.GET("/panic", func(c *gin.Context) {
+		panic("boom")
+	})
+
+	request := httptest.NewRequest(http.MethodGet, "/panic", nil)
+	request.Header.Set(RequestIDHeader, "req-panic")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+	}
+	logLine := output.String()
+	for _, want := range []string{
+		`"msg":"panic recovered"`,
+		`"log_type":"panic"`,
+		`"request_id":"req-panic"`,
+		`"path":"/panic"`,
+		`"panic":"boom"`,
+		`"stack":`,
+	} {
 		if !strings.Contains(logLine, want) {
 			t.Fatalf("log line %q does not contain %q", logLine, want)
 		}

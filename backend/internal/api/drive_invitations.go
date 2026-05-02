@@ -100,7 +100,7 @@ func registerDriveInvitationRoutes(api huma.API, deps Dependencies) {
 			ExpiresAt:           optionalTime(input.Body.ExpiresAt),
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareInvitationOutput{Body: toDriveShareInvitationBody(item, true)}, nil
 	})
@@ -127,7 +127,7 @@ func registerDriveInvitationRoutes(api huma.API, deps Dependencies) {
 			ExpiresAt:           optionalTime(input.Body.ExpiresAt),
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareInvitationOutput{Body: toDriveShareInvitationBody(item, true)}, nil
 	})
@@ -146,7 +146,7 @@ func registerDriveInvitationRoutes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListShareInvitationsForUser(ctx, current.User.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveShareInvitationListOutput{}
 		for _, item := range items {
@@ -173,7 +173,7 @@ func registerDriveInvitationRoutes(api huma.API, deps Dependencies) {
 			AcceptToken:        input.Body.AcceptToken,
 		}, sessionAuditContext(ctx, current, nil))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveShareOutput{Body: toDriveShareBody(share)}, nil
 	})
@@ -197,7 +197,7 @@ func registerDriveInvitationRoutes(api huma.API, deps Dependencies) {
 			InvitationPublicID: input.InvitationPublicID,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})

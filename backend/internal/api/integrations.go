@@ -101,7 +101,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 
 		current, authCtx, err := currentSessionAuthContext(ctx, deps, input.SessionCookie.Value)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		if authCtx.ActiveTenant == nil {
 			return nil, huma.Error409Conflict("active tenant is required before connecting integrations")
@@ -137,7 +137,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 
 		current, authCtx, err := currentSessionAuthContext(ctx, deps, input.SessionCookie.Value)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		if authCtx.ActiveTenant == nil {
 			return nil, huma.Error409Conflict("active tenant is required before connecting integrations")
@@ -217,7 +217,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 
 		current, authCtx, err := currentSessionAuthContextWithCSRF(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		if authCtx.ActiveTenant == nil {
 			return nil, huma.Error409Conflict("active tenant is required before verifying integrations")
@@ -260,7 +260,7 @@ func registerIntegrationRoutes(api huma.API, deps Dependencies) {
 
 		current, authCtx, err := currentSessionAuthContextWithCSRF(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		if authCtx.ActiveTenant == nil {
 			return nil, huma.Error409Conflict("active tenant is required before deleting integrations")

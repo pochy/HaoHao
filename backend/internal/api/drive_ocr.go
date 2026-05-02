@@ -121,7 +121,7 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		}
 		run, err := deps.DriveOCRService.RequestJob(ctx, tenant.ID, current.User.ID, input.FilePublicID, "manual", sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveOCRJobOutput{Body: DriveOCRJobBody{
 			PublicID:     run.PublicID,
@@ -149,7 +149,7 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		}
 		result, err := deps.DriveOCRService.GetLatest(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveOCROutput{}
 		out.Body.Run = toDriveOCRRunBody(result.Run)
@@ -176,7 +176,7 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveOCRService.ListProductExtractions(ctx, tenant.ID, current.User.ID, input.FilePublicID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveProductExtractionsOutput{}
 		for _, item := range items {
@@ -202,7 +202,7 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		}
 		run, items, err := deps.DriveOCRService.RequestProductExtraction(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveProductExtractionJobOutput{Body: DriveProductExtractionJobBody{
 			FilePublicID:   run.FilePublicID,

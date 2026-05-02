@@ -189,7 +189,7 @@ func registerDrivePhase8Routes(api huma.API, deps Dependencies) {
 			Limit:       input.Limit,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveSearchResultOutput{}
 		for _, item := range results {
@@ -216,7 +216,7 @@ func registerDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		session, err := deps.DriveService.StartEditSession(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveEditSessionOutput{Body: toDriveEditSessionBody(session)}, nil
 	})
@@ -235,7 +235,7 @@ func registerDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		session, err := deps.DriveService.HeartbeatEditSession(ctx, tenant.ID, current.User.ID, input.FilePublicID, input.SessionPublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveEditSessionOutput{Body: toDriveEditSessionBody(session)}, nil
 	})
@@ -263,7 +263,7 @@ func registerDrivePhase8Routes(api huma.API, deps Dependencies) {
 			ContentType:      input.Body.ContentType,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveEditSaveOutput{}
 		out.Body.File = toDriveFileBody(result.File)
@@ -286,7 +286,7 @@ func registerDrivePhase8Routes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.EndEditSession(ctx, tenant.ID, current.User.ID, input.FilePublicID, input.SessionPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -310,7 +310,7 @@ func registerDrivePhase8Routes(api huma.API, deps Dependencies) {
 			Platform:    input.Body.Platform,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveDeviceOutput{Body: toDriveDeviceBody(device)}, nil
 	})
@@ -325,7 +325,7 @@ func registerDrivePhase8Routes(api huma.API, deps Dependencies) {
 	}, func(ctx context.Context, input *DriveSyncBearerInput) (*DriveSyncDeltaOutput, error) {
 		delta, err := deps.DriveService.SyncDelta(ctx, bearerToken(input.Authorization), input.Cursor, "", "")
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return toDriveSyncDeltaOutput(delta), nil
 	})
@@ -343,7 +343,7 @@ func registerDrivePhase8Routes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.RevokeSyncDevice(ctx, tenant.ID, current.User.ID, input.DevicePublicID, input.Body.Reason, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -369,7 +369,7 @@ func registerDrivePhase8Routes(api huma.API, deps Dependencies) {
 		}
 		result, err := deps.DriveService.ReplayMobileOfflineOperations(ctx, bearerToken(input.Authorization), ops, service.AuditContext{ActorType: service.AuditActorSystem})
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveMobileOfflineReplayOutput{}
 		out.Body.Applied = result.Applied

@@ -13,6 +13,7 @@ const sidebarCollapsed = ref(
 )
 const wideMain = computed(() => (
   route.path === '/datasets' ||
+  route.path.startsWith('/datasets/') ||
   route.path === '/drive' ||
   route.path.startsWith('/drive/')
 ))

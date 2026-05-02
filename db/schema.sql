@@ -291,6 +291,7 @@ CREATE TABLE public.dataset_query_jobs (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
+    dataset_id bigint,
     CONSTRAINT dataset_query_jobs_duration_ms_check CHECK ((duration_ms >= 0)),
     CONSTRAINT dataset_query_jobs_row_count_check CHECK ((row_count >= 0)),
     CONSTRAINT dataset_query_jobs_statement_check CHECK ((btrim(statement) <> ''::text)),
@@ -313,6 +314,89 @@ ALTER TABLE public.dataset_query_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS ID
 
 
 --
+-- Name: dataset_work_table_exports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_work_table_exports (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    work_table_id bigint NOT NULL,
+    requested_by_user_id bigint,
+    file_object_id bigint,
+    outbox_event_id bigint,
+    format text DEFAULT 'csv'::text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    expires_at timestamp with time zone DEFAULT (now() + '7 days'::interval) NOT NULL,
+    error_summary text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    deleted_at timestamp with time zone,
+    CONSTRAINT dataset_work_table_exports_format_check CHECK ((format = 'csv'::text)),
+    CONSTRAINT dataset_work_table_exports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'ready'::text, 'failed'::text, 'deleted'::text])))
+);
+
+
+--
+-- Name: dataset_work_table_exports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_work_table_exports ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_work_table_exports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: dataset_work_tables; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_work_tables (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    source_dataset_id bigint,
+    created_from_query_job_id bigint,
+    created_by_user_id bigint,
+    work_database text NOT NULL,
+    work_table text NOT NULL,
+    display_name text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    row_count bigint DEFAULT 0 NOT NULL,
+    total_bytes bigint DEFAULT 0 NOT NULL,
+    engine text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    dropped_at timestamp with time zone,
+    CONSTRAINT dataset_work_tables_display_name_check CHECK ((btrim(display_name) <> ''::text)),
+    CONSTRAINT dataset_work_tables_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT dataset_work_tables_status_check CHECK ((status = ANY (ARRAY['active'::text, 'dropped'::text]))),
+    CONSTRAINT dataset_work_tables_total_bytes_check CHECK ((total_bytes >= 0)),
+    CONSTRAINT dataset_work_tables_work_database_check CHECK ((btrim(work_database) <> ''::text)),
+    CONSTRAINT dataset_work_tables_work_table_check CHECK ((btrim(work_table) <> ''::text))
+);
+
+
+--
+-- Name: dataset_work_tables_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_work_tables ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_work_tables_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: datasets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -321,7 +405,7 @@ CREATE TABLE public.datasets (
     public_id uuid DEFAULT uuidv7() NOT NULL,
     tenant_id bigint NOT NULL,
     created_by_user_id bigint,
-    source_file_object_id bigint NOT NULL,
+    source_file_object_id bigint,
     name text NOT NULL,
     original_filename text NOT NULL,
     content_type text NOT NULL,
@@ -336,13 +420,18 @@ CREATE TABLE public.datasets (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     imported_at timestamp with time zone,
     deleted_at timestamp with time zone,
+    source_kind text DEFAULT 'file'::text NOT NULL,
+    source_work_table_id bigint,
     CONSTRAINT datasets_byte_size_check CHECK ((byte_size >= 0)),
+    CONSTRAINT datasets_file_source_check CHECK (((source_kind <> 'file'::text) OR (source_file_object_id IS NOT NULL))),
     CONSTRAINT datasets_name_check CHECK ((btrim(name) <> ''::text)),
     CONSTRAINT datasets_raw_database_check CHECK ((btrim(raw_database) <> ''::text)),
     CONSTRAINT datasets_raw_table_check CHECK ((btrim(raw_table) <> ''::text)),
     CONSTRAINT datasets_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT datasets_source_kind_check CHECK ((source_kind = ANY (ARRAY['file'::text, 'work_table'::text]))),
     CONSTRAINT datasets_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'importing'::text, 'ready'::text, 'failed'::text, 'deleted'::text]))),
-    CONSTRAINT datasets_work_database_check CHECK ((btrim(work_database) <> ''::text))
+    CONSTRAINT datasets_work_database_check CHECK ((btrim(work_database) <> ''::text)),
+    CONSTRAINT datasets_work_table_source_check CHECK (((source_kind <> 'work_table'::text) OR (source_work_table_id IS NOT NULL)))
 );
 
 
@@ -3931,6 +4020,22 @@ ALTER TABLE ONLY public.dataset_query_jobs
 
 
 --
+-- Name: dataset_work_table_exports dataset_work_table_exports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_exports
+    ADD CONSTRAINT dataset_work_table_exports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_work_tables dataset_work_tables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_tables
+    ADD CONSTRAINT dataset_work_tables_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: datasets datasets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5033,6 +5138,62 @@ CREATE INDEX dataset_query_jobs_tenant_created_idx ON public.dataset_query_jobs 
 
 
 --
+-- Name: dataset_query_jobs_tenant_dataset_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_query_jobs_tenant_dataset_created_idx ON public.dataset_query_jobs USING btree (tenant_id, dataset_id, created_at DESC, id DESC) WHERE (dataset_id IS NOT NULL);
+
+
+--
+-- Name: dataset_work_table_exports_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_work_table_exports_pending_idx ON public.dataset_work_table_exports USING btree (created_at, id) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]));
+
+
+--
+-- Name: dataset_work_table_exports_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_work_table_exports_public_id_key ON public.dataset_work_table_exports USING btree (public_id);
+
+
+--
+-- Name: dataset_work_table_exports_work_table_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_work_table_exports_work_table_created_idx ON public.dataset_work_table_exports USING btree (work_table_id, created_at DESC, id DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: dataset_work_tables_active_table_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_work_tables_active_table_key ON public.dataset_work_tables USING btree (tenant_id, work_database, work_table) WHERE ((status = 'active'::text) AND (dropped_at IS NULL));
+
+
+--
+-- Name: dataset_work_tables_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_work_tables_public_id_key ON public.dataset_work_tables USING btree (public_id);
+
+
+--
+-- Name: dataset_work_tables_tenant_dataset_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_work_tables_tenant_dataset_idx ON public.dataset_work_tables USING btree (tenant_id, source_dataset_id, updated_at DESC, id DESC) WHERE (source_dataset_id IS NOT NULL);
+
+
+--
+-- Name: dataset_work_tables_tenant_updated_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_work_tables_tenant_updated_idx ON public.dataset_work_tables USING btree (tenant_id, updated_at DESC, id DESC);
+
+
+--
 -- Name: datasets_public_id_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5044,6 +5205,13 @@ CREATE UNIQUE INDEX datasets_public_id_key ON public.datasets USING btree (publi
 --
 
 CREATE INDEX datasets_source_file_idx ON public.datasets USING btree (source_file_object_id);
+
+
+--
+-- Name: datasets_source_work_table_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX datasets_source_work_table_idx ON public.datasets USING btree (source_work_table_id) WHERE (source_work_table_id IS NOT NULL);
 
 
 --
@@ -6381,6 +6549,14 @@ ALTER TABLE ONLY public.dataset_import_jobs
 
 
 --
+-- Name: dataset_query_jobs dataset_query_jobs_dataset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_query_jobs
+    ADD CONSTRAINT dataset_query_jobs_dataset_id_fkey FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE SET NULL;
+
+
+--
 -- Name: dataset_query_jobs dataset_query_jobs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6397,6 +6573,78 @@ ALTER TABLE ONLY public.dataset_query_jobs
 
 
 --
+-- Name: dataset_work_table_exports dataset_work_table_exports_file_object_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_exports
+    ADD CONSTRAINT dataset_work_table_exports_file_object_id_fkey FOREIGN KEY (file_object_id) REFERENCES public.file_objects(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_work_table_exports dataset_work_table_exports_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_exports
+    ADD CONSTRAINT dataset_work_table_exports_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_work_table_exports dataset_work_table_exports_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_exports
+    ADD CONSTRAINT dataset_work_table_exports_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_work_table_exports dataset_work_table_exports_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_exports
+    ADD CONSTRAINT dataset_work_table_exports_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_work_table_exports dataset_work_table_exports_work_table_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_table_exports
+    ADD CONSTRAINT dataset_work_table_exports_work_table_id_fkey FOREIGN KEY (work_table_id) REFERENCES public.dataset_work_tables(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_work_tables dataset_work_tables_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_tables
+    ADD CONSTRAINT dataset_work_tables_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_work_tables dataset_work_tables_created_from_query_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_tables
+    ADD CONSTRAINT dataset_work_tables_created_from_query_job_id_fkey FOREIGN KEY (created_from_query_job_id) REFERENCES public.dataset_query_jobs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_work_tables dataset_work_tables_source_dataset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_tables
+    ADD CONSTRAINT dataset_work_tables_source_dataset_id_fkey FOREIGN KEY (source_dataset_id) REFERENCES public.datasets(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_work_tables dataset_work_tables_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_work_tables
+    ADD CONSTRAINT dataset_work_tables_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: datasets datasets_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6410,6 +6658,14 @@ ALTER TABLE ONLY public.datasets
 
 ALTER TABLE ONLY public.datasets
     ADD CONSTRAINT datasets_source_file_object_id_fkey FOREIGN KEY (source_file_object_id) REFERENCES public.file_objects(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: datasets datasets_source_work_table_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.datasets
+    ADD CONSTRAINT datasets_source_work_table_id_fkey FOREIGN KEY (source_work_table_id) REFERENCES public.dataset_work_tables(id) ON DELETE SET NULL;
 
 
 --

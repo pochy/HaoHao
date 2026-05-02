@@ -214,7 +214,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.CreateEDiscoveryConnection(ctx, tenant.ID, current.User.ID, input.Body.Provider, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveEDiscoveryConnectionOutput{Body: DriveEDiscoveryConnectionBody{PublicID: item.PublicID, Provider: item.Provider, Status: item.Status, CreatedAt: item.CreatedAt}}, nil
 	})
@@ -226,7 +226,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.RequestEDiscoveryExport(ctx, tenant.ID, current.User.ID, input.Body.ConnectionPublicID, input.Body.CasePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveEDiscoveryExportOutput{Body: toDriveEDiscoveryExportBody(item)}, nil
 	})
@@ -238,7 +238,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.ApproveEDiscoveryExport(ctx, tenant.ID, current.User.ID, input.ExportPublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveEDiscoveryExportOutput{Body: toDriveEDiscoveryExportBody(item)}, nil
 	})
@@ -250,7 +250,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.CreateHSMDeployment(ctx, tenant.ID, current.User.ID, input.Body.Provider, input.Body.EndpointURL, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveHSMDeploymentOutput{Body: toDriveHSMDeploymentBody(item)}, nil
 	})
@@ -261,7 +261,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.BindHSMKeyToFile(ctx, tenant.ID, current.User.ID, input.Body.FilePublicID, input.Body.KeyPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -273,7 +273,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.SetHSMKeyStatus(ctx, tenant.ID, current.User.ID, input.KeyPublicID, input.Body.Status, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveHSMDeploymentOutput{Body: toDriveHSMDeploymentBody(item)}, nil
 	})
@@ -285,7 +285,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.RegisterGateway(ctx, tenant.ID, current.User.ID, input.Body.Name, input.Body.EndpointURL, input.Body.CertificateFingerprint, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveGatewayOutput{Body: toDriveGatewayBody(item)}, nil
 	})
@@ -297,7 +297,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.BindGatewayFile(ctx, tenant.ID, current.User.ID, input.GatewayPublicID, input.Body.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveGatewayObjectOutput{Body: DriveGatewayObjectBody{GatewayPublicID: item.GatewayPublicID, FilePublicID: item.FilePublicID, ManifestHash: item.ManifestHash, Status: item.Status}}, nil
 	})
@@ -309,7 +309,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.SetGatewayStatus(ctx, tenant.ID, current.User.ID, input.GatewayPublicID, input.Body.Status, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveGatewayOutput{Body: toDriveGatewayBody(item)}, nil
 	})
@@ -321,7 +321,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.InstallMarketplaceApp(ctx, tenant.ID, current.User.ID, input.Body.AppSlug, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveMarketplaceInstallOutput{Body: toDriveMarketplaceInstallBody(item)}, nil
 	})
@@ -333,7 +333,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DriveService.ApproveMarketplaceInstallation(ctx, tenant.ID, current.User.ID, input.InstallationPublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveMarketplaceInstallOutput{Body: toDriveMarketplaceInstallBody(item)}, nil
 	})
@@ -344,7 +344,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.UninstallMarketplaceInstallation(ctx, tenant.ID, current.User.ID, input.InstallationPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -355,7 +355,7 @@ func registerTenantAdminDrivePhase9Routes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.CheckMarketplaceScope(ctx, tenant.ID, current.User.ID, input.InstallationPublicID, input.Scope, input.FilePublicID); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveMarketplaceScopeOutput{}
 		out.Body.Allowed = true

@@ -85,6 +85,66 @@ func TestValidateDatasetSQLRejectsEmptyStatements(t *testing.T) {
 	}
 }
 
+func TestValidateDatasetWorkTableRef(t *testing.T) {
+	database, table, err := validateDatasetWorkTableRef(7, "hh_t_7_work", "hai_category_summary")
+	if err != nil {
+		t.Fatalf("validateDatasetWorkTableRef(valid) error = %v", err)
+	}
+	if database != "hh_t_7_work" || table != "hai_category_summary" {
+		t.Fatalf("validateDatasetWorkTableRef(valid) = %q, %q", database, table)
+	}
+
+	if _, _, err := validateDatasetWorkTableRef(7, "hh_t_8_work", "hai_category_summary"); !errors.Is(err, ErrDatasetWorkTableNotFound) {
+		t.Fatalf("validateDatasetWorkTableRef(cross tenant) error = %v, want ErrDatasetWorkTableNotFound", err)
+	}
+	if _, _, err := validateDatasetWorkTableRef(7, "hh_t_7_raw", "ds_abc"); !errors.Is(err, ErrDatasetWorkTableNotFound) {
+		t.Fatalf("validateDatasetWorkTableRef(raw db) error = %v, want ErrDatasetWorkTableNotFound", err)
+	}
+	if _, _, err := validateDatasetWorkTableRef(7, "hh_t_7_work", ""); !errors.Is(err, ErrInvalidDatasetInput) {
+		t.Fatalf("validateDatasetWorkTableRef(empty table) error = %v, want ErrInvalidDatasetInput", err)
+	}
+	if _, _, err := validateDatasetWorkTableRef(7, "hh_t_7_work", "bad\nname"); !errors.Is(err, ErrInvalidDatasetInput) {
+		t.Fatalf("validateDatasetWorkTableRef(control rune) error = %v, want ErrInvalidDatasetInput", err)
+	}
+}
+
+func TestParseDatasetCreateTableRefs(t *testing.T) {
+	cases := []struct {
+		name      string
+		statement string
+		want      []datasetWorkTableRef
+	}{
+		{
+			name:      "qualified quoted work table",
+			statement: "CREATE TABLE IF NOT EXISTS `hh_t_7_work`.`hai_category_summary` AS SELECT 1",
+			want:      []datasetWorkTableRef{{Database: "hh_t_7_work", Table: "hai_category_summary"}},
+		},
+		{
+			name:      "default work database",
+			statement: "CREATE OR REPLACE TABLE joined AS SELECT 1",
+			want:      []datasetWorkTableRef{{Database: "hh_t_7_work", Table: "joined"}},
+		},
+		{
+			name:      "ignores raw table",
+			statement: "CREATE TABLE hh_t_7_raw.ds_copy AS SELECT 1",
+			want:      []datasetWorkTableRef{},
+		},
+		{
+			name:      "ignores string literals",
+			statement: "SELECT 'CREATE TABLE hh_t_7_work.not_real'",
+			want:      []datasetWorkTableRef{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseDatasetCreateTableRefs(7, tc.statement)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("parseDatasetCreateTableRefs() = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestHasMultipleDatasetStatements(t *testing.T) {
 	cases := []struct {
 		statement string

@@ -157,7 +157,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListSharedWithMe(ctx, tenant.ID, current.User.ID, input.Limit, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveItemListOutput(items), nil
 	})
@@ -176,7 +176,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListStarred(ctx, tenant.ID, current.User.ID, input.Limit, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveItemListOutput(items), nil
 	})
@@ -195,7 +195,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListRecent(ctx, tenant.ID, current.User.ID, input.Limit, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveItemListOutput(items), nil
 	})
@@ -214,7 +214,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 		}
 		usage, err := deps.DriveService.GetStorageUsage(ctx, tenant.ID, current.User.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveStorageUsageOutput{Body: toDriveStorageUsageBody(usage)}, nil
 	})
@@ -233,7 +233,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 		}
 		tree, err := deps.DriveService.ListFolderTree(ctx, tenant.ID, current.User.ID, input.Limit, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveFolderTreeOutput{Body: toDriveFolderTreeBody(tree)}, nil
 	})
@@ -252,7 +252,7 @@ func registerDriveP16Routes(api huma.API, deps Dependencies) {
 		}
 		targets, err := deps.DriveService.ListShareTargets(ctx, tenant.ID, current.User.ID, input.Query, input.Limit)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &DriveShareTargetsOutput{}
 		out.Body.Items = make([]DriveShareTargetBody, 0, len(targets))
@@ -283,7 +283,7 @@ func registerDriveStarRoutes(api huma.API, deps Dependencies) {
 		}
 		err = deps.DriveService.StarResource(ctx, tenant.ID, current.User.ID, service.DriveResourceRef{Type: service.DriveResourceTypeFile, PublicID: input.FilePublicID, TenantID: tenant.ID}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -303,7 +303,7 @@ func registerDriveStarRoutes(api huma.API, deps Dependencies) {
 		}
 		err = deps.DriveService.UnstarResource(ctx, tenant.ID, current.User.ID, service.DriveResourceRef{Type: service.DriveResourceTypeFile, PublicID: input.FilePublicID, TenantID: tenant.ID}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -323,7 +323,7 @@ func registerDriveStarRoutes(api huma.API, deps Dependencies) {
 		}
 		err = deps.DriveService.StarResource(ctx, tenant.ID, current.User.ID, service.DriveResourceRef{Type: service.DriveResourceTypeFolder, PublicID: input.FolderPublicID, TenantID: tenant.ID}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -343,7 +343,7 @@ func registerDriveStarRoutes(api huma.API, deps Dependencies) {
 		}
 		err = deps.DriveService.UnstarResource(ctx, tenant.ID, current.User.ID, service.DriveResourceRef{Type: service.DriveResourceTypeFolder, PublicID: input.FolderPublicID, TenantID: tenant.ID}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -364,7 +364,7 @@ func registerDriveActivityRoutes(api huma.API, deps Dependencies) {
 		}
 		activities, err := deps.DriveService.ListActivity(ctx, tenant.ID, current.User.ID, service.DriveResourceRef{Type: service.DriveResourceTypeFile, PublicID: input.FilePublicID, TenantID: tenant.ID}, input.Limit, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveActivityListOutput(activities), nil
 	})
@@ -383,7 +383,7 @@ func registerDriveActivityRoutes(api huma.API, deps Dependencies) {
 		}
 		activities, err := deps.DriveService.ListActivity(ctx, tenant.ID, current.User.ID, service.DriveResourceRef{Type: service.DriveResourceTypeFolder, PublicID: input.FolderPublicID, TenantID: tenant.ID}, input.Limit, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveActivityListOutput(activities), nil
 	})
@@ -426,7 +426,7 @@ func registerDriveP16MutationRoutes(api huma.API, deps Dependencies) {
 			Items:       items,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveArchiveOutput{
 			ContentType:        download.ContentType,
@@ -455,7 +455,7 @@ func registerDriveP16MutationRoutes(api huma.API, deps Dependencies) {
 			Name:                 input.Body.Name,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveItemOutput{Body: toDriveItemBody(item)}, nil
 	})
@@ -480,7 +480,7 @@ func registerDriveP16MutationRoutes(api huma.API, deps Dependencies) {
 			Name:                 input.Body.Name,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveItemOutput{Body: toDriveItemBody(item)}, nil
 	})
@@ -505,7 +505,7 @@ func registerDriveP16MutationRoutes(api huma.API, deps Dependencies) {
 			RevokePreviousOwnerAccess: input.Body.RevokePreviousOwnerAccess,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveItemOutput{Body: toDriveItemBody(item)}, nil
 	})
@@ -530,7 +530,7 @@ func registerDriveP16MutationRoutes(api huma.API, deps Dependencies) {
 			RevokePreviousOwnerAccess: input.Body.RevokePreviousOwnerAccess,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveItemOutput{Body: toDriveItemBody(item)}, nil
 	})
@@ -554,7 +554,7 @@ func registerDriveP16MutationRoutes(api huma.API, deps Dependencies) {
 			Resource:    service.DriveResourceRef{Type: service.DriveResourceTypeFile, PublicID: input.FilePublicID, TenantID: tenant.ID},
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -578,7 +578,7 @@ func registerDriveP16MutationRoutes(api huma.API, deps Dependencies) {
 			Resource:    service.DriveResourceRef{Type: service.DriveResourceTypeFolder, PublicID: input.FolderPublicID, TenantID: tenant.ID},
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})

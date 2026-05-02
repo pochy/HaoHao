@@ -177,7 +177,7 @@ func registerTenantInvitationRoutes(api huma.API, deps Dependencies) {
 	}, func(ctx context.Context, input *AcceptTenantInvitationInput) (*TenantInvitationOutput, error) {
 		current, _, err := currentSessionAuthContextWithCSRF(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
-			return nil, toHTTPError(err)
+			return nil, toHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		attempt, err := beginIdempotency(ctx, deps, input.IdempotencyKey, http.MethodPost, "/api/v1/invitations/accept", current.User.ID, nil, input.Body)
 		if err != nil {

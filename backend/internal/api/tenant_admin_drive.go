@@ -166,7 +166,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListAdminDriveShares(ctx, tenant.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &TenantAdminDriveSharesOutput{}
 		for _, item := range items {
@@ -189,7 +189,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListAdminDriveShareLinks(ctx, tenant.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &TenantAdminDriveShareLinksOutput{}
 		for _, item := range items {
@@ -212,7 +212,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListAdminDriveInvitations(ctx, tenant.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &TenantAdminDriveInvitationsOutput{}
 		for _, item := range items {
@@ -235,7 +235,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListAdminDriveAuditEvents(ctx, tenant.ID, input.Limit)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &TenantAdminDriveAuditOutput{}
 		for _, item := range items {
@@ -258,7 +258,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		items, err := deps.DriveService.ListShareApprovals(ctx, tenant.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		out := &TenantAdminDriveInvitationsOutput{}
 		for _, item := range items {
@@ -280,7 +280,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.ApproveShareInvitation(ctx, tenant.ID, current.User.ID, input.InvitationPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminNoContentOutput{}, nil
 	})
@@ -298,7 +298,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.RejectShareInvitation(ctx, tenant.ID, current.User.ID, input.InvitationPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminNoContentOutput{}, nil
 	})
@@ -317,7 +317,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		result, err := deps.DriveService.OpenFGADrift(ctx, tenant.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return toTenantAdminDriveSyncOutput(result), nil
 	})
@@ -336,7 +336,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		result, err := deps.DriveService.RepairOpenFGASync(ctx, tenant.ID, current.User.ID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return toTenantAdminDriveSyncOutput(result), nil
 	})
@@ -355,7 +355,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		health, err := deps.DriveService.DriveOperationsHealth(ctx, tenant.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminDriveOperationsHealthOutput{Body: toTenantAdminDriveOperationsHealthBody(health)}, nil
 	})
@@ -374,7 +374,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		result, err := deps.DriveService.OpenFGADrift(ctx, tenant.ID)
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return toTenantAdminDriveSyncOutput(result), nil
 	})
@@ -393,7 +393,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		result, err := deps.DriveService.RepairOpenFGASync(ctx, tenant.ID, current.User.ID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return toTenantAdminDriveSyncOutput(result), nil
 	})
@@ -417,7 +417,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 			ReasonCategory: input.Body.ReasonCategory,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminDriveAdminContentSessionOutput{Body: toTenantAdminDriveAdminContentSessionBody(session)}, nil
 	})
@@ -436,7 +436,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.EndAdminContentAccessSession(ctx, tenant.ID, current.User.ID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &TenantAdminNoContentOutput{}, nil
 	})
@@ -455,7 +455,7 @@ func registerTenantAdminDriveRoutes(api huma.API, deps Dependencies) {
 		}
 		file, err := deps.DriveService.GetAdminDriveFileMetadata(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveFileOutput{Body: toDriveFileBody(file)}, nil
 	})

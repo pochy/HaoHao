@@ -41,7 +41,9 @@ OpenAPI 3.1 優先 + Monorepo + 単一バイナリ配信を基本方針とした
 
 ## バックエンド開発サーバー
 
-`make backend-dev` は `.env` を読み込んだうえで Air を起動し、`backend` 配下の Go ソース変更時にバックエンドを自動で再ビルド・再起動します。Air の監視設定は `.air.toml` にあります。
+`make backend-dev` は先に `make db-up` で DB migration を適用し、`.env` を読み込んだうえで Air を起動します。`backend` 配下の Go ソース変更時にバックエンドを自動で再ビルド・再起動します。Air の監視設定は `.air.toml` にあります。
+
+起動時は `DB_MIGRATION_CHECK_MODE=warn|fail|off` で DB migration drift を検知できます。既定は `warn` で起動を継続し、ローカル開発や CI では `fail` を推奨します。
 
 ホットリロードを使わず従来どおり起動したい場合は、次のどちらかを使ってください。
 
@@ -56,6 +58,48 @@ go run ./backend/cmd/main
 go install github.com/air-verse/air@latest
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
+
+## バックエンドログの確認
+
+バックエンドログは当面 stdout/stderr の同じ structured log stream に出します。ログの種類は `log_type` で分かれます。
+
+- `access`: HTTP access log。`method`, `path`, `status`, `latency_ms`, `request_id` を見る。
+- `application_error`: API handler が未分類 error を 500 に丸める直前の root cause。通常の 500 調査はまずこれを見る。
+- `panic`: panic recovery log。`stack` に stack trace が入る。
+- `migration_check`: 起動時 DB migration drift check。DB が migration に追いついていない、dirty、または `schema_migrations` が読めない場合に出る。
+
+ログをそのまま見るには、バックエンドを起動している terminal を確認します。
+
+```bash
+make backend-dev
+# or
+make backend-run
+```
+
+`jq` が使える場合は、`log_type` で絞り込めます。
+
+```bash
+make backend-dev 2>&1 | jq 'select(.log_type == "application_error")'
+make backend-dev 2>&1 | jq 'select(.log_type == "panic")'
+make backend-dev 2>&1 | jq 'select(.log_type == "migration_check")'
+```
+
+`jq` がない場合は、文字列検索でも最低限確認できます。
+
+```bash
+make backend-dev 2>&1 | grep '"log_type":"application_error"'
+make backend-dev 2>&1 | grep '"log_type":"panic"'
+```
+
+500 response と root cause を突き合わせるときは、client error や access log に出ている `request_id` を使います。
+
+```bash
+make backend-dev 2>&1 | jq 'select(.request_id == "7eadc09c19f3b12ac27da345730552ea")'
+```
+
+`application_error` には `operation`, `error`, `error_type` が出ます。Postgres error の場合は可能な範囲で `sqlstate`, `severity`, `table`, `column`, `constraint` も出ます。request body, Cookie, Authorization header, CSRF token, raw SQL result はログに出しません。
+
+stack trace が出るのは `panic` のときだけです。DB schema mismatch や外部サービス失敗のような通常の returned error は `application_error` に root cause を出し、stack trace は出しません。
 
 ## Runbook
 

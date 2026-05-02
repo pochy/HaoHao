@@ -140,7 +140,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 			Name:                 input.Body.Name,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveFolderOutput{Body: toDriveFolderBody(folder)}, nil
 	})
@@ -169,7 +169,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 		}
 		folder, err := deps.DriveService.GetFolder(ctx, tenant.ID, current.User.ID, input.FolderPublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveFolderOutput{Body: toDriveFolderBody(folder)}, nil
 	})
@@ -196,7 +196,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 			ParentFolderPublicID: input.Body.ParentFolderPublicID,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveFolderOutput{Body: toDriveFolderBody(folder)}, nil
 	})
@@ -215,7 +215,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		if err := deps.DriveService.DeleteFolder(ctx, tenant.ID, current.User.ID, input.FolderPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -240,7 +240,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 			Limit:                input.Limit,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveItemListOutput(items), nil
 	})
@@ -264,7 +264,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 			err = deps.DriveService.StopInheritance(ctx, tenant.ID, current.User.ID, ref, sessionAuditContext(ctx, current, &tenant.ID))
 		}
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveNoContentOutput{}, nil
 	})
@@ -300,7 +300,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 			Limit: input.Limit,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveItemListOutput(items), nil
 	})
@@ -332,7 +332,7 @@ func registerDriveFolderRoutes(api huma.API, deps Dependencies) {
 			Limit: input.Limit,
 		}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
-			return nil, toDriveHTTPError(err)
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return driveItemListOutput(items), nil
 	})

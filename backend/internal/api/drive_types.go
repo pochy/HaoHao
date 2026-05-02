@@ -169,7 +169,15 @@ func requireDriveTenant(ctx context.Context, deps Dependencies, sessionID, csrfT
 }
 
 func toDriveHTTPError(err error) error {
-	return driveProblemFromError(context.Background(), err).humaError()
+	return toDriveHTTPErrorWithLog(context.Background(), Dependencies{}, "", err)
+}
+
+func toDriveHTTPErrorWithLog(ctx context.Context, deps Dependencies, operation string, err error) error {
+	problem := driveProblemFromError(ctx, err)
+	if problem.Status == http.StatusInternalServerError {
+		logApplicationError(ctx, deps.Logger, operation, err)
+	}
+	return problem.humaError()
 }
 
 type driveProblem struct {
