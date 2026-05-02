@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { isApiForbidden, toApiErrorMessage, toApiErrorStatus } from '../api/client'
-import type { DatasetBody, DatasetQueryJobBody, DatasetSourceFileBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
+import type { DatasetBody, DatasetQueryJobBody, DatasetSourceFileBody, DatasetSyncJobBody, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody } from '../api/generated/types.gen'
 import {
   createWorkTableExportSchedule,
   createDatasetFromDriveFile,
@@ -13,6 +13,7 @@ import {
   fetchDataset,
   fetchDatasetLinkedWorkTables,
   fetchDatasetScopedQueryJobs,
+  fetchDatasetSyncJobs,
   fetchDatasets,
   fetchDatasetSourceFiles,
   fetchDatasetWorkTable,
@@ -25,6 +26,7 @@ import {
   linkWorkTable,
   promoteWorkTable,
   registerWorkTable,
+  requestDatasetSync,
   renameWorkTable,
   requestWorkTableExport,
   truncateWorkTable,
@@ -52,9 +54,11 @@ export const useDatasetStore = defineStore('datasets', {
     workTableActionLoading: false,
     workTableErrorMessage: '',
     queryJobs: [] as DatasetQueryJobBody[],
+    syncJobs: [] as DatasetSyncJobBody[],
     latestQuery: null as DatasetQueryJobBody | null,
     errorMessage: '',
     importing: false,
+    syncing: false,
     executing: false,
     deletingPublicId: '',
   }),
@@ -70,6 +74,13 @@ export const useDatasetStore = defineStore('datasets', {
     ),
     hasActiveImports: (state) => state.items.some((item) => ['pending', 'importing'].includes(item.status)),
     hasActiveWorkTableExports: (state) => state.workTableExports.some((item) => ['pending', 'processing'].includes(item.status)),
+    hasActiveDatasetSync: (state) => {
+      if (state.syncJobs.some((item) => ['pending', 'processing'].includes(item.status))) {
+        return true
+      }
+      const selected = state.items.find((item) => item.publicId === state.selectedPublicId)
+      return ['pending', 'processing'].includes(selected?.latestSyncJob?.status ?? '')
+    },
   },
 
   actions: {
@@ -90,6 +101,7 @@ export const useDatasetStore = defineStore('datasets', {
       } catch (error) {
         this.items = []
         this.queryJobs = []
+        this.syncJobs = []
         this.sourceFiles = []
         this.status = toApiErrorStatus(error) === 403 || isApiForbidden(error) ? 'forbidden' : 'error'
         this.errorMessage = toApiErrorMessage(error)
@@ -109,6 +121,58 @@ export const useDatasetStore = defineStore('datasets', {
         this.errorMessage = toApiErrorMessage(error)
         throw error
       }
+    },
+
+    async loadDatasetSyncJobs(datasetPublicId: string) {
+      this.errorMessage = ''
+      try {
+        this.syncJobs = await fetchDatasetSyncJobs(datasetPublicId)
+      } catch (error) {
+        this.syncJobs = []
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      }
+    },
+
+    async requestSelectedDatasetSync() {
+      const publicId = this.selectedPublicId
+      if (!publicId) {
+        return null
+      }
+      this.syncing = true
+      this.errorMessage = ''
+      try {
+        const item = await requestDatasetSync(publicId, { mode: 'full_refresh' })
+        this.syncJobs = [item, ...this.syncJobs.filter((syncJob) => syncJob.publicId !== item.publicId)]
+        const selected = this.items.find((dataset) => dataset.publicId === publicId)
+        if (selected) {
+          selected.latestSyncJob = item
+        }
+        return item
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.syncing = false
+      }
+    },
+
+    applyDatasetSyncUpdate(update: Partial<DatasetSyncJobBody> & { publicId: string }) {
+      const index = this.syncJobs.findIndex((item) => item.publicId === update.publicId)
+      if (index >= 0) {
+        this.syncJobs[index] = {
+          ...this.syncJobs[index],
+          ...update,
+        }
+      }
+      const selected = this.items.find((item) => item.publicId === this.selectedPublicId)
+      if (selected?.latestSyncJob?.publicId === update.publicId) {
+        selected.latestSyncJob = {
+          ...selected.latestSyncJob,
+          ...update,
+        }
+      }
+      return index >= 0 || selected?.latestSyncJob?.publicId === update.publicId
     },
 
     async refreshSelected() {
@@ -545,9 +609,11 @@ export const useDatasetStore = defineStore('datasets', {
       this.workTableActionLoading = false
       this.workTableErrorMessage = ''
       this.queryJobs = []
+      this.syncJobs = []
       this.latestQuery = null
       this.errorMessage = ''
       this.importing = false
+      this.syncing = false
       this.executing = false
       this.deletingPublicId = ''
     },

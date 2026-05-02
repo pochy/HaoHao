@@ -40,29 +40,58 @@ type DatasetImportJobBody struct {
 }
 
 type DatasetBody struct {
-	PublicID           string                `json:"publicId" format:"uuid"`
-	SourceKind         string                `json:"sourceKind" example:"file"`
-	SourceFileObjectID *int64                `json:"sourceFileObjectId,omitempty"`
-	SourceWorkTableID  *int64                `json:"sourceWorkTableId,omitempty"`
-	Name               string                `json:"name" example:"Customers"`
-	OriginalFilename   string                `json:"originalFilename" example:"customers.csv"`
-	ContentType        string                `json:"contentType" example:"text/csv"`
-	ByteSize           int64                 `json:"byteSize" example:"104857600"`
-	RawDatabase        string                `json:"rawDatabase" example:"hh_t_1_raw"`
-	RawTable           string                `json:"rawTable" example:"ds_018f2f05c6c97a49b32d04f4dd84ef4a"`
-	WorkDatabase       string                `json:"workDatabase" example:"hh_t_1_work"`
-	Status             string                `json:"status" example:"ready"`
-	RowCount           int64                 `json:"rowCount" example:"10000000"`
-	ErrorSummary       string                `json:"errorSummary,omitempty"`
-	Columns            []DatasetColumnBody   `json:"columns"`
-	ImportJob          *DatasetImportJobBody `json:"importJob,omitempty"`
-	CreatedAt          time.Time             `json:"createdAt" format:"date-time"`
-	UpdatedAt          time.Time             `json:"updatedAt" format:"date-time"`
-	ImportedAt         *time.Time            `json:"importedAt,omitempty" format:"date-time"`
+	PublicID                string                `json:"publicId" format:"uuid"`
+	SourceKind              string                `json:"sourceKind" example:"file"`
+	SourceFileObjectID      *int64                `json:"sourceFileObjectId,omitempty"`
+	SourceWorkTableID       *int64                `json:"sourceWorkTableId,omitempty"`
+	SourceWorkTablePublicID string                `json:"sourceWorkTablePublicId,omitempty" format:"uuid"`
+	SourceWorkTableName     string                `json:"sourceWorkTableName,omitempty"`
+	SourceWorkTableDatabase string                `json:"sourceWorkTableDatabase,omitempty"`
+	SourceWorkTableTable    string                `json:"sourceWorkTableTable,omitempty"`
+	SourceWorkTableStatus   string                `json:"sourceWorkTableStatus,omitempty"`
+	Name                    string                `json:"name" example:"Customers"`
+	OriginalFilename        string                `json:"originalFilename" example:"customers.csv"`
+	ContentType             string                `json:"contentType" example:"text/csv"`
+	ByteSize                int64                 `json:"byteSize" example:"104857600"`
+	RawDatabase             string                `json:"rawDatabase" example:"hh_t_1_raw"`
+	RawTable                string                `json:"rawTable" example:"ds_018f2f05c6c97a49b32d04f4dd84ef4a"`
+	WorkDatabase            string                `json:"workDatabase" example:"hh_t_1_work"`
+	Status                  string                `json:"status" example:"ready"`
+	RowCount                int64                 `json:"rowCount" example:"10000000"`
+	ErrorSummary            string                `json:"errorSummary,omitempty"`
+	Columns                 []DatasetColumnBody   `json:"columns"`
+	ImportJob               *DatasetImportJobBody `json:"importJob,omitempty"`
+	LatestSyncJob           *DatasetSyncJobBody   `json:"latestSyncJob,omitempty"`
+	CreatedAt               time.Time             `json:"createdAt" format:"date-time"`
+	UpdatedAt               time.Time             `json:"updatedAt" format:"date-time"`
+	ImportedAt              *time.Time            `json:"importedAt,omitempty" format:"date-time"`
 }
 
 type DatasetListBody struct {
 	Items []DatasetBody `json:"items"`
+}
+
+type DatasetSyncJobBody struct {
+	PublicID            string     `json:"publicId" format:"uuid"`
+	Mode                string     `json:"mode" enum:"full_refresh" example:"full_refresh"`
+	Status              string     `json:"status" enum:"pending,processing,completed,failed" example:"processing"`
+	OldRawDatabase      string     `json:"oldRawDatabase" example:"hh_t_1_raw"`
+	OldRawTable         string     `json:"oldRawTable" example:"ds_old"`
+	NewRawDatabase      string     `json:"newRawDatabase" example:"hh_t_1_raw"`
+	NewRawTable         string     `json:"newRawTable" example:"ds_new"`
+	RowCount            int64      `json:"rowCount" example:"100000"`
+	TotalBytes          int64      `json:"totalBytes" example:"1048576"`
+	ErrorSummary        string     `json:"errorSummary,omitempty"`
+	CleanupStatus       string     `json:"cleanupStatus,omitempty"`
+	CleanupErrorSummary string     `json:"cleanupErrorSummary,omitempty"`
+	StartedAt           *time.Time `json:"startedAt,omitempty" format:"date-time"`
+	CompletedAt         *time.Time `json:"completedAt,omitempty" format:"date-time"`
+	CreatedAt           time.Time  `json:"createdAt" format:"date-time"`
+	UpdatedAt           time.Time  `json:"updatedAt" format:"date-time"`
+}
+
+type DatasetSyncJobListBody struct {
+	Items []DatasetSyncJobBody `json:"items"`
 }
 
 type DatasetSourceFileBody struct {
@@ -214,6 +243,14 @@ type DatasetWorkTableExportScheduleListOutput struct {
 	Body DatasetWorkTableExportScheduleListBody
 }
 
+type DatasetSyncJobOutput struct {
+	Body DatasetSyncJobBody
+}
+
+type DatasetSyncJobListOutput struct {
+	Body DatasetSyncJobListBody
+}
+
 type DatasetWorkTablePreviewOutput struct {
 	Body DatasetWorkTablePreviewBody
 }
@@ -258,6 +295,23 @@ type ListDatasetWorkTablesInput struct {
 type DatasetByPublicIDInput struct {
 	SessionCookie   http.Cookie `cookie:"SESSION_ID"`
 	DatasetPublicID string      `path:"datasetPublicId" format:"uuid"`
+}
+
+type DatasetSyncJobCreateBody struct {
+	Mode string `json:"mode,omitempty" enum:"full_refresh" example:"full_refresh"`
+}
+
+type DatasetSyncJobCreateInput struct {
+	SessionCookie   http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken       string      `header:"X-CSRF-Token" required:"true"`
+	DatasetPublicID string      `path:"datasetPublicId" format:"uuid"`
+	Body            *DatasetSyncJobCreateBody
+}
+
+type ListDatasetSyncJobsInput struct {
+	SessionCookie   http.Cookie `cookie:"SESSION_ID"`
+	DatasetPublicID string      `path:"datasetPublicId" format:"uuid"`
+	Limit           int32       `query:"limit" minimum:"1" maximum:"100" default:"25"`
 }
 
 type DatasetWorkTableInput struct {
@@ -945,6 +999,53 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID: "createDatasetSyncJob",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/datasets/{datasetPublicId}/syncs",
+		Summary:     "work table 由来 dataset の再同期を request する",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetSyncJobCreateInput) (*DatasetSyncJobOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		mode := ""
+		if input.Body != nil {
+			mode = input.Body.Mode
+		}
+		item, err := deps.DatasetService.RequestDatasetSync(ctx, tenant.ID, current.User.ID, input.DatasetPublicID, mode, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "createDatasetSyncJob", err)
+		}
+		return &DatasetSyncJobOutput{Body: toDatasetSyncJobBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listDatasetSyncJobs",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/datasets/{datasetPublicId}/syncs",
+		Summary:     "dataset の sync history を返す",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *ListDatasetSyncJobsInput) (*DatasetSyncJobListOutput, error) {
+		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		items, err := deps.DatasetService.ListDatasetSyncJobs(ctx, tenant.ID, input.DatasetPublicID, input.Limit)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasetSyncJobs", err)
+		}
+		out := &DatasetSyncJobListOutput{}
+		out.Body.Items = make([]DatasetSyncJobBody, 0, len(items))
+		for _, item := range items {
+			out.Body.Items = append(out.Body.Items, toDatasetSyncJobBody(item))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID: "listDatasetScopedWorkTables",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/datasets/{datasetPublicId}/work-tables",
@@ -1102,24 +1203,29 @@ func requireDatasetTenant(ctx context.Context, deps Dependencies, sessionID, csr
 
 func toDatasetBody(item service.Dataset) DatasetBody {
 	body := DatasetBody{
-		PublicID:           item.PublicID,
-		SourceKind:         item.SourceKind,
-		SourceFileObjectID: item.SourceFileObjectID,
-		SourceWorkTableID:  item.SourceWorkTableID,
-		Name:               item.Name,
-		OriginalFilename:   item.OriginalFilename,
-		ContentType:        item.ContentType,
-		ByteSize:           item.ByteSize,
-		RawDatabase:        item.RawDatabase,
-		RawTable:           item.RawTable,
-		WorkDatabase:       item.WorkDatabase,
-		Status:             item.Status,
-		RowCount:           item.RowCount,
-		ErrorSummary:       item.ErrorSummary,
-		CreatedAt:          item.CreatedAt,
-		UpdatedAt:          item.UpdatedAt,
-		ImportedAt:         item.ImportedAt,
-		Columns:            make([]DatasetColumnBody, 0, len(item.Columns)),
+		PublicID:                item.PublicID,
+		SourceKind:              item.SourceKind,
+		SourceFileObjectID:      item.SourceFileObjectID,
+		SourceWorkTableID:       item.SourceWorkTableID,
+		SourceWorkTablePublicID: item.SourceWorkTablePublicID,
+		SourceWorkTableName:     item.SourceWorkTableName,
+		SourceWorkTableDatabase: item.SourceWorkTableDatabase,
+		SourceWorkTableTable:    item.SourceWorkTableTable,
+		SourceWorkTableStatus:   item.SourceWorkTableStatus,
+		Name:                    item.Name,
+		OriginalFilename:        item.OriginalFilename,
+		ContentType:             item.ContentType,
+		ByteSize:                item.ByteSize,
+		RawDatabase:             item.RawDatabase,
+		RawTable:                item.RawTable,
+		WorkDatabase:            item.WorkDatabase,
+		Status:                  item.Status,
+		RowCount:                item.RowCount,
+		ErrorSummary:            item.ErrorSummary,
+		CreatedAt:               item.CreatedAt,
+		UpdatedAt:               item.UpdatedAt,
+		ImportedAt:              item.ImportedAt,
+		Columns:                 make([]DatasetColumnBody, 0, len(item.Columns)),
 	}
 	for _, column := range item.Columns {
 		body.Columns = append(body.Columns, DatasetColumnBody{
@@ -1132,6 +1238,10 @@ func toDatasetBody(item service.Dataset) DatasetBody {
 	if item.ImportJob != nil {
 		importJob := toDatasetImportJobBody(*item.ImportJob)
 		body.ImportJob = &importJob
+	}
+	if item.LatestSyncJob != nil {
+		syncJob := toDatasetSyncJobBody(*item.LatestSyncJob)
+		body.LatestSyncJob = &syncJob
 	}
 	return body
 }
@@ -1272,6 +1382,27 @@ func toDatasetWorkTablePreviewBody(item service.DatasetWorkTablePreview) Dataset
 	}
 }
 
+func toDatasetSyncJobBody(item service.DatasetSyncJob) DatasetSyncJobBody {
+	return DatasetSyncJobBody{
+		PublicID:            item.PublicID,
+		Mode:                item.Mode,
+		Status:              item.Status,
+		OldRawDatabase:      item.OldRawDatabase,
+		OldRawTable:         item.OldRawTable,
+		NewRawDatabase:      item.NewRawDatabase,
+		NewRawTable:         item.NewRawTable,
+		RowCount:            item.RowCount,
+		TotalBytes:          item.TotalBytes,
+		ErrorSummary:        item.ErrorSummary,
+		CleanupStatus:       item.CleanupStatus,
+		CleanupErrorSummary: item.CleanupErrorSummary,
+		StartedAt:           item.StartedAt,
+		CompletedAt:         item.CompletedAt,
+		CreatedAt:           item.CreatedAt,
+		UpdatedAt:           item.UpdatedAt,
+	}
+}
+
 func toDatasetQueryJobBody(item service.DatasetQueryJob) DatasetQueryJobBody {
 	return DatasetQueryJobBody{
 		PublicID:      item.PublicID,
@@ -1300,8 +1431,12 @@ func toDatasetHTTPError(ctx context.Context, deps Dependencies, operation string
 		return huma.Error404NotFound("dataset work table export not found")
 	case errors.Is(err, service.ErrDatasetWorkTableExportScheduleNotFound):
 		return huma.Error404NotFound("dataset work table export schedule not found")
+	case errors.Is(err, service.ErrDatasetSyncNotFound):
+		return huma.Error404NotFound("dataset sync job not found")
 	case errors.Is(err, service.ErrDatasetWorkTableExportNotReady):
 		return huma.Error409Conflict("dataset work table export is not ready")
+	case errors.Is(err, service.ErrDatasetSyncAlreadyActive):
+		return huma.Error409Conflict("dataset sync job is already active")
 	case errors.Is(err, service.ErrInvalidDatasetInput):
 		return huma.Error400BadRequest(err.Error())
 	case errors.Is(err, service.ErrUnsafeDatasetSQL):

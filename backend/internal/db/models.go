@@ -148,6 +148,31 @@ type DatasetQueryJob struct {
 	DatasetID         pgtype.Int8        `json:"dataset_id"`
 }
 
+type DatasetSyncJob struct {
+	ID                  int64              `json:"id"`
+	PublicID            uuid.UUID          `json:"public_id"`
+	TenantID            int64              `json:"tenant_id"`
+	DatasetID           int64              `json:"dataset_id"`
+	SourceWorkTableID   int64              `json:"source_work_table_id"`
+	RequestedByUserID   pgtype.Int8        `json:"requested_by_user_id"`
+	OutboxEventID       pgtype.Int8        `json:"outbox_event_id"`
+	Mode                string             `json:"mode"`
+	Status              string             `json:"status"`
+	OldRawDatabase      string             `json:"old_raw_database"`
+	OldRawTable         string             `json:"old_raw_table"`
+	NewRawDatabase      string             `json:"new_raw_database"`
+	NewRawTable         string             `json:"new_raw_table"`
+	RowCount            int64              `json:"row_count"`
+	TotalBytes          int64              `json:"total_bytes"`
+	ErrorSummary        pgtype.Text        `json:"error_summary"`
+	CleanupStatus       pgtype.Text        `json:"cleanup_status"`
+	CleanupErrorSummary pgtype.Text        `json:"cleanup_error_summary"`
+	StartedAt           pgtype.Timestamptz `json:"started_at"`
+	CompletedAt         pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DatasetWorkTable struct {
 	ID                    int64              `json:"id"`
 	PublicID              uuid.UUID          `json:"public_id"`

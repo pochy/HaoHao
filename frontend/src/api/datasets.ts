@@ -3,6 +3,7 @@ import {
   createDataset,
   createDatasetQueryJob,
   createDatasetScopedQueryJob,
+  createDatasetSyncJob,
   createDatasetWorkTableExport,
   createDatasetWorkTableExportSchedule,
   deleteDataset,
@@ -21,6 +22,7 @@ import {
   listDatasetScopedQueryJobs,
   listDatasetScopedWorkTables,
   listDatasetSourceFiles,
+  listDatasetSyncJobs,
   listDatasetWorkTableExportSchedules,
   listDatasetWorkTableExports,
   listDatasetWorkTables,
@@ -36,6 +38,8 @@ import type {
   DatasetQueryCreateBodyWritable,
   DatasetQueryJobBody,
   DatasetSourceFileBody,
+  DatasetSyncJobBody,
+  DatasetSyncJobCreateBodyWritable,
   DatasetWorkTableBody,
   DatasetWorkTableExportBody,
   DatasetWorkTableExportScheduleBody,
@@ -50,6 +54,7 @@ import type {
 
 export type DatasetWorkTableExportFormat = 'csv' | 'json' | 'parquet'
 export type DatasetWorkTableExportFrequency = 'daily' | 'weekly' | 'monthly'
+export type DatasetSyncMode = 'full_refresh'
 
 function csrfHeaders() {
   return {
@@ -134,6 +139,23 @@ export async function fetchDatasetLinkedWorkTables(datasetPublicId: string): Pro
     query: { limit: 100 },
   }) as unknown as { items?: DatasetWorkTableBody[] | null }
   return data.items ?? []
+}
+
+export async function fetchDatasetSyncJobs(datasetPublicId: string): Promise<DatasetSyncJobBody[]> {
+  const data = await listDatasetSyncJobs({
+    path: { datasetPublicId },
+    query: { limit: 25 },
+  }) as unknown as { items?: DatasetSyncJobBody[] | null }
+  return data.items ?? []
+}
+
+export async function requestDatasetSync(datasetPublicId: string, body: DatasetSyncJobCreateBodyWritable = { mode: 'full_refresh' }): Promise<DatasetSyncJobBody> {
+  await ensureCSRFCookie()
+  return createDatasetSyncJob({
+    headers: csrfHeaders(),
+    path: { datasetPublicId },
+    body,
+  }) as unknown as Promise<DatasetSyncJobBody>
 }
 
 export async function linkWorkTable(workTablePublicId: string, body: DatasetWorkTableLinkBodyWritable): Promise<DatasetWorkTableBody> {

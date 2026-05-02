@@ -314,6 +314,59 @@ ALTER TABLE public.dataset_query_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS ID
 
 
 --
+-- Name: dataset_sync_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_sync_jobs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    dataset_id bigint NOT NULL,
+    source_work_table_id bigint NOT NULL,
+    requested_by_user_id bigint,
+    outbox_event_id bigint,
+    mode text DEFAULT 'full_refresh'::text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    old_raw_database text NOT NULL,
+    old_raw_table text NOT NULL,
+    new_raw_database text NOT NULL,
+    new_raw_table text NOT NULL,
+    row_count bigint DEFAULT 0 NOT NULL,
+    total_bytes bigint DEFAULT 0 NOT NULL,
+    error_summary text,
+    cleanup_status text,
+    cleanup_error_summary text,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT dataset_sync_jobs_cleanup_status_check CHECK (((cleanup_status IS NULL) OR (cleanup_status = ANY (ARRAY['completed'::text, 'failed'::text, 'skipped'::text])))),
+    CONSTRAINT dataset_sync_jobs_mode_check CHECK ((mode = 'full_refresh'::text)),
+    CONSTRAINT dataset_sync_jobs_new_raw_database_check CHECK ((btrim(new_raw_database) <> ''::text)),
+    CONSTRAINT dataset_sync_jobs_new_raw_table_check CHECK ((btrim(new_raw_table) <> ''::text)),
+    CONSTRAINT dataset_sync_jobs_old_raw_database_check CHECK ((btrim(old_raw_database) <> ''::text)),
+    CONSTRAINT dataset_sync_jobs_old_raw_table_check CHECK ((btrim(old_raw_table) <> ''::text)),
+    CONSTRAINT dataset_sync_jobs_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT dataset_sync_jobs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text]))),
+    CONSTRAINT dataset_sync_jobs_total_bytes_check CHECK ((total_bytes >= 0))
+);
+
+
+--
+-- Name: dataset_sync_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_sync_jobs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_sync_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: dataset_work_table_export_schedules; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4106,6 +4159,22 @@ ALTER TABLE ONLY public.dataset_query_jobs
 
 
 --
+-- Name: dataset_sync_jobs dataset_sync_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_sync_jobs
+    ADD CONSTRAINT dataset_sync_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_sync_jobs dataset_sync_jobs_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_sync_jobs
+    ADD CONSTRAINT dataset_sync_jobs_public_id_key UNIQUE (public_id);
+
+
+--
 -- Name: dataset_work_table_export_schedules dataset_work_table_export_schedules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5252,6 +5321,27 @@ CREATE INDEX dataset_query_jobs_tenant_created_idx ON public.dataset_query_jobs 
 --
 
 CREATE INDEX dataset_query_jobs_tenant_dataset_created_idx ON public.dataset_query_jobs USING btree (tenant_id, dataset_id, created_at DESC, id DESC) WHERE (dataset_id IS NOT NULL);
+
+
+--
+-- Name: dataset_sync_jobs_active_dataset_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_sync_jobs_active_dataset_key ON public.dataset_sync_jobs USING btree (dataset_id) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]));
+
+
+--
+-- Name: dataset_sync_jobs_dataset_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_sync_jobs_dataset_created_idx ON public.dataset_sync_jobs USING btree (dataset_id, created_at DESC, id DESC);
+
+
+--
+-- Name: dataset_sync_jobs_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_sync_jobs_tenant_status_idx ON public.dataset_sync_jobs USING btree (tenant_id, status, created_at DESC, id DESC);
 
 
 --
@@ -6736,6 +6826,46 @@ ALTER TABLE ONLY public.dataset_query_jobs
 
 ALTER TABLE ONLY public.dataset_query_jobs
     ADD CONSTRAINT dataset_query_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_sync_jobs dataset_sync_jobs_dataset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_sync_jobs
+    ADD CONSTRAINT dataset_sync_jobs_dataset_id_fkey FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_sync_jobs dataset_sync_jobs_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_sync_jobs
+    ADD CONSTRAINT dataset_sync_jobs_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_sync_jobs dataset_sync_jobs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_sync_jobs
+    ADD CONSTRAINT dataset_sync_jobs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_sync_jobs dataset_sync_jobs_source_work_table_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_sync_jobs
+    ADD CONSTRAINT dataset_sync_jobs_source_work_table_id_fkey FOREIGN KEY (source_work_table_id) REFERENCES public.dataset_work_tables(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_sync_jobs dataset_sync_jobs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_sync_jobs
+    ADD CONSTRAINT dataset_sync_jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --

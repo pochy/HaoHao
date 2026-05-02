@@ -364,6 +364,7 @@ export type DatasetBody = {
     errorSummary?: string;
     importJob?: DatasetImportJobBody;
     importedAt?: string;
+    latestSyncJob?: DatasetSyncJobBody;
     /**
      * 画面表示や検索で使う名前です。
      */
@@ -378,7 +379,12 @@ export type DatasetBody = {
     rowCount: number;
     sourceFileObjectId?: number;
     sourceKind: string;
+    sourceWorkTableDatabase?: string;
     sourceWorkTableId?: number;
+    sourceWorkTableName?: string;
+    sourceWorkTablePublicId?: string;
+    sourceWorkTableStatus?: string;
+    sourceWorkTableTable?: string;
     /**
      * 現在の lifecycle status です。
      */
@@ -527,6 +533,60 @@ export type DatasetSourceFileListBody = {
      */
     readonly $schema?: string;
     items: Array<DatasetSourceFileBody> | null;
+};
+
+export type DatasetSyncJobBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    cleanupErrorSummary?: string;
+    cleanupStatus?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSummary?: string;
+    mode: 'full_refresh';
+    newRawDatabase: string;
+    newRawTable: string;
+    oldRawDatabase: string;
+    oldRawTable: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    rowCount: number;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    totalBytes: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DatasetSyncJobCreateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    mode?: 'full_refresh';
+};
+
+export type DatasetSyncJobListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DatasetSyncJobBody> | null;
 };
 
 export type DatasetWorkTableBody = {
@@ -3645,6 +3705,7 @@ export type DatasetBodyWritable = {
     errorSummary?: string;
     importJob?: DatasetImportJobBody;
     importedAt?: string;
+    latestSyncJob?: DatasetSyncJobBodyWritable;
     /**
      * 画面表示や検索で使う名前です。
      */
@@ -3659,7 +3720,12 @@ export type DatasetBodyWritable = {
     rowCount: number;
     sourceFileObjectId?: number;
     sourceKind: string;
+    sourceWorkTableDatabase?: string;
     sourceWorkTableId?: number;
+    sourceWorkTableName?: string;
+    sourceWorkTablePublicId?: string;
+    sourceWorkTableStatus?: string;
+    sourceWorkTableTable?: string;
     /**
      * 現在の lifecycle status です。
      */
@@ -3724,6 +3790,48 @@ export type DatasetQueryListBodyWritable = {
 
 export type DatasetSourceFileListBodyWritable = {
     items: Array<DatasetSourceFileBody> | null;
+};
+
+export type DatasetSyncJobBodyWritable = {
+    cleanupErrorSummary?: string;
+    cleanupStatus?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSummary?: string;
+    mode: 'full_refresh';
+    newRawDatabase: string;
+    newRawTable: string;
+    oldRawDatabase: string;
+    oldRawTable: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    rowCount: number;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    totalBytes: number;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DatasetSyncJobCreateBodyWritable = {
+    mode?: 'full_refresh';
+};
+
+export type DatasetSyncJobListBodyWritable = {
+    items: Array<DatasetSyncJobBodyWritable> | null;
 };
 
 export type DatasetWorkTableBodyWritable = {
@@ -9648,6 +9756,80 @@ export type CreateDatasetScopedQueryJobResponses = {
 };
 
 export type CreateDatasetScopedQueryJobResponse = CreateDatasetScopedQueryJobResponses[keyof CreateDatasetScopedQueryJobResponses];
+
+export type ListDatasetSyncJobsData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `datasetPublicId` を指定します。
+         */
+        datasetPublicId: string;
+    };
+    query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/datasets/{datasetPublicId}/syncs';
+};
+
+export type ListDatasetSyncJobsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetSyncJobsError = ListDatasetSyncJobsErrors[keyof ListDatasetSyncJobsErrors];
+
+export type ListDatasetSyncJobsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetSyncJobListBody;
+};
+
+export type ListDatasetSyncJobsResponse = ListDatasetSyncJobsResponses[keyof ListDatasetSyncJobsResponses];
+
+export type CreateDatasetSyncJobData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body?: DatasetSyncJobCreateBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `datasetPublicId` を指定します。
+         */
+        datasetPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/datasets/{datasetPublicId}/syncs';
+};
+
+export type CreateDatasetSyncJobErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type CreateDatasetSyncJobError = CreateDatasetSyncJobErrors[keyof CreateDatasetSyncJobErrors];
+
+export type CreateDatasetSyncJobResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetSyncJobBody;
+};
+
+export type CreateDatasetSyncJobResponse = CreateDatasetSyncJobResponses[keyof CreateDatasetSyncJobResponses];
 
 export type ListDatasetScopedWorkTablesData = {
     body?: never;

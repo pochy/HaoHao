@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Play, RefreshCw, Table2 } from 'lucide-vue-next'
+import { Play, RefreshCw, RotateCw, Table2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { toApiErrorMessage, toApiErrorRequestId } from '../api/client'
@@ -23,6 +23,7 @@ const { d, n, t } = useI18n()
 const statement = ref('')
 const actionErrorMessage = ref('')
 const deleteTargetPublicId = ref('')
+const syncConfirmOpen = ref(false)
 const activeDatasetTab = ref<DatasetTab>('sql')
 let refreshTimer: number | undefined
 
@@ -35,10 +36,24 @@ const datasetPublicId = computed(() => {
 
 const selectedDataset = computed(() => datasetStore.selectedDataset)
 const latestQuery = computed(() => datasetStore.latestQuery ?? datasetStore.queryJobs[0] ?? null)
+const latestSync = computed(() => selectedDataset.value?.latestSyncJob ?? datasetStore.syncJobs[0] ?? null)
 const latestQueryFailed = computed(() => latestQuery.value?.status === 'failed')
 const resultColumns = computed(() => latestQuery.value?.resultColumns ?? [])
 const resultRows = computed(() => latestQuery.value?.resultRows ?? [])
 const requestErrorMessage = computed(() => actionErrorMessage.value || datasetStore.errorMessage)
+const isWorkTableDataset = computed(() => selectedDataset.value?.sourceKind === 'work_table')
+const sourceWorkTableLabel = computed(() => {
+  const item = selectedDataset.value
+  if (!item?.sourceWorkTableDatabase || !item.sourceWorkTableTable) {
+    return '-'
+  }
+  return `\`${item.sourceWorkTableDatabase}\`.\`${item.sourceWorkTableTable}\``
+})
+const canRequestSync = computed(() => (
+  Boolean(selectedDataset.value?.publicId && isWorkTableDataset.value && selectedDataset.value?.sourceWorkTablePublicId)
+    && !datasetStore.hasActiveDatasetSync
+    && !datasetStore.syncing
+))
 
 const selectedTableName = computed(() => {
   const item = selectedDataset.value
@@ -62,6 +77,9 @@ onMounted(async () => {
     if (!realtimeStore.connected && selectedDataset.value && ['pending', 'importing'].includes(selectedDataset.value.status)) {
       await refreshDatasetDetail()
     }
+    if (selectedDataset.value && datasetStore.hasActiveDatasetSync) {
+      await refreshDatasetSyncState()
+    }
   }, 4000)
 })
 
@@ -78,6 +96,7 @@ watch(
     statement.value = ''
     datasetStore.latestQuery = null
     datasetStore.queryJobs = []
+    datasetStore.syncJobs = []
     if (!slug || !publicId) {
       datasetStore.selectedPublicId = ''
       return
@@ -88,6 +107,7 @@ watch(
         datasetStore.loadDataset(publicId),
         datasetStore.loadQueryJobs(publicId),
         datasetStore.loadLinkedWorkTables(publicId),
+        datasetStore.loadDatasetSyncJobs(publicId),
       ])
       fillSampleQuery()
     } catch (error) {
@@ -128,6 +148,21 @@ async function refreshDatasetDetail() {
       datasetStore.loadDataset(datasetPublicId.value),
       datasetStore.loadQueryJobs(datasetPublicId.value),
       datasetStore.loadLinkedWorkTables(datasetPublicId.value),
+      datasetStore.loadDatasetSyncJobs(datasetPublicId.value),
+    ])
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function refreshDatasetSyncState() {
+  if (!datasetPublicId.value) {
+    return
+  }
+  try {
+    await Promise.all([
+      datasetStore.refreshSelected(),
+      datasetStore.loadDatasetSyncJobs(datasetPublicId.value),
     ])
   } catch (error) {
     actionErrorMessage.value = formatActionError(error)
@@ -151,6 +186,10 @@ function requestDelete(publicId: string) {
   deleteTargetPublicId.value = publicId
 }
 
+function requestSync() {
+  syncConfirmOpen.value = true
+}
+
 function selectQueryJob(job: DatasetQueryJobBody) {
   datasetStore.latestQuery = job
 }
@@ -165,6 +204,19 @@ async function confirmDelete() {
   try {
     await datasetStore.remove(publicId)
     await router.push('/datasets')
+  } catch (error) {
+    actionErrorMessage.value = formatActionError(error)
+  }
+}
+
+async function confirmSync() {
+  syncConfirmOpen.value = false
+  actionErrorMessage.value = ''
+  try {
+    await datasetStore.requestSelectedDatasetSync()
+    if (datasetPublicId.value) {
+      await datasetStore.loadDatasetSyncJobs(datasetPublicId.value)
+    }
   } catch (error) {
     actionErrorMessage.value = formatActionError(error)
   }
@@ -414,6 +466,83 @@ function formatActionError(error: unknown) {
             </table>
           </div>
         </section>
+
+        <section v-if="isWorkTableDataset" class="panel stack">
+          <div class="section-header">
+            <div>
+              <span class="status-pill">{{ t('datasets.sync') }}</span>
+              <h2>{{ t('datasets.sourceWorkTable') }}</h2>
+              <span class="cell-subtle monospace-cell">{{ sourceWorkTableLabel }}</span>
+            </div>
+            <button
+              class="secondary-button"
+              :disabled="!canRequestSync"
+              type="button"
+              @click="requestSync"
+            >
+              <RotateCw :size="17" aria-hidden="true" />
+              {{ datasetStore.syncing ? t('datasets.requestingSync') : t('datasets.requestSync') }}
+            </button>
+          </div>
+
+          <dl class="metadata-grid dataset-metadata-grid">
+            <div>
+              <dt>{{ t('datasets.sourceWorkTable') }}</dt>
+              <dd>{{ selectedDataset.sourceWorkTableName || selectedDataset.sourceWorkTableTable || '-' }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('common.status') }}</dt>
+              <dd><span class="status-pill" :class="statusClass(selectedDataset.sourceWorkTableStatus || '')">{{ selectedDataset.sourceWorkTableStatus || '-' }}</span></dd>
+            </div>
+            <div>
+              <dt>{{ t('datasets.lastSynced') }}</dt>
+              <dd>{{ formatDate(latestSync?.completedAt || latestSync?.updatedAt) }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('datasets.lastSyncStatus') }}</dt>
+              <dd><span class="status-pill" :class="statusClass(latestSync?.status || '')">{{ latestSync?.status || '-' }}</span></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section v-if="isWorkTableDataset" class="panel stack">
+          <div class="section-header">
+            <div>
+              <span class="status-pill">{{ t('datasets.syncHistory') }}</span>
+              <h2>{{ t('datasets.syncHistory') }}</h2>
+            </div>
+          </div>
+          <div v-if="datasetStore.syncJobs.length > 0" class="admin-table dataset-column-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>{{ t('common.status') }}</th>
+                  <th>{{ t('datasets.mode') }}</th>
+                  <th>{{ t('datasets.rows') }}</th>
+                  <th>{{ t('datasets.oldRawTable') }}</th>
+                  <th>{{ t('datasets.newRawTable') }}</th>
+                  <th>{{ t('datasets.updated') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="job in datasetStore.syncJobs" :key="job.publicId">
+                  <td><span class="status-pill" :class="statusClass(job.status)">{{ job.status }}</span></td>
+                  <td>{{ t('datasets.syncModeFullRefresh') }}</td>
+                  <td class="tabular-cell">{{ n(job.rowCount) }}</td>
+                  <td class="monospace-cell">{{ job.oldRawDatabase }}.{{ job.oldRawTable }}</td>
+                  <td class="monospace-cell">{{ job.newRawDatabase }}.{{ job.newRawTable }}</td>
+                  <td>
+                    {{ formatDate(job.completedAt || job.updatedAt) }}
+                    <span v-if="job.errorSummary" class="dataset-query-error-text">{{ job.errorSummary }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="empty-state">
+            <p>{{ t('datasets.noSyncHistory') }}</p>
+          </div>
+        </section>
       </div>
 
       <div
@@ -465,6 +594,15 @@ function formatActionError(error: unknown) {
       :cancel-label="t('common.back')"
       @cancel="deleteTargetPublicId = ''"
       @confirm="confirmDelete"
+    />
+    <ConfirmActionDialog
+      :open="syncConfirmOpen"
+      :title="t('datasets.syncDataset')"
+      :message="t('datasets.syncMessage')"
+      :confirm-label="t('datasets.requestSync')"
+      :cancel-label="t('common.back')"
+      @cancel="syncConfirmOpen = false"
+      @confirm="confirmSync"
     />
   </div>
 </template>

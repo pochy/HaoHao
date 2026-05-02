@@ -871,6 +871,10 @@ components:
             - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
+        latestSyncJob:
+          $ref: "#/components/schemas/DatasetSyncJobBody"
+          examples:
+            - example
         name:
           description: 画面表示や検索で使う名前です。
           examples:
@@ -908,11 +912,32 @@ components:
           examples:
             - file
           type: string
+        sourceWorkTableDatabase:
+          examples:
+            - support
+          type: string
         sourceWorkTableId:
           examples:
             - 1
           format: int64
           type: integer
+        sourceWorkTableName:
+          examples:
+            - support
+          type: string
+        sourceWorkTablePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        sourceWorkTableStatus:
+          examples:
+            - active
+          type: string
+        sourceWorkTableTable:
+          examples:
+            - support
+          type: string
         status:
           description: 現在の lifecycle status です。
           examples:
@@ -1289,6 +1314,150 @@ components:
             - - example
           items:
             $ref: "#/components/schemas/DatasetSourceFileBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DatasetSyncJobBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetSyncJobBody.json
+          format: uri
+          readOnly: true
+          type: string
+        cleanupErrorSummary:
+          examples:
+            - example
+          type: string
+        cleanupStatus:
+          examples:
+            - active
+          type: string
+        completedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        errorSummary:
+          examples:
+            - example
+          type: string
+        mode:
+          enum:
+            - full_refresh
+          examples:
+            - full_refresh
+          type: string
+        newRawDatabase:
+          examples:
+            - hh_t_1_raw
+          type: string
+        newRawTable:
+          examples:
+            - ds_new
+          type: string
+        oldRawDatabase:
+          examples:
+            - hh_t_1_raw
+          type: string
+        oldRawTable:
+          examples:
+            - ds_old
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        rowCount:
+          examples:
+            - 100000
+          format: int64
+          type: integer
+        startedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          enum:
+            - pending
+            - processing
+            - completed
+            - failed
+          examples:
+            - processing
+          type: string
+        totalBytes:
+          examples:
+            - 1048576
+          format: int64
+          type: integer
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - mode
+        - status
+        - oldRawDatabase
+        - oldRawTable
+        - newRawDatabase
+        - newRawTable
+        - rowCount
+        - totalBytes
+        - createdAt
+        - updatedAt
+      type: object
+    DatasetSyncJobCreateBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetSyncJobCreateBody.json
+          format: uri
+          readOnly: true
+          type: string
+        mode:
+          enum:
+            - full_refresh
+          examples:
+            - full_refresh
+          type: string
+      type: object
+    DatasetSyncJobListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetSyncJobListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DatasetSyncJobBody"
           type:
             - array
             - "null"
@@ -18034,6 +18203,23 @@ paths:
                       updatedAt: "2026-01-15T09:30:00Z"
                       validRows: 9999990
                     importedAt: "2026-01-15T09:30:00Z"
+                    latestSyncJob:
+                      cleanupErrorSummary: example
+                      cleanupStatus: active
+                      completedAt: "2026-01-15T09:30:00Z"
+                      createdAt: "2026-01-15T09:30:00Z"
+                      errorSummary: example
+                      mode: full_refresh
+                      newRawDatabase: hh_t_1_raw
+                      newRawTable: ds_new
+                      oldRawDatabase: hh_t_1_raw
+                      oldRawTable: ds_old
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rowCount: 100000
+                      startedAt: "2026-01-15T09:30:00Z"
+                      status: processing
+                      totalBytes: 1048576
+                      updatedAt: "2026-01-15T09:30:00Z"
                     name: Customers
                     originalFilename: customers.csv
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
@@ -18042,7 +18228,12 @@ paths:
                     rowCount: 10000000
                     sourceFileObjectId: 1
                     sourceKind: file
+                    sourceWorkTableDatabase: support
                     sourceWorkTableId: 1
+                    sourceWorkTableName: support
+                    sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    sourceWorkTableStatus: active
+                    sourceWorkTableTable: support
                     status: ready
                     updatedAt: "2026-01-15T09:30:00Z"
                     workDatabase: hh_t_1_work
@@ -18307,6 +18498,7 @@ paths:
                         errorSummary: example
                         importJob: {}
                         importedAt: "2026-01-15T09:30:00Z"
+                        latestSyncJob: {}
                         name: Customers
                         originalFilename: customers.csv
                         publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
@@ -18315,7 +18507,12 @@ paths:
                         rowCount: 10000000
                         sourceFileObjectId: 1
                         sourceKind: file
+                        sourceWorkTableDatabase: support
                         sourceWorkTableId: 1
+                        sourceWorkTableName: support
+                        sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        sourceWorkTableStatus: active
+                        sourceWorkTableTable: support
                         status: ready
                         updatedAt: "2026-01-15T09:30:00Z"
                         workDatabase: hh_t_1_work
@@ -18414,6 +18611,23 @@ paths:
                       updatedAt: "2026-01-15T09:30:00Z"
                       validRows: 9999990
                     importedAt: "2026-01-15T09:30:00Z"
+                    latestSyncJob:
+                      cleanupErrorSummary: example
+                      cleanupStatus: active
+                      completedAt: "2026-01-15T09:30:00Z"
+                      createdAt: "2026-01-15T09:30:00Z"
+                      errorSummary: example
+                      mode: full_refresh
+                      newRawDatabase: hh_t_1_raw
+                      newRawTable: ds_new
+                      oldRawDatabase: hh_t_1_raw
+                      oldRawTable: ds_old
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rowCount: 100000
+                      startedAt: "2026-01-15T09:30:00Z"
+                      status: processing
+                      totalBytes: 1048576
+                      updatedAt: "2026-01-15T09:30:00Z"
                     name: Customers
                     originalFilename: customers.csv
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
@@ -18422,7 +18636,12 @@ paths:
                     rowCount: 10000000
                     sourceFileObjectId: 1
                     sourceKind: file
+                    sourceWorkTableDatabase: support
                     sourceWorkTableId: 1
+                    sourceWorkTableName: support
+                    sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    sourceWorkTableStatus: active
+                    sourceWorkTableTable: support
                     status: ready
                     updatedAt: "2026-01-15T09:30:00Z"
                     workDatabase: hh_t_1_work
@@ -18567,6 +18786,23 @@ paths:
                       updatedAt: "2026-01-15T09:30:00Z"
                       validRows: 9999990
                     importedAt: "2026-01-15T09:30:00Z"
+                    latestSyncJob:
+                      cleanupErrorSummary: example
+                      cleanupStatus: active
+                      completedAt: "2026-01-15T09:30:00Z"
+                      createdAt: "2026-01-15T09:30:00Z"
+                      errorSummary: example
+                      mode: full_refresh
+                      newRawDatabase: hh_t_1_raw
+                      newRawTable: ds_new
+                      oldRawDatabase: hh_t_1_raw
+                      oldRawTable: ds_old
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      rowCount: 100000
+                      startedAt: "2026-01-15T09:30:00Z"
+                      status: processing
+                      totalBytes: 1048576
+                      updatedAt: "2026-01-15T09:30:00Z"
                     name: Customers
                     originalFilename: customers.csv
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
@@ -18575,7 +18811,12 @@ paths:
                     rowCount: 10000000
                     sourceFileObjectId: 1
                     sourceKind: file
+                    sourceWorkTableDatabase: support
                     sourceWorkTableId: 1
+                    sourceWorkTableName: support
+                    sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    sourceWorkTableStatus: active
+                    sourceWorkTableTable: support
                     status: ready
                     updatedAt: "2026-01-15T09:30:00Z"
                     workDatabase: hh_t_1_work
@@ -18787,6 +19028,194 @@ paths:
       security:
         - cookieAuth: []
       summary: active tenant の dataset に紐づく SQL query job を作成する
+      tags:
+        - Data & Datasets
+  /api/v1/datasets/{datasetPublicId}/syncs:
+    get:
+      description: |-
+        dataset の sync history を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listDatasetSyncJobs
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `datasetPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: datasetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 25
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - $schema: https://example.com/schemas/DatasetSyncJobBody.json
+                        cleanupErrorSummary: example
+                        cleanupStatus: active
+                        completedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        errorSummary: example
+                        mode: full_refresh
+                        newRawDatabase: hh_t_1_raw
+                        newRawTable: ds_new
+                        oldRawDatabase: hh_t_1_raw
+                        oldRawTable: ds_old
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        rowCount: 100000
+                        startedAt: "2026-01-15T09:30:00Z"
+                        status: processing
+                        totalBytes: 1048576
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetSyncJobListBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: dataset の sync history を返す
+      tags:
+        - Data & Datasets
+    post:
+      description: |-
+        work table 由来 dataset の再同期を request する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: createDatasetSyncJob
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `datasetPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: datasetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  mode: full_refresh
+            schema:
+              $ref: "#/components/schemas/DatasetSyncJobCreateBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    cleanupErrorSummary: example
+                    cleanupStatus: active
+                    completedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    errorSummary: example
+                    mode: full_refresh
+                    newRawDatabase: hh_t_1_raw
+                    newRawTable: ds_new
+                    oldRawDatabase: hh_t_1_raw
+                    oldRawTable: ds_old
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    rowCount: 100000
+                    startedAt: "2026-01-15T09:30:00Z"
+                    status: processing
+                    totalBytes: 1048576
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DatasetSyncJobBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: work table 由来 dataset の再同期を request する
       tags:
         - Data & Datasets
   /api/v1/datasets/{datasetPublicId}/work-tables:

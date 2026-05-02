@@ -90,6 +90,22 @@ SET
 WHERE id = $1
 RETURNING *;
 
+-- name: UpdateDatasetAfterFullRefresh :one
+UPDATE datasets
+SET
+    raw_database = $3,
+    raw_table = $4,
+    byte_size = $5,
+    row_count = $6,
+    status = 'ready',
+    error_summary = NULL,
+    imported_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND tenant_id = $2
+  AND deleted_at IS NULL
+RETURNING *;
+
 -- name: SoftDeleteDataset :one
 UPDATE datasets
 SET
@@ -177,6 +193,97 @@ SET
     status = 'failed',
     error_summary = left($2, 1000),
     completed_at = now(),
+    updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: CreateDatasetSyncJob :one
+INSERT INTO dataset_sync_jobs (
+    tenant_id,
+    dataset_id,
+    source_work_table_id,
+    requested_by_user_id,
+    mode,
+    old_raw_database,
+    old_raw_table,
+    new_raw_database,
+    new_raw_table
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+)
+RETURNING *;
+
+-- name: ListDatasetSyncJobs :many
+SELECT *
+FROM dataset_sync_jobs
+WHERE tenant_id = $1
+  AND dataset_id = $2
+ORDER BY created_at DESC, id DESC
+LIMIT $3;
+
+-- name: GetLatestDatasetSyncJob :one
+SELECT *
+FROM dataset_sync_jobs
+WHERE dataset_id = $1
+ORDER BY created_at DESC, id DESC
+LIMIT 1;
+
+-- name: GetDatasetSyncJobByIDForTenant :one
+SELECT *
+FROM dataset_sync_jobs
+WHERE id = $1
+  AND tenant_id = $2
+LIMIT 1;
+
+-- name: MarkDatasetSyncJobProcessing :one
+UPDATE dataset_sync_jobs
+SET
+    status = 'processing',
+    outbox_event_id = $2,
+    started_at = COALESCE(started_at, now()),
+    updated_at = now()
+WHERE id = $1
+  AND status IN ('pending', 'processing')
+RETURNING *;
+
+-- name: CompleteDatasetSyncJob :one
+UPDATE dataset_sync_jobs
+SET
+    status = 'completed',
+    row_count = $2,
+    total_bytes = $3,
+    error_summary = NULL,
+    completed_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND status IN ('pending', 'processing')
+RETURNING *;
+
+-- name: FailDatasetSyncJob :one
+UPDATE dataset_sync_jobs
+SET
+    status = 'failed',
+    error_summary = left($2, 1000),
+    completed_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND status IN ('pending', 'processing')
+RETURNING *;
+
+-- name: MarkDatasetSyncJobCleanupCompleted :one
+UPDATE dataset_sync_jobs
+SET
+    cleanup_status = 'completed',
+    cleanup_error_summary = NULL,
+    updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: MarkDatasetSyncJobCleanupFailed :one
+UPDATE dataset_sync_jobs
+SET
+    cleanup_status = 'failed',
+    cleanup_error_summary = left($2, 1000),
     updated_at = now()
 WHERE id = $1
 RETURNING *;

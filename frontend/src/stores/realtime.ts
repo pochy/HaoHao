@@ -11,6 +11,7 @@ import { useTenantCommonStore } from './tenant-common'
 import { useTenantStore } from './tenants'
 
 type RealtimeConnectionHandle = ReturnType<typeof connectRealtime>
+type DatasetSyncStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
 export const useRealtimeStore = defineStore('realtime', {
   state: () => ({
@@ -111,6 +112,36 @@ async function refreshForJobEvent(event: RealtimeEvent) {
     const datasetPublicId = stringPayload(payload.datasetPublicId) || event.resourcePublicId || datasetStore.selectedPublicId
     if (datasetPublicId && datasetStore.selectedPublicId === datasetPublicId) {
       await datasetStore.refreshSelected()
+      await datasetStore.loadQueryJobs(datasetPublicId).catch(() => undefined)
+      await datasetStore.loadLinkedWorkTables(datasetPublicId).catch(() => undefined)
+    }
+    return
+  }
+
+  if (event.resourceType === 'dataset_sync') {
+    const syncJobPublicId = stringPayload(payload.syncJobPublicId) || event.resourcePublicId
+    const datasetPublicId = stringPayload(payload.datasetPublicId) || datasetStore.selectedPublicId
+    const status = datasetSyncStatusPayload(payload.status)
+    const errorSummary = stringPayload(payload.errorSummary)
+    const rowCount = numberPayload(payload.rowCount)
+    const updatedAt = event.createdAt
+    const completedAt = updatedAt && status && ['completed', 'failed'].includes(status) ? updatedAt : undefined
+    if (syncJobPublicId) {
+      datasetStore.applyDatasetSyncUpdate({
+        publicId: syncJobPublicId,
+        ...(status ? { status } : {}),
+        ...(errorSummary ? { errorSummary } : {}),
+        ...(rowCount !== undefined ? { rowCount } : {}),
+        ...(updatedAt ? { updatedAt } : {}),
+        ...(completedAt ? { completedAt } : {}),
+      })
+    }
+    if (datasetStore.status !== 'idle') {
+      await datasetStore.load().catch(() => undefined)
+    }
+    if (datasetPublicId && datasetStore.selectedPublicId === datasetPublicId) {
+      await datasetStore.refreshSelected()
+      await datasetStore.loadDatasetSyncJobs(datasetPublicId).catch(() => undefined)
       await datasetStore.loadQueryJobs(datasetPublicId).catch(() => undefined)
       await datasetStore.loadLinkedWorkTables(datasetPublicId).catch(() => undefined)
     }
@@ -238,4 +269,8 @@ function booleanPayload(value: unknown): boolean | undefined {
 
 function exportSourcePayload(value: unknown): 'manual' | 'scheduled' | undefined {
   return value === 'manual' || value === 'scheduled' ? value : undefined
+}
+
+function datasetSyncStatusPayload(value: unknown): DatasetSyncStatus | undefined {
+  return value === 'pending' || value === 'processing' || value === 'completed' || value === 'failed' ? value : undefined
 }

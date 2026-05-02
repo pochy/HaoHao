@@ -338,6 +338,28 @@ func TestDatasetWorkTableExportFormatNormalizationAndSpec(t *testing.T) {
 	}
 }
 
+func TestNormalizeDatasetSyncMode(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{input: "", want: "full_refresh"},
+		{input: " full_REFRESH ", want: "full_refresh"},
+	}
+	for _, tc := range cases {
+		got, err := normalizeDatasetSyncMode(tc.input)
+		if err != nil {
+			t.Fatalf("normalizeDatasetSyncMode(%q) error = %v", tc.input, err)
+		}
+		if got != tc.want {
+			t.Fatalf("normalizeDatasetSyncMode(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+	if _, err := normalizeDatasetSyncMode("append"); !errors.Is(err, ErrInvalidDatasetInput) {
+		t.Fatalf("normalizeDatasetSyncMode(append) error = %v, want ErrInvalidDatasetInput", err)
+	}
+}
+
 func TestWorkTableExportScheduleNextRun(t *testing.T) {
 	now := time.Date(2026, 5, 2, 2, 30, 0, 0, time.FixedZone("JST", 9*60*60))
 	weekday := int32(6)

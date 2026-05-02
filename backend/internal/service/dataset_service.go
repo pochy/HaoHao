@@ -47,6 +47,8 @@ const (
 	datasetWorkTableExportFrequencyDaily   = "daily"
 	datasetWorkTableExportFrequencyWeekly  = "weekly"
 	datasetWorkTableExportFrequencyMonthly = "monthly"
+
+	datasetSyncModeFullRefresh = "full_refresh"
 )
 
 type datasetWorkTableExportFormatSpec struct {
@@ -61,6 +63,8 @@ var (
 	ErrDatasetWorkTableExportNotFound         = errors.New("dataset work table export not found")
 	ErrDatasetWorkTableExportNotReady         = errors.New("dataset work table export is not ready")
 	ErrDatasetWorkTableExportScheduleNotFound = errors.New("dataset work table export schedule not found")
+	ErrDatasetSyncNotFound                    = errors.New("dataset sync job not found")
+	ErrDatasetSyncAlreadyActive               = errors.New("dataset sync job is already active")
 	ErrInvalidDatasetInput                    = errors.New("invalid dataset input")
 	ErrUnsafeDatasetSQL                       = errors.New("unsafe dataset SQL")
 	ErrDatasetClickHouseNotReady              = errors.New("clickhouse is not configured")
@@ -83,28 +87,34 @@ type DatasetClickHouseConfig struct {
 }
 
 type Dataset struct {
-	ID                 int64
-	PublicID           string
-	TenantID           int64
-	CreatedByUserID    *int64
-	SourceFileObjectID *int64
-	SourceKind         string
-	SourceWorkTableID  *int64
-	Name               string
-	OriginalFilename   string
-	ContentType        string
-	ByteSize           int64
-	RawDatabase        string
-	RawTable           string
-	WorkDatabase       string
-	Status             string
-	RowCount           int64
-	ErrorSummary       string
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
-	ImportedAt         *time.Time
-	Columns            []DatasetColumn
-	ImportJob          *DatasetImportJob
+	ID                      int64
+	PublicID                string
+	TenantID                int64
+	CreatedByUserID         *int64
+	SourceFileObjectID      *int64
+	SourceKind              string
+	SourceWorkTableID       *int64
+	SourceWorkTablePublicID string
+	SourceWorkTableName     string
+	SourceWorkTableDatabase string
+	SourceWorkTableTable    string
+	SourceWorkTableStatus   string
+	Name                    string
+	OriginalFilename        string
+	ContentType             string
+	ByteSize                int64
+	RawDatabase             string
+	RawTable                string
+	WorkDatabase            string
+	Status                  string
+	RowCount                int64
+	ErrorSummary            string
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
+	ImportedAt              *time.Time
+	Columns                 []DatasetColumn
+	ImportJob               *DatasetImportJob
+	LatestSyncJob           *DatasetSyncJob
 }
 
 type DatasetColumn struct {
@@ -125,6 +135,30 @@ type DatasetImportJob struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	CompletedAt  *time.Time
+}
+
+type DatasetSyncJob struct {
+	ID                  int64
+	PublicID            string
+	TenantID            int64
+	DatasetID           int64
+	SourceWorkTableID   int64
+	RequestedByUserID   *int64
+	Mode                string
+	Status              string
+	OldRawDatabase      string
+	OldRawTable         string
+	NewRawDatabase      string
+	NewRawTable         string
+	RowCount            int64
+	TotalBytes          int64
+	ErrorSummary        string
+	CleanupStatus       string
+	CleanupErrorSummary string
+	StartedAt           *time.Time
+	CompletedAt         *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type DatasetImportError struct {
@@ -1438,6 +1472,211 @@ func (s *DatasetService) HandleWorkTablePromotionRequested(ctx context.Context, 
 	return nil
 }
 
+func (s *DatasetService) RequestDatasetSync(ctx context.Context, tenantID, userID int64, datasetPublicID, mode string, auditCtx AuditContext) (DatasetSyncJob, error) {
+	if s == nil || s.pool == nil || s.queries == nil || s.outbox == nil {
+		return DatasetSyncJob{}, fmt.Errorf("dataset service is not configured")
+	}
+	mode, err := normalizeDatasetSyncMode(mode)
+	if err != nil {
+		return DatasetSyncJob{}, err
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(datasetPublicID))
+	if err != nil {
+		return DatasetSyncJob{}, ErrDatasetNotFound
+	}
+	dataset, err := s.queries.GetDatasetForTenant(ctx, db.GetDatasetForTenantParams{PublicID: parsed, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DatasetSyncJob{}, ErrDatasetNotFound
+	}
+	if err != nil {
+		return DatasetSyncJob{}, fmt.Errorf("get dataset for sync: %w", err)
+	}
+	if dataset.SourceKind != "work_table" || !dataset.SourceWorkTableID.Valid {
+		return DatasetSyncJob{}, fmt.Errorf("%w: only work table datasets can be synced", ErrInvalidDatasetInput)
+	}
+	workTable, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: dataset.SourceWorkTableID.Int64, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DatasetSyncJob{}, ErrDatasetWorkTableNotFound
+	}
+	if err != nil {
+		return DatasetSyncJob{}, fmt.Errorf("get sync source work table: %w", err)
+	}
+	if workTable.Status != "active" || workTable.DroppedAt.Valid {
+		return DatasetSyncJob{}, ErrDatasetWorkTableNotFound
+	}
+
+	newRawTable := "ds_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return DatasetSyncJob{}, fmt.Errorf("begin dataset sync transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+	qtx := s.queries.WithTx(tx)
+	job, err := qtx.CreateDatasetSyncJob(ctx, db.CreateDatasetSyncJobParams{
+		TenantID:          tenantID,
+		DatasetID:         dataset.ID,
+		SourceWorkTableID: workTable.ID,
+		RequestedByUserID: pgtype.Int8{Int64: userID, Valid: userID > 0},
+		Mode:              mode,
+		OldRawDatabase:    dataset.RawDatabase,
+		OldRawTable:       dataset.RawTable,
+		NewRawDatabase:    dataset.RawDatabase,
+		NewRawTable:       newRawTable,
+	})
+	if err != nil {
+		if isUniqueViolation(err) {
+			return DatasetSyncJob{}, ErrDatasetSyncAlreadyActive
+		}
+		return DatasetSyncJob{}, fmt.Errorf("create dataset sync job: %w", err)
+	}
+	event, err := s.outbox.EnqueueWithQueries(ctx, qtx, OutboxEventInput{
+		TenantID:      &tenantID,
+		AggregateType: "dataset_sync",
+		AggregateID:   job.PublicID.String(),
+		EventType:     "dataset.sync_requested",
+		Payload: map[string]any{
+			"tenantId":  tenantID,
+			"syncJobId": job.ID,
+		},
+	})
+	if err != nil {
+		return DatasetSyncJob{}, fmt.Errorf("enqueue dataset sync: %w", err)
+	}
+	job.OutboxEventID = pgtype.Int8{Int64: event.ID, Valid: true}
+	if s.audit != nil {
+		if err := s.audit.RecordWithQueries(ctx, qtx, AuditEventInput{
+			AuditContext: auditCtx,
+			Action:       "dataset.sync.request",
+			TargetType:   "dataset",
+			TargetID:     dataset.PublicID.String(),
+			Metadata: map[string]any{
+				"mode":    mode,
+				"syncJob": job.PublicID.String(),
+			},
+		}); err != nil {
+			return DatasetSyncJob{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return DatasetSyncJob{}, fmt.Errorf("commit dataset sync transaction: %w", err)
+	}
+	s.publishDatasetSyncUpdated(ctx, tenantID, job, "pending", "", 0)
+	return datasetSyncJobFromDB(job), nil
+}
+
+func (s *DatasetService) ListDatasetSyncJobs(ctx context.Context, tenantID int64, datasetPublicID string, limit int32) ([]DatasetSyncJob, error) {
+	if s == nil || s.queries == nil {
+		return nil, fmt.Errorf("dataset service is not configured")
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(datasetPublicID))
+	if err != nil {
+		return nil, ErrDatasetNotFound
+	}
+	dataset, err := s.queries.GetDatasetForTenant(ctx, db.GetDatasetForTenantParams{PublicID: parsed, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrDatasetNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get dataset for sync jobs: %w", err)
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 25
+	}
+	rows, err := s.queries.ListDatasetSyncJobs(ctx, db.ListDatasetSyncJobsParams{TenantID: tenantID, DatasetID: dataset.ID, Limit: limit})
+	if err != nil {
+		return nil, fmt.Errorf("list dataset sync jobs: %w", err)
+	}
+	items := make([]DatasetSyncJob, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, datasetSyncJobFromDB(row))
+	}
+	return items, nil
+}
+
+func (s *DatasetService) HandleDatasetSyncRequested(ctx context.Context, tenantID, syncJobID, outboxEventID int64) error {
+	if s == nil || s.queries == nil {
+		return fmt.Errorf("dataset service is not configured")
+	}
+	job, err := s.queries.GetDatasetSyncJobByIDForTenant(ctx, db.GetDatasetSyncJobByIDForTenantParams{ID: syncJobID, TenantID: tenantID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrDatasetSyncNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get dataset sync job: %w", err)
+	}
+	if job.Status == "completed" || job.Status == "failed" {
+		return nil
+	}
+	job, err = s.queries.MarkDatasetSyncJobProcessing(ctx, db.MarkDatasetSyncJobProcessingParams{
+		ID:            job.ID,
+		OutboxEventID: pgtype.Int8{Int64: outboxEventID, Valid: outboxEventID > 0},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("mark dataset sync processing: %w", err)
+	}
+	s.publishDatasetSyncUpdated(ctx, tenantID, job, "processing", "", 0)
+
+	if job.Mode != datasetSyncModeFullRefresh {
+		s.failDatasetSyncJob(ctx, tenantID, job, fmt.Sprintf("%s: unsupported dataset sync mode %q", ErrInvalidDatasetInput.Error(), job.Mode))
+		return nil
+	}
+	dataset, err := s.queries.GetDatasetByIDForTenant(ctx, db.GetDatasetByIDForTenantParams{ID: job.DatasetID, TenantID: tenantID})
+	if err != nil {
+		s.failDatasetSyncJob(ctx, tenantID, job, fmt.Sprintf("get dataset: %v", err))
+		return nil
+	}
+	if dataset.SourceKind != "work_table" || !dataset.SourceWorkTableID.Valid || dataset.SourceWorkTableID.Int64 != job.SourceWorkTableID {
+		s.failDatasetSyncJob(ctx, tenantID, job, fmt.Sprintf("%s: dataset source is not a work table", ErrInvalidDatasetInput.Error()))
+		return nil
+	}
+	workTable, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: job.SourceWorkTableID, TenantID: tenantID})
+	if err != nil {
+		s.failDatasetSyncJob(ctx, tenantID, job, fmt.Sprintf("get source work table: %v", err))
+		return nil
+	}
+	if workTable.Status != "active" || workTable.DroppedAt.Valid {
+		s.failDatasetSyncJob(ctx, tenantID, job, ErrDatasetWorkTableNotFound.Error())
+		return nil
+	}
+	if err := s.EnsureClickHouse(ctx); err != nil {
+		s.failDatasetSyncJob(ctx, tenantID, job, err.Error())
+		return nil
+	}
+
+	columns, err := s.copyWorkTableToRawTable(ctx, tenantID, workTable, job.NewRawDatabase, job.NewRawTable)
+	if err != nil {
+		s.dropRawTableBestEffort(ctx, job.NewRawDatabase, job.NewRawTable)
+		s.failDatasetSyncJob(ctx, tenantID, job, err.Error())
+		return nil
+	}
+	metadata, err := s.getWorkTableMetadata(ctx, job.NewRawDatabase, job.NewRawTable)
+	if err != nil {
+		s.dropRawTableBestEffort(ctx, job.NewRawDatabase, job.NewRawTable)
+		s.failDatasetSyncJob(ctx, tenantID, job, err.Error())
+		return nil
+	}
+	if err := s.commitDatasetFullRefresh(ctx, tenantID, dataset.ID, job, columns, metadata); err != nil {
+		s.dropRawTableBestEffort(ctx, job.NewRawDatabase, job.NewRawTable)
+		s.failDatasetSyncJob(ctx, tenantID, job, err.Error())
+		return nil
+	}
+
+	if job.OldRawDatabase == job.NewRawDatabase && job.OldRawTable == job.NewRawTable {
+		_, _ = s.queries.MarkDatasetSyncJobCleanupCompleted(ctx, job.ID)
+	} else if err := s.dropRawTable(ctx, job.OldRawDatabase, job.OldRawTable); err != nil {
+		_, _ = s.queries.MarkDatasetSyncJobCleanupFailed(ctx, db.MarkDatasetSyncJobCleanupFailedParams{ID: job.ID, Left: err.Error()})
+	} else {
+		_, _ = s.queries.MarkDatasetSyncJobCleanupCompleted(ctx, job.ID)
+	}
+	s.publishDatasetSyncUpdated(ctx, tenantID, job, "completed", "", metadata.TotalRows)
+	return nil
+}
+
 func (s *DatasetService) CreateWorkTableExport(ctx context.Context, tenantID, userID int64, publicID, format string, auditCtx AuditContext) (DatasetWorkTableExport, error) {
 	if s == nil || s.pool == nil || s.queries == nil || s.outbox == nil {
 		return DatasetWorkTableExport{}, fmt.Errorf("dataset service is not configured")
@@ -2179,7 +2418,7 @@ func (s *DatasetService) copyWorkTableToDatasetRaw(ctx context.Context, tenantID
 	if len(columns) == 0 {
 		return fmt.Errorf("%w: work table has no columns", ErrInvalidDatasetInput)
 	}
-	if err := s.replaceDatasetColumnsWithTypes(ctx, dataset.ID, columns); err != nil {
+	if err := s.replaceDatasetColumnsWithTypes(ctx, s.queries, dataset.ID, columns); err != nil {
 		return err
 	}
 	target := fmt.Sprintf("%s.%s", quoteCHIdent(dataset.RawDatabase), quoteCHIdent(dataset.RawTable))
@@ -2194,12 +2433,76 @@ func (s *DatasetService) copyWorkTableToDatasetRaw(ctx context.Context, tenantID
 	return nil
 }
 
-func (s *DatasetService) replaceDatasetColumnsWithTypes(ctx context.Context, datasetID int64, columns []DatasetWorkTableColumn) error {
-	if err := s.queries.DeleteDatasetColumns(ctx, datasetID); err != nil {
+func (s *DatasetService) copyWorkTableToRawTable(ctx context.Context, tenantID int64, workTable db.DatasetWorkTable, rawDatabase, rawTable string) ([]DatasetWorkTableColumn, error) {
+	if err := s.ensureTenantSandbox(ctx, tenantID); err != nil {
+		return nil, err
+	}
+	columns, err := s.listWorkTableColumns(ctx, workTable.WorkDatabase, workTable.WorkTable)
+	if err != nil {
+		return nil, err
+	}
+	if len(columns) == 0 {
+		return nil, fmt.Errorf("%w: work table has no columns", ErrInvalidDatasetInput)
+	}
+	target := fmt.Sprintf("%s.%s", quoteCHIdent(rawDatabase), quoteCHIdent(rawTable))
+	source := fmt.Sprintf("%s.%s", quoteCHIdent(workTable.WorkDatabase), quoteCHIdent(workTable.WorkTable))
+	if err := s.clickhouse.Exec(ctx, "DROP TABLE IF EXISTS "+target); err != nil {
+		return nil, fmt.Errorf("drop dataset sync raw table: %w", err)
+	}
+	statement := fmt.Sprintf("CREATE TABLE %s ENGINE = MergeTree ORDER BY tuple() AS SELECT * FROM %s", target, source)
+	if err := s.clickhouse.Exec(ctx, statement); err != nil {
+		return nil, fmt.Errorf("copy work table to dataset sync raw table: %w", err)
+	}
+	return columns, nil
+}
+
+func (s *DatasetService) commitDatasetFullRefresh(ctx context.Context, tenantID, datasetID int64, job db.DatasetSyncJob, columns []DatasetWorkTableColumn, metadata DatasetWorkTable) error {
+	if s == nil || s.pool == nil || s.queries == nil {
+		return fmt.Errorf("dataset service is not configured")
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin dataset full refresh transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+	qtx := s.queries.WithTx(tx)
+	if _, err := qtx.UpdateDatasetAfterFullRefresh(ctx, db.UpdateDatasetAfterFullRefreshParams{
+		ID:          datasetID,
+		TenantID:    tenantID,
+		RawDatabase: job.NewRawDatabase,
+		RawTable:    job.NewRawTable,
+		ByteSize:    metadata.TotalBytes,
+		RowCount:    metadata.TotalRows,
+	}); err != nil {
+		return fmt.Errorf("update dataset after full refresh: %w", err)
+	}
+	if err := s.replaceDatasetColumnsWithTypes(ctx, qtx, datasetID, columns); err != nil {
+		return err
+	}
+	if _, err := qtx.CompleteDatasetSyncJob(ctx, db.CompleteDatasetSyncJobParams{
+		ID:         job.ID,
+		RowCount:   metadata.TotalRows,
+		TotalBytes: metadata.TotalBytes,
+	}); err != nil {
+		return fmt.Errorf("complete dataset sync job: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit dataset full refresh transaction: %w", err)
+	}
+	return nil
+}
+
+func (s *DatasetService) replaceDatasetColumnsWithTypes(ctx context.Context, q *db.Queries, datasetID int64, columns []DatasetWorkTableColumn) error {
+	if q == nil {
+		return fmt.Errorf("dataset queries are not configured")
+	}
+	if err := q.DeleteDatasetColumns(ctx, datasetID); err != nil {
 		return fmt.Errorf("delete dataset columns: %w", err)
 	}
 	for i, column := range columns {
-		if _, err := s.queries.CreateDatasetColumn(ctx, db.CreateDatasetColumnParams{
+		if _, err := q.CreateDatasetColumn(ctx, db.CreateDatasetColumnParams{
 			DatasetID:      datasetID,
 			Ordinal:        int32(i + 1),
 			OriginalName:   column.ColumnName,
@@ -2210,6 +2513,20 @@ func (s *DatasetService) replaceDatasetColumnsWithTypes(ctx context.Context, dat
 		}
 	}
 	return nil
+}
+
+func (s *DatasetService) dropRawTable(ctx context.Context, database, table string) error {
+	if s == nil || s.clickhouse == nil || strings.TrimSpace(database) == "" || strings.TrimSpace(table) == "" {
+		return nil
+	}
+	if err := s.clickhouse.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(table))); err != nil {
+		return fmt.Errorf("drop dataset raw table: %w", err)
+	}
+	return nil
+}
+
+func (s *DatasetService) dropRawTableBestEffort(ctx context.Context, database, table string) {
+	_ = s.dropRawTable(ctx, database, table)
 }
 
 func (s *DatasetService) writeWorkTableExport(ctx context.Context, database, table, format string, out io.Writer) error {
@@ -2485,6 +2802,25 @@ func (s *DatasetService) inflateDataset(ctx context.Context, row db.Dataset) (Da
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return Dataset{}, fmt.Errorf("get latest dataset import job: %w", err)
 	}
+	if row.SourceWorkTableID.Valid {
+		workTable, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: row.SourceWorkTableID.Int64, TenantID: row.TenantID})
+		if err == nil {
+			item.SourceWorkTablePublicID = workTable.PublicID.String()
+			item.SourceWorkTableName = workTable.DisplayName
+			item.SourceWorkTableDatabase = workTable.WorkDatabase
+			item.SourceWorkTableTable = workTable.WorkTable
+			item.SourceWorkTableStatus = workTable.Status
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return Dataset{}, fmt.Errorf("get dataset source work table: %w", err)
+		}
+	}
+	syncJob, err := s.queries.GetLatestDatasetSyncJob(ctx, row.ID)
+	if err == nil {
+		latest := datasetSyncJobFromDB(syncJob)
+		item.LatestSyncJob = &latest
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return Dataset{}, fmt.Errorf("get latest dataset sync job: %w", err)
+	}
 	return item, nil
 }
 
@@ -2551,6 +2887,44 @@ func (s *DatasetService) publishDatasetUpdated(ctx context.Context, tenantID int
 		EventType:        "job.updated",
 		ResourceType:     "dataset",
 		ResourcePublicID: datasetPublicID,
+		Payload:          payload,
+	})
+}
+
+func (s *DatasetService) failDatasetSyncJob(ctx context.Context, tenantID int64, job db.DatasetSyncJob, message string) {
+	if message == "" {
+		message = "dataset sync failed"
+	}
+	updated, err := s.queries.FailDatasetSyncJob(ctx, db.FailDatasetSyncJobParams{ID: job.ID, Left: message})
+	if err == nil {
+		job = updated
+	}
+	s.publishDatasetSyncUpdated(ctx, tenantID, job, "failed", message, 0)
+}
+
+func (s *DatasetService) publishDatasetSyncUpdated(ctx context.Context, tenantID int64, job db.DatasetSyncJob, status, errorSummary string, rowCount int64) {
+	if s == nil || s.realtime == nil || !job.RequestedByUserID.Valid {
+		return
+	}
+	payload := map[string]any{
+		"status":          status,
+		"syncJobPublicId": job.PublicID.String(),
+	}
+	if dataset, err := s.queries.GetDatasetByIDForTenant(ctx, db.GetDatasetByIDForTenantParams{ID: job.DatasetID, TenantID: tenantID}); err == nil {
+		payload["datasetPublicId"] = dataset.PublicID.String()
+	}
+	if rowCount > 0 {
+		payload["rowCount"] = rowCount
+	}
+	if errorSummary != "" {
+		payload["errorSummary"] = errorSummary
+	}
+	_, _ = s.realtime.Publish(ctx, RealtimeEventInput{
+		TenantID:         &tenantID,
+		RecipientUserID:  job.RequestedByUserID.Int64,
+		EventType:        "job.updated",
+		ResourceType:     "dataset_sync",
+		ResourcePublicID: job.PublicID.String(),
 		Payload:          payload,
 	})
 }
@@ -3069,6 +3443,17 @@ func normalizeDatasetWorkTableExportFormat(value string) (string, error) {
 	return format, nil
 }
 
+func normalizeDatasetSyncMode(value string) (string, error) {
+	mode := strings.ToLower(strings.TrimSpace(value))
+	if mode == "" {
+		mode = datasetSyncModeFullRefresh
+	}
+	if mode != datasetSyncModeFullRefresh {
+		return "", fmt.Errorf("%w: unsupported dataset sync mode %q", ErrInvalidDatasetInput, value)
+	}
+	return mode, nil
+}
+
 func datasetWorkTableExportFormatSpecFor(format string) (datasetWorkTableExportFormatSpec, bool) {
 	switch format {
 	case datasetWorkTableExportFormatCSV:
@@ -3442,6 +3827,32 @@ func datasetImportJobFromDB(row db.DatasetImportJob) DatasetImportJob {
 		CreatedAt:    row.CreatedAt.Time,
 		UpdatedAt:    row.UpdatedAt.Time,
 		CompletedAt:  optionalPgTime(row.CompletedAt),
+	}
+}
+
+func datasetSyncJobFromDB(row db.DatasetSyncJob) DatasetSyncJob {
+	return DatasetSyncJob{
+		ID:                  row.ID,
+		PublicID:            row.PublicID.String(),
+		TenantID:            row.TenantID,
+		DatasetID:           row.DatasetID,
+		SourceWorkTableID:   row.SourceWorkTableID,
+		RequestedByUserID:   optionalPgInt8(row.RequestedByUserID),
+		Mode:                row.Mode,
+		Status:              row.Status,
+		OldRawDatabase:      row.OldRawDatabase,
+		OldRawTable:         row.OldRawTable,
+		NewRawDatabase:      row.NewRawDatabase,
+		NewRawTable:         row.NewRawTable,
+		RowCount:            row.RowCount,
+		TotalBytes:          row.TotalBytes,
+		ErrorSummary:        optionalText(row.ErrorSummary),
+		CleanupStatus:       optionalText(row.CleanupStatus),
+		CleanupErrorSummary: optionalText(row.CleanupErrorSummary),
+		StartedAt:           optionalPgTime(row.StartedAt),
+		CompletedAt:         optionalPgTime(row.CompletedAt),
+		CreatedAt:           row.CreatedAt.Time,
+		UpdatedAt:           row.UpdatedAt.Time,
 	}
 }
 

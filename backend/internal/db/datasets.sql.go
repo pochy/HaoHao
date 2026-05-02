@@ -174,6 +174,56 @@ func (q *Queries) CompleteDatasetQueryJob(ctx context.Context, arg CompleteDatas
 	return i, err
 }
 
+const completeDatasetSyncJob = `-- name: CompleteDatasetSyncJob :one
+UPDATE dataset_sync_jobs
+SET
+    status = 'completed',
+    row_count = $2,
+    total_bytes = $3,
+    error_summary = NULL,
+    completed_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND status IN ('pending', 'processing')
+RETURNING id, public_id, tenant_id, dataset_id, source_work_table_id, requested_by_user_id, outbox_event_id, mode, status, old_raw_database, old_raw_table, new_raw_database, new_raw_table, row_count, total_bytes, error_summary, cleanup_status, cleanup_error_summary, started_at, completed_at, created_at, updated_at
+`
+
+type CompleteDatasetSyncJobParams struct {
+	ID         int64 `json:"id"`
+	RowCount   int64 `json:"row_count"`
+	TotalBytes int64 `json:"total_bytes"`
+}
+
+func (q *Queries) CompleteDatasetSyncJob(ctx context.Context, arg CompleteDatasetSyncJobParams) (DatasetSyncJob, error) {
+	row := q.db.QueryRow(ctx, completeDatasetSyncJob, arg.ID, arg.RowCount, arg.TotalBytes)
+	var i DatasetSyncJob
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.DatasetID,
+		&i.SourceWorkTableID,
+		&i.RequestedByUserID,
+		&i.OutboxEventID,
+		&i.Mode,
+		&i.Status,
+		&i.OldRawDatabase,
+		&i.OldRawTable,
+		&i.NewRawDatabase,
+		&i.NewRawTable,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.ErrorSummary,
+		&i.CleanupStatus,
+		&i.CleanupErrorSummary,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const countActiveDatasetWorkTableExportsForSchedule = `-- name: CountActiveDatasetWorkTableExportsForSchedule :one
 SELECT count(*)::bigint
 FROM dataset_work_table_exports
@@ -475,6 +525,75 @@ func (q *Queries) CreateDatasetQueryJob(ctx context.Context, arg CreateDatasetQu
 	return i, err
 }
 
+const createDatasetSyncJob = `-- name: CreateDatasetSyncJob :one
+INSERT INTO dataset_sync_jobs (
+    tenant_id,
+    dataset_id,
+    source_work_table_id,
+    requested_by_user_id,
+    mode,
+    old_raw_database,
+    old_raw_table,
+    new_raw_database,
+    new_raw_table
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+)
+RETURNING id, public_id, tenant_id, dataset_id, source_work_table_id, requested_by_user_id, outbox_event_id, mode, status, old_raw_database, old_raw_table, new_raw_database, new_raw_table, row_count, total_bytes, error_summary, cleanup_status, cleanup_error_summary, started_at, completed_at, created_at, updated_at
+`
+
+type CreateDatasetSyncJobParams struct {
+	TenantID          int64       `json:"tenant_id"`
+	DatasetID         int64       `json:"dataset_id"`
+	SourceWorkTableID int64       `json:"source_work_table_id"`
+	RequestedByUserID pgtype.Int8 `json:"requested_by_user_id"`
+	Mode              string      `json:"mode"`
+	OldRawDatabase    string      `json:"old_raw_database"`
+	OldRawTable       string      `json:"old_raw_table"`
+	NewRawDatabase    string      `json:"new_raw_database"`
+	NewRawTable       string      `json:"new_raw_table"`
+}
+
+func (q *Queries) CreateDatasetSyncJob(ctx context.Context, arg CreateDatasetSyncJobParams) (DatasetSyncJob, error) {
+	row := q.db.QueryRow(ctx, createDatasetSyncJob,
+		arg.TenantID,
+		arg.DatasetID,
+		arg.SourceWorkTableID,
+		arg.RequestedByUserID,
+		arg.Mode,
+		arg.OldRawDatabase,
+		arg.OldRawTable,
+		arg.NewRawDatabase,
+		arg.NewRawTable,
+	)
+	var i DatasetSyncJob
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.DatasetID,
+		&i.SourceWorkTableID,
+		&i.RequestedByUserID,
+		&i.OutboxEventID,
+		&i.Mode,
+		&i.Status,
+		&i.OldRawDatabase,
+		&i.OldRawTable,
+		&i.NewRawDatabase,
+		&i.NewRawTable,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.ErrorSummary,
+		&i.CleanupStatus,
+		&i.CleanupErrorSummary,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createDatasetWorkTableExport = `-- name: CreateDatasetWorkTableExport :one
 INSERT INTO dataset_work_table_exports (
     tenant_id,
@@ -745,6 +864,53 @@ func (q *Queries) FailDatasetQueryJob(ctx context.Context, arg FailDatasetQueryJ
 	return i, err
 }
 
+const failDatasetSyncJob = `-- name: FailDatasetSyncJob :one
+UPDATE dataset_sync_jobs
+SET
+    status = 'failed',
+    error_summary = left($2, 1000),
+    completed_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND status IN ('pending', 'processing')
+RETURNING id, public_id, tenant_id, dataset_id, source_work_table_id, requested_by_user_id, outbox_event_id, mode, status, old_raw_database, old_raw_table, new_raw_database, new_raw_table, row_count, total_bytes, error_summary, cleanup_status, cleanup_error_summary, started_at, completed_at, created_at, updated_at
+`
+
+type FailDatasetSyncJobParams struct {
+	ID   int64  `json:"id"`
+	Left string `json:"left"`
+}
+
+func (q *Queries) FailDatasetSyncJob(ctx context.Context, arg FailDatasetSyncJobParams) (DatasetSyncJob, error) {
+	row := q.db.QueryRow(ctx, failDatasetSyncJob, arg.ID, arg.Left)
+	var i DatasetSyncJob
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.DatasetID,
+		&i.SourceWorkTableID,
+		&i.RequestedByUserID,
+		&i.OutboxEventID,
+		&i.Mode,
+		&i.Status,
+		&i.OldRawDatabase,
+		&i.OldRawTable,
+		&i.NewRawDatabase,
+		&i.NewRawTable,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.ErrorSummary,
+		&i.CleanupStatus,
+		&i.CleanupErrorSummary,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getActiveDatasetWorkTableByRefForTenant = `-- name: GetActiveDatasetWorkTableByRefForTenant :one
 SELECT id, public_id, tenant_id, source_dataset_id, created_from_query_job_id, created_by_user_id, work_database, work_table, display_name, status, row_count, total_bytes, engine, created_at, updated_at, dropped_at
 FROM dataset_work_tables
@@ -941,6 +1107,49 @@ func (q *Queries) GetDatasetQueryJobForTenant(ctx context.Context, arg GetDatase
 		&i.UpdatedAt,
 		&i.CompletedAt,
 		&i.DatasetID,
+	)
+	return i, err
+}
+
+const getDatasetSyncJobByIDForTenant = `-- name: GetDatasetSyncJobByIDForTenant :one
+SELECT id, public_id, tenant_id, dataset_id, source_work_table_id, requested_by_user_id, outbox_event_id, mode, status, old_raw_database, old_raw_table, new_raw_database, new_raw_table, row_count, total_bytes, error_summary, cleanup_status, cleanup_error_summary, started_at, completed_at, created_at, updated_at
+FROM dataset_sync_jobs
+WHERE id = $1
+  AND tenant_id = $2
+LIMIT 1
+`
+
+type GetDatasetSyncJobByIDForTenantParams struct {
+	ID       int64 `json:"id"`
+	TenantID int64 `json:"tenant_id"`
+}
+
+func (q *Queries) GetDatasetSyncJobByIDForTenant(ctx context.Context, arg GetDatasetSyncJobByIDForTenantParams) (DatasetSyncJob, error) {
+	row := q.db.QueryRow(ctx, getDatasetSyncJobByIDForTenant, arg.ID, arg.TenantID)
+	var i DatasetSyncJob
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.DatasetID,
+		&i.SourceWorkTableID,
+		&i.RequestedByUserID,
+		&i.OutboxEventID,
+		&i.Mode,
+		&i.Status,
+		&i.OldRawDatabase,
+		&i.OldRawTable,
+		&i.NewRawDatabase,
+		&i.NewRawTable,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.ErrorSummary,
+		&i.CleanupStatus,
+		&i.CleanupErrorSummary,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1211,6 +1420,44 @@ func (q *Queries) GetLatestDatasetImportJob(ctx context.Context, datasetID int64
 	return i, err
 }
 
+const getLatestDatasetSyncJob = `-- name: GetLatestDatasetSyncJob :one
+SELECT id, public_id, tenant_id, dataset_id, source_work_table_id, requested_by_user_id, outbox_event_id, mode, status, old_raw_database, old_raw_table, new_raw_database, new_raw_table, row_count, total_bytes, error_summary, cleanup_status, cleanup_error_summary, started_at, completed_at, created_at, updated_at
+FROM dataset_sync_jobs
+WHERE dataset_id = $1
+ORDER BY created_at DESC, id DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestDatasetSyncJob(ctx context.Context, datasetID int64) (DatasetSyncJob, error) {
+	row := q.db.QueryRow(ctx, getLatestDatasetSyncJob, datasetID)
+	var i DatasetSyncJob
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.DatasetID,
+		&i.SourceWorkTableID,
+		&i.RequestedByUserID,
+		&i.OutboxEventID,
+		&i.Mode,
+		&i.Status,
+		&i.OldRawDatabase,
+		&i.OldRawTable,
+		&i.NewRawDatabase,
+		&i.NewRawTable,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.ErrorSummary,
+		&i.CleanupStatus,
+		&i.CleanupErrorSummary,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const linkDatasetWorkTableToDataset = `-- name: LinkDatasetWorkTableToDataset :one
 UPDATE dataset_work_tables
 SET
@@ -1377,6 +1624,64 @@ func (q *Queries) ListDatasetQueryJobsForDataset(ctx context.Context, arg ListDa
 			&i.UpdatedAt,
 			&i.CompletedAt,
 			&i.DatasetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDatasetSyncJobs = `-- name: ListDatasetSyncJobs :many
+SELECT id, public_id, tenant_id, dataset_id, source_work_table_id, requested_by_user_id, outbox_event_id, mode, status, old_raw_database, old_raw_table, new_raw_database, new_raw_table, row_count, total_bytes, error_summary, cleanup_status, cleanup_error_summary, started_at, completed_at, created_at, updated_at
+FROM dataset_sync_jobs
+WHERE tenant_id = $1
+  AND dataset_id = $2
+ORDER BY created_at DESC, id DESC
+LIMIT $3
+`
+
+type ListDatasetSyncJobsParams struct {
+	TenantID  int64 `json:"tenant_id"`
+	DatasetID int64 `json:"dataset_id"`
+	Limit     int32 `json:"limit"`
+}
+
+func (q *Queries) ListDatasetSyncJobs(ctx context.Context, arg ListDatasetSyncJobsParams) ([]DatasetSyncJob, error) {
+	rows, err := q.db.Query(ctx, listDatasetSyncJobs, arg.TenantID, arg.DatasetID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DatasetSyncJob
+	for rows.Next() {
+		var i DatasetSyncJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.DatasetID,
+			&i.SourceWorkTableID,
+			&i.RequestedByUserID,
+			&i.OutboxEventID,
+			&i.Mode,
+			&i.Status,
+			&i.OldRawDatabase,
+			&i.OldRawTable,
+			&i.NewRawDatabase,
+			&i.NewRawTable,
+			&i.RowCount,
+			&i.TotalBytes,
+			&i.ErrorSummary,
+			&i.CleanupStatus,
+			&i.CleanupErrorSummary,
+			&i.StartedAt,
+			&i.CompletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1819,6 +2124,138 @@ func (q *Queries) MarkDatasetReady(ctx context.Context, arg MarkDatasetReadyPara
 		&i.DeletedAt,
 		&i.SourceKind,
 		&i.SourceWorkTableID,
+	)
+	return i, err
+}
+
+const markDatasetSyncJobCleanupCompleted = `-- name: MarkDatasetSyncJobCleanupCompleted :one
+UPDATE dataset_sync_jobs
+SET
+    cleanup_status = 'completed',
+    cleanup_error_summary = NULL,
+    updated_at = now()
+WHERE id = $1
+RETURNING id, public_id, tenant_id, dataset_id, source_work_table_id, requested_by_user_id, outbox_event_id, mode, status, old_raw_database, old_raw_table, new_raw_database, new_raw_table, row_count, total_bytes, error_summary, cleanup_status, cleanup_error_summary, started_at, completed_at, created_at, updated_at
+`
+
+func (q *Queries) MarkDatasetSyncJobCleanupCompleted(ctx context.Context, id int64) (DatasetSyncJob, error) {
+	row := q.db.QueryRow(ctx, markDatasetSyncJobCleanupCompleted, id)
+	var i DatasetSyncJob
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.DatasetID,
+		&i.SourceWorkTableID,
+		&i.RequestedByUserID,
+		&i.OutboxEventID,
+		&i.Mode,
+		&i.Status,
+		&i.OldRawDatabase,
+		&i.OldRawTable,
+		&i.NewRawDatabase,
+		&i.NewRawTable,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.ErrorSummary,
+		&i.CleanupStatus,
+		&i.CleanupErrorSummary,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const markDatasetSyncJobCleanupFailed = `-- name: MarkDatasetSyncJobCleanupFailed :one
+UPDATE dataset_sync_jobs
+SET
+    cleanup_status = 'failed',
+    cleanup_error_summary = left($2, 1000),
+    updated_at = now()
+WHERE id = $1
+RETURNING id, public_id, tenant_id, dataset_id, source_work_table_id, requested_by_user_id, outbox_event_id, mode, status, old_raw_database, old_raw_table, new_raw_database, new_raw_table, row_count, total_bytes, error_summary, cleanup_status, cleanup_error_summary, started_at, completed_at, created_at, updated_at
+`
+
+type MarkDatasetSyncJobCleanupFailedParams struct {
+	ID   int64  `json:"id"`
+	Left string `json:"left"`
+}
+
+func (q *Queries) MarkDatasetSyncJobCleanupFailed(ctx context.Context, arg MarkDatasetSyncJobCleanupFailedParams) (DatasetSyncJob, error) {
+	row := q.db.QueryRow(ctx, markDatasetSyncJobCleanupFailed, arg.ID, arg.Left)
+	var i DatasetSyncJob
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.DatasetID,
+		&i.SourceWorkTableID,
+		&i.RequestedByUserID,
+		&i.OutboxEventID,
+		&i.Mode,
+		&i.Status,
+		&i.OldRawDatabase,
+		&i.OldRawTable,
+		&i.NewRawDatabase,
+		&i.NewRawTable,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.ErrorSummary,
+		&i.CleanupStatus,
+		&i.CleanupErrorSummary,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const markDatasetSyncJobProcessing = `-- name: MarkDatasetSyncJobProcessing :one
+UPDATE dataset_sync_jobs
+SET
+    status = 'processing',
+    outbox_event_id = $2,
+    started_at = COALESCE(started_at, now()),
+    updated_at = now()
+WHERE id = $1
+  AND status IN ('pending', 'processing')
+RETURNING id, public_id, tenant_id, dataset_id, source_work_table_id, requested_by_user_id, outbox_event_id, mode, status, old_raw_database, old_raw_table, new_raw_database, new_raw_table, row_count, total_bytes, error_summary, cleanup_status, cleanup_error_summary, started_at, completed_at, created_at, updated_at
+`
+
+type MarkDatasetSyncJobProcessingParams struct {
+	ID            int64       `json:"id"`
+	OutboxEventID pgtype.Int8 `json:"outbox_event_id"`
+}
+
+func (q *Queries) MarkDatasetSyncJobProcessing(ctx context.Context, arg MarkDatasetSyncJobProcessingParams) (DatasetSyncJob, error) {
+	row := q.db.QueryRow(ctx, markDatasetSyncJobProcessing, arg.ID, arg.OutboxEventID)
+	var i DatasetSyncJob
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.DatasetID,
+		&i.SourceWorkTableID,
+		&i.RequestedByUserID,
+		&i.OutboxEventID,
+		&i.Mode,
+		&i.Status,
+		&i.OldRawDatabase,
+		&i.OldRawTable,
+		&i.NewRawDatabase,
+		&i.NewRawTable,
+		&i.RowCount,
+		&i.TotalBytes,
+		&i.ErrorSummary,
+		&i.CleanupStatus,
+		&i.CleanupErrorSummary,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -2320,6 +2757,68 @@ func (q *Queries) SoftDeleteExpiredDatasetWorkTableExports(ctx context.Context) 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateDatasetAfterFullRefresh = `-- name: UpdateDatasetAfterFullRefresh :one
+UPDATE datasets
+SET
+    raw_database = $3,
+    raw_table = $4,
+    byte_size = $5,
+    row_count = $6,
+    status = 'ready',
+    error_summary = NULL,
+    imported_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND tenant_id = $2
+  AND deleted_at IS NULL
+RETURNING id, public_id, tenant_id, created_by_user_id, source_file_object_id, name, original_filename, content_type, byte_size, raw_database, raw_table, work_database, status, row_count, error_summary, created_at, updated_at, imported_at, deleted_at, source_kind, source_work_table_id
+`
+
+type UpdateDatasetAfterFullRefreshParams struct {
+	ID          int64  `json:"id"`
+	TenantID    int64  `json:"tenant_id"`
+	RawDatabase string `json:"raw_database"`
+	RawTable    string `json:"raw_table"`
+	ByteSize    int64  `json:"byte_size"`
+	RowCount    int64  `json:"row_count"`
+}
+
+func (q *Queries) UpdateDatasetAfterFullRefresh(ctx context.Context, arg UpdateDatasetAfterFullRefreshParams) (Dataset, error) {
+	row := q.db.QueryRow(ctx, updateDatasetAfterFullRefresh,
+		arg.ID,
+		arg.TenantID,
+		arg.RawDatabase,
+		arg.RawTable,
+		arg.ByteSize,
+		arg.RowCount,
+	)
+	var i Dataset
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.CreatedByUserID,
+		&i.SourceFileObjectID,
+		&i.Name,
+		&i.OriginalFilename,
+		&i.ContentType,
+		&i.ByteSize,
+		&i.RawDatabase,
+		&i.RawTable,
+		&i.WorkDatabase,
+		&i.Status,
+		&i.RowCount,
+		&i.ErrorSummary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ImportedAt,
+		&i.DeletedAt,
+		&i.SourceKind,
+		&i.SourceWorkTableID,
+	)
+	return i, err
 }
 
 const updateDatasetWorkTableExportSchedule = `-- name: UpdateDatasetWorkTableExportSchedule :one

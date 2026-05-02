@@ -164,6 +164,18 @@ func (h *DefaultOutboxHandler) HandleOutboxEvent(ctx context.Context, event db.O
 			return nil
 		}
 		return h.datasets.HandleWorkTableExportRequested(ctx, payload.TenantID, payload.ExportID)
+	case "dataset.sync_requested":
+		var payload struct {
+			TenantID  int64 `json:"tenantId"`
+			SyncJobID int64 `json:"syncJobId"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.datasets == nil {
+			return nil
+		}
+		return h.datasets.HandleDatasetSyncRequested(ctx, payload.TenantID, payload.SyncJobID, event.ID)
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownOutboxEvent, event.EventType)
 	}
