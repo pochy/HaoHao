@@ -194,6 +194,12 @@ func (s *DriveOCRService) RequestJob(ctx context.Context, tenantID, actorUserID 
 	if err != nil {
 		return DriveOCRRun{}, err
 	}
+	if reason == "manual" && run.Status == "completed" {
+		run, err = s.resetCompletedRunForManualRerun(ctx, run, file, actorUserID, reason)
+		if err != nil {
+			return DriveOCRRun{}, err
+		}
+	}
 	if run.Status != "completed" && s.drive.outbox != nil {
 		event, err := s.enqueue(ctx, file, actorUserID, reason)
 		if err != nil {
@@ -212,6 +218,59 @@ func (s *DriveOCRService) RequestJob(ctx context.Context, tenantID, actorUserID 
 	s.publishDriveOCRRunUpdated(ctx, run, run.Status, "")
 	s.recordMedallionOCRRun(ctx, file, run, medallionPipelineStatusFromOCRStatus(run.Status), "", true, nil)
 	return run, nil
+}
+
+func (s *DriveOCRService) resetCompletedRunForManualRerun(ctx context.Context, run DriveOCRRun, file DriveFile, actorUserID int64, reason string) (DriveOCRRun, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return DriveOCRRun{}, err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+	q := s.queries.WithTx(tx)
+
+	if err := q.DeleteDriveOCRPagesForRun(ctx, db.DeleteDriveOCRPagesForRunParams{TenantID: file.TenantID, OcrRunID: run.ID}); err != nil {
+		return DriveOCRRun{}, err
+	}
+	if err := q.DeleteDriveProductExtractionItemsForRun(ctx, db.DeleteDriveProductExtractionItemsForRunParams{TenantID: file.TenantID, OcrRunID: run.ID}); err != nil {
+		return DriveOCRRun{}, err
+	}
+
+	var requestedBy any
+	if actorUserID > 0 {
+		requestedBy = actorUserID
+	}
+	if _, err := tx.Exec(ctx, `
+UPDATE drive_ocr_runs
+SET status = 'pending',
+    reason = $3,
+    requested_by_user_id = $4,
+    outbox_event_id = NULL,
+    page_count = 0,
+    processed_page_count = 0,
+    average_confidence = NULL,
+    extracted_text = '',
+    error_code = NULL,
+    error_message = NULL,
+    started_at = NULL,
+    completed_at = NULL,
+    updated_at = now()
+WHERE tenant_id = $1
+  AND id = $2
+  AND status = 'completed'
+`, file.TenantID, run.ID, reason, requestedBy); err != nil {
+		return DriveOCRRun{}, err
+	}
+
+	row, err := q.GetDriveOCRRunByIDForTenant(ctx, db.GetDriveOCRRunByIDForTenantParams{TenantID: file.TenantID, ID: run.ID})
+	if err != nil {
+		return DriveOCRRun{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return DriveOCRRun{}, err
+	}
+	return driveOCRRunFromDB(row, file.PublicID), nil
 }
 
 func (s *DriveOCRService) EnsureCompletedForPipeline(ctx context.Context, input DriveOCRPipelineRequest) (DriveOCRResult, error) {
@@ -240,6 +299,12 @@ func (s *DriveOCRService) EnsureCompletedForPipeline(ctx context.Context, input 
 	}
 	if len(input.OCRLanguages) > 0 {
 		policy.OCRLanguages = append([]string{}, input.OCRLanguages...)
+	}
+	policy = normalizeDriveOCRPolicy(policy)
+	if reused, ok, err := s.reusableCompletedRunForPipeline(ctx, file, policy); err != nil {
+		return DriveOCRResult{}, err
+	} else if ok {
+		return reused, nil
 	}
 	run, err := s.createRun(ctx, file, policy, input.ActorUserID, firstNonEmpty(input.Reason, "data_pipeline"), 0)
 	if err != nil {
@@ -296,6 +361,63 @@ func (s *DriveOCRService) EnsureCompletedForPipeline(ctx context.Context, input 
 		items = append(items, driveOCRPageFromDB(page))
 	}
 	return DriveOCRResult{Run: run, Pages: items}, nil
+}
+
+func (s *DriveOCRService) reusableCompletedRunForPipeline(ctx context.Context, file DriveFile, policy DriveOCRPolicy) (DriveOCRResult, bool, error) {
+	row, err := s.queries.GetLatestDriveOCRRunForFile(ctx, db.GetLatestDriveOCRRunForFileParams{TenantID: file.TenantID, FileObjectID: file.ID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DriveOCRResult{}, false, nil
+	}
+	if err != nil {
+		return DriveOCRResult{}, false, fmt.Errorf("get reusable drive ocr run: %w", err)
+	}
+	if !canReuseDriveOCRRunForPipeline(row, file, policy) {
+		return DriveOCRResult{}, false, nil
+	}
+	pages, err := s.queries.ListDriveOCRPages(ctx, db.ListDriveOCRPagesParams{TenantID: file.TenantID, OcrRunID: row.ID})
+	if err != nil {
+		return DriveOCRResult{}, false, fmt.Errorf("list reusable drive ocr pages: %w", err)
+	}
+	items := make([]DriveOCRPage, 0, len(pages))
+	for _, page := range pages {
+		items = append(items, driveOCRPageFromDB(page))
+	}
+	return DriveOCRResult{Run: driveOCRRunFromDB(row, file.PublicID), Pages: items}, true, nil
+}
+
+func canReuseDriveOCRRunForPipeline(run db.DriveOcrRun, file DriveFile, policy DriveOCRPolicy) bool {
+	if run.Status != "completed" || strings.TrimSpace(run.ExtractedText) == "" {
+		return false
+	}
+	if run.Reason == "data_pipeline" || run.Reason == "data_pipeline_preview" {
+		return false
+	}
+	if run.FileRevision != fileOCRRevision(file) || run.ContentSha256 != file.SHA256Hex {
+		return false
+	}
+	policy = normalizeDriveOCRPolicy(policy)
+	if strings.ToLower(strings.TrimSpace(run.Engine)) != policy.OCREngine {
+		return false
+	}
+	return driveOCRLanguagesCover(run.Languages, policy.OCRLanguages)
+}
+
+func driveOCRLanguagesCover(existing, requested []string) bool {
+	existing = normalizeDriveOCRLanguages(existing)
+	requested = normalizeDriveOCRLanguages(requested)
+	if len(existing) == 0 || len(requested) == 0 {
+		return false
+	}
+	seen := make(map[string]struct{}, len(existing))
+	for _, lang := range existing {
+		seen[lang] = struct{}{}
+	}
+	for _, lang := range requested {
+		if _, ok := seen[lang]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObjectID, actorUserID int64, reason string, outboxEventID int64) error {
@@ -622,6 +744,7 @@ func (s *DriveOCRService) createRun(ctx context.Context, file DriveFile, policy 
 	if reason == "" {
 		reason = "upload"
 	}
+	policy = normalizeDriveOCRPolicy(policy)
 	row, err := s.queries.CreateDriveOCRRun(ctx, db.CreateDriveOCRRunParams{
 		TenantID:              file.TenantID,
 		FileObjectID:          file.ID,

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	db "example.com/haohao/backend/internal/db"
 )
 
 func TestDriveOCRSupportedFileSilverImagePDFTargets(t *testing.T) {
@@ -57,6 +59,42 @@ func TestDriveOCRPipelineConfigHashChangesWithRuntimeConfig(t *testing.T) {
 	}
 }
 
+func TestDriveOCRPipelineConfigHashNormalizesLanguageAliases(t *testing.T) {
+	base := defaultDriveOCRPolicy()
+	base.OCRLanguages = []string{"jpn"}
+	alias := base
+	alias.OCRLanguages = []string{"japanese"}
+
+	if got, want := driveOCRPipelineConfigHash(alias), driveOCRPipelineConfigHash(base); got != want {
+		t.Fatalf("japanese alias hash = %q, want %q", got, want)
+	}
+}
+
+func TestCanReuseDriveOCRRunForPipelineUsesDriveCompletedRun(t *testing.T) {
+	file := DriveFile{ID: 10, SHA256Hex: "sha", ContentType: "image/png"}
+	policy := defaultDriveOCRPolicy()
+	policy.OCREngine = "paddleocr"
+	policy.OCRLanguages = []string{"japanese"}
+
+	run := db.DriveOcrRun{
+		FileObjectID:  file.ID,
+		FileRevision:  fileOCRRevision(file),
+		ContentSha256: file.SHA256Hex,
+		Engine:        "paddleocr",
+		Languages:     []string{"jpn", "eng"},
+		Status:        "completed",
+		Reason:        "manual",
+		ExtractedText: "経費精算申請",
+	}
+	if !canReuseDriveOCRRunForPipeline(run, file, policy) {
+		t.Fatal("expected completed manual OCR run to be reusable for Japanese pipeline OCR")
+	}
+	run.Reason = "data_pipeline_preview"
+	if canReuseDriveOCRRunForPipeline(run, file, policy) {
+		t.Fatal("expected data pipeline preview OCR run not to be preferred for pipeline reuse")
+	}
+}
+
 func TestDriveOCRProviderFailureCodeDependencyUnavailable(t *testing.T) {
 	if got := driveOCRProviderFailureCode(ErrDriveOCRDependencyUnavailable); got != "dependency_unavailable" {
 		t.Fatalf("driveOCRProviderFailureCode() = %q, want dependency_unavailable", got)
@@ -103,6 +141,9 @@ func TestLocalDriveOCRProviderCheckUsesSelectedPaddleEngine(t *testing.T) {
 
 func TestPaddleOCRLanguagePrefersJapanese(t *testing.T) {
 	if got := paddleOCRLanguage(DriveOCRPolicy{OCRLanguages: []string{"jpn", "eng"}}); got != "japan" {
+		t.Fatalf("paddleOCRLanguage() = %q, want japan", got)
+	}
+	if got := paddleOCRLanguage(DriveOCRPolicy{OCRLanguages: []string{"japanese"}}); got != "japan" {
 		t.Fatalf("paddleOCRLanguage() = %q, want japan", got)
 	}
 	if got := paddleOCRLanguage(DriveOCRPolicy{OCRLanguages: []string{"eng"}}); got != "en" {

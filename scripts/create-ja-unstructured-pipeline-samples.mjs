@@ -216,10 +216,28 @@ async function main() {
   }
 
   const pipelines = []
+  const invoiceDescription = [
+    '目的: 日本語の請求書スキャン画像を、支払処理やレビューに使える標準化済みデータへ変換するサンプルです。',
+    '元データ: Drive にアップロードされた請求書画像。請求書番号、発行日、取引先、合計金額などが画像内に記載されています。',
+    'ゴール: invoice_number、issue_date、vendor_canonical、amount_normalized、amount_unit、document_type、品質情報を持つ請求書支払データを作成します。',
+    '処理: OCR でテキスト化し、言語と文字化け傾向を検出し、請求書として分類します。その後、正規表現で支払項目を抽出し、取引先表記を正規化し、円金額を JPY 単位の数値へ標準化し、スキーマ推定と品質レポートを付与します。',
+  ].join('\n')
+  const contractDescription = [
+    '目的: 日本語の契約確認メモ画像から、法務レビューに必要な機密情報保護済みデータを作るサンプルです。',
+    '元データ: Drive にアップロードされた契約確認メモ画像。会社名、委託関係、提出先、メールアドレスや電話番号などの PII が含まれる想定です。',
+    'ゴール: OCR テキストから PII をマスキングし、委託・提出先などの関係情報、レビュー判定、品質情報を持つ契約メモレビュー用データを作成します。',
+    '処理: OCR でテキスト化し、言語と文字化け傾向を検出します。メールアドレスや電話番号を検出してマスクし、マスク後テキストから関係パターンを抽出し、抽出件数や文字化けスコアをもとに人手レビュー対象を判定し、品質レポートを付与します。',
+  ].join('\n')
+  const expenseDescription = [
+    '目的: 日本語の経費精算控え画像を、経費申請レビュー、監査、重複チェックに使える構造化データへ変換するサンプルです。',
+    '元データ: Drive にアップロードされた経費精算控え画像3枚。社員名、利用日、支払先、用途、区間、金額、承認者などが画像内に記載されています。',
+    'ゴール: employee_name、expense_date_canonical、vendor_canonical、amount_jpy、duplicate_status、survivor_flag、vendor_entity_id、品質情報を持つ経費精算レビュー用データを作成します。田中太郎の同一内容2件は同じ重複グループに入り、片方が duplicate になります。',
+    '処理: OCR で日本語テキストを抽出し、正規表現で社員名、利用日、支払先、金額を抽出します。全角英数字、スペース、日付表記、支払先表記を正規化し、社員名、正規化済み利用日、金額をキーに重複申請を検出します。さらに支払先を辞書で JR東日本 や 日本交通 の標準エンティティIDへ名寄せし、正規化前後の差分と品質レポートを付与します。',
+  ].join('\n')
 
   pipelines.push(await createPipeline({
     name: 'サンプル: 日本語請求書 OCR から支払データ標準化',
-    description: '日本語の請求書スキャンから OCR、言語検出、文書分類、項目抽出、取引先名の正規化、円金額の単位標準化、スキーマ推定、品質レポートまで行うサンプルです。',
+    description: invoiceDescription,
     graph: linearGraph([uploaded.invoice], [
       { id: 'extract_text', type: 'extract_text', label: 'OCR テキスト抽出', config: { languages: ['japanese'], chunkMode: 'full_text', includeBoxes: true } },
       { id: 'detect_language', type: 'detect_language_encoding', label: '言語と文字化け検出', config: { textColumn: 'text', outputTextColumn: 'normalized_text', languageColumn: 'language', mojibakeScoreColumn: 'mojibake_score' } },
@@ -243,7 +261,7 @@ async function main() {
 
   pipelines.push(await createPipeline({
     name: 'サンプル: 日本語契約メモの PII マスキングと関係抽出',
-    description: '契約確認メモから OCR したテキストに対して、PII 検出・マスキング、委託関係の抽出、レビュー対象判定、品質レポートを行うサンプルです。',
+    description: contractDescription,
     graph: linearGraph([uploaded.contract], [
       { id: 'extract_text', type: 'extract_text', label: 'OCR テキスト抽出', config: { languages: ['japanese'], chunkMode: 'full_text', includeBoxes: true } },
       { id: 'detect_language', type: 'detect_language_encoding', label: '言語と文字化け検出', config: { textColumn: 'text', outputTextColumn: 'normalized_text', languageColumn: 'language', mojibakeScoreColumn: 'mojibake_score' } },
@@ -259,7 +277,7 @@ async function main() {
 
   pipelines.push(await createPipeline({
     name: 'サンプル: 日本語経費精算 OCR の重複検出と支払先名寄せ',
-    description: '経費精算控えのスキャン複数枚から項目を抽出し、表記ゆれ正規化、重複申請の検出、支払先の名寄せ、正規化前後の比較、品質レポートを行うサンプルです。',
+    description: expenseDescription,
     graph: linearGraph(uploaded.expenses, [
       { id: 'extract_text', type: 'extract_text', label: 'OCR テキスト抽出', config: { languages: ['japanese'], chunkMode: 'full_text', includeBoxes: true } },
       { id: 'extract_fields', type: 'extract_fields', label: '経費項目抽出', config: { fields: [
@@ -270,9 +288,10 @@ async function main() {
       ] } },
       { id: 'canonicalize', type: 'canonicalize', label: '申請内容正規化', config: { rules: [
         { column: 'employee_name', outputColumn: 'employee_name_canonical', operations: ['trim', 'normalize_spaces', 'zenkaku_to_hankaku_basic'], mappings: { '田中 太郎': '田中 太郎', '田中　太郎': '田中 太郎' } },
+        { column: 'expense_date', outputColumn: 'expense_date_canonical', operations: ['trim', 'zenkaku_to_hankaku_basic', 'normalize_date'] },
         { column: 'vendor', outputColumn: 'vendor_canonical', operations: ['trim', 'normalize_spaces', 'zenkaku_to_hankaku_basic'], mappings: { 'ＪＲ東日本': 'JR東日本', 'JR東日本': 'JR東日本', '日本交通': '日本交通' } },
       ] } },
-      { id: 'deduplicate', type: 'deduplicate', label: '重複申請検出', config: { keyColumns: ['employee_name_canonical', 'expense_date', 'amount_jpy'], mode: 'annotate', statusColumn: 'duplicate_status', groupColumn: 'duplicate_group_id' } },
+      { id: 'deduplicate', type: 'deduplicate', label: '重複申請検出', config: { keyColumns: ['employee_name_canonical', 'expense_date_canonical', 'amount_jpy'], mode: 'annotate', statusColumn: 'duplicate_status', groupColumn: 'duplicate_group_id' } },
       { id: 'entity_resolution', type: 'entity_resolution', label: '支払先名寄せ', config: { column: 'vendor_canonical', outputPrefix: 'vendor', dictionary: [
         { entityId: 'vendor_jreast', name: 'JR東日本', aliases: ['JR東日本', 'ＪＲ東日本', '東日本旅客鉄道'] },
         { entityId: 'vendor_nihon_kotsu', name: '日本交通', aliases: ['日本交通', '日本交通株式会社'] },

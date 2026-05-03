@@ -101,7 +101,10 @@ SET
         WHEN drive_ocr_runs.status IN ('failed', 'skipped') THEN NULL
         ELSE drive_ocr_runs.error_message
     END,
-    updated_at = now()
+    updated_at = CASE
+        WHEN drive_ocr_runs.status IN ('failed', 'skipped') THEN now()
+        ELSE drive_ocr_runs.updated_at
+    END
 RETURNING id, public_id, tenant_id, file_object_id, file_revision, content_sha256, engine, languages, structured_extractor, status, reason, page_count, processed_page_count, average_confidence, extracted_text, error_code, error_message, requested_by_user_id, outbox_event_id, started_at, completed_at, created_at, updated_at, artifact_schema_version, pipeline_config_hash
 `
 
@@ -410,7 +413,10 @@ SELECT id, public_id, tenant_id, file_object_id, file_revision, content_sha256, 
 FROM drive_ocr_runs
 WHERE tenant_id = $1
   AND file_object_id = $2
-ORDER BY created_at DESC, id DESC
+ORDER BY
+  CASE WHEN reason IN ('data_pipeline', 'data_pipeline_preview') THEN 1 ELSE 0 END,
+  updated_at DESC,
+  id DESC
 LIMIT 1
 `
 

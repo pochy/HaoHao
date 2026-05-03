@@ -1287,12 +1287,30 @@ func canonicalizeValue(value string, operations []string, mappings map[string]st
 			}, out)
 		case "zenkaku_to_hankaku_basic":
 			out = zenkakuToHankakuBasic(out)
+		case "normalize_date":
+			out = normalizeDataPipelineDate(out)
 		}
 	}
 	if mapped, ok := mappings[out]; ok {
 		return mapped
 	}
 	return out
+}
+
+func normalizeDataPipelineDate(value string) string {
+	value = strings.TrimSpace(zenkakuToHankakuBasic(value))
+	re := regexp.MustCompile(`^([0-9]{4})[年/-]([0-9]{1,2})[月/-]([0-9]{1,2})日?$`)
+	matches := re.FindStringSubmatch(value)
+	if len(matches) != 4 {
+		return value
+	}
+	year, _ := strconv.Atoi(matches[1])
+	month, _ := strconv.Atoi(matches[2])
+	day, _ := strconv.Atoi(matches[3])
+	if month < 1 || month > 12 || day < 1 || day > 31 {
+		return value
+	}
+	return fmt.Sprintf("%04d-%02d-%02d", year, month, day)
 }
 
 func zenkakuToHankakuBasic(value string) string {

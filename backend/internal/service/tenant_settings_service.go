@@ -935,6 +935,18 @@ func normalizeDriveOCRLanguage(value string) string {
 		}
 		return ""
 	}
+	switch value {
+	case "japanese", "jp":
+		return "jpn"
+	case "english":
+		return "eng"
+	case "korean", "kr":
+		return "kor"
+	case "chinese", "zh_cn", "zh-cn", "chs":
+		return "chi_sim"
+	case "zh_tw", "zh-tw", "cht":
+		return "chi_tra"
+	}
 	return value
 }
 
