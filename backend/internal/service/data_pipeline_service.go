@@ -159,6 +159,7 @@ type DataPipelineService struct {
 	queries   *db.Queries
 	outbox    *OutboxService
 	datasets  *DatasetService
+	driveOCR  *DriveOCRService
 	medallion *MedallionCatalogService
 	audit     AuditRecorder
 }
@@ -171,6 +172,12 @@ func NewDataPipelineService(pool *pgxpool.Pool, queries *db.Queries, outbox *Out
 		datasets:  datasets,
 		medallion: medallion,
 		audit:     audit,
+	}
+}
+
+func (s *DataPipelineService) SetDriveOCRService(driveOCR *DriveOCRService) {
+	if s != nil {
+		s.driveOCR = driveOCR
 	}
 }
 
@@ -389,7 +396,7 @@ func (s *DataPipelineService) PublishVersion(ctx context.Context, tenantID, user
 	return item, nil
 }
 
-func (s *DataPipelineService) Preview(ctx context.Context, tenantID int64, versionPublicID, nodeID string, limit int32) (DataPipelinePreview, error) {
+func (s *DataPipelineService) Preview(ctx context.Context, tenantID, actorUserID int64, versionPublicID, nodeID string, limit int32) (DataPipelinePreview, error) {
 	version, err := s.getVersionRow(ctx, tenantID, versionPublicID)
 	if err != nil {
 		return DataPipelinePreview{}, err
@@ -398,20 +405,23 @@ func (s *DataPipelineService) Preview(ctx context.Context, tenantID int64, versi
 	if err != nil {
 		return DataPipelinePreview{}, err
 	}
-	return s.previewGraph(ctx, tenantID, graph, nodeID, limit)
+	return s.previewGraph(ctx, tenantID, actorUserID, graph, nodeID, limit)
 }
 
-func (s *DataPipelineService) PreviewDraft(ctx context.Context, tenantID int64, pipelinePublicID string, graph DataPipelineGraph, nodeID string, limit int32) (DataPipelinePreview, error) {
+func (s *DataPipelineService) PreviewDraft(ctx context.Context, tenantID, actorUserID int64, pipelinePublicID string, graph DataPipelineGraph, nodeID string, limit int32) (DataPipelinePreview, error) {
 	if _, err := s.getPipelineRow(ctx, tenantID, pipelinePublicID); err != nil {
 		return DataPipelinePreview{}, err
 	}
-	return s.previewGraph(ctx, tenantID, graph, nodeID, limit)
+	return s.previewGraph(ctx, tenantID, actorUserID, graph, nodeID, limit)
 }
 
-func (s *DataPipelineService) previewGraph(ctx context.Context, tenantID int64, graph DataPipelineGraph, nodeID string, limit int32) (DataPipelinePreview, error) {
+func (s *DataPipelineService) previewGraph(ctx context.Context, tenantID, actorUserID int64, graph DataPipelineGraph, nodeID string, limit int32) (DataPipelinePreview, error) {
 	summary := validateDataPipelineGraph(graph)
 	if !summary.Valid {
 		return DataPipelinePreview{}, fmt.Errorf("%w: %s", ErrInvalidDataPipelineGraph, strings.Join(summary.Errors, "; "))
+	}
+	if dataPipelineGraphNeedsHybrid(graph) {
+		return s.previewHybridGraph(ctx, tenantID, actorUserID, graph, nodeID, limit)
 	}
 	compiled, err := s.compilePreviewSelect(ctx, tenantID, graph, nodeID, limit)
 	if err != nil {

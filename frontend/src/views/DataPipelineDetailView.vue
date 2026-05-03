@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { ArrowLeft, Play, RefreshCw, Save, Send, Settings2, Workflow } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import { sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineScheduleWriteBody, type DataPipelineStepType } from '../api/data-pipelines'
+import { isDataPipelineDraftRunPreviewGraph, sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineScheduleWriteBody, type DataPipelineStepType } from '../api/data-pipelines'
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
 import DataPipelineFlowBuilder from '../components/DataPipelineFlowBuilder.vue'
 import DataPipelineInspector from '../components/DataPipelineInspector.vue'
@@ -37,6 +37,10 @@ let refreshTimer: number | undefined
 
 const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
   { type: 'input', labelKey: 'dataPipelines.step.input' },
+  { type: 'extract_text', labelKey: 'dataPipelines.step.extract_text' },
+  { type: 'classify_document', labelKey: 'dataPipelines.step.classify_document' },
+  { type: 'extract_fields', labelKey: 'dataPipelines.step.extract_fields' },
+  { type: 'extract_table', labelKey: 'dataPipelines.step.extract_table' },
   { type: 'profile', labelKey: 'dataPipelines.step.profile' },
   { type: 'clean', labelKey: 'dataPipelines.step.clean' },
   { type: 'normalize', labelKey: 'dataPipelines.step.normalize' },
@@ -45,6 +49,7 @@ const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
   { type: 'schema_completion', labelKey: 'dataPipelines.step.schema_completion' },
   { type: 'enrich_join', labelKey: 'dataPipelines.step.enrich_join' },
   { type: 'transform', labelKey: 'dataPipelines.step.transform' },
+  { type: 'confidence_gate', labelKey: 'dataPipelines.step.confidence_gate' },
   { type: 'output', labelKey: 'dataPipelines.step.output' },
 ]
 
@@ -53,6 +58,7 @@ const selectedPipeline = computed(() => store.detail?.pipeline ?? null)
 const primarySchedule = computed(() => store.schedules.find((schedule) => schedule.enabled) ?? store.schedules[0] ?? null)
 const pageTitle = computed(() => selectedPipeline.value?.name || t('dataPipelines.pipelineDetail'))
 const canPreview = computed(() => Boolean(selectedPipeline.value))
+const draftRunPreview = computed(() => isDataPipelineDraftRunPreviewGraph(store.draftGraph))
 const previewDisabledReason = computed(() => {
   if (!selectedPipeline.value) return t('dataPipelines.createOrSelectFirst')
   return ''
@@ -327,6 +333,7 @@ async function applySettings() {
           :loading="store.selectedPreviewLoading"
           :action-loading="store.actionLoading"
           :can-preview="canPreview"
+          :draft-run-preview="draftRunPreview"
           :preview-disabled-reason="previewDisabledReason"
           @preview="previewSelected"
           @disable-schedule="disableSchedule"

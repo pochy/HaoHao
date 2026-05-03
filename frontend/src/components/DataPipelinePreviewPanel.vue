@@ -12,6 +12,7 @@ const props = defineProps<{
   loading?: boolean
   actionLoading?: boolean
   canPreview?: boolean
+  draftRunPreview?: boolean
   previewDisabledReason?: string
 }>()
 
@@ -102,12 +103,13 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
     <div v-if="activeTab === 'preview'" class="data-pipeline-panel-section" role="tabpanel">
       <header class="panel-header compact">
         <h2>{{ t('dataPipelines.preview') }}</h2>
-        <button class="secondary-button" type="button" :disabled="loading" :title="props.previewDisabledReason" @click="previewClick">
+        <button class="secondary-button" type="button" :disabled="loading || !canPreview" :title="props.previewDisabledReason" @click="previewClick">
           <Search :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ loading ? t('dataPipelines.previewing') : t('dataPipelines.preview') }}
+          {{ loading ? t(draftRunPreview ? 'dataPipelines.draftRunPreviewing' : 'dataPipelines.previewing') : t(draftRunPreview ? 'dataPipelines.draftRunPreview' : 'dataPipelines.preview') }}
         </button>
       </header>
       <p v-if="!canPreview && previewDisabledReason" class="muted-panel">{{ previewDisabledReason }}</p>
+      <p v-else-if="draftRunPreview" class="muted-panel">{{ t('dataPipelines.draftRunPreviewNotice') }}</p>
       <div v-if="preview" class="dataset-work-table-preview-table data-pipeline-preview-table">
         <table>
           <thead>

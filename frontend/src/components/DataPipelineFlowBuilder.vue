@@ -54,10 +54,16 @@ const stepOrder: Record<DataPipelineStepType, number> = {
   schema_completion: 60,
   enrich_join: 70,
   transform: 80,
+  extract_text: 12,
+  classify_document: 14,
+  extract_fields: 16,
+  extract_table: 18,
+  confidence_gate: 90,
   output: 1000,
 }
 const paletteCategories = [
   { id: 'input_output', labelKey: 'dataPipelines.paletteCategories.inputOutput' },
+  { id: 'extraction', labelKey: 'dataPipelines.paletteCategories.extraction' },
   { id: 'transform', labelKey: 'dataPipelines.paletteCategories.transform' },
   { id: 'quality', labelKey: 'dataPipelines.paletteCategories.quality' },
   { id: 'schema', labelKey: 'dataPipelines.paletteCategories.schema' },
@@ -66,6 +72,11 @@ type PaletteCategory = typeof paletteCategories[number]['id']
 const stepCategory: Record<DataPipelineStepType, PaletteCategory> = {
   input: 'input_output',
   output: 'input_output',
+  extract_text: 'extraction',
+  classify_document: 'extraction',
+  extract_fields: 'extraction',
+  extract_table: 'extraction',
+  confidence_gate: 'quality',
   clean: 'quality',
   normalize: 'quality',
   validate: 'quality',
@@ -77,6 +88,7 @@ const stepCategory: Record<DataPipelineStepType, PaletteCategory> = {
 }
 const categoryIcons: Record<PaletteCategory, typeof GitBranch> = {
   input_output: ArrowDownToLine,
+  extraction: GitBranch,
   transform: SlidersHorizontal,
   quality: GitBranch,
   schema: GitBranch,
@@ -404,6 +416,16 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
   switch (type) {
   case 'input':
     return { sourceKind: 'dataset', datasetPublicId: '' }
+  case 'extract_text':
+    return { chunkMode: 'page', includeBoxes: true }
+  case 'classify_document':
+    return { classes: [{ label: 'invoice', keywords: ['invoice', '請求書'], priority: 10 }], outputColumn: 'document_type', confidenceColumn: 'document_type_confidence' }
+  case 'extract_fields':
+    return { provider: 'rules', outputMode: 'columns_and_json', fields: [{ name: 'document_date', type: 'date', required: false, patterns: ['(\\\\d{4}[-/]\\\\d{1,2}[-/]\\\\d{1,2})'] }] }
+  case 'extract_table':
+    return { source: 'text_delimited', delimiter: ',', headerRow: false }
+  case 'confidence_gate':
+    return { threshold: 0.8, mode: 'annotate', statusColumn: 'gate_status' }
   case 'clean':
     return { rules: [{ operation: 'drop_null_rows', columns: [] }] }
   case 'normalize':

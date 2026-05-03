@@ -10,6 +10,7 @@ import {
   fetchDataPipelineRuns,
   fetchDataPipelines,
   isDataPipelineAutoPreviewEnabled,
+  isDataPipelineDraftRunPreviewGraph,
   previewDataPipelineDraft,
   publishDataPipelineVersion,
   sanitizeDataPipelineGraph,
@@ -77,7 +78,10 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
     selectedPreviewLoading: (state): boolean => state.previewLoading && state.previewLoadingNodeId === state.selectedNodeId,
     selectedAutoPreviewKey: (state): string => {
       const node = state.draftGraph.nodes.find((item) => item.id === state.selectedNodeId)
-      if (!state.selectedPublicId || !node || !isDataPipelineAutoPreviewEnabled(node.data)) {
+      if (!state.selectedPublicId || !node) {
+        return ''
+      }
+      if (!isDataPipelineDraftRunPreviewGraph(state.draftGraph) && !isDataPipelineAutoPreviewEnabled(node.data)) {
         return ''
       }
       return `${state.selectedPublicId}:${node.id}:${graphPreviewSignature(state.draftGraph)}`
@@ -249,7 +253,10 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
         return null
       }
       const node = this.draftGraph.nodes.find((item) => item.id === nodeId)
-      if (options.automatic && (!node || !isDataPipelineAutoPreviewEnabled(node.data))) {
+      if (!node) {
+        return null
+      }
+      if (options.automatic && !isDataPipelineDraftRunPreviewGraph(this.draftGraph) && !isDataPipelineAutoPreviewEnabled(node.data)) {
         return null
       }
       this.selectedNodeId = nodeId

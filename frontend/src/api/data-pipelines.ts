@@ -11,6 +11,11 @@ export type DataPipelineStepType =
   | 'enrich_join'
   | 'transform'
   | 'output'
+  | 'extract_text'
+  | 'classify_document'
+  | 'extract_fields'
+  | 'extract_table'
+  | 'confidence_gate'
 
 export type DataPipelineGraph = {
   nodes: DataPipelineNode[]
@@ -142,7 +147,7 @@ export function sanitizeDataPipelineGraph(graph: DataPipelineGraph): DataPipelin
         },
       }
 
-      const type = stringValue(node.type)
+      const type = normalizeDataPipelineNodeType(stringValue(node.type))
       if (type) {
         sanitized.type = type
       }
@@ -167,6 +172,13 @@ export function sanitizeDataPipelineGraph(graph: DataPipelineGraph): DataPipelin
   }
 }
 
+function normalizeDataPipelineNodeType(value: string): string {
+  if (!value || value === 'dataPipelineNode') {
+    return 'pipelineStep'
+  }
+  return value
+}
+
 export function isDataPipelineAutoPreviewEnabled(data?: Partial<DataPipelineNode['data']> | null): boolean {
   if (!data?.stepType) {
     return false
@@ -177,7 +189,23 @@ export function isDataPipelineAutoPreviewEnabled(data?: Partial<DataPipelineNode
   return !configUsesManualPreview(data.config)
 }
 
+export function isDataPipelinePreviewSupported(graph: DataPipelineGraph): boolean {
+  return Boolean(graph)
+}
+
+export function isDataPipelineDraftRunPreviewGraph(graph: DataPipelineGraph): boolean {
+  return graph.nodes.some((node) => (
+    manualPreviewStepTypes.has(String(node.data.stepType))
+    || (node.data.stepType === 'input' && stringValue(node.data.config?.sourceKind) === 'drive_file')
+  ))
+}
+
 const manualPreviewStepTypes = new Set([
+  'extract_text',
+  'classify_document',
+  'extract_fields',
+  'extract_table',
+  'confidence_gate',
   'llm_enrichment',
   'api_enrichment',
   'external_enrichment',

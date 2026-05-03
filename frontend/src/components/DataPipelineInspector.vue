@@ -22,6 +22,7 @@ const emit = defineEmits<{
 const sourceKinds = [
   { value: 'dataset', labelKey: 'dataPipelines.dataset' },
   { value: 'work_table', labelKey: 'dataPipelines.workTable' },
+  { value: 'drive_file', labelKey: 'dataPipelines.driveFile' },
 ]
 
 const cleanOperations = [
@@ -52,6 +53,7 @@ const castOptions = ['', 'string', 'int64', 'float64', 'decimal', 'date', 'datet
 const completionMethods = ['literal', 'copy_column', 'coalesce', 'concat', 'case_when']
 const transformOperations = ['select_columns', 'drop_columns', 'rename_columns', 'filter', 'sort', 'aggregate']
 const aggregateFunctions = ['count', 'sum', 'avg', 'min', 'max']
+const fieldTypes = ['string', 'number', 'date', 'boolean', 'json']
 
 const label = ref('')
 const configText = ref('{}')
@@ -180,8 +182,16 @@ function updateConfigOptionalString(key: string, value: string) {
   syncConfigText()
 }
 
+function updateConfigList(key: string, value: string) {
+  setConfig({ [key]: parseListInput(value) })
+}
+
 function sourceKind(right = false) {
   return stringConfig(right ? 'rightSourceKind' : 'sourceKind') || 'dataset'
+}
+
+function sourceKindOptions(right = false) {
+  return right ? sourceKinds.filter((kind) => kind.value !== 'drive_file') : sourceKinds
 }
 
 function sourcePublicId(right = false) {
@@ -205,6 +215,7 @@ function setSourceKind(kind: string, right = false) {
     sourceKind: kind,
     datasetPublicId: kind === 'dataset' ? stringConfig('datasetPublicId') : '',
     workTablePublicId: kind === 'work_table' ? stringConfig('workTablePublicId') : '',
+    filePublicIds: kind === 'drive_file' ? stringList(configDraft.value.filePublicIds) : [],
   })
 }
 
@@ -650,10 +661,10 @@ function labelForStep(type: DataPipelineStepType | string) {
           <label class="field">
             <span>{{ t('dataPipelines.sourceKind') }}</span>
             <select :value="sourceKind()" @change="setSourceKind(targetValue($event))">
-              <option v-for="kind in sourceKinds" :key="kind.value" :value="kind.value">{{ t(kind.labelKey) }}</option>
+              <option v-for="kind in sourceKindOptions()" :key="kind.value" :value="kind.value">{{ t(kind.labelKey) }}</option>
             </select>
           </label>
-          <label class="field">
+          <label v-if="sourceKind() !== 'drive_file'" class="field">
             <span>{{ sourceSelectLabel() }}</span>
             <select :value="sourcePublicId()" @change="setSourcePublicId(targetValue($event))">
               <option value="">{{ t('dataPipelines.selectSource') }}</option>
@@ -665,6 +676,10 @@ function labelForStep(type: DataPipelineStepType | string) {
                 {{ sourceOptionLabel(item) }}
               </option>
             </select>
+          </label>
+          <label v-else class="field">
+            <span>{{ t('dataPipelines.filePublicIds') }}</span>
+            <textarea :value="listToInput(configDraft.filePublicIds)" rows="4" :placeholder="t('dataPipelines.filePublicIdsPlaceholder')" @input="updateConfigList('filePublicIds', targetValue($event))" />
           </label>
         </template>
 
@@ -896,7 +911,7 @@ function labelForStep(type: DataPipelineStepType | string) {
             <label class="field">
               <span>{{ t('dataPipelines.rightSourceKind') }}</span>
               <select :value="sourceKind(true)" @change="setSourceKind(targetValue($event), true)">
-                <option v-for="kind in sourceKinds" :key="kind.value" :value="kind.value">{{ t(kind.labelKey) }}</option>
+                <option v-for="kind in sourceKindOptions(true)" :key="kind.value" :value="kind.value">{{ t(kind.labelKey) }}</option>
               </select>
             </label>
             <label class="field">
@@ -1058,6 +1073,130 @@ function labelForStep(type: DataPipelineStepType | string) {
               {{ t('dataPipelines.addAggregation') }}
             </button>
           </template>
+        </template>
+
+        <template v-else-if="stepType === 'extract_text'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.chunkMode') }}</span>
+              <select :value="stringConfig('chunkMode') || 'page'" @change="updateConfigField('chunkMode', targetValue($event))">
+                <option value="page">{{ t('dataPipelines.chunkModePage') }}</option>
+                <option value="full_text">{{ t('dataPipelines.chunkModeFullText') }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.ocrEngine') }}</span>
+              <input :value="stringConfig('ocrEngine')" placeholder="tesseract" @input="updateConfigOptionalString('ocrEngine', targetValue($event))">
+            </label>
+          </div>
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.languages') }}</span>
+              <input :value="listToInput(configDraft.languages)" placeholder="jpn, eng" @input="updateConfigList('languages', targetValue($event))">
+            </label>
+            <label class="data-pipeline-toggle">
+              <input :checked="Boolean(configDraft.includeBoxes)" type="checkbox" @change="updateConfigField('includeBoxes', targetChecked($event))">
+              <span>{{ t('dataPipelines.includeBoxes') }}</span>
+            </label>
+          </div>
+        </template>
+
+        <template v-else-if="stepType === 'classify_document'">
+          <div v-for="(docClass, index) in arrayConfig('classes')" :key="index" class="config-rule">
+            <div class="config-rule-header">
+              <label class="field">
+                <span>{{ t('dataPipelines.classLabel') }}</span>
+                <input :value="stringField(docClass, 'label')" @input="updateArrayItem('classes', index, { label: targetValue($event) })">
+              </label>
+              <button class="icon-button danger" type="button" :aria-label="t('dataPipelines.removeClass', { index: index + 1 })" @click="removeArrayItem('classes', index)">
+                <Trash2 :size="15" stroke-width="1.9" aria-hidden="true" />
+              </button>
+            </div>
+            <div class="config-grid">
+              <label class="field">
+                <span>{{ t('dataPipelines.keywords') }}</span>
+                <input :value="listToInput(docClass.keywords)" @input="updateArrayListField('classes', index, 'keywords', targetValue($event))">
+              </label>
+              <label class="field">
+                <span>{{ t('dataPipelines.regexes') }}</span>
+                <input :value="listToInput(docClass.regexes)" @input="updateArrayListField('classes', index, 'regexes', targetValue($event))">
+              </label>
+            </div>
+          </div>
+          <button class="secondary-button compact-button" type="button" @click="addArrayItem('classes', { label: '', keywords: [], regexes: [] })">
+            <Plus :size="15" stroke-width="1.9" aria-hidden="true" />
+            {{ t('dataPipelines.addClass') }}
+          </button>
+        </template>
+
+        <template v-else-if="stepType === 'extract_fields'">
+          <div v-for="(field, index) in arrayConfig('fields')" :key="index" class="config-rule">
+            <div class="config-rule-header">
+              <label class="field">
+                <span>{{ t('dataPipelines.fieldName') }}</span>
+                <input :value="stringField(field, 'name')" @input="updateArrayItem('fields', index, { name: targetValue($event) })">
+              </label>
+              <button class="icon-button danger" type="button" :aria-label="t('dataPipelines.removeField', { index: index + 1 })" @click="removeArrayItem('fields', index)">
+                <Trash2 :size="15" stroke-width="1.9" aria-hidden="true" />
+              </button>
+            </div>
+            <div class="config-grid">
+              <label class="field">
+                <span>{{ t('dataPipelines.type') }}</span>
+                <select :value="stringField(field, 'type') || 'string'" @change="updateArrayItem('fields', index, { type: targetValue($event) })">
+                  <option v-for="fieldType in fieldTypes" :key="fieldType" :value="fieldType">{{ fieldType }}</option>
+                </select>
+              </label>
+              <label class="data-pipeline-toggle">
+                <input :checked="boolField(field, 'required')" type="checkbox" @change="updateArrayItem('fields', index, { required: targetChecked($event) })">
+                <span>{{ t('dataPipelines.required') }}</span>
+              </label>
+            </div>
+            <label class="field">
+              <span>{{ t('dataPipelines.patterns') }}</span>
+              <input :value="listToInput(field.patterns)" @input="updateArrayListField('fields', index, 'patterns', targetValue($event))">
+            </label>
+          </div>
+          <button class="secondary-button compact-button" type="button" @click="addArrayItem('fields', { name: '', type: 'string', required: false, patterns: [] })">
+            <Plus :size="15" stroke-width="1.9" aria-hidden="true" />
+            {{ t('dataPipelines.addField') }}
+          </button>
+        </template>
+
+        <template v-else-if="stepType === 'extract_table'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.source') }}</span>
+              <select :value="stringConfig('source') || 'text_delimited'" @change="updateConfigField('source', targetValue($event))">
+                <option value="text_delimited">{{ t('dataPipelines.textDelimited') }}</option>
+                <option value="ocr_layout">{{ t('dataPipelines.ocrLayout') }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.delimiter') }}</span>
+              <input :value="stringConfig('delimiter') || ','" @input="updateConfigField('delimiter', targetValue($event))">
+            </label>
+          </div>
+        </template>
+
+        <template v-else-if="stepType === 'confidence_gate'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.threshold') }}</span>
+              <input :value="numberField(configDraft, 'threshold') || '0.8'" type="number" min="0" max="1" step="0.01" @input="updateConfigField('threshold', Number(targetValue($event)))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.mode') }}</span>
+              <select :value="stringConfig('mode') || 'annotate'" @change="updateConfigField('mode', targetValue($event))">
+                <option value="annotate">{{ t('dataPipelines.annotate') }}</option>
+                <option value="filter_pass">{{ t('dataPipelines.filterPass') }}</option>
+              </select>
+            </label>
+          </div>
+          <label class="field">
+            <span>{{ t('dataPipelines.scoreColumns') }}</span>
+            <input :value="listToInput(configDraft.scoreColumns)" placeholder="confidence, field_confidence, document_confidence" @input="updateConfigList('scoreColumns', targetValue($event))">
+          </label>
         </template>
 
         <template v-else-if="stepType === 'output'">

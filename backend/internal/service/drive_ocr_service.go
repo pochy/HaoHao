@@ -63,6 +63,16 @@ type DriveOCRResult struct {
 	Pages []DriveOCRPage
 }
 
+type DriveOCRPipelineRequest struct {
+	TenantID     int64
+	ActorUserID  int64
+	FilePublicID string
+	Reason       string
+	OCREngine    string
+	OCRLanguages []string
+	IncludeBoxes bool
+}
+
 const driveOCRArtifactSchemaVersion = "drive_image_pdf_v1"
 
 type DriveProductExtractionItem struct {
@@ -196,6 +206,85 @@ func (s *DriveOCRService) RequestJob(ctx context.Context, tenantID, actorUserID 
 	s.publishDriveOCRRunUpdated(ctx, run, run.Status, "")
 	s.recordMedallionOCRRun(ctx, file, run, medallionPipelineStatusFromOCRStatus(run.Status), "", true, nil)
 	return run, nil
+}
+
+func (s *DriveOCRService) EnsureCompletedForPipeline(ctx context.Context, input DriveOCRPipelineRequest) (DriveOCRResult, error) {
+	if err := s.ensureConfigured(); err != nil {
+		return DriveOCRResult{}, err
+	}
+	if input.ActorUserID <= 0 {
+		return DriveOCRResult{}, fmt.Errorf("%w: data pipeline OCR requires an actor user", ErrDriveInvalidInput)
+	}
+	actor, file, err := s.fileForActor(ctx, input.TenantID, input.ActorUserID, input.FilePublicID)
+	if err != nil {
+		return DriveOCRResult{}, err
+	}
+	if err := s.drive.authz.CanEditFile(ctx, actor, file); err != nil {
+		return DriveOCRResult{}, err
+	}
+	policy, err := s.driveOCRPolicy(ctx, input.TenantID)
+	if err != nil {
+		return DriveOCRResult{}, err
+	}
+	if !policy.Enabled {
+		return DriveOCRResult{}, ErrDrivePolicyDenied
+	}
+	if strings.TrimSpace(input.OCREngine) != "" {
+		policy.OCREngine = strings.TrimSpace(input.OCREngine)
+	}
+	if len(input.OCRLanguages) > 0 {
+		policy.OCRLanguages = append([]string{}, input.OCRLanguages...)
+	}
+	run, err := s.createRun(ctx, file, policy, input.ActorUserID, firstNonEmpty(input.Reason, "data_pipeline"), 0)
+	if err != nil {
+		return DriveOCRResult{}, err
+	}
+	if run.Status != "completed" {
+		if code, message := s.skipReason(ctx, file, policy); code != "" {
+			return DriveOCRResult{}, fmt.Errorf("%w: %s", ErrDriveOCRStructuredUnsupported, firstNonEmpty(message, code))
+		}
+		running, err := s.queries.MarkDriveOCRRunRunning(ctx, db.MarkDriveOCRRunRunningParams{ID: run.ID, TenantID: input.TenantID})
+		if err != nil {
+			return DriveOCRResult{}, err
+		}
+		run = driveOCRRunFromDB(running, file.PublicID)
+		body, err := s.storage.Open(ctx, file.StorageKey)
+		if err != nil {
+			_ = s.markRunFailed(ctx, run, "storage_open_failed", err)
+			return DriveOCRResult{}, err
+		}
+		result, err := s.provider.Extract(ctx, DriveOCRProviderInput{TenantID: input.TenantID, File: file, Body: body, Policy: policy})
+		_ = body.Close()
+		if err != nil {
+			_ = s.markRunFailed(ctx, run, driveOCRProviderFailureCode(err), err)
+			return DriveOCRResult{}, err
+		}
+		if err := s.replacePages(ctx, run, file, result.Pages); err != nil {
+			_ = s.markRunFailed(ctx, run, "save_pages_failed", err)
+			return DriveOCRResult{}, err
+		}
+		completed, err := s.queries.MarkDriveOCRRunCompleted(ctx, db.MarkDriveOCRRunCompletedParams{
+			PageCount:          int32(len(result.Pages)),
+			ProcessedPageCount: int32(len(result.Pages)),
+			AverageConfidence:  pgNumericFromFloat(result.AverageConfidence),
+			ExtractedText:      result.FullText,
+			ID:                 run.ID,
+			TenantID:           input.TenantID,
+		})
+		if err != nil {
+			return DriveOCRResult{}, err
+		}
+		run = driveOCRRunFromDB(completed, file.PublicID)
+	}
+	pages, err := s.queries.ListDriveOCRPages(ctx, db.ListDriveOCRPagesParams{TenantID: input.TenantID, OcrRunID: run.ID})
+	if err != nil {
+		return DriveOCRResult{}, err
+	}
+	items := make([]DriveOCRPage, 0, len(pages))
+	for _, page := range pages {
+		items = append(items, driveOCRPageFromDB(page))
+	}
+	return DriveOCRResult{Run: run, Pages: items}, nil
 }
 
 func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObjectID, actorUserID int64, reason string, outboxEventID int64) error {

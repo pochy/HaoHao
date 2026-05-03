@@ -378,11 +378,11 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{OperationID: "previewDataPipelineVersion", Method: http.MethodPost, Path: "/api/v1/data-pipeline-versions/{versionPublicId}/preview", Summary: "selected node まで preview する", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelinePreviewInput) (*DataPipelinePreviewOutput, error) {
-		_, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
 		}
-		preview, err := deps.DataPipelineService.Preview(ctx, tenant.ID, input.VersionPublicID, input.Body.NodeID, input.Body.Limit)
+		preview, err := deps.DataPipelineService.Preview(ctx, tenant.ID, current.User.ID, input.VersionPublicID, input.Body.NodeID, input.Body.Limit)
 		if err != nil {
 			return nil, toDataPipelineHTTPError(ctx, deps, "previewDataPipelineVersion", err)
 		}
@@ -390,11 +390,11 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{OperationID: "previewDataPipelineDraft", Method: http.MethodPost, Path: "/api/v1/data-pipelines/{pipelinePublicId}/preview", Summary: "未保存 draft graph の selected node まで preview する", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineDraftPreviewInput) (*DataPipelinePreviewOutput, error) {
-		_, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
 		}
-		preview, err := deps.DataPipelineService.PreviewDraft(ctx, tenant.ID, input.PipelinePublicID, input.Body.Graph, input.Body.NodeID, input.Body.Limit)
+		preview, err := deps.DataPipelineService.PreviewDraft(ctx, tenant.ID, current.User.ID, input.PipelinePublicID, input.Body.Graph, input.Body.NodeID, input.Body.Limit)
 		if err != nil {
 			return nil, toDataPipelineHTTPError(ctx, deps, "previewDataPipelineDraft", err)
 		}

@@ -81,6 +81,9 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
+	if dataPipelineService != nil && driveOCRService != nil {
+		dataPipelineService.SetDriveOCRService(driveOCRService)
+	}
 
 	router := gin.New()
 	trustedProxies := cfg.TrustedProxyCIDRs

@@ -19,6 +19,11 @@ const (
 	DataPipelineStepEnrichJoin       = "enrich_join"
 	DataPipelineStepTransform        = "transform"
 	DataPipelineStepOutput           = "output"
+	DataPipelineStepExtractText      = "extract_text"
+	DataPipelineStepClassifyDocument = "classify_document"
+	DataPipelineStepExtractFields    = "extract_fields"
+	DataPipelineStepExtractTable     = "extract_table"
+	DataPipelineStepConfidenceGate   = "confidence_gate"
 
 	dataPipelineMaxNodes = 50
 	dataPipelineMaxEdges = 80
@@ -35,6 +40,11 @@ var dataPipelineStepCatalog = map[string]struct{}{
 	DataPipelineStepEnrichJoin:       {},
 	DataPipelineStepTransform:        {},
 	DataPipelineStepOutput:           {},
+	DataPipelineStepExtractText:      {},
+	DataPipelineStepClassifyDocument: {},
+	DataPipelineStepExtractFields:    {},
+	DataPipelineStepExtractTable:     {},
+	DataPipelineStepConfidenceGate:   {},
 }
 
 type DataPipelineGraph struct {

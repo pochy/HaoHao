@@ -676,6 +676,9 @@ func (s *DataPipelineService) executeRun(ctx context.Context, tenantID int64, ru
 	if err != nil {
 		return DatasetWorkTable{}, dataPipelineCompiledSelect{}, err
 	}
+	if dataPipelineGraphNeedsHybrid(graph) {
+		return s.executeHybridRun(ctx, tenantID, run, graph)
+	}
 	compiled, outputNode, err := s.compileRunSelect(ctx, tenantID, graph)
 	if err != nil {
 		return DatasetWorkTable{}, dataPipelineCompiledSelect{}, err
