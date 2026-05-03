@@ -100,6 +100,22 @@ const effectiveJoinSelectColumns = computed(() => {
   const configured = stringList(configDraft.value.selectColumns)
   return configured.length > 0 ? configured : rightColumns.value
 })
+const outputTableNameError = computed(() => {
+  if (stepType.value !== 'output') {
+    return ''
+  }
+  const tableName = stringConfig('tableName').trim()
+  if (!tableName) {
+    return ''
+  }
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(tableName)) {
+    return t('dataPipelines.invalidOutputTableName')
+  }
+  const duplicate = props.graph.nodes.find((node) => node.id !== props.selectedNodeId
+    && node.data.stepType === 'output'
+    && String(node.data.config?.tableName ?? '').trim().toLowerCase() === tableName.toLowerCase())
+  return duplicate ? t('dataPipelines.duplicateOutputTableName') : ''
+})
 
 watch(selectedNode, (node) => {
   if (syncingLocalChange) {
@@ -1306,6 +1322,10 @@ function labelForStep(type: DataPipelineStepType | string) {
               <span>{{ t('dataPipelines.includeBoxes') }}</span>
             </label>
           </div>
+          <label class="field">
+            <span>{{ t('dataPipelines.orderBy') }}</span>
+            <input :value="stringList(configDraft.orderBy).join(', ')" @input="updateConfigList('orderBy', targetValue($event))">
+          </label>
         </template>
 
         <template v-else-if="stepType === 'classify_document'">
@@ -1658,6 +1678,10 @@ function labelForStep(type: DataPipelineStepType | string) {
             <span>{{ t('dataPipelines.tableName') }}</span>
             <input :value="stringConfig('tableName')" @input="updateConfigOptionalString('tableName', targetValue($event))">
           </label>
+          <p v-if="outputTableNameError" class="inline-error">
+            <AlertCircle :size="14" stroke-width="1.9" aria-hidden="true" />
+            {{ outputTableNameError }}
+          </p>
           <div class="config-grid">
             <label class="field">
               <span>{{ t('dataPipelines.writeMode') }}</span>

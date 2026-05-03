@@ -1198,6 +1198,14 @@ components:
             - 1
           format: int64
           type: integer
+        outputs:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DataPipelineRunOutputBody"
+          type:
+            - array
+            - "null"
         publicId:
           description: client や URL path で参照する public UUID です。
           examples:
@@ -1256,6 +1264,7 @@ components:
         - createdAt
         - updatedAt
         - steps
+        - outputs
       type: object
     DataPipelineRunListBody:
       additionalProperties: false
@@ -1277,6 +1286,68 @@ components:
             - "null"
       required:
         - items
+      type: object
+    DataPipelineRunOutputBody:
+      additionalProperties: false
+      properties:
+        completedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        errorSummary:
+          examples:
+            - example
+          type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        nodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        outputWorkTableId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        rowCount:
+          examples:
+            - 3
+          format: int64
+          type: integer
+        startedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          examples:
+            - active
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - nodeId
+        - status
+        - rowCount
+        - metadata
+        - createdAt
+        - updatedAt
       type: object
     DataPipelineRunStepBody:
       additionalProperties: false
@@ -8912,6 +8983,151 @@ components:
           type: boolean
       required:
         - active
+      type: object
+    SystemJobBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SystemJobBody.json
+          format: uri
+          readOnly: true
+          type: string
+        action:
+          examples:
+            - example
+          type: string
+        canStop:
+          examples:
+            - true
+          type: boolean
+        completedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        errorMessage:
+          examples:
+            - example
+          type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        outboxEventPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        requestedByDisplayName:
+          examples:
+            - Acme
+          type: string
+        requestedByEmail:
+          examples:
+            - demo@example.com
+          type: string
+        startedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          examples:
+            - active
+          type: string
+        statusGroup:
+          examples:
+            - active
+          type: string
+        subjectPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        subjectType:
+          examples:
+            - example
+          type: string
+        title:
+          examples:
+            - Export CSV from reports
+          type: string
+        type:
+          examples:
+            - example
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - type
+        - publicId
+        - title
+        - status
+        - statusGroup
+        - createdAt
+        - updatedAt
+        - metadata
+        - canStop
+      type: object
+    SystemJobListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SystemJobListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/SystemJobBody"
+          type:
+            - array
+            - "null"
+        limit:
+          description: pagination で返す最大件数です。
+          examples:
+            - 50
+          format: int32
+          type: integer
+        offset:
+          description: pagination の開始位置です。
+          examples:
+            - 0
+          format: int32
+          type: integer
+        total:
+          examples:
+            - 1
+          format: int64
+          type: integer
+      required:
+        - items
+        - total
+        - limit
+        - offset
       type: object
     TenantAdminDriveAdminContentSessionBody:
       additionalProperties: false
@@ -19543,6 +19759,8 @@ paths:
                     createdAt: "2026-01-15T09:30:00Z"
                     errorSummary: example
                     outputWorkTableId: 1
+                    outputs:
+                      - example
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     rowCount: 3
                     scheduleId: 1
@@ -19806,6 +20024,7 @@ paths:
                         createdAt: "2026-01-15T09:30:00Z"
                         errorSummary: example
                         outputWorkTableId: 1
+                        outputs: []
                         publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                         rowCount: 3
                         scheduleId: 1
@@ -20106,6 +20325,8 @@ paths:
                         createdAt: "2026-01-15T09:30:00Z"
                         errorSummary: example
                         outputWorkTableId: 1
+                        outputs:
+                          - example
                         publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                         rowCount: 3
                         scheduleId: 1
@@ -32219,6 +32440,321 @@ paths:
       summary: tenant invitation を accept する
       tags:
         - Tenant Workspace
+  /api/v1/jobs:
+    get:
+      description: |-
+        system jobs を検索する。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listSystemJobs
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: 検索語または filter query です。
+          example: roadmap
+          explode: false
+          in: query
+          name: query
+          schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `type` です。
+          example: example
+          explode: false
+          in: query
+          name: type
+          schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `status` です。
+          example: active
+          explode: false
+          in: query
+          name: status
+          schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `statusGroup` です。
+          example: active
+          explode: false
+          in: query
+          name: statusGroup
+          schema:
+            enum:
+              - active
+              - terminal
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 25
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+        - description: pagination の開始位置です。`limit` と組み合わせて使います。
+          example: 0
+          explode: false
+          in: query
+          name: offset
+          schema:
+            default: 0
+            format: int32
+            minimum: 0
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - action: example
+                        canStop: true
+                        completedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        errorMessage: example
+                        metadata: {}
+                        outboxEventPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        requestedByDisplayName: Acme
+                        requestedByEmail: demo@example.com
+                        startedAt: "2026-01-15T09:30:00Z"
+                        status: active
+                        statusGroup: active
+                        subjectPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        subjectType: example
+                        title: Export CSV from reports
+                        type: example
+                        updatedAt: "2026-01-15T09:30:00Z"
+                    limit: 50
+                    offset: 0
+                    total: 1
+              schema:
+                $ref: "#/components/schemas/SystemJobListOutputBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: system jobs を検索する
+      tags:
+        - Tenant Administration
+  /api/v1/jobs/{jobType}/{jobPublicId}:
+    get:
+      description: |-
+        system job detail を返す。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getSystemJob
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          schema:
+            type: string
+        - description: path 内の `jobType` を指定します。
+          example: example
+          in: path
+          name: jobType
+          required: true
+          schema:
+            type: string
+        - description: path 内の `jobPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: jobPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    action: example
+                    canStop: true
+                    completedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    errorMessage: example
+                    metadata: {}
+                    outboxEventPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    requestedByDisplayName: Acme
+                    requestedByEmail: demo@example.com
+                    startedAt: "2026-01-15T09:30:00Z"
+                    status: active
+                    statusGroup: active
+                    subjectPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    subjectType: example
+                    title: Export CSV from reports
+                    type: example
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/SystemJobBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: system job detail を返す
+      tags:
+        - Tenant Administration
+  /api/v1/jobs/{jobType}/{jobPublicId}/stop:
+    post:
+      description: |-
+        system job を手動停止する。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: stopSystemJob
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          schema:
+            type: string
+        - description: path 内の `jobType` を指定します。
+          example: example
+          in: path
+          name: jobType
+          required: true
+          schema:
+            type: string
+        - description: path 内の `jobPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: jobPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/SystemJobBody.json
+                    action: example
+                    canStop: true
+                    completedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    errorMessage: example
+                    metadata: {}
+                    outboxEventPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    requestedByDisplayName: Acme
+                    requestedByEmail: demo@example.com
+                    startedAt: "2026-01-15T09:30:00Z"
+                    status: active
+                    statusGroup: active
+                    subjectPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    subjectType: example
+                    title: Export CSV from reports
+                    type: example
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/SystemJobBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: system job を手動停止する
+      tags:
+        - Tenant Administration
   /api/v1/lineage/change-sets:
     get:
       description: |-

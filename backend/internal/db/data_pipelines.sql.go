@@ -177,6 +177,59 @@ func (q *Queries) CompleteDataPipelineRun(ctx context.Context, arg CompleteDataP
 	return i, err
 }
 
+const completeDataPipelineRunOutput = `-- name: CompleteDataPipelineRunOutput :one
+UPDATE data_pipeline_run_outputs
+SET
+    status = 'completed',
+    output_work_table_id = $1,
+    row_count = $2,
+    error_summary = NULL,
+    metadata = $3,
+    completed_at = now(),
+    updated_at = now()
+WHERE tenant_id = $4
+  AND run_id = $5
+  AND node_id = $6
+RETURNING id, tenant_id, run_id, node_id, status, output_work_table_id, row_count, error_summary, metadata, started_at, completed_at, created_at, updated_at
+`
+
+type CompleteDataPipelineRunOutputParams struct {
+	OutputWorkTableID pgtype.Int8 `json:"output_work_table_id"`
+	RowCount          int64       `json:"row_count"`
+	Metadata          []byte      `json:"metadata"`
+	TenantID          int64       `json:"tenant_id"`
+	RunID             int64       `json:"run_id"`
+	NodeID            string      `json:"node_id"`
+}
+
+func (q *Queries) CompleteDataPipelineRunOutput(ctx context.Context, arg CompleteDataPipelineRunOutputParams) (DataPipelineRunOutput, error) {
+	row := q.db.QueryRow(ctx, completeDataPipelineRunOutput,
+		arg.OutputWorkTableID,
+		arg.RowCount,
+		arg.Metadata,
+		arg.TenantID,
+		arg.RunID,
+		arg.NodeID,
+	)
+	var i DataPipelineRunOutput
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.RunID,
+		&i.NodeID,
+		&i.Status,
+		&i.OutputWorkTableID,
+		&i.RowCount,
+		&i.ErrorSummary,
+		&i.Metadata,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const completeDataPipelineRunStep = `-- name: CompleteDataPipelineRunStep :one
 UPDATE data_pipeline_run_steps
 SET
@@ -351,6 +404,48 @@ func (q *Queries) CreateDataPipelineRun(ctx context.Context, arg CreateDataPipel
 		&i.OutboxEventID,
 		&i.RowCount,
 		&i.ErrorSummary,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createDataPipelineRunOutput = `-- name: CreateDataPipelineRunOutput :one
+INSERT INTO data_pipeline_run_outputs (
+    tenant_id,
+    run_id,
+    node_id
+) VALUES (
+    $1,
+    $2,
+    $3
+)
+ON CONFLICT (run_id, node_id) DO UPDATE
+SET updated_at = now()
+RETURNING id, tenant_id, run_id, node_id, status, output_work_table_id, row_count, error_summary, metadata, started_at, completed_at, created_at, updated_at
+`
+
+type CreateDataPipelineRunOutputParams struct {
+	TenantID int64  `json:"tenant_id"`
+	RunID    int64  `json:"run_id"`
+	NodeID   string `json:"node_id"`
+}
+
+func (q *Queries) CreateDataPipelineRunOutput(ctx context.Context, arg CreateDataPipelineRunOutputParams) (DataPipelineRunOutput, error) {
+	row := q.db.QueryRow(ctx, createDataPipelineRunOutput, arg.TenantID, arg.RunID, arg.NodeID)
+	var i DataPipelineRunOutput
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.RunID,
+		&i.NodeID,
+		&i.Status,
+		&i.OutputWorkTableID,
+		&i.RowCount,
+		&i.ErrorSummary,
+		&i.Metadata,
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.CreatedAt,
@@ -638,6 +733,55 @@ func (q *Queries) FailDataPipelineRun(ctx context.Context, arg FailDataPipelineR
 	return i, err
 }
 
+const failDataPipelineRunOutput = `-- name: FailDataPipelineRunOutput :one
+UPDATE data_pipeline_run_outputs
+SET
+    status = 'failed',
+    error_summary = left($1, 1000),
+    metadata = $2,
+    completed_at = now(),
+    updated_at = now()
+WHERE tenant_id = $3
+  AND run_id = $4
+  AND node_id = $5
+RETURNING id, tenant_id, run_id, node_id, status, output_work_table_id, row_count, error_summary, metadata, started_at, completed_at, created_at, updated_at
+`
+
+type FailDataPipelineRunOutputParams struct {
+	ErrorSummary string `json:"error_summary"`
+	Metadata     []byte `json:"metadata"`
+	TenantID     int64  `json:"tenant_id"`
+	RunID        int64  `json:"run_id"`
+	NodeID       string `json:"node_id"`
+}
+
+func (q *Queries) FailDataPipelineRunOutput(ctx context.Context, arg FailDataPipelineRunOutputParams) (DataPipelineRunOutput, error) {
+	row := q.db.QueryRow(ctx, failDataPipelineRunOutput,
+		arg.ErrorSummary,
+		arg.Metadata,
+		arg.TenantID,
+		arg.RunID,
+		arg.NodeID,
+	)
+	var i DataPipelineRunOutput
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.RunID,
+		&i.NodeID,
+		&i.Status,
+		&i.OutputWorkTableID,
+		&i.RowCount,
+		&i.ErrorSummary,
+		&i.Metadata,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const failDataPipelineRunStep = `-- name: FailDataPipelineRunStep :one
 UPDATE data_pipeline_run_steps
 SET
@@ -680,6 +824,61 @@ func (q *Queries) FailDataPipelineRunStep(ctx context.Context, arg FailDataPipel
 		&i.ErrorSummary,
 		&i.ErrorSample,
 		&i.Metadata,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const finishDataPipelineRun = `-- name: FinishDataPipelineRun :one
+UPDATE data_pipeline_runs
+SET
+    status = $1,
+    output_work_table_id = $2,
+    row_count = $3,
+    error_summary = NULLIF(left($4, 1000), ''),
+    completed_at = now(),
+    updated_at = now()
+WHERE tenant_id = $5
+  AND id = $6
+RETURNING id, public_id, tenant_id, pipeline_id, version_id, schedule_id, requested_by_user_id, trigger_kind, status, output_work_table_id, outbox_event_id, row_count, error_summary, started_at, completed_at, created_at, updated_at
+`
+
+type FinishDataPipelineRunParams struct {
+	Status            string      `json:"status"`
+	OutputWorkTableID pgtype.Int8 `json:"output_work_table_id"`
+	RowCount          int64       `json:"row_count"`
+	ErrorSummary      string      `json:"error_summary"`
+	TenantID          int64       `json:"tenant_id"`
+	ID                int64       `json:"id"`
+}
+
+func (q *Queries) FinishDataPipelineRun(ctx context.Context, arg FinishDataPipelineRunParams) (DataPipelineRun, error) {
+	row := q.db.QueryRow(ctx, finishDataPipelineRun,
+		arg.Status,
+		arg.OutputWorkTableID,
+		arg.RowCount,
+		arg.ErrorSummary,
+		arg.TenantID,
+		arg.ID,
+	)
+	var i DataPipelineRun
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.PipelineID,
+		&i.VersionID,
+		&i.ScheduleID,
+		&i.RequestedByUserID,
+		&i.TriggerKind,
+		&i.Status,
+		&i.OutputWorkTableID,
+		&i.OutboxEventID,
+		&i.RowCount,
+		&i.ErrorSummary,
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.CreatedAt,
@@ -938,6 +1137,53 @@ func (q *Queries) GetDataPipelineVersionForTenant(ctx context.Context, arg GetDa
 	return i, err
 }
 
+const listDataPipelineRunOutputs = `-- name: ListDataPipelineRunOutputs :many
+SELECT id, tenant_id, run_id, node_id, status, output_work_table_id, row_count, error_summary, metadata, started_at, completed_at, created_at, updated_at
+FROM data_pipeline_run_outputs
+WHERE tenant_id = $1
+  AND run_id = $2
+ORDER BY id ASC
+`
+
+type ListDataPipelineRunOutputsParams struct {
+	TenantID int64 `json:"tenant_id"`
+	RunID    int64 `json:"run_id"`
+}
+
+func (q *Queries) ListDataPipelineRunOutputs(ctx context.Context, arg ListDataPipelineRunOutputsParams) ([]DataPipelineRunOutput, error) {
+	rows, err := q.db.Query(ctx, listDataPipelineRunOutputs, arg.TenantID, arg.RunID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DataPipelineRunOutput
+	for rows.Next() {
+		var i DataPipelineRunOutput
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.RunID,
+			&i.NodeID,
+			&i.Status,
+			&i.OutputWorkTableID,
+			&i.RowCount,
+			&i.ErrorSummary,
+			&i.Metadata,
+			&i.StartedAt,
+			&i.CompletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDataPipelineRunSteps = `-- name: ListDataPipelineRunSteps :many
 SELECT id, tenant_id, run_id, node_id, step_type, status, row_count, error_summary, error_sample, metadata, started_at, completed_at, created_at, updated_at
 FROM data_pipeline_run_steps
@@ -1185,6 +1431,45 @@ func (q *Queries) ListDataPipelines(ctx context.Context, arg ListDataPipelinesPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const markDataPipelineRunOutputProcessing = `-- name: MarkDataPipelineRunOutputProcessing :one
+UPDATE data_pipeline_run_outputs
+SET
+    status = 'processing',
+    started_at = COALESCE(started_at, now()),
+    updated_at = now()
+WHERE tenant_id = $1
+  AND run_id = $2
+  AND node_id = $3
+RETURNING id, tenant_id, run_id, node_id, status, output_work_table_id, row_count, error_summary, metadata, started_at, completed_at, created_at, updated_at
+`
+
+type MarkDataPipelineRunOutputProcessingParams struct {
+	TenantID int64  `json:"tenant_id"`
+	RunID    int64  `json:"run_id"`
+	NodeID   string `json:"node_id"`
+}
+
+func (q *Queries) MarkDataPipelineRunOutputProcessing(ctx context.Context, arg MarkDataPipelineRunOutputProcessingParams) (DataPipelineRunOutput, error) {
+	row := q.db.QueryRow(ctx, markDataPipelineRunOutputProcessing, arg.TenantID, arg.RunID, arg.NodeID)
+	var i DataPipelineRunOutput
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.RunID,
+		&i.NodeID,
+		&i.Status,
+		&i.OutputWorkTableID,
+		&i.RowCount,
+		&i.ErrorSummary,
+		&i.Metadata,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const markDataPipelineRunProcessing = `-- name: MarkDataPipelineRunProcessing :one

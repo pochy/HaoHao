@@ -112,6 +112,22 @@ type DataPipelineRun struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DataPipelineRunOutput struct {
+	ID                int64              `json:"id"`
+	TenantID          int64              `json:"tenant_id"`
+	RunID             int64              `json:"run_id"`
+	NodeID            string             `json:"node_id"`
+	Status            string             `json:"status"`
+	OutputWorkTableID pgtype.Int8        `json:"output_work_table_id"`
+	RowCount          int64              `json:"row_count"`
+	ErrorSummary      pgtype.Text        `json:"error_summary"`
+	Metadata          []byte             `json:"metadata"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DataPipelineRunStep struct {
 	ID           int64              `json:"id"`
 	TenantID     int64              `json:"tenant_id"`

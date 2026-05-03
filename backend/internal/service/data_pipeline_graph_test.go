@@ -64,6 +64,43 @@ func TestValidateDataPipelineGraphAllowsMultipleInputs(t *testing.T) {
 	}
 }
 
+func TestValidateDataPipelineGraphAllowsMultipleOutputs(t *testing.T) {
+	graph := dataPipelineTestGraph()
+	graph.Nodes = append(graph.Nodes, DataPipelineNode{
+		ID:   "output_2",
+		Type: "pipelineStep",
+		Data: DataPipelineNodeData{StepType: DataPipelineStepOutput, Config: map[string]any{"tableName": "customers_summary", "writeMode": "replace", "orderBy": []any{"customer_id"}}},
+	})
+	graph.Edges = append(graph.Edges, DataPipelineEdge{ID: "clean_output_2", Source: "clean_1", Target: "output_2"})
+
+	summary := validateDataPipelineGraph(graph)
+	if !summary.Valid {
+		t.Fatalf("expected multiple output graph to be valid, got errors: %v", summary.Errors)
+	}
+}
+
+func TestValidateDataPipelineGraphRejectsOutputConfigConflicts(t *testing.T) {
+	graph := dataPipelineTestGraph()
+	graph.Nodes[2].Data.Config = map[string]any{"tableName": "same_table", "writeMode": "append"}
+	graph.Nodes = append(graph.Nodes, DataPipelineNode{
+		ID:   "output_2",
+		Type: "pipelineStep",
+		Data: DataPipelineNodeData{StepType: DataPipelineStepOutput, Config: map[string]any{"tableName": "same_table"}},
+	})
+	graph.Edges = append(graph.Edges, DataPipelineEdge{ID: "clean_output_2", Source: "clean_1", Target: "output_2"})
+
+	summary := validateDataPipelineGraph(graph)
+	if summary.Valid {
+		t.Fatalf("expected output config conflicts to be invalid")
+	}
+	if !containsDataPipelineValidationError(summary.Errors, "only supports replace writeMode") {
+		t.Fatalf("expected writeMode error, got %v", summary.Errors)
+	}
+	if !containsDataPipelineValidationError(summary.Errors, "output tableName must be unique") {
+		t.Fatalf("expected duplicate table name error, got %v", summary.Errors)
+	}
+}
+
 func TestValidateDataPipelineGraphRejectsDirectMultipleUpstreamOutput(t *testing.T) {
 	graph := DataPipelineGraph{
 		Nodes: []DataPipelineNode{

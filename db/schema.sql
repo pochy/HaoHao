@@ -10535,6 +10535,28 @@ CREATE INDEX data_pipeline_runs_active_idx ON public.data_pipeline_runs USING bt
 CREATE INDEX data_pipeline_runs_pipeline_created_idx ON public.data_pipeline_runs USING btree (pipeline_id, created_at DESC, id DESC);
 CREATE INDEX data_pipeline_runs_schedule_active_idx ON public.data_pipeline_runs USING btree (tenant_id, schedule_id) WHERE ((schedule_id IS NOT NULL) AND (status = ANY (ARRAY['pending'::text, 'processing'::text])));
 
+CREATE TABLE public.data_pipeline_run_outputs (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    run_id bigint NOT NULL REFERENCES public.data_pipeline_runs(id) ON DELETE CASCADE,
+    node_id text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    output_work_table_id bigint REFERENCES public.dataset_work_tables(id) ON DELETE SET NULL,
+    row_count bigint DEFAULT 0 NOT NULL,
+    error_summary text,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_run_outputs_node_id_check CHECK ((btrim(node_id) <> ''::text)),
+    CONSTRAINT data_pipeline_run_outputs_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT data_pipeline_run_outputs_run_node_key UNIQUE (run_id, node_id),
+    CONSTRAINT data_pipeline_run_outputs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
+);
+
+CREATE INDEX data_pipeline_run_outputs_run_idx ON public.data_pipeline_run_outputs USING btree (run_id, id);
+
 CREATE TABLE public.data_pipeline_run_steps (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,

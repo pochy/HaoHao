@@ -181,13 +181,6 @@ onBeforeUnmount(() => {
 })
 
 function addNode(stepType: DataPipelineStepType) {
-  if (stepType === 'output') {
-    const output = nodes.value.find((node) => node.data?.stepType === 'output')
-    if (output) {
-      emit('select-node', output.id)
-      return
-    }
-  }
   const count = nodes.value.filter((node) => node.data?.stepType === stepType).length + 1
   const id = `${stepType}_${count}_${randomId()}`
   const position = insertionPosition()

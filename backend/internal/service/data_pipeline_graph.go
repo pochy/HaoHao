@@ -155,6 +155,9 @@ func validateDataPipelineGraphForUse(graph DataPipelineGraph, requireOutput bool
 	if requireOutput && outputCount < 1 {
 		errors = append(errors, "graph must contain at least one output node")
 	}
+	if requireOutput {
+		errors = append(errors, validateDataPipelineOutputConfigs(graph)...)
+	}
 
 	outgoing := make(map[string][]string, len(nodes))
 	incoming := make(map[string][]string, len(nodes))
@@ -238,6 +241,53 @@ func validateDataPipelineGraphForUse(graph DataPipelineGraph, requireOutput bool
 		Valid:  len(errors) == 0,
 		Errors: dataPipelineUniqueStrings(errors),
 	}
+}
+
+func validateDataPipelineOutputConfigs(graph DataPipelineGraph) []string {
+	var errors []string
+	tableNames := make(map[string]string)
+	for _, node := range graph.Nodes {
+		if node.Data.StepType != DataPipelineStepOutput {
+			continue
+		}
+		writeMode := strings.TrimSpace(dataPipelineString(node.Data.Config, "writeMode"))
+		if writeMode != "" && writeMode != "replace" {
+			errors = append(errors, "output node only supports replace writeMode: "+node.ID)
+		}
+		tableName := strings.TrimSpace(dataPipelineString(node.Data.Config, "tableName"))
+		if tableName != "" {
+			if err := dataPipelineValidateIdentifier(tableName); err != nil {
+				errors = append(errors, "invalid output tableName for node "+node.ID+": "+err.Error())
+				continue
+			}
+			key := strings.ToLower(tableName)
+			if previous, ok := tableNames[key]; ok {
+				errors = append(errors, "output tableName must be unique: "+previous+" and "+node.ID)
+				continue
+			}
+			tableNames[key] = node.ID
+		}
+		for _, column := range dataPipelineStringSlice(node.Data.Config, "orderBy") {
+			if err := dataPipelineValidateIdentifier(column); err != nil {
+				errors = append(errors, "invalid output orderBy for node "+node.ID+": "+err.Error())
+			}
+		}
+	}
+	return errors
+}
+
+func dataPipelineOutputNodes(graph DataPipelineGraph) []DataPipelineNode {
+	order, err := dataPipelineTopologicalOrder(graph)
+	if err != nil {
+		order = graph.Nodes
+	}
+	outputs := make([]DataPipelineNode, 0)
+	for _, node := range order {
+		if node.Data.StepType == DataPipelineStepOutput {
+			outputs = append(outputs, node)
+		}
+	}
+	return outputs
 }
 
 func dataPipelineTopologicalOrder(graph DataPipelineGraph) ([]DataPipelineNode, error) {

@@ -153,6 +153,10 @@ function triggerLabel(trigger: string) {
   return knownTriggerKinds.has(trigger) ? t(`dataPipelines.triggerKind.${trigger}`) : trigger
 }
 
+function runOutputs(run: DataPipelineRunBody) {
+  return run.outputs?.length ? run.outputs : []
+}
+
 function scheduleFrequencyLabel(frequency: string) {
   switch (frequency) {
   case 'daily':
@@ -271,13 +275,21 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
             </tr>
           </thead>
           <tbody>
-            <tr v-for="run in runs" :key="run.publicId">
-              <td><span class="status-pill" :class="statusClass(run.status)">{{ statusLabel(run.status) }}</span></td>
-              <td>{{ triggerLabel(run.triggerKind) }}</td>
-              <td>{{ run.rowCount }}</td>
-              <td>{{ formatDate(run.createdAt) }}</td>
-              <td>{{ run.errorSummary || '-' }}</td>
-            </tr>
+            <template v-for="run in runs" :key="run.publicId">
+              <tr>
+                <td><span class="status-pill" :class="statusClass(run.status)">{{ statusLabel(run.status) }}</span></td>
+                <td>{{ triggerLabel(run.triggerKind) }}</td>
+                <td>{{ run.rowCount }}</td>
+                <td>{{ formatDate(run.createdAt) }}</td>
+                <td>{{ run.errorSummary || '-' }}</td>
+              </tr>
+              <tr v-for="output in runOutputs(run)" :key="`${run.publicId}-${output.nodeId}`">
+                <td colspan="2">{{ output.nodeId }} <span class="status-pill" :class="statusClass(output.status)">{{ statusLabel(output.status) }}</span></td>
+                <td>{{ output.rowCount }}</td>
+                <td>{{ output.outputWorkTableId ?? '-' }}</td>
+                <td>{{ output.errorSummary || '-' }}</td>
+              </tr>
+            </template>
             <tr v-if="runs.length === 0">
               <td colspan="5">{{ t('dataPipelines.noRuns') }}</td>
             </tr>

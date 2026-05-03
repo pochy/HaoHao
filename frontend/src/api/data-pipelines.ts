@@ -87,6 +87,19 @@ export type DataPipelineRunStepBody = {
   updatedAt: string
 }
 
+export type DataPipelineRunOutputBody = {
+  nodeId: string
+  status: string
+  outputWorkTableId?: number | null
+  rowCount: number
+  errorSummary?: string
+  metadata: Record<string, unknown>
+  startedAt?: string | null
+  completedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type DataPipelineRunBody = {
   publicId: string
   versionId: number
@@ -101,6 +114,7 @@ export type DataPipelineRunBody = {
   createdAt: string
   updatedAt: string
   steps: DataPipelineRunStepBody[]
+  outputs: DataPipelineRunOutputBody[]
 }
 
 export type DataPipelineScheduleBody = {

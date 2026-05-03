@@ -47,20 +47,34 @@ type DataPipelineRunStepBody struct {
 	UpdatedAt    time.Time        `json:"updatedAt" format:"date-time"`
 }
 
+type DataPipelineRunOutputBody struct {
+	NodeID            string         `json:"nodeId"`
+	Status            string         `json:"status"`
+	OutputWorkTableID *int64         `json:"outputWorkTableId,omitempty"`
+	RowCount          int64          `json:"rowCount"`
+	ErrorSummary      string         `json:"errorSummary,omitempty"`
+	Metadata          map[string]any `json:"metadata"`
+	StartedAt         *time.Time     `json:"startedAt,omitempty" format:"date-time"`
+	CompletedAt       *time.Time     `json:"completedAt,omitempty" format:"date-time"`
+	CreatedAt         time.Time      `json:"createdAt" format:"date-time"`
+	UpdatedAt         time.Time      `json:"updatedAt" format:"date-time"`
+}
+
 type DataPipelineRunBody struct {
-	PublicID          string                    `json:"publicId" format:"uuid"`
-	VersionID         int64                     `json:"versionId"`
-	ScheduleID        *int64                    `json:"scheduleId,omitempty"`
-	TriggerKind       string                    `json:"triggerKind" example:"manual"`
-	Status            string                    `json:"status" example:"pending"`
-	OutputWorkTableID *int64                    `json:"outputWorkTableId,omitempty"`
-	RowCount          int64                     `json:"rowCount"`
-	ErrorSummary      string                    `json:"errorSummary,omitempty"`
-	StartedAt         *time.Time                `json:"startedAt,omitempty" format:"date-time"`
-	CompletedAt       *time.Time                `json:"completedAt,omitempty" format:"date-time"`
-	CreatedAt         time.Time                 `json:"createdAt" format:"date-time"`
-	UpdatedAt         time.Time                 `json:"updatedAt" format:"date-time"`
-	Steps             []DataPipelineRunStepBody `json:"steps"`
+	PublicID          string                      `json:"publicId" format:"uuid"`
+	VersionID         int64                       `json:"versionId"`
+	ScheduleID        *int64                      `json:"scheduleId,omitempty"`
+	TriggerKind       string                      `json:"triggerKind" example:"manual"`
+	Status            string                      `json:"status" example:"pending"`
+	OutputWorkTableID *int64                      `json:"outputWorkTableId,omitempty"`
+	RowCount          int64                       `json:"rowCount"`
+	ErrorSummary      string                      `json:"errorSummary,omitempty"`
+	StartedAt         *time.Time                  `json:"startedAt,omitempty" format:"date-time"`
+	CompletedAt       *time.Time                  `json:"completedAt,omitempty" format:"date-time"`
+	CreatedAt         time.Time                   `json:"createdAt" format:"date-time"`
+	UpdatedAt         time.Time                   `json:"updatedAt" format:"date-time"`
+	Steps             []DataPipelineRunStepBody   `json:"steps"`
+	Outputs           []DataPipelineRunOutputBody `json:"outputs"`
 }
 
 type DataPipelineScheduleBody struct {
@@ -560,9 +574,12 @@ func toDataPipelineVersionBody(item service.DataPipelineVersion) DataPipelineVer
 }
 
 func toDataPipelineRunBody(item service.DataPipelineRun) DataPipelineRunBody {
-	body := DataPipelineRunBody{PublicID: item.PublicID, VersionID: item.VersionID, ScheduleID: item.ScheduleID, TriggerKind: item.TriggerKind, Status: item.Status, OutputWorkTableID: item.OutputWorkTableID, RowCount: item.RowCount, ErrorSummary: item.ErrorSummary, StartedAt: item.StartedAt, CompletedAt: item.CompletedAt, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt, Steps: make([]DataPipelineRunStepBody, 0, len(item.Steps))}
+	body := DataPipelineRunBody{PublicID: item.PublicID, VersionID: item.VersionID, ScheduleID: item.ScheduleID, TriggerKind: item.TriggerKind, Status: item.Status, OutputWorkTableID: item.OutputWorkTableID, RowCount: item.RowCount, ErrorSummary: item.ErrorSummary, StartedAt: item.StartedAt, CompletedAt: item.CompletedAt, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt, Steps: make([]DataPipelineRunStepBody, 0, len(item.Steps)), Outputs: make([]DataPipelineRunOutputBody, 0, len(item.Outputs))}
 	for _, step := range item.Steps {
 		body.Steps = append(body.Steps, DataPipelineRunStepBody{NodeID: step.NodeID, StepType: step.StepType, Status: step.Status, RowCount: step.RowCount, ErrorSummary: step.ErrorSummary, ErrorSample: step.ErrorSample, Metadata: step.Metadata, StartedAt: step.StartedAt, CompletedAt: step.CompletedAt, CreatedAt: step.CreatedAt, UpdatedAt: step.UpdatedAt})
+	}
+	for _, output := range item.Outputs {
+		body.Outputs = append(body.Outputs, DataPipelineRunOutputBody{NodeID: output.NodeID, Status: output.Status, OutputWorkTableID: output.OutputWorkTableID, RowCount: output.RowCount, ErrorSummary: output.ErrorSummary, Metadata: output.Metadata, StartedAt: output.StartedAt, CompletedAt: output.CompletedAt, CreatedAt: output.CreatedAt, UpdatedAt: output.UpdatedAt})
 	}
 	return body
 }

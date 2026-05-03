@@ -76,6 +76,23 @@ type DataPipelineRun struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	Steps             []DataPipelineRunStep
+	Outputs           []DataPipelineRunOutput
+}
+
+type DataPipelineRunOutput struct {
+	ID                int64
+	TenantID          int64
+	RunID             int64
+	NodeID            string
+	Status            string
+	OutputWorkTableID *int64
+	RowCount          int64
+	ErrorSummary      string
+	Metadata          map[string]any
+	StartedAt         *time.Time
+	CompletedAt       *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 type DataPipelineRunStep struct {
@@ -528,6 +545,11 @@ func (s *DataPipelineService) ListRuns(ctx context.Context, tenantID int64, pipe
 			return nil, err
 		}
 		item.Steps = steps
+		outputs, err := s.listRunOutputs(ctx, tenantID, row.ID)
+		if err != nil {
+			return nil, err
+		}
+		item.Outputs = outputs
 		items = append(items, item)
 	}
 	return items, nil
@@ -661,26 +683,66 @@ func (s *DataPipelineService) HandleRunRequested(ctx context.Context, tenantID, 
 		}
 		_, _ = s.queries.MarkDataPipelineRunStepProcessing(ctx, db.MarkDataPipelineRunStepProcessingParams{TenantID: tenantID, RunID: runID, NodeID: node.ID})
 	}
+	outputNodes := dataPipelineOutputNodes(graph)
+	for _, node := range outputNodes {
+		if _, err := s.queries.CreateDataPipelineRunOutput(ctx, db.CreateDataPipelineRunOutputParams{TenantID: tenantID, RunID: runID, NodeID: node.ID}); err != nil {
+			s.failRunBestEffort(ctx, tenantID, runID, err.Error())
+			return fmt.Errorf("create data pipeline run output: %w", err)
+		}
+	}
 
-	workTable, compiled, err := s.executeRun(ctx, tenantID, run, version)
+	results, err := s.executeRun(ctx, tenantID, run, version)
+	var firstSuccessWorkTable *DatasetWorkTable
+	var totalRows int64
+	var failures []string
 	if err != nil {
 		errorSample, _ := encodeDataPipelineJSON([]map[string]any{{"error": err.Error()}})
 		for _, node := range graph.Nodes {
 			_, _ = s.queries.FailDataPipelineRunStep(ctx, db.FailDataPipelineRunStepParams{TenantID: tenantID, RunID: runID, NodeID: node.ID, ErrorSummary: err.Error(), ErrorSample: errorSample})
 		}
 		s.failRunBestEffort(ctx, tenantID, runID, err.Error())
-		s.recordMedallionRun(ctx, tenantID, run, version, compiled, nil, MedallionPipelineStatusFailed, err.Error())
 		return err
+	}
+	for _, result := range results {
+		if result.Err != nil {
+			failures = append(failures, result.Node.ID+": "+result.Err.Error())
+			meta, _ := encodeDataPipelineJSON(map[string]any{"nodeId": result.Node.ID})
+			_, _ = s.queries.FailDataPipelineRunOutput(ctx, db.FailDataPipelineRunOutputParams{TenantID: tenantID, RunID: runID, NodeID: result.Node.ID, ErrorSummary: result.Err.Error(), Metadata: meta})
+			s.recordMedallionRun(ctx, tenantID, run, version, result.Compiled, nil, MedallionPipelineStatusFailed, result.Err.Error(), result.Node.ID)
+			continue
+		}
+		totalRows += result.WorkTable.TotalRows
+		if firstSuccessWorkTable == nil {
+			wt := result.WorkTable
+			firstSuccessWorkTable = &wt
+		}
+		meta, _ := encodeDataPipelineJSON(map[string]any{"nodeId": result.Node.ID, "tableName": result.WorkTable.Table})
+		_, _ = s.queries.CompleteDataPipelineRunOutput(ctx, db.CompleteDataPipelineRunOutputParams{TenantID: tenantID, RunID: runID, NodeID: result.Node.ID, OutputWorkTableID: pgtype.Int8{Int64: result.WorkTable.ID, Valid: true}, RowCount: result.WorkTable.TotalRows, Metadata: meta})
+		s.recordMedallionRun(ctx, tenantID, run, version, result.Compiled, &result.WorkTable, MedallionPipelineStatusCompleted, "", result.Node.ID)
 	}
 	meta, _ := encodeDataPipelineJSON(map[string]any{})
 	for _, node := range graph.Nodes {
-		_, _ = s.queries.CompleteDataPipelineRunStep(ctx, db.CompleteDataPipelineRunStepParams{TenantID: tenantID, RunID: runID, NodeID: node.ID, RowCount: workTable.TotalRows, Metadata: meta})
+		if len(failures) > 0 {
+			errorSample, _ := encodeDataPipelineJSON([]map[string]any{{"error": strings.Join(failures, "; ")}})
+			_, _ = s.queries.FailDataPipelineRunStep(ctx, db.FailDataPipelineRunStepParams{TenantID: tenantID, RunID: runID, NodeID: node.ID, ErrorSummary: strings.Join(failures, "; "), ErrorSample: errorSample})
+			continue
+		}
+		_, _ = s.queries.CompleteDataPipelineRunStep(ctx, db.CompleteDataPipelineRunStepParams{TenantID: tenantID, RunID: runID, NodeID: node.ID, RowCount: totalRows, Metadata: meta})
 	}
-	completed, err := s.queries.CompleteDataPipelineRun(ctx, db.CompleteDataPipelineRunParams{TenantID: tenantID, ID: runID, OutputWorkTableID: pgtype.Int8{Int64: workTable.ID, Valid: true}, RowCount: workTable.TotalRows})
+	status := "completed"
+	errorSummary := ""
+	if len(failures) > 0 {
+		status = "failed"
+		errorSummary = strings.Join(failures, "; ")
+	}
+	var outputWorkTableID pgtype.Int8
+	if firstSuccessWorkTable != nil {
+		outputWorkTableID = pgtype.Int8{Int64: firstSuccessWorkTable.ID, Valid: true}
+	}
+	completed, err := s.queries.FinishDataPipelineRun(ctx, db.FinishDataPipelineRunParams{TenantID: tenantID, ID: runID, Status: status, OutputWorkTableID: outputWorkTableID, RowCount: totalRows, ErrorSummary: errorSummary})
 	if err != nil {
 		return fmt.Errorf("complete data pipeline run: %w", err)
 	}
-	s.recordMedallionRun(ctx, tenantID, completed, version, compiled, &workTable, MedallionPipelineStatusCompleted, "")
 	s.recordAudit(ctx, AuditContext{ActorType: "system", TenantID: &tenantID}, "data_pipeline.run.complete", "data_pipeline_run", completed.PublicID.String(), map[string]any{"outboxEventID": outboxEventID})
 	return nil
 }
@@ -842,6 +904,18 @@ func (s *DataPipelineService) listRunSteps(ctx context.Context, tenantID, runID 
 	return items, nil
 }
 
+func (s *DataPipelineService) listRunOutputs(ctx context.Context, tenantID, runID int64) ([]DataPipelineRunOutput, error) {
+	rows, err := s.queries.ListDataPipelineRunOutputs(ctx, db.ListDataPipelineRunOutputsParams{TenantID: tenantID, RunID: runID})
+	if err != nil {
+		return nil, fmt.Errorf("list data pipeline run outputs: %w", err)
+	}
+	items := make([]DataPipelineRunOutput, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, dataPipelineRunOutputFromDB(row))
+	}
+	return items, nil
+}
+
 func (s *DataPipelineService) getPipelineRow(ctx context.Context, tenantID int64, publicID string) (db.DataPipeline, error) {
 	parsed, err := uuid.Parse(strings.TrimSpace(publicID))
 	if err != nil {
@@ -910,7 +984,7 @@ func (s *DataPipelineService) recordAudit(ctx context.Context, auditCtx AuditCon
 	})
 }
 
-func (s *DataPipelineService) recordMedallionRun(ctx context.Context, tenantID int64, run db.DataPipelineRun, version db.DataPipelineVersion, compiled dataPipelineCompiledSelect, workTable *DatasetWorkTable, status, errorSummary string) {
+func (s *DataPipelineService) recordMedallionRun(ctx context.Context, tenantID int64, run db.DataPipelineRun, version db.DataPipelineVersion, compiled dataPipelineCompiledSelect, workTable *DatasetWorkTable, status, errorSummary, outputNodeID string) {
 	if s == nil || s.medallion == nil || compiled.Source == nil {
 		return
 	}
@@ -941,7 +1015,7 @@ func (s *DataPipelineService) recordMedallionRun(ctx context.Context, tenantID i
 	_, _ = s.medallion.RecordPipelineRun(ctx, medallionPipelineRunInput{
 		TenantID:               tenantID,
 		PipelineType:           MedallionPipelineDataPipeline,
-		RunKey:                 run.PublicID.String(),
+		RunKey:                 dataPipelineMedallionRunKey(run.PublicID.String(), outputNodeID),
 		SourceResourceKind:     sourceKind,
 		SourceResourceID:       compiled.Source.ID,
 		SourceResourcePublicID: compiled.Source.PublicID,
@@ -955,11 +1029,19 @@ func (s *DataPipelineService) recordMedallionRun(ctx context.Context, tenantID i
 		ErrorSummary:           errorSummary,
 		Metadata: map[string]any{
 			"versionPublicId": version.PublicID.String(),
+			"outputNodeId":    outputNodeID,
 		},
 		RequestedByUserID: optionalPgInt8(run.RequestedByUserID),
 		CompletedAt:       completedAt,
 		TargetAssets:      targetAssets,
 	})
+}
+
+func dataPipelineMedallionRunKey(runPublicID, outputNodeID string) string {
+	if strings.TrimSpace(outputNodeID) == "" {
+		return runPublicID
+	}
+	return runPublicID + ":" + outputNodeID
 }
 
 func normalizeDataPipelineInput(input DataPipelineInput) (DataPipelineInput, error) {
@@ -1054,6 +1136,24 @@ func dataPipelineRunFromDB(row db.DataPipelineRun) DataPipelineRun {
 		OutboxEventID:     optionalPgInt8(row.OutboxEventID),
 		RowCount:          row.RowCount,
 		ErrorSummary:      optionalText(row.ErrorSummary),
+		StartedAt:         optionalPgTime(row.StartedAt),
+		CompletedAt:       optionalPgTime(row.CompletedAt),
+		CreatedAt:         row.CreatedAt.Time,
+		UpdatedAt:         row.UpdatedAt.Time,
+	}
+}
+
+func dataPipelineRunOutputFromDB(row db.DataPipelineRunOutput) DataPipelineRunOutput {
+	return DataPipelineRunOutput{
+		ID:                row.ID,
+		TenantID:          row.TenantID,
+		RunID:             row.RunID,
+		NodeID:            row.NodeID,
+		Status:            row.Status,
+		OutputWorkTableID: optionalPgInt8(row.OutputWorkTableID),
+		RowCount:          row.RowCount,
+		ErrorSummary:      optionalText(row.ErrorSummary),
+		Metadata:          decodeDataPipelineJSONMap(row.Metadata),
 		StartedAt:         optionalPgTime(row.StartedAt),
 		CompletedAt:       optionalPgTime(row.CompletedAt),
 		CreatedAt:         row.CreatedAt.Time,

@@ -508,6 +508,7 @@ export type DataPipelineRunBody = {
     createdAt: string;
     errorSummary?: string;
     outputWorkTableId?: number;
+    outputs: Array<DataPipelineRunOutputBody> | null;
     /**
      * client や URL path で参照する public UUID です。
      */
@@ -534,6 +535,33 @@ export type DataPipelineRunListBody = {
      */
     readonly $schema?: string;
     items: Array<DataPipelineRunBody> | null;
+};
+
+export type DataPipelineRunOutputBody = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSummary?: string;
+    metadata: {
+        [key: string]: unknown;
+    };
+    nodeId: string;
+    outputWorkTableId?: number;
+    rowCount: number;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
 };
 
 export type DataPipelineRunStepBody = {
@@ -3589,6 +3617,65 @@ export type SupportAccessOutputBody = {
     active: boolean;
 };
 
+export type SystemJobBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    action?: string;
+    canStop: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorMessage?: string;
+    metadata: {
+        [key: string]: unknown;
+    };
+    outboxEventPublicId?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    requestedByDisplayName?: string;
+    requestedByEmail?: string;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: string;
+    statusGroup: string;
+    subjectPublicId?: string;
+    subjectType?: string;
+    title: string;
+    type: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type SystemJobListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<SystemJobBody> | null;
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit: number;
+    /**
+     * pagination の開始位置です。
+     */
+    offset: number;
+    total: number;
+};
+
 export type TenantAdminDriveAdminContentSessionBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -4705,6 +4792,7 @@ export type DataPipelineRunBodyWritable = {
     createdAt: string;
     errorSummary?: string;
     outputWorkTableId?: number;
+    outputs: Array<DataPipelineRunOutputBody> | null;
     /**
      * client や URL path で参照する public UUID です。
      */
@@ -6491,6 +6579,57 @@ export type StartSupportAccessBodyWritable = {
 export type SupportAccessOutputBodyWritable = {
     access?: SupportAccessBody;
     active: boolean;
+};
+
+export type SystemJobBodyWritable = {
+    action?: string;
+    canStop: boolean;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorMessage?: string;
+    metadata: {
+        [key: string]: unknown;
+    };
+    outboxEventPublicId?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    requestedByDisplayName?: string;
+    requestedByEmail?: string;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: string;
+    statusGroup: string;
+    subjectPublicId?: string;
+    subjectType?: string;
+    title: string;
+    type: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type SystemJobListOutputBodyWritable = {
+    items: Array<SystemJobBodyWritable> | null;
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit: number;
+    /**
+     * pagination の開始位置です。
+     */
+    offset: number;
+    total: number;
 };
 
 export type TenantAdminDriveAdminContentSessionBodyWritable = {
@@ -15819,6 +15958,136 @@ export type AcceptTenantInvitationResponses = {
 };
 
 export type AcceptTenantInvitationResponse = AcceptTenantInvitationResponses[keyof AcceptTenantInvitationResponses];
+
+export type ListSystemJobsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 検索語または filter query です。
+         */
+        query?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `type` です。
+         */
+        type?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `status` です。
+         */
+        status?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `statusGroup` です。
+         */
+        statusGroup?: 'active' | 'terminal';
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+        /**
+         * pagination の開始位置です。`limit` と組み合わせて使います。
+         */
+        offset?: number;
+    };
+    url: '/api/v1/jobs';
+};
+
+export type ListSystemJobsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListSystemJobsError = ListSystemJobsErrors[keyof ListSystemJobsErrors];
+
+export type ListSystemJobsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: SystemJobListOutputBody;
+};
+
+export type ListSystemJobsResponse = ListSystemJobsResponses[keyof ListSystemJobsResponses];
+
+export type GetSystemJobData = {
+    body?: never;
+    headers?: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token'?: string;
+    };
+    path: {
+        /**
+         * path 内の `jobType` を指定します。
+         */
+        jobType: string;
+        /**
+         * path 内の `jobPublicId` を指定します。
+         */
+        jobPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{jobType}/{jobPublicId}';
+};
+
+export type GetSystemJobErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetSystemJobError = GetSystemJobErrors[keyof GetSystemJobErrors];
+
+export type GetSystemJobResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: SystemJobBody;
+};
+
+export type GetSystemJobResponse = GetSystemJobResponses[keyof GetSystemJobResponses];
+
+export type StopSystemJobData = {
+    body?: never;
+    headers?: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token'?: string;
+    };
+    path: {
+        /**
+         * path 内の `jobType` を指定します。
+         */
+        jobType: string;
+        /**
+         * path 内の `jobPublicId` を指定します。
+         */
+        jobPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{jobType}/{jobPublicId}/stop';
+};
+
+export type StopSystemJobErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type StopSystemJobError = StopSystemJobErrors[keyof StopSystemJobErrors];
+
+export type StopSystemJobResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: SystemJobBody;
+};
+
+export type StopSystemJobResponse = StopSystemJobResponses[keyof StopSystemJobResponses];
 
 export type ListDatasetLineageChangeSetsData = {
     body?: never;

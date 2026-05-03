@@ -224,6 +224,79 @@ WHERE tenant_id = sqlc.arg(tenant_id)
   AND id = sqlc.arg(id)
 RETURNING *;
 
+-- name: FinishDataPipelineRun :one
+UPDATE data_pipeline_runs
+SET
+    status = sqlc.arg(status),
+    output_work_table_id = sqlc.narg(output_work_table_id),
+    row_count = sqlc.arg(row_count),
+    error_summary = NULLIF(left(sqlc.arg(error_summary), 1000), ''),
+    completed_at = now(),
+    updated_at = now()
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND id = sqlc.arg(id)
+RETURNING *;
+
+-- name: CreateDataPipelineRunOutput :one
+INSERT INTO data_pipeline_run_outputs (
+    tenant_id,
+    run_id,
+    node_id
+) VALUES (
+    sqlc.arg(tenant_id),
+    sqlc.arg(run_id),
+    sqlc.arg(node_id)
+)
+ON CONFLICT (run_id, node_id) DO UPDATE
+SET updated_at = now()
+RETURNING *;
+
+-- name: ListDataPipelineRunOutputs :many
+SELECT *
+FROM data_pipeline_run_outputs
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND run_id = sqlc.arg(run_id)
+ORDER BY id ASC;
+
+-- name: MarkDataPipelineRunOutputProcessing :one
+UPDATE data_pipeline_run_outputs
+SET
+    status = 'processing',
+    started_at = COALESCE(started_at, now()),
+    updated_at = now()
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND run_id = sqlc.arg(run_id)
+  AND node_id = sqlc.arg(node_id)
+RETURNING *;
+
+-- name: CompleteDataPipelineRunOutput :one
+UPDATE data_pipeline_run_outputs
+SET
+    status = 'completed',
+    output_work_table_id = sqlc.arg(output_work_table_id),
+    row_count = sqlc.arg(row_count),
+    error_summary = NULL,
+    metadata = sqlc.arg(metadata),
+    completed_at = now(),
+    updated_at = now()
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND run_id = sqlc.arg(run_id)
+  AND node_id = sqlc.arg(node_id)
+RETURNING *;
+
+-- name: FailDataPipelineRunOutput :one
+UPDATE data_pipeline_run_outputs
+SET
+    status = 'failed',
+    error_summary = left(sqlc.arg(error_summary), 1000),
+    metadata = sqlc.arg(metadata),
+    completed_at = now(),
+    updated_at = now()
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND run_id = sqlc.arg(run_id)
+  AND node_id = sqlc.arg(node_id)
+RETURNING *;
+
 -- name: CreateDataPipelineRunStep :one
 INSERT INTO data_pipeline_run_steps (
     tenant_id,

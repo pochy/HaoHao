@@ -69,63 +69,69 @@ func dataPipelineUnstructuredStep(stepType string) bool {
 	}
 }
 
-func (s *DataPipelineService) executeHybridRun(ctx context.Context, tenantID int64, run db.DataPipelineRun, graph DataPipelineGraph) (DatasetWorkTable, dataPipelineCompiledSelect, error) {
+func (s *DataPipelineService) executeHybridRun(ctx context.Context, tenantID int64, run db.DataPipelineRun, graph DataPipelineGraph) ([]dataPipelineRunOutputResult, error) {
 	actorUserID := int64(0)
 	if run.RequestedByUserID.Valid {
 		actorUserID = run.RequestedByUserID.Int64
 	}
 	if actorUserID <= 0 {
-		return DatasetWorkTable{}, dataPipelineCompiledSelect{}, fmt.Errorf("%w: data pipeline OCR nodes require requested_by_user_id or schedule creator", ErrInvalidDataPipelineGraph)
-	}
-	result, err := s.executeHybridGraph(ctx, tenantID, graph, run.PublicID.String(), actorUserID, "", "data_pipeline")
-	if err != nil {
-		return DatasetWorkTable{}, result.Compiled, err
+		return nil, fmt.Errorf("%w: data pipeline OCR nodes require requested_by_user_id or schedule creator", ErrInvalidDataPipelineGraph)
 	}
 	if err := s.datasets.ensureTenantSandbox(ctx, tenantID); err != nil {
-		return DatasetWorkTable{}, result.Compiled, err
+		return nil, err
 	}
 	conn, err := s.datasets.openTenantConn(ctx, tenantID)
 	if err != nil {
-		return DatasetWorkTable{}, result.Compiled, err
+		return nil, err
 	}
 	defer conn.Close()
 
-	outputNode := dataPipelineOutputNode(graph)
 	targetDatabase := datasetWorkDatabaseName(tenantID)
-	targetTable := dataPipelineOutputTableName(outputNode, run)
-	stageTable := "__dp_stage_" + strings.ReplaceAll(run.PublicID.String(), "-", "")
 	queryCtx := clickhouse.Context(ctx, clickhouse.WithSettings(s.datasets.exportQuerySettings()))
-	_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable)))
-	createSQL := fmt.Sprintf(
-		"CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY tuple() AS\nSELECT * FROM %s.%s",
-		quoteCHIdent(targetDatabase),
-		quoteCHIdent(stageTable),
-		quoteCHIdent(result.Relation.Database),
-		quoteCHIdent(result.Relation.Table),
-	)
-	if err := conn.Exec(queryCtx, createSQL); err != nil {
-		return DatasetWorkTable{}, result.Compiled, fmt.Errorf("create data pipeline hybrid stage table: %w", err)
-	}
-	_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(targetTable)))
-	if err := conn.Exec(queryCtx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable), quoteCHIdent(targetDatabase), quoteCHIdent(targetTable))); err != nil {
-		_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable)))
-		return DatasetWorkTable{}, result.Compiled, fmt.Errorf("promote data pipeline hybrid stage table: %w", err)
-	}
-	for _, table := range result.Tables {
-		if table != targetTable {
+	outputs := dataPipelineOutputNodes(graph)
+	results := make([]dataPipelineRunOutputResult, 0, len(outputs))
+	for _, outputNode := range outputs {
+		hybrid, err := s.executeHybridGraph(ctx, tenantID, graph, run.PublicID.String()+":"+outputNode.ID, actorUserID, outputNode.ID, "data_pipeline")
+		result := dataPipelineRunOutputResult{Node: outputNode, Compiled: hybrid.Compiled, Err: err}
+		if err == nil {
+			targetTable := dataPipelineOutputTableName(outputNode, run)
+			stageTable := "__dp_stage_" + strings.ReplaceAll(run.PublicID.String(), "-", "") + "_" + dataPipelineSafeSuffix(outputNode.ID)
+			_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable)))
+			createSQL := fmt.Sprintf(
+				"CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY %s AS\nSELECT * FROM %s.%s",
+				quoteCHIdent(targetDatabase),
+				quoteCHIdent(stageTable),
+				dataPipelineOutputOrderBy(outputNode),
+				quoteCHIdent(hybrid.Relation.Database),
+				quoteCHIdent(hybrid.Relation.Table),
+			)
+			if err := conn.Exec(queryCtx, createSQL); err != nil {
+				result.Err = fmt.Errorf("create data pipeline hybrid stage table for %s: %w", outputNode.ID, err)
+			} else {
+				_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(targetTable)))
+				if err := conn.Exec(queryCtx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable), quoteCHIdent(targetDatabase), quoteCHIdent(targetTable))); err != nil {
+					_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable)))
+					result.Err = fmt.Errorf("promote data pipeline hybrid stage table for %s: %w", outputNode.ID, err)
+				} else {
+					displayName := dataPipelineString(outputNode.Data.Config, "displayName")
+					if displayName == "" {
+						displayName = targetTable
+					}
+					workTable, err := s.datasets.registerDatasetWorkTableForRef(ctx, tenantID, actorUserID, nil, nil, targetDatabase, targetTable, displayName)
+					if err != nil {
+						result.Err = err
+					} else {
+						result.WorkTable = workTable
+					}
+				}
+			}
+		}
+		for _, table := range hybrid.Tables {
 			_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(table)))
 		}
+		results = append(results, result)
 	}
-
-	displayName := dataPipelineString(outputNode.Data.Config, "displayName")
-	if displayName == "" {
-		displayName = targetTable
-	}
-	workTable, err := s.datasets.registerDatasetWorkTableForRef(ctx, tenantID, actorUserID, nil, nil, targetDatabase, targetTable, displayName)
-	if err != nil {
-		return DatasetWorkTable{}, result.Compiled, err
-	}
-	return workTable, result.Compiled, nil
+	return results, nil
 }
 
 func (s *DataPipelineService) previewHybridGraph(ctx context.Context, tenantID, actorUserID int64, graph DataPipelineGraph, nodeID string, limit int32) (DataPipelinePreview, error) {

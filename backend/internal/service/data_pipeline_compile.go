@@ -32,6 +32,13 @@ type dataPipelineSource struct {
 	Columns  []string
 }
 
+type dataPipelineRunOutputResult struct {
+	Node      DataPipelineNode
+	WorkTable DatasetWorkTable
+	Compiled  dataPipelineCompiledSelect
+	Err       error
+}
+
 type dataPipelineRelation struct {
 	CTE     string
 	SQL     string
@@ -60,21 +67,12 @@ func (s *DataPipelineService) compilePreviewSelect(ctx context.Context, tenantID
 	return compiled, nil
 }
 
-func (s *DataPipelineService) compileRunSelect(ctx context.Context, tenantID int64, graph DataPipelineGraph) (dataPipelineCompiledSelect, DataPipelineNode, error) {
-	outputs := make([]DataPipelineNode, 0, 1)
-	for _, node := range graph.Nodes {
-		if node.Data.StepType == DataPipelineStepOutput {
-			outputs = append(outputs, node)
-		}
-	}
-	if len(outputs) != 1 {
-		return dataPipelineCompiledSelect{}, DataPipelineNode{}, fmt.Errorf("%w: run requires exactly one output node in v1", ErrInvalidDataPipelineGraph)
-	}
-	compiled, err := s.compileSelect(ctx, tenantID, graph, outputs[0].ID)
+func (s *DataPipelineService) compileRunSelect(ctx context.Context, tenantID int64, graph DataPipelineGraph, outputNode DataPipelineNode) (dataPipelineCompiledSelect, error) {
+	compiled, err := s.compileSelect(ctx, tenantID, graph, outputNode.ID)
 	if err != nil {
-		return dataPipelineCompiledSelect{}, DataPipelineNode{}, err
+		return dataPipelineCompiledSelect{}, err
 	}
-	return compiled, outputs[0], nil
+	return compiled, nil
 }
 
 func (s *DataPipelineService) compileSelect(ctx context.Context, tenantID int64, graph DataPipelineGraph, selectedNodeID string) (dataPipelineCompiledSelect, error) {
@@ -757,63 +755,72 @@ func (c *dataPipelineCompiler) resolveSource(ctx context.Context, kind, datasetP
 	}
 }
 
-func (s *DataPipelineService) executeRun(ctx context.Context, tenantID int64, run db.DataPipelineRun, version db.DataPipelineVersion) (DatasetWorkTable, dataPipelineCompiledSelect, error) {
+func (s *DataPipelineService) executeRun(ctx context.Context, tenantID int64, run db.DataPipelineRun, version db.DataPipelineVersion) ([]dataPipelineRunOutputResult, error) {
 	if s == nil || s.datasets == nil {
-		return DatasetWorkTable{}, dataPipelineCompiledSelect{}, fmt.Errorf("data pipeline service is not configured")
+		return nil, fmt.Errorf("data pipeline service is not configured")
 	}
 	graph, err := decodeDataPipelineGraph(version.Graph)
 	if err != nil {
-		return DatasetWorkTable{}, dataPipelineCompiledSelect{}, err
+		return nil, err
 	}
 	if dataPipelineGraphNeedsHybrid(graph) {
 		return s.executeHybridRun(ctx, tenantID, run, graph)
 	}
-	compiled, outputNode, err := s.compileRunSelect(ctx, tenantID, graph)
-	if err != nil {
-		return DatasetWorkTable{}, dataPipelineCompiledSelect{}, err
-	}
 	if err := s.datasets.ensureTenantSandbox(ctx, tenantID); err != nil {
-		return DatasetWorkTable{}, dataPipelineCompiledSelect{}, err
+		return nil, err
 	}
 	conn, err := s.datasets.openTenantConn(ctx, tenantID)
 	if err != nil {
-		return DatasetWorkTable{}, dataPipelineCompiledSelect{}, err
+		return nil, err
 	}
 	defer conn.Close()
 
 	targetDatabase := datasetWorkDatabaseName(tenantID)
-	targetTable := dataPipelineOutputTableName(outputNode, run)
-	stageTable := "__dp_stage_" + strings.ReplaceAll(run.PublicID.String(), "-", "")
 	queryCtx := clickhouse.Context(ctx, clickhouse.WithSettings(s.datasets.exportQuerySettings()))
-	_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable)))
-	createSQL := fmt.Sprintf(
-		"CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY tuple() AS\n%s",
-		quoteCHIdent(targetDatabase),
-		quoteCHIdent(stageTable),
-		compiled.SQL,
-	)
-	if err := conn.Exec(queryCtx, createSQL); err != nil {
-		return DatasetWorkTable{}, compiled, fmt.Errorf("create data pipeline stage table: %w", err)
-	}
-	_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(targetTable)))
-	if err := conn.Exec(queryCtx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable), quoteCHIdent(targetDatabase), quoteCHIdent(targetTable))); err != nil {
-		_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable)))
-		return DatasetWorkTable{}, compiled, fmt.Errorf("promote data pipeline stage table: %w", err)
-	}
-
-	displayName := dataPipelineString(outputNode.Data.Config, "displayName")
-	if displayName == "" {
-		displayName = targetTable
-	}
 	var userID int64
 	if run.RequestedByUserID.Valid {
 		userID = run.RequestedByUserID.Int64
 	}
-	workTable, err := s.datasets.registerDatasetWorkTableForRef(ctx, tenantID, userID, nil, nil, targetDatabase, targetTable, displayName)
-	if err != nil {
-		return DatasetWorkTable{}, compiled, err
+	outputs := dataPipelineOutputNodes(graph)
+	results := make([]dataPipelineRunOutputResult, 0, len(outputs))
+	for _, outputNode := range outputs {
+		compiled, err := s.compileRunSelect(ctx, tenantID, graph, outputNode)
+		result := dataPipelineRunOutputResult{Node: outputNode, Compiled: compiled, Err: err}
+		if err == nil {
+			targetTable := dataPipelineOutputTableName(outputNode, run)
+			stageTable := "__dp_stage_" + strings.ReplaceAll(run.PublicID.String(), "-", "") + "_" + dataPipelineSafeSuffix(outputNode.ID)
+			_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable)))
+			createSQL := fmt.Sprintf(
+				"CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY %s AS\n%s",
+				quoteCHIdent(targetDatabase),
+				quoteCHIdent(stageTable),
+				dataPipelineOutputOrderBy(outputNode),
+				compiled.SQL,
+			)
+			if err := conn.Exec(queryCtx, createSQL); err != nil {
+				result.Err = fmt.Errorf("create data pipeline stage table for %s: %w", outputNode.ID, err)
+			} else {
+				_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(targetTable)))
+				if err := conn.Exec(queryCtx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable), quoteCHIdent(targetDatabase), quoteCHIdent(targetTable))); err != nil {
+					_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable)))
+					result.Err = fmt.Errorf("promote data pipeline stage table for %s: %w", outputNode.ID, err)
+				} else {
+					displayName := dataPipelineString(outputNode.Data.Config, "displayName")
+					if displayName == "" {
+						displayName = targetTable
+					}
+					workTable, err := s.datasets.registerDatasetWorkTableForRef(ctx, tenantID, userID, nil, nil, targetDatabase, targetTable, displayName)
+					if err != nil {
+						result.Err = err
+					} else {
+						result.WorkTable = workTable
+					}
+				}
+			}
+		}
+		results = append(results, result)
 	}
-	return workTable, compiled, nil
+	return results, nil
 }
 
 func dataPipelineOutputTableName(node DataPipelineNode, run db.DataPipelineRun) string {
@@ -825,7 +832,37 @@ func dataPipelineOutputTableName(node DataPipelineNode, run db.DataPipelineRun) 
 	if len(raw) > 20 {
 		raw = raw[:20]
 	}
-	return "dp_" + raw
+	return "dp_" + raw + "_" + dataPipelineSafeSuffix(node.ID)
+}
+
+func dataPipelineOutputOrderBy(node DataPipelineNode) string {
+	columns := dataPipelineStringSlice(node.Data.Config, "orderBy")
+	if len(columns) == 0 {
+		return "tuple()"
+	}
+	parts := make([]string, 0, len(columns))
+	for _, column := range columns {
+		if err := dataPipelineValidateIdentifier(column); err != nil {
+			continue
+		}
+		parts = append(parts, quoteCHIdent(column))
+	}
+	if len(parts) == 0 {
+		return "tuple()"
+	}
+	return strings.Join(parts, ", ")
+}
+
+func dataPipelineSafeSuffix(value string) string {
+	suffix := strings.Trim(dataPipelineCTEName(value), "_")
+	suffix = strings.TrimPrefix(suffix, "step_")
+	if suffix == "" {
+		return "output"
+	}
+	if len(suffix) > 48 {
+		suffix = suffix[:48]
+	}
+	return suffix
 }
 
 func dataPipelineCTEName(nodeID string) string {
