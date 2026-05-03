@@ -42,8 +42,10 @@ func main() {
 	queries := db.New(pool)
 	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
 	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode)
+	authzService := service.NewAuthzService(pool, queries)
 
 	var oidcLoginService *service.OIDCLoginService
+	var bearerVerifier *auth.BearerVerifier
 	if cfg.AuthMode == "zitadel" {
 		if cfg.ZitadelIssuer == "" || cfg.ZitadelClientID == "" || cfg.ZitadelClientSecret == "" {
 			log.Fatal("ZITADEL_ISSUER, ZITADEL_CLIENT_ID, and ZITADEL_CLIENT_SECRET are required when AUTH_MODE=zitadel")
@@ -63,10 +65,17 @@ func main() {
 
 		loginStateStore := auth.NewLoginStateStore(redisClient, cfg.LoginStateTTL)
 		identityService := service.NewIdentityService(pool, queries)
-		oidcLoginService = service.NewOIDCLoginService("zitadel", oidcClient, loginStateStore, identityService, sessionService)
+		oidcLoginService = service.NewOIDCLoginService("zitadel", oidcClient, loginStateStore, identityService, authzService, sessionService)
 	}
 
-	application := app.New(cfg, sessionService, oidcLoginService)
+	if cfg.ZitadelIssuer != "" {
+		bearerVerifier, err = auth.NewBearerVerifier(ctx, cfg.ZitadelIssuer)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	application := app.New(cfg, sessionService, oidcLoginService, authzService, bearerVerifier)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

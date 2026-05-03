@@ -17,7 +17,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	application := app.New(cfg, nil, nil)
+	application := app.New(cfg, nil, nil, nil, nil)
 
 	spec, err := application.API.OpenAPI().YAML()
 	if err != nil {

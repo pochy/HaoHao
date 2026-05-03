@@ -132,6 +132,58 @@ components:
           format: uri
           type: string
       type: object
+    ExternalMeBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ExternalMeBody.json
+          format: uri
+          readOnly: true
+          type: string
+        authorizedParty:
+          examples:
+            - "312345678901234568"
+          type: string
+        groups:
+          examples:
+            - - external_api_user
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        provider:
+          examples:
+            - zitadel
+          type: string
+        roles:
+          examples:
+            - - todo_user
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        scopes:
+          examples:
+            - - external:read
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        subject:
+          examples:
+            - "312345678901234567"
+          type: string
+        user:
+          $ref: "#/components/schemas/UserResponse"
+      required:
+        - provider
+        - subject
+      type: object
     LoginInputBody:
       additionalProperties: false
       properties:
@@ -226,6 +278,10 @@ components:
         - clientId
       type: object
   securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
     cookieAuth:
       in: cookie
       name: SESSION_ID
@@ -235,6 +291,27 @@ info:
   version: 0.1.0
 openapi: 3.1.0
 paths:
+  /api/external/v1/me:
+    get:
+      operationId: getExternalMe
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalMeBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 現在の external bearer principal を返す
+      tags:
+        - external
   /api/v1/auth/callback:
     get:
       operationId: finishOIDCLogin

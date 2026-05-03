@@ -24,4 +24,5 @@ func Register(api huma.API, deps Dependencies) {
 	registerAuthSettingsRoute(api, deps)
 	registerOIDCRoutes(api, deps)
 	registerSessionRoutes(api, deps)
+	registerExternalRoutes(api, deps)
 }

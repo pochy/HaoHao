@@ -9,6 +9,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Role struct {
+	ID        int64              `json:"id"`
+	Code      string             `json:"code"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type SchemaMigration struct {
 	Version int64 `json:"version"`
 	Dirty   bool  `json:"dirty"`
@@ -33,4 +39,10 @@ type UserIdentity struct {
 	EmailVerified bool               `json:"email_verified"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserRole struct {
+	UserID    int64              `json:"user_id"`
+	RoleID    int64              `json:"role_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }

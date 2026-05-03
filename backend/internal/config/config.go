@@ -21,6 +21,10 @@ type Config struct {
 	ZitadelRedirectURI           string
 	ZitadelPostLogoutRedirectURI string
 	ZitadelScopes                string
+	ExternalExpectedAudience     string
+	ExternalRequiredScopePrefix  string
+	ExternalRequiredRole         string
+	ExternalAllowedOrigins       []string
 	RedisAddr                    string
 	RedisPassword                string
 	RedisDB                      int
@@ -53,6 +57,10 @@ func Load() (Config, error) {
 		ZitadelRedirectURI:           getEnv("ZITADEL_REDIRECT_URI", "http://127.0.0.1:8080/api/v1/auth/callback"),
 		ZitadelPostLogoutRedirectURI: getEnv("ZITADEL_POST_LOGOUT_REDIRECT_URI", "http://127.0.0.1:5173/login"),
 		ZitadelScopes:                getEnv("ZITADEL_SCOPES", "openid profile email"),
+		ExternalExpectedAudience:     getEnv("EXTERNAL_EXPECTED_AUDIENCE", "haohao-external"),
+		ExternalRequiredScopePrefix:  getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", ""),
+		ExternalRequiredRole:         getEnv("EXTERNAL_REQUIRED_ROLE", "external_api_user"),
+		ExternalAllowedOrigins:       getEnvCSV("EXTERNAL_ALLOWED_ORIGINS"),
 		RedisAddr:                    getEnv("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword:                getEnv("REDIS_PASSWORD", ""),
 		RedisDB:                      getEnvInt("REDIS_DB", 0),
@@ -95,4 +103,22 @@ func getEnvBool(key string, fallback bool) bool {
 	}
 
 	return parsed
+}
+
+func getEnvCSV(key string) []string {
+	value := strings.TrimSpace(getEnv(key, ""))
+	if value == "" {
+		return nil
+	}
+
+	parts := strings.Split(value, ",")
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item != "" {
+			items = append(items, item)
+		}
+	}
+
+	return items
 }

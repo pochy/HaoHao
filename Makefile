@@ -2,12 +2,31 @@ SHELL := /bin/bash
 
 export-env = set -a && source .env && set +a
 DOCKER_COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; else echo "docker compose"; fi)
+ZITADEL_ENV_FILE := dev/zitadel/.env
+ZITADEL_ENV_EXAMPLE := dev/zitadel/.env.example
+ZITADEL_COMPOSE_FILE := dev/zitadel/docker-compose.yml
+ZITADEL_COMPOSE := $(DOCKER_COMPOSE) --env-file $(ZITADEL_ENV_FILE) -f $(ZITADEL_COMPOSE_FILE)
 
 up:
 	$(DOCKER_COMPOSE) up -d
 
 down:
 	$(DOCKER_COMPOSE) down
+
+zitadel-env:
+	@test -f $(ZITADEL_ENV_FILE) || cp $(ZITADEL_ENV_EXAMPLE) $(ZITADEL_ENV_FILE)
+
+zitadel-up: zitadel-env
+	$(ZITADEL_COMPOSE) up -d --wait
+
+zitadel-down: zitadel-env
+	$(ZITADEL_COMPOSE) down
+
+zitadel-ps: zitadel-env
+	$(ZITADEL_COMPOSE) ps
+
+zitadel-logs: zitadel-env
+	$(ZITADEL_COMPOSE) logs -f
 
 db-wait:
 	@until $(DOCKER_COMPOSE) exec -T postgres pg_isready -U haohao -d haohao >/dev/null 2>&1; do sleep 1; done

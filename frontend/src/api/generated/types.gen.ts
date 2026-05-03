@@ -76,6 +76,20 @@ export type ErrorModel = {
     type?: string;
 };
 
+export type ExternalMeBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    authorizedParty?: string;
+    groups?: Array<string> | null;
+    provider: string;
+    roles?: Array<string> | null;
+    scopes?: Array<string> | null;
+    subject: string;
+    user?: UserResponse;
+};
+
 export type LoginInputBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -144,6 +158,16 @@ export type ErrorModelWritable = {
     type?: string;
 };
 
+export type ExternalMeBodyWritable = {
+    authorizedParty?: string;
+    groups?: Array<string> | null;
+    provider: string;
+    roles?: Array<string> | null;
+    scopes?: Array<string> | null;
+    subject: string;
+    user?: UserResponse;
+};
+
 export type LoginInputBodyWritable = {
     email: string;
     password: string;
@@ -156,6 +180,31 @@ export type LogoutBodyWritable = {
 export type SessionBodyWritable = {
     user: UserResponse;
 };
+
+export type GetExternalMeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/external/v1/me';
+};
+
+export type GetExternalMeErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetExternalMeError = GetExternalMeErrors[keyof GetExternalMeErrors];
+
+export type GetExternalMeResponses = {
+    /**
+     * OK
+     */
+    200: ExternalMeBody;
+};
+
+export type GetExternalMeResponse = GetExternalMeResponses[keyof GetExternalMeResponses];
 
 export type FinishOidcLoginData = {
     body?: never;
