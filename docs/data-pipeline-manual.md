@@ -19,45 +19,59 @@
 
 ## 画面構成
 
-`/data-pipelines` は次の領域で構成されています。
+データパイプライン画面は、一覧ページと詳細 / 編集ページに分かれています。
+
+### 一覧ページ
+
+`/data-pipelines` は pipeline の作成と一覧確認を行うページです。
 
 | 領域 | 用途 |
 | --- | --- |
-| 左サイドバー | 新規 pipeline 作成、既存 pipeline 選択、node palette、利用可能な Dataset / Work table の確認 |
+| 新規 pipeline 作成 | pipeline の名前と説明を入力して作成する |
+| Pipeline 一覧 | 既存 pipeline の名前、説明、status、更新日時を確認し、詳細 / 編集ページへ移動する |
+
+### 詳細 / 編集ページ
+
+`/data-pipelines/{pipelinePublicId}` は pipeline の編集、Preview、Run、Schedule を行うページです。
+
+| 領域 | 用途 |
+| --- | --- |
+| 左サイドバー | node palette、利用可能な Dataset / Work table の確認 |
 | 中央 canvas | Vue Flow による DAG builder。node の追加、配置、接続を行う |
 | 右 Inspector | 選択 node の label と config を編集する |
-| 下部 Preview / Runs / Schedule panel | Preview、手動 Run、Run 履歴更新、定期実行 schedule の追加 / 無効化を行う |
-| 画面上部 action | pipeline 名 / 説明の編集、Save、Publish、Refresh |
+| 下部 Preview / Runs / Schedules panel | Preview、Run 履歴、schedule 一覧をタブで確認する |
+| 画面上部 action | pipeline 名 / 説明の編集、Save、Publish、Refresh、Run、Schedule 設定 |
 
 ## 基本ワークフロー
 
 1. active tenant を選択します。
 2. `/data-pipelines` を開きます。
-3. 左サイドバーの `New pipeline` で名前と説明を入力し、`Create` を押します。
-4. 初期 graph には `Input -> Output` が作成されます。
-5. `Input` node を選択し、右 Inspector で source を設定します。
-6. 左サイドバーの `Palette` から必要な処理 node を追加します。
-7. canvas 上で node を接続し、処理順を作ります。
-8. 各 node を選択して Inspector の `Config UI` または `Config JSON` を編集します。
-9. 下部 `Preview` で選択 node までの結果を確認します。
-10. 必要に応じて画面上部の `Save` / `Publish` を押します。
-11. 下部 `Run` で手動実行します。
-12. 定期実行したい場合は `Schedule` で頻度と時刻を設定して `Add` を押します。
+3. 一覧ページの `New pipeline` で名前と説明を入力し、`Create` を押します。
+4. 作成後、詳細 / 編集ページへ移動します。
+5. 初期 graph には `Input -> Output` が作成されます。
+6. `Input` node を選択し、右 Inspector で source を設定します。
+7. 左サイドバーの `Palette` から必要な処理 node を追加します。
+8. canvas 上で node を接続し、処理順を作ります。
+9. 各 node を選択して Inspector の `Config UI` または `Config JSON` を編集します。
+10. 下部 `Preview` で選択 node までの結果を確認します。
+11. 必要に応じて画面上部の `Save` / `Publish` を押します。
+12. 画面上部の `Run` で手動実行します。
+13. 定期実行したい場合は画面上部の `Schedule` で頻度と時刻を設定して `Add` を押します。
 
 ## Pipeline の作成と選択
 
 ### 新規作成
 
-左サイドバーの `New pipeline` で次を入力します。
+一覧ページの `New pipeline` で次を入力します。
 
 - `Name`: pipeline の表示名。
 - `Description`: 任意の説明。
 
-`Create` を押すと、左の `Pipelines` 一覧に追加され、中央 canvas に初期 graph が表示されます。
+`Create` を押すと pipeline が作成され、詳細 / 編集ページへ移動します。詳細 / 編集ページでは初期 graph として `Input -> Output` が表示されます。
 
 ### 既存 pipeline の選択
 
-左サイドバーの `Pipelines` から対象 pipeline を選択します。選択すると、その pipeline の最新 version graph、run 履歴、schedule が読み込まれます。
+一覧ページの `Pipelines` から対象 pipeline を選択します。選択すると詳細 / 編集ページへ移動し、その pipeline の最新 version graph、run 履歴、schedule が読み込まれます。
 
 ### 名前と説明の変更
 
@@ -457,6 +471,37 @@ published version は次の用途で使われます。
 
 現在の UI では、`Preview` は必要に応じて draft を自動保存します。`Run` は必要に応じて draft を自動保存し、published でなければ publish してから実行要求を作成します。明示的に version を固定したい場合は、先に `Save` と `Publish` を実行してください。
 
+## Preview と Run の違い
+
+Preview は途中確認、Run は本番実行です。
+
+| 項目 | Preview | Run |
+| --- | --- | --- |
+| 対象 | 選択中の node まで | Output node まで |
+| 実行内容 | `SELECT ... LIMIT 100` | 最終結果を ClickHouse table として作成 |
+| version | 必要に応じて draft version を自動保存 | 必要に応じて draft 保存 + publish |
+| 出力 Work table | 作らない | 作る / 置き換える |
+| Run 履歴 | 残らない | `Runs` に残る |
+| Medallion 記録 | 残らない | 残る |
+| 用途 | 設定や列変換が正しいか確認 | 加工済みデータを正式に生成 |
+
+Preview は「この node までの結果が想定通りか」を見るための読み取り専用確認です。Run は pipeline 全体を実行して、Output node の設定に従って managed Work table を作成します。
+
+### 大規模データの場合
+
+1 億行のような大規模データでは、Preview と Run の処理範囲を分けて考えてください。
+
+Preview は表示結果を最大 100 行に制限します。ただし、必ず 100 行分だけ読んで終わるわけではありません。単純な `Input -> Clean -> Preview` のような graph では ClickHouse が `LIMIT 100` で早めに止められることがあります。一方で、`aggregate`、`sort`、`dedupe`、`join` などを含む場合は、正しい 100 行の結果を作るために、入力側の 1 億行を広く scan することがあります。
+
+Run は基本的に Output node まで全件処理します。入力が 1 億行なら、pipeline 全体をそのデータに対して実行し、結果を managed Work table として作成します。ただし出力行数は処理内容によって変わります。`filter` で絞れば減り、`aggregate` すれば集計結果だけになり、`normalize` や `clean` 中心なら入力に近い行数になります。
+
+| 操作 | 1 億行データでの扱い |
+| --- | --- |
+| Preview | 表示は最大 100 行。ただし処理内容によっては大きく scan する |
+| Run | Output まで全件処理し、managed Work table を作る |
+
+大規模データでは、まず Input や前段 node を Preview し、重い `join` / `aggregate` / `sort` は設定が固まってから Run してください。
+
 ## Preview
 
 下部 `Preview` の `Preview` ボタンは、選択中の node までの処理結果を最大 100 行で確認します。
@@ -477,7 +522,7 @@ published version は次の用途で使われます。
 
 ## 手動 Run
 
-下部 `Runs` の `Run` ボタンで手動実行します。
+画面上部の `Run` ボタンで手動実行します。実行履歴は下部 `Runs` tab で確認します。
 
 Run の流れ:
 
@@ -501,7 +546,7 @@ Run status:
 
 ## Schedule
 
-下部 `Schedule` で定期実行を設定します。
+画面上部の `Schedule` で定期実行を設定します。作成済み schedule は下部 `Schedules` tab で確認します。
 
 設定項目:
 
@@ -517,7 +562,8 @@ Run status:
 
 注意:
 
-- Schedule は published version に紐付きます。未 publish の場合は、先に `Publish` または `Run` を実行してください。
+- Schedule は作成時点の published version に紐付きます。現在の UI は必要に応じて draft を保存し、未 publish の場合は publish してから schedule を作成します。
+- 別の version を publish した後も、既存 schedule の `versionId` は自動では差し替わりません。scheduler は pipeline の現在の published version と schedule の version が一致しない場合、その schedule を無効化します。pipeline を更新して publish した後は、必要に応じて schedule を作り直してください。
 - schedule worker は due schedule を claim し、前回 run がまだ `pending` / `processing` の場合は新しい run を skip します。
 - schedule を止めるには schedule 一覧の trash icon を押します。削除ではなく disabled になります。
 
@@ -529,6 +575,399 @@ Run が成功すると、Output node の config に基づいて managed Work tab
 - `tableName` が指定されていればその table 名を使います。
 - `tableName` が未指定の場合は run public ID から `dp_...` 形式で自動生成されます。
 - 出力は Dataset / Work table 画面、lineage、medallion catalog から追跡できます。
+
+## 内部処理と仕組み
+
+この章では、画面操作の裏側でどの API、DB table、service、ClickHouse query、job が動くかを説明します。
+
+### 全体アーキテクチャ
+
+データパイプラインは、主に次の層で構成されています。
+
+| 層 | 主な責務 |
+| --- | --- |
+| Frontend | `/data-pipelines` 一覧、`/data-pipelines/{pipelinePublicId}` 詳細 / 編集、Vue Flow canvas、Inspector、Preview / Runs / Schedules panel |
+| API | `/api/v1/data-pipelines` 配下の CRUD、version save / publish、preview、run request、schedule 操作 |
+| Service | graph validation、version 管理、ClickHouse SQL compile、Preview 実行、Run request、schedule claim、medallion 記録 |
+| PostgreSQL | pipeline metadata、version graph、run、run step、schedule、outbox event を tenant-scoped table に保存 |
+| ClickHouse | Preview SELECT、Run の stage table 作成、最終 managed Work table 作成 |
+| Outbox / Jobs | `data_pipeline.run_requested` event の非同期処理、due schedule の claim と run 作成 |
+
+重要な点は、ユーザーが任意 SQL を保存・実行するのではなく、Vue Flow graph の structured config から backend が allowlist ベースで ClickHouse SQL を生成することです。
+
+### Tenant と権限
+
+すべての操作は active tenant に紐付きます。
+
+- API は session cookie から現在のユーザーを確認します。
+- active tenant がない場合、操作は失敗します。
+- active tenant で `data_pipeline_user` role が必要です。
+- mutation API は CSRF token を要求します。
+- create / run request は `Idempotency-Key` に対応しています。
+- PostgreSQL query は `tenant_id` 条件を必須にして、他 tenant の pipeline / version / run / schedule を参照しません。
+- ClickHouse 実行時も tenant sandbox / tenant work database を使います。
+
+### 主要 table
+
+Data Pipeline v1 で使う PostgreSQL table は次の通りです。
+
+| table | 保存内容 |
+| --- | --- |
+| `data_pipelines` | pipeline の名前、説明、status、published version への参照 |
+| `data_pipeline_versions` | 保存された graph JSON、version number、validation summary、publish 状態 |
+| `data_pipeline_runs` | manual / scheduled run の状態、出力 work table、row count、error |
+| `data_pipeline_run_steps` | run 内の node ごとの状態、row count、error sample、metadata |
+| `data_pipeline_schedules` | schedule の頻度、timezone、次回実行時刻、last status |
+| `outbox_events` | `data_pipeline.run_requested` event を非同期 worker に渡すための event |
+| `medallion_pipeline_runs` | medallion catalog 上の pipeline run 履歴 |
+
+`graph` は `data_pipeline_versions.graph` に JSONB として保存されます。中身は Vue Flow 互換の `nodes` / `edges` です。
+
+```json
+{
+  "nodes": [
+    {
+      "id": "input_1",
+      "type": "pipelineStep",
+      "position": { "x": 60, "y": 120 },
+      "data": {
+        "label": "Input",
+        "stepType": "input",
+        "config": {
+          "sourceKind": "dataset",
+          "datasetPublicId": "..."
+        }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "edge_input_output", "source": "input_1", "target": "output_1" }
+  ]
+}
+```
+
+### API の役割
+
+主な API は次の通りです。
+
+| 操作 | API | 内部で呼ばれる service |
+| --- | --- | --- |
+| 一覧 | `GET /api/v1/data-pipelines` | `DataPipelineService.List` |
+| 作成 | `POST /api/v1/data-pipelines` | `DataPipelineService.Create` |
+| 詳細 | `GET /api/v1/data-pipelines/{pipelinePublicId}` | `DataPipelineService.Get` |
+| 名前 / 説明更新 | `PATCH /api/v1/data-pipelines/{pipelinePublicId}` | `DataPipelineService.Update` |
+| graph 保存 | `POST /api/v1/data-pipelines/{pipelinePublicId}/versions` | `DataPipelineService.SaveDraftVersion` |
+| publish | `POST /api/v1/data-pipeline-versions/{versionPublicId}/publish` | `DataPipelineService.PublishVersion` |
+| preview | `POST /api/v1/data-pipeline-versions/{versionPublicId}/preview` | `DataPipelineService.Preview` |
+| run request | `POST /api/v1/data-pipeline-versions/{versionPublicId}/runs` | `DataPipelineService.RequestRun` |
+| run 一覧 | `GET /api/v1/data-pipelines/{pipelinePublicId}/runs` | `DataPipelineService.ListRuns` |
+| schedule 作成 | `POST /api/v1/data-pipelines/{pipelinePublicId}/schedules` | `DataPipelineService.CreateSchedule` |
+| schedule 更新 | `PATCH /api/v1/data-pipeline-schedules/{schedulePublicId}` | `DataPipelineService.UpdateSchedule` |
+| schedule 無効化 | `DELETE /api/v1/data-pipeline-schedules/{schedulePublicId}` | `DataPipelineService.DisableSchedule` |
+
+詳細 API は pipeline 本体だけでなく、最新 versions、published version、直近 runs、schedules をまとめて返します。詳細 / 編集ページはこのレスポンスを元に canvas、Runs、Schedules を復元します。
+
+### Frontend の状態管理
+
+Frontend は Pinia の data pipeline store で次の状態を持ちます。
+
+| state | 用途 |
+| --- | --- |
+| `items` | 一覧ページの pipeline list |
+| `selectedPublicId` | 詳細表示中の pipeline public ID |
+| `detail` | 詳細 API の結果 |
+| `draftGraph` | canvas / Inspector で編集中の graph |
+| `selectedNodeId` | Preview / Inspector の対象 node |
+| `preview` | Preview API の結果 |
+| `runs` | Run 履歴 |
+| `schedules` | Schedule 一覧 |
+
+一覧ページでは `store.load(false)` で list だけを取得します。詳細 / 編集ページでは list 取得後に `store.loadDetail(pipelinePublicId)` を呼び、対象 pipeline の graph / run / schedule を読み込みます。
+
+Preview、Run、Schedule 作成の前には、frontend が `ensureDraftVersion()` を呼びます。最新 version の graph と `draftGraph` が同じなら既存 version を使い、違う場合は新しい draft version を保存します。これにより、ユーザーが明示的に `Save` を押し忘れても Preview / Run / Schedule は現在の canvas 内容に基づいて動きます。
+
+### Graph validation
+
+`Save`、`Publish`、`Preview`、`Run` の入口で backend は graph validation を行います。
+
+validation の主な目的は、DAG として実行可能な形か、そして backend compiler が安全に処理できる形かを確認することです。
+
+チェック内容:
+
+- node が存在すること。
+- node 数が 50 以下であること。
+- edge 数が 80 以下であること。
+- node ID が空でないこと。
+- node ID が重複しないこと。
+- step type が v1 catalog に存在すること。
+- `input` がちょうど 1 つ存在すること。
+- `output` が 1 つ以上存在すること。
+- edge の source / target が存在する node を指すこと。
+- self-loop がないこと。
+- graph が acyclic であること。
+- すべての node が input から到達可能であること。
+- すべての node がいずれかの output に到達可能であること。
+- input 以外の node に upstream edge があること。
+
+加えて、SQL compile 時には v1 runtime の制約として、通常の処理 node は upstream edge がちょうど 1 つである必要があります。複数 upstream の DAG merge は v1 では任意には扱いません。Join は `enrich_join` node の config で右側 source を指定する方式です。
+
+### Version の保存と publish
+
+`Save` は現在の graph を新しい draft version として保存します。
+
+内部処理:
+
+1. `data_pipelines` を `tenant_id + public_id` で取得します。
+2. graph validation を実行します。
+3. graph と validation summary を JSONB に encode します。
+4. `data_pipeline_versions` に新しい row を insert します。
+5. `version_number` は同じ pipeline の最大 version number + 1 で採番されます。
+6. audit に `data_pipeline.version.save` を記録します。
+
+`Publish` は version を pipeline の current published version にします。
+
+内部処理:
+
+1. version を `tenant_id + versionPublicId` で取得します。
+2. graph を decode して再 validation します。
+3. transaction を開始します。
+4. 対象 version の status を `published` にし、`published_at` を設定します。
+5. 同じ pipeline の他の published version を `archived` にします。
+6. `data_pipelines.published_version_id` を対象 version に更新し、pipeline status を `published` にします。
+7. transaction を commit します。
+8. audit に `data_pipeline.version.publish` を記録します。
+
+このため、manual run と schedule は「現在 publish されている version」を基準に実行されます。
+
+### SQL compiler の考え方
+
+Data Pipeline v1 は raw SQL node を持ちません。backend は graph と各 node の structured config を読み、ClickHouse SQL を生成します。
+
+基本方針:
+
+- node を topological order で並べます。
+- 各 node を ClickHouse の CTE に変換します。
+- CTE 名は node ID から `step_...` 形式で安全な名前に正規化します。
+- column、target column、alias、table name などは allowlist / identifier check を通します。
+- 文字列、数値、bool、NULL は backend の literal builder で SQL literal に変換します。
+- user input をそのまま SQL 断片として実行しません。
+- Dataset / Work table の source は backend が tenant 内の resource として解決します。
+
+Preview の SQL は、選択 node までの CTE を作り、最後に `SELECT * FROM step_selected LIMIT 100` の形で実行されます。
+
+Run の SQL は、Output node までの CTE を作り、ClickHouse の `CREATE TABLE ... AS SELECT ...` に使われます。
+
+概念的には次のような SQL が生成されます。
+
+```sql
+WITH
+`step_input_1` AS (
+  SELECT *
+  FROM `tenant_raw_db`.`source_table`
+),
+`step_clean_1` AS (
+  SELECT
+    ifNull(`name`, 'unknown') AS `name`,
+    `email` AS `email`
+  FROM `step_input_1`
+  WHERE isNotNull(`email`)
+),
+`step_output_1` AS (
+  SELECT *
+  FROM `step_clean_1`
+)
+SELECT *
+FROM `step_output_1`
+LIMIT 100
+```
+
+実際の SQL は graph と config に応じて backend が生成します。
+
+### Node ごとの compile
+
+各 node は次のように SQL へ変換されます。
+
+| node | compile 内容 |
+| --- | --- |
+| `input` | Dataset または managed Work table の ClickHouse table を `SELECT *` |
+| `profile` | v1 では passthrough |
+| `clean` | NULL 除外、NULL 補完、NULL 化、clamp、制御文字除去、dedupe を `SELECT` / `WHERE` / window function に変換 |
+| `normalize` | trim、lower / upper、space 正規化、記号除去、decimal / date 変換、round、scale、値 mapping を expression に変換 |
+| `validate` | v1 では passthrough。将来の品質検査 metadata 用の config を保存 |
+| `schema_mapping` | mapping に従って target column だけを `SELECT expr AS target` |
+| `schema_completion` | literal、copy_column、coalesce、concat などで新しい列を追加 |
+| `enrich_join` | 右側 Dataset / Work table を解決し、left join して指定列を追加 |
+| `transform` | select / drop / rename / filter / sort / aggregate を SQL に変換 |
+| `output` | v1 では passthrough。Run 時の出力 table 設定として使う |
+
+column の存在確認は upstream columns を使って行われます。例えば Schema Mapping で `customer_id` を `id` に変えた後、後続 node で `customer_id` を参照すると `unknown column` になります。
+
+### Identifier と安全性
+
+SQL compiler は identifier と operation を制限します。
+
+- table name、target column、alias は `^[A-Za-z_][A-Za-z0-9_]{0,127}$` に一致する必要があります。
+- ClickHouse identifier は quote されます。
+- cast は `string`, `int64`, `float64`, `decimal`, `date`, `datetime` などの allowlist のみです。
+- condition operator は `required`, `=`, `!=`, `>`, `>=`, `<`, `<=`, `in`, `regex` などの allowlist のみです。
+- aggregate function は `count`, `sum`, `avg`, `min`, `max` のみです。
+- `enrich_join` の join type は v1 では `left` のみです。
+- `in` operator は value array が必要です。
+- unsupported operation / method / cast / operator は validation error または compile error になります。
+
+この設計により、pipeline 定義は JSON として保存されますが、任意 SQL 実行にはなりません。
+
+### Preview の内部処理
+
+Preview は、選択中 node までの結果を確認するための軽量実行です。
+
+Frontend の流れ:
+
+1. 選択 node ID を決めます。未選択の場合は Output node、なければ先頭 node を候補にします。
+2. 選択 node が孤立している場合、frontend は input から選択 node、選択 node から output への edge を補助的に追加します。
+3. `ensureDraftVersion()` で現在の draft graph を version として保存します。
+4. `POST /api/v1/data-pipeline-versions/{versionPublicId}/preview` を呼びます。
+
+Backend の流れ:
+
+1. version を `tenant_id + versionPublicId` で取得します。
+2. graph JSON を decode します。
+3. graph validation を実行します。
+4. selected node までの ClickHouse SELECT を compile します。
+5. tenant sandbox を準備します。
+6. tenant 用 ClickHouse connection を開きます。
+7. `SELECT ... LIMIT 100` を実行します。
+8. ClickHouse rows を `columns` と `previewRows` に変換して返します。
+
+Preview は run row や output Work table を作りません。エラーは API response として返り、画面上の error に表示されます。
+
+### Manual Run の内部処理
+
+Manual Run は、UI 上は `Run` ボタン 1 つですが、内部では request 作成と実行処理が分離されています。
+
+Frontend の流れ:
+
+1. `ensureDraftVersion()` で現在の graph を保存します。
+2. その version が published でない場合、frontend は publish API を呼びます。
+3. `POST /api/v1/data-pipeline-versions/{versionPublicId}/runs` を呼びます。
+
+Backend の request 作成:
+
+1. version を取得します。
+2. version status が `published` であることを確認します。
+3. pipeline の `published_version_id` がその version を指していることを確認します。
+4. graph validation を実行します。
+5. `data_pipeline_runs` に `pending` run を作成します。
+6. `outbox_events` に `data_pipeline.run_requested` event を作成します。
+7. run に `outbox_event_id` を保存します。
+8. audit に `data_pipeline.run.request` を記録します。
+
+この時点で API response は返ります。実際の ClickHouse 実行は outbox worker が非同期で行います。
+
+Outbox handler の実行処理:
+
+1. `data_pipeline.run_requested` event を受け取ります。
+2. run を `processing` に更新します。
+3. graph の全 node に対して `data_pipeline_run_steps` を作成し、step を `processing` にします。
+4. graph を Output node まで compile します。v1 Run は Output node がちょうど 1 つ必要です。
+5. tenant sandbox と tenant ClickHouse connection を準備します。
+6. tenant work database に stage table を作ります。
+7. stage table を target table に rename します。
+8. target table を managed Work table として登録します。
+9. 全 run step を `completed` にし、row count を保存します。
+10. run を `completed` にし、`output_work_table_id` と row count を保存します。
+11. medallion pipeline run を `completed` として記録します。
+12. audit に `data_pipeline.run.complete` を記録します。
+
+失敗した場合:
+
+1. 全 run step を `failed` にします。
+2. `error_sample` に `[{ "error": "..." }]` 形式で error を保存します。
+3. run を `failed` にし、`error_summary` を保存します。
+4. medallion pipeline run を `failed` として記録します。
+5. outbox worker 側の retry / dead handling に従って event が扱われます。
+
+現在の v1 実装では、成功時の step row count は各 node 個別の中間件数ではなく、最終 output Work table の row count が入ります。中間 step ごとの正確な row count / profile metadata は後続拡張対象です。
+
+### Run 時の ClickHouse table 作成
+
+Run では直接 target table を作らず、stage table を経由します。
+
+処理の流れ:
+
+1. target database は tenant work database です。
+2. target table は Output node の `tableName` を使います。
+3. `tableName` が空、または安全な identifier でない場合は run public ID から `dp_...` を自動生成します。
+4. stage table 名は `__dp_stage_` + run public ID から作ります。
+5. 既存 stage table を drop します。
+6. `CREATE TABLE target_db.stage ENGINE = MergeTree ORDER BY tuple() AS {compiled SELECT}` を実行します。
+7. 既存 target table を drop します。
+8. stage table を target table に rename します。
+9. `registerDatasetWorkTableForRef` で managed Work table として登録します。
+
+つまり、Run 成功後に Dataset / Work table 側から見える出力は、ClickHouse table と PostgreSQL 上の managed Work table metadata の両方が揃った状態です。
+
+### Schedule の内部処理
+
+Schedule は `data_pipeline_schedules` に保存され、`DataPipelineScheduleJob` が定期的に due schedule を処理します。
+
+Schedule 作成時:
+
+1. pipeline を `tenant_id + public_id` で取得します。
+2. pipeline に `published_version_id` があることを確認します。
+3. frequency、timezone、run time、weekday / month day を正規化します。
+4. `next_run_at` を計算します。
+5. `data_pipeline_schedules` に insert します。
+6. audit に `data_pipeline.schedule.create` を記録します。
+
+Scheduler job:
+
+1. 設定された interval で起動します。起動時に一度実行する設定もあります。
+2. 同じ job が重複実行されないよう atomic flag で制御します。
+3. transaction を開始します。
+4. `enabled = true` かつ `next_run_at <= now` の schedule を claim します。
+5. claim query は `FOR UPDATE SKIP LOCKED` を使うため、複数 worker がいても同じ schedule を同時処理しにくい設計です。
+6. 次回 `next_run_at` を計算します。
+7. pipeline の current published version と schedule の `version_id` が一致するか確認します。
+8. 同じ schedule の active run がある場合は run を作らず `skipped` として次回時刻へ進めます。
+9. 問題なければ `scheduled` trigger の run と outbox event を作成します。
+10. schedule の `last_run_at`, `last_status`, `last_run_id`, `next_run_at` を更新します。
+11. transaction を commit します。
+
+実際の ClickHouse 実行は manual run と同じく outbox handler が処理します。
+
+### Medallion catalog への記録
+
+Run が完了または失敗すると、Data Pipeline は medallion pipeline run として記録されます。
+
+記録内容:
+
+| 項目 | 内容 |
+| --- | --- |
+| `pipeline_type` | `data_pipeline` |
+| `runtime` | `clickhouse` |
+| `trigger_kind` | `manual` または `scheduled` |
+| `source_resource_kind` | 入力 source が Dataset なら `dataset`、Work table なら `work_table` |
+| `source_resource_public_id` | Input node の source public ID |
+| `target_resource_kind` | 成功時は `work_table` |
+| `target_resource_public_id` | 出力 Work table の public ID |
+| `status` | `completed` または `failed` |
+| `metadata.versionPublicId` | 実行した version public ID |
+
+この記録により、Dataset / Work table / medallion catalog から「どの pipeline run がどの source からどの output を作ったか」を追跡できます。
+
+### 失敗時に見る場所
+
+失敗時は次の順に確認します。
+
+1. 詳細 / 編集ページの error message。
+2. Runs tab の `Error`。
+3. `data_pipeline_runs.error_summary`。
+4. `data_pipeline_run_steps.error_summary` と `error_sample`。
+5. outbox worker log。
+6. medallion pipeline run の status / error summary。
+
+Preview 失敗は run を作らないため、`data_pipeline_runs` には残りません。Run 失敗は run / run step / medallion に記録されます。
 
 ## よくあるエラーと対処
 

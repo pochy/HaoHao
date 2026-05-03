@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { VueFlow, type Connection } from '@vue-flow/core'
-import { Controls } from '@vue-flow/controls'
-import { MiniMap } from '@vue-flow/minimap'
+import { nextTick, ref, watch } from 'vue'
+import { VueFlow, useVueFlow, type Connection } from '@vue-flow/core'
+import { ControlButton, Controls } from '@vue-flow/controls'
+import { AlignHorizontalSpaceBetween } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
-import '@vue-flow/minimap/dist/style.css'
 
-import type { DataPipelineGraph, DataPipelineStepType } from '../api/data-pipelines'
+import {
+  isDataPipelineAutoPreviewEnabled,
+  sanitizeDataPipelineGraph,
+  type DataPipelineEdge,
+  type DataPipelineGraph,
+  type DataPipelineNode as PipelineNode,
+  type DataPipelineStepType,
+} from '../api/data-pipelines'
 import DataPipelineNode from './DataPipelineNode.vue'
 
 const props = defineProps<{
@@ -23,19 +29,45 @@ const emit = defineEmits<{
   'select-node': [nodeId: string]
 }>()
 
-const nodes = ref(clone(props.graph.nodes))
-const edges = ref(clone(props.graph.edges))
+const flowId = `data-pipeline-flow-${Math.random().toString(36).slice(2, 8)}`
+const { fitView } = useVueFlow(flowId)
+const initialGraph = sanitizeDataPipelineGraph(props.graph)
+const nodes = ref(clone(initialGraph.nodes))
+const edges = ref(clone(initialGraph.edges))
 const { t } = useI18n()
+
+const autoLayoutColumnGap = 330
+const autoLayoutRowGap = 120
+const autoLayoutStartX = 60
+const autoLayoutStartY = 80
+const snapGridSize = 15
+const stepOrder: Record<DataPipelineStepType, number> = {
+  input: 0,
+  profile: 10,
+  clean: 20,
+  normalize: 30,
+  validate: 40,
+  schema_mapping: 50,
+  schema_completion: 60,
+  enrich_join: 70,
+  transform: 80,
+  output: 1000,
+}
 
 watch(
   () => props.graph,
   (graph) => {
-    const nextNodes = clone(graph.nodes)
-    const nextEdges = clone(graph.edges)
-    if (JSON.stringify(nextNodes) !== JSON.stringify(nodes.value)) {
+    const nextGraph = sanitizeDataPipelineGraph(graph)
+    const nextNodes = clone(nextGraph.nodes)
+    const nextEdges = clone(nextGraph.edges)
+    const currentGraph = sanitizeDataPipelineGraph({
+      nodes: clone(nodes.value),
+      edges: clone(edges.value),
+    })
+    if (JSON.stringify(nextNodes) !== JSON.stringify(currentGraph.nodes)) {
       nodes.value = nextNodes
     }
-    if (JSON.stringify(nextEdges) !== JSON.stringify(edges.value)) {
+    if (JSON.stringify(nextEdges) !== JSON.stringify(currentGraph.edges)) {
       edges.value = nextEdges
     }
   },
@@ -43,10 +75,10 @@ watch(
 )
 
 watch([nodes, edges], () => {
-  emit('update:graph', {
+  emit('update:graph', sanitizeDataPipelineGraph({
     nodes: clone(nodes.value),
     edges: clone(edges.value),
-  })
+  }))
 }, { deep: true })
 
 function addNode(stepType: DataPipelineStepType) {
@@ -164,6 +196,127 @@ function onNodeClick(event: any) {
   }
 }
 
+async function autoLayout() {
+  const graph = sanitizeDataPipelineGraph({
+    nodes: clone(nodes.value),
+    edges: clone(edges.value),
+  })
+  const positions = autoLayoutPositions(graph.nodes, graph.edges)
+  nodes.value = graph.nodes.map((node) => ({
+    ...node,
+    position: positions.get(node.id) ?? node.position,
+  }))
+  edges.value = graph.edges
+
+  await nextTick()
+  await fitView({ padding: 0.16 })
+}
+
+function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataPipelineEdge[]) {
+  const nodeMap = new Map(graphNodes.map((node) => [node.id, node]))
+  const nodeIndex = new Map(graphNodes.map((node, index) => [node.id, index]))
+  const validEdges = graphEdges.filter((edge) => nodeMap.has(edge.source) && nodeMap.has(edge.target) && edge.source !== edge.target)
+  const incoming = new Map<string, string[]>()
+  const outgoing = new Map<string, string[]>()
+  const indegree = new Map(graphNodes.map((node) => [node.id, 0]))
+
+  for (const edge of validEdges) {
+    outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge.target])
+    incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge.source])
+    indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1)
+  }
+
+  const depth = new Map<string, number>()
+  const queue = graphNodes
+    .filter((node) => (indegree.get(node.id) ?? 0) === 0)
+    .sort((a, b) => compareNodes(a, b, nodeIndex))
+    .map((node) => node.id)
+
+  if (queue.length === 0) {
+    const input = graphNodes.find((node) => node.data.stepType === 'input') ?? graphNodes[0]
+    if (input) {
+      queue.push(input.id)
+    }
+  }
+
+  for (const id of queue) {
+    depth.set(id, 0)
+  }
+
+  const pendingIndegree = new Map(indegree)
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const id = queue[cursor]
+    const nextDepth = (depth.get(id) ?? 0) + 1
+    const nextNodes = [...(outgoing.get(id) ?? [])]
+      .map((target) => nodeMap.get(target))
+      .filter((node): node is PipelineNode => Boolean(node))
+      .sort((a, b) => compareNodes(a, b, nodeIndex))
+
+    for (const target of nextNodes) {
+      depth.set(target.id, Math.max(depth.get(target.id) ?? 0, nextDepth))
+      pendingIndegree.set(target.id, Math.max((pendingIndegree.get(target.id) ?? 0) - 1, 0))
+      if ((pendingIndegree.get(target.id) ?? 0) === 0 && !queue.includes(target.id)) {
+        queue.push(target.id)
+      }
+    }
+  }
+
+  const fallbackDepth = Math.max(0, ...depth.values()) + 1
+  for (const node of graphNodes) {
+    if (!depth.has(node.id)) {
+      const upstreamDepth = Math.max(
+        -1,
+        ...(incoming.get(node.id) ?? []).map((source) => depth.get(source) ?? -1),
+      )
+      depth.set(node.id, upstreamDepth >= 0 ? upstreamDepth + 1 : fallbackDepth)
+    }
+  }
+
+  const outputDepth = Math.max(0, ...[...depth.entries()]
+    .filter(([id]) => nodeMap.get(id)?.data.stepType !== 'output')
+    .map(([, itemDepth]) => itemDepth)) + 1
+  for (const node of graphNodes) {
+    if (node.data.stepType === 'input') {
+      depth.set(node.id, 0)
+    } else if (node.data.stepType === 'output') {
+      depth.set(node.id, Math.max(depth.get(node.id) ?? outputDepth, outputDepth))
+    }
+  }
+
+  const layers = new Map<number, PipelineNode[]>()
+  for (const node of graphNodes) {
+    const itemDepth = depth.get(node.id) ?? 0
+    layers.set(itemDepth, [...(layers.get(itemDepth) ?? []), node])
+  }
+
+  const maxLayerSize = Math.max(1, ...[...layers.values()].map((layer) => layer.length))
+  const positions = new Map<string, { x: number, y: number }>()
+  for (const [itemDepth, layerNodes] of [...layers.entries()].sort(([a], [b]) => a - b)) {
+    const sortedLayerNodes = [...layerNodes].sort((a, b) => compareNodes(a, b, nodeIndex))
+    const yOffset = ((maxLayerSize - sortedLayerNodes.length) * autoLayoutRowGap) / 2
+    sortedLayerNodes.forEach((node, index) => {
+      positions.set(node.id, {
+        x: snapValue(autoLayoutStartX + itemDepth * autoLayoutColumnGap),
+        y: snapValue(autoLayoutStartY + yOffset + index * autoLayoutRowGap),
+      })
+    })
+  }
+
+  return positions
+}
+
+function compareNodes(a: PipelineNode, b: PipelineNode, nodeIndex: Map<string, number>) {
+  const orderDiff = (stepOrder[a.data.stepType] ?? 500) - (stepOrder[b.data.stepType] ?? 500)
+  if (orderDiff !== 0) {
+    return orderDiff
+  }
+  return (nodeIndex.get(a.id) ?? 0) - (nodeIndex.get(b.id) ?? 0)
+}
+
+function snapValue(value: number) {
+  return Math.round(value / snapGridSize) * snapGridSize
+}
+
 function labelForStep(type: DataPipelineStepType) {
   return type
     .split('_')
@@ -210,9 +363,12 @@ defineExpose({ addNode })
 <template>
   <div class="data-pipeline-flow-builder">
     <VueFlow
+      :id="flowId"
       v-model:nodes="nodes"
       v-model:edges="edges"
       fit-view-on-init
+      snap-to-grid
+      :snap-grid="[snapGridSize, snapGridSize]"
       :nodes-draggable="true"
       :nodes-connectable="true"
       :elements-selectable="true"
@@ -220,10 +376,22 @@ defineExpose({ addNode })
       @node-click="onNodeClick"
     >
       <template #node-pipelineStep="nodeProps">
-        <DataPipelineNode v-bind="nodeProps" :selected="nodeProps.id === selectedNodeId" />
+        <DataPipelineNode
+          v-bind="nodeProps"
+          :selected="nodeProps.id === selectedNodeId"
+          :auto-preview-enabled="isDataPipelineAutoPreviewEnabled(nodeProps.data)"
+        />
       </template>
-      <Controls />
-      <MiniMap pannable zoomable />
+      <Controls>
+        <ControlButton
+          :title="t('dataPipelines.autoLayout')"
+          :aria-label="t('dataPipelines.autoLayout')"
+          type="button"
+          @click="autoLayout"
+        >
+          <AlignHorizontalSpaceBetween :size="14" stroke-width="2.1" aria-hidden="true" />
+        </ControlButton>
+      </Controls>
     </VueFlow>
   </div>
 </template>

@@ -398,6 +398,17 @@ func (s *DataPipelineService) Preview(ctx context.Context, tenantID int64, versi
 	if err != nil {
 		return DataPipelinePreview{}, err
 	}
+	return s.previewGraph(ctx, tenantID, graph, nodeID, limit)
+}
+
+func (s *DataPipelineService) PreviewDraft(ctx context.Context, tenantID int64, pipelinePublicID string, graph DataPipelineGraph, nodeID string, limit int32) (DataPipelinePreview, error) {
+	if _, err := s.getPipelineRow(ctx, tenantID, pipelinePublicID); err != nil {
+		return DataPipelinePreview{}, err
+	}
+	return s.previewGraph(ctx, tenantID, graph, nodeID, limit)
+}
+
+func (s *DataPipelineService) previewGraph(ctx context.Context, tenantID int64, graph DataPipelineGraph, nodeID string, limit int32) (DataPipelinePreview, error) {
 	summary := validateDataPipelineGraph(graph)
 	if !summary.Valid {
 		return DataPipelinePreview{}, fmt.Errorf("%w: %s", ErrInvalidDataPipelineGraph, strings.Join(summary.Errors, "; "))

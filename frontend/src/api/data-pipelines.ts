@@ -128,6 +128,135 @@ export type DataPipelineScheduleWriteBody = {
   enabled?: boolean
 }
 
+export function sanitizeDataPipelineGraph(graph: DataPipelineGraph): DataPipelineGraph {
+  return {
+    nodes: (graph.nodes ?? []).map((node) => {
+      const sanitized: DataPipelineNode = {
+        id: stringValue(node.id),
+        position: {
+          x: numberValue(node.position?.x),
+          y: numberValue(node.position?.y),
+        },
+        data: {
+          stepType: stringValue(node.data?.stepType) as DataPipelineStepType,
+        },
+      }
+
+      const type = stringValue(node.type)
+      if (type) {
+        sanitized.type = type
+      }
+
+      const label = stringValue(node.data?.label)
+      if (label) {
+        sanitized.data.label = label
+      }
+
+      const config = recordValue(node.data?.config)
+      if (config) {
+        sanitized.data.config = config
+      }
+
+      return sanitized
+    }),
+    edges: (graph.edges ?? []).map((edge) => ({
+      id: stringValue(edge.id),
+      source: stringValue(edge.source),
+      target: stringValue(edge.target),
+    })),
+  }
+}
+
+export function isDataPipelineAutoPreviewEnabled(data?: Partial<DataPipelineNode['data']> | null): boolean {
+  if (!data?.stepType) {
+    return false
+  }
+  if (manualPreviewStepTypes.has(String(data.stepType))) {
+    return false
+  }
+  return !configUsesManualPreview(data.config)
+}
+
+const manualPreviewStepTypes = new Set([
+  'llm_enrichment',
+  'api_enrichment',
+  'external_enrichment',
+])
+
+const manualPreviewConfigKeys = new Set([
+  'completionKind',
+  'completionMethod',
+  'completionProvider',
+  'enrichmentKind',
+  'enrichmentMethod',
+  'enrichmentProvider',
+  'executor',
+  'method',
+  'mode',
+  'provider',
+  'runtime',
+].map(normalizeConfigKey))
+
+const manualPreviewConfigValues = new Set([
+  'ai',
+  'api',
+  'bedrock',
+  'external',
+  'external_api',
+  'external_lookup',
+  'gemini',
+  'llm',
+  'ollama',
+  'openai',
+  'anthropic',
+  'vertex_ai',
+  'webhook',
+])
+
+function configUsesManualPreview(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => configUsesManualPreview(item))
+  }
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+  return Object.entries(value as Record<string, unknown>).some(([key, item]) => {
+    if (manualPreviewPresenceKey(key)) {
+      return item !== undefined && item !== null && item !== ''
+    }
+    if (manualPreviewConfigKeys.has(normalizeConfigKey(key)) && valueDisablesAutoPreview(item)) {
+      return true
+    }
+    return configUsesManualPreview(item)
+  })
+}
+
+function manualPreviewPresenceKey(key: string): boolean {
+  const normalized = key.toLowerCase()
+  return normalized.includes('llm') || normalized.includes('prompt')
+}
+
+function valueDisablesAutoPreview(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return manualPreviewConfigValues.has(normalizeConfigValue(value))
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => valueDisablesAutoPreview(item))
+  }
+  if (value && typeof value === 'object') {
+    return configUsesManualPreview(value)
+  }
+  return false
+}
+
+function normalizeConfigKey(value: string): string {
+  return value.replace(/[-_\s]/g, '').toLowerCase()
+}
+
+function normalizeConfigValue(value: string): string {
+  return value.trim().replace(/[-\s]/g, '_').toLowerCase()
+}
+
 async function ensureCSRFCookie() {
   if (readCookie('XSRF-TOKEN')) {
     return
@@ -204,7 +333,7 @@ export async function saveDataPipelineVersion(publicId: string, graph: DataPipel
   return request<DataPipelineVersionBody>(`/api/v1/data-pipelines/${encodeURIComponent(publicId)}/versions`, {
     method: 'POST',
     headers: csrfHeaders(),
-    body: JSON.stringify({ graph }),
+    body: JSON.stringify({ graph: sanitizeDataPipelineGraph(graph) }),
   })
 }
 
@@ -220,6 +349,14 @@ export async function previewDataPipelineVersion(versionPublicId: string, nodeId
     method: 'POST',
     headers: csrfHeaders(),
     body: JSON.stringify({ nodeId, limit }),
+  })
+}
+
+export async function previewDataPipelineDraft(publicId: string, graph: DataPipelineGraph, nodeId: string, limit = 100): Promise<DataPipelinePreviewBody> {
+  return request<DataPipelinePreviewBody>(`/api/v1/data-pipelines/${encodeURIComponent(publicId)}/preview`, {
+    method: 'POST',
+    headers: csrfHeaders(),
+    body: JSON.stringify({ graph: sanitizeDataPipelineGraph(graph), nodeId, limit }),
   })
 }
 
@@ -259,4 +396,19 @@ export async function disableDataPipelineSchedule(publicId: string): Promise<Dat
     method: 'DELETE',
     headers: csrfHeaders(),
   })
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function numberValue(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+function recordValue(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined
+  }
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>
 }

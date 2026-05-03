@@ -9,8 +9,10 @@ import {
   fetchDataPipeline,
   fetchDataPipelineRuns,
   fetchDataPipelines,
-  previewDataPipelineVersion,
+  isDataPipelineAutoPreviewEnabled,
+  previewDataPipelineDraft,
   publishDataPipelineVersion,
+  sanitizeDataPipelineGraph,
   saveDataPipelineVersion,
   updateDataPipeline,
   updateDataPipelineSchedule,
@@ -27,6 +29,14 @@ import {
 import { i18n } from '../i18n'
 
 type DataPipelineStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
+type DataPipelinePreviewCacheEntry = {
+  graphSignature: string
+  result: DataPipelinePreviewBody
+}
+type PreviewSelectedOptions = {
+  automatic?: boolean
+  silent?: boolean
+}
 
 export const useDataPipelineStore = defineStore('data-pipelines', {
   state: () => ({
@@ -36,11 +46,13 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
     detail: null as DataPipelineDetailBody | null,
     draftGraph: defaultDataPipelineGraph(),
     selectedNodeId: '',
-    preview: null as DataPipelinePreviewBody | null,
+    previewByNodeId: {} as Record<string, DataPipelinePreviewCacheEntry>,
+    pendingPreviewKeys: {} as Record<string, true>,
     runs: [] as DataPipelineRunBody[],
     schedules: [] as DataPipelineScheduleBody[],
     actionLoading: false,
     previewLoading: false,
+    previewLoadingNodeId: '',
     runsLoading: false,
     errorMessage: '',
     actionMessage: '',
@@ -55,6 +67,21 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
     latestVersion: (state): DataPipelineVersionBody | null => state.detail?.versions?.[0] ?? null,
     publishedVersion: (state): DataPipelineVersionBody | null => state.detail?.publishedVersion ?? null,
     hasActiveRuns: (state) => state.runs.some((run) => ['pending', 'processing'].includes(run.status)),
+    selectedPreview: (state): DataPipelinePreviewBody | null => {
+      const entry = state.selectedNodeId ? state.previewByNodeId[state.selectedNodeId] : null
+      if (!entry || entry.graphSignature !== graphPreviewSignature(state.draftGraph)) {
+        return null
+      }
+      return entry.result
+    },
+    selectedPreviewLoading: (state): boolean => state.previewLoading && state.previewLoadingNodeId === state.selectedNodeId,
+    selectedAutoPreviewKey: (state): string => {
+      const node = state.draftGraph.nodes.find((item) => item.id === state.selectedNodeId)
+      if (!state.selectedPublicId || !node || !isDataPipelineAutoPreviewEnabled(node.data)) {
+        return ''
+      }
+      return `${state.selectedPublicId}:${node.id}:${graphPreviewSignature(state.draftGraph)}`
+    },
   },
 
   actions: {
@@ -65,28 +92,36 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
       this.detail = null
       this.draftGraph = defaultDataPipelineGraph()
       this.selectedNodeId = ''
-      this.preview = null
+      this.previewByNodeId = {}
+      this.pendingPreviewKeys = {}
       this.runs = []
       this.schedules = []
       this.errorMessage = ''
       this.actionMessage = ''
+      this.actionLoading = false
+      this.previewLoading = false
+      this.previewLoadingNodeId = ''
       this.runsLoading = false
     },
 
-    async load() {
+    async load(loadFirstDetail = false) {
       this.status = 'loading'
       this.errorMessage = ''
       try {
         this.items = await fetchDataPipelines()
-        if (!this.selectedPublicId || !this.items.some((item) => item.publicId === this.selectedPublicId)) {
-          this.selectedPublicId = this.items[0]?.publicId ?? ''
+        if (this.selectedPublicId && !this.items.some((item) => item.publicId === this.selectedPublicId)) {
+          this.selectedPublicId = ''
         }
         this.status = this.items.length > 0 ? 'ready' : 'empty'
-        if (this.selectedPublicId) {
+        if (loadFirstDetail) {
+          if (!this.selectedPublicId) {
+            this.selectedPublicId = this.items[0]?.publicId ?? ''
+          }
+        }
+        if (loadFirstDetail && this.selectedPublicId) {
           await this.loadDetail(this.selectedPublicId)
-        } else {
+        } else if (!loadFirstDetail) {
           this.detail = null
-          this.draftGraph = defaultDataPipelineGraph()
         }
       } catch (error) {
         this.items = []
@@ -108,7 +143,8 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
         this.selectedNodeId = this.draftGraph.nodes.some((node) => node.id === selectedNodeId)
           ? selectedNodeId
           : this.draftGraph.nodes[0]?.id ?? ''
-        this.preview = null
+        this.previewByNodeId = {}
+        this.pendingPreviewKeys = {}
         this.status = 'ready'
       } catch (error) {
         this.detail = null
@@ -199,32 +235,76 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
       }
     },
 
-    async previewSelected() {
+    async previewSelected(options: PreviewSelectedOptions = {}) {
+      if (!this.selectedPublicId) {
+        this.selectedPublicId = this.detail?.pipeline.publicId ?? this.items[0]?.publicId ?? ''
+      }
+      if (!this.selectedPublicId) {
+        this.errorMessage = dataPipelineText('messages.selectOrCreateBeforeAction')
+        return null
+      }
       const nodeId = this.selectedNodeId || this.defaultPreviewNodeId()
       if (!nodeId) {
         this.errorMessage = dataPipelineText('messages.selectNodeBeforePreviewing')
         return null
       }
+      const node = this.draftGraph.nodes.find((item) => item.id === nodeId)
+      if (options.automatic && (!node || !isDataPipelineAutoPreviewEnabled(node.data))) {
+        return null
+      }
       this.selectedNodeId = nodeId
-      this.ensureSelectedPreviewPath(nodeId)
+      if (!options.automatic) {
+        this.ensureSelectedPreviewPath(nodeId)
+      }
+      const graphSignature = graphPreviewSignature(this.draftGraph)
+      const cached = this.previewByNodeId[nodeId]
+      if (cached?.graphSignature === graphSignature) {
+        return cached.result
+      }
+      const pendingKey = `${nodeId}:${graphSignature}`
+      if (this.pendingPreviewKeys[pendingKey]) {
+        return null
+      }
+      this.pendingPreviewKeys = {
+        ...this.pendingPreviewKeys,
+        [pendingKey]: true,
+      }
       this.previewLoading = true
-      this.errorMessage = ''
-      this.actionMessage = ''
+      this.previewLoadingNodeId = nodeId
+      if (!options.silent) {
+        this.errorMessage = ''
+        this.actionMessage = ''
+      }
       try {
-        const version = await this.ensureDraftVersion()
-        if (!version) {
-          return null
+        const preview = await previewDataPipelineDraft(this.selectedPublicId, this.draftGraph, nodeId, 100)
+        this.previewByNodeId = {
+          ...this.previewByNodeId,
+          [nodeId]: {
+            graphSignature,
+            result: preview,
+          },
         }
-        this.preview = await previewDataPipelineVersion(version.publicId, nodeId, 100)
-        this.actionMessage = dataPipelineText('messages.previewed', { version: version.versionNumber })
-        return this.preview
+        if (!options.silent) {
+          this.actionMessage = dataPipelineText('messages.previewedDraft')
+        }
+        return preview
       } catch (error) {
-        this.preview = null
-        this.errorMessage = toApiErrorMessage(error)
+        this.previewByNodeId = omitPreview(this.previewByNodeId, nodeId)
+        if (!options.silent) {
+          this.errorMessage = toApiErrorMessage(error)
+        }
         throw error
       } finally {
-        this.previewLoading = false
+        this.pendingPreviewKeys = omitPendingPreview(this.pendingPreviewKeys, pendingKey)
+        if (this.previewLoadingNodeId === nodeId) {
+          this.previewLoading = false
+          this.previewLoadingNodeId = ''
+        }
       }
+    },
+
+    async autoPreviewSelected() {
+      return await this.previewSelected({ automatic: true, silent: true })
     },
 
     async runPublished() {
@@ -422,11 +502,58 @@ export function defaultDataPipelineGraph(): DataPipelineGraph {
 }
 
 function cloneGraph(graph: DataPipelineGraph): DataPipelineGraph {
-  return JSON.parse(JSON.stringify(graph)) as DataPipelineGraph
+  return sanitizeDataPipelineGraph(JSON.parse(JSON.stringify(graph)) as DataPipelineGraph)
 }
 
 function graphsEqual(a: DataPipelineGraph, b: DataPipelineGraph): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
+  return JSON.stringify(sanitizeDataPipelineGraph(a)) === JSON.stringify(sanitizeDataPipelineGraph(b))
+}
+
+function graphPreviewSignature(graph: DataPipelineGraph): string {
+  const sanitized = sanitizeDataPipelineGraph(graph)
+  return JSON.stringify({
+    nodes: sanitized.nodes
+      .map((node) => ({
+        id: node.id,
+        stepType: node.data.stepType,
+        config: stableValue(node.data.config ?? {}),
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+    edges: sanitized.edges
+      .map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+      }))
+      .sort((a, b) => `${a.source}\u0000${a.target}`.localeCompare(`${b.source}\u0000${b.target}`)),
+  })
+}
+
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => stableValue(item))
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return Object.keys(record)
+      .sort((a, b) => a.localeCompare(b))
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = stableValue(record[key])
+        return acc
+      }, {})
+  }
+  return value
+}
+
+function omitPreview(cache: Record<string, DataPipelinePreviewCacheEntry>, nodeId: string): Record<string, DataPipelinePreviewCacheEntry> {
+  const next = { ...cache }
+  delete next[nodeId]
+  return next
+}
+
+function omitPendingPreview(cache: Record<string, true>, key: string): Record<string, true> {
+  const next = { ...cache }
+  delete next[key]
+  return next
 }
 
 function addDataPipelineEdge(edges: DataPipelineEdge[], source: string, target: string): DataPipelineEdge[] {

@@ -57,6 +57,9 @@ zitadel-logs: zitadel-env
 db-wait:
 	@until $(DOCKER_COMPOSE) exec -T postgres pg_isready -U haohao -d haohao >/dev/null 2>&1; do sleep 1; done
 
+clickhouse-wait:
+	@until $(DOCKER_COMPOSE) exec -T clickhouse sh -lc 'clickhouse-client --user "$$CLICKHOUSE_USER" --password "$$CLICKHOUSE_PASSWORD" --query "SELECT 1" >/dev/null 2>&1'; do sleep 1; done
+
 db-up: db-wait
 	$(export-env) && migrate -path db/migrations -database "$$DATABASE_URL" up
 
@@ -66,7 +69,7 @@ db-down:
 # Prefer Homebrew postgresql@18's psql-18 when on PATH; override with make psql PSQL=psql
 PSQL ?= $(shell command -v psql-18 2>/dev/null || command -v psql 2>/dev/null || echo psql)
 
-.PHONY: psql sql air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check
+.PHONY: psql sql air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check clickhouse-wait
 psql:
 	$(export-env) && $(PSQL) "$$DATABASE_URL" $(ARGS)
 
@@ -100,10 +103,10 @@ air-check:
 		exit 1; \
 	}
 
-backend-dev: air-check db-up
+backend-dev: air-check db-up clickhouse-wait
 	$(export-env) && $(AIR_BIN) -c .air.toml
 
-backend-run: db-up
+backend-run: db-up clickhouse-wait
 	$(export-env) && go run ./backend/cmd/main
 
 frontend-dev:

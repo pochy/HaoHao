@@ -650,11 +650,11 @@ func requireDataPipelineTenant(ctx context.Context, deps Dependencies, sessionID
 
 GET は CSRF なし、mutation は CSRF 必須。create / run は `Idempotency-Key` に対応します。
 
-## Scheduler / Outbox
+## スケジューラ / Outbox
 
-### Outbox handler
+### Outbox ハンドラ
 
-`DefaultOutboxHandler` に `*DataPipelineService` を追加し、event を処理します。
+`DefaultOutboxHandler` に `*DataPipelineService` を追加し、イベントを処理します。
 
 ```go
 case "data_pipeline.run_requested":
@@ -666,36 +666,36 @@ case "data_pipeline.run_requested":
     return h.dataPipelines.HandleRunRequested(ctx, payload.TenantID, payload.RunID, event.ID)
 ```
 
-### Schedule job
+### スケジュールジョブ
 
 `backend/internal/jobs/data_pipeline_scheduler.go` を追加します。構造は `WorkTableExportScheduleJob` と同じです。
 
-Config:
+設定:
 
-- `DATA_PIPELINE_SCHEDULER_ENABLED`: default `true`
-- `DATA_PIPELINE_SCHEDULER_INTERVAL`: default `1m`
-- `DATA_PIPELINE_SCHEDULER_TIMEOUT`: default `30s`
-- `DATA_PIPELINE_SCHEDULER_BATCH_SIZE`: default `20`
-- `DATA_PIPELINE_SCHEDULER_RUN_ON_STARTUP`: default `true`
+- `DATA_PIPELINE_SCHEDULER_ENABLED`: 既定値 `true`
+- `DATA_PIPELINE_SCHEDULER_INTERVAL`: 既定値 `1m`
+- `DATA_PIPELINE_SCHEDULER_TIMEOUT`: 既定値 `30s`
+- `DATA_PIPELINE_SCHEDULER_BATCH_SIZE`: 既定値 `20`
+- `DATA_PIPELINE_SCHEDULER_RUN_ON_STARTUP`: 既定値 `true`
 
-Due schedule 処理:
+実行期限を迎えた schedule の処理:
 
-1. `ClaimDueDataPipelineSchedules` で due schedule を claim。
-2. published version が存在しない場合は schedule disabled。
-3. 同じ schedule の active run がある場合は skipped にして next run を更新。
-4. active run がなければ run を作成し、outbox event を enqueue。
-5. next run を daily / weekly / monthly rule で更新。
+1. `ClaimDueDataPipelineSchedules` で実行期限を迎えた schedule を取得する。
+2. 公開済み version が存在しない場合は schedule を `disabled` にする。
+3. 同じ schedule の active run がある場合は `skipped` にして next run を更新する。
+4. active run がなければ run を作成し、outbox event を enqueue する。
+5. next run を daily / weekly / monthly rule で更新する。
 
-## Frontend
+## フロントエンド
 
-### Routing / navigation
+### ルーティング / ナビゲーション
 
 - `frontend/src/router/index.ts` に `/data-pipelines` route を追加する。
 - `frontend/src/App.vue` の `wideMain` に `/data-pipelines` を追加する。
-- `frontend/src/components/AppSidebar.vue` の Work group に `Data Pipelines` を追加する。icon は `Workflow` または `GitBranch` from `lucide-vue-next`。
+- `frontend/src/components/AppSidebar.vue` の Work グループに `Data Pipelines` を追加する。アイコンは `lucide-vue-next` の `Workflow` または `GitBranch` を使う。
 - i18n は `nav.items.dataPipelines`, `routes.dataPipelines`, `dataPipelines.*` を追加する。
 
-### Files
+### ファイル
 
 - `frontend/src/views/DataPipelinesView.vue`
 - `frontend/src/components/DataPipelineFlowBuilder.vue`
@@ -705,27 +705,27 @@ Due schedule 処理:
 - `frontend/src/stores/data-pipelines.ts`
 - `frontend/src/api/data-pipelines.ts`
 
-### Layout
+### レイアウト
 
 ```text
 /data-pipelines
 
-Page header
-  - title
+ページヘッダー
+  - タイトル
   - active tenant
-  - refresh
-  - new pipeline
+  - 更新
+  - 新規 pipeline
 
-Main
-  Left: pipeline list + node palette
-  Center: Vue Flow canvas
-  Right: selected node config inspector
-  Bottom: preview / validation / run history / schedules
+メイン
+  左: pipeline 一覧 + node palette
+  中央: Vue Flow canvas
+  右: 選択中 node の config inspector
+  下部: preview / validation / run history / schedules
 ```
 
-### Vue Flow usage
+### Vue Flow の利用
 
-Use the existing import pattern:
+既存の import パターンを使います。
 
 ```ts
 import { VueFlow, type Connection } from '@vue-flow/core'
@@ -738,22 +738,22 @@ import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 ```
 
-UI behavior:
+UI 挙動:
 
-- Palette button adds node with stable `id` and default config.
-- `onConnect` creates edge after local validation.
-- Selecting node opens inspector.
-- Save draft posts graph to backend.
-- Publish validates and locks run target version.
-- Preview posts selected node id and shows columns / rows / warnings.
-- Run creates manual run for published version.
-- Schedule panel creates daily / weekly / monthly schedule.
+- Palette ボタンは安定した `id` と既定 config を持つ node を追加する。
+- `onConnect` はローカル validation 後に edge を作成する。
+- node を選択すると inspector を開く。
+- Draft 保存は graph を backend に POST する。
+- Publish は validation を行い、run 対象 version を固定する。
+- Preview は選択中 node id を POST し、columns / rows / warnings を表示する。
+- Run は公開済み version の手動 run を作成する。
+- Schedule panel は daily / weekly / monthly の schedule を作成する。
 
-Do not build a marketing landing page. The first screen is the actual builder / management UI.
+マーケティング用 landing page は作らない。最初の画面は実際に使う builder / management UI にする。
 
-## Observability / Audit
+## 可観測性 / 監査
 
-Audit actions:
+監査 action:
 
 - `data_pipeline.create`
 - `data_pipeline.update`
@@ -765,59 +765,59 @@ Audit actions:
 - `data_pipeline.schedule.update`
 - `data_pipeline.schedule.disable`
 
-Metrics:
+メトリクス:
 
-- run duration by status / trigger
-- run count by status / trigger
-- step count by step type / status
-- scheduler claimed / created / skipped / failed / disabled
-- preview duration / failure count
+- status / trigger ごとの run 所要時間
+- status / trigger ごとの run 件数
+- step type / status ごとの step 件数
+- scheduler の claimed / created / skipped / failed / disabled
+- preview 所要時間 / 失敗件数
 
-Do not include tenant slug, user email, public ID, SQL text, file path, raw row values, or error sample in metric labels.
+metric label には tenant slug、user email、public ID、SQL text、file path、raw row values、error sample を含めない。
 
-## Testing Plan
+## テスト計画
 
-### Backend unit tests
+### Backend unit テスト
 
-- graph validation: missing input, multiple input, no output, cycle, orphan node, too many nodes / edges.
-- config validation for each step type.
-- unsafe identifier rejection.
-- SQL compiler allowlist: operators, casts, functions.
-- tenant boundary: cannot reference Dataset / Work table from another tenant.
-- schedule next run: daily / weekly / monthly, invalid timezone, invalid weekday / month day.
-- active run skip for schedule.
+- graph validation: input 欠落、複数 input、output なし、cycle、orphan node、nodes / edges 上限超過。
+- step type ごとの config 検証。
+- unsafe identifier の拒否。
+- SQL compiler allowlist: operators、casts、functions。
+- tenant 境界: 他 tenant の Dataset / Work table を参照できないこと。
+- schedule next run: daily / weekly / monthly、invalid timezone、invalid weekday / month day。
+- schedule の active run skip。
 
-### Service / job tests
+### Service / job テスト
 
-- manual run creates pending run and outbox event.
-- outbox handler marks run processing / completed.
-- failed ClickHouse execution records run and step failure.
-- schedule claim uses due enabled schedules only.
-- schedule disables invalid or unpublished pipeline.
-- medallion run is recorded on processing / completed / failed.
+- 手動 run が pending run と outbox event を作成する。
+- outbox handler が run を processing / completed に更新する。
+- ClickHouse 実行失敗時に run と step failure を記録する。
+- schedule claim は due かつ enabled な schedule のみを対象にする。
+- invalid または unpublished pipeline の schedule を disabled にする。
+- medallion run が processing / completed / failed で記録される。
 
-### API tests
+### API テスト
 
-- `403` without `data_pipeline_user`.
-- `409` without active tenant.
-- `400` invalid graph.
-- create / list / detail / save version / publish.
-- preview success and invalid selected node.
-- manual run idempotency replay.
-- schedule create / update / disable.
+- `data_pipeline_user` がない場合は `403`。
+- active tenant がない場合は `409`。
+- invalid graph は `400`。
+- create / list / detail / save version / publish。
+- preview 成功と invalid selected node。
+- 手動 run の idempotency replay。
+- schedule create / update / disable。
 
-### Frontend tests
+### Frontend テスト
 
-- `/data-pipelines` renders for authorized tenant.
-- role denied state renders for missing role.
-- add node, connect edge, edit config, save draft.
-- publish validation errors show next to builder action.
-- preview selected node renders table.
-- manual run appears in run history.
-- schedule create / disable flow.
-- tenant switch resets selected pipeline and reloads list.
+- 権限を持つ tenant で `/data-pipelines` が render される。
+- role がない場合に denied state が render される。
+- node 追加、edge 接続、config 編集、draft 保存ができる。
+- publish validation error が builder action の近くに表示される。
+- selected node の preview が table として render される。
+- 手動 run が run history に表示される。
+- schedule create / disable flow。
+- tenant switch で selected pipeline が reset され、list が reload される。
 
-### Verification commands
+### 検証コマンド
 
 ```bash
 go test ./backend/...
@@ -826,23 +826,69 @@ cd frontend && npm run openapi-ts
 cd frontend && npm run e2e -- data-pipelines
 ```
 
-## Rollout
+## ロールアウト
 
-1. Add role / schema / sqlc queries behind backend tests.
-2. Add service validation and compiler without enabling UI.
-3. Add API and OpenAPI generated client.
-4. Add frontend builder and route.
-5. Add scheduler and outbox handling.
-6. Add medallion integration and observability.
-7. Run smoke tests with one Dataset input and one Work table output.
+1. backend test と一緒に role / schema / sqlc queries を追加する。
+2. UI を有効化する前に service validation と compiler を追加する。
+3. API と OpenAPI generated client を追加する。
+4. frontend builder と route を追加する。
+5. scheduler と outbox handling を追加する。
+6. medallion integration と observability を追加する。
+7. 1 つの Dataset input と 1 つの Work table output で smoke test を実行する。
 
-## Future Phases
+## 将来フェーズ
 
-- DuckDB runtime for file / Parquet preprocessing.
-- External source input: S3 / GCS / PostgreSQL / MySQL.
-- Parquet output and file export integration.
-- LLM / API enrichment node.
-- Backfill UI and historical schedule replay.
-- Column-level lineage from pipeline graph.
-- Reusable pipeline templates.
-- Multi-output graph execution.
+- file / Parquet preprocessing 用 DuckDB runtime。
+- 外部 source input: S3 / GCS / PostgreSQL / MySQL。
+- Parquet output と file export integration。
+- LLM / API enrichment node。
+- Backfill UI と historical schedule replay。
+- pipeline graph からの column-level lineage。
+- 再利用可能な pipeline template。
+- 複数 Output graph 実行。
+
+### 複数 Output graph 実行
+
+v1 の run model は 1 pipeline run が 1 つの `output` node を実行し、`data_pipeline_runs.output_work_table_id` に単一の managed Work table を記録する前提です。将来 phase では、graph 上に複数の `output` node を配置し、分岐ごとに異なる変換結果を別々の managed Work table へ書き出す本格版を実装します。
+
+この phase では、単に 1 つの結果を複数 table に copy する fanout ではなく、次のような DAG を正式に扱います。
+
+```text
+input
+  -> clean
+    -> normalize -> output_customers
+    -> aggregate -> output_summary
+```
+
+設計方針:
+
+- Graph validation は `output` node を 1 つ以上許可し、各 executable node が少なくとも 1 つの output に到達することを検証する。
+- UI は Output node の複数追加を許可し、各 Output node の `displayName`, `tableName`, `writeMode`, `engine`, `orderBy` を個別に設定できるようにする。
+- Preview は選択した node までの結果を返す既存 semantics を維持し、Output node ごとの Preview も同じ endpoint で扱う。
+- Run executor は公開済み graph の全 Output node を列挙し、Output node ごとに `compileSelect` して stage table へ書き込み、成功後に managed Work table として登録する。
+- 同じ upstream subgraph を共有する Output がある場合でも、まずは正しさ優先で Output ごとに compile / execute する。性能最適化として shared CTE materialization や intermediate cache は別 phase とする。
+- Output table name は Output node 単位で決定する。`tableName` 未指定時は `dp_<run_public_id>_<output_node_id>` 系の安全な名前を生成し、複数 Output 間で衝突しないようにする。
+- Run status は全 Output が成功したら `completed`、1 つでも失敗したら `failed` とする。部分成功した Output は run output record として残し、UI に partial success を表示できるようにする。
+
+DB / API 変更:
+
+- `data_pipeline_run_outputs` を追加し、`run_id`, `node_id`, `status`, `output_work_table_id`, `row_count`, `error_summary`, `started_at`, `completed_at`, `metadata` を保存する。
+- `data_pipeline_runs.output_work_table_id` は後方互換性のために残すか、read model では primary output のみを返す。新しい API response では `outputs: []` を返す。
+- `DataPipelineRunBody` に `outputs` を追加し、run history / detail / schedule の last run から複数出力の結果を確認できるようにする。
+- `CompleteDataPipelineRun` は run 全体の集約 status を更新し、各 Output の completion は `CompleteDataPipelineRunOutput` 相当の query で記録する。
+- Medallion catalog / lineage は Output node ごとに target Work table を登録し、source graph と target resource の対応を保持する。
+
+Frontend 変更:
+
+- Palette の Output は既存 Output を選択するだけでなく、新しい Output node を追加できるようにする。
+- 自動整列は複数 Output を右端に縦並びで配置し、分岐 edge が見やすいように layer を保つ。
+- Run history は run 単位の status に加えて Output ごとの status / row count / Work table link を表示する。
+- Output node の inspector では table name の衝突、未設定 display name、unsupported write mode をその場で validation する。
+
+テスト:
+
+- graph validation: 複数 output、orphan branch、output に到達しない node、output table name collision。
+- compiler: 2 つの Output が異なる node を target にして別 SQL を生成する。
+- executor: 全 Output 成功、1 Output 失敗、partial success record、retry behavior。
+- API: run response に複数 outputs が含まれる。
+- Frontend: Output を 2 つ作成し、分岐ごとに別設定で保存 / preview / run history 表示ができる。

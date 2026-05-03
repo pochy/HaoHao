@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { AlertCircle, Check, Plus, Settings2, Trash2 } from 'lucide-vue-next'
+import { AlertCircle, Check, MousePointerClick, Plus, Trash2, Zap } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import type { DataPipelineGraph, DataPipelineStepType } from '../api/data-pipelines'
+import { isDataPipelineAutoPreviewEnabled, type DataPipelineGraph, type DataPipelineStepType } from '../api/data-pipelines'
 import type { DatasetBody, DatasetWorkTableBody } from '../api/generated/types.gen'
 
 type ConfigRecord = Record<string, unknown>
@@ -64,9 +64,9 @@ const { t } = useI18n()
 
 const selectedNode = computed(() => props.graph.nodes.find((node) => node.id === props.selectedNodeId) ?? null)
 const stepType = computed(() => selectedNode.value?.data.stepType ?? '')
-const selectedNodeTitle = computed(() => (selectedNode.value
-  ? displayNodeLabel(selectedNode.value.data.label, selectedNode.value.data.stepType, selectedNode.value.id)
-  : t('dataPipelines.noNodeSelected')))
+const autoPreviewEnabled = computed(() => isDataPipelineAutoPreviewEnabled(selectedNode.value?.data))
+const previewModeTitle = computed(() => autoPreviewEnabled.value ? t('dataPipelines.autoPreview') : t('dataPipelines.manualPreviewReason'))
+const previewModeIcon = computed(() => autoPreviewEnabled.value ? Zap : MousePointerClick)
 const datasetOptions = computed(() => props.datasets ?? [])
 const workTableOptions = computed(() => (props.workTables ?? []).filter((item) => Boolean(item.publicId)))
 const primaryColumns = computed(() => sourceColumnsFromConfig(inputConfigForColumns(), 'sourceKind', 'datasetPublicId', 'workTablePublicId'))
@@ -551,14 +551,6 @@ function cloneConfig(config: ConfigRecord): ConfigRecord {
   return JSON.parse(JSON.stringify(config)) as ConfigRecord
 }
 
-function displayNodeLabel(value: string | undefined, type: DataPipelineStepType | string, fallback: string) {
-  const text = value?.trim()
-  if (!text || text === labelForStep(type)) {
-    return stepLabel(type) || fallback
-  }
-  return text
-}
-
 function stepLabel(type: DataPipelineStepType | string) {
   const key = `dataPipelines.step.${type}`
   const value = t(key)
@@ -596,23 +588,27 @@ function labelForStep(type: DataPipelineStepType | string) {
 
 <template>
   <aside class="data-pipeline-inspector" :aria-label="t('dataPipelines.inspector')">
-    <header class="panel-header">
-      <div>
-        <span class="status-pill">
-          <Settings2 :size="14" stroke-width="1.9" aria-hidden="true" />
-          {{ t('dataPipelines.inspector') }}
-        </span>
-        <h2>{{ selectedNodeTitle }}</h2>
+    <header class="panel-header compact data-pipeline-inspector-header">
+      <div class="data-pipeline-inspector-title">
+        <h2>{{ t('dataPipelines.inspector') }}</h2>
+        <div v-if="selectedNode" class="data-pipeline-inspector-badges">
+          <span class="status-pill">{{ stepLabel(stepType) }}</span>
+          <span
+            class="data-pipeline-preview-mode-pill"
+            :class="{ manual: !autoPreviewEnabled }"
+            :title="previewModeTitle"
+            :aria-label="previewModeTitle"
+            role="img"
+          >
+            <component :is="previewModeIcon" :size="14" stroke-width="2.1" aria-hidden="true" />
+          </span>
+        </div>
       </div>
     </header>
 
     <div v-if="selectedNode" class="inspector-fields">
-      <label class="field">
-        <span>{{ t('dataPipelines.stepType') }}</span>
-        <input :value="stepLabel(stepType)" disabled>
-      </label>
-      <label class="field">
-        <span>{{ t('dataPipelines.label') }}</span>
+      <label class="field inspector-label-field">
+        <span class="field-label">{{ t('dataPipelines.label') }}</span>
         <input :value="label" :placeholder="t('dataPipelines.stepLabelPlaceholder')" @input="updateLabel(targetValue($event))">
       </label>
 

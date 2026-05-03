@@ -963,6 +963,35 @@ components:
         - runs
         - schedules
       type: object
+    DataPipelineDraftPreviewRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineDraftPreviewRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        graph:
+          $ref: "#/components/schemas/DataPipelineGraph"
+          examples:
+            - example
+        limit:
+          description: pagination で返す最大件数です。
+          examples:
+            - 50
+          format: int32
+          maximum: 1000
+          minimum: 1
+          type: integer
+        nodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+      required:
+        - graph
+      type: object
     DataPipelineEdge:
       additionalProperties: false
       properties:
@@ -19928,6 +19957,102 @@ paths:
       security:
         - cookieAuth: []
       summary: data pipeline の name / description を更新する
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipelines/{pipelinePublicId}/preview:
+    post:
+      description: |-
+        未保存 draft graph の selected node まで preview する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: previewDataPipelineDraft
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `pipelinePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: pipelinePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  graph:
+                    edges:
+                      - example
+                    nodes:
+                      - example
+                  limit: 50
+                  nodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+            schema:
+              $ref: "#/components/schemas/DataPipelineDraftPreviewRequestBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DataPipelinePreviewBody.json
+                    columns:
+                      - example
+                    nodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    previewRows:
+                      - {}
+                    stepType: example
+              schema:
+                $ref: "#/components/schemas/DataPipelinePreviewBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: 未保存 draft graph の selected node まで preview する
       tags:
         - Data & Datasets
   /api/v1/data-pipelines/{pipelinePublicId}/runs:

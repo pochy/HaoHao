@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
-import { CheckCircle2, CircleAlert, Database, FileOutput, GitBranch, SlidersHorizontal } from 'lucide-vue-next'
+import { CheckCircle2, CircleAlert, Database, FileOutput, GitBranch, MousePointerClick, SlidersHorizontal, Zap } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import type { DataPipelineStepType } from '../api/data-pipelines'
+import { isDataPipelineAutoPreviewEnabled, type DataPipelineStepType } from '../api/data-pipelines'
 
 const props = defineProps<{
   data?: {
@@ -13,11 +13,15 @@ const props = defineProps<{
     config?: Record<string, unknown>
   }
   selected?: boolean
+  autoPreviewEnabled?: boolean
 }>()
 
 const { t } = useI18n()
 const stepType = computed(() => props.data?.stepType ?? 'transform')
 const label = computed(() => displayNodeLabel(props.data?.label, stepType.value))
+const autoPreviewEnabled = computed(() => props.autoPreviewEnabled ?? isDataPipelineAutoPreviewEnabled(props.data))
+const previewModeTitle = computed(() => autoPreviewEnabled.value ? t('dataPipelines.autoPreview') : t('dataPipelines.manualPreviewReason'))
+const previewModeIcon = computed(() => autoPreviewEnabled.value ? Zap : MousePointerClick)
 const status = computed(() => {
   if (stepType.value === 'input' && !props.data?.config?.datasetPublicId && !props.data?.config?.workTablePublicId) {
     return 'warning'
@@ -52,14 +56,25 @@ function englishLabelForStep(type: DataPipelineStepType) {
 </script>
 
 <template>
-  <div class="data-pipeline-node" :class="{ selected, warning: status === 'warning' }">
+  <div class="data-pipeline-node" :class="{ selected, warning: status === 'warning', 'manual-preview': !autoPreviewEnabled }">
     <Handle type="target" :position="Position.Left" />
     <div class="data-pipeline-node-icon">
       <component :is="icon" :size="16" stroke-width="1.9" aria-hidden="true" />
     </div>
     <div class="data-pipeline-node-copy">
       <strong>{{ label }}</strong>
-      <span>{{ stepLabel(stepType) }}</span>
+      <div class="data-pipeline-node-meta">
+        <span>{{ stepLabel(stepType) }}</span>
+        <span
+          class="data-pipeline-node-preview-mode"
+          :class="{ manual: !autoPreviewEnabled }"
+          :title="previewModeTitle"
+          :aria-label="previewModeTitle"
+          role="img"
+        >
+          <component :is="previewModeIcon" :size="11" stroke-width="2.2" aria-hidden="true" />
+        </span>
+      </div>
     </div>
     <CircleAlert v-if="status === 'warning'" class="data-pipeline-node-status" :size="15" stroke-width="1.9" aria-hidden="true" />
     <CheckCircle2 v-else class="data-pipeline-node-status ready" :size="15" stroke-width="1.9" aria-hidden="true" />

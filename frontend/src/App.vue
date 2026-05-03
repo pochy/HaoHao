@@ -23,6 +23,7 @@ const wideMain = computed(() => (
   route.path === '/datasets' ||
   route.path.startsWith('/datasets/') ||
   route.path === '/data-pipelines' ||
+  route.path.startsWith('/data-pipelines/') ||
   route.path === '/drive' ||
   route.path.startsWith('/drive/')
 ))

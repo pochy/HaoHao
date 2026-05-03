@@ -410,6 +410,19 @@ export type DataPipelineDetailBody = {
     versions: Array<DataPipelineVersionBody> | null;
 };
 
+export type DataPipelineDraftPreviewRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    graph: DataPipelineGraph;
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit?: number;
+    nodeId?: string;
+};
+
 export type DataPipelineEdge = {
     /**
      * 内部 ID または protocol 上の識別子です。
@@ -4649,6 +4662,15 @@ export type DataPipelineDetailBodyWritable = {
     runs: Array<DataPipelineRunBodyWritable> | null;
     schedules: Array<DataPipelineScheduleBodyWritable> | null;
     versions: Array<DataPipelineVersionBodyWritable> | null;
+};
+
+export type DataPipelineDraftPreviewRequestBodyWritable = {
+    graph: DataPipelineGraph;
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit?: number;
+    nodeId?: string;
 };
 
 export type DataPipelineListBodyWritable = {
@@ -10542,6 +10564,45 @@ export type UpdateDataPipelineResponses = {
 };
 
 export type UpdateDataPipelineResponse = UpdateDataPipelineResponses[keyof UpdateDataPipelineResponses];
+
+export type PreviewDataPipelineDraftData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DataPipelineDraftPreviewRequestBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `pipelinePublicId` を指定します。
+         */
+        pipelinePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipelines/{pipelinePublicId}/preview';
+};
+
+export type PreviewDataPipelineDraftErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type PreviewDataPipelineDraftError = PreviewDataPipelineDraftErrors[keyof PreviewDataPipelineDraftErrors];
+
+export type PreviewDataPipelineDraftResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelinePreviewBody;
+};
+
+export type PreviewDataPipelineDraftResponse = PreviewDataPipelineDraftResponses[keyof PreviewDataPipelineDraftResponses];
 
 export type ListDataPipelineRunsData = {
     body?: never;
