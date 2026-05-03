@@ -75,6 +75,12 @@ type DriveOCRPipelineRequest struct {
 
 const driveOCRArtifactSchemaVersion = "drive_image_pdf_v1"
 
+const (
+	driveOCRAdvisoryLockNamespace int32 = 0x48484f43 // HHOC
+	driveOCRAdvisoryLockKey       int32 = 1
+	driveOCRAdvisoryUnlockTimeout       = 5 * time.Second
+)
+
 type DriveProductExtractionItem struct {
 	PublicID     string
 	TenantID     int64
@@ -243,6 +249,11 @@ func (s *DriveOCRService) EnsureCompletedForPipeline(ctx context.Context, input 
 		if code, message := s.skipReason(ctx, file, policy); code != "" {
 			return DriveOCRResult{}, fmt.Errorf("%w: %s", ErrDriveOCRStructuredUnsupported, firstNonEmpty(message, code))
 		}
+		lock, err := s.acquireOCRExecutionLock(ctx)
+		if err != nil {
+			return DriveOCRResult{}, err
+		}
+		defer lock.Release(ctx)
 		running, err := s.queries.MarkDriveOCRRunRunning(ctx, db.MarkDriveOCRRunRunningParams{ID: run.ID, TenantID: input.TenantID})
 		if err != nil {
 			return DriveOCRResult{}, err
@@ -332,6 +343,11 @@ func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObj
 		}
 		return err
 	}
+	lock, err := s.acquireOCRExecutionLock(ctx)
+	if err != nil {
+		return err
+	}
+	defer lock.Release(ctx)
 	running, err := s.queries.MarkDriveOCRRunRunning(ctx, db.MarkDriveOCRRunRunningParams{ID: run.ID, TenantID: tenantID})
 	if err != nil {
 		return err
@@ -624,6 +640,41 @@ func (s *DriveOCRService) createRun(ctx context.Context, file DriveFile, policy 
 		return DriveOCRRun{}, fmt.Errorf("create drive ocr run: %w", err)
 	}
 	return driveOCRRunFromDB(row, file.PublicID), nil
+}
+
+type driveOCRExecutionLock struct {
+	conn     *pgxpool.Conn
+	released bool
+}
+
+func (s *DriveOCRService) acquireOCRExecutionLock(ctx context.Context) (*driveOCRExecutionLock, error) {
+	if s == nil || s.pool == nil {
+		return nil, fmt.Errorf("drive ocr execution lock requires postgres pool")
+	}
+	conn, err := s.pool.Acquire(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("acquire drive ocr execution lock connection: %w", err)
+	}
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1::integer, $2::integer)`, driveOCRAdvisoryLockNamespace, driveOCRAdvisoryLockKey); err != nil {
+		conn.Release()
+		return nil, fmt.Errorf("acquire drive ocr execution lock: %w", err)
+	}
+	return &driveOCRExecutionLock{conn: conn}, nil
+}
+
+func (l *driveOCRExecutionLock) Release(ctx context.Context) {
+	if l == nil || l.conn == nil || l.released {
+		return
+	}
+	l.released = true
+	unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), driveOCRAdvisoryUnlockTimeout)
+	defer cancel()
+	if _, err := l.conn.Exec(unlockCtx, `SELECT pg_advisory_unlock($1::integer, $2::integer)`, driveOCRAdvisoryLockNamespace, driveOCRAdvisoryLockKey); err != nil {
+		conn := l.conn.Hijack()
+		_ = conn.Close(context.Background())
+		return
+	}
+	l.conn.Release()
 }
 
 func (s *DriveOCRService) enqueue(ctx context.Context, file DriveFile, actorUserID int64, reason string) (db.OutboxEvent, error) {

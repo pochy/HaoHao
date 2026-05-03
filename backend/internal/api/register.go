@@ -40,6 +40,7 @@ type Dependencies struct {
 	MedallionCatalogService          *service.MedallionCatalogService
 	DataPipelineService              *service.DataPipelineService
 	LocalSearchService               *service.LocalSearchService
+	SystemJobService                 *service.SystemJobService
 	AuthMode                         string
 	EnableLocalPasswordLogin         bool
 	SCIMBasePath                     string
@@ -93,6 +94,7 @@ func RegisterSurface(api huma.API, deps Dependencies, surface Surface) {
 		registerDataPipelineRoutes(api, deps)
 		registerDriveRoutes(api, deps)
 		registerMedallionCatalogRoutes(api, deps)
+		registerSystemJobRoutes(api, deps)
 	}
 
 	if includeExternal(surface) {

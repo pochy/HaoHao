@@ -25,6 +25,8 @@ const DatasetDetailView = () => import('../views/DatasetDetailView.vue')
 const DatasetGoldDetailView = () => import('../views/DatasetGoldDetailView.vue')
 const DataPipelinesView = () => import('../views/DataPipelinesView.vue')
 const DataPipelineDetailView = () => import('../views/DataPipelineDetailView.vue')
+const JobsView = () => import('../views/JobsView.vue')
+const JobDetailView = () => import('../views/JobDetailView.vue')
 const DriveView = () => import('../views/DriveView.vue')
 const DriveGroupsView = () => import('../views/DriveGroupsView.vue')
 const PublicDriveShareView = () => import('../views/PublicDriveShareView.vue')
@@ -201,6 +203,30 @@ const router = createRouter({
         group: 'Work',
         titleKey: 'routes.dataPipelineDetail',
         groupKey: 'nav.groups.work',
+      },
+    },
+    {
+      path: '/jobs',
+      name: 'jobs',
+      component: JobsView,
+      meta: {
+        requiresAuth: true,
+        title: 'Jobs',
+        group: 'Admin',
+        titleKey: 'nav.items.jobs',
+        groupKey: 'nav.groups.admin',
+      },
+    },
+    {
+      path: '/jobs/:jobType/:jobPublicId',
+      name: 'job-detail',
+      component: JobDetailView,
+      meta: {
+        requiresAuth: true,
+        title: 'Job Detail',
+        group: 'Admin',
+        titleKey: 'routes.jobDetail',
+        groupKey: 'nav.groups.admin',
       },
     },
     {

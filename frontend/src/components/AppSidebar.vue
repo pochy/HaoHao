@@ -9,6 +9,7 @@ import {
   FolderOpen,
   Home,
   KeyRound,
+  ListChecks,
   PanelLeftClose,
   PanelLeftOpen,
   PlugZap,
@@ -60,6 +61,7 @@ const navigationGroups: NavigationGroup[] = [
     labelKey: 'nav.groups.admin',
     items: [
       { to: '/tenant-admin', labelKey: 'nav.items.tenants', icon: Building2 },
+      { to: '/jobs', labelKey: 'nav.items.jobs', icon: ListChecks },
       { to: '/machine-clients', labelKey: 'nav.items.machineClients', icon: KeyRound },
       { to: '/integrations', labelKey: 'nav.items.integrations', icon: PlugZap },
     ],
