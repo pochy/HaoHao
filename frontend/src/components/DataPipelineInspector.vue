@@ -78,16 +78,28 @@ const previewModeTitle = computed(() => autoPreviewEnabled.value ? t('dataPipeli
 const previewModeIcon = computed(() => autoPreviewEnabled.value ? Zap : MousePointerClick)
 const datasetOptions = computed(() => props.datasets ?? [])
 const workTableOptions = computed(() => (props.workTables ?? []).filter((item) => Boolean(item.publicId)))
-const primaryColumns = computed(() => sourceColumnsFromConfig(inputConfigForColumns(), 'sourceKind', 'datasetPublicId', 'workTablePublicId'))
+const primaryColumns = computed(() => {
+  if (stepType.value === 'input') {
+    return sourceColumnsFromConfig(configDraft.value, 'sourceKind', 'datasetPublicId', 'workTablePublicId')
+  }
+  const inferred = columnsForNodeOutput(selectedIncomingNodeIds.value[0])
+  if (inferred.length > 0) {
+    return inferred
+  }
+  return sourceColumnsFromConfig(inputConfigForColumns(), 'sourceKind', 'datasetPublicId', 'workTablePublicId')
+})
 const rightColumns = computed(() => {
-  const graphRightConfig = graphInputConfigForColumns(selectedIncomingNodeIds.value[1])
-  if (graphRightConfig) {
-    return sourceColumnsFromConfig(graphRightConfig, 'sourceKind', 'datasetPublicId', 'workTablePublicId')
+  if (stepType.value === 'join') {
+    return columnsForNodeOutput(selectedIncomingNodeIds.value[1])
   }
   return sourceColumnsFromConfig(configDraft.value, 'rightSourceKind', 'rightDatasetPublicId', 'rightWorkTablePublicId')
 })
 const knownColumns = computed(() => uniqueStrings([...primaryColumns.value, ...rightColumns.value]))
 const crossJoinSelected = computed(() => stringConfig('joinType') === 'cross')
+const effectiveJoinSelectColumns = computed(() => {
+  const configured = stringList(configDraft.value.selectColumns)
+  return configured.length > 0 ? configured : rightColumns.value
+})
 
 watch(selectedNode, (node) => {
   if (syncingLocalChange) {
@@ -198,6 +210,19 @@ function updateConfigOptionalString(key: string, value: string) {
 
 function updateConfigList(key: string, value: string) {
   setConfig({ [key]: parseListInput(value) })
+}
+
+function joinSelectColumnChecked(column: string) {
+  return effectiveJoinSelectColumns.value.includes(column)
+}
+
+function toggleJoinSelectColumn(column: string, checked: boolean) {
+  const current = stringList(configDraft.value.selectColumns)
+  const base = current.length > 0 ? current : rightColumns.value
+  const next = checked
+    ? uniqueStrings([...base, column])
+    : base.filter((item) => item !== column)
+  setConfig({ selectColumns: next })
 }
 
 function sourceKind(right = false) {
@@ -483,6 +508,119 @@ function sourceColumnsFromConfig(config: ConfigRecord, kindKey: string, datasetK
   return datasetOptions.value.find((item) => item.publicId === publicId)?.columns?.map((column) => column.columnName) ?? []
 }
 
+function columnsForNodeOutput(nodeId?: string, visited = new Set<string>()): string[] {
+  if (!nodeId || visited.has(nodeId)) {
+    return []
+  }
+  visited.add(nodeId)
+  const node = props.graph.nodes.find((item) => item.id === nodeId)
+  if (!node) {
+    return []
+  }
+  const config = node.id === props.selectedNodeId ? configDraft.value : asRecord(node.data.config)
+  const upstreamIds = incomingNodeIds(node.id)
+  const upstreamColumns = () => firstAvailableUpstreamColumns(upstreamIds, visited)
+  switch (node.data.stepType) {
+  case 'input':
+    return sourceColumnsFromConfig(config, 'sourceKind', 'datasetPublicId', 'workTablePublicId')
+  case 'schema_mapping':
+    return inferSchemaMappingColumns(config, upstreamColumns())
+  case 'schema_completion':
+    return inferSchemaCompletionColumns(config, upstreamColumns())
+  case 'transform':
+    return inferTransformColumns(config, upstreamColumns())
+  case 'join':
+    return inferJoinColumns(
+      config,
+      columnsForNodeOutput(upstreamIds[0], new Set(visited)),
+      columnsForNodeOutput(upstreamIds[1], new Set(visited)),
+    )
+  case 'enrich_join':
+    return inferJoinColumns(
+      config,
+      upstreamColumns(),
+      sourceColumnsFromConfig(config, 'rightSourceKind', 'rightDatasetPublicId', 'rightWorkTablePublicId'),
+    )
+  default:
+    return upstreamColumns()
+  }
+}
+
+function incomingNodeIds(nodeId: string) {
+  return props.graph.edges
+    .filter((edge) => edge.target === nodeId)
+    .map((edge) => edge.source)
+}
+
+function firstAvailableUpstreamColumns(upstreamIds: string[], visited: Set<string>) {
+  for (const upstreamId of upstreamIds) {
+    const columns = columnsForNodeOutput(upstreamId, new Set(visited))
+    if (columns.length > 0) {
+      return columns
+    }
+  }
+  return []
+}
+
+function inferSchemaMappingColumns(config: ConfigRecord, upstreamColumns: string[]) {
+  const columns = arrayFromConfig(config, 'mappings')
+    .map((mapping) => stringField(mapping, 'targetColumn').trim())
+    .filter(Boolean)
+  return columns.length > 0 ? uniqueStrings(columns) : upstreamColumns
+}
+
+function inferSchemaCompletionColumns(config: ConfigRecord, upstreamColumns: string[]) {
+  const columns = arrayFromConfig(config, 'rules')
+    .map((rule) => stringField(rule, 'targetColumn').trim())
+    .filter(Boolean)
+  return uniqueStrings([...upstreamColumns, ...columns])
+}
+
+function inferTransformColumns(config: ConfigRecord, upstreamColumns: string[]) {
+  const operation = stringValue(config.operation || config.type) || 'select_columns'
+  switch (operation) {
+  case 'select_columns': {
+    const columns = stringList(config.columns)
+    return columns.length > 0 ? uniqueStrings(columns) : upstreamColumns
+  }
+  case 'drop_columns': {
+    const drops = new Set(stringList(config.columns))
+    return upstreamColumns.filter((column) => !drops.has(column))
+  }
+  case 'rename_columns': {
+    const renames = asRecord(config.renames)
+    return upstreamColumns.map((column) => stringValue(renames[column]).trim() || column)
+  }
+  case 'aggregate':
+    return inferAggregateColumns(config)
+  default:
+    return upstreamColumns
+  }
+}
+
+function inferAggregateColumns(config: ConfigRecord) {
+  const columns = [...stringList(config.groupBy)]
+  for (const aggregation of arrayFromConfig(config, 'aggregations')) {
+    const fn = stringField(aggregation, 'function').toLowerCase() || 'count'
+    const column = stringField(aggregation, 'column')
+    const alias = stringField(aggregation, 'alias') || (column ? `${fn}_${column}` : fn)
+    if (alias) {
+      columns.push(alias)
+    }
+  }
+  return columns.length > 0 ? uniqueStrings(columns) : ['count']
+}
+
+function inferJoinColumns(config: ConfigRecord, leftColumns: string[], rightColumns: string[]) {
+  const selectedRightColumns = stringList(config.selectColumns)
+  const rightSelection = selectedRightColumns.length > 0 ? selectedRightColumns : rightColumns
+  const columns = [...leftColumns]
+  for (const column of rightSelection) {
+    columns.push(columns.includes(column) ? `${column}_right` : column)
+  }
+  return uniqueStrings(columns)
+}
+
 function inputConfigForColumns() {
   if (stepType.value === 'input') {
     return configDraft.value
@@ -498,6 +636,14 @@ function graphInputConfigForColumns(nodeId?: string) {
     return node.data.config ?? {}
   }
   return null
+}
+
+function arrayFromConfig(config: ConfigRecord, key: string): ConfigRecord[] {
+  const raw = config[key]
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  return raw.map((item) => asRecord(item))
 }
 
 function sourceOptions(kind: string) {
@@ -998,7 +1144,14 @@ function labelForStep(type: DataPipelineStepType | string) {
               <input :value="listToInput(configDraft.rightKeys)" list="data-pipeline-right-column-options" @input="updateConfigField('rightKeys', parseListInput(targetValue($event)))">
             </label>
           </div>
-          <label class="field">
+          <div v-if="rightColumns.length > 0" class="config-rule">
+            <span>{{ t('dataPipelines.selectColumns') }}</span>
+            <label v-for="column in rightColumns" :key="column" class="checkbox-field">
+              <input :checked="joinSelectColumnChecked(column)" type="checkbox" @change="toggleJoinSelectColumn(column, targetChecked($event))">
+              <span>{{ column }}</span>
+            </label>
+          </div>
+          <label v-else class="field">
             <span>{{ t('dataPipelines.selectColumns') }}</span>
             <input :value="listToInput(configDraft.selectColumns)" list="data-pipeline-right-column-options" @input="updateConfigField('selectColumns', parseListInput(targetValue($event)))">
           </label>

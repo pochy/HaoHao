@@ -215,6 +215,23 @@ func TestDataPipelineCompilerJoinTypes(t *testing.T) {
 	}
 }
 
+func TestDataPipelineCompilerDefaultsJoinSelectColumnsToAllRightColumns(t *testing.T) {
+	relation := compileDataPipelineJoinForTest(t, map[string]any{
+		"joinType":  "inner",
+		"leftKeys":  []any{"customer_id"},
+		"rightKeys": []any{"customer_id"},
+	})
+	if !strings.Contains(relation.SQL, "r.`customer_id` AS `customer_id_right`") {
+		t.Fatalf("expected duplicate right key column to be selected with suffix, got SQL:\n%s", relation.SQL)
+	}
+	if !strings.Contains(relation.SQL, "r.`segment` AS `segment`") {
+		t.Fatalf("expected all right columns to be selected by default, got SQL:\n%s", relation.SQL)
+	}
+	if !containsDataPipelineColumn(relation.Columns, "customer_id_right") || !containsDataPipelineColumn(relation.Columns, "segment") {
+		t.Fatalf("expected output columns to include all right columns, got %#v", relation.Columns)
+	}
+}
+
 func TestDataPipelineCompilerAnyJoinStrictness(t *testing.T) {
 	relation := compileDataPipelineJoinForTest(t, map[string]any{
 		"joinType":       "left",
@@ -319,6 +336,15 @@ func dataPipelineTestGraph() DataPipelineGraph {
 func containsDataPipelineValidationError(errors []string, want string) bool {
 	for _, err := range errors {
 		if strings.Contains(err, want) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsDataPipelineColumn(columns []string, want string) bool {
+	for _, column := range columns {
+		if column == want {
 			return true
 		}
 	}

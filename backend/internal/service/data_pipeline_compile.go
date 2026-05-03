@@ -482,6 +482,9 @@ func (c *dataPipelineCompiler) compileJoinRelation(node DataPipelineNode, upstre
 		}
 	}
 	selectColumns := dataPipelineStringSlice(config, "selectColumns")
+	if len(selectColumns) == 0 {
+		selectColumns = append([]string(nil), rightColumns...)
+	}
 	columns := append([]string(nil), upstream.Columns...)
 	selects := []string{"  l.*"}
 	for _, column := range selectColumns {
