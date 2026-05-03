@@ -89,12 +89,13 @@ const paletteGroups = computed(() => {
       ...node,
       category: stepCategory[node.type],
       descriptionKey: `dataPipelines.stepDescriptions.${node.type}`,
+      detailKey: `dataPipelines.stepDetails.${node.type}`,
     }))
     .filter((node) => {
       if (!query) {
         return true
       }
-      return `${t(node.labelKey)} ${t(node.descriptionKey)}`.toLowerCase().includes(query)
+      return `${t(node.labelKey)} ${t(node.descriptionKey)} ${t(node.detailKey)}`.toLowerCase().includes(query)
     })
 
   return paletteCategories
@@ -519,6 +520,9 @@ defineExpose({ addNode })
               >
                 <strong>{{ t(node.labelKey) }}</strong>
                 <span>{{ t(node.descriptionKey) }}</span>
+                <span class="data-pipeline-palette-hover-card" role="tooltip">
+                  {{ t(node.detailKey) }}
+                </span>
               </button>
             </div>
           </div>

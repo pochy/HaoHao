@@ -1795,6 +1795,7 @@ code {
 }
 
 .data-pipeline-palette-card {
+  position: relative;
   display: grid;
   align-content: start;
   gap: 10px;
@@ -1821,8 +1822,39 @@ code {
 }
 
 .data-pipeline-palette-card:hover {
+  z-index: 3;
   border-color: rgba(37, 99, 235, 0.32);
   background: #eff6ff;
+}
+
+.data-pipeline-palette-card:focus-visible {
+  z-index: 3;
+}
+
+.data-pipeline-palette-hover-card {
+  position: absolute;
+  top: calc(100% - 8px);
+  right: 12px;
+  z-index: 4;
+  width: min(320px, calc(100vw - 56px));
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--panel-strong);
+  box-shadow: var(--shadow-md);
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.5;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+}
+
+.data-pipeline-palette-card:hover .data-pipeline-palette-hover-card,
+.data-pipeline-palette-card:focus-visible .data-pipeline-palette-hover-card {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .data-pipeline-palette-card:focus-visible,
