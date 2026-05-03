@@ -16,6 +16,17 @@ export type DataPipelineStepType =
   | 'extract_fields'
   | 'extract_table'
   | 'confidence_gate'
+  | 'deduplicate'
+  | 'canonicalize'
+  | 'redact_pii'
+  | 'detect_language_encoding'
+  | 'schema_inference'
+  | 'entity_resolution'
+  | 'unit_conversion'
+  | 'relationship_extraction'
+  | 'human_review'
+  | 'sample_compare'
+  | 'quality_report'
 
 export type DataPipelineGraph = {
   nodes: DataPipelineNode[]
@@ -206,6 +217,17 @@ const manualPreviewStepTypes = new Set([
   'extract_fields',
   'extract_table',
   'confidence_gate',
+  'deduplicate',
+  'canonicalize',
+  'redact_pii',
+  'detect_language_encoding',
+  'schema_inference',
+  'entity_resolution',
+  'unit_conversion',
+  'relationship_extraction',
+  'human_review',
+  'sample_compare',
+  'quality_report',
   'llm_enrichment',
   'api_enrichment',
   'external_enrichment',

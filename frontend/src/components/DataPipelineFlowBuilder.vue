@@ -58,6 +58,17 @@ const stepOrder: Record<DataPipelineStepType, number> = {
   classify_document: 14,
   extract_fields: 16,
   extract_table: 18,
+  detect_language_encoding: 19,
+  canonicalize: 22,
+  redact_pii: 24,
+  deduplicate: 26,
+  schema_inference: 62,
+  entity_resolution: 72,
+  unit_conversion: 74,
+  relationship_extraction: 76,
+  human_review: 92,
+  sample_compare: 94,
+  quality_report: 96,
   confidence_gate: 90,
   output: 1000,
 }
@@ -77,6 +88,17 @@ const stepCategory: Record<DataPipelineStepType, PaletteCategory> = {
   extract_fields: 'extraction',
   extract_table: 'extraction',
   confidence_gate: 'quality',
+  deduplicate: 'quality',
+  canonicalize: 'quality',
+  redact_pii: 'quality',
+  detect_language_encoding: 'quality',
+  schema_inference: 'schema',
+  entity_resolution: 'transform',
+  unit_conversion: 'transform',
+  relationship_extraction: 'transform',
+  human_review: 'quality',
+  sample_compare: 'quality',
+  quality_report: 'quality',
   clean: 'quality',
   normalize: 'quality',
   validate: 'quality',
@@ -426,6 +448,28 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
     return { source: 'text_delimited', delimiter: ',', headerRow: false }
   case 'confidence_gate':
     return { threshold: 0.8, mode: 'annotate', statusColumn: 'gate_status' }
+  case 'deduplicate':
+    return { keyColumns: [], mode: 'annotate', statusColumn: 'duplicate_status', groupColumn: 'duplicate_group_id' }
+  case 'canonicalize':
+    return { rules: [{ column: '', outputColumn: '', operations: ['trim', 'normalize_spaces'], mappings: {} }] }
+  case 'redact_pii':
+    return { columns: ['text'], types: ['email', 'phone', 'postal_code', 'api_key_like'], mode: 'mask', outputSuffix: '_redacted' }
+  case 'detect_language_encoding':
+    return { textColumn: 'text', outputTextColumn: 'normalized_text', languageColumn: 'language', mojibakeScoreColumn: 'mojibake_score' }
+  case 'schema_inference':
+    return { columns: [], sampleLimit: 1000 }
+  case 'entity_resolution':
+    return { column: 'vendor', outputPrefix: 'vendor', dictionary: [] }
+  case 'unit_conversion':
+    return { rules: [{ valueColumn: '', unitColumn: '', outputUnit: '', conversions: [] }] }
+  case 'relationship_extraction':
+    return { textColumn: 'text', patterns: [{ relationType: 'related_to', pattern: '' }] }
+  case 'human_review':
+    return { reasonColumns: ['gate_status'], statusColumn: 'review_status', queueColumn: 'review_queue', mode: 'annotate' }
+  case 'sample_compare':
+    return { pairs: [{ field: '', beforeColumn: '', afterColumn: '' }] }
+  case 'quality_report':
+    return { columns: [], outputMode: 'row_summary' }
   case 'clean':
     return { rules: [{ operation: 'drop_null_rows', columns: [] }] }
   case 'normalize':

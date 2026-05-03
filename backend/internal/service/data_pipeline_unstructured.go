@@ -2,11 +2,15 @@ package service
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"example.com/haohao/backend/internal/db"
 
@@ -47,7 +51,18 @@ func dataPipelineUnstructuredStep(stepType string) bool {
 		DataPipelineStepClassifyDocument,
 		DataPipelineStepExtractFields,
 		DataPipelineStepExtractTable,
-		DataPipelineStepConfidenceGate:
+		DataPipelineStepConfidenceGate,
+		DataPipelineStepDeduplicate,
+		DataPipelineStepCanonicalize,
+		DataPipelineStepRedactPII,
+		DataPipelineStepDetectLanguage,
+		DataPipelineStepSchemaInference,
+		DataPipelineStepEntityResolution,
+		DataPipelineStepUnitConversion,
+		DataPipelineStepRelationship,
+		DataPipelineStepHumanReview,
+		DataPipelineStepSampleCompare,
+		DataPipelineStepQualityReport:
 		return true
 	default:
 		return false
@@ -274,6 +289,72 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 			return dataPipelineMaterializedRelation{}, err
 		}
 		return s.materializeConfidenceGate(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepDeduplicate:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeDeduplicate(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepCanonicalize:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeCanonicalize(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepRedactPII:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeRedactPII(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepDetectLanguage:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeDetectLanguage(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepSchemaInference:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeSchemaInference(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepEntityResolution:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeEntityResolution(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepUnitConversion:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeUnitConversion(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepRelationship:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeRelationshipExtraction(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepHumanReview:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeHumanReview(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepSampleCompare:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeSampleCompare(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepQualityReport:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeQualityReport(ctx, conn, database, table, node, upstream)
 	}
 
 	sqlRelations := make(map[string]dataPipelineRelation, len(relations))
@@ -592,6 +673,415 @@ func (s *DataPipelineService) materializeConfidenceGate(ctx context.Context, con
 	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
 }
 
+func (s *DataPipelineService) materializeDeduplicate(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	keyColumns := dataPipelineStringSlice(node.Data.Config, "keyColumns")
+	if len(keyColumns) == 0 {
+		keyColumns = append(keyColumns, firstNonEmpty(dataPipelineString(node.Data.Config, "keyColumn"), "file_public_id"))
+	}
+	for _, column := range keyColumns {
+		if err := dataPipelineRequireColumn(upstream.Columns, column); err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+	}
+	groupCol := firstNonEmpty(dataPipelineString(node.Data.Config, "groupColumn"), "duplicate_group_id")
+	statusCol := firstNonEmpty(dataPipelineString(node.Data.Config, "statusColumn"), "duplicate_status")
+	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), groupCol, statusCol, "survivor_flag", "match_reason"))
+	seen := map[string]int{}
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		key := dataPipelineCompositeKey(row, keyColumns)
+		seen[key]++
+		next := cloneRow(row)
+		next[groupCol] = "dup_" + shortHash(key)
+		if seen[key] == 1 {
+			next[statusCol] = "unique"
+			next["survivor_flag"] = "true"
+		} else {
+			next[statusCol] = "duplicate"
+			next["survivor_flag"] = "false"
+		}
+		next["match_reason"] = "key_columns:" + strings.Join(keyColumns, ",")
+		if dataPipelineString(node.Data.Config, "mode") != "keep_first" || seen[key] == 1 {
+			out = append(out, next)
+		}
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
+func (s *DataPipelineService) materializeCanonicalize(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	rules := dataPipelineConfigObjects(node.Data.Config, "rules")
+	columns := append([]string{}, upstream.Columns...)
+	out := make([]map[string]any, 0, len(rows))
+	for _, rule := range rules {
+		column := dataPipelineString(rule, "column")
+		if err := dataPipelineRequireColumn(upstream.Columns, column); err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		outputColumn := firstNonEmpty(dataPipelineString(rule, "outputColumn"), column)
+		if err := dataPipelineValidateIdentifier(outputColumn); err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		columns = append(columns, outputColumn)
+	}
+	columns = uniqueStringList(append(columns, "canonicalization_json"))
+	for _, row := range rows {
+		next := cloneRow(row)
+		evidence := make([]map[string]any, 0, len(rules))
+		for _, rule := range rules {
+			column := dataPipelineString(rule, "column")
+			outputColumn := firstNonEmpty(dataPipelineString(rule, "outputColumn"), column)
+			original := fmt.Sprint(row[column])
+			value := canonicalizeValue(original, dataPipelineStringSlice(rule, "operations"), dataPipelineStringMap(rule, "mappings"))
+			next[outputColumn] = value
+			evidence = append(evidence, map[string]any{"column": column, "outputColumn": outputColumn, "originalValue": original, "canonicalValue": value})
+		}
+		next["canonicalization_json"] = jsonString(evidence)
+		out = append(out, next)
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
+func (s *DataPipelineService) materializeRedactPII(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	targetColumns := dataPipelineStringSlice(node.Data.Config, "columns")
+	if len(targetColumns) == 0 && dataPipelineHasColumn(upstream.Columns, "text") {
+		targetColumns = []string{"text"}
+	}
+	for _, column := range targetColumns {
+		if err := dataPipelineRequireColumn(upstream.Columns, column); err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+	}
+	suffix := firstNonEmpty(dataPipelineString(node.Data.Config, "outputSuffix"), "_redacted")
+	columns := append([]string{}, upstream.Columns...)
+	for _, column := range targetColumns {
+		columns = append(columns, column+suffix)
+	}
+	columns = uniqueStringList(append(columns, "pii_detected", "pii_types_json"))
+	types := dataPipelineStringSlice(node.Data.Config, "types")
+	if len(types) == 0 {
+		types = []string{"email", "phone", "postal_code", "api_key_like", "credit_card_like"}
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		next := cloneRow(row)
+		allTypes := map[string]struct{}{}
+		for _, column := range targetColumns {
+			value, matched := redactPII(fmt.Sprint(row[column]), types, dataPipelineString(node.Data.Config, "mode"))
+			next[column+suffix] = value
+			for _, item := range matched {
+				allTypes[item] = struct{}{}
+			}
+		}
+		matchedTypes := keysOfSet(allTypes)
+		next["pii_detected"] = strconv.FormatBool(len(matchedTypes) > 0)
+		next["pii_types_json"] = jsonString(matchedTypes)
+		out = append(out, next)
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
+func (s *DataPipelineService) materializeDetectLanguage(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	textCol := firstNonEmpty(dataPipelineString(node.Data.Config, "textColumn"), "text")
+	if err := dataPipelineRequireColumn(upstream.Columns, textCol); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	outputTextCol := firstNonEmpty(dataPipelineString(node.Data.Config, "outputTextColumn"), "normalized_text")
+	languageCol := firstNonEmpty(dataPipelineString(node.Data.Config, "languageColumn"), "language")
+	mojibakeCol := firstNonEmpty(dataPipelineString(node.Data.Config, "mojibakeScoreColumn"), "mojibake_score")
+	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), languageCol, "encoding", outputTextCol, mojibakeCol, "fixes_applied_json"))
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		next := cloneRow(row)
+		normalized, fixes := normalizeTextForPipeline(fmt.Sprint(row[textCol]))
+		next[languageCol] = detectBasicLanguage(normalized)
+		next["encoding"] = "utf-8"
+		next[outputTextCol] = normalized
+		next[mojibakeCol] = fmt.Sprintf("%.4f", mojibakeScore(normalized))
+		next["fixes_applied_json"] = jsonString(fixes)
+		out = append(out, next)
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
+func (s *DataPipelineService) materializeSchemaInference(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, int32(dataPipelineFloat(node.Data.Config, "sampleLimit", 1000)))
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	targetColumns := dataPipelineStringSlice(node.Data.Config, "columns")
+	if len(targetColumns) == 0 {
+		targetColumns = append([]string{}, upstream.Columns...)
+	}
+	for _, column := range targetColumns {
+		if err := dataPipelineRequireColumn(upstream.Columns, column); err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+	}
+	fields := make([]map[string]any, 0, len(targetColumns))
+	for _, column := range targetColumns {
+		fields = append(fields, inferSchemaField(column, rows))
+	}
+	schema := map[string]any{"fields": fields, "sampleRows": len(rows)}
+	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), "schema_inference_json", "schema_field_count", "schema_confidence"))
+	out := make([]map[string]any, 0, max(1, len(rows)))
+	if len(rows) == 0 {
+		out = append(out, map[string]any{"schema_inference_json": jsonString(schema), "schema_field_count": strconv.Itoa(len(fields)), "schema_confidence": "0.0000"})
+	} else {
+		for _, row := range rows {
+			next := cloneRow(row)
+			next["schema_inference_json"] = jsonString(schema)
+			next["schema_field_count"] = strconv.Itoa(len(fields))
+			next["schema_confidence"] = "0.7500"
+			out = append(out, next)
+		}
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
+func (s *DataPipelineService) materializeEntityResolution(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	column := firstNonEmpty(dataPipelineString(node.Data.Config, "column"), "vendor")
+	if err := dataPipelineRequireColumn(upstream.Columns, column); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	prefix := firstNonEmpty(dataPipelineString(node.Data.Config, "outputPrefix"), column)
+	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), prefix+"_entity_id", prefix+"_match_score", prefix+"_match_method", prefix+"_candidates_json"))
+	dictionary := dataPipelineConfigObjects(node.Data.Config, "dictionary")
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		next := cloneRow(row)
+		match := resolveEntity(fmt.Sprint(row[column]), dictionary)
+		next[prefix+"_entity_id"] = fmt.Sprint(match["entity_id"])
+		next[prefix+"_match_score"] = fmt.Sprint(match["match_score"])
+		next[prefix+"_match_method"] = fmt.Sprint(match["match_method"])
+		next[prefix+"_candidates_json"] = jsonString(match["candidates"])
+		out = append(out, next)
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
+func (s *DataPipelineService) materializeUnitConversion(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	rules := dataPipelineConfigObjects(node.Data.Config, "rules")
+	columns := append([]string{}, upstream.Columns...)
+	for _, rule := range rules {
+		valueCol := dataPipelineString(rule, "valueColumn")
+		if err := dataPipelineRequireColumn(upstream.Columns, valueCol); err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		unitCol := dataPipelineString(rule, "unitColumn")
+		if unitCol != "" {
+			if err := dataPipelineRequireColumn(upstream.Columns, unitCol); err != nil {
+				return dataPipelineMaterializedRelation{}, err
+			}
+		}
+		columns = append(columns, firstNonEmpty(dataPipelineString(rule, "outputValueColumn"), valueCol+"_normalized"), firstNonEmpty(dataPipelineString(rule, "outputUnitColumn"), valueCol+"_unit"))
+	}
+	columns = uniqueStringList(append(columns, "conversion_context_json"))
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		next := cloneRow(row)
+		contextItems := make([]map[string]any, 0, len(rules))
+		for _, rule := range rules {
+			valueCol := dataPipelineString(rule, "valueColumn")
+			unitCol := dataPipelineString(rule, "unitColumn")
+			inputUnit := firstNonEmpty(dataPipelineString(rule, "inputUnit"), fmt.Sprint(row[unitCol]))
+			outputUnit := dataPipelineString(rule, "outputUnit")
+			rate := conversionRate(inputUnit, outputUnit, dataPipelineConfigObjects(rule, "conversions"))
+			outputValueCol := firstNonEmpty(dataPipelineString(rule, "outputValueColumn"), valueCol+"_normalized")
+			outputUnitCol := firstNonEmpty(dataPipelineString(rule, "outputUnitColumn"), valueCol+"_unit")
+			value := parseFloatString(fmt.Sprint(row[valueCol]))
+			next[outputValueCol] = strconv.FormatFloat(value*rate, 'f', -1, 64)
+			next[outputUnitCol] = outputUnit
+			contextItems = append(contextItems, map[string]any{"valueColumn": valueCol, "inputUnit": inputUnit, "outputUnit": outputUnit, "rate": rate})
+		}
+		next["conversion_context_json"] = jsonString(contextItems)
+		out = append(out, next)
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
+func (s *DataPipelineService) materializeRelationshipExtraction(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	textCol := firstNonEmpty(dataPipelineString(node.Data.Config, "textColumn"), "text")
+	if err := dataPipelineRequireColumn(upstream.Columns, textCol); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	patterns := dataPipelineConfigObjects(node.Data.Config, "patterns")
+	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), "relationships_json", "relationship_count"))
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		next := cloneRow(row)
+		relationships := extractRelationships(fmt.Sprint(row[textCol]), patterns)
+		next["relationships_json"] = jsonString(relationships)
+		next["relationship_count"] = strconv.Itoa(len(relationships))
+		out = append(out, next)
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
+func (s *DataPipelineService) materializeHumanReview(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	reasonColumns := dataPipelineStringSlice(node.Data.Config, "reasonColumns")
+	for _, column := range reasonColumns {
+		if err := dataPipelineRequireColumn(upstream.Columns, column); err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+	}
+	statusCol := firstNonEmpty(dataPipelineString(node.Data.Config, "statusColumn"), "review_status")
+	queueCol := firstNonEmpty(dataPipelineString(node.Data.Config, "queueColumn"), "review_queue")
+	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), statusCol, queueCol, "review_reason_json"))
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		next := cloneRow(row)
+		reasons := reviewReasons(row, reasonColumns)
+		status := "not_required"
+		if len(reasons) > 0 {
+			status = "needs_review"
+		}
+		next[statusCol] = status
+		next[queueCol] = firstNonEmpty(dataPipelineString(node.Data.Config, "queue"), "default")
+		next["review_reason_json"] = jsonString(reasons)
+		if dataPipelineString(node.Data.Config, "mode") != "filter_review" || status == "needs_review" {
+			out = append(out, next)
+		}
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
+func (s *DataPipelineService) materializeSampleCompare(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	pairs := dataPipelineConfigObjects(node.Data.Config, "pairs")
+	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), "diff_json", "changed_fields", "changed_field_count"))
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		next := cloneRow(row)
+		diffs := make([]map[string]any, 0)
+		changed := make([]string, 0)
+		for _, pair := range pairs {
+			beforeCol := dataPipelineString(pair, "beforeColumn")
+			afterCol := dataPipelineString(pair, "afterColumn")
+			if err := dataPipelineRequireColumn(upstream.Columns, beforeCol); err != nil {
+				return dataPipelineMaterializedRelation{}, err
+			}
+			if err := dataPipelineRequireColumn(upstream.Columns, afterCol); err != nil {
+				return dataPipelineMaterializedRelation{}, err
+			}
+			beforeValue := fmt.Sprint(row[beforeCol])
+			afterValue := fmt.Sprint(row[afterCol])
+			if beforeValue != afterValue {
+				field := firstNonEmpty(dataPipelineString(pair, "field"), afterCol)
+				changed = append(changed, field)
+				diffs = append(diffs, map[string]any{"field": field, "before": beforeValue, "after": afterValue})
+			}
+		}
+		next["diff_json"] = jsonString(diffs)
+		next["changed_fields"] = strings.Join(changed, ",")
+		next["changed_field_count"] = strconv.Itoa(len(changed))
+		out = append(out, next)
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
+func (s *DataPipelineService) materializeQualityReport(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	targetColumns := dataPipelineStringSlice(node.Data.Config, "columns")
+	if len(targetColumns) == 0 {
+		targetColumns = append([]string{}, upstream.Columns...)
+	}
+	for _, column := range targetColumns {
+		if err := dataPipelineRequireColumn(upstream.Columns, column); err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+	}
+	report := qualityReport(rows, targetColumns)
+	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), "quality_report_json", "missing_rate_json", "validation_summary_json"))
+	out := make([]map[string]any, 0, max(1, len(rows)))
+	if dataPipelineString(node.Data.Config, "outputMode") == "dataset_summary" {
+		out = append(out, map[string]any{
+			"quality_report_json":     jsonString(report),
+			"missing_rate_json":       jsonString(report["missing_rate"]),
+			"validation_summary_json": jsonString(report["summary"]),
+		})
+	} else {
+		for _, row := range rows {
+			next := cloneRow(row)
+			next["quality_report_json"] = jsonString(report)
+			next["missing_rate_json"] = jsonString(report["missing_rate"])
+			next["validation_summary_json"] = jsonString(report["summary"])
+			out = append(out, next)
+		}
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
 func createHybridStringTable(ctx context.Context, conn driver.Conn, database, table string, columns []string, rows []map[string]any) error {
 	defs := make([]string, 0, len(columns))
 	for _, column := range columns {
@@ -761,6 +1251,328 @@ func coerceFieldValue(value, fieldType string) string {
 		}
 	}
 	return value
+}
+
+func dataPipelineCompositeKey(row map[string]any, columns []string) string {
+	parts := make([]string, 0, len(columns))
+	for _, column := range columns {
+		parts = append(parts, strings.TrimSpace(fmt.Sprint(row[column])))
+	}
+	return strings.Join(parts, "\x1f")
+}
+
+func shortHash(value string) string {
+	sum := sha1.Sum([]byte(value))
+	return hex.EncodeToString(sum[:])[:12]
+}
+
+func canonicalizeValue(value string, operations []string, mappings map[string]string) string {
+	out := value
+	for _, operation := range operations {
+		switch operation {
+		case "trim":
+			out = strings.TrimSpace(out)
+		case "lowercase":
+			out = strings.ToLower(out)
+		case "uppercase":
+			out = strings.ToUpper(out)
+		case "normalize_spaces":
+			out = strings.Join(strings.Fields(out), " ")
+		case "remove_symbols":
+			out = strings.Map(func(r rune) rune {
+				if unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsSpace(r) {
+					return r
+				}
+				return -1
+			}, out)
+		case "zenkaku_to_hankaku_basic":
+			out = zenkakuToHankakuBasic(out)
+		}
+	}
+	if mapped, ok := mappings[out]; ok {
+		return mapped
+	}
+	return out
+}
+
+func zenkakuToHankakuBasic(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= '！' && r <= '～' {
+			return r - 0xFEE0
+		}
+		if r == '　' {
+			return ' '
+		}
+		return r
+	}, value)
+}
+
+func dataPipelineStringMap(record map[string]any, key string) map[string]string {
+	raw, ok := record[key]
+	if !ok || raw == nil {
+		return nil
+	}
+	out := map[string]string{}
+	if typed, ok := raw.(map[string]any); ok {
+		for k, v := range typed {
+			out[k] = fmt.Sprint(v)
+		}
+	}
+	return out
+}
+
+func redactPII(value string, types []string, mode string) (string, []string) {
+	out := value
+	matched := make([]string, 0)
+	patterns := map[string]*regexp.Regexp{
+		"email":            regexp.MustCompile(`[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}`),
+		"phone":            regexp.MustCompile(`(?:\+?\d[\d\s\-()]{7,}\d)`),
+		"postal_code":      regexp.MustCompile(`\b\d{3}-?\d{4}\b`),
+		"api_key_like":     regexp.MustCompile(`(?i)\b(?:api[_-]?key|secret|token)[=:]\s*[A-Za-z0-9_\-]{8,}\b`),
+		"credit_card_like": regexp.MustCompile(`\b(?:\d[ -]*?){13,19}\b`),
+	}
+	for _, piiType := range types {
+		re := patterns[piiType]
+		if re == nil || !re.MatchString(out) {
+			continue
+		}
+		matched = append(matched, piiType)
+		replacement := "[REDACTED:" + piiType + "]"
+		if mode == "remove" {
+			replacement = ""
+		}
+		out = re.ReplaceAllString(out, replacement)
+	}
+	return out, matched
+}
+
+func keysOfSet(values map[string]struct{}) []string {
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func normalizeTextForPipeline(value string) (string, []string) {
+	fixes := make([]string, 0)
+	out := strings.ReplaceAll(value, "\r\n", "\n")
+	if out != value {
+		fixes = append(fixes, "normalize_crlf")
+	}
+	trimmedLines := make([]string, 0)
+	for _, line := range strings.Split(out, "\n") {
+		trimmedLines = append(trimmedLines, strings.TrimRightFunc(line, unicode.IsSpace))
+	}
+	normalized := strings.Join(trimmedLines, "\n")
+	if normalized != out {
+		fixes = append(fixes, "trim_line_trailing_space")
+	}
+	return normalized, fixes
+}
+
+func detectBasicLanguage(value string) string {
+	japanese := 0
+	latin := 0
+	for _, r := range value {
+		switch {
+		case unicode.In(r, unicode.Hiragana, unicode.Katakana, unicode.Han):
+			japanese++
+		case r <= unicode.MaxASCII && unicode.IsLetter(r):
+			latin++
+		}
+	}
+	if japanese > 0 && japanese >= latin/2 {
+		return "ja"
+	}
+	if latin > 0 {
+		return "en"
+	}
+	return "unknown"
+}
+
+func mojibakeScore(value string) float64 {
+	if value == "" {
+		return 0
+	}
+	suspicious := strings.Count(value, "�") + strings.Count(value, "Ã") + strings.Count(value, "ã")
+	return float64(suspicious) / float64(max(1, len([]rune(value))))
+}
+
+func inferSchemaField(column string, rows []map[string]any) map[string]any {
+	nonEmpty := 0
+	counts := map[string]int{"number": 0, "date": 0, "boolean": 0}
+	values := map[string]struct{}{}
+	for _, row := range rows {
+		value := strings.TrimSpace(fmt.Sprint(row[column]))
+		if value == "" {
+			continue
+		}
+		nonEmpty++
+		if len(values) < 20 {
+			values[value] = struct{}{}
+		}
+		if _, err := strconv.ParseFloat(strings.ReplaceAll(value, ",", ""), 64); err == nil {
+			counts["number"]++
+		}
+		if _, ok := parseDateLike(value); ok {
+			counts["date"]++
+		}
+		if isBoolLike(value) {
+			counts["boolean"]++
+		}
+	}
+	inferredType := "string"
+	if nonEmpty > 0 {
+		for _, candidate := range []string{"number", "date", "boolean"} {
+			if counts[candidate] == nonEmpty {
+				inferredType = candidate
+				break
+			}
+		}
+	}
+	return map[string]any{
+		"name":       column,
+		"type":       inferredType,
+		"required":   nonEmpty == len(rows) && len(rows) > 0,
+		"missing":    len(rows) - nonEmpty,
+		"enumValues": keysOfSet(values),
+	}
+}
+
+func parseDateLike(value string) (string, bool) {
+	for _, pattern := range []string{`^\d{4}-\d{1,2}-\d{1,2}$`, `^\d{4}/\d{1,2}/\d{1,2}$`} {
+		if regexp.MustCompile(pattern).MatchString(value) {
+			return value, true
+		}
+	}
+	return "", false
+}
+
+func isBoolLike(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "false", "yes", "no", "1", "0":
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveEntity(value string, dictionary []map[string]any) map[string]any {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	candidates := make([]map[string]any, 0)
+	best := map[string]any{"entity_id": "", "match_score": "0.0000", "match_method": "none", "candidates": candidates}
+	for _, item := range dictionary {
+		id := dataPipelineString(item, "entityId")
+		if id == "" {
+			id = dataPipelineString(item, "id")
+		}
+		name := strings.ToLower(strings.TrimSpace(firstNonEmpty(dataPipelineString(item, "name"), dataPipelineString(item, "canonicalValue"))))
+		aliases := append([]string{name}, dataPipelineStringSlice(item, "aliases")...)
+		for _, alias := range aliases {
+			alias = strings.ToLower(strings.TrimSpace(alias))
+			score := 0.0
+			method := "none"
+			if alias != "" && normalized == alias {
+				score = 1
+				method = "exact"
+			} else if alias != "" && (strings.Contains(normalized, alias) || strings.Contains(alias, normalized)) {
+				score = 0.75
+				method = "contains"
+			}
+			if score > 0 {
+				candidates = append(candidates, map[string]any{"entityId": id, "name": name, "score": score, "method": method})
+			}
+			if score > parseFloatString(fmt.Sprint(best["match_score"])) {
+				best["entity_id"] = id
+				best["match_score"] = fmt.Sprintf("%.4f", score)
+				best["match_method"] = method
+			}
+		}
+	}
+	best["candidates"] = candidates
+	return best
+}
+
+func conversionRate(inputUnit, outputUnit string, conversions []map[string]any) float64 {
+	if strings.EqualFold(inputUnit, outputUnit) || outputUnit == "" {
+		return 1
+	}
+	for _, conversion := range conversions {
+		if strings.EqualFold(dataPipelineString(conversion, "from"), inputUnit) && strings.EqualFold(dataPipelineString(conversion, "to"), outputUnit) {
+			return dataPipelineFloat(conversion, "rate", 1)
+		}
+	}
+	return 1
+}
+
+func parseFloatString(value string) float64 {
+	parsed, _ := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(value), ",", ""), 64)
+	return parsed
+}
+
+func extractRelationships(text string, patterns []map[string]any) []map[string]any {
+	out := make([]map[string]any, 0)
+	for _, pattern := range patterns {
+		reText := dataPipelineString(pattern, "pattern")
+		if reText == "" {
+			continue
+		}
+		re, err := regexp.Compile(reText)
+		if err != nil {
+			continue
+		}
+		for _, match := range re.FindAllStringSubmatch(text, -1) {
+			source := ""
+			target := ""
+			if len(match) > 1 {
+				source = strings.TrimSpace(match[1])
+			}
+			if len(match) > 2 {
+				target = strings.TrimSpace(match[2])
+			}
+			out = append(out, map[string]any{
+				"relation_type": firstNonEmpty(dataPipelineString(pattern, "relationType"), "related_to"),
+				"source":        source,
+				"target":        target,
+				"source_text":   match[0],
+				"confidence":    0.7,
+			})
+		}
+	}
+	return out
+}
+
+func reviewReasons(row map[string]any, columns []string) []map[string]any {
+	out := make([]map[string]any, 0)
+	for _, column := range columns {
+		value := strings.TrimSpace(fmt.Sprint(row[column]))
+		if value == "" || strings.EqualFold(value, "needs_review") || strings.EqualFold(value, "false") || value == "0" {
+			out = append(out, map[string]any{"column": column, "value": value})
+		}
+	}
+	return out
+}
+
+func qualityReport(rows []map[string]any, columns []string) map[string]any {
+	missing := map[string]float64{}
+	for _, column := range columns {
+		empty := 0
+		for _, row := range rows {
+			if strings.TrimSpace(fmt.Sprint(row[column])) == "" {
+				empty++
+			}
+		}
+		missing[column] = float64(empty) / float64(max(1, len(rows)))
+	}
+	return map[string]any{
+		"summary": map[string]any{
+			"row_count":    len(rows),
+			"column_count": len(columns),
+		},
+		"missing_rate": missing,
+	}
 }
 
 func uniqueStringList(values []string) []string {

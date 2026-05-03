@@ -24,6 +24,17 @@ const (
 	DataPipelineStepExtractFields    = "extract_fields"
 	DataPipelineStepExtractTable     = "extract_table"
 	DataPipelineStepConfidenceGate   = "confidence_gate"
+	DataPipelineStepDeduplicate      = "deduplicate"
+	DataPipelineStepCanonicalize     = "canonicalize"
+	DataPipelineStepRedactPII        = "redact_pii"
+	DataPipelineStepDetectLanguage   = "detect_language_encoding"
+	DataPipelineStepSchemaInference  = "schema_inference"
+	DataPipelineStepEntityResolution = "entity_resolution"
+	DataPipelineStepUnitConversion   = "unit_conversion"
+	DataPipelineStepRelationship     = "relationship_extraction"
+	DataPipelineStepHumanReview      = "human_review"
+	DataPipelineStepSampleCompare    = "sample_compare"
+	DataPipelineStepQualityReport    = "quality_report"
 
 	dataPipelineMaxNodes = 50
 	dataPipelineMaxEdges = 80
@@ -45,6 +56,17 @@ var dataPipelineStepCatalog = map[string]struct{}{
 	DataPipelineStepExtractFields:    {},
 	DataPipelineStepExtractTable:     {},
 	DataPipelineStepConfidenceGate:   {},
+	DataPipelineStepDeduplicate:      {},
+	DataPipelineStepCanonicalize:     {},
+	DataPipelineStepRedactPII:        {},
+	DataPipelineStepDetectLanguage:   {},
+	DataPipelineStepSchemaInference:  {},
+	DataPipelineStepEntityResolution: {},
+	DataPipelineStepUnitConversion:   {},
+	DataPipelineStepRelationship:     {},
+	DataPipelineStepHumanReview:      {},
+	DataPipelineStepSampleCompare:    {},
+	DataPipelineStepQualityReport:    {},
 }
 
 type DataPipelineGraph struct {
