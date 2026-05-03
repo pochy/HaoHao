@@ -33,6 +33,16 @@ const settingsScheduleRunTime = ref('03:00')
 const settingsScheduleWeekday = ref<number | null>(1)
 const settingsScheduleMonthDay = ref<number | null>(1)
 const settingsError = ref('')
+const dataPipelineMainRef = ref<HTMLElement | null>(null)
+const previewPanelDefaultHeight = 400
+const previewPanelMinHeight = 150
+const previewEditorMinHeight = 220
+const previewResizeHandleHeight = 10
+const previewPanelHeight = ref(previewPanelDefaultHeight)
+const previewPanelMaxHeight = ref(previewPanelDefaultHeight)
+const resizingPreviewPanel = ref(false)
+let previewResizeStartY = 0
+let previewResizeStartHeight = previewPanelDefaultHeight
 let refreshTimer: number | undefined
 
 const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
@@ -75,6 +85,10 @@ const previewDisabledReason = computed(() => {
   return ''
 })
 const runDisabledReason = computed(() => (selectedPipeline.value ? '' : t('dataPipelines.createOrSelectFirst')))
+const dataPipelineMainStyle = computed(() => ({
+  '--data-pipeline-preview-height': `${previewPanelHeight.value}px`,
+}))
+const previewPanelAriaMax = computed(() => Math.max(previewPanelHeight.value, previewPanelMaxHeight.value))
 const autoPreviewDelayMs = 350
 let autoPreviewTimer: number | undefined
 
@@ -87,6 +101,9 @@ onMounted(async () => {
       await store.refreshRuns().catch(() => undefined)
     }
   }, 4000)
+  await nextTick()
+  updatePreviewPanelBounds()
+  window.addEventListener('resize', updatePreviewPanelBounds)
 })
 
 onBeforeUnmount(() => {
@@ -99,6 +116,8 @@ onBeforeUnmount(() => {
   if (settingsDialogRef.value?.open) {
     settingsDialogRef.value.close()
   }
+  window.removeEventListener('resize', updatePreviewPanelBounds)
+  clearPreviewResizeListeners()
 })
 
 watch(
@@ -112,6 +131,7 @@ watch(
 watch(selectedPipeline, (pipeline) => {
   editName.value = pipeline?.name ?? ''
   editDescription.value = pipeline?.description ?? ''
+  void nextTick(() => updatePreviewPanelBounds())
 }, { immediate: true })
 
 watch(
@@ -160,6 +180,81 @@ function updateGraph(graph: DataPipelineGraph) {
 
 function selectNode(nodeId: string) {
   store.selectedNodeId = nodeId
+}
+
+function updatePreviewPanelBounds() {
+  previewPanelMaxHeight.value = calculatePreviewPanelMaxHeight()
+}
+
+function calculatePreviewPanelMaxHeight() {
+  const main = dataPipelineMainRef.value
+  if (!main) {
+    return previewPanelDefaultHeight
+  }
+  const mainHeight = main.getBoundingClientRect().height
+  const feedbackHeight = main.querySelector<HTMLElement>('.data-pipeline-feedback')?.getBoundingClientRect().height ?? 0
+  const handleHeight = main.querySelector<HTMLElement>('.data-pipeline-resize-handle')?.getBoundingClientRect().height ?? previewResizeHandleHeight
+  return Math.max(
+    previewPanelMinHeight,
+    Math.floor(mainHeight - feedbackHeight - handleHeight - previewEditorMinHeight),
+  )
+}
+
+function clampPreviewPanelHeight(value: number) {
+  const maxHeight = calculatePreviewPanelMaxHeight()
+  previewPanelMaxHeight.value = maxHeight
+  return Math.min(Math.max(value, previewPanelMinHeight), maxHeight)
+}
+
+function startPreviewResize(event: PointerEvent) {
+  if (event.button !== 0) {
+    return
+  }
+  resizingPreviewPanel.value = true
+  previewResizeStartY = event.clientY
+  previewResizeStartHeight = previewPanelHeight.value
+  window.addEventListener('pointermove', resizePreviewPanel)
+  window.addEventListener('pointerup', stopPreviewResize)
+  document.body.classList.add('data-pipeline-resizing-preview')
+  const target = event.currentTarget as HTMLElement | null
+  target?.setPointerCapture(event.pointerId)
+  event.preventDefault()
+}
+
+function resizePreviewPanel(event: PointerEvent) {
+  if (!resizingPreviewPanel.value) {
+    return
+  }
+  previewPanelHeight.value = clampPreviewPanelHeight(previewResizeStartHeight - (event.clientY - previewResizeStartY))
+}
+
+function stopPreviewResize() {
+  clearPreviewResizeListeners()
+}
+
+function clearPreviewResizeListeners() {
+  window.removeEventListener('pointermove', resizePreviewPanel)
+  window.removeEventListener('pointerup', stopPreviewResize)
+  document.body.classList.remove('data-pipeline-resizing-preview')
+  resizingPreviewPanel.value = false
+}
+
+function resizePreviewPanelFromKeyboard(event: KeyboardEvent) {
+  const step = event.shiftKey ? 80 : 20
+  let nextHeight = previewPanelHeight.value
+  if (event.key === 'ArrowUp') {
+    nextHeight += step
+  } else if (event.key === 'ArrowDown') {
+    nextHeight -= step
+  } else if (event.key === 'Home') {
+    nextHeight = previewPanelMinHeight
+  } else if (event.key === 'End') {
+    nextHeight = calculatePreviewPanelMaxHeight()
+  } else {
+    return
+  }
+  event.preventDefault()
+  previewPanelHeight.value = clampPreviewPanelHeight(nextHeight)
 }
 
 async function saveDraft() {
@@ -275,7 +370,7 @@ async function applySettings() {
 </script>
 
 <template>
-  <section class="data-pipeline-page">
+  <section class="data-pipeline-page data-pipeline-detail-page">
     <header class="page-header">
       <div class="page-header-copy">
         <h1>{{ pageTitle }}</h1>
@@ -316,26 +411,48 @@ async function applySettings() {
     />
 
     <div v-else-if="selectedPipeline" class="data-pipeline-detail-layout">
-      <main class="data-pipeline-main">
-        <div class="data-pipeline-builder-grid">
-          <DataPipelineFlowBuilder
-            :graph="store.draftGraph"
-            :node-catalog="nodeCatalog"
-            :selected-node-id="store.selectedNodeId"
-            @update:graph="updateGraph"
-            @select-node="selectNode"
-          />
-          <DataPipelineInspector
-            :graph="store.draftGraph"
-            :selected-node-id="store.selectedNodeId"
-            :datasets="datasetStore.items"
-            :work-tables="datasetStore.workTables"
-            @update:graph="updateGraph"
-          />
+      <main
+        ref="dataPipelineMainRef"
+        class="data-pipeline-main"
+        :class="{ resizing: resizingPreviewPanel }"
+        :style="dataPipelineMainStyle"
+      >
+        <div class="data-pipeline-editor-pane">
+          <div class="data-pipeline-builder-grid">
+            <DataPipelineFlowBuilder
+              :graph="store.draftGraph"
+              :node-catalog="nodeCatalog"
+              :selected-node-id="store.selectedNodeId"
+              @update:graph="updateGraph"
+              @select-node="selectNode"
+            />
+            <DataPipelineInspector
+              :graph="store.draftGraph"
+              :selected-node-id="store.selectedNodeId"
+              :datasets="datasetStore.items"
+              :work-tables="datasetStore.workTables"
+              @update:graph="updateGraph"
+            />
+          </div>
         </div>
 
-        <p v-if="store.errorMessage" class="form-error">{{ store.errorMessage }}</p>
-        <p v-else-if="store.actionMessage" class="form-success">{{ store.actionMessage }}</p>
+        <div class="data-pipeline-feedback" aria-live="polite">
+          <p v-if="store.errorMessage" class="form-error">{{ store.errorMessage }}</p>
+          <p v-else-if="store.actionMessage" class="form-success">{{ store.actionMessage }}</p>
+        </div>
+
+        <div
+          class="data-pipeline-resize-handle"
+          role="separator"
+          tabindex="0"
+          aria-orientation="horizontal"
+          :aria-label="t('dataPipelines.resizePreviewPanel')"
+          :aria-valuemin="previewPanelMinHeight"
+          :aria-valuemax="previewPanelAriaMax"
+          :aria-valuenow="Math.round(previewPanelHeight)"
+          @pointerdown="startPreviewResize"
+          @keydown="resizePreviewPanelFromKeyboard"
+        ></div>
 
         <DataPipelinePreviewPanel
           :preview="store.selectedPreview"

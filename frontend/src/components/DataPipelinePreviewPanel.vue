@@ -68,48 +68,61 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
 
 <template>
   <section class="data-pipeline-bottom-panel">
-    <div class="data-pipeline-panel-tabs" role="tablist" :aria-label="t('dataPipelines.lowerPanel')">
+    <div class="data-pipeline-panel-toolbar">
+      <div class="data-pipeline-panel-tabs" role="tablist" :aria-label="t('dataPipelines.lowerPanel')">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'preview'"
+          :class="{ active: activeTab === 'preview' }"
+          @click="activeTab = 'preview'"
+        >
+          {{ t('dataPipelines.preview') }}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'runs'"
+          :class="{ active: activeTab === 'runs' }"
+          @click="activeTab = 'runs'"
+        >
+          {{ t('dataPipelines.runs') }}
+          <span>{{ runs.length }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'schedules'"
+          :class="{ active: activeTab === 'schedules' }"
+          @click="activeTab = 'schedules'"
+        >
+          {{ t('dataPipelines.schedules') }}
+          <span>{{ schedules.length }}</span>
+        </button>
+      </div>
+
+      <p v-if="activeTab === 'preview' && !canPreview && previewDisabledReason" class="muted-panel data-pipeline-panel-notice">
+        {{ previewDisabledReason }}
+      </p>
+      <p v-else-if="activeTab === 'preview' && draftRunPreview" class="muted-panel data-pipeline-panel-notice">
+        {{ t('dataPipelines.draftRunPreviewNotice') }}
+      </p>
+      <span v-else class="data-pipeline-panel-notice" aria-hidden="true"></span>
+
       <button
+        v-if="activeTab === 'preview'"
+        class="secondary-button data-pipeline-preview-action"
         type="button"
-        role="tab"
-        :aria-selected="activeTab === 'preview'"
-        :class="{ active: activeTab === 'preview' }"
-        @click="activeTab = 'preview'"
+        :disabled="loading || !canPreview"
+        :title="props.previewDisabledReason"
+        @click="previewClick"
       >
-        {{ t('dataPipelines.preview') }}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        :aria-selected="activeTab === 'runs'"
-        :class="{ active: activeTab === 'runs' }"
-        @click="activeTab = 'runs'"
-      >
-        {{ t('dataPipelines.runs') }}
-        <span>{{ runs.length }}</span>
-      </button>
-      <button
-        type="button"
-        role="tab"
-        :aria-selected="activeTab === 'schedules'"
-        :class="{ active: activeTab === 'schedules' }"
-        @click="activeTab = 'schedules'"
-      >
-        {{ t('dataPipelines.schedules') }}
-        <span>{{ schedules.length }}</span>
+        <Search :size="16" stroke-width="1.9" aria-hidden="true" />
+        {{ loading ? t(draftRunPreview ? 'dataPipelines.draftRunPreviewing' : 'dataPipelines.previewing') : t(draftRunPreview ? 'dataPipelines.draftRunPreview' : 'dataPipelines.preview') }}
       </button>
     </div>
 
     <div v-if="activeTab === 'preview'" class="data-pipeline-panel-section" role="tabpanel">
-      <header class="panel-header compact">
-        <h2>{{ t('dataPipelines.preview') }}</h2>
-        <button class="secondary-button" type="button" :disabled="loading || !canPreview" :title="props.previewDisabledReason" @click="previewClick">
-          <Search :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ loading ? t(draftRunPreview ? 'dataPipelines.draftRunPreviewing' : 'dataPipelines.previewing') : t(draftRunPreview ? 'dataPipelines.draftRunPreview' : 'dataPipelines.preview') }}
-        </button>
-      </header>
-      <p v-if="!canPreview && previewDisabledReason" class="muted-panel">{{ previewDisabledReason }}</p>
-      <p v-else-if="draftRunPreview" class="muted-panel">{{ t('dataPipelines.draftRunPreviewNotice') }}</p>
       <div v-if="preview" class="dataset-work-table-preview-table data-pipeline-preview-table">
         <table>
           <thead>
@@ -128,9 +141,6 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
     </div>
 
     <div v-else-if="activeTab === 'runs'" class="data-pipeline-panel-section" role="tabpanel">
-      <header class="panel-header compact">
-        <h2>{{ t('dataPipelines.runs') }}</h2>
-      </header>
       <div class="compact-table">
         <table>
           <thead>
@@ -159,9 +169,6 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
     </div>
 
     <div v-else class="data-pipeline-panel-section" role="tabpanel">
-      <header class="panel-header compact">
-        <h2>{{ t('dataPipelines.schedules') }}</h2>
-      </header>
       <div class="compact-table">
         <table>
           <thead>

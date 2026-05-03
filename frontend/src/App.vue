@@ -27,6 +27,7 @@ const wideMain = computed(() => (
   route.path === '/drive' ||
   route.path.startsWith('/drive/')
 ))
+const dataPipelineDetailMain = computed(() => route.path.startsWith('/data-pipelines/'))
 
 watch(sidebarCollapsed, (collapsed) => {
   if (typeof window !== 'undefined') {
@@ -70,7 +71,13 @@ watch(
 
     <div class="app-workspace">
       <AppTopbar />
-      <main class="app-main" :class="{ 'app-main-wide': wideMain }">
+      <main
+        class="app-main"
+        :class="{
+          'app-main-wide': wideMain,
+          'app-main-data-pipeline-detail': dataPipelineDetailMain,
+        }"
+      >
         <SupportAccessBanner />
         <RouterView />
       </main>
