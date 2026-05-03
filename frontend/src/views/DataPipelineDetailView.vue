@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, GitBranch, Play, RefreshCw, Save, Send, Settings2, Workflow } from 'lucide-vue-next'
+import { ArrowLeft, Play, RefreshCw, Save, Send, Settings2, Workflow } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineScheduleWriteBody, type DataPipelineStepType } from '../api/data-pipelines'
@@ -19,7 +19,6 @@ const tenantStore = useTenantStore()
 const route = useRoute()
 const { t } = useI18n()
 
-const builderRef = ref<InstanceType<typeof DataPipelineFlowBuilder> | null>(null)
 const settingsDialogRef = ref<HTMLDialogElement | null>(null)
 const settingsNameInputRef = ref<HTMLInputElement | null>(null)
 const editName = ref('')
@@ -144,10 +143,6 @@ function updateGraph(graph: DataPipelineGraph) {
 
 function selectNode(nodeId: string) {
   store.selectedNodeId = nodeId
-}
-
-function addNode(type: DataPipelineStepType) {
-  builderRef.value?.addNode(type)
 }
 
 async function saveDraft() {
@@ -304,23 +299,11 @@ async function applySettings() {
     />
 
     <div v-else-if="selectedPipeline" class="data-pipeline-detail-layout">
-      <aside class="data-pipeline-sidebar">
-        <section class="sidebar-panel-section">
-          <h2>{{ t('dataPipelines.palette') }}</h2>
-          <div class="data-pipeline-palette">
-            <button v-for="node in nodeCatalog" :key="node.type" type="button" @click="addNode(node.type)">
-              <GitBranch :size="15" stroke-width="1.9" aria-hidden="true" />
-              {{ t(node.labelKey) }}
-            </button>
-          </div>
-        </section>
-      </aside>
-
       <main class="data-pipeline-main">
         <div class="data-pipeline-builder-grid">
           <DataPipelineFlowBuilder
-            ref="builderRef"
             :graph="store.draftGraph"
+            :node-catalog="nodeCatalog"
             :selected-node-id="store.selectedNodeId"
             @update:graph="updateGraph"
             @select-node="selectNode"

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { VueFlow, useVueFlow, type Connection } from '@vue-flow/core'
 import { ControlButton, Controls } from '@vue-flow/controls'
-import { AlignHorizontalSpaceBetween } from 'lucide-vue-next'
+import { AlignHorizontalSpaceBetween, ArrowDownToLine, GitBranch, Plus, Search, SlidersHorizontal, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import '@vue-flow/core/dist/style.css'
@@ -22,6 +22,7 @@ import DataPipelineNode from './DataPipelineNode.vue'
 const props = defineProps<{
   graph: DataPipelineGraph
   selectedNodeId: string
+  nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }>
 }>()
 
 const emit = defineEmits<{
@@ -34,6 +35,8 @@ const { fitView } = useVueFlow(flowId)
 const initialGraph = sanitizeDataPipelineGraph(props.graph)
 const nodes = ref(clone(initialGraph.nodes))
 const edges = ref(clone(initialGraph.edges))
+const paletteDialogRef = ref<HTMLDialogElement | null>(null)
+const paletteSearch = ref('')
 const { t } = useI18n()
 
 const autoLayoutColumnGap = 330
@@ -53,6 +56,54 @@ const stepOrder: Record<DataPipelineStepType, number> = {
   transform: 80,
   output: 1000,
 }
+const paletteCategories = [
+  { id: 'input_output', labelKey: 'dataPipelines.paletteCategories.inputOutput' },
+  { id: 'transform', labelKey: 'dataPipelines.paletteCategories.transform' },
+  { id: 'quality', labelKey: 'dataPipelines.paletteCategories.quality' },
+  { id: 'schema', labelKey: 'dataPipelines.paletteCategories.schema' },
+] as const
+type PaletteCategory = typeof paletteCategories[number]['id']
+const stepCategory: Record<DataPipelineStepType, PaletteCategory> = {
+  input: 'input_output',
+  output: 'input_output',
+  clean: 'quality',
+  normalize: 'quality',
+  validate: 'quality',
+  profile: 'transform',
+  enrich_join: 'transform',
+  transform: 'transform',
+  schema_mapping: 'schema',
+  schema_completion: 'schema',
+}
+const categoryIcons: Record<PaletteCategory, typeof GitBranch> = {
+  input_output: ArrowDownToLine,
+  transform: SlidersHorizontal,
+  quality: GitBranch,
+  schema: GitBranch,
+}
+
+const paletteGroups = computed(() => {
+  const query = paletteSearch.value.trim().toLowerCase()
+  const catalog = props.nodeCatalog
+    .map((node) => ({
+      ...node,
+      category: stepCategory[node.type],
+      descriptionKey: `dataPipelines.stepDescriptions.${node.type}`,
+    }))
+    .filter((node) => {
+      if (!query) {
+        return true
+      }
+      return `${t(node.labelKey)} ${t(node.descriptionKey)}`.toLowerCase().includes(query)
+    })
+
+  return paletteCategories
+    .map((category) => ({
+      ...category,
+      nodes: catalog.filter((node) => node.category === category.id),
+    }))
+    .filter((category) => category.nodes.length > 0)
+})
 
 watch(
   () => props.graph,
@@ -80,6 +131,12 @@ watch([nodes, edges], () => {
     edges: clone(edges.value),
   }))
 }, { deep: true })
+
+onBeforeUnmount(() => {
+  if (paletteDialogRef.value?.open) {
+    paletteDialogRef.value.close()
+  }
+})
 
 function addNode(stepType: DataPipelineStepType) {
   if (stepType === 'input') {
@@ -114,6 +171,24 @@ function addNode(stepType: DataPipelineStepType) {
   ]
   edges.value = insertionEdges(id, stepType)
   emit('select-node', id)
+}
+
+function openPalette() {
+  if (!paletteDialogRef.value?.open) {
+    paletteSearch.value = ''
+    paletteDialogRef.value?.showModal()
+  }
+}
+
+function closePalette() {
+  if (paletteDialogRef.value?.open) {
+    paletteDialogRef.value.close()
+  }
+}
+
+function addPaletteNode(stepType: DataPipelineStepType) {
+  addNode(stepType)
+  closePalette()
 }
 
 function insertionPosition() {
@@ -384,6 +459,14 @@ defineExpose({ addNode })
       </template>
       <Controls>
         <ControlButton
+          :title="t('dataPipelines.openPalette')"
+          :aria-label="t('dataPipelines.openPalette')"
+          type="button"
+          @click="openPalette"
+        >
+          <Plus :size="15" stroke-width="2.2" aria-hidden="true" />
+        </ControlButton>
+        <ControlButton
           :title="t('dataPipelines.autoLayout')"
           :aria-label="t('dataPipelines.autoLayout')"
           type="button"
@@ -393,5 +476,57 @@ defineExpose({ addNode })
         </ControlButton>
       </Controls>
     </VueFlow>
+
+    <dialog
+      ref="paletteDialogRef"
+      class="confirm-dialog data-pipeline-palette-dialog"
+      @cancel.prevent="closePalette"
+    >
+      <div class="confirm-dialog-panel data-pipeline-palette-dialog-panel">
+        <aside class="data-pipeline-palette-dialog-nav" :aria-label="t('dataPipelines.paletteCategoriesLabel')">
+          <h2>{{ t('dataPipelines.blockLibrary') }}</h2>
+          <label class="data-pipeline-palette-search">
+            <Search :size="18" stroke-width="1.8" aria-hidden="true" />
+            <input v-model="paletteSearch" type="search" :placeholder="t('common.search')" autocomplete="off">
+          </label>
+          <nav>
+            <a v-for="category in paletteCategories" :key="category.id" :href="`#palette-${category.id}`">
+              <component :is="categoryIcons[category.id]" :size="17" stroke-width="2" aria-hidden="true" />
+              {{ t(category.labelKey) }}
+            </a>
+          </nav>
+        </aside>
+
+        <section class="data-pipeline-palette-dialog-content">
+          <button
+            class="data-pipeline-palette-close"
+            type="button"
+            :title="t('common.close')"
+            :aria-label="t('common.close')"
+            @click="closePalette"
+          >
+            <X :size="28" stroke-width="1.8" aria-hidden="true" />
+          </button>
+          <div v-for="group in paletteGroups" :id="`palette-${group.id}`" :key="group.id" class="data-pipeline-palette-group">
+            <h3>{{ t(group.labelKey) }}</h3>
+            <div class="data-pipeline-palette-card-grid">
+              <button
+                v-for="node in group.nodes"
+                :key="node.type"
+                class="data-pipeline-palette-card"
+                type="button"
+                @click="addPaletteNode(node.type)"
+              >
+                <strong>{{ t(node.labelKey) }}</strong>
+                <span>{{ t(node.descriptionKey) }}</span>
+              </button>
+            </div>
+          </div>
+          <p v-if="paletteGroups.length === 0" class="data-pipeline-palette-empty">
+            {{ t('dataPipelines.noPaletteResults') }}
+          </p>
+        </section>
+      </div>
+    </dialog>
   </div>
 </template>
