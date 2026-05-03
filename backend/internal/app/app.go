@@ -16,7 +16,7 @@ type App struct {
 	API    huma.API
 }
 
-func New(cfg config.Config, sessionService *service.SessionService) *App {
+func New(cfg config.Config, sessionService *service.SessionService, oidcLoginService *service.OIDCLoginService) *App {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
 
@@ -32,9 +32,15 @@ func New(cfg config.Config, sessionService *service.SessionService) *App {
 	api := humagin.New(router, humaConfig)
 
 	backendapi.Register(api, backendapi.Dependencies{
-		SessionService: sessionService,
-		CookieSecure:   cfg.CookieSecure,
-		SessionTTL:     cfg.SessionTTL,
+		SessionService:               sessionService,
+		OIDCLoginService:             oidcLoginService,
+		AuthMode:                     cfg.AuthMode,
+		FrontendBaseURL:              cfg.FrontendBaseURL,
+		ZitadelIssuer:                cfg.ZitadelIssuer,
+		ZitadelClientID:              cfg.ZitadelClientID,
+		ZitadelPostLogoutRedirectURI: cfg.ZitadelPostLogoutRedirectURI,
+		CookieSecure:                 cfg.CookieSecure,
+		SessionTTL:                   cfg.SessionTTL,
 	})
 
 	return &App{

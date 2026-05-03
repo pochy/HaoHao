@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetSessionData, GetSessionErrors, GetSessionResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses } from './types.gen';
+import type { FinishOidcLoginData, FinishOidcLoginErrors, FinishOidcLoginResponses, GetAuthSettingsData, GetAuthSettingsErrors, GetAuthSettingsResponses, GetCsrfData, GetCsrfErrors, GetCsrfResponses, GetSessionData, GetSessionErrors, GetSessionResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RefreshSessionData, RefreshSessionErrors, RefreshSessionResponses, StartOidcLoginData, StartOidcLoginErrors, StartOidcLoginResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,34 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: Record<string, unknown>;
 };
+
+/**
+ * OIDC callback を完了する
+ */
+export const finishOidcLogin = <ThrowOnError extends boolean = false>(options?: Options<FinishOidcLoginData, ThrowOnError>) => (options?.client ?? client).get<FinishOidcLoginResponses, FinishOidcLoginErrors, ThrowOnError>({ url: '/api/v1/auth/callback', ...options });
+
+/**
+ * OIDC login を開始する
+ */
+export const startOidcLogin = <ThrowOnError extends boolean = false>(options?: Options<StartOidcLoginData, ThrowOnError>) => (options?.client ?? client).get<StartOidcLoginResponses, StartOidcLoginErrors, ThrowOnError>({ url: '/api/v1/auth/login', ...options });
+
+/**
+ * 現在の認証モード設定を返す
+ */
+export const getAuthSettings = <ThrowOnError extends boolean = false>(options?: Options<GetAuthSettingsData, ThrowOnError>) => (options?.client ?? client).get<GetAuthSettingsResponses, GetAuthSettingsErrors, ThrowOnError>({ url: '/api/v1/auth/settings', ...options });
+
+/**
+ * CSRF token を再発行する
+ */
+export const getCsrf = <ThrowOnError extends boolean = false>(options?: Options<GetCsrfData, ThrowOnError>) => (options?.client ?? client).get<GetCsrfResponses, GetCsrfErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/csrf',
+    ...options
+});
 
 /**
  * ログインして Cookie セッションを払い出す
@@ -46,12 +74,25 @@ export const logout = <ThrowOnError extends boolean = false>(options: Options<Lo
 /**
  * 現在のセッションを返す
  */
-export const getSession = <ThrowOnError extends boolean = false>(options: Options<GetSessionData, ThrowOnError>) => (options.client ?? client).get<GetSessionResponses, GetSessionErrors, ThrowOnError>({
+export const getSession = <ThrowOnError extends boolean = false>(options?: Options<GetSessionData, ThrowOnError>) => (options?.client ?? client).get<GetSessionResponses, GetSessionErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION_ID',
             type: 'apiKey'
         }],
     url: '/api/v1/session',
+    ...options
+});
+
+/**
+ * セッションを再発行する
+ */
+export const refreshSession = <ThrowOnError extends boolean = false>(options: Options<RefreshSessionData, ThrowOnError>) => (options.client ?? client).post<RefreshSessionResponses, RefreshSessionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION_ID',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/session/refresh',
     ...options
 });

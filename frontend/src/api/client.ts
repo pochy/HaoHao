@@ -35,6 +35,34 @@ export function toApiErrorMessage(error: unknown): string {
   return '認証処理に失敗しました'
 }
 
+let csrfBootstrapPromise: Promise<void> | null = null
+
+async function ensureCSRFCookie() {
+  if (typeof document === 'undefined' || readCookie('XSRF-TOKEN')) {
+    return
+  }
+
+  if (!csrfBootstrapPromise) {
+    csrfBootstrapPromise = (async () => {
+      try {
+        await fetch('/api/v1/csrf', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            Accept: 'application/json',
+          },
+        })
+      } catch {
+        // The original mutating request will surface the real failure.
+      }
+    })().finally(() => {
+      csrfBootstrapPromise = null
+    })
+  }
+
+  await csrfBootstrapPromise
+}
+
 client.setConfig({
   baseUrl: '',
   credentials: 'include',
@@ -46,7 +74,9 @@ client.setConfig({
     headers.set('Accept', 'application/json')
 
     const method = (init?.method ?? request?.method ?? 'GET').toUpperCase()
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !headers.has('X-CSRF-Token')) {
+    const csrfHeader = headers.get('X-CSRF-Token')
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !csrfHeader) {
+      await ensureCSRFCookie()
       const token = readCookie('XSRF-TOKEN')
       if (token) {
         headers.set('X-CSRF-Token', token)
@@ -60,4 +90,3 @@ client.setConfig({
     })
   },
 })
-

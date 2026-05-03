@@ -15,6 +15,7 @@ const authenticateUser = `-- name: AuthenticateUser :one
 SELECT id
 FROM users
 WHERE email = $1
+  AND password_hash IS NOT NULL
   AND password_hash = crypt($2, password_hash)
 LIMIT 1
 `
@@ -29,6 +30,77 @@ func (q *Queries) AuthenticateUser(ctx context.Context, arg AuthenticateUserPara
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const createOIDCUser = `-- name: CreateOIDCUser :one
+INSERT INTO users (
+    email,
+    display_name,
+    password_hash
+) VALUES (
+    $1,
+    $2,
+    NULL
+)
+RETURNING
+    id,
+    public_id,
+    email,
+    display_name
+`
+
+type CreateOIDCUserParams struct {
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+}
+
+type CreateOIDCUserRow struct {
+	ID          int64     `json:"id"`
+	PublicID    uuid.UUID `json:"public_id"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+}
+
+func (q *Queries) CreateOIDCUser(ctx context.Context, arg CreateOIDCUserParams) (CreateOIDCUserRow, error) {
+	row := q.db.QueryRow(ctx, createOIDCUser, arg.Email, arg.DisplayName)
+	var i CreateOIDCUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.Email,
+		&i.DisplayName,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT
+    id,
+    public_id,
+    email,
+    display_name
+FROM users
+WHERE email = $1
+LIMIT 1
+`
+
+type GetUserByEmailRow struct {
+	ID          int64     `json:"id"`
+	PublicID    uuid.UUID `json:"public_id"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+}
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i GetUserByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.Email,
+		&i.DisplayName,
+	)
+	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
@@ -52,6 +124,44 @@ type GetUserByIDRow struct {
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (GetUserByIDRow, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
 	var i GetUserByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.Email,
+		&i.DisplayName,
+	)
+	return i, err
+}
+
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE users
+SET email = $2,
+    display_name = $3,
+    updated_at = now()
+WHERE id = $1
+RETURNING
+    id,
+    public_id,
+    email,
+    display_name
+`
+
+type UpdateUserProfileParams struct {
+	ID          int64  `json:"id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+}
+
+type UpdateUserProfileRow struct {
+	ID          int64     `json:"id"`
+	PublicID    uuid.UUID `json:"public_id"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile, arg.ID, arg.Email, arg.DisplayName)
+	var i UpdateUserProfileRow
 	err := row.Scan(
 		&i.ID,
 		&i.PublicID,

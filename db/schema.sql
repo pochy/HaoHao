@@ -2,7 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict ECs4twu7OK6918tCTLVXWTD4s5IZTv0ypQTr2VDoGu9Jtcrd4x6XHZb9m2PUERA
 
 -- Dumped from database version 18.3 (Debian 18.3-1.pgdg13+1)
 -- Dumped by pg_dump version 18.3 (Debian 18.3-1.pgdg13+1)
@@ -48,6 +47,36 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: user_identities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_identities (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    provider text NOT NULL,
+    subject text NOT NULL,
+    email text NOT NULL,
+    email_verified boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: user_identities_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.user_identities ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.user_identities_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -56,7 +85,7 @@ CREATE TABLE public.users (
     public_id uuid DEFAULT uuidv7() NOT NULL,
     email text NOT NULL,
     display_name text NOT NULL,
-    password_hash text NOT NULL,
+    password_hash text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -85,6 +114,22 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: user_identities user_identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_identities user_identities_provider_subject_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_provider_subject_key UNIQUE (provider, subject);
+
+
+--
 -- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -101,8 +146,22 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: user_identities_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_identities_user_id_idx ON public.user_identities USING btree (user_id);
+
+
+--
+-- Name: user_identities user_identities_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_identities
+    ADD CONSTRAINT user_identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ECs4twu7OK6918tCTLVXWTD4s5IZTv0ypQTr2VDoGu9Jtcrd4x6XHZb9m2PUERA
 

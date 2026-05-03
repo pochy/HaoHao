@@ -1,20 +1,44 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { toApiErrorMessage } from '../api/client'
+import { refreshCurrentSession } from '../api/session'
 import { useSessionStore } from '../stores/session'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
 
 const userJson = computed(() => JSON.stringify(sessionStore.user, null, 2))
+const refreshing = ref(false)
+const refreshMessage = ref('')
+const refreshErrorMessage = ref('')
 
 async function signOut() {
   try {
-    await sessionStore.logout()
+    const postLogoutURL = await sessionStore.logout()
+    if (postLogoutURL) {
+      window.location.assign(postLogoutURL)
+      return
+    }
     await router.push({ name: 'login' })
   } catch {
     // The store exposes the error message for the current view.
+  }
+}
+
+async function rotateSession() {
+  refreshing.value = true
+  refreshMessage.value = ''
+  refreshErrorMessage.value = ''
+
+  try {
+    await refreshCurrentSession()
+    refreshMessage.value = 'Session ID と CSRF token を再発行しました。'
+  } catch (error) {
+    refreshErrorMessage.value = toApiErrorMessage(error)
+  } finally {
+    refreshing.value = false
   }
 }
 </script>
@@ -29,6 +53,9 @@ async function signOut() {
         <pre class="json-card">{{ userJson }}</pre>
 
         <div class="action-row">
+          <button class="secondary-button" :disabled="refreshing" type="button" @click="rotateSession">
+            {{ refreshing ? 'Refreshing...' : 'Refresh Session' }}
+          </button>
           <button class="secondary-button" type="button" @click="signOut">
             Logout
           </button>
@@ -37,6 +64,10 @@ async function signOut() {
           </a>
         </div>
 
+        <p v-if="refreshMessage">{{ refreshMessage }}</p>
+        <p v-if="refreshErrorMessage" class="error-message">
+          {{ refreshErrorMessage }}
+        </p>
         <p v-if="sessionStore.errorMessage" class="error-message">
           {{ sessionStore.errorMessage }}
         </p>
@@ -48,6 +79,7 @@ async function signOut() {
         <ul class="check-list">
           <li>Cookie が browser に保存される</li>
           <li><code>/api/v1/session</code> が 200 を返す</li>
+          <li><code>POST /api/v1/session/refresh</code> が Cookie を rotate する</li>
           <li><code>/docs</code> で OpenAPI 由来の docs を確認できる</li>
         </ul>
       </aside>
@@ -68,4 +100,3 @@ async function signOut() {
   padding-left: 1.2rem;
 }
 </style>
-

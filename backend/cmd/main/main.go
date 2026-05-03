@@ -41,9 +41,32 @@ func main() {
 
 	queries := db.New(pool)
 	sessionStore := auth.NewSessionStore(redisClient, cfg.SessionTTL)
-	sessionService := service.NewSessionService(queries, sessionStore)
+	sessionService := service.NewSessionService(queries, sessionStore, cfg.AuthMode)
 
-	application := app.New(cfg, sessionService)
+	var oidcLoginService *service.OIDCLoginService
+	if cfg.AuthMode == "zitadel" {
+		if cfg.ZitadelIssuer == "" || cfg.ZitadelClientID == "" || cfg.ZitadelClientSecret == "" {
+			log.Fatal("ZITADEL_ISSUER, ZITADEL_CLIENT_ID, and ZITADEL_CLIENT_SECRET are required when AUTH_MODE=zitadel")
+		}
+
+		oidcClient, err := auth.NewOIDCClient(
+			ctx,
+			cfg.ZitadelIssuer,
+			cfg.ZitadelClientID,
+			cfg.ZitadelClientSecret,
+			cfg.ZitadelRedirectURI,
+			cfg.ZitadelScopes,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		loginStateStore := auth.NewLoginStateStore(redisClient, cfg.LoginStateTTL)
+		identityService := service.NewIdentityService(pool, queries)
+		oidcLoginService = service.NewOIDCLoginService("zitadel", oidcClient, loginStateStore, identityService, sessionService)
+	}
+
+	application := app.New(cfg, sessionService, oidcLoginService)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

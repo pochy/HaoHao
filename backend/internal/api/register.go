@@ -9,11 +9,19 @@ import (
 )
 
 type Dependencies struct {
-	SessionService *service.SessionService
-	CookieSecure   bool
-	SessionTTL     time.Duration
+	SessionService               *service.SessionService
+	OIDCLoginService             *service.OIDCLoginService
+	AuthMode                     string
+	FrontendBaseURL              string
+	ZitadelIssuer                string
+	ZitadelClientID              string
+	ZitadelPostLogoutRedirectURI string
+	CookieSecure                 bool
+	SessionTTL                   time.Duration
 }
 
 func Register(api huma.API, deps Dependencies) {
+	registerAuthSettingsRoute(api, deps)
+	registerOIDCRoutes(api, deps)
 	registerSessionRoutes(api, deps)
 }

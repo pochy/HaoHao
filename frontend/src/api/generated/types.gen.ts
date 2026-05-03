@@ -4,6 +4,15 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type AuthSettingsBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    mode: string;
+    zitadel?: ZitadelSettingsBody;
+};
+
 export type Cookie = {
     Domain: string;
     Expires: string;
@@ -76,6 +85,14 @@ export type LoginInputBody = {
     password: string;
 };
 
+export type LogoutBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    postLogoutURL?: string;
+};
+
 export type SessionBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -88,6 +105,16 @@ export type UserResponse = {
     displayName: string;
     email: string;
     publicId: string;
+};
+
+export type ZitadelSettingsBody = {
+    clientId: string;
+    issuer: string;
+};
+
+export type AuthSettingsBodyWritable = {
+    mode: string;
+    zitadel?: ZitadelSettingsBody;
 };
 
 export type ErrorModelWritable = {
@@ -122,9 +149,120 @@ export type LoginInputBodyWritable = {
     password: string;
 };
 
+export type LogoutBodyWritable = {
+    postLogoutURL?: string;
+};
+
 export type SessionBodyWritable = {
     user: UserResponse;
 };
+
+export type FinishOidcLoginData = {
+    body?: never;
+    path?: never;
+    query?: {
+        code?: string;
+        state?: string;
+        error?: string;
+        error_description?: string;
+    };
+    url: '/api/v1/auth/callback';
+};
+
+export type FinishOidcLoginErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type FinishOidcLoginError = FinishOidcLoginErrors[keyof FinishOidcLoginErrors];
+
+export type FinishOidcLoginResponses = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type FinishOidcLoginResponse = FinishOidcLoginResponses[keyof FinishOidcLoginResponses];
+
+export type StartOidcLoginData = {
+    body?: never;
+    path?: never;
+    query?: {
+        returnTo?: string;
+    };
+    url: '/api/v1/auth/login';
+};
+
+export type StartOidcLoginErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type StartOidcLoginError = StartOidcLoginErrors[keyof StartOidcLoginErrors];
+
+export type StartOidcLoginResponses = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type StartOidcLoginResponse = StartOidcLoginResponses[keyof StartOidcLoginResponses];
+
+export type GetAuthSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/settings';
+};
+
+export type GetAuthSettingsErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetAuthSettingsError = GetAuthSettingsErrors[keyof GetAuthSettingsErrors];
+
+export type GetAuthSettingsResponses = {
+    /**
+     * OK
+     */
+    200: AuthSettingsBody;
+};
+
+export type GetAuthSettingsResponse = GetAuthSettingsResponses[keyof GetAuthSettingsResponses];
+
+export type GetCsrfData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/csrf';
+};
+
+export type GetCsrfErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetCsrfError = GetCsrfErrors[keyof GetCsrfErrors];
+
+export type GetCsrfResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type GetCsrfResponse = GetCsrfResponses[keyof GetCsrfResponses];
 
 export type LoginData = {
     body: LoginInputBodyWritable;
@@ -172,9 +310,9 @@ export type LogoutError = LogoutErrors[keyof LogoutErrors];
 
 export type LogoutResponses = {
     /**
-     * No Content
+     * OK
      */
-    204: void;
+    200: LogoutBody;
 };
 
 export type LogoutResponse = LogoutResponses[keyof LogoutResponses];
@@ -203,3 +341,31 @@ export type GetSessionResponses = {
 };
 
 export type GetSessionResponse = GetSessionResponses[keyof GetSessionResponses];
+
+export type RefreshSessionData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/session/refresh';
+};
+
+export type RefreshSessionErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type RefreshSessionError = RefreshSessionErrors[keyof RefreshSessionErrors];
+
+export type RefreshSessionResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RefreshSessionResponse = RefreshSessionResponses[keyof RefreshSessionResponses];
