@@ -114,7 +114,7 @@ export function createTenantAdminDetailContext() {
 
   const tenant = computed(() => store.current?.tenant ?? null)
   const memberships = computed(() => store.current?.memberships ?? [])
-  const tenantRoleOptions = ['customer_signal_user', 'docs_reader', 'todo_user']
+  const tenantRoleOptions = ['customer_signal_user', 'data_pipeline_user', 'docs_reader', 'todo_user']
   const drivePolicyRows = computed(() => [
     [t('tenantAdmin.policy.publicLinks'), enabledLabel(drivePublicLinksEnabled.value)],
     [t('tenantAdmin.policy.externalSharing'), enabledLabel(driveExternalSharingEnabled.value)],

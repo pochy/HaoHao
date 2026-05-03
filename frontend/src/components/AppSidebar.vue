@@ -13,6 +13,7 @@ import {
   PanelLeftOpen,
   PlugZap,
   RadioTower,
+  Workflow,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -50,6 +51,7 @@ const navigationGroups: NavigationGroup[] = [
     items: [
       { to: '/customer-signals', labelKey: 'nav.items.signals', icon: RadioTower },
       { to: '/datasets', labelKey: 'nav.items.datasets', icon: Database },
+      { to: '/data-pipelines', labelKey: 'nav.items.dataPipelines', icon: Workflow },
       { to: '/drive', labelKey: 'nav.items.drive', icon: FolderOpen },
       { to: '/todos', labelKey: 'nav.items.todos', icon: CircleCheckBig },
     ],

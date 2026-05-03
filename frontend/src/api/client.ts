@@ -141,7 +141,7 @@ export function isApiForbidden(error: unknown): boolean {
   }
 
   const message = toApiErrorMessage(error)
-  return /forbidden|customer_signal_user|machine_client_admin|tenant_admin|docs_reader|todo_user/i.test(message)
+  return /forbidden|customer_signal_user|data_pipeline_user|machine_client_admin|tenant_admin|docs_reader|todo_user/i.test(message)
 }
 
 let csrfBootstrapPromise: Promise<void> | null = null

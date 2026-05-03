@@ -23,6 +23,7 @@ const CustomerSignalDetailView = () => import('../views/CustomerSignalDetailView
 const DatasetsView = () => import('../views/DatasetsView.vue')
 const DatasetDetailView = () => import('../views/DatasetDetailView.vue')
 const DatasetGoldDetailView = () => import('../views/DatasetGoldDetailView.vue')
+const DataPipelinesView = () => import('../views/DataPipelinesView.vue')
 const DriveView = () => import('../views/DriveView.vue')
 const DriveGroupsView = () => import('../views/DriveGroupsView.vue')
 const PublicDriveShareView = () => import('../views/PublicDriveShareView.vue')
@@ -174,6 +175,18 @@ const router = createRouter({
         title: 'Dataset Detail',
         group: 'Work',
         titleKey: 'routes.datasetDetail',
+        groupKey: 'nav.groups.work',
+      },
+    },
+    {
+      path: '/data-pipelines',
+      name: 'data-pipelines',
+      component: DataPipelinesView,
+      meta: {
+        requiresAuth: true,
+        title: 'Data Pipelines',
+        group: 'Work',
+        titleKey: 'routes.dataPipelines',
         groupKey: 'nav.groups.work',
       },
     },

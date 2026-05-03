@@ -1,0 +1,310 @@
+package service
+
+import (
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+)
+
+const (
+	DataPipelineStepInput            = "input"
+	DataPipelineStepProfile          = "profile"
+	DataPipelineStepClean            = "clean"
+	DataPipelineStepNormalize        = "normalize"
+	DataPipelineStepValidate         = "validate"
+	DataPipelineStepSchemaMapping    = "schema_mapping"
+	DataPipelineStepSchemaCompletion = "schema_completion"
+	DataPipelineStepEnrichJoin       = "enrich_join"
+	DataPipelineStepTransform        = "transform"
+	DataPipelineStepOutput           = "output"
+
+	dataPipelineMaxNodes = 50
+	dataPipelineMaxEdges = 80
+)
+
+var dataPipelineStepCatalog = map[string]struct{}{
+	DataPipelineStepInput:            {},
+	DataPipelineStepProfile:          {},
+	DataPipelineStepClean:            {},
+	DataPipelineStepNormalize:        {},
+	DataPipelineStepValidate:         {},
+	DataPipelineStepSchemaMapping:    {},
+	DataPipelineStepSchemaCompletion: {},
+	DataPipelineStepEnrichJoin:       {},
+	DataPipelineStepTransform:        {},
+	DataPipelineStepOutput:           {},
+}
+
+type DataPipelineGraph struct {
+	Nodes []DataPipelineNode `json:"nodes"`
+	Edges []DataPipelineEdge `json:"edges"`
+}
+
+type DataPipelineNode struct {
+	ID       string               `json:"id"`
+	Type     string               `json:"type,omitempty"`
+	Position map[string]float64   `json:"position,omitempty"`
+	Data     DataPipelineNodeData `json:"data"`
+}
+
+type DataPipelineNodeData struct {
+	Label    string         `json:"label,omitempty"`
+	StepType string         `json:"stepType"`
+	Config   map[string]any `json:"config,omitempty"`
+}
+
+type DataPipelineEdge struct {
+	ID     string `json:"id,omitempty"`
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+type DataPipelineValidationSummary struct {
+	Valid  bool     `json:"valid"`
+	Errors []string `json:"errors"`
+}
+
+func validateDataPipelineGraph(graph DataPipelineGraph) DataPipelineValidationSummary {
+	var errors []string
+	if len(graph.Nodes) == 0 {
+		errors = append(errors, "graph must contain nodes")
+	}
+	if len(graph.Nodes) > dataPipelineMaxNodes {
+		errors = append(errors, fmt.Sprintf("graph cannot contain more than %d nodes", dataPipelineMaxNodes))
+	}
+	if len(graph.Edges) > dataPipelineMaxEdges {
+		errors = append(errors, fmt.Sprintf("graph cannot contain more than %d edges", dataPipelineMaxEdges))
+	}
+
+	nodes := make(map[string]DataPipelineNode, len(graph.Nodes))
+	inputCount := 0
+	outputCount := 0
+	for _, node := range graph.Nodes {
+		nodeID := strings.TrimSpace(node.ID)
+		if nodeID == "" {
+			errors = append(errors, "node id is required")
+			continue
+		}
+		if _, exists := nodes[nodeID]; exists {
+			errors = append(errors, "node id must be unique: "+nodeID)
+			continue
+		}
+		stepType := strings.TrimSpace(node.Data.StepType)
+		if _, ok := dataPipelineStepCatalog[stepType]; !ok {
+			errors = append(errors, "unsupported step type for node "+nodeID+": "+stepType)
+		}
+		switch stepType {
+		case DataPipelineStepInput:
+			inputCount++
+		case DataPipelineStepOutput:
+			outputCount++
+		}
+		nodes[nodeID] = node
+	}
+	if inputCount != 1 {
+		errors = append(errors, "graph must contain exactly one input node")
+	}
+	if outputCount < 1 {
+		errors = append(errors, "graph must contain at least one output node")
+	}
+
+	outgoing := make(map[string][]string, len(nodes))
+	incoming := make(map[string][]string, len(nodes))
+	for _, edge := range graph.Edges {
+		source := strings.TrimSpace(edge.Source)
+		target := strings.TrimSpace(edge.Target)
+		if source == "" || target == "" {
+			errors = append(errors, "edge source and target are required")
+			continue
+		}
+		if source == target {
+			errors = append(errors, "self-loop is not allowed: "+source)
+			continue
+		}
+		if _, ok := nodes[source]; !ok {
+			errors = append(errors, "edge source node does not exist: "+source)
+			continue
+		}
+		if _, ok := nodes[target]; !ok {
+			errors = append(errors, "edge target node does not exist: "+target)
+			continue
+		}
+		outgoing[source] = append(outgoing[source], target)
+		incoming[target] = append(incoming[target], source)
+	}
+
+	if len(errors) == 0 {
+		if _, err := dataPipelineTopologicalOrder(graph); err != nil {
+			errors = append(errors, err.Error())
+		}
+	}
+
+	inputID := ""
+	outputIDs := make(map[string]struct{})
+	for _, node := range graph.Nodes {
+		switch node.Data.StepType {
+		case DataPipelineStepInput:
+			inputID = node.ID
+		case DataPipelineStepOutput:
+			outputIDs[node.ID] = struct{}{}
+		}
+	}
+	if inputID != "" {
+		reachableFromInput := dataPipelineReachable(inputID, outgoing)
+		canReachOutput := dataPipelineReverseReachable(outputIDs, incoming)
+		for _, node := range graph.Nodes {
+			if _, ok := reachableFromInput[node.ID]; !ok {
+				errors = append(errors, "node is not reachable from input: "+node.ID)
+			}
+			if _, ok := canReachOutput[node.ID]; !ok {
+				errors = append(errors, "node does not reach an output: "+node.ID)
+			}
+			if node.Data.StepType != DataPipelineStepInput && len(incoming[node.ID]) == 0 {
+				errors = append(errors, "node has no upstream edge: "+node.ID)
+			}
+		}
+	}
+
+	return DataPipelineValidationSummary{
+		Valid:  len(errors) == 0,
+		Errors: dataPipelineUniqueStrings(errors),
+	}
+}
+
+func dataPipelineTopologicalOrder(graph DataPipelineGraph) ([]DataPipelineNode, error) {
+	nodes := make(map[string]DataPipelineNode, len(graph.Nodes))
+	indegree := make(map[string]int, len(graph.Nodes))
+	outgoing := make(map[string][]string, len(graph.Nodes))
+	for _, node := range graph.Nodes {
+		nodes[node.ID] = node
+		indegree[node.ID] = 0
+	}
+	for _, edge := range graph.Edges {
+		if _, ok := nodes[edge.Source]; !ok {
+			continue
+		}
+		if _, ok := nodes[edge.Target]; !ok {
+			continue
+		}
+		outgoing[edge.Source] = append(outgoing[edge.Source], edge.Target)
+		indegree[edge.Target]++
+	}
+
+	ready := make([]string, 0)
+	for id, degree := range indegree {
+		if degree == 0 {
+			ready = append(ready, id)
+		}
+	}
+	sort.Strings(ready)
+	ordered := make([]DataPipelineNode, 0, len(nodes))
+	for len(ready) > 0 {
+		id := ready[0]
+		ready = ready[1:]
+		ordered = append(ordered, nodes[id])
+		next := append([]string(nil), outgoing[id]...)
+		sort.Strings(next)
+		for _, target := range next {
+			indegree[target]--
+			if indegree[target] == 0 {
+				ready = append(ready, target)
+				sort.Strings(ready)
+			}
+		}
+	}
+	if len(ordered) != len(nodes) {
+		return nil, fmt.Errorf("graph must be acyclic")
+	}
+	return ordered, nil
+}
+
+func dataPipelineReachable(start string, outgoing map[string][]string) map[string]struct{} {
+	seen := map[string]struct{}{start: {}}
+	queue := []string{start}
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		for _, next := range outgoing[id] {
+			if _, ok := seen[next]; ok {
+				continue
+			}
+			seen[next] = struct{}{}
+			queue = append(queue, next)
+		}
+	}
+	return seen
+}
+
+func dataPipelineReverseReachable(starts map[string]struct{}, incoming map[string][]string) map[string]struct{} {
+	seen := make(map[string]struct{}, len(starts))
+	queue := make([]string, 0, len(starts))
+	for start := range starts {
+		seen[start] = struct{}{}
+		queue = append(queue, start)
+	}
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		for _, prev := range incoming[id] {
+			if _, ok := seen[prev]; ok {
+				continue
+			}
+			seen[prev] = struct{}{}
+			queue = append(queue, prev)
+		}
+	}
+	return seen
+}
+
+func dataPipelineUniqueStrings(values []string) []string {
+	set := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := set[value]; ok {
+			continue
+		}
+		set[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
+}
+
+func encodeDataPipelineJSON(value any) ([]byte, error) {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("encode data pipeline json: %w", err)
+	}
+	return payload, nil
+}
+
+func decodeDataPipelineGraph(payload []byte) (DataPipelineGraph, error) {
+	var graph DataPipelineGraph
+	if len(payload) == 0 {
+		return graph, nil
+	}
+	if err := json.Unmarshal(payload, &graph); err != nil {
+		return DataPipelineGraph{}, fmt.Errorf("%w: graph json is invalid", ErrInvalidDataPipelineGraph)
+	}
+	return graph, nil
+}
+
+func decodeDataPipelineJSONMap(payload []byte) map[string]any {
+	if len(payload) == 0 {
+		return map[string]any{}
+	}
+	var out map[string]any
+	if err := json.Unmarshal(payload, &out); err != nil || out == nil {
+		return map[string]any{}
+	}
+	return out
+}
+
+func nextDataPipelineScheduleRunAfter(frequency, timezoneName, runTime string, weekday, monthDay *int32, after time.Time) (time.Time, error) {
+	return nextWorkTableExportScheduleRunAfter(frequency, timezoneName, runTime, weekday, monthDay, after)
+}

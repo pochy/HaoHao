@@ -20,6 +20,7 @@ type DefaultOutboxHandler struct {
 	imports       *CustomerSignalImportService
 	driveOCR      *DriveOCRService
 	datasets      *DatasetService
+	dataPipelines *DataPipelineService
 	localSearch   *LocalSearchService
 }
 
@@ -40,6 +41,8 @@ func NewOutboxHandler(emailSender EmailSender, notifications *NotificationServic
 			handler.driveOCR = item
 		case *DatasetService:
 			handler.datasets = item
+		case *DataPipelineService:
+			handler.dataPipelines = item
 		case *LocalSearchService:
 			handler.localSearch = item
 		}
@@ -206,6 +209,18 @@ func (h *DefaultOutboxHandler) HandleOutboxEvent(ctx context.Context, event db.O
 			return nil
 		}
 		return h.datasets.HandleGoldPublishRequested(ctx, payload.TenantID, payload.PublishRunID, event.ID)
+	case "data_pipeline.run_requested":
+		var payload struct {
+			TenantID int64 `json:"tenantId"`
+			RunID    int64 `json:"runId"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return err
+		}
+		if h.dataPipelines == nil {
+			return nil
+		}
+		return h.dataPipelines.HandleRunRequested(ctx, payload.TenantID, payload.RunID, event.ID)
 	case "local_search.index_requested":
 		var payload struct {
 			TenantID int64 `json:"tenantId"`

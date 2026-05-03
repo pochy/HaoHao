@@ -16,6 +16,7 @@ INSERT INTO roles (code)
 VALUES
     ('todo_user'),
     ('docs_reader'),
+    ('data_pipeline_user'),
     ('customer_signal_user'),
     ('tenant_admin')
 ON CONFLICT (code) DO NOTHING;

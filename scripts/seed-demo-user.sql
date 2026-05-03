@@ -14,6 +14,7 @@ SET
 INSERT INTO roles (code)
 VALUES
     ('customer_signal_user'),
+    ('data_pipeline_user'),
     ('docs_reader'),
     ('machine_client_admin'),
     ('tenant_admin'),
@@ -47,7 +48,7 @@ INSERT INTO tenant_memberships (user_id, tenant_id, role_id, source)
 SELECT u.id, t.id, r.id, 'local_override'
 FROM users u
 JOIN tenants t ON t.slug IN ('acme', 'beta')
-JOIN roles r ON r.code IN ('customer_signal_user', 'docs_reader', 'todo_user')
+JOIN roles r ON r.code IN ('customer_signal_user', 'data_pipeline_user', 'docs_reader', 'todo_user')
 WHERE u.email = 'demo@example.com'
 ON CONFLICT (user_id, tenant_id, role_id, source) DO UPDATE
 SET

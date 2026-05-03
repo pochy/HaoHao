@@ -3858,7 +3858,7 @@ CREATE TABLE public.medallion_pipeline_runs (
     completed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT medallion_pipeline_runs_pipeline_type_check CHECK ((pipeline_type = ANY (ARRAY['dataset_import'::text, 'work_table_register'::text, 'work_table_promote'::text, 'dataset_sync'::text, 'drive_ocr'::text, 'product_extraction'::text, 'gold_publish'::text]))),
+    CONSTRAINT medallion_pipeline_runs_pipeline_type_check CHECK ((pipeline_type = ANY (ARRAY['dataset_import'::text, 'work_table_register'::text, 'work_table_promote'::text, 'dataset_sync'::text, 'drive_ocr'::text, 'product_extraction'::text, 'gold_publish'::text, 'data_pipeline'::text]))),
     CONSTRAINT medallion_pipeline_runs_run_key_check CHECK ((btrim(run_key) <> ''::text)),
     CONSTRAINT medallion_pipeline_runs_source_resource_kind_check CHECK (((source_resource_kind IS NULL) OR (source_resource_kind = ANY (ARRAY['drive_file'::text, 'dataset'::text, 'work_table'::text, 'ocr_run'::text, 'product_extraction'::text, 'gold_table'::text])))),
     CONSTRAINT medallion_pipeline_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text]))),
@@ -10464,3 +10464,129 @@ ALTER TABLE ONLY public.webhook_endpoints
 --
 -- PostgreSQL database dump complete
 --
+CREATE TABLE public.data_pipelines (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
+    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    updated_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    published_version_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    archived_at timestamp with time zone,
+    CONSTRAINT data_pipelines_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT data_pipelines_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text])))
+);
+
+CREATE INDEX data_pipelines_tenant_updated_idx ON public.data_pipelines USING btree (tenant_id, updated_at DESC, id DESC) WHERE (archived_at IS NULL);
+
+CREATE TABLE public.data_pipeline_versions (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
+    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    pipeline_id bigint NOT NULL REFERENCES public.data_pipelines(id) ON DELETE CASCADE,
+    version_number integer NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    graph jsonb NOT NULL,
+    validation_summary jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    published_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    published_at timestamp with time zone,
+    CONSTRAINT data_pipeline_versions_graph_object_check CHECK ((jsonb_typeof(graph) = 'object'::text)),
+    CONSTRAINT data_pipeline_versions_pipeline_version_key UNIQUE (pipeline_id, version_number),
+    CONSTRAINT data_pipeline_versions_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text]))),
+    CONSTRAINT data_pipeline_versions_version_check CHECK ((version_number > 0))
+);
+
+ALTER TABLE ONLY public.data_pipelines
+    ADD CONSTRAINT data_pipelines_published_version_id_fkey FOREIGN KEY (published_version_id) REFERENCES public.data_pipeline_versions(id) ON DELETE SET NULL;
+
+CREATE INDEX data_pipeline_versions_pipeline_created_idx ON public.data_pipeline_versions USING btree (pipeline_id, created_at DESC, id DESC);
+CREATE INDEX data_pipeline_versions_tenant_status_idx ON public.data_pipeline_versions USING btree (tenant_id, status, created_at DESC, id DESC);
+
+CREATE TABLE public.data_pipeline_runs (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
+    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    pipeline_id bigint NOT NULL REFERENCES public.data_pipelines(id) ON DELETE CASCADE,
+    version_id bigint NOT NULL REFERENCES public.data_pipeline_versions(id) ON DELETE RESTRICT,
+    schedule_id bigint,
+    requested_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    trigger_kind text DEFAULT 'manual'::text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    output_work_table_id bigint REFERENCES public.dataset_work_tables(id) ON DELETE SET NULL,
+    outbox_event_id bigint REFERENCES public.outbox_events(id) ON DELETE SET NULL,
+    row_count bigint DEFAULT 0 NOT NULL,
+    error_summary text,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_runs_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT data_pipeline_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text]))),
+    CONSTRAINT data_pipeline_runs_trigger_kind_check CHECK ((trigger_kind = ANY (ARRAY['manual'::text, 'scheduled'::text])))
+);
+
+CREATE INDEX data_pipeline_runs_active_idx ON public.data_pipeline_runs USING btree (tenant_id, pipeline_id, created_at DESC, id DESC) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]));
+CREATE INDEX data_pipeline_runs_pipeline_created_idx ON public.data_pipeline_runs USING btree (pipeline_id, created_at DESC, id DESC);
+CREATE INDEX data_pipeline_runs_schedule_active_idx ON public.data_pipeline_runs USING btree (tenant_id, schedule_id) WHERE ((schedule_id IS NOT NULL) AND (status = ANY (ARRAY['pending'::text, 'processing'::text])));
+
+CREATE TABLE public.data_pipeline_run_steps (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    run_id bigint NOT NULL REFERENCES public.data_pipeline_runs(id) ON DELETE CASCADE,
+    node_id text NOT NULL,
+    step_type text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    row_count bigint DEFAULT 0 NOT NULL,
+    error_summary text,
+    error_sample jsonb DEFAULT '[]'::jsonb NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_run_steps_node_id_check CHECK ((btrim(node_id) <> ''::text)),
+    CONSTRAINT data_pipeline_run_steps_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT data_pipeline_run_steps_run_node_key UNIQUE (run_id, node_id),
+    CONSTRAINT data_pipeline_run_steps_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
+);
+
+CREATE INDEX data_pipeline_run_steps_run_idx ON public.data_pipeline_run_steps USING btree (run_id, id);
+
+CREATE TABLE public.data_pipeline_schedules (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
+    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    pipeline_id bigint NOT NULL REFERENCES public.data_pipelines(id) ON DELETE CASCADE,
+    version_id bigint NOT NULL REFERENCES public.data_pipeline_versions(id) ON DELETE RESTRICT,
+    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    frequency text NOT NULL,
+    timezone text NOT NULL,
+    run_time text NOT NULL,
+    weekday smallint,
+    month_day smallint,
+    enabled boolean DEFAULT true NOT NULL,
+    next_run_at timestamp with time zone NOT NULL,
+    last_run_at timestamp with time zone,
+    last_status text,
+    last_error_summary text,
+    last_run_id bigint REFERENCES public.data_pipeline_runs(id) ON DELETE SET NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_schedules_frequency_check CHECK ((frequency = ANY (ARRAY['daily'::text, 'weekly'::text, 'monthly'::text]))),
+    CONSTRAINT data_pipeline_schedules_frequency_shape_check CHECK ((((frequency = 'daily'::text) AND (weekday IS NULL) AND (month_day IS NULL)) OR ((frequency = 'weekly'::text) AND (weekday IS NOT NULL) AND (month_day IS NULL)) OR ((frequency = 'monthly'::text) AND (weekday IS NULL) AND (month_day IS NOT NULL)))),
+    CONSTRAINT data_pipeline_schedules_month_day_check CHECK (((month_day IS NULL) OR ((month_day >= 1) AND (month_day <= 28)))),
+    CONSTRAINT data_pipeline_schedules_run_time_check CHECK ((run_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'::text)),
+    CONSTRAINT data_pipeline_schedules_weekday_check CHECK (((weekday IS NULL) OR ((weekday >= 1) AND (weekday <= 7))))
+);
+
+ALTER TABLE ONLY public.data_pipeline_runs
+    ADD CONSTRAINT data_pipeline_runs_schedule_id_fkey FOREIGN KEY (schedule_id) REFERENCES public.data_pipeline_schedules(id) ON DELETE SET NULL;
+
+CREATE INDEX data_pipeline_schedules_due_idx ON public.data_pipeline_schedules USING btree (next_run_at, id) WHERE enabled;
+CREATE INDEX data_pipeline_schedules_pipeline_idx ON public.data_pipeline_schedules USING btree (pipeline_id, updated_at DESC, id DESC);

@@ -171,6 +171,7 @@ func main() {
 		QueryMaxThreads:     cfg.ClickHouseQueryMaxThreads,
 	})
 	medallionCatalogService := service.NewMedallionCatalogService(queries, driveService, datasetService)
+	dataPipelineService := service.NewDataPipelineService(pool, queries, outboxService, datasetService, medallionCatalogService, auditService)
 	localSearchService := service.NewLocalSearchService(pool, queries, driveService, datasetService, medallionCatalogService, outboxService, tenantSettingsService)
 	driveService.SetMedallionCatalogService(medallionCatalogService)
 	driveService.SetLocalSearchService(localSearchService)
@@ -185,7 +186,7 @@ func main() {
 	customerSignalSavedFilterService := service.NewCustomerSignalSavedFilterService(queries, entitlementService, auditService)
 	supportAccessService := service.NewSupportAccessService(queries, sessionService, entitlementService, auditService, cfg.SupportAccessMaxDuration)
 	emailSender := service.NewLogEmailSender(logger, cfg.EmailFrom)
-	outboxHandler := service.NewOutboxHandler(emailSender, notificationService, tenantInvitationService, tenantDataExportService, webhookService, customerSignalImportService, driveOCRService, datasetService, localSearchService)
+	outboxHandler := service.NewOutboxHandler(emailSender, notificationService, tenantInvitationService, tenantDataExportService, webhookService, customerSignalImportService, driveOCRService, datasetService, dataPipelineService, localSearchService)
 
 	var oidcLoginService *service.OIDCLoginService
 	var delegationService *service.DelegationService
@@ -278,11 +279,18 @@ func main() {
 		BatchSize:    int32(cfg.WorkTableExportSchedulerBatchSize),
 		RunOnStartup: cfg.WorkTableExportSchedulerRunOnStartup,
 	}, logger, metrics)
+	dataPipelineScheduleJob := jobs.NewDataPipelineScheduleJob(dataPipelineService, jobs.DataPipelineScheduleConfig{
+		Enabled:      cfg.DataPipelineSchedulerEnabled,
+		Interval:     cfg.DataPipelineSchedulerInterval,
+		Timeout:      cfg.DataPipelineSchedulerTimeout,
+		BatchSize:    int32(cfg.DataPipelineSchedulerBatchSize),
+		RunOnStartup: cfg.DataPipelineSchedulerRunOnStartup,
+	}, logger, metrics)
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	appExtras := []any{entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService, medallionCatalogService, localSearchService, realtimeService}
+	appExtras := []any{entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService, medallionCatalogService, dataPipelineService, localSearchService, realtimeService}
 	markdownDocsFS, err := backendweb.MarkdownDocsFS()
 	if err != nil {
 		logger.Warn("markdown docs unavailable", "error", err)
@@ -325,6 +333,7 @@ func main() {
 	go outboxWorker.Start(shutdownCtx)
 	go dataLifecycleJob.Start(shutdownCtx)
 	go workTableExportScheduleJob.Start(shutdownCtx)
+	go dataPipelineScheduleJob.Start(shutdownCtx)
 
 	go func() {
 		logger.Info("listening", "url", fmt.Sprintf("http://127.0.0.1:%d", cfg.HTTPPort))

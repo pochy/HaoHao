@@ -829,6 +829,785 @@ components:
       required:
         - name
       type: object
+    DataPipelineBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineBody.json
+          format: uri
+          readOnly: true
+          type: string
+        archivedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          type: string
+        name:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Customer cleansing
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        publishedVersionId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        status:
+          description: 現在の lifecycle status です。
+          examples:
+            - draft
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - name
+        - description
+        - status
+        - createdAt
+        - updatedAt
+      type: object
+    DataPipelineCreateBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineCreateBody.json
+          format: uri
+          readOnly: true
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          maxLength: 2000
+          type: string
+        name:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Acme
+          maxLength: 160
+          type: string
+      required:
+        - name
+      type: object
+    DataPipelineDetailBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineDetailBody.json
+          format: uri
+          readOnly: true
+          type: string
+        pipeline:
+          $ref: "#/components/schemas/DataPipelineBody"
+          examples:
+            - example
+        publishedVersion:
+          $ref: "#/components/schemas/DataPipelineVersionBody"
+          examples:
+            - example
+        runs:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DataPipelineRunBody"
+          type:
+            - array
+            - "null"
+        schedules:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DataPipelineScheduleBody"
+          type:
+            - array
+            - "null"
+        versions:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DataPipelineVersionBody"
+          type:
+            - array
+            - "null"
+      required:
+        - pipeline
+        - versions
+        - runs
+        - schedules
+      type: object
+    DataPipelineEdge:
+      additionalProperties: false
+      properties:
+        id:
+          description: 内部 ID または protocol 上の識別子です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        source:
+          description: record の発生元または permission の由来です。
+          examples:
+            - support
+          type: string
+        target:
+          examples:
+            - example
+          type: string
+      required:
+        - source
+        - target
+      type: object
+    DataPipelineGraph:
+      additionalProperties: false
+      properties:
+        edges:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DataPipelineEdge"
+          type:
+            - array
+            - "null"
+        nodes:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DataPipelineNode"
+          type:
+            - array
+            - "null"
+      required:
+        - nodes
+        - edges
+      type: object
+    DataPipelineListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DataPipelineBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DataPipelineNode:
+      additionalProperties: false
+      properties:
+        data:
+          $ref: "#/components/schemas/DataPipelineNodeData"
+          examples:
+            - example
+        id:
+          description: 内部 ID または protocol 上の識別子です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        position:
+          additionalProperties:
+            format: double
+            type: number
+          examples:
+            - {}
+          type: object
+        type:
+          examples:
+            - example
+          type: string
+      required:
+        - id
+        - data
+      type: object
+    DataPipelineNodeData:
+      additionalProperties: false
+      properties:
+        config:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        label:
+          examples:
+            - example
+          type: string
+        stepType:
+          examples:
+            - example
+          type: string
+      required:
+        - stepType
+      type: object
+    DataPipelinePreviewBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelinePreviewBody.json
+          format: uri
+          readOnly: true
+          type: string
+        columns:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        nodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        previewRows:
+          examples:
+            - - {}
+          items:
+            additionalProperties: {}
+            type: object
+          type:
+            - array
+            - "null"
+        stepType:
+          examples:
+            - example
+          type: string
+      required:
+        - nodeId
+        - stepType
+        - columns
+        - previewRows
+      type: object
+    DataPipelinePreviewRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelinePreviewRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        limit:
+          description: pagination で返す最大件数です。
+          examples:
+            - 50
+          format: int32
+          maximum: 1000
+          minimum: 1
+          type: integer
+        nodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+      type: object
+    DataPipelineRunBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineRunBody.json
+          format: uri
+          readOnly: true
+          type: string
+        completedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        errorSummary:
+          examples:
+            - example
+          type: string
+        outputWorkTableId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        rowCount:
+          examples:
+            - 3
+          format: int64
+          type: integer
+        scheduleId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        startedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          examples:
+            - pending
+          type: string
+        steps:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DataPipelineRunStepBody"
+          type:
+            - array
+            - "null"
+        triggerKind:
+          examples:
+            - manual
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        versionId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+      required:
+        - publicId
+        - versionId
+        - triggerKind
+        - status
+        - rowCount
+        - createdAt
+        - updatedAt
+        - steps
+      type: object
+    DataPipelineRunListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineRunListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DataPipelineRunBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DataPipelineRunStepBody:
+      additionalProperties: false
+      properties:
+        completedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        errorSample:
+          examples:
+            - - {}
+          items:
+            additionalProperties: {}
+            type: object
+          type:
+            - array
+            - "null"
+        errorSummary:
+          examples:
+            - example
+          type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        nodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        rowCount:
+          examples:
+            - 3
+          format: int64
+          type: integer
+        startedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          examples:
+            - active
+          type: string
+        stepType:
+          examples:
+            - example
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - nodeId
+        - stepType
+        - status
+        - rowCount
+        - errorSample
+        - metadata
+        - createdAt
+        - updatedAt
+      type: object
+    DataPipelineScheduleBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineScheduleBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        enabled:
+          examples:
+            - true
+          type: boolean
+        frequency:
+          enum:
+            - daily
+            - weekly
+            - monthly
+          examples:
+            - daily
+          type: string
+        lastErrorSummary:
+          examples:
+            - example
+          type: string
+        lastRunAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        lastRunId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        lastStatus:
+          examples:
+            - active
+          type: string
+        monthDay:
+          examples:
+            - 1
+          format: int32
+          maximum: 28
+          minimum: 1
+          type: integer
+        nextRunAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        runTime:
+          examples:
+            - "03:00"
+          type: string
+        timezone:
+          examples:
+            - Asia/Tokyo
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        versionId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        weekday:
+          examples:
+            - 1
+          format: int32
+          maximum: 7
+          minimum: 1
+          type: integer
+      required:
+        - publicId
+        - versionId
+        - frequency
+        - timezone
+        - runTime
+        - enabled
+        - nextRunAt
+        - createdAt
+        - updatedAt
+      type: object
+    DataPipelineScheduleListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineScheduleListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DataPipelineScheduleBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    DataPipelineScheduleWriteBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineScheduleWriteBody.json
+          format: uri
+          readOnly: true
+          type: string
+        enabled:
+          examples:
+            - true
+          type: boolean
+        frequency:
+          enum:
+            - daily
+            - weekly
+            - monthly
+          examples:
+            - daily
+          type: string
+        monthDay:
+          examples:
+            - 1
+          format: int32
+          maximum: 28
+          minimum: 1
+          type: integer
+        runTime:
+          examples:
+            - example
+          type: string
+        timezone:
+          examples:
+            - example
+          type: string
+        weekday:
+          examples:
+            - 1
+          format: int32
+          maximum: 7
+          minimum: 1
+          type: integer
+      type: object
+    DataPipelineUpdateBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineUpdateBody.json
+          format: uri
+          readOnly: true
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          maxLength: 2000
+          type: string
+        name:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Acme
+          maxLength: 160
+          type: string
+      required:
+        - name
+      type: object
+    DataPipelineValidationSummary:
+      additionalProperties: false
+      properties:
+        errors:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        valid:
+          examples:
+            - true
+          type: boolean
+      required:
+        - valid
+        - errors
+      type: object
+    DataPipelineVersionBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineVersionBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        graph:
+          $ref: "#/components/schemas/DataPipelineGraph"
+          examples:
+            - example
+        pipelineId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        publishedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        status:
+          description: 現在の lifecycle status です。
+          examples:
+            - draft
+          type: string
+        validationSummary:
+          $ref: "#/components/schemas/DataPipelineValidationSummary"
+          examples:
+            - example
+        versionNumber:
+          examples:
+            - 1
+          format: int32
+          type: integer
+      required:
+        - publicId
+        - pipelineId
+        - versionNumber
+        - status
+        - graph
+        - validationSummary
+        - createdAt
+      type: object
+    DataPipelineVersionSaveBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DataPipelineVersionSaveBody.json
+          format: uri
+          readOnly: true
+          type: string
+        graph:
+          $ref: "#/components/schemas/DataPipelineGraph"
+          examples:
+            - example
+      required:
+        - graph
+      type: object
     DatasetBody:
       additionalProperties: false
       properties:
@@ -18320,6 +19099,1207 @@ paths:
       summary: active tenant の Customer Signal を更新する
       tags:
         - Customer Signals
+  /api/v1/data-pipeline-schedules/{schedulePublicId}:
+    delete:
+      description: |-
+        data pipeline schedule を disable する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: disableDataPipelineSchedule
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `schedulePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: schedulePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DataPipelineScheduleBody.json
+                    createdAt: "2026-01-15T09:30:00Z"
+                    enabled: true
+                    frequency: daily
+                    lastErrorSummary: example
+                    lastRunAt: "2026-01-15T09:30:00Z"
+                    lastRunId: 1
+                    lastStatus: active
+                    monthDay: 1
+                    nextRunAt: "2026-01-15T09:30:00Z"
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    runTime: "03:00"
+                    timezone: Asia/Tokyo
+                    updatedAt: "2026-01-15T09:30:00Z"
+                    versionId: 1
+                    weekday: 1
+              schema:
+                $ref: "#/components/schemas/DataPipelineScheduleBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: data pipeline schedule を disable する
+      tags:
+        - Data & Datasets
+    patch:
+      description: |-
+        data pipeline schedule を更新する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: updateDataPipelineSchedule
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `schedulePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: schedulePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  enabled: true
+                  frequency: daily
+                  monthDay: 1
+                  runTime: example
+                  timezone: example
+                  weekday: 1
+            schema:
+              $ref: "#/components/schemas/DataPipelineScheduleWriteBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DataPipelineScheduleBody.json
+                    createdAt: "2026-01-15T09:30:00Z"
+                    enabled: true
+                    frequency: daily
+                    lastErrorSummary: example
+                    lastRunAt: "2026-01-15T09:30:00Z"
+                    lastRunId: 1
+                    lastStatus: active
+                    monthDay: 1
+                    nextRunAt: "2026-01-15T09:30:00Z"
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    runTime: "03:00"
+                    timezone: Asia/Tokyo
+                    updatedAt: "2026-01-15T09:30:00Z"
+                    versionId: 1
+                    weekday: 1
+              schema:
+                $ref: "#/components/schemas/DataPipelineScheduleBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: data pipeline schedule を更新する
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipeline-versions/{versionPublicId}/preview:
+    post:
+      description: |-
+        selected node まで preview する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: previewDataPipelineVersion
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `versionPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: versionPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  limit: 50
+                  nodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+            schema:
+              $ref: "#/components/schemas/DataPipelinePreviewRequestBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    columns:
+                      - example
+                    nodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    previewRows:
+                      - {}
+                    stepType: example
+              schema:
+                $ref: "#/components/schemas/DataPipelinePreviewBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: selected node まで preview する
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipeline-versions/{versionPublicId}/publish:
+    post:
+      description: |-
+        data pipeline version を publish する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: publishDataPipelineVersion
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `versionPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: versionPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DataPipelineVersionBody.json
+                    createdAt: "2026-01-15T09:30:00Z"
+                    graph:
+                      edges:
+                        - example
+                      nodes:
+                        - example
+                    pipelineId: 1
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedAt: "2026-01-15T09:30:00Z"
+                    status: draft
+                    validationSummary:
+                      errors:
+                        - example
+                      valid: true
+                    versionNumber: 1
+              schema:
+                $ref: "#/components/schemas/DataPipelineVersionBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: data pipeline version を publish する
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipeline-versions/{versionPublicId}/runs:
+    post:
+      description: |-
+        data pipeline manual run を request する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: createDataPipelineRun
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: 同じ request の retry を安全に扱うための任意 key です。同じ key は同じ method/path/body にだけ再利用できます。
+          example: req_20260115_customer_signal_001
+          in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+        - description: path 内の `versionPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: versionPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    completedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    errorSummary: example
+                    outputWorkTableId: 1
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    rowCount: 3
+                    scheduleId: 1
+                    startedAt: "2026-01-15T09:30:00Z"
+                    status: pending
+                    steps:
+                      - example
+                    triggerKind: manual
+                    updatedAt: "2026-01-15T09:30:00Z"
+                    versionId: 1
+              schema:
+                $ref: "#/components/schemas/DataPipelineRunBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: data pipeline manual run を request する
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipelines:
+    get:
+      description: |-
+        active tenant の data pipeline 一覧を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listDataPipelines
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - archivedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        description: Quarterly planning documents.
+                        name: Customer cleansing
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        publishedVersionId: 1
+                        status: draft
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DataPipelineListBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: active tenant の data pipeline 一覧を返す
+      tags:
+        - Data & Datasets
+    post:
+      description: |-
+        active tenant に data pipeline を作成する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: createDataPipeline
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: 同じ request の retry を安全に扱うための任意 key です。同じ key は同じ method/path/body にだけ再利用できます。
+          example: req_20260115_customer_signal_001
+          in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  description: Quarterly planning documents.
+                  name: Acme
+            schema:
+              $ref: "#/components/schemas/DataPipelineCreateBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    archivedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    name: Customer cleansing
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedVersionId: 1
+                    status: draft
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DataPipelineBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: active tenant に data pipeline を作成する
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipelines/{pipelinePublicId}:
+    get:
+      description: |-
+        data pipeline detail を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getDataPipeline
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `pipelinePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: pipelinePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    pipeline:
+                      $schema: https://example.com/schemas/DataPipelineBody.json
+                      archivedAt: "2026-01-15T09:30:00Z"
+                      createdAt: "2026-01-15T09:30:00Z"
+                      description: Quarterly planning documents.
+                      name: Customer cleansing
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      publishedVersionId: 1
+                      status: draft
+                      updatedAt: "2026-01-15T09:30:00Z"
+                    publishedVersion:
+                      createdAt: "2026-01-15T09:30:00Z"
+                      graph:
+                        edges: []
+                        nodes: []
+                      pipelineId: 1
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      publishedAt: "2026-01-15T09:30:00Z"
+                      status: draft
+                      validationSummary:
+                        errors: []
+                        valid: true
+                      versionNumber: 1
+                    runs:
+                      - completedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        errorSummary: example
+                        outputWorkTableId: 1
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        rowCount: 3
+                        scheduleId: 1
+                        startedAt: "2026-01-15T09:30:00Z"
+                        status: pending
+                        steps: []
+                        triggerKind: manual
+                        updatedAt: "2026-01-15T09:30:00Z"
+                        versionId: 1
+                    schedules:
+                      - createdAt: "2026-01-15T09:30:00Z"
+                        enabled: true
+                        frequency: daily
+                        lastErrorSummary: example
+                        lastRunAt: "2026-01-15T09:30:00Z"
+                        lastRunId: 1
+                        lastStatus: active
+                        monthDay: 1
+                        nextRunAt: "2026-01-15T09:30:00Z"
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        runTime: "03:00"
+                        timezone: Asia/Tokyo
+                        updatedAt: "2026-01-15T09:30:00Z"
+                        versionId: 1
+                        weekday: 1
+                    versions:
+                      - createdAt: "2026-01-15T09:30:00Z"
+                        graph: {}
+                        pipelineId: 1
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        publishedAt: "2026-01-15T09:30:00Z"
+                        status: draft
+                        validationSummary: {}
+                        versionNumber: 1
+              schema:
+                $ref: "#/components/schemas/DataPipelineDetailBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: data pipeline detail を返す
+      tags:
+        - Data & Datasets
+    patch:
+      description: |-
+        data pipeline の name / description を更新する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: updateDataPipeline
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `pipelinePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: pipelinePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  description: Quarterly planning documents.
+                  name: Acme
+            schema:
+              $ref: "#/components/schemas/DataPipelineUpdateBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DataPipelineBody.json
+                    archivedAt: "2026-01-15T09:30:00Z"
+                    createdAt: "2026-01-15T09:30:00Z"
+                    description: Quarterly planning documents.
+                    name: Customer cleansing
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedVersionId: 1
+                    status: draft
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/DataPipelineBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: data pipeline の name / description を更新する
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipelines/{pipelinePublicId}/runs:
+    get:
+      description: |-
+        data pipeline run history を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listDataPipelineRuns
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `pipelinePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: pipelinePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 25
+            format: int32
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - completedAt: "2026-01-15T09:30:00Z"
+                        createdAt: "2026-01-15T09:30:00Z"
+                        errorSummary: example
+                        outputWorkTableId: 1
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        rowCount: 3
+                        scheduleId: 1
+                        startedAt: "2026-01-15T09:30:00Z"
+                        status: pending
+                        steps:
+                          - example
+                        triggerKind: manual
+                        updatedAt: "2026-01-15T09:30:00Z"
+                        versionId: 1
+              schema:
+                $ref: "#/components/schemas/DataPipelineRunListBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: data pipeline run history を返す
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipelines/{pipelinePublicId}/schedules:
+    get:
+      description: |-
+        data pipeline schedules を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listDataPipelineSchedules
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `pipelinePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: pipelinePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - createdAt: "2026-01-15T09:30:00Z"
+                        enabled: true
+                        frequency: daily
+                        lastErrorSummary: example
+                        lastRunAt: "2026-01-15T09:30:00Z"
+                        lastRunId: 1
+                        lastStatus: active
+                        monthDay: 1
+                        nextRunAt: "2026-01-15T09:30:00Z"
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        runTime: "03:00"
+                        timezone: Asia/Tokyo
+                        updatedAt: "2026-01-15T09:30:00Z"
+                        versionId: 1
+                        weekday: 1
+              schema:
+                $ref: "#/components/schemas/DataPipelineScheduleListBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: data pipeline schedules を返す
+      tags:
+        - Data & Datasets
+    post:
+      description: |-
+        data pipeline schedule を作成する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: createDataPipelineSchedule
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `pipelinePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: pipelinePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  enabled: true
+                  frequency: daily
+                  monthDay: 1
+                  runTime: example
+                  timezone: example
+                  weekday: 1
+            schema:
+              $ref: "#/components/schemas/DataPipelineScheduleWriteBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    createdAt: "2026-01-15T09:30:00Z"
+                    enabled: true
+                    frequency: daily
+                    lastErrorSummary: example
+                    lastRunAt: "2026-01-15T09:30:00Z"
+                    lastRunId: 1
+                    lastStatus: active
+                    monthDay: 1
+                    nextRunAt: "2026-01-15T09:30:00Z"
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    runTime: "03:00"
+                    timezone: Asia/Tokyo
+                    updatedAt: "2026-01-15T09:30:00Z"
+                    versionId: 1
+                    weekday: 1
+              schema:
+                $ref: "#/components/schemas/DataPipelineScheduleBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: data pipeline schedule を作成する
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipelines/{pipelinePublicId}/versions:
+    post:
+      description: |-
+        data pipeline draft graph を保存する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: saveDataPipelineVersion
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: path 内の `pipelinePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: pipelinePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  graph:
+                    edges:
+                      - example
+                    nodes:
+                      - example
+            schema:
+              $ref: "#/components/schemas/DataPipelineVersionSaveBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    createdAt: "2026-01-15T09:30:00Z"
+                    graph:
+                      edges:
+                        - example
+                      nodes:
+                        - example
+                    pipelineId: 1
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    publishedAt: "2026-01-15T09:30:00Z"
+                    status: draft
+                    validationSummary:
+                      errors:
+                        - example
+                      valid: true
+                    versionNumber: 1
+              schema:
+                $ref: "#/components/schemas/DataPipelineVersionBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: data pipeline draft graph を保存する
+      tags:
+        - Data & Datasets
   /api/v1/dataset-query-jobs:
     get:
       description: |-

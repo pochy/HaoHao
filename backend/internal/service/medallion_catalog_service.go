@@ -40,6 +40,7 @@ const (
 	MedallionPipelineDriveOCR          = "drive_ocr"
 	MedallionPipelineProductExtraction = "product_extraction"
 	MedallionPipelineGoldPublish       = "gold_publish"
+	MedallionPipelineDataPipeline      = "data_pipeline"
 
 	MedallionPipelineStatusPending    = "pending"
 	MedallionPipelineStatusProcessing = "processing"

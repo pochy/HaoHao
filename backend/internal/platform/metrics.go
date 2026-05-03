@@ -32,6 +32,9 @@ type Metrics struct {
 	workTableExportScheduleRunsTotal  *prometheus.CounterVec
 	workTableExportScheduleDuration   *prometheus.HistogramVec
 	workTableExportScheduleItemsTotal *prometheus.CounterVec
+	dataPipelineScheduleRunsTotal     *prometheus.CounterVec
+	dataPipelineScheduleDuration      *prometheus.HistogramVec
+	dataPipelineScheduleItemsTotal    *prometheus.CounterVec
 	rateLimitTotal                    *prometheus.CounterVec
 	dataLifecycleRunsTotal            *prometheus.CounterVec
 	dataLifecycleItemsTotal           *prometheus.CounterVec
@@ -145,6 +148,25 @@ func NewMetrics(appVersion string) *Metrics {
 			Namespace:   "haohao",
 			Name:        "work_table_export_schedule_items_total",
 			Help:        "Total number of work table export schedule items processed.",
+			ConstLabels: constLabels,
+		}, []string{"kind"}),
+		dataPipelineScheduleRunsTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "data_pipeline_schedule_runs_total",
+			Help:        "Total number of data pipeline schedule job runs.",
+			ConstLabels: constLabels,
+		}, []string{"trigger", "status"}),
+		dataPipelineScheduleDuration: factory.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace:   "haohao",
+			Name:        "data_pipeline_schedule_duration_seconds",
+			Help:        "Data pipeline schedule job duration in seconds.",
+			Buckets:     []float64{0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+			ConstLabels: constLabels,
+		}, []string{"trigger", "status"}),
+		dataPipelineScheduleItemsTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   "haohao",
+			Name:        "data_pipeline_schedule_items_total",
+			Help:        "Total number of data pipeline schedule items processed.",
 			ConstLabels: constLabels,
 		}, []string{"kind"}),
 		rateLimitTotal: factory.NewCounterVec(prometheus.CounterOpts{
@@ -351,6 +373,25 @@ func (m *Metrics) IncWorkTableExportScheduleItems(kind string, count int64) {
 		return
 	}
 	m.workTableExportScheduleItemsTotal.WithLabelValues(kind).Add(float64(count))
+}
+
+func (m *Metrics) ObserveDataPipelineScheduleRun(trigger string, duration time.Duration, err error) {
+	if m == nil {
+		return
+	}
+	status := "ok"
+	if err != nil {
+		status = "error"
+	}
+	m.dataPipelineScheduleRunsTotal.WithLabelValues(trigger, status).Inc()
+	m.dataPipelineScheduleDuration.WithLabelValues(trigger, status).Observe(duration.Seconds())
+}
+
+func (m *Metrics) IncDataPipelineScheduleItems(kind string, count int64) {
+	if m == nil || count <= 0 {
+		return
+	}
+	m.dataPipelineScheduleItemsTotal.WithLabelValues(kind).Add(float64(count))
 }
 
 func (m *Metrics) IncRateLimit(policy, result string) {

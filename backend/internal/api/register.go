@@ -38,6 +38,7 @@ type Dependencies struct {
 	SupportAccessService             *service.SupportAccessService
 	DatasetService                   *service.DatasetService
 	MedallionCatalogService          *service.MedallionCatalogService
+	DataPipelineService              *service.DataPipelineService
 	LocalSearchService               *service.LocalSearchService
 	AuthMode                         string
 	EnableLocalPasswordLogin         bool
@@ -89,6 +90,7 @@ func RegisterSurface(api huma.API, deps Dependencies, surface Surface) {
 		registerMachineClientRoutes(api, deps)
 		registerDatasetRoutes(api, deps)
 		registerDatasetGoldPublicationRoutes(api, deps)
+		registerDataPipelineRoutes(api, deps)
 		registerDriveRoutes(api, deps)
 		registerMedallionCatalogRoutes(api, deps)
 	}

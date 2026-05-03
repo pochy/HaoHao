@@ -350,6 +350,313 @@ export type CustomerSignalSavedFilterRequestBody = {
     query?: string;
 };
 
+export type DataPipelineBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    archivedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    /**
+     * resource の説明文です。
+     */
+    description: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    publishedVersionId?: number;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DataPipelineCreateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+};
+
+export type DataPipelineDetailBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    pipeline: DataPipelineBody;
+    publishedVersion?: DataPipelineVersionBody;
+    runs: Array<DataPipelineRunBody> | null;
+    schedules: Array<DataPipelineScheduleBody> | null;
+    versions: Array<DataPipelineVersionBody> | null;
+};
+
+export type DataPipelineEdge = {
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
+    id?: string;
+    /**
+     * record の発生元または permission の由来です。
+     */
+    source: string;
+    target: string;
+};
+
+export type DataPipelineGraph = {
+    edges: Array<DataPipelineEdge> | null;
+    nodes: Array<DataPipelineNode> | null;
+};
+
+export type DataPipelineListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DataPipelineBody> | null;
+};
+
+export type DataPipelineNode = {
+    data: DataPipelineNodeData;
+    /**
+     * 内部 ID または protocol 上の識別子です。
+     */
+    id: string;
+    position?: {
+        [key: string]: number;
+    };
+    type?: string;
+};
+
+export type DataPipelineNodeData = {
+    config?: {
+        [key: string]: unknown;
+    };
+    label?: string;
+    stepType: string;
+};
+
+export type DataPipelinePreviewBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    columns: Array<string> | null;
+    nodeId: string;
+    previewRows: Array<{
+        [key: string]: unknown;
+    }> | null;
+    stepType: string;
+};
+
+export type DataPipelinePreviewRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit?: number;
+    nodeId?: string;
+};
+
+export type DataPipelineRunBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSummary?: string;
+    outputWorkTableId?: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    rowCount: number;
+    scheduleId?: number;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: string;
+    steps: Array<DataPipelineRunStepBody> | null;
+    triggerKind: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+    versionId: number;
+};
+
+export type DataPipelineRunListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DataPipelineRunBody> | null;
+};
+
+export type DataPipelineRunStepBody = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSample: Array<{
+        [key: string]: unknown;
+    }> | null;
+    errorSummary?: string;
+    metadata: {
+        [key: string]: unknown;
+    };
+    nodeId: string;
+    rowCount: number;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: string;
+    stepType: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DataPipelineScheduleBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    enabled: boolean;
+    frequency: 'daily' | 'weekly' | 'monthly';
+    lastErrorSummary?: string;
+    lastRunAt?: string;
+    lastRunId?: number;
+    lastStatus?: string;
+    monthDay?: number;
+    nextRunAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    runTime: string;
+    timezone: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+    versionId: number;
+    weekday?: number;
+};
+
+export type DataPipelineScheduleListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DataPipelineScheduleBody> | null;
+};
+
+export type DataPipelineScheduleWriteBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    enabled?: boolean;
+    frequency?: 'daily' | 'weekly' | 'monthly';
+    monthDay?: number;
+    runTime?: string;
+    timezone?: string;
+    weekday?: number;
+};
+
+export type DataPipelineUpdateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+};
+
+export type DataPipelineValidationSummary = {
+    errors: Array<string> | null;
+    valid: boolean;
+};
+
+export type DataPipelineVersionBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    graph: DataPipelineGraph;
+    pipelineId: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    publishedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: string;
+    validationSummary: DataPipelineValidationSummary;
+    versionNumber: number;
+};
+
+export type DataPipelineVersionSaveBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    graph: DataPipelineGraph;
+};
+
 export type DatasetBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -4294,6 +4601,185 @@ export type CustomerSignalSavedFilterRequestBodyWritable = {
      */
     name: string;
     query?: string;
+};
+
+export type DataPipelineBodyWritable = {
+    archivedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    /**
+     * resource の説明文です。
+     */
+    description: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    publishedVersionId?: number;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type DataPipelineCreateBodyWritable = {
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+};
+
+export type DataPipelineDetailBodyWritable = {
+    pipeline: DataPipelineBodyWritable;
+    publishedVersion?: DataPipelineVersionBodyWritable;
+    runs: Array<DataPipelineRunBodyWritable> | null;
+    schedules: Array<DataPipelineScheduleBodyWritable> | null;
+    versions: Array<DataPipelineVersionBodyWritable> | null;
+};
+
+export type DataPipelineListBodyWritable = {
+    items: Array<DataPipelineBodyWritable> | null;
+};
+
+export type DataPipelinePreviewBodyWritable = {
+    columns: Array<string> | null;
+    nodeId: string;
+    previewRows: Array<{
+        [key: string]: unknown;
+    }> | null;
+    stepType: string;
+};
+
+export type DataPipelinePreviewRequestBodyWritable = {
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit?: number;
+    nodeId?: string;
+};
+
+export type DataPipelineRunBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    errorSummary?: string;
+    outputWorkTableId?: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    rowCount: number;
+    scheduleId?: number;
+    startedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: string;
+    steps: Array<DataPipelineRunStepBody> | null;
+    triggerKind: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+    versionId: number;
+};
+
+export type DataPipelineRunListBodyWritable = {
+    items: Array<DataPipelineRunBodyWritable> | null;
+};
+
+export type DataPipelineScheduleBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    enabled: boolean;
+    frequency: 'daily' | 'weekly' | 'monthly';
+    lastErrorSummary?: string;
+    lastRunAt?: string;
+    lastRunId?: number;
+    lastStatus?: string;
+    monthDay?: number;
+    nextRunAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    runTime: string;
+    timezone: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+    versionId: number;
+    weekday?: number;
+};
+
+export type DataPipelineScheduleListBodyWritable = {
+    items: Array<DataPipelineScheduleBodyWritable> | null;
+};
+
+export type DataPipelineScheduleWriteBodyWritable = {
+    enabled?: boolean;
+    frequency?: 'daily' | 'weekly' | 'monthly';
+    monthDay?: number;
+    runTime?: string;
+    timezone?: string;
+    weekday?: number;
+};
+
+export type DataPipelineUpdateBodyWritable = {
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+};
+
+export type DataPipelineVersionBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    graph: DataPipelineGraph;
+    pipelineId: number;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    publishedAt?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: string;
+    validationSummary: DataPipelineValidationSummary;
+    versionNumber: number;
+};
+
+export type DataPipelineVersionSaveBodyWritable = {
+    graph: DataPipelineGraph;
 };
 
 export type DatasetBodyWritable = {
@@ -9729,6 +10215,476 @@ export type UpdateCustomerSignalResponses = {
 };
 
 export type UpdateCustomerSignalResponse = UpdateCustomerSignalResponses[keyof UpdateCustomerSignalResponses];
+
+export type DisableDataPipelineScheduleData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `schedulePublicId` を指定します。
+         */
+        schedulePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipeline-schedules/{schedulePublicId}';
+};
+
+export type DisableDataPipelineScheduleErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type DisableDataPipelineScheduleError = DisableDataPipelineScheduleErrors[keyof DisableDataPipelineScheduleErrors];
+
+export type DisableDataPipelineScheduleResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineScheduleBody;
+};
+
+export type DisableDataPipelineScheduleResponse = DisableDataPipelineScheduleResponses[keyof DisableDataPipelineScheduleResponses];
+
+export type UpdateDataPipelineScheduleData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DataPipelineScheduleWriteBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `schedulePublicId` を指定します。
+         */
+        schedulePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipeline-schedules/{schedulePublicId}';
+};
+
+export type UpdateDataPipelineScheduleErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type UpdateDataPipelineScheduleError = UpdateDataPipelineScheduleErrors[keyof UpdateDataPipelineScheduleErrors];
+
+export type UpdateDataPipelineScheduleResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineScheduleBody;
+};
+
+export type UpdateDataPipelineScheduleResponse = UpdateDataPipelineScheduleResponses[keyof UpdateDataPipelineScheduleResponses];
+
+export type PreviewDataPipelineVersionData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DataPipelinePreviewRequestBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `versionPublicId` を指定します。
+         */
+        versionPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipeline-versions/{versionPublicId}/preview';
+};
+
+export type PreviewDataPipelineVersionErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type PreviewDataPipelineVersionError = PreviewDataPipelineVersionErrors[keyof PreviewDataPipelineVersionErrors];
+
+export type PreviewDataPipelineVersionResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelinePreviewBody;
+};
+
+export type PreviewDataPipelineVersionResponse = PreviewDataPipelineVersionResponses[keyof PreviewDataPipelineVersionResponses];
+
+export type PublishDataPipelineVersionData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `versionPublicId` を指定します。
+         */
+        versionPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipeline-versions/{versionPublicId}/publish';
+};
+
+export type PublishDataPipelineVersionErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type PublishDataPipelineVersionError = PublishDataPipelineVersionErrors[keyof PublishDataPipelineVersionErrors];
+
+export type PublishDataPipelineVersionResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineVersionBody;
+};
+
+export type PublishDataPipelineVersionResponse = PublishDataPipelineVersionResponses[keyof PublishDataPipelineVersionResponses];
+
+export type CreateDataPipelineRunData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+        /**
+         * 同じ request の retry を安全に扱うための任意 key です。同じ key は同じ method/path/body にだけ再利用できます。
+         */
+        'Idempotency-Key'?: string;
+    };
+    path: {
+        /**
+         * path 内の `versionPublicId` を指定します。
+         */
+        versionPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipeline-versions/{versionPublicId}/runs';
+};
+
+export type CreateDataPipelineRunErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type CreateDataPipelineRunError = CreateDataPipelineRunErrors[keyof CreateDataPipelineRunErrors];
+
+export type CreateDataPipelineRunResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineRunBody;
+};
+
+export type CreateDataPipelineRunResponse = CreateDataPipelineRunResponses[keyof CreateDataPipelineRunResponses];
+
+export type ListDataPipelinesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/data-pipelines';
+};
+
+export type ListDataPipelinesErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDataPipelinesError = ListDataPipelinesErrors[keyof ListDataPipelinesErrors];
+
+export type ListDataPipelinesResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineListBody;
+};
+
+export type ListDataPipelinesResponse = ListDataPipelinesResponses[keyof ListDataPipelinesResponses];
+
+export type CreateDataPipelineData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DataPipelineCreateBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+        /**
+         * 同じ request の retry を安全に扱うための任意 key です。同じ key は同じ method/path/body にだけ再利用できます。
+         */
+        'Idempotency-Key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/data-pipelines';
+};
+
+export type CreateDataPipelineErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type CreateDataPipelineError = CreateDataPipelineErrors[keyof CreateDataPipelineErrors];
+
+export type CreateDataPipelineResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineBody;
+};
+
+export type CreateDataPipelineResponse = CreateDataPipelineResponses[keyof CreateDataPipelineResponses];
+
+export type GetDataPipelineData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `pipelinePublicId` を指定します。
+         */
+        pipelinePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipelines/{pipelinePublicId}';
+};
+
+export type GetDataPipelineErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetDataPipelineError = GetDataPipelineErrors[keyof GetDataPipelineErrors];
+
+export type GetDataPipelineResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineDetailBody;
+};
+
+export type GetDataPipelineResponse = GetDataPipelineResponses[keyof GetDataPipelineResponses];
+
+export type UpdateDataPipelineData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DataPipelineUpdateBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `pipelinePublicId` を指定します。
+         */
+        pipelinePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipelines/{pipelinePublicId}';
+};
+
+export type UpdateDataPipelineErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type UpdateDataPipelineError = UpdateDataPipelineErrors[keyof UpdateDataPipelineErrors];
+
+export type UpdateDataPipelineResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineBody;
+};
+
+export type UpdateDataPipelineResponse = UpdateDataPipelineResponses[keyof UpdateDataPipelineResponses];
+
+export type ListDataPipelineRunsData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `pipelinePublicId` を指定します。
+         */
+        pipelinePublicId: string;
+    };
+    query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/data-pipelines/{pipelinePublicId}/runs';
+};
+
+export type ListDataPipelineRunsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDataPipelineRunsError = ListDataPipelineRunsErrors[keyof ListDataPipelineRunsErrors];
+
+export type ListDataPipelineRunsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineRunListBody;
+};
+
+export type ListDataPipelineRunsResponse = ListDataPipelineRunsResponses[keyof ListDataPipelineRunsResponses];
+
+export type ListDataPipelineSchedulesData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `pipelinePublicId` を指定します。
+         */
+        pipelinePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipelines/{pipelinePublicId}/schedules';
+};
+
+export type ListDataPipelineSchedulesErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDataPipelineSchedulesError = ListDataPipelineSchedulesErrors[keyof ListDataPipelineSchedulesErrors];
+
+export type ListDataPipelineSchedulesResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineScheduleListBody;
+};
+
+export type ListDataPipelineSchedulesResponse = ListDataPipelineSchedulesResponses[keyof ListDataPipelineSchedulesResponses];
+
+export type CreateDataPipelineScheduleData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DataPipelineScheduleWriteBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `pipelinePublicId` を指定します。
+         */
+        pipelinePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipelines/{pipelinePublicId}/schedules';
+};
+
+export type CreateDataPipelineScheduleErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type CreateDataPipelineScheduleError = CreateDataPipelineScheduleErrors[keyof CreateDataPipelineScheduleErrors];
+
+export type CreateDataPipelineScheduleResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineScheduleBody;
+};
+
+export type CreateDataPipelineScheduleResponse = CreateDataPipelineScheduleResponses[keyof CreateDataPipelineScheduleResponses];
+
+export type SaveDataPipelineVersionData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DataPipelineVersionSaveBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `pipelinePublicId` を指定します。
+         */
+        pipelinePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipelines/{pipelinePublicId}/versions';
+};
+
+export type SaveDataPipelineVersionErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type SaveDataPipelineVersionError = SaveDataPipelineVersionErrors[keyof SaveDataPipelineVersionErrors];
+
+export type SaveDataPipelineVersionResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineVersionBody;
+};
+
+export type SaveDataPipelineVersionResponse = SaveDataPipelineVersionResponses[keyof SaveDataPipelineVersionResponses];
 
 export type ListDatasetQueryJobsData = {
     body?: never;

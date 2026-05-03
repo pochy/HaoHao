@@ -70,6 +70,11 @@ type Config struct {
 	WorkTableExportSchedulerTimeout      time.Duration
 	WorkTableExportSchedulerBatchSize    int
 	WorkTableExportSchedulerRunOnStartup bool
+	DataPipelineSchedulerEnabled         bool
+	DataPipelineSchedulerInterval        time.Duration
+	DataPipelineSchedulerTimeout         time.Duration
+	DataPipelineSchedulerBatchSize       int
+	DataPipelineSchedulerRunOnStartup    bool
 	IdempotencyTTL                       time.Duration
 	EmailDeliveryMode                    string
 	EmailFrom                            string
@@ -189,6 +194,14 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	workTableExportSchedulerTimeout, err := getEnvPositiveDuration("WORK_TABLE_EXPORT_SCHEDULER_TIMEOUT", "5m")
+	if err != nil {
+		return Config{}, err
+	}
+	dataPipelineSchedulerInterval, err := getEnvPositiveDuration("DATA_PIPELINE_SCHEDULER_INTERVAL", "1m")
+	if err != nil {
+		return Config{}, err
+	}
+	dataPipelineSchedulerTimeout, err := getEnvPositiveDuration("DATA_PIPELINE_SCHEDULER_TIMEOUT", "30s")
 	if err != nil {
 		return Config{}, err
 	}
@@ -341,6 +354,11 @@ func Load() (Config, error) {
 		WorkTableExportSchedulerTimeout:      workTableExportSchedulerTimeout,
 		WorkTableExportSchedulerBatchSize:    positiveInt(getEnvInt("WORK_TABLE_EXPORT_SCHEDULER_BATCH_SIZE", 20), 20),
 		WorkTableExportSchedulerRunOnStartup: getEnvBool("WORK_TABLE_EXPORT_SCHEDULER_RUN_ON_STARTUP", true),
+		DataPipelineSchedulerEnabled:         getEnvBool("DATA_PIPELINE_SCHEDULER_ENABLED", true),
+		DataPipelineSchedulerInterval:        dataPipelineSchedulerInterval,
+		DataPipelineSchedulerTimeout:         dataPipelineSchedulerTimeout,
+		DataPipelineSchedulerBatchSize:       positiveInt(getEnvInt("DATA_PIPELINE_SCHEDULER_BATCH_SIZE", 20), 20),
+		DataPipelineSchedulerRunOnStartup:    getEnvBool("DATA_PIPELINE_SCHEDULER_RUN_ON_STARTUP", true),
 		IdempotencyTTL:                       idempotencyTTL,
 		EmailDeliveryMode:                    strings.ToLower(strings.TrimSpace(getEnv("EMAIL_DELIVERY_MODE", "log"))),
 		EmailFrom:                            getEnv("EMAIL_FROM", "no-reply@example.com"),

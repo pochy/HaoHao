@@ -1,0 +1,450 @@
+import { defineStore } from 'pinia'
+
+import { isApiForbidden, toApiErrorMessage, toApiErrorStatus } from '../api/client'
+import {
+  createDataPipeline,
+  createDataPipelineRun,
+  createDataPipelineSchedule,
+  disableDataPipelineSchedule,
+  fetchDataPipeline,
+  fetchDataPipelineRuns,
+  fetchDataPipelines,
+  previewDataPipelineVersion,
+  publishDataPipelineVersion,
+  saveDataPipelineVersion,
+  updateDataPipeline,
+  updateDataPipelineSchedule,
+  type DataPipelineBody,
+  type DataPipelineDetailBody,
+  type DataPipelineEdge,
+  type DataPipelineGraph,
+  type DataPipelinePreviewBody,
+  type DataPipelineRunBody,
+  type DataPipelineScheduleBody,
+  type DataPipelineScheduleWriteBody,
+  type DataPipelineVersionBody,
+} from '../api/data-pipelines'
+import { i18n } from '../i18n'
+
+type DataPipelineStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
+
+export const useDataPipelineStore = defineStore('data-pipelines', {
+  state: () => ({
+    status: 'idle' as DataPipelineStatus,
+    items: [] as DataPipelineBody[],
+    selectedPublicId: '',
+    detail: null as DataPipelineDetailBody | null,
+    draftGraph: defaultDataPipelineGraph(),
+    selectedNodeId: '',
+    preview: null as DataPipelinePreviewBody | null,
+    runs: [] as DataPipelineRunBody[],
+    schedules: [] as DataPipelineScheduleBody[],
+    actionLoading: false,
+    previewLoading: false,
+    runsLoading: false,
+    errorMessage: '',
+    actionMessage: '',
+  }),
+
+  getters: {
+    selectedPipeline: (state) => (
+      state.selectedPublicId
+        ? state.items.find((item) => item.publicId === state.selectedPublicId) ?? null
+        : state.items[0] ?? null
+    ),
+    latestVersion: (state): DataPipelineVersionBody | null => state.detail?.versions?.[0] ?? null,
+    publishedVersion: (state): DataPipelineVersionBody | null => state.detail?.publishedVersion ?? null,
+    hasActiveRuns: (state) => state.runs.some((run) => ['pending', 'processing'].includes(run.status)),
+  },
+
+  actions: {
+    reset() {
+      this.status = 'idle'
+      this.items = []
+      this.selectedPublicId = ''
+      this.detail = null
+      this.draftGraph = defaultDataPipelineGraph()
+      this.selectedNodeId = ''
+      this.preview = null
+      this.runs = []
+      this.schedules = []
+      this.errorMessage = ''
+      this.actionMessage = ''
+      this.runsLoading = false
+    },
+
+    async load() {
+      this.status = 'loading'
+      this.errorMessage = ''
+      try {
+        this.items = await fetchDataPipelines()
+        if (!this.selectedPublicId || !this.items.some((item) => item.publicId === this.selectedPublicId)) {
+          this.selectedPublicId = this.items[0]?.publicId ?? ''
+        }
+        this.status = this.items.length > 0 ? 'ready' : 'empty'
+        if (this.selectedPublicId) {
+          await this.loadDetail(this.selectedPublicId)
+        } else {
+          this.detail = null
+          this.draftGraph = defaultDataPipelineGraph()
+        }
+      } catch (error) {
+        this.items = []
+        this.detail = null
+        this.status = toApiErrorStatus(error) === 403 || isApiForbidden(error) ? 'forbidden' : 'error'
+        this.errorMessage = toApiErrorMessage(error)
+      }
+    },
+
+    async loadDetail(publicId: string) {
+      this.selectedPublicId = publicId
+      this.errorMessage = ''
+      const selectedNodeId = this.selectedNodeId
+      try {
+        this.detail = await fetchDataPipeline(publicId)
+        this.runs = this.detail.runs ?? []
+        this.schedules = this.detail.schedules ?? []
+        this.draftGraph = cloneGraph(this.detail.versions?.[0]?.graph ?? defaultDataPipelineGraph())
+        this.selectedNodeId = this.draftGraph.nodes.some((node) => node.id === selectedNodeId)
+          ? selectedNodeId
+          : this.draftGraph.nodes[0]?.id ?? ''
+        this.preview = null
+        this.status = 'ready'
+      } catch (error) {
+        this.detail = null
+        this.status = toApiErrorStatus(error) === 403 || isApiForbidden(error) ? 'forbidden' : 'error'
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      }
+    },
+
+    async create(name: string, description = '') {
+      this.actionLoading = true
+      this.errorMessage = ''
+      try {
+        const item = await createDataPipeline({ name, description })
+        this.items = [item, ...this.items.filter((existing) => existing.publicId !== item.publicId)]
+        this.selectedPublicId = item.publicId
+        await this.loadDetail(item.publicId)
+        return item
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionLoading = false
+      }
+    },
+
+    async update(name: string, description = '') {
+      if (!this.selectedPublicId) {
+        return null
+      }
+      this.actionLoading = true
+      this.errorMessage = ''
+      try {
+        const item = await updateDataPipeline(this.selectedPublicId, { name, description })
+        this.items = this.items.map((existing) => existing.publicId === item.publicId ? item : existing)
+        if (this.detail) {
+          this.detail.pipeline = item
+        }
+        return item
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionLoading = false
+      }
+    },
+
+    async saveDraft() {
+      if (!this.selectedPublicId) {
+        this.errorMessage = dataPipelineText('messages.selectOrCreateBeforeSaving')
+        return null
+      }
+      this.actionLoading = true
+      this.errorMessage = ''
+      try {
+        const version = await saveDataPipelineVersion(this.selectedPublicId, this.draftGraph)
+        await this.loadDetail(this.selectedPublicId)
+        this.actionMessage = dataPipelineText('messages.saved', { version: version.versionNumber })
+        return version
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionLoading = false
+      }
+    },
+
+    async publishLatest() {
+      const version = this.latestVersion
+      if (!version) {
+        this.errorMessage = dataPipelineText('messages.saveBeforePublishing')
+        return null
+      }
+      this.actionLoading = true
+      this.errorMessage = ''
+      try {
+        const published = await publishDataPipelineVersion(version.publicId)
+        if (this.selectedPublicId) {
+          await this.loadDetail(this.selectedPublicId)
+        }
+        this.actionMessage = dataPipelineText('messages.published', { version: published.versionNumber })
+        return published
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionLoading = false
+      }
+    },
+
+    async previewSelected() {
+      const nodeId = this.selectedNodeId || this.defaultPreviewNodeId()
+      if (!nodeId) {
+        this.errorMessage = dataPipelineText('messages.selectNodeBeforePreviewing')
+        return null
+      }
+      this.selectedNodeId = nodeId
+      this.ensureSelectedPreviewPath(nodeId)
+      this.previewLoading = true
+      this.errorMessage = ''
+      this.actionMessage = ''
+      try {
+        const version = await this.ensureDraftVersion()
+        if (!version) {
+          return null
+        }
+        this.preview = await previewDataPipelineVersion(version.publicId, nodeId, 100)
+        this.actionMessage = dataPipelineText('messages.previewed', { version: version.versionNumber })
+        return this.preview
+      } catch (error) {
+        this.preview = null
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.previewLoading = false
+      }
+    },
+
+    async runPublished() {
+      this.actionLoading = true
+      this.errorMessage = ''
+      this.actionMessage = ''
+      try {
+        const version = await this.ensureDraftVersion()
+        if (!version) {
+          return null
+        }
+        let runVersion = version
+        if (this.publishedVersion?.publicId !== version.publicId || version.status !== 'published') {
+          runVersion = await publishDataPipelineVersion(version.publicId)
+          if (this.selectedPublicId) {
+            await this.loadDetail(this.selectedPublicId)
+          }
+        }
+        const run = await createDataPipelineRun(runVersion.publicId)
+        this.runs = [run, ...this.runs.filter((item) => item.publicId !== run.publicId)]
+        this.actionMessage = dataPipelineText('messages.runRequested', { version: runVersion.versionNumber })
+        return run
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionLoading = false
+      }
+    },
+
+    async refreshRuns() {
+      if (!this.selectedPublicId) {
+        this.errorMessage = dataPipelineText('messages.selectOrCreateBeforeRefreshingRuns')
+        return
+      }
+      this.runsLoading = true
+      this.errorMessage = ''
+      try {
+        this.runs = await fetchDataPipelineRuns(this.selectedPublicId)
+        this.actionMessage = dataPipelineText('messages.runsRefreshed')
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.runsLoading = false
+      }
+    },
+
+    async ensureDraftVersion() {
+      if (!this.selectedPublicId) {
+        this.selectedPublicId = this.detail?.pipeline.publicId ?? this.items[0]?.publicId ?? ''
+      }
+      if (!this.selectedPublicId) {
+        this.errorMessage = dataPipelineText('messages.selectOrCreateBeforeAction')
+        return null
+      }
+      const latest = this.latestVersion
+      if (latest && graphsEqual(latest.graph, this.draftGraph)) {
+        return latest
+      }
+      const version = await saveDataPipelineVersion(this.selectedPublicId, this.draftGraph)
+      await this.loadDetail(this.selectedPublicId)
+      return version
+    },
+
+    defaultPreviewNodeId() {
+      return this.draftGraph.nodes.find((node) => node.data.stepType === 'output')?.id
+        ?? this.draftGraph.nodes[0]?.id
+        ?? ''
+    },
+
+    ensureSelectedPreviewPath(nodeId: string) {
+      const node = this.draftGraph.nodes.find((item) => item.id === nodeId)
+      if (!node || node.data.stepType === 'input') {
+        return
+      }
+      const input = this.draftGraph.nodes.find((item) => item.data.stepType === 'input')
+      const output = this.draftGraph.nodes.find((item) => item.data.stepType === 'output')
+      if (!input) {
+        return
+      }
+      let edges = [...this.draftGraph.edges]
+      const incoming = edges.filter((edge) => edge.target === nodeId)
+
+      if (incoming.length === 0) {
+        const directOutput = output ? edges.find((edge) => edge.source === input.id && edge.target === output.id) : undefined
+        const replacedEdge = directOutput ?? edges.find((edge) => edge.source === input.id)
+        if (replacedEdge) {
+          edges = edges.filter((edge) => edge !== replacedEdge)
+        }
+        edges = addDataPipelineEdge(edges, input.id, nodeId)
+        if (node.data.stepType !== 'output') {
+          edges = addDataPipelineEdge(edges, nodeId, replacedEdge?.target || output?.id || '')
+        }
+      }
+
+      const hasOutgoing = edges.some((edge) => edge.source === nodeId)
+      if (node.data.stepType !== 'output' && !hasOutgoing && output) {
+        const upstream = incoming[0]?.source || input.id
+        edges = edges.filter((edge) => !(edge.source === upstream && edge.target === output.id))
+        edges = addDataPipelineEdge(edges, nodeId, output.id)
+      }
+
+      this.draftGraph = {
+        ...this.draftGraph,
+        edges,
+      }
+    },
+
+    async createSchedule(body: DataPipelineScheduleWriteBody) {
+      this.actionLoading = true
+      this.errorMessage = ''
+      this.actionMessage = ''
+      try {
+        const version = await this.ensureDraftVersion()
+        if (!version) {
+          return null
+        }
+        if (this.publishedVersion?.publicId !== version.publicId || version.status !== 'published') {
+          await publishDataPipelineVersion(version.publicId)
+          if (this.selectedPublicId) {
+            await this.loadDetail(this.selectedPublicId)
+          }
+        }
+        const schedule = await createDataPipelineSchedule(this.selectedPublicId, body)
+        this.schedules = [schedule, ...this.schedules.filter((item) => item.publicId !== schedule.publicId)]
+        this.actionMessage = dataPipelineText('messages.scheduleAdded')
+        return schedule
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionLoading = false
+      }
+    },
+
+    async updateSchedule(publicId: string, body: DataPipelineScheduleWriteBody) {
+      this.actionLoading = true
+      this.errorMessage = ''
+      try {
+        const schedule = await updateDataPipelineSchedule(publicId, body)
+        this.schedules = this.schedules.map((item) => item.publicId === schedule.publicId ? schedule : item)
+        return schedule
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionLoading = false
+      }
+    },
+
+    async disableSchedule(publicId: string) {
+      this.actionLoading = true
+      this.errorMessage = ''
+      try {
+        const schedule = await disableDataPipelineSchedule(publicId)
+        this.schedules = this.schedules.map((item) => item.publicId === schedule.publicId ? schedule : item)
+        return schedule
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.actionLoading = false
+      }
+    },
+  },
+})
+
+export function defaultDataPipelineGraph(): DataPipelineGraph {
+  return {
+    nodes: [
+      {
+        id: 'input_1',
+        type: 'pipelineStep',
+        position: { x: 60, y: 120 },
+        data: {
+          label: 'Input',
+          stepType: 'input',
+          config: { sourceKind: 'dataset', datasetPublicId: '' },
+        },
+      },
+      {
+        id: 'output_1',
+        type: 'pipelineStep',
+        position: { x: 520, y: 120 },
+        data: {
+          label: 'Output',
+          stepType: 'output',
+          config: { displayName: dataPipelineText('defaultOutputDisplayName'), writeMode: 'replace', engine: 'MergeTree' },
+        },
+      },
+    ],
+    edges: [{ id: 'edge_input_output', source: 'input_1', target: 'output_1' }],
+  }
+}
+
+function cloneGraph(graph: DataPipelineGraph): DataPipelineGraph {
+  return JSON.parse(JSON.stringify(graph)) as DataPipelineGraph
+}
+
+function graphsEqual(a: DataPipelineGraph, b: DataPipelineGraph): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function addDataPipelineEdge(edges: DataPipelineEdge[], source: string, target: string): DataPipelineEdge[] {
+  if (!source || !target || source === target || edges.some((edge) => edge.source === source && edge.target === target)) {
+    return edges
+  }
+  return [
+    ...edges,
+    {
+      id: `edge_${source}_${target}_${Math.random().toString(36).slice(2, 8)}`,
+      source,
+      target,
+    },
+  ]
+}
+
+function dataPipelineText(key: string, params?: Record<string, unknown>) {
+  const translate = i18n.global.t as unknown as (path: string, values?: Record<string, unknown>) => string
+  const path = `dataPipelines.${key}`
+  return params ? translate(path, params) : translate(path)
+}

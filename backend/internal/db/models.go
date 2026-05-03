@@ -77,6 +77,95 @@ type CustomerSignalSavedFilter struct {
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type DataPipeline struct {
+	ID                 int64              `json:"id"`
+	PublicID           uuid.UUID          `json:"public_id"`
+	TenantID           int64              `json:"tenant_id"`
+	CreatedByUserID    pgtype.Int8        `json:"created_by_user_id"`
+	UpdatedByUserID    pgtype.Int8        `json:"updated_by_user_id"`
+	Name               string             `json:"name"`
+	Description        string             `json:"description"`
+	Status             string             `json:"status"`
+	PublishedVersionID pgtype.Int8        `json:"published_version_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+type DataPipelineRun struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	PipelineID        int64              `json:"pipeline_id"`
+	VersionID         int64              `json:"version_id"`
+	ScheduleID        pgtype.Int8        `json:"schedule_id"`
+	RequestedByUserID pgtype.Int8        `json:"requested_by_user_id"`
+	TriggerKind       string             `json:"trigger_kind"`
+	Status            string             `json:"status"`
+	OutputWorkTableID pgtype.Int8        `json:"output_work_table_id"`
+	OutboxEventID     pgtype.Int8        `json:"outbox_event_id"`
+	RowCount          int64              `json:"row_count"`
+	ErrorSummary      pgtype.Text        `json:"error_summary"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DataPipelineRunStep struct {
+	ID           int64              `json:"id"`
+	TenantID     int64              `json:"tenant_id"`
+	RunID        int64              `json:"run_id"`
+	NodeID       string             `json:"node_id"`
+	StepType     string             `json:"step_type"`
+	Status       string             `json:"status"`
+	RowCount     int64              `json:"row_count"`
+	ErrorSummary pgtype.Text        `json:"error_summary"`
+	ErrorSample  []byte             `json:"error_sample"`
+	Metadata     []byte             `json:"metadata"`
+	StartedAt    pgtype.Timestamptz `json:"started_at"`
+	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DataPipelineSchedule struct {
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	TenantID         int64              `json:"tenant_id"`
+	PipelineID       int64              `json:"pipeline_id"`
+	VersionID        int64              `json:"version_id"`
+	CreatedByUserID  pgtype.Int8        `json:"created_by_user_id"`
+	Frequency        string             `json:"frequency"`
+	Timezone         string             `json:"timezone"`
+	RunTime          string             `json:"run_time"`
+	Weekday          pgtype.Int2        `json:"weekday"`
+	MonthDay         pgtype.Int2        `json:"month_day"`
+	Enabled          bool               `json:"enabled"`
+	NextRunAt        pgtype.Timestamptz `json:"next_run_at"`
+	LastRunAt        pgtype.Timestamptz `json:"last_run_at"`
+	LastStatus       pgtype.Text        `json:"last_status"`
+	LastErrorSummary pgtype.Text        `json:"last_error_summary"`
+	LastRunID        pgtype.Int8        `json:"last_run_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DataPipelineVersion struct {
+	ID                int64              `json:"id"`
+	PublicID          uuid.UUID          `json:"public_id"`
+	TenantID          int64              `json:"tenant_id"`
+	PipelineID        int64              `json:"pipeline_id"`
+	VersionNumber     int32              `json:"version_number"`
+	Status            string             `json:"status"`
+	Graph             []byte             `json:"graph"`
+	ValidationSummary []byte             `json:"validation_summary"`
+	CreatedByUserID   pgtype.Int8        `json:"created_by_user_id"`
+	PublishedByUserID pgtype.Int8        `json:"published_by_user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	PublishedAt       pgtype.Timestamptz `json:"published_at"`
+}
+
 type Dataset struct {
 	ID                 int64              `json:"id"`
 	PublicID           uuid.UUID          `json:"public_id"`

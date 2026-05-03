@@ -42,6 +42,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	var driveOCRService *service.DriveOCRService
 	var datasetService *service.DatasetService
 	var medallionCatalogService *service.MedallionCatalogService
+	var dataPipelineService *service.DataPipelineService
 	var localSearchService *service.LocalSearchService
 	var realtimeService *service.RealtimeService
 	markdownDocsFS := fs.FS(os.DirFS("docs"))
@@ -65,6 +66,8 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 			datasetService = item
 		case *service.MedallionCatalogService:
 			medallionCatalogService = item
+		case *service.DataPipelineService:
+			dataPipelineService = item
 		case *service.LocalSearchService:
 			localSearchService = item
 		case *service.RealtimeService:
@@ -163,6 +166,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		SupportAccessService:             supportAccessService,
 		DatasetService:                   datasetService,
 		MedallionCatalogService:          medallionCatalogService,
+		DataPipelineService:              dataPipelineService,
 		LocalSearchService:               localSearchService,
 	})
 	backendapi.Register(api, deps)
