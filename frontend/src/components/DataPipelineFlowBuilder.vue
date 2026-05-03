@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { VueFlow, useVueFlow, type Connection } from '@vue-flow/core'
 import { ControlButton, Controls } from '@vue-flow/controls'
+import type { ELK, ElkExtendedEdge, ElkNode } from 'elkjs/lib/elk.bundled'
 import { AlignHorizontalSpaceBetween, ArrowDownToLine, GitBranch, Plus, Search, SlidersHorizontal, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -38,11 +39,14 @@ const edges = ref(clone(initialGraph.edges))
 const paletteDialogRef = ref<HTMLDialogElement | null>(null)
 const paletteSearch = ref('')
 const { t } = useI18n()
+let elkPromise: Promise<ELK> | null = null
 
 const autoLayoutColumnGap = 330
 const autoLayoutRowGap = 120
 const autoLayoutStartX = 60
 const autoLayoutStartY = 80
+const autoLayoutNodeWidth = 220
+const autoLayoutNodeHeight = 78
 const snapGridSize = 15
 const stepOrder: Record<DataPipelineStepType, number> = {
   input: 0,
@@ -311,7 +315,7 @@ async function autoLayout() {
     nodes: clone(nodes.value),
     edges: clone(edges.value),
   })
-  const positions = autoLayoutPositions(graph.nodes, graph.edges)
+  const positions = await autoLayoutPositions(graph.nodes, graph.edges)
   nodes.value = graph.nodes.map((node) => ({
     ...node,
     position: positions.get(node.id) ?? node.position,
@@ -322,7 +326,138 @@ async function autoLayout() {
   await fitView({ padding: 0.16 })
 }
 
-function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataPipelineEdge[]) {
+async function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataPipelineEdge[]) {
+  if (graphNodes.length === 0) {
+    return new Map<string, { x: number, y: number }>()
+  }
+
+  const nodeMap = new Map(graphNodes.map((node) => [node.id, node]))
+  const nodeIndex = new Map(graphNodes.map((node, index) => [node.id, index]))
+  const validEdges = graphEdges.filter((edge) => nodeMap.has(edge.source) && nodeMap.has(edge.target) && edge.source !== edge.target)
+  const sortedNodes = [...graphNodes].sort((a, b) => compareLayoutOrder(a, b, nodeIndex))
+  const layoutGraph: ElkNode = {
+    id: 'data-pipeline-layout-root',
+    layoutOptions: {
+      'elk.algorithm': 'layered',
+      'elk.direction': 'RIGHT',
+      'elk.edgeRouting': 'ORTHOGONAL',
+      'elk.separateConnectedComponents': 'false',
+      'elk.spacing.nodeNode': String(Math.max(40, autoLayoutRowGap - autoLayoutNodeHeight)),
+      'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': String(Math.max(80, autoLayoutColumnGap - autoLayoutNodeWidth)),
+      'org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers': '48',
+      'org.eclipse.elk.layered.crossingMinimization.forceNodeModelOrder': 'true',
+      'org.eclipse.elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+      'org.eclipse.elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+      'org.eclipse.elk.layered.nodePlacement.favorStraightEdges': 'true',
+      'org.eclipse.elk.layered.cycleBreaking.strategy': 'GREEDY',
+    },
+    children: sortedNodes.map((node, index) => ({
+      id: node.id,
+      width: autoLayoutNodeWidth,
+      height: autoLayoutNodeHeight,
+      layoutOptions: {
+        'org.eclipse.elk.layered.crossingMinimization.positionId': String(index),
+        ...nodeLayerConstraint(node),
+      },
+    })),
+    edges: autoLayoutEdges(graphNodes, validEdges),
+  }
+
+  let laidOutGraph: ElkNode
+  try {
+    laidOutGraph = await (await getElk()).layout(layoutGraph)
+  } catch {
+    return fallbackAutoLayoutPositions(graphNodes, graphEdges)
+  }
+
+  const laidOutNodes = laidOutGraph.children?.filter((node) => (
+    typeof node.x === 'number' && typeof node.y === 'number'
+  )) ?? []
+  if (laidOutNodes.length !== graphNodes.length) {
+    return fallbackAutoLayoutPositions(graphNodes, graphEdges)
+  }
+
+  const minX = Math.min(...laidOutNodes.map((node) => node.x ?? 0))
+  const minY = Math.min(...laidOutNodes.map((node) => node.y ?? 0))
+  const positions = new Map<string, { x: number, y: number }>()
+  for (const node of laidOutNodes) {
+    positions.set(node.id, {
+      x: snapValue(autoLayoutStartX + (node.x ?? 0) - minX),
+      y: snapValue(autoLayoutStartY + (node.y ?? 0) - minY),
+    })
+  }
+
+  return positions
+}
+
+function getElk() {
+  elkPromise ??= import('elkjs/lib/elk.bundled').then(({ default: Elk }) => new Elk())
+  return elkPromise
+}
+
+function nodeLayerConstraint(node: PipelineNode): Record<string, string> {
+  if (node.data.stepType === 'input') {
+    return { 'org.eclipse.elk.layered.layering.layerConstraint': 'FIRST' }
+  }
+  if (node.data.stepType === 'output') {
+    return { 'org.eclipse.elk.layered.layering.layerConstraint': 'LAST' }
+  }
+  return {}
+}
+
+function autoLayoutEdges(graphNodes: PipelineNode[], validEdges: DataPipelineEdge[]) {
+  const edgeKeys = new Set<string>()
+  const layoutEdges: ElkExtendedEdge[] = []
+  const appendEdge = (id: string, source: string, target: string) => {
+    const edgeKey = `${source}:${target}`
+    if (edgeKeys.has(edgeKey)) {
+      return
+    }
+    edgeKeys.add(edgeKey)
+    layoutEdges.push({ id, sources: [source], targets: [target] })
+  }
+
+  for (const edge of validEdges) {
+    appendEdge(edge.id || `layout-edge-${edge.source}-${edge.target}`, edge.source, edge.target)
+  }
+
+  const inputNodes = graphNodes.filter((node) => node.data.stepType === 'input')
+  const outputNodes = graphNodes.filter((node) => node.data.stepType === 'output')
+  const inputIds = new Set(inputNodes.map((node) => node.id))
+  const outputIds = new Set(outputNodes.map((node) => node.id))
+  const sourceNodes = graphNodes.filter((node) => !inputIds.has(node.id) && !validEdges.some((edge) => edge.target === node.id))
+  const sinkNodes = graphNodes.filter((node) => !outputIds.has(node.id) && !validEdges.some((edge) => edge.source === node.id))
+
+  for (const input of inputNodes) {
+    for (const source of sourceNodes) {
+      appendEdge(`layout-source-${input.id}-${source.id}`, input.id, source.id)
+    }
+    for (const output of outputNodes) {
+      appendEdge(`layout-boundary-${input.id}-${output.id}`, input.id, output.id)
+    }
+  }
+  for (const sink of sinkNodes) {
+    for (const output of outputNodes) {
+      appendEdge(`layout-sink-${sink.id}-${output.id}`, sink.id, output.id)
+    }
+  }
+
+  return layoutEdges
+}
+
+function compareLayoutOrder(a: PipelineNode, b: PipelineNode, nodeIndex: Map<string, number>) {
+  const yDiff = a.position.y - b.position.y
+  if (Math.abs(yDiff) >= snapGridSize) {
+    return yDiff
+  }
+  const indexDiff = (nodeIndex.get(a.id) ?? 0) - (nodeIndex.get(b.id) ?? 0)
+  if (indexDiff !== 0) {
+    return indexDiff
+  }
+  return compareNodes(a, b, nodeIndex)
+}
+
+function fallbackAutoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataPipelineEdge[]) {
   const nodeMap = new Map(graphNodes.map((node) => [node.id, node]))
   const nodeIndex = new Map(graphNodes.map((node, index) => [node.id, index]))
   const validEdges = graphEdges.filter((edge) => nodeMap.has(edge.source) && nodeMap.has(edge.target) && edge.source !== edge.target)
