@@ -40,6 +40,7 @@ const paletteDialogRef = ref<HTMLDialogElement | null>(null)
 const paletteSearch = ref('')
 const { t } = useI18n()
 let elkPromise: Promise<ELK> | null = null
+let autoLayouting = false
 
 const autoLayoutColumnGap = 330
 const autoLayoutRowGap = 120
@@ -208,7 +209,6 @@ function addNode(stepType: DataPipelineStepType) {
       },
     },
   ]
-  edges.value = insertionEdges(id, stepType)
   emit('select-node', id)
 }
 
@@ -241,51 +241,10 @@ function insertionPosition() {
   return { x: selected.position.x + 180, y: selected.position.y }
 }
 
-function insertionEdges(nodeId: string, stepType: DataPipelineStepType) {
-  if (stepType === 'input') {
-    return edges.value
-  }
-  const { source, target } = insertionLink()
-  if (!source && !target) {
-    return edges.value
-  }
-  const nextEdges = edges.value.filter((edge) => !(source && target && edge.source === source && edge.target === target))
-  if (source) {
-    nextEdges.push({
-      id: `edge_${source}_${nodeId}_${randomId()}`,
-      source,
-      target: nodeId,
-    })
-  }
-  if (target && stepType !== 'output') {
-    nextEdges.push({
-      id: `edge_${nodeId}_${target}_${randomId()}`,
-      source: nodeId,
-      target,
-    })
-  }
-  return nextEdges
-}
-
-function insertionLink() {
-  const selected = nodes.value.find((node) => node.id === props.selectedNodeId)
-  const input = nodes.value.find((node) => node.data?.stepType === 'input')
-  const output = nodes.value.find((node) => node.data?.stepType === 'output')
-  if (selected?.data?.stepType === 'output') {
-    const incoming = edges.value.find((edge) => edge.target === selected.id)
-    return { source: incoming?.source || input?.id || '', target: selected.id }
-  }
-
-  const source = selected?.id || input?.id || ''
-  if (!source) {
-    return { source: '', target: output?.id || '' }
-  }
-  const directOutputEdge = output ? edges.value.find((edge) => edge.source === source && edge.target === output.id) : undefined
-  const outgoing = directOutputEdge ?? edges.value.find((edge) => edge.source === source)
-  return { source, target: outgoing?.target || output?.id || '' }
-}
-
 function onConnect(connection: Connection) {
+  if (autoLayouting) {
+    return
+  }
   if (!connection.source || !connection.target || connection.source === connection.target) {
     return
   }
@@ -311,19 +270,26 @@ function onNodeClick(event: any) {
 }
 
 async function autoLayout() {
+  const layoutEdges = clone(edges.value)
   const graph = sanitizeDataPipelineGraph({
     nodes: clone(nodes.value),
-    edges: clone(edges.value),
+    edges: layoutEdges,
   })
-  const positions = await autoLayoutPositions(graph.nodes, graph.edges)
-  nodes.value = graph.nodes.map((node) => ({
-    ...node,
-    position: positions.get(node.id) ?? node.position,
-  }))
-  edges.value = graph.edges
+  autoLayouting = true
+  try {
+    const positions = await autoLayoutPositions(graph.nodes, graph.edges)
+    nodes.value = graph.nodes.map((node) => ({
+      ...node,
+      position: positions.get(node.id) ?? node.position,
+    }))
+    edges.value = layoutEdges
 
-  await nextTick()
-  await fitView({ padding: 0.16 })
+    await nextTick()
+    edges.value = layoutEdges
+    await fitView({ padding: 0.16 })
+  } finally {
+    autoLayouting = false
+  }
 }
 
 async function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataPipelineEdge[]) {
@@ -360,7 +326,7 @@ async function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataP
         ...nodeLayerConstraint(node),
       },
     })),
-    edges: autoLayoutEdges(graphNodes, validEdges),
+    edges: autoLayoutEdges(validEdges),
   }
 
   let laidOutGraph: ElkNode
@@ -405,7 +371,7 @@ function nodeLayerConstraint(node: PipelineNode): Record<string, string> {
   return {}
 }
 
-function autoLayoutEdges(graphNodes: PipelineNode[], validEdges: DataPipelineEdge[]) {
+function autoLayoutEdges(validEdges: DataPipelineEdge[]) {
   const edgeKeys = new Set<string>()
   const layoutEdges: ElkExtendedEdge[] = []
   const appendEdge = (id: string, source: string, target: string) => {
@@ -419,27 +385,6 @@ function autoLayoutEdges(graphNodes: PipelineNode[], validEdges: DataPipelineEdg
 
   for (const edge of validEdges) {
     appendEdge(edge.id || `layout-edge-${edge.source}-${edge.target}`, edge.source, edge.target)
-  }
-
-  const inputNodes = graphNodes.filter((node) => node.data.stepType === 'input')
-  const outputNodes = graphNodes.filter((node) => node.data.stepType === 'output')
-  const inputIds = new Set(inputNodes.map((node) => node.id))
-  const outputIds = new Set(outputNodes.map((node) => node.id))
-  const sourceNodes = graphNodes.filter((node) => !inputIds.has(node.id) && !validEdges.some((edge) => edge.target === node.id))
-  const sinkNodes = graphNodes.filter((node) => !outputIds.has(node.id) && !validEdges.some((edge) => edge.source === node.id))
-
-  for (const input of inputNodes) {
-    for (const source of sourceNodes) {
-      appendEdge(`layout-source-${input.id}-${source.id}`, input.id, source.id)
-    }
-    for (const output of outputNodes) {
-      appendEdge(`layout-boundary-${input.id}-${output.id}`, input.id, output.id)
-    }
-  }
-  for (const sink of sinkNodes) {
-    for (const output of outputNodes) {
-      appendEdge(`layout-sink-${sink.id}-${output.id}`, sink.id, output.id)
-    }
   }
 
   return layoutEdges
