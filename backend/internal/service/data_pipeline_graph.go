@@ -16,6 +16,7 @@ const (
 	DataPipelineStepValidate         = "validate"
 	DataPipelineStepSchemaMapping    = "schema_mapping"
 	DataPipelineStepSchemaCompletion = "schema_completion"
+	DataPipelineStepJoin             = "join"
 	DataPipelineStepEnrichJoin       = "enrich_join"
 	DataPipelineStepTransform        = "transform"
 	DataPipelineStepOutput           = "output"
@@ -48,6 +49,7 @@ var dataPipelineStepCatalog = map[string]struct{}{
 	DataPipelineStepValidate:         {},
 	DataPipelineStepSchemaMapping:    {},
 	DataPipelineStepSchemaCompletion: {},
+	DataPipelineStepJoin:             {},
 	DataPipelineStepEnrichJoin:       {},
 	DataPipelineStepTransform:        {},
 	DataPipelineStepOutput:           {},
@@ -99,6 +101,18 @@ type DataPipelineValidationSummary struct {
 }
 
 func validateDataPipelineGraph(graph DataPipelineGraph) DataPipelineValidationSummary {
+	return validateDataPipelineGraphForUse(graph, true)
+}
+
+func validateDataPipelineDraftGraph(graph DataPipelineGraph) DataPipelineValidationSummary {
+	return validateDataPipelineGraphForUse(graph, false)
+}
+
+func validateDataPipelinePreviewGraph(graph DataPipelineGraph) DataPipelineValidationSummary {
+	return validateDataPipelineGraphForUse(graph, false)
+}
+
+func validateDataPipelineGraphForUse(graph DataPipelineGraph, requireOutput bool) DataPipelineValidationSummary {
 	var errors []string
 	if len(graph.Nodes) == 0 {
 		errors = append(errors, "graph must contain nodes")
@@ -135,10 +149,10 @@ func validateDataPipelineGraph(graph DataPipelineGraph) DataPipelineValidationSu
 		}
 		nodes[nodeID] = node
 	}
-	if inputCount != 1 {
-		errors = append(errors, "graph must contain exactly one input node")
+	if inputCount < 1 {
+		errors = append(errors, "graph must contain at least one input node")
 	}
-	if outputCount < 1 {
+	if requireOutput && outputCount < 1 {
 		errors = append(errors, "graph must contain at least one output node")
 	}
 
@@ -173,28 +187,49 @@ func validateDataPipelineGraph(graph DataPipelineGraph) DataPipelineValidationSu
 		}
 	}
 
-	inputID := ""
+	inputIDs := make([]string, 0)
 	outputIDs := make(map[string]struct{})
 	for _, node := range graph.Nodes {
 		switch node.Data.StepType {
 		case DataPipelineStepInput:
-			inputID = node.ID
+			inputIDs = append(inputIDs, node.ID)
 		case DataPipelineStepOutput:
 			outputIDs[node.ID] = struct{}{}
 		}
 	}
-	if inputID != "" {
-		reachableFromInput := dataPipelineReachable(inputID, outgoing)
+	if len(inputIDs) > 0 {
+		reachableFromInput := dataPipelineReachableAny(inputIDs, outgoing)
 		canReachOutput := dataPipelineReverseReachable(outputIDs, incoming)
 		for _, node := range graph.Nodes {
 			if _, ok := reachableFromInput[node.ID]; !ok {
 				errors = append(errors, "node is not reachable from input: "+node.ID)
 			}
-			if _, ok := canReachOutput[node.ID]; !ok {
-				errors = append(errors, "node does not reach an output: "+node.ID)
+			if requireOutput {
+				if _, ok := canReachOutput[node.ID]; !ok {
+					errors = append(errors, "node does not reach an output: "+node.ID)
+				}
 			}
-			if node.Data.StepType != DataPipelineStepInput && len(incoming[node.ID]) == 0 {
-				errors = append(errors, "node has no upstream edge: "+node.ID)
+			upstreamCount := len(incoming[node.ID])
+			switch node.Data.StepType {
+			case DataPipelineStepInput:
+				if upstreamCount != 0 {
+					errors = append(errors, "input node cannot have upstream edges: "+node.ID)
+				}
+			case DataPipelineStepJoin:
+				if upstreamCount != 2 {
+					errors = append(errors, "join node must have exactly two upstream edges: "+node.ID)
+				}
+			case DataPipelineStepEnrichJoin:
+				if upstreamCount != 1 {
+					errors = append(errors, "enrich join node must have exactly one upstream edge: "+node.ID)
+				}
+			default:
+				if upstreamCount == 0 {
+					errors = append(errors, "node has no upstream edge: "+node.ID)
+				}
+				if upstreamCount > 1 {
+					errors = append(errors, "node must have exactly one upstream edge; use a join node to combine multiple inputs: "+node.ID)
+				}
 			}
 		}
 	}
@@ -252,9 +287,103 @@ func dataPipelineTopologicalOrder(graph DataPipelineGraph) ([]DataPipelineNode, 
 	return ordered, nil
 }
 
+func dataPipelinePreviewSubgraph(graph DataPipelineGraph, selectedNodeID string) (DataPipelineGraph, string, error) {
+	selectedNodeID = strings.TrimSpace(selectedNodeID)
+	if selectedNodeID == "" {
+		for _, node := range graph.Nodes {
+			if node.Data.StepType == DataPipelineStepOutput {
+				selectedNodeID = node.ID
+				break
+			}
+		}
+	}
+	if selectedNodeID == "" {
+		return DataPipelineGraph{}, "", fmt.Errorf("%w: selected node not found", ErrInvalidDataPipelineGraph)
+	}
+
+	nodes := make(map[string]DataPipelineNode, len(graph.Nodes))
+	incoming := make(map[string][]string, len(graph.Nodes))
+	for _, node := range graph.Nodes {
+		nodes[node.ID] = node
+	}
+	if _, ok := nodes[selectedNodeID]; !ok {
+		return DataPipelineGraph{}, "", fmt.Errorf("%w: selected node not found: %s", ErrInvalidDataPipelineGraph, selectedNodeID)
+	}
+	for _, edge := range graph.Edges {
+		if _, ok := nodes[edge.Source]; !ok {
+			continue
+		}
+		if _, ok := nodes[edge.Target]; !ok {
+			continue
+		}
+		incoming[edge.Target] = append(incoming[edge.Target], edge.Source)
+	}
+
+	included := map[string]struct{}{selectedNodeID: {}}
+	queue := []string{selectedNodeID}
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		for _, source := range incoming[id] {
+			if _, ok := included[source]; ok {
+				continue
+			}
+			included[source] = struct{}{}
+			queue = append(queue, source)
+		}
+	}
+
+	subgraph := DataPipelineGraph{
+		Nodes: make([]DataPipelineNode, 0, len(included)),
+		Edges: make([]DataPipelineEdge, 0, len(graph.Edges)),
+	}
+	for _, node := range graph.Nodes {
+		if _, ok := included[node.ID]; ok {
+			subgraph.Nodes = append(subgraph.Nodes, node)
+		}
+	}
+	for _, edge := range graph.Edges {
+		if _, sourceOK := included[edge.Source]; !sourceOK {
+			continue
+		}
+		if _, targetOK := included[edge.Target]; !targetOK {
+			continue
+		}
+		subgraph.Edges = append(subgraph.Edges, edge)
+	}
+	return subgraph, selectedNodeID, nil
+}
+
 func dataPipelineReachable(start string, outgoing map[string][]string) map[string]struct{} {
 	seen := map[string]struct{}{start: {}}
 	queue := []string{start}
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		for _, next := range outgoing[id] {
+			if _, ok := seen[next]; ok {
+				continue
+			}
+			seen[next] = struct{}{}
+			queue = append(queue, next)
+		}
+	}
+	return seen
+}
+
+func dataPipelineReachableAny(starts []string, outgoing map[string][]string) map[string]struct{} {
+	seen := make(map[string]struct{}, len(starts))
+	queue := make([]string, 0, len(starts))
+	for _, start := range starts {
+		if start == "" {
+			continue
+		}
+		if _, ok := seen[start]; ok {
+			continue
+		}
+		seen[start] = struct{}{}
+		queue = append(queue, start)
+	}
 	for len(queue) > 0 {
 		id := queue[0]
 		queue = queue[1:]

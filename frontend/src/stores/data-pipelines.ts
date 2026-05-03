@@ -19,7 +19,6 @@ import {
   updateDataPipelineSchedule,
   type DataPipelineBody,
   type DataPipelineDetailBody,
-  type DataPipelineEdge,
   type DataPipelineGraph,
   type DataPipelinePreviewBody,
   type DataPipelineRunBody,
@@ -260,9 +259,6 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
         return null
       }
       this.selectedNodeId = nodeId
-      if (!options.automatic) {
-        this.ensureSelectedPreviewPath(nodeId)
-      }
       const graphSignature = graphPreviewSignature(this.draftGraph)
       const cached = this.previewByNodeId[nodeId]
       if (cached?.graphSignature === graphSignature) {
@@ -381,44 +377,6 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
       return this.draftGraph.nodes.find((node) => node.data.stepType === 'output')?.id
         ?? this.draftGraph.nodes[0]?.id
         ?? ''
-    },
-
-    ensureSelectedPreviewPath(nodeId: string) {
-      const node = this.draftGraph.nodes.find((item) => item.id === nodeId)
-      if (!node || node.data.stepType === 'input') {
-        return
-      }
-      const input = this.draftGraph.nodes.find((item) => item.data.stepType === 'input')
-      const output = this.draftGraph.nodes.find((item) => item.data.stepType === 'output')
-      if (!input) {
-        return
-      }
-      let edges = [...this.draftGraph.edges]
-      const incoming = edges.filter((edge) => edge.target === nodeId)
-
-      if (incoming.length === 0) {
-        const directOutput = output ? edges.find((edge) => edge.source === input.id && edge.target === output.id) : undefined
-        const replacedEdge = directOutput ?? edges.find((edge) => edge.source === input.id)
-        if (replacedEdge) {
-          edges = edges.filter((edge) => edge !== replacedEdge)
-        }
-        edges = addDataPipelineEdge(edges, input.id, nodeId)
-        if (node.data.stepType !== 'output') {
-          edges = addDataPipelineEdge(edges, nodeId, replacedEdge?.target || output?.id || '')
-        }
-      }
-
-      const hasOutgoing = edges.some((edge) => edge.source === nodeId)
-      if (node.data.stepType !== 'output' && !hasOutgoing && output) {
-        const upstream = incoming[0]?.source || input.id
-        edges = edges.filter((edge) => !(edge.source === upstream && edge.target === output.id))
-        edges = addDataPipelineEdge(edges, nodeId, output.id)
-      }
-
-      this.draftGraph = {
-        ...this.draftGraph,
-        edges,
-      }
     },
 
     async createSchedule(body: DataPipelineScheduleWriteBody) {
@@ -561,20 +519,6 @@ function omitPendingPreview(cache: Record<string, true>, key: string): Record<st
   const next = { ...cache }
   delete next[key]
   return next
-}
-
-function addDataPipelineEdge(edges: DataPipelineEdge[], source: string, target: string): DataPipelineEdge[] {
-  if (!source || !target || source === target || edges.some((edge) => edge.source === source && edge.target === target)) {
-    return edges
-  }
-  return [
-    ...edges,
-    {
-      id: `edge_${source}_${target}_${Math.random().toString(36).slice(2, 8)}`,
-      source,
-      target,
-    },
-  ]
 }
 
 function dataPipelineText(key: string, params?: Record<string, unknown>) {

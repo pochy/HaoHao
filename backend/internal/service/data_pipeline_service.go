@@ -300,7 +300,7 @@ func (s *DataPipelineService) SaveDraftVersion(ctx context.Context, tenantID, us
 	if err != nil {
 		return DataPipelineVersion{}, err
 	}
-	summary := validateDataPipelineGraph(graph)
+	summary := validateDataPipelineDraftGraph(graph)
 	if !summary.Valid {
 		return DataPipelineVersion{}, fmt.Errorf("%w: %s", ErrInvalidDataPipelineGraph, strings.Join(summary.Errors, "; "))
 	}
@@ -416,14 +416,18 @@ func (s *DataPipelineService) PreviewDraft(ctx context.Context, tenantID, actorU
 }
 
 func (s *DataPipelineService) previewGraph(ctx context.Context, tenantID, actorUserID int64, graph DataPipelineGraph, nodeID string, limit int32) (DataPipelinePreview, error) {
-	summary := validateDataPipelineGraph(graph)
+	previewGraph, selectedNodeID, err := dataPipelinePreviewSubgraph(graph, nodeID)
+	if err != nil {
+		return DataPipelinePreview{}, err
+	}
+	summary := validateDataPipelinePreviewGraph(previewGraph)
 	if !summary.Valid {
 		return DataPipelinePreview{}, fmt.Errorf("%w: %s", ErrInvalidDataPipelineGraph, strings.Join(summary.Errors, "; "))
 	}
-	if dataPipelineGraphNeedsHybrid(graph) {
-		return s.previewHybridGraph(ctx, tenantID, actorUserID, graph, nodeID, limit)
+	if dataPipelineGraphNeedsHybrid(previewGraph) {
+		return s.previewHybridGraph(ctx, tenantID, actorUserID, previewGraph, selectedNodeID, limit)
 	}
-	compiled, err := s.compilePreviewSelect(ctx, tenantID, graph, nodeID, limit)
+	compiled, err := s.compilePreviewSelect(ctx, tenantID, previewGraph, selectedNodeID, limit)
 	if err != nil {
 		return DataPipelinePreview{}, err
 	}

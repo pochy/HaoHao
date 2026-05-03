@@ -158,7 +158,7 @@ func (c *dataPipelineCompiler) compileNode(ctx context.Context, node DataPipelin
 	}
 
 	upstream, err := c.singleUpstream(node, relations)
-	if err != nil {
+	if err != nil && node.Data.StepType != DataPipelineStepJoin {
 		return dataPipelineRelation{}, err
 	}
 	switch node.Data.StepType {
@@ -172,6 +172,8 @@ func (c *dataPipelineCompiler) compileNode(ctx context.Context, node DataPipelin
 		return c.compileSchemaMapping(node, upstream)
 	case DataPipelineStepSchemaCompletion:
 		return c.compileSchemaCompletion(node, upstream)
+	case DataPipelineStepJoin:
+		return c.compileJoin(node, relations)
 	case DataPipelineStepEnrichJoin:
 		return c.compileEnrichJoin(ctx, node, upstream)
 	case DataPipelineStepTransform:
@@ -201,6 +203,22 @@ func (c *dataPipelineCompiler) singleUpstream(node DataPipelineNode, relations m
 		return dataPipelineRelation{}, fmt.Errorf("%w: upstream node is not compiled: %s", ErrInvalidDataPipelineGraph, sources[0])
 	}
 	return upstream, nil
+}
+
+func (c *dataPipelineCompiler) joinUpstreams(node DataPipelineNode, relations map[string]dataPipelineRelation) ([]dataPipelineRelation, error) {
+	sources := c.incoming[node.ID]
+	if len(sources) != 2 {
+		return nil, fmt.Errorf("%w: node %s must have exactly two upstream edges", ErrInvalidDataPipelineGraph, node.ID)
+	}
+	upstreams := make([]dataPipelineRelation, 0, len(sources))
+	for _, source := range sources {
+		upstream, ok := relations[source]
+		if !ok {
+			return nil, fmt.Errorf("%w: upstream node is not compiled: %s", ErrInvalidDataPipelineGraph, source)
+		}
+		upstreams = append(upstreams, upstream)
+	}
+	return upstreams, nil
 }
 
 func (c *dataPipelineCompiler) compileClean(node DataPipelineNode, upstream dataPipelineRelation) (dataPipelineRelation, error) {
@@ -419,35 +437,55 @@ func (c *dataPipelineCompiler) compileSchemaCompletion(node DataPipelineNode, up
 	return dataPipelineRelation{CTE: dataPipelineCTEName(node.ID), SQL: sql, Columns: columns, Node: node, Source: upstream.Source}, nil
 }
 
+func (c *dataPipelineCompiler) compileJoin(node DataPipelineNode, relations map[string]dataPipelineRelation) (dataPipelineRelation, error) {
+	upstreams, err := c.joinUpstreams(node, relations)
+	if err != nil {
+		return dataPipelineRelation{}, err
+	}
+	return c.compileJoinRelation(node, upstreams[0], upstreams[1].Columns, quoteCHIdent(upstreams[1].CTE))
+}
+
 func (c *dataPipelineCompiler) compileEnrichJoin(ctx context.Context, node DataPipelineNode, upstream dataPipelineRelation) (dataPipelineRelation, error) {
 	config := node.Data.Config
-	if dataPipelineString(config, "joinType") != "" && dataPipelineString(config, "joinType") != "left" {
-		return dataPipelineRelation{}, fmt.Errorf("%w: enrich_join only supports left join", ErrInvalidDataPipelineGraph)
-	}
-	leftKeys := dataPipelineStringSlice(config, "leftKeys")
-	rightKeys := dataPipelineStringSlice(config, "rightKeys")
-	if len(leftKeys) == 0 || len(leftKeys) != len(rightKeys) || len(leftKeys) > 5 {
-		return dataPipelineRelation{}, fmt.Errorf("%w: join keys must contain 1 to 5 matching columns", ErrInvalidDataPipelineGraph)
-	}
-	for _, key := range leftKeys {
-		if err := dataPipelineRequireColumn(upstream.Columns, key); err != nil {
-			return dataPipelineRelation{}, err
-		}
-	}
 	right, err := c.resolveRightSource(ctx, config)
 	if err != nil {
 		return dataPipelineRelation{}, err
 	}
-	for _, key := range rightKeys {
-		if err := dataPipelineRequireColumn(right.Columns, key); err != nil {
-			return dataPipelineRelation{}, err
+	return c.compileJoinRelation(node, upstream, right.Columns, quoteCHIdent(right.Database)+"."+quoteCHIdent(right.Table))
+}
+
+func (c *dataPipelineCompiler) compileJoinRelation(node DataPipelineNode, upstream dataPipelineRelation, rightColumns []string, rightTable string) (dataPipelineRelation, error) {
+	config := node.Data.Config
+	joinType, err := dataPipelineJoinType(config)
+	if err != nil {
+		return dataPipelineRelation{}, err
+	}
+	joinStrictness, err := dataPipelineJoinStrictness(config)
+	if err != nil {
+		return dataPipelineRelation{}, err
+	}
+	leftKeys := dataPipelineStringSlice(config, "leftKeys")
+	rightKeys := dataPipelineStringSlice(config, "rightKeys")
+	if joinType != "cross" {
+		if len(leftKeys) == 0 || len(leftKeys) != len(rightKeys) || len(leftKeys) > 5 {
+			return dataPipelineRelation{}, fmt.Errorf("%w: join keys must contain 1 to 5 matching columns", ErrInvalidDataPipelineGraph)
+		}
+		for _, key := range leftKeys {
+			if err := dataPipelineRequireColumn(upstream.Columns, key); err != nil {
+				return dataPipelineRelation{}, err
+			}
+		}
+		for _, key := range rightKeys {
+			if err := dataPipelineRequireColumn(rightColumns, key); err != nil {
+				return dataPipelineRelation{}, err
+			}
 		}
 	}
 	selectColumns := dataPipelineStringSlice(config, "selectColumns")
 	columns := append([]string(nil), upstream.Columns...)
 	selects := []string{"  l.*"}
 	for _, column := range selectColumns {
-		if err := dataPipelineRequireColumn(right.Columns, column); err != nil {
+		if err := dataPipelineRequireColumn(rightColumns, column); err != nil {
 			return dataPipelineRelation{}, err
 		}
 		alias := column
@@ -461,14 +499,62 @@ func (c *dataPipelineCompiler) compileEnrichJoin(ctx context.Context, node DataP
 	for i := range leftKeys {
 		conditions = append(conditions, fmt.Sprintf("l.%s = r.%s", quoteCHIdent(leftKeys[i]), quoteCHIdent(rightKeys[i])))
 	}
-	sql := fmt.Sprintf("SELECT\n%s\nFROM %s AS l\nLEFT JOIN %s.%s AS r ON %s",
+	sql := fmt.Sprintf("SELECT\n%s\nFROM %s AS l\n%s %s AS r",
 		strings.Join(selects, ",\n"),
 		quoteCHIdent(upstream.CTE),
-		quoteCHIdent(right.Database),
-		quoteCHIdent(right.Table),
-		strings.Join(conditions, " AND "),
+		dataPipelineJoinSQL(joinType, joinStrictness),
+		rightTable,
 	)
+	if joinType != "cross" {
+		sql += " ON " + strings.Join(conditions, " AND ")
+	}
 	return dataPipelineRelation{CTE: dataPipelineCTEName(node.ID), SQL: sql, Columns: columns, Node: node, Source: upstream.Source}, nil
+}
+
+func dataPipelineJoinType(config map[string]any) (string, error) {
+	joinType := dataPipelineString(config, "joinType")
+	if joinType == "" {
+		joinType = "left"
+	}
+	switch joinType {
+	case "inner", "left", "right", "full", "cross":
+		return joinType, nil
+	default:
+		return "", fmt.Errorf("%w: unsupported join type %q", ErrInvalidDataPipelineGraph, joinType)
+	}
+}
+
+func dataPipelineJoinStrictness(config map[string]any) (string, error) {
+	joinStrictness := dataPipelineString(config, "joinStrictness")
+	if joinStrictness == "" {
+		joinStrictness = "all"
+	}
+	switch joinStrictness {
+	case "all", "any":
+		return joinStrictness, nil
+	default:
+		return "", fmt.Errorf("%w: unsupported join strictness %q", ErrInvalidDataPipelineGraph, joinStrictness)
+	}
+}
+
+func dataPipelineJoinSQL(joinType, joinStrictness string) string {
+	if joinType == "cross" {
+		return "CROSS JOIN"
+	}
+	strictness := "ALL"
+	if joinStrictness == "any" {
+		strictness = "ANY"
+	}
+	switch joinType {
+	case "inner":
+		return "INNER " + strictness + " JOIN"
+	case "right":
+		return "RIGHT " + strictness + " JOIN"
+	case "full":
+		return "FULL " + strictness + " JOIN"
+	default:
+		return "LEFT " + strictness + " JOIN"
+	}
 }
 
 func (c *dataPipelineCompiler) compileTransform(node DataPipelineNode, upstream dataPipelineRelation) (dataPipelineRelation, error) {

@@ -52,6 +52,8 @@ const conditionOperators = ['required', '=', '!=', '>', '>=', '<', '<=', 'in', '
 const castOptions = ['', 'string', 'int64', 'float64', 'decimal', 'date', 'datetime']
 const completionMethods = ['literal', 'copy_column', 'coalesce', 'concat', 'case_when']
 const transformOperations = ['select_columns', 'drop_columns', 'rename_columns', 'filter', 'sort', 'aggregate']
+const joinTypes = ['inner', 'left', 'right', 'full', 'cross']
+const joinStrictnesses = ['all', 'any']
 const aggregateFunctions = ['count', 'sum', 'avg', 'min', 'max']
 const fieldTypes = ['string', 'number', 'date', 'boolean', 'json']
 const canonicalizeOperations = ['trim', 'lowercase', 'uppercase', 'normalize_spaces', 'remove_symbols', 'zenkaku_to_hankaku_basic']
@@ -67,6 +69,9 @@ let syncingLocalChange = false
 const { t } = useI18n()
 
 const selectedNode = computed(() => props.graph.nodes.find((node) => node.id === props.selectedNodeId) ?? null)
+const selectedIncomingNodeIds = computed(() => props.graph.edges
+  .filter((edge) => edge.target === props.selectedNodeId)
+  .map((edge) => edge.source))
 const stepType = computed(() => selectedNode.value?.data.stepType ?? '')
 const autoPreviewEnabled = computed(() => isDataPipelineAutoPreviewEnabled(selectedNode.value?.data))
 const previewModeTitle = computed(() => autoPreviewEnabled.value ? t('dataPipelines.autoPreview') : t('dataPipelines.manualPreviewReason'))
@@ -74,8 +79,15 @@ const previewModeIcon = computed(() => autoPreviewEnabled.value ? Zap : MousePoi
 const datasetOptions = computed(() => props.datasets ?? [])
 const workTableOptions = computed(() => (props.workTables ?? []).filter((item) => Boolean(item.publicId)))
 const primaryColumns = computed(() => sourceColumnsFromConfig(inputConfigForColumns(), 'sourceKind', 'datasetPublicId', 'workTablePublicId'))
-const rightColumns = computed(() => sourceColumnsFromConfig(configDraft.value, 'rightSourceKind', 'rightDatasetPublicId', 'rightWorkTablePublicId'))
+const rightColumns = computed(() => {
+  const graphRightConfig = graphInputConfigForColumns(selectedIncomingNodeIds.value[1])
+  if (graphRightConfig) {
+    return sourceColumnsFromConfig(graphRightConfig, 'sourceKind', 'datasetPublicId', 'workTablePublicId')
+  }
+  return sourceColumnsFromConfig(configDraft.value, 'rightSourceKind', 'rightDatasetPublicId', 'rightWorkTablePublicId')
+})
 const knownColumns = computed(() => uniqueStrings([...primaryColumns.value, ...rightColumns.value]))
+const crossJoinSelected = computed(() => stringConfig('joinType') === 'cross')
 
 watch(selectedNode, (node) => {
   if (syncingLocalChange) {
@@ -475,7 +487,17 @@ function inputConfigForColumns() {
   if (stepType.value === 'input') {
     return configDraft.value
   }
-  return props.graph.nodes.find((node) => node.data.stepType === 'input')?.data.config ?? {}
+  return graphInputConfigForColumns(selectedIncomingNodeIds.value[0])
+    ?? props.graph.nodes.find((node) => node.data.stepType === 'input')?.data.config
+    ?? {}
+}
+
+function graphInputConfigForColumns(nodeId?: string) {
+  const node = props.graph.nodes.find((item) => item.id === nodeId)
+  if (node?.data.stepType === 'input') {
+    return node.data.config ?? {}
+  }
+  return null
 }
 
 function sourceOptions(kind: string) {
@@ -932,9 +954,9 @@ function labelForStep(type: DataPipelineStepType | string) {
           </button>
         </template>
 
-        <template v-else-if="stepType === 'enrich_join'">
+        <template v-else-if="stepType === 'join' || stepType === 'enrich_join'">
           <div class="config-grid">
-            <label class="field">
+            <label v-if="stepType === 'enrich_join'" class="field">
               <span>{{ t('dataPipelines.rightSourceKind') }}</span>
               <select :value="sourceKind(true)" @change="setSourceKind(targetValue($event), true)">
                 <option v-for="kind in sourceKindOptions(true)" :key="kind.value" :value="kind.value">{{ t(kind.labelKey) }}</option>
@@ -943,11 +965,17 @@ function labelForStep(type: DataPipelineStepType | string) {
             <label class="field">
               <span>{{ t('dataPipelines.joinType') }}</span>
               <select :value="stringConfig('joinType') || 'left'" @change="updateConfigField('joinType', targetValue($event))">
-                <option value="left">{{ optionLabel('dataPipelines.joinTypeValue.left', 'left') }}</option>
+                <option v-for="joinType in joinTypes" :key="joinType" :value="joinType">{{ optionLabel(`dataPipelines.joinTypeValue.${joinType}`, joinType) }}</option>
+              </select>
+            </label>
+            <label v-if="!crossJoinSelected" class="field">
+              <span>{{ t('dataPipelines.joinStrictness') }}</span>
+              <select :value="stringConfig('joinStrictness') || 'all'" @change="updateConfigField('joinStrictness', targetValue($event))">
+                <option v-for="strictness in joinStrictnesses" :key="strictness" :value="strictness">{{ optionLabel(`dataPipelines.joinStrictnessValue.${strictness}`, strictness) }}</option>
               </select>
             </label>
           </div>
-          <label class="field">
+          <label v-if="stepType === 'enrich_join'" class="field">
             <span>{{ sourceSelectLabel(true) }}</span>
             <select :value="sourcePublicId(true)" @change="setSourcePublicId(targetValue($event), true)">
               <option value="">{{ t('dataPipelines.selectSource') }}</option>
@@ -960,7 +988,7 @@ function labelForStep(type: DataPipelineStepType | string) {
               </option>
             </select>
           </label>
-          <div class="config-grid">
+          <div v-if="!crossJoinSelected" class="config-grid">
             <label class="field">
               <span>{{ t('dataPipelines.leftKeys') }}</span>
               <input :value="listToInput(configDraft.leftKeys)" list="data-pipeline-column-options" @input="updateConfigField('leftKeys', parseListInput(targetValue($event)))">

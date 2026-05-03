@@ -57,6 +57,7 @@ const stepOrder: Record<DataPipelineStepType, number> = {
   validate: 40,
   schema_mapping: 50,
   schema_completion: 60,
+  join: 68,
   enrich_join: 70,
   transform: 80,
   extract_text: 12,
@@ -108,6 +109,7 @@ const stepCategory: Record<DataPipelineStepType, PaletteCategory> = {
   normalize: 'quality',
   validate: 'quality',
   profile: 'transform',
+  join: 'transform',
   enrich_join: 'transform',
   transform: 'transform',
   schema_mapping: 'schema',
@@ -179,13 +181,6 @@ onBeforeUnmount(() => {
 })
 
 function addNode(stepType: DataPipelineStepType) {
-  if (stepType === 'input') {
-    const input = nodes.value.find((node) => node.data?.stepType === 'input')
-    if (input) {
-      emit('select-node', input.id)
-      return
-    }
-  }
   if (stepType === 'output') {
     const output = nodes.value.find((node) => node.data?.stepType === 'output')
     if (output) {
@@ -560,8 +555,10 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
     return { mappings: [] }
   case 'schema_completion':
     return { rules: [] }
+  case 'join':
+    return { joinType: 'left', joinStrictness: 'all', leftKeys: [], rightKeys: [], selectColumns: [] }
   case 'enrich_join':
-    return { rightSourceKind: 'dataset', rightDatasetPublicId: '', joinType: 'left', leftKeys: [], rightKeys: [], selectColumns: [] }
+    return { rightSourceKind: 'dataset', rightDatasetPublicId: '', joinType: 'left', joinStrictness: 'all', leftKeys: [], rightKeys: [], selectColumns: [] }
   case 'transform':
     return { operation: 'select_columns', columns: [] }
   case 'output':
