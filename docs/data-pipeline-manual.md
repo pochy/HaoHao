@@ -58,6 +58,27 @@
 12. 画面上部の `Run` で手動実行します。
 13. 定期実行したい場合は画面上部の `Schedule` で頻度と時刻を設定して `Add` を押します。
 
+### 図: 利用者の基本ワークフロー
+
+```mermaid
+flowchart TD
+    start([開始]) --> tenant["active tenant を選択"]
+    tenant --> list["/data-pipelines を開く"]
+    list --> create["New pipeline で名前・説明を入力し Create"]
+    create --> detail["詳細 / 編集ページへ移動"]
+    detail --> input["Input node で source を設定"]
+    input --> dag["Palette から node を追加し canvas で接続"]
+    dag --> cfg["各 node を選択し Inspector で Config 編集"]
+    cfg --> preview{"下部 Preview で中間結果を確認"}
+    preview -->|修正| cfg
+    preview -->|OK| savepub["画面上部で Save / Publish"]
+    savepub --> run["Run で手動実行"]
+    run --> sched{"定期実行が必要？"}
+    sched -->|はい| sch["Schedule で頻度・時刻を設定し Add"]
+    sched -->|いいえ| done([完了])
+    sch --> done
+```
+
 ## Pipeline の作成と選択
 
 ### 新規作成
@@ -110,6 +131,24 @@ Join を含む例:
 
 ```text
 Input -> Clean -> Enrich Join -> Schema Mapping -> Output
+```
+
+#### 図: DAG の例（基本形・Join あり）
+
+```mermaid
+flowchart LR
+    subgraph basic["基本形"]
+        direction LR
+        I1[Input] --> C1[Clean] --> N1[Normalize] --> T1[Transform] --> O1[Output]
+    end
+```
+
+```mermaid
+flowchart LR
+    subgraph join["Join を含む例"]
+        direction LR
+        I2[Input] --> C2[Clean] --> J2[Enrich Join] --> M2[Schema Mapping] --> O2[Output]
+    end
 ```
 
 ### Graph の制約
@@ -487,6 +526,26 @@ Preview は途中確認、Run は本番実行です。
 
 Preview は「この node までの結果が想定通りか」を見るための読み取り専用確認です。Run は pipeline 全体を実行して、Output node の設定に従って managed Work table を作成します。
 
+### 図: Preview と Run の分岐
+
+```mermaid
+flowchart TB
+    subgraph P["Preview（途中確認）"]
+        direction TB
+        P_a["対象: 選択中 node まで"]
+        P_b["実行: SELECT ... LIMIT 100"]
+        P_c["Work table なし・Runs 履歴なし・Medallion なし"]
+        P_a --> P_b --> P_c
+    end
+    subgraph R["Run（本番実行）"]
+        direction TB
+        R_a["対象: Output まで全件"]
+        R_b["実行: CREATE TABLE ... AS SELECT 等"]
+        R_c["managed Work table・Runs・Medallion に記録"]
+        R_a --> R_b --> R_c
+    end
+```
+
 ### 大規模データの場合
 
 1 億行のような大規模データでは、Preview と Run の処理範囲を分けて考えてください。
@@ -532,6 +591,17 @@ Run の流れ:
 4. outbox handler が ClickHouse で SQL を実行します。
 5. 結果は tenant work database の managed Work table として登録されます。
 6. Runs table に status、trigger、row count、created time、error が表示されます。
+
+### 図: 手動 Run の流れ（利用者視点）
+
+```mermaid
+flowchart LR
+    A["1. draft graph を保存"] --> B["2. 必要なら publish"]
+    B --> C["3. run_requested\noutbox event 作成"]
+    C --> D["4. handler が\nClickHouse で SQL 実行"]
+    D --> E["5. managed Work table\nとして登録"]
+    E --> F["6. Runs に\nstatus 等を表示"]
+```
 
 Run status:
 
@@ -594,6 +664,32 @@ Run が成功すると、Output node の config に基づいて managed Work tab
 | Outbox / Jobs | `data_pipeline.run_requested` event の非同期処理、due schedule の claim と run 作成 |
 
 重要な点は、ユーザーが任意 SQL を保存・実行するのではなく、Vue Flow graph の structured config から backend が allowlist ベースで ClickHouse SQL を生成することです。
+
+#### 図: レイヤーとデータの流れ
+
+```mermaid
+flowchart TB
+    subgraph ui["利用者"]
+        FE["Frontend\n/data-pipelines・Vue Flow・Inspector"]
+    end
+    subgraph app["アプリケーション層"]
+        API["REST API\n/api/v1/data-pipelines ..."]
+        SVC["Service\ngraph validation・version・SQL compile\nPreview / Run request / Schedule"]
+    end
+    subgraph data["データストア"]
+        PG[("PostgreSQL\npipelines・versions・runs・schedules・outbox")]
+        CH[("ClickHouse\ntenant sandbox・managed Work tables")]
+    end
+    subgraph jobs["非同期ジョブ"]
+        OB["Outbox / Jobs\ndata_pipeline.run_requested\nschedule claim"]
+    end
+    FE --> API
+    API --> SVC
+    SVC --> PG
+    SVC --> CH
+    API --> OB
+    OB --> SVC
+```
 
 ### Tenant と権限
 
@@ -839,6 +935,28 @@ Backend の流れ:
 7. `SELECT ... LIMIT 100` を実行します。
 8. ClickHouse rows を `columns` と `previewRows` に変換して返します。
 
+#### 図: Preview の処理の流れ
+
+```mermaid
+flowchart TB
+    subgraph fe["Frontend"]
+        F1["node 選択・補助 edge"]
+        F2["ensureDraftVersion"]
+        F3["POST .../preview"]
+        F1 --> F2 --> F3
+    end
+    subgraph be["Backend"]
+        B1["version 取得・graph decode"]
+        B2["graph validation"]
+        B3["SELECT compile（選択 node まで）"]
+        B4["tenant sandbox・CH 接続"]
+        B5["SELECT ... LIMIT 100"]
+        B6["columns / previewRows で返却"]
+        B1 --> B2 --> B3 --> B4 --> B5 --> B6
+    end
+    F3 --> B1
+```
+
 Preview は run row や output Work table を作りません。エラーは API response として返り、画面上の error に表示されます。
 
 ### Manual Run の内部処理
@@ -863,6 +981,28 @@ Backend の request 作成:
 8. audit に `data_pipeline.run.request` を記録します。
 
 この時点で API response は返ります。実際の ClickHouse 実行は outbox worker が非同期で行います。
+
+#### 図: Manual Run（同期リクエストと非同期実行）
+
+```mermaid
+flowchart TB
+    subgraph sync["API（同期）"]
+        S1["ensureDraftVersion\n+ publish（必要時）"]
+        S2["POST .../runs"]
+        S3["data_pipeline_runs を pending で作成"]
+        S4["outbox_events に\ndata_pipeline.run_requested"]
+        S1 --> S2 --> S3 --> S4
+    end
+    subgraph async["Outbox handler（非同期）"]
+        A1["event 受信"]
+        A2["run / steps を processing"]
+        A3["SQL compile・stage table・rename"]
+        A4["managed Work table 登録"]
+        A5["run completed・medallion 記録"]
+        A1 --> A2 --> A3 --> A4 --> A5
+    end
+    S4 --> A1
+```
 
 Outbox handler の実行処理:
 
