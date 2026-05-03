@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, onBeforeUnmount, ref } from 'vue'
 import { Search, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -22,13 +22,117 @@ const emit = defineEmits<{
 }>()
 
 type DataPipelinePanelTab = 'preview' | 'runs' | 'schedules'
+type PreviewCellDialog = {
+  column: string
+  value: string
+}
 
+const PREVIEW_CELL_TRUNCATE_LENGTH = 100
 const activeTab = ref<DataPipelinePanelTab>('preview')
+const previewCellDialog = ref<PreviewCellDialog | null>(null)
+const previewCellDialogRef = ref<HTMLDialogElement | null>(null)
 const { d, t } = useI18n()
+
+onBeforeUnmount(() => {
+  if (previewCellDialogRef.value?.open) {
+    previewCellDialogRef.value.close()
+  }
+})
 
 function previewClick() {
   activeTab.value = 'preview'
   emit('preview')
+}
+
+function previewCellText(value: unknown) {
+  if (value === null || value === undefined) {
+    return '-'
+  }
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value)
+  }
+
+  try {
+    return JSON.stringify(value) ?? String(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function previewCellCharacters(value: unknown) {
+  return Array.from(previewCellText(value))
+}
+
+function isPreviewCellLong(value: unknown) {
+  return previewCellCharacters(value).length >= PREVIEW_CELL_TRUNCATE_LENGTH
+}
+
+function previewCellDisplay(value: unknown) {
+  const text = previewCellText(value)
+  const characters = Array.from(text)
+  if (characters.length < PREVIEW_CELL_TRUNCATE_LENGTH) {
+    return text
+  }
+
+  return `${characters.slice(0, PREVIEW_CELL_TRUNCATE_LENGTH).join('')}...`
+}
+
+function previewCellDialogText(value: unknown) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        return JSON.stringify(JSON.parse(trimmed), null, 2)
+      } catch {
+        return value
+      }
+    }
+
+    return value
+  }
+
+  if (value !== null && typeof value === 'object') {
+    try {
+      return JSON.stringify(value, null, 2) ?? previewCellText(value)
+    } catch {
+      return previewCellText(value)
+    }
+  }
+
+  return previewCellText(value)
+}
+
+async function openPreviewCellDialog(column: string, value: unknown) {
+  if (!isPreviewCellLong(value)) {
+    return
+  }
+
+  previewCellDialog.value = {
+    column,
+    value: previewCellDialogText(value),
+  }
+  await nextTick()
+  if (!previewCellDialogRef.value?.open) {
+    previewCellDialogRef.value?.showModal()
+  }
+}
+
+function closePreviewCellDialog() {
+  if (previewCellDialogRef.value?.open) {
+    previewCellDialogRef.value.close()
+    return
+  }
+
+  previewCellDialog.value = null
+}
+
+function handlePreviewCellDialogClose() {
+  previewCellDialog.value = null
 }
 
 function formatDate(value?: string | null) {
@@ -132,7 +236,21 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
           </thead>
           <tbody>
             <tr v-for="(row, index) in preview.previewRows" :key="index">
-              <td v-for="column in preview.columns" :key="column">{{ row[column] ?? '-' }}</td>
+              <td
+                v-for="column in preview.columns"
+                :key="column"
+                :class="{ 'data-pipeline-preview-cell-truncated': isPreviewCellLong(row[column]) }"
+                :tabindex="isPreviewCellLong(row[column]) ? 0 : undefined"
+                :role="isPreviewCellLong(row[column]) ? 'button' : undefined"
+                :aria-label="isPreviewCellLong(row[column]) ? t('dataPipelines.openPreviewCellValue', { column }) : undefined"
+                @dblclick="openPreviewCellDialog(column, row[column])"
+                @keydown.enter="openPreviewCellDialog(column, row[column])"
+                @keydown.space.prevent="openPreviewCellDialog(column, row[column])"
+              >
+                <span :class="{ 'data-pipeline-preview-cell-text': isPreviewCellLong(row[column]) }">
+                  {{ previewCellDisplay(row[column]) }}
+                </span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -197,5 +315,28 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
         </table>
       </div>
     </div>
+
+    <dialog
+      ref="previewCellDialogRef"
+      class="confirm-dialog data-pipeline-cell-dialog"
+      @close="handlePreviewCellDialogClose"
+      @cancel.prevent="closePreviewCellDialog"
+    >
+      <div class="confirm-dialog-panel data-pipeline-cell-dialog-panel">
+        <div class="stack">
+          <span class="status-pill">{{ t('dataPipelines.preview') }}</span>
+          <h2>{{ t('dataPipelines.previewCellValue') }}</h2>
+          <p class="cell-subtle">{{ previewCellDialog?.column }}</p>
+        </div>
+
+        <pre class="data-pipeline-cell-dialog-value">{{ previewCellDialog?.value }}</pre>
+
+        <div class="action-row">
+          <button class="secondary-button" type="button" autofocus @click="closePreviewCellDialog">
+            {{ t('common.close') }}
+          </button>
+        </div>
+      </div>
+    </dialog>
   </section>
 </template>
