@@ -9,6 +9,7 @@ import AdminAccessDenied from '../components/AdminAccessDenied.vue'
 import DataPipelineFlowBuilder from '../components/DataPipelineFlowBuilder.vue'
 import DataPipelineInspector from '../components/DataPipelineInspector.vue'
 import DataPipelinePreviewPanel from '../components/DataPipelinePreviewPanel.vue'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../components/ui/resizable'
 import { useDataPipelineStore } from '../stores/data-pipelines'
 import { useDatasetStore } from '../stores/datasets'
 import { useTenantStore } from '../stores/tenants'
@@ -33,16 +34,8 @@ const settingsScheduleRunTime = ref('03:00')
 const settingsScheduleWeekday = ref<number | null>(1)
 const settingsScheduleMonthDay = ref<number | null>(1)
 const settingsError = ref('')
-const dataPipelineMainRef = ref<HTMLElement | null>(null)
-const previewPanelDefaultHeight = 400
-const previewPanelMinHeight = 150
-const previewEditorMinHeight = 220
-const previewResizeHandleHeight = 10
-const previewPanelHeight = ref(previewPanelDefaultHeight)
-const previewPanelMaxHeight = ref(previewPanelDefaultHeight)
-const resizingPreviewPanel = ref(false)
-let previewResizeStartY = 0
-let previewResizeStartHeight = previewPanelDefaultHeight
+const compactLayout = ref(false)
+let compactLayoutMediaQuery: MediaQueryList | undefined
 let refreshTimer: number | undefined
 
 const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
@@ -85,14 +78,11 @@ const previewDisabledReason = computed(() => {
   return ''
 })
 const runDisabledReason = computed(() => (selectedPipeline.value ? '' : t('dataPipelines.createOrSelectFirst')))
-const dataPipelineMainStyle = computed(() => ({
-  '--data-pipeline-preview-height': `${previewPanelHeight.value}px`,
-}))
-const previewPanelAriaMax = computed(() => Math.max(previewPanelHeight.value, previewPanelMaxHeight.value))
 const autoPreviewDelayMs = 350
 let autoPreviewTimer: number | undefined
 
 onMounted(async () => {
+  setupCompactLayoutListener()
   if (tenantStore.status === 'idle') {
     await tenantStore.load()
   }
@@ -101,9 +91,6 @@ onMounted(async () => {
       await store.refreshRuns().catch(() => undefined)
     }
   }, 4000)
-  await nextTick()
-  updatePreviewPanelBounds()
-  window.addEventListener('resize', updatePreviewPanelBounds)
 })
 
 onBeforeUnmount(() => {
@@ -116,8 +103,7 @@ onBeforeUnmount(() => {
   if (settingsDialogRef.value?.open) {
     settingsDialogRef.value.close()
   }
-  window.removeEventListener('resize', updatePreviewPanelBounds)
-  clearPreviewResizeListeners()
+  teardownCompactLayoutListener()
 })
 
 watch(
@@ -131,7 +117,6 @@ watch(
 watch(selectedPipeline, (pipeline) => {
   editName.value = pipeline?.name ?? ''
   editDescription.value = pipeline?.description ?? ''
-  void nextTick(() => updatePreviewPanelBounds())
 }, { immediate: true })
 
 watch(
@@ -182,79 +167,19 @@ function selectNode(nodeId: string) {
   store.selectedNodeId = nodeId
 }
 
-function updatePreviewPanelBounds() {
-  previewPanelMaxHeight.value = calculatePreviewPanelMaxHeight()
+function setupCompactLayoutListener() {
+  compactLayoutMediaQuery = window.matchMedia('(max-width: 980px)')
+  compactLayout.value = compactLayoutMediaQuery.matches
+  compactLayoutMediaQuery.addEventListener('change', updateCompactLayout)
 }
 
-function calculatePreviewPanelMaxHeight() {
-  const main = dataPipelineMainRef.value
-  if (!main) {
-    return previewPanelDefaultHeight
-  }
-  const mainHeight = main.getBoundingClientRect().height
-  const feedbackHeight = main.querySelector<HTMLElement>('.data-pipeline-feedback')?.getBoundingClientRect().height ?? 0
-  const handleHeight = main.querySelector<HTMLElement>('.data-pipeline-resize-handle')?.getBoundingClientRect().height ?? previewResizeHandleHeight
-  return Math.max(
-    previewPanelMinHeight,
-    Math.floor(mainHeight - feedbackHeight - handleHeight - previewEditorMinHeight),
-  )
+function teardownCompactLayoutListener() {
+  compactLayoutMediaQuery?.removeEventListener('change', updateCompactLayout)
+  compactLayoutMediaQuery = undefined
 }
 
-function clampPreviewPanelHeight(value: number) {
-  const maxHeight = calculatePreviewPanelMaxHeight()
-  previewPanelMaxHeight.value = maxHeight
-  return Math.min(Math.max(value, previewPanelMinHeight), maxHeight)
-}
-
-function startPreviewResize(event: PointerEvent) {
-  if (event.button !== 0) {
-    return
-  }
-  resizingPreviewPanel.value = true
-  previewResizeStartY = event.clientY
-  previewResizeStartHeight = previewPanelHeight.value
-  window.addEventListener('pointermove', resizePreviewPanel)
-  window.addEventListener('pointerup', stopPreviewResize)
-  document.body.classList.add('data-pipeline-resizing-preview')
-  const target = event.currentTarget as HTMLElement | null
-  target?.setPointerCapture(event.pointerId)
-  event.preventDefault()
-}
-
-function resizePreviewPanel(event: PointerEvent) {
-  if (!resizingPreviewPanel.value) {
-    return
-  }
-  previewPanelHeight.value = clampPreviewPanelHeight(previewResizeStartHeight - (event.clientY - previewResizeStartY))
-}
-
-function stopPreviewResize() {
-  clearPreviewResizeListeners()
-}
-
-function clearPreviewResizeListeners() {
-  window.removeEventListener('pointermove', resizePreviewPanel)
-  window.removeEventListener('pointerup', stopPreviewResize)
-  document.body.classList.remove('data-pipeline-resizing-preview')
-  resizingPreviewPanel.value = false
-}
-
-function resizePreviewPanelFromKeyboard(event: KeyboardEvent) {
-  const step = event.shiftKey ? 80 : 20
-  let nextHeight = previewPanelHeight.value
-  if (event.key === 'ArrowUp') {
-    nextHeight += step
-  } else if (event.key === 'ArrowDown') {
-    nextHeight -= step
-  } else if (event.key === 'Home') {
-    nextHeight = previewPanelMinHeight
-  } else if (event.key === 'End') {
-    nextHeight = calculatePreviewPanelMaxHeight()
-  } else {
-    return
-  }
-  event.preventDefault()
-  previewPanelHeight.value = clampPreviewPanelHeight(nextHeight)
+function updateCompactLayout(event: MediaQueryListEvent) {
+  compactLayout.value = event.matches
 }
 
 async function saveDraft() {
@@ -411,61 +336,106 @@ async function applySettings() {
     />
 
     <div v-else-if="selectedPipeline" class="data-pipeline-detail-layout">
-      <main
-        ref="dataPipelineMainRef"
-        class="data-pipeline-main"
-        :class="{ resizing: resizingPreviewPanel }"
-        :style="dataPipelineMainStyle"
-      >
-        <div class="data-pipeline-editor-pane">
-          <div class="data-pipeline-builder-grid">
-            <DataPipelineFlowBuilder
-              :graph="store.draftGraph"
-              :node-catalog="nodeCatalog"
-              :selected-node-id="store.selectedNodeId"
-              @update:graph="updateGraph"
-              @select-node="selectNode"
+      <main class="data-pipeline-main">
+        <ResizablePanelGroup
+          v-if="!compactLayout"
+          auto-save-id="data-pipeline-detail-main-v2"
+          direction="vertical"
+          class="data-pipeline-main-resizable"
+        >
+          <ResizablePanel id="data-pipeline-editor-panel" :default-size="76" :min-size="20" class="data-pipeline-main-panel">
+            <div class="data-pipeline-editor-stack">
+              <div class="data-pipeline-editor-pane">
+                <ResizablePanelGroup
+                  auto-save-id="data-pipeline-detail-builder"
+                  direction="horizontal"
+                  class="data-pipeline-builder-resizable"
+                >
+                  <ResizablePanel id="data-pipeline-flow-panel" :default-size="74" :min-size="45" class="data-pipeline-builder-panel">
+                    <DataPipelineFlowBuilder
+                      :graph="store.draftGraph"
+                      :node-catalog="nodeCatalog"
+                      :selected-node-id="store.selectedNodeId"
+                      @update:graph="updateGraph"
+                      @select-node="selectNode"
+                    />
+                  </ResizablePanel>
+                  <ResizableHandle with-handle />
+                  <ResizablePanel id="data-pipeline-inspector-panel" :default-size="26" :min-size="18" :max-size="42" class="data-pipeline-builder-panel">
+                    <DataPipelineInspector
+                      :graph="store.draftGraph"
+                      :selected-node-id="store.selectedNodeId"
+                      :datasets="datasetStore.items"
+                      :work-tables="datasetStore.workTables"
+                      @update:graph="updateGraph"
+                    />
+                  </ResizablePanel>
+                </ResizablePanelGroup>
+              </div>
+
+              <div class="data-pipeline-feedback" aria-live="polite">
+                <p v-if="store.errorMessage" class="form-error">{{ store.errorMessage }}</p>
+                <p v-else-if="store.actionMessage" class="form-success">{{ store.actionMessage }}</p>
+              </div>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle with-handle />
+
+          <ResizablePanel id="data-pipeline-preview-panel" :default-size="24" :min-size="7" class="data-pipeline-main-panel">
+            <DataPipelinePreviewPanel
+              :preview="store.selectedPreview"
+              :runs="store.runs"
+              :schedules="store.schedules"
+              :loading="store.selectedPreviewLoading"
+              :action-loading="store.actionLoading"
+              :can-preview="canPreview"
+              :draft-run-preview="draftRunPreview"
+              :preview-disabled-reason="previewDisabledReason"
+              @preview="previewSelected"
+              @disable-schedule="disableSchedule"
             />
-            <DataPipelineInspector
-              :graph="store.draftGraph"
-              :selected-node-id="store.selectedNodeId"
-              :datasets="datasetStore.items"
-              :work-tables="datasetStore.workTables"
-              @update:graph="updateGraph"
-            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+
+        <div v-else class="data-pipeline-compact-stack">
+          <div class="data-pipeline-editor-pane">
+            <div class="data-pipeline-compact-builder-stack">
+              <DataPipelineFlowBuilder
+                :graph="store.draftGraph"
+                :node-catalog="nodeCatalog"
+                :selected-node-id="store.selectedNodeId"
+                @update:graph="updateGraph"
+                @select-node="selectNode"
+              />
+              <DataPipelineInspector
+                :graph="store.draftGraph"
+                :selected-node-id="store.selectedNodeId"
+                :datasets="datasetStore.items"
+                :work-tables="datasetStore.workTables"
+                @update:graph="updateGraph"
+              />
+            </div>
           </div>
+
+          <div class="data-pipeline-feedback" aria-live="polite">
+            <p v-if="store.errorMessage" class="form-error">{{ store.errorMessage }}</p>
+            <p v-else-if="store.actionMessage" class="form-success">{{ store.actionMessage }}</p>
+          </div>
+
+          <DataPipelinePreviewPanel
+            :preview="store.selectedPreview"
+            :runs="store.runs"
+            :schedules="store.schedules"
+            :loading="store.selectedPreviewLoading"
+            :action-loading="store.actionLoading"
+            :can-preview="canPreview"
+            :draft-run-preview="draftRunPreview"
+            :preview-disabled-reason="previewDisabledReason"
+            @preview="previewSelected"
+            @disable-schedule="disableSchedule"
+          />
         </div>
-
-        <div class="data-pipeline-feedback" aria-live="polite">
-          <p v-if="store.errorMessage" class="form-error">{{ store.errorMessage }}</p>
-          <p v-else-if="store.actionMessage" class="form-success">{{ store.actionMessage }}</p>
-        </div>
-
-        <div
-          class="data-pipeline-resize-handle"
-          role="separator"
-          tabindex="0"
-          aria-orientation="horizontal"
-          :aria-label="t('dataPipelines.resizePreviewPanel')"
-          :aria-valuemin="previewPanelMinHeight"
-          :aria-valuemax="previewPanelAriaMax"
-          :aria-valuenow="Math.round(previewPanelHeight)"
-          @pointerdown="startPreviewResize"
-          @keydown="resizePreviewPanelFromKeyboard"
-        ></div>
-
-        <DataPipelinePreviewPanel
-          :preview="store.selectedPreview"
-          :runs="store.runs"
-          :schedules="store.schedules"
-          :loading="store.selectedPreviewLoading"
-          :action-loading="store.actionLoading"
-          :can-preview="canPreview"
-          :draft-run-preview="draftRunPreview"
-          :preview-disabled-reason="previewDisabledReason"
-          @preview="previewSelected"
-          @disable-schedule="disableSchedule"
-        />
       </main>
     </div>
 
