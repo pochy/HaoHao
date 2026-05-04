@@ -290,11 +290,15 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DataPipelineListInput) (*DataPipelineListOutput, error) {
-		_, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
 		}
 		items, err := deps.DataPipelineService.List(ctx, tenant.ID, input.Limit)
+		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "listDataPipelines", err)
+		}
+		items, err = filterDataPipelinesForAction(ctx, deps, current.User.ID, items, service.DataActionView)
 		if err != nil {
 			return nil, toDataPipelineHTTPError(ctx, deps, "listDataPipelines", err)
 		}
@@ -317,6 +321,9 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetScopeAction(ctx, deps, tenant.ID, current.User.ID, service.DataActionCreatePipeline); err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "createDataPipeline", err)
 		}
 		attempt, err := beginIdempotency(ctx, deps, input.IdempotencyKey, http.MethodPost, "/api/v1/data-pipelines", current.User.ID, &tenant.ID, input.Body)
 		if err != nil {
@@ -344,12 +351,15 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{OperationID: "getDataPipeline", Method: http.MethodGet, Path: "/api/v1/data-pipelines/{pipelinePublicId}", Summary: "data pipeline detail を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineByPublicIDInput) (*DataPipelineDetailOutput, error) {
-		_, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
 		}
 		detail, err := deps.DataPipelineService.Get(ctx, tenant.ID, input.PipelinePublicID)
 		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "getDataPipeline", err)
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataPipeline, detail.Pipeline.PublicID, service.DataActionView); err != nil {
 			return nil, toDataPipelineHTTPError(ctx, deps, "getDataPipeline", err)
 		}
 		return &DataPipelineDetailOutput{Body: toDataPipelineDetailBody(detail)}, nil
@@ -359,6 +369,9 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataPipeline, input.PipelinePublicID, service.DataActionUpdate); err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "updateDataPipeline", err)
 		}
 		item, err := deps.DataPipelineService.Update(ctx, tenant.ID, current.User.ID, input.PipelinePublicID, service.DataPipelineInput{Name: input.Body.Name, Description: input.Body.Description}, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
@@ -371,6 +384,9 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataPipeline, input.PipelinePublicID, service.DataActionSaveVersion); err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "saveDataPipelineVersion", err)
 		}
 		item, err := deps.DataPipelineService.SaveDraftVersion(ctx, tenant.ID, current.User.ID, input.PipelinePublicID, input.Body.Graph, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
@@ -408,6 +424,9 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataPipeline, input.PipelinePublicID, service.DataActionPreview); err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "previewDataPipelineDraft", err)
+		}
 		preview, err := deps.DataPipelineService.PreviewDraft(ctx, tenant.ID, current.User.ID, input.PipelinePublicID, input.Body.Graph, input.Body.NodeID, input.Body.Limit)
 		if err != nil {
 			return nil, toDataPipelineHTTPError(ctx, deps, "previewDataPipelineDraft", err)
@@ -416,9 +435,12 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{OperationID: "listDataPipelineRuns", Method: http.MethodGet, Path: "/api/v1/data-pipelines/{pipelinePublicId}/runs", Summary: "data pipeline run history を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineRunsInput) (*DataPipelineRunListOutput, error) {
-		_, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataPipeline, input.PipelinePublicID, service.DataActionView); err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "listDataPipelineRuns", err)
 		}
 		items, err := deps.DataPipelineService.ListRuns(ctx, tenant.ID, input.PipelinePublicID, input.Limit)
 		if err != nil {
@@ -464,9 +486,12 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{OperationID: "listDataPipelineSchedules", Method: http.MethodGet, Path: "/api/v1/data-pipelines/{pipelinePublicId}/schedules", Summary: "data pipeline schedules を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineScheduleListInput) (*DataPipelineScheduleListOutput, error) {
-		_, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataPipeline, input.PipelinePublicID, service.DataActionView); err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "listDataPipelineSchedules", err)
 		}
 		items, err := deps.DataPipelineService.ListSchedules(ctx, tenant.ID, input.PipelinePublicID)
 		if err != nil {
@@ -483,6 +508,9 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataPipeline, input.PipelinePublicID, service.DataActionManageSchedule); err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "createDataPipelineSchedule", err)
 		}
 		item, err := deps.DataPipelineService.CreateSchedule(ctx, tenant.ID, current.User.ID, input.PipelinePublicID, scheduleInputFromBody(input.Body), sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
@@ -535,11 +563,36 @@ func toDataPipelineHTTPError(ctx context.Context, deps Dependencies, operation s
 		return huma.Error400BadRequest(err.Error())
 	case errors.Is(err, service.ErrDataPipelineVersionUnpublished):
 		return huma.Error409Conflict(err.Error())
+	case errors.Is(err, service.ErrDataPermissionDenied):
+		return huma.Error403Forbidden(err.Error())
+	case errors.Is(err, service.ErrDataAuthzUnavailable):
+		return dataAccessAuthorizationUnavailableHTTPError(ctx, deps, operation, err)
 	case errors.Is(err, service.ErrDatasetClickHouseNotReady):
 		return huma.Error503ServiceUnavailable(err.Error())
 	default:
 		return internalHTTPError(ctx, deps, operation, err)
 	}
+}
+
+func filterDataPipelinesForAction(ctx context.Context, deps Dependencies, actorUserID int64, items []service.DataPipeline, action string) ([]service.DataPipeline, error) {
+	if deps.DatasetAuthorizationService == nil {
+		return nil, service.ErrDataAuthzUnavailable
+	}
+	publicIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		publicIDs = append(publicIDs, item.PublicID)
+	}
+	allowed, err := deps.DatasetAuthorizationService.FilterResourcePublicIDs(ctx, actorUserID, service.DataResourceDataPipeline, action, publicIDs)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]service.DataPipeline, 0, len(items))
+	for _, item := range items {
+		if allowed[item.PublicID] {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered, nil
 }
 
 func toDataPipelineDetailBody(detail service.DataPipelineDetail) DataPipelineDetailBody {

@@ -43,6 +43,7 @@ const TenantAdminTenantEntitlementsView = () => import('../views/tenant-admin/Te
 const TenantAdminTenantSupportView = () => import('../views/tenant-admin/TenantAdminTenantSupportView.vue')
 const TenantAdminTenantWebhooksView = () => import('../views/tenant-admin/TenantAdminTenantWebhooksView.vue')
 const TenantAdminTenantDataView = () => import('../views/tenant-admin/TenantAdminTenantDataView.vue')
+const TenantAdminTenantDataAccessView = () => import('../views/tenant-admin/TenantAdminTenantDataAccessView.vue')
 const MachineClientsView = () => import('../views/MachineClientsView.vue')
 const MachineClientFormView = () => import('../views/MachineClientFormView.vue')
 const MachineClientDetailView = () => import('../views/MachineClientDetailView.vue')
@@ -452,6 +453,11 @@ const router = createRouter({
           path: 'data',
           name: 'tenant-admin-detail-data',
           component: TenantAdminTenantDataView,
+        },
+        {
+          path: 'data-access',
+          name: 'tenant-admin-detail-data-access',
+          component: TenantAdminTenantDataAccessView,
         },
       ],
     },

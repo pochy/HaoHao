@@ -2,6 +2,102 @@ name: HaoHao Drive Model Tests
 model_file: ./drive.fga
 
 tests:
+  - name: dataset resource action permissions
+    tuples:
+      - user: user:dataset-owner
+        relation: owner
+        object: dataset:customers
+      - user: user:dataset-viewer
+        relation: viewer
+        object: dataset:customers
+      - user: user:dataset-runner
+        relation: query_runner
+        object: dataset:customers
+    check:
+      - user: user:dataset-owner
+        object: dataset:customers
+        assertions:
+          can_view: true
+          can_preview: true
+          can_query: true
+          can_export: true
+          can_update: true
+          can_delete: true
+          can_manage_permissions: true
+      - user: user:dataset-viewer
+        object: dataset:customers
+        assertions:
+          can_view: true
+          can_preview: true
+          can_query: false
+          can_export: false
+          can_update: false
+          can_delete: false
+      - user: user:dataset-runner
+        object: dataset:customers
+        assertions:
+          can_view: false
+          can_query: true
+          can_export: true
+
+  - name: dataset group and tenant scope permissions
+    tuples:
+      - user: user:analyst
+        relation: member
+        object: dataset_group:all-analysts
+      - user: dataset_group:all-analysts#member
+        relation: dataset_viewer
+        object: data_scope:acme
+      - user: data_scope:acme
+        relation: scope
+        object: dataset:sales
+      - user: data_scope:acme
+        relation: scope
+        object: work_table:summary
+      - user: data_scope:acme
+        relation: scope
+        object: data_pipeline:daily-refresh
+    check:
+      - user: user:analyst
+        object: dataset:sales
+        assertions:
+          can_view: true
+          can_update: false
+      - user: user:analyst
+        object: work_table:summary
+        assertions:
+          can_view: false
+      - user: user:analyst
+        object: data_pipeline:daily-refresh
+        assertions:
+          can_view: false
+
+  - name: pipeline owner can run and manage schedules
+    tuples:
+      - user: user:pipeline-owner
+        relation: owner
+        object: data_pipeline:daily-refresh
+      - user: user:pipeline-viewer
+        relation: viewer
+        object: data_pipeline:daily-refresh
+    check:
+      - user: user:pipeline-owner
+        object: data_pipeline:daily-refresh
+        assertions:
+          can_view: true
+          can_update: true
+          can_save_version: true
+          can_publish_version: true
+          can_preview: true
+          can_run: true
+          can_manage_schedule: true
+      - user: user:pipeline-viewer
+        object: data_pipeline:daily-refresh
+        assertions:
+          can_view: true
+          can_preview: true
+          can_run: false
+
   - name: direct owner editor viewer permissions
     tuples:
       - user: user:owner

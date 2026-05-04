@@ -361,6 +361,42 @@ type DatasetLineageParseRun struct {
 	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
 }
 
+type DatasetPermissionGrant struct {
+	ID               int64              `json:"id"`
+	TenantID         int64              `json:"tenant_id"`
+	ResourceType     string             `json:"resource_type"`
+	ResourcePublicID pgtype.UUID        `json:"resource_public_id"`
+	SubjectType      string             `json:"subject_type"`
+	SubjectUserID    pgtype.Int8        `json:"subject_user_id"`
+	SubjectGroupID   pgtype.Int8        `json:"subject_group_id"`
+	Action           string             `json:"action"`
+	CreatedByUserID  pgtype.Int8        `json:"created_by_user_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type DatasetPermissionGroup struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	TenantID        int64              `json:"tenant_id"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description"`
+	SystemKey       pgtype.Text        `json:"system_key"`
+	CreatedByUserID pgtype.Int8        `json:"created_by_user_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type DatasetPermissionGroupMember struct {
+	ID            int64              `json:"id"`
+	GroupID       int64              `json:"group_id"`
+	UserID        int64              `json:"user_id"`
+	AddedByUserID pgtype.Int8        `json:"added_by_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type DatasetQueryJob struct {
 	ID                int64              `json:"id"`
 	PublicID          uuid.UUID          `json:"public_id"`
@@ -1791,6 +1827,14 @@ type Tenant struct {
 	Active      bool               `json:"active"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TenantDataAccessScope struct {
+	ID        int64              `json:"id"`
+	PublicID  uuid.UUID          `json:"public_id"`
+	TenantID  int64              `json:"tenant_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type TenantDataExport struct {

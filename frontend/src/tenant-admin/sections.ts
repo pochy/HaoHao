@@ -2,6 +2,7 @@ import {
   Activity,
   Building2,
   Database,
+  KeySquare,
   KeyRound,
   LifeBuoy,
   MailPlus,
@@ -24,6 +25,7 @@ export type TenantAdminRouteName =
   | 'tenant-admin-detail-support'
   | 'tenant-admin-detail-webhooks'
   | 'tenant-admin-detail-data'
+  | 'tenant-admin-detail-data-access'
 
 export type TenantAdminSection = {
   key: string
@@ -103,6 +105,13 @@ export const tenantAdminSections: TenantAdminSection[] = [
     descriptionKey: 'tenantAdmin.sectionDescriptions.data',
     routeName: 'tenant-admin-detail-data',
     icon: Database,
+  },
+  {
+    key: 'data-access',
+    labelKey: 'tenantAdmin.sections.dataAccess',
+    descriptionKey: 'tenantAdmin.sectionDescriptions.dataAccess',
+    routeName: 'tenant-admin-detail-data-access',
+    icon: KeySquare,
   },
 ]
 

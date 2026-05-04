@@ -10612,3 +10612,66 @@ ALTER TABLE ONLY public.data_pipeline_runs
 
 CREATE INDEX data_pipeline_schedules_due_idx ON public.data_pipeline_schedules USING btree (next_run_at, id) WHERE enabled;
 CREATE INDEX data_pipeline_schedules_pipeline_idx ON public.data_pipeline_schedules USING btree (pipeline_id, updated_at DESC, id DESC);
+
+CREATE TABLE public.tenant_data_access_scopes (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
+    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE UNIQUE INDEX tenant_data_access_scopes_tenant_key ON public.tenant_data_access_scopes USING btree (tenant_id);
+
+CREATE TABLE public.dataset_permission_groups (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
+    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    system_key text,
+    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    CONSTRAINT dataset_permission_groups_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT dataset_permission_groups_system_key_check CHECK (((system_key IS NULL) OR (btrim(system_key) <> ''::text)))
+);
+
+CREATE UNIQUE INDEX dataset_permission_groups_tenant_system_key ON public.dataset_permission_groups USING btree (tenant_id, system_key) WHERE ((system_key IS NOT NULL) AND (deleted_at IS NULL));
+CREATE INDEX dataset_permission_groups_tenant_updated_idx ON public.dataset_permission_groups USING btree (tenant_id, updated_at DESC, id DESC) WHERE (deleted_at IS NULL);
+
+CREATE TABLE public.dataset_permission_group_members (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    group_id bigint NOT NULL REFERENCES public.dataset_permission_groups(id) ON DELETE CASCADE,
+    user_id bigint NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    added_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone
+);
+
+CREATE UNIQUE INDEX dataset_permission_group_members_active_key ON public.dataset_permission_group_members USING btree (group_id, user_id) WHERE (deleted_at IS NULL);
+CREATE INDEX dataset_permission_group_members_user_idx ON public.dataset_permission_group_members USING btree (user_id) WHERE (deleted_at IS NULL);
+
+CREATE TABLE public.dataset_permission_grants (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    resource_type text NOT NULL,
+    resource_public_id uuid,
+    subject_type text NOT NULL,
+    subject_user_id bigint REFERENCES public.users(id) ON DELETE CASCADE,
+    subject_group_id bigint REFERENCES public.dataset_permission_groups(id) ON DELETE CASCADE,
+    action text NOT NULL,
+    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    revoked_at timestamp with time zone,
+    CONSTRAINT dataset_permission_grants_resource_type_check CHECK ((resource_type = ANY (ARRAY['data_scope'::text, 'dataset'::text, 'work_table'::text, 'data_pipeline'::text]))),
+    CONSTRAINT dataset_permission_grants_resource_public_id_check CHECK ((((resource_type = 'data_scope'::text) AND (resource_public_id IS NULL)) OR ((resource_type <> 'data_scope'::text) AND (resource_public_id IS NOT NULL)))),
+    CONSTRAINT dataset_permission_grants_subject_type_check CHECK ((subject_type = ANY (ARRAY['user'::text, 'group'::text]))),
+    CONSTRAINT dataset_permission_grants_subject_check CHECK ((((subject_type = 'user'::text) AND (subject_user_id IS NOT NULL) AND (subject_group_id IS NULL)) OR ((subject_type = 'group'::text) AND (subject_group_id IS NOT NULL) AND (subject_user_id IS NULL)))),
+    CONSTRAINT dataset_permission_grants_action_check CHECK ((btrim(action) <> ''::text))
+);
+
+CREATE UNIQUE INDEX dataset_permission_grants_active_user_key ON public.dataset_permission_grants USING btree (tenant_id, resource_type, COALESCE(resource_public_id, '00000000-0000-0000-0000-000000000000'::uuid), subject_user_id, action) WHERE ((revoked_at IS NULL) AND (subject_type = 'user'::text));
+CREATE UNIQUE INDEX dataset_permission_grants_active_group_key ON public.dataset_permission_grants USING btree (tenant_id, resource_type, COALESCE(resource_public_id, '00000000-0000-0000-0000-000000000000'::uuid), subject_group_id, action) WHERE ((revoked_at IS NULL) AND (subject_type = 'group'::text));
+CREATE INDEX dataset_permission_grants_resource_idx ON public.dataset_permission_grants USING btree (tenant_id, resource_type, resource_public_id, subject_type, created_at DESC) WHERE (revoked_at IS NULL);

@@ -231,6 +231,9 @@ func (c *OpenFGASDKClient) WriteTuples(ctx context.Context, tuples []OpenFGATupl
 	}
 	options := fgaclient.ClientWriteOptions{
 		AuthorizationModelId: openfga.ToPtr(c.modelID),
+		Conflict: fgaclient.ClientWriteConflictOptions{
+			OnDuplicateWrites: fgaclient.CLIENT_WRITE_REQUEST_ON_DUPLICATE_WRITES_IGNORE,
+		},
 	}
 	_, err := c.client.WriteTuples(ctx).Body(body).Options(options).Execute()
 	callErr = err

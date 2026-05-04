@@ -760,6 +760,9 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
+		if err := checkDatasetScopeAction(ctx, deps, tenant.ID, current.User.ID, service.DataActionCreateDataset); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "createDataset", err)
+		}
 		if deps.DriveService == nil {
 			return nil, huma.Error503ServiceUnavailable("drive service is not configured")
 		}
@@ -770,6 +773,9 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		}
 		item, err := deps.DatasetService.CreateFromDriveFile(ctx, tenant.ID, current.User.ID, file, input.Body.Name, auditCtx)
 		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "createDataset", err)
+		}
+		if err := ensureDatasetResourceOwners(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataset, item.PublicID); err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "createDataset", err)
 		}
 		return &DatasetOutput{Body: toDatasetBody(item)}, nil
@@ -783,11 +789,15 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDatasetsInput) (*DatasetListOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
 		}
 		items, err := deps.DatasetService.List(ctx, tenant.ID, input.Limit)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasets", err)
+		}
+		items, err = filterDatasetsForAction(ctx, deps, current.User.ID, items, service.DataActionView)
 		if err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "listDatasets", err)
 		}
@@ -839,11 +849,15 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *ListDatasetWorkTablesInput) (*DatasetWorkTableListOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
 		}
 		items, err := deps.DatasetService.ListWorkTables(ctx, tenant.ID, input.Limit)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasetWorkTables", err)
+		}
+		items, err = filterDatasetWorkTablesForAction(ctx, deps, current.User.ID, items, service.DataActionView)
 		if err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "listDatasetWorkTables", err)
 		}
@@ -867,8 +881,14 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
+		if err := checkDatasetScopeAction(ctx, deps, tenant.ID, current.User.ID, service.DataActionCreateWorkTable); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "registerDatasetWorkTable", err)
+		}
 		item, err := deps.DatasetService.RegisterWorkTable(ctx, tenant.ID, current.User.ID, input.Body.Database, input.Body.Table, input.Body.DatasetPublicID, input.Body.DisplayName, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "registerDatasetWorkTable", err)
+		}
+		if err := ensureDatasetResourceOwners(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, item.PublicID); err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "registerDatasetWorkTable", err)
 		}
 		return &DatasetWorkTableOutput{Body: toDatasetWorkTableBody(item)}, nil
@@ -882,12 +902,15 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableByPublicIDInput) (*DatasetWorkTableOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
 		}
 		item, err := deps.DatasetService.GetManagedWorkTable(ctx, tenant.ID, input.WorkTablePublicID)
 		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getManagedDatasetWorkTable", err)
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, item.PublicID, service.DataActionView); err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "getManagedDatasetWorkTable", err)
 		}
 		return &DatasetWorkTableOutput{Body: toDatasetWorkTableBody(item)}, nil
@@ -901,9 +924,12 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableLineageInput) (*DatasetLineageOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionView); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDatasetWorkTableLineage", err)
 		}
 		graph, err := deps.DatasetService.GetWorkTableLineage(ctx, tenant.ID, input.WorkTablePublicID, service.DatasetLineageOptions{
 			Direction:         input.Direction,
@@ -929,9 +955,12 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTablePreviewByPublicIDInput) (*DatasetWorkTablePreviewOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionPreview); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getManagedDatasetWorkTablePreview", err)
 		}
 		preview, err := deps.DatasetService.PreviewManagedWorkTable(ctx, tenant.ID, input.WorkTablePublicID, input.Limit)
 		if err != nil {
@@ -952,6 +981,9 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionUpdate); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "linkDatasetWorkTable", err)
+		}
 		item, err := deps.DatasetService.LinkWorkTable(ctx, tenant.ID, input.WorkTablePublicID, input.Body.DatasetPublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "linkDatasetWorkTable", err)
@@ -971,6 +1003,9 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionUpdate); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "renameDatasetWorkTable", err)
+		}
 		item, err := deps.DatasetService.RenameWorkTable(ctx, tenant.ID, input.WorkTablePublicID, input.Body.Table, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "renameDatasetWorkTable", err)
@@ -989,6 +1024,9 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionDelete); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "truncateDatasetWorkTable", err)
 		}
 		item, err := deps.DatasetService.TruncateWorkTable(ctx, tenant.ID, input.WorkTablePublicID, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
@@ -1010,6 +1048,9 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionDelete); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "deleteDatasetWorkTable", err)
+		}
 		if err := deps.DatasetService.DropWorkTable(ctx, tenant.ID, input.WorkTablePublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "deleteDatasetWorkTable", err)
 		}
@@ -1028,8 +1069,17 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionUpdate); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "promoteDatasetWorkTable", err)
+		}
+		if err := checkDatasetScopeAction(ctx, deps, tenant.ID, current.User.ID, service.DataActionCreateDataset); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "promoteDatasetWorkTable", err)
+		}
 		item, err := deps.DatasetService.PromoteWorkTable(ctx, tenant.ID, current.User.ID, input.WorkTablePublicID, input.Body.Name, sessionAuditContext(ctx, current, &tenant.ID))
 		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "promoteDatasetWorkTable", err)
+		}
+		if err := ensureDatasetResourceOwners(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataset, item.PublicID); err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "promoteDatasetWorkTable", err)
 		}
 		return &DatasetOutput{Body: toDatasetBody(item)}, nil
@@ -1066,9 +1116,12 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableExportInput) (*DatasetWorkTableExportListOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionExport); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasetWorkTableExports", err)
 		}
 		items, err := deps.DatasetService.ListWorkTableExports(ctx, tenant.ID, input.WorkTablePublicID, input.Limit)
 		if err != nil {
@@ -1090,9 +1143,12 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableExportScheduleInput) (*DatasetWorkTableExportScheduleListOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionView); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasetWorkTableExportSchedules", err)
 		}
 		items, err := deps.DatasetService.ListWorkTableExportSchedules(ctx, tenant.ID, input.WorkTablePublicID)
 		if err != nil {
@@ -1218,12 +1274,15 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTableInput) (*DatasetWorkTableOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
 		}
 		item, err := deps.DatasetService.GetWorkTable(ctx, tenant.ID, input.Database, input.Table)
 		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDatasetWorkTable", err)
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, item.PublicID, service.DataActionView); err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "getDatasetWorkTable", err)
 		}
 		return &DatasetWorkTableOutput{Body: toDatasetWorkTableBody(item)}, nil
@@ -1237,9 +1296,16 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetWorkTablePreviewInput) (*DatasetWorkTablePreviewOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
+		}
+		item, err := deps.DatasetService.GetWorkTable(ctx, tenant.ID, input.Database, input.Table)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDatasetWorkTablePreview", err)
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, item.PublicID, service.DataActionPreview); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDatasetWorkTablePreview", err)
 		}
 		preview, err := deps.DatasetService.PreviewWorkTable(ctx, tenant.ID, input.Database, input.Table, input.Limit)
 		if err != nil {
@@ -1256,12 +1322,15 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetByPublicIDInput) (*DatasetOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
 		}
 		item, err := deps.DatasetService.Get(ctx, tenant.ID, input.DatasetPublicID)
 		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDataset", err)
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataset, item.PublicID, service.DataActionView); err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "getDataset", err)
 		}
 		return &DatasetOutput{Body: toDatasetBody(item)}, nil
@@ -1275,9 +1344,15 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		Tags:        []string{DocTagDataDatasets},
 		Security:    []map[string][]string{{"cookieAuth": {}}},
 	}, func(ctx context.Context, input *DatasetLineageInput) (*DatasetLineageOutput, error) {
-		_, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
+		}
+		if _, err := deps.DatasetService.Get(ctx, tenant.ID, input.DatasetPublicID); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDatasetLineage", err)
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataset, input.DatasetPublicID, service.DataActionView); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getDatasetLineage", err)
 		}
 		graph, err := deps.DatasetService.GetDatasetLineage(ctx, tenant.ID, input.DatasetPublicID, service.DatasetLineageOptions{
 			Direction:         input.Direction,
@@ -1306,6 +1381,9 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataset, input.DatasetPublicID, service.DataActionUpdate); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "createDatasetSyncJob", err)
 		}
 		mode := ""
 		if input.Body != nil {
@@ -1379,6 +1457,12 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
+		if _, err := deps.DatasetService.Get(ctx, tenant.ID, input.DatasetPublicID); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "deleteDataset", err)
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataset, input.DatasetPublicID, service.DataActionDelete); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "deleteDataset", err)
+		}
 		if err := deps.DatasetService.Delete(ctx, tenant.ID, input.DatasetPublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "deleteDataset", err)
 		}
@@ -1396,6 +1480,9 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
 			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataset, input.DatasetPublicID, service.DataActionQuery); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "createDatasetScopedQueryJob", err)
 		}
 		item, err := deps.DatasetService.CreateQueryJobForDataset(ctx, tenant.ID, current.User.ID, input.DatasetPublicID, input.Body.Statement)
 		if err != nil {
@@ -2127,6 +2214,10 @@ func toDatasetHTTPError(ctx context.Context, deps Dependencies, operation string
 		return huma.Error409Conflict("dataset gold publication already exists")
 	case errors.Is(err, service.ErrDatasetGoldPublishAlreadyActive):
 		return huma.Error409Conflict("dataset gold publish is already active")
+	case errors.Is(err, service.ErrDataPermissionDenied):
+		return huma.Error403Forbidden(err.Error())
+	case errors.Is(err, service.ErrDataAuthzUnavailable):
+		return dataAccessAuthorizationUnavailableHTTPError(ctx, deps, operation, err)
 	case errors.Is(err, service.ErrInvalidDatasetInput):
 		return huma.Error400BadRequest(err.Error())
 	case errors.Is(err, service.ErrUnsafeDatasetSQL):
@@ -2136,4 +2227,67 @@ func toDatasetHTTPError(ctx context.Context, deps Dependencies, operation string
 	default:
 		return toHTTPErrorWithLog(ctx, deps, operation, err)
 	}
+}
+
+func checkDatasetResourceAction(ctx context.Context, deps Dependencies, tenantID, actorUserID int64, resourceType, resourcePublicID, action string) error {
+	if deps.DatasetAuthorizationService == nil {
+		return service.ErrDataAuthzUnavailable
+	}
+	return deps.DatasetAuthorizationService.CheckResourceAction(ctx, tenantID, actorUserID, resourceType, resourcePublicID, action)
+}
+
+func checkDatasetScopeAction(ctx context.Context, deps Dependencies, tenantID, actorUserID int64, action string) error {
+	if deps.DatasetAuthorizationService == nil {
+		return service.ErrDataAuthzUnavailable
+	}
+	return deps.DatasetAuthorizationService.CheckScopeAction(ctx, tenantID, actorUserID, action)
+}
+
+func ensureDatasetResourceOwners(ctx context.Context, deps Dependencies, tenantID, ownerUserID int64, resourceType, resourcePublicID string) error {
+	if deps.DatasetAuthorizationService == nil {
+		return service.ErrDataAuthzUnavailable
+	}
+	return deps.DatasetAuthorizationService.EnsureResourceOwnerTuples(ctx, tenantID, ownerUserID, resourceType, resourcePublicID)
+}
+
+func filterDatasetsForAction(ctx context.Context, deps Dependencies, actorUserID int64, items []service.Dataset, action string) ([]service.Dataset, error) {
+	if deps.DatasetAuthorizationService == nil {
+		return nil, service.ErrDataAuthzUnavailable
+	}
+	publicIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		publicIDs = append(publicIDs, item.PublicID)
+	}
+	allowed, err := deps.DatasetAuthorizationService.FilterResourcePublicIDs(ctx, actorUserID, service.DataResourceDataset, action, publicIDs)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]service.Dataset, 0, len(items))
+	for _, item := range items {
+		if allowed[item.PublicID] {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered, nil
+}
+
+func filterDatasetWorkTablesForAction(ctx context.Context, deps Dependencies, actorUserID int64, items []service.DatasetWorkTable, action string) ([]service.DatasetWorkTable, error) {
+	if deps.DatasetAuthorizationService == nil {
+		return nil, service.ErrDataAuthzUnavailable
+	}
+	publicIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		publicIDs = append(publicIDs, item.PublicID)
+	}
+	allowed, err := deps.DatasetAuthorizationService.FilterResourcePublicIDs(ctx, actorUserID, service.DataResourceWorkTable, action, publicIDs)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]service.DatasetWorkTable, 0, len(items))
+	for _, item := range items {
+		if allowed[item.PublicID] {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered, nil
 }

@@ -3676,6 +3676,130 @@ export type SystemJobListOutputBody = {
     total: number;
 };
 
+export type TenantAdminDataAccessGrantBody = {
+    action: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    subjectGroupName?: string;
+    subjectGroupPublicId?: string;
+    subjectType: 'user' | 'group';
+    subjectUserEmail?: string;
+    subjectUserName?: string;
+    subjectUserPublicId?: string;
+};
+
+export type TenantAdminDataAccessGroupBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    createdByUserId?: number;
+    /**
+     * resource の説明文です。
+     */
+    description: string;
+    members?: Array<TenantAdminDataAccessMemberBody> | null;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    systemKey?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type TenantAdminDataAccessGroupCreateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+};
+
+export type TenantAdminDataAccessGroupListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<TenantAdminDataAccessGroupBody> | null;
+};
+
+export type TenantAdminDataAccessGroupUpdateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+};
+
+export type TenantAdminDataAccessMemberBody = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    displayName: string;
+    /**
+     * user または invitee の email address です。
+     */
+    email: string;
+    userPublicId: string;
+};
+
+export type TenantAdminDataAccessMemberWriteBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    userPublicId: string;
+};
+
+export type TenantAdminDataAccessPermissionListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<TenantAdminDataAccessGrantBody> | null;
+};
+
+export type TenantAdminDataAccessPermissionWriteBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    actions: Array<string> | null;
+    subjectPublicId: string;
+    subjectType: 'user' | 'group';
+};
+
 export type TenantAdminDriveAdminContentSessionBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -6632,6 +6756,72 @@ export type SystemJobListOutputBodyWritable = {
     total: number;
 };
 
+export type TenantAdminDataAccessGroupBodyWritable = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    createdByUserId?: number;
+    /**
+     * resource の説明文です。
+     */
+    description: string;
+    members?: Array<TenantAdminDataAccessMemberBody> | null;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    systemKey?: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type TenantAdminDataAccessGroupCreateBodyWritable = {
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+};
+
+export type TenantAdminDataAccessGroupListOutputBodyWritable = {
+    items: Array<TenantAdminDataAccessGroupBodyWritable> | null;
+};
+
+export type TenantAdminDataAccessGroupUpdateBodyWritable = {
+    /**
+     * resource の説明文です。
+     */
+    description?: string;
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    name: string;
+};
+
+export type TenantAdminDataAccessMemberWriteBodyWritable = {
+    userPublicId: string;
+};
+
+export type TenantAdminDataAccessPermissionListOutputBodyWritable = {
+    items: Array<TenantAdminDataAccessGrantBody> | null;
+};
+
+export type TenantAdminDataAccessPermissionWriteBodyWritable = {
+    actions: Array<string> | null;
+    subjectPublicId: string;
+    subjectType: 'user' | 'group';
+};
+
 export type TenantAdminDriveAdminContentSessionBodyWritable = {
     /**
      * RFC3339 UTC の timestamp です。
@@ -7325,6 +7515,398 @@ export type UpdateTenantAdminTenantResponses = {
 };
 
 export type UpdateTenantAdminTenantResponse = UpdateTenantAdminTenantResponses[keyof UpdateTenantAdminTenantResponses];
+
+export type ListTenantAdminDataAccessGroupsData = {
+    body?: never;
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+    };
+    query?: {
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-access/groups';
+};
+
+export type ListTenantAdminDataAccessGroupsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminDataAccessGroupsError = ListTenantAdminDataAccessGroupsErrors[keyof ListTenantAdminDataAccessGroupsErrors];
+
+export type ListTenantAdminDataAccessGroupsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantAdminDataAccessGroupListOutputBody;
+};
+
+export type ListTenantAdminDataAccessGroupsResponse = ListTenantAdminDataAccessGroupsResponses[keyof ListTenantAdminDataAccessGroupsResponses];
+
+export type CreateTenantAdminDataAccessGroupData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: TenantAdminDataAccessGroupCreateBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-access/groups';
+};
+
+export type CreateTenantAdminDataAccessGroupErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type CreateTenantAdminDataAccessGroupError = CreateTenantAdminDataAccessGroupErrors[keyof CreateTenantAdminDataAccessGroupErrors];
+
+export type CreateTenantAdminDataAccessGroupResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantAdminDataAccessGroupBody;
+};
+
+export type CreateTenantAdminDataAccessGroupResponse = CreateTenantAdminDataAccessGroupResponses[keyof CreateTenantAdminDataAccessGroupResponses];
+
+export type GetTenantAdminDataAccessGroupData = {
+    body?: never;
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+        /**
+         * path 内の `groupPublicId` を指定します。
+         */
+        groupPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}';
+};
+
+export type GetTenantAdminDataAccessGroupErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetTenantAdminDataAccessGroupError = GetTenantAdminDataAccessGroupErrors[keyof GetTenantAdminDataAccessGroupErrors];
+
+export type GetTenantAdminDataAccessGroupResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantAdminDataAccessGroupBody;
+};
+
+export type GetTenantAdminDataAccessGroupResponse = GetTenantAdminDataAccessGroupResponses[keyof GetTenantAdminDataAccessGroupResponses];
+
+export type UpdateTenantAdminDataAccessGroupData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: TenantAdminDataAccessGroupUpdateBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+        /**
+         * path 内の `groupPublicId` を指定します。
+         */
+        groupPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}';
+};
+
+export type UpdateTenantAdminDataAccessGroupErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type UpdateTenantAdminDataAccessGroupError = UpdateTenantAdminDataAccessGroupErrors[keyof UpdateTenantAdminDataAccessGroupErrors];
+
+export type UpdateTenantAdminDataAccessGroupResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantAdminDataAccessGroupBody;
+};
+
+export type UpdateTenantAdminDataAccessGroupResponse = UpdateTenantAdminDataAccessGroupResponses[keyof UpdateTenantAdminDataAccessGroupResponses];
+
+export type AddTenantAdminDataAccessGroupMemberData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: TenantAdminDataAccessMemberWriteBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+        /**
+         * path 内の `groupPublicId` を指定します。
+         */
+        groupPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}/members';
+};
+
+export type AddTenantAdminDataAccessGroupMemberErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type AddTenantAdminDataAccessGroupMemberError = AddTenantAdminDataAccessGroupMemberErrors[keyof AddTenantAdminDataAccessGroupMemberErrors];
+
+export type AddTenantAdminDataAccessGroupMemberResponses = {
+    /**
+     * 操作に成功しました。response body はありません。
+     */
+    204: void;
+};
+
+export type AddTenantAdminDataAccessGroupMemberResponse = AddTenantAdminDataAccessGroupMemberResponses[keyof AddTenantAdminDataAccessGroupMemberResponses];
+
+export type RemoveTenantAdminDataAccessGroupMemberData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+        /**
+         * path 内の `groupPublicId` を指定します。
+         */
+        groupPublicId: string;
+        /**
+         * path 内の `userPublicId` を指定します。
+         */
+        userPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}/members/{userPublicId}';
+};
+
+export type RemoveTenantAdminDataAccessGroupMemberErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type RemoveTenantAdminDataAccessGroupMemberError = RemoveTenantAdminDataAccessGroupMemberErrors[keyof RemoveTenantAdminDataAccessGroupMemberErrors];
+
+export type RemoveTenantAdminDataAccessGroupMemberResponses = {
+    /**
+     * 操作に成功しました。response body はありません。
+     */
+    204: void;
+};
+
+export type RemoveTenantAdminDataAccessGroupMemberResponse = RemoveTenantAdminDataAccessGroupMemberResponses[keyof RemoveTenantAdminDataAccessGroupMemberResponses];
+
+export type ListTenantAdminDataAccessScopePermissionsData = {
+    body?: never;
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-access/scope/permissions';
+};
+
+export type ListTenantAdminDataAccessScopePermissionsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminDataAccessScopePermissionsError = ListTenantAdminDataAccessScopePermissionsErrors[keyof ListTenantAdminDataAccessScopePermissionsErrors];
+
+export type ListTenantAdminDataAccessScopePermissionsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantAdminDataAccessPermissionListOutputBody;
+};
+
+export type ListTenantAdminDataAccessScopePermissionsResponse = ListTenantAdminDataAccessScopePermissionsResponses[keyof ListTenantAdminDataAccessScopePermissionsResponses];
+
+export type PutTenantAdminDataAccessScopePermissionsData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: TenantAdminDataAccessPermissionWriteBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-access/scope/permissions';
+};
+
+export type PutTenantAdminDataAccessScopePermissionsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type PutTenantAdminDataAccessScopePermissionsError = PutTenantAdminDataAccessScopePermissionsErrors[keyof PutTenantAdminDataAccessScopePermissionsErrors];
+
+export type PutTenantAdminDataAccessScopePermissionsResponses = {
+    /**
+     * 操作に成功しました。response body はありません。
+     */
+    204: void;
+};
+
+export type PutTenantAdminDataAccessScopePermissionsResponse = PutTenantAdminDataAccessScopePermissionsResponses[keyof PutTenantAdminDataAccessScopePermissionsResponses];
+
+export type ListTenantAdminDataAccessResourcePermissionsData = {
+    body?: never;
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+        /**
+         * path 内の `resourceType` を指定します。
+         */
+        resourceType: 'dataset' | 'work_table' | 'data_pipeline';
+        /**
+         * path 内の `resourcePublicId` を指定します。
+         */
+        resourcePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-access/{resourceType}/{resourcePublicId}/permissions';
+};
+
+export type ListTenantAdminDataAccessResourcePermissionsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminDataAccessResourcePermissionsError = ListTenantAdminDataAccessResourcePermissionsErrors[keyof ListTenantAdminDataAccessResourcePermissionsErrors];
+
+export type ListTenantAdminDataAccessResourcePermissionsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantAdminDataAccessPermissionListOutputBody;
+};
+
+export type ListTenantAdminDataAccessResourcePermissionsResponse = ListTenantAdminDataAccessResourcePermissionsResponses[keyof ListTenantAdminDataAccessResourcePermissionsResponses];
+
+export type PutTenantAdminDataAccessResourcePermissionsData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: TenantAdminDataAccessPermissionWriteBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+        /**
+         * path 内の `resourceType` を指定します。
+         */
+        resourceType: 'dataset' | 'work_table' | 'data_pipeline';
+        /**
+         * path 内の `resourcePublicId` を指定します。
+         */
+        resourcePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-access/{resourceType}/{resourcePublicId}/permissions';
+};
+
+export type PutTenantAdminDataAccessResourcePermissionsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type PutTenantAdminDataAccessResourcePermissionsError = PutTenantAdminDataAccessResourcePermissionsErrors[keyof PutTenantAdminDataAccessResourcePermissionsErrors];
+
+export type PutTenantAdminDataAccessResourcePermissionsResponses = {
+    /**
+     * 操作に成功しました。response body はありません。
+     */
+    204: void;
+};
+
+export type PutTenantAdminDataAccessResourcePermissionsResponse = PutTenantAdminDataAccessResourcePermissionsResponses[keyof PutTenantAdminDataAccessResourcePermissionsResponses];
 
 export type ListTenantAdminDriveAuditEventsData = {
     body?: never;

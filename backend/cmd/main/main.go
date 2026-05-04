@@ -170,8 +170,10 @@ func main() {
 		QueryMaxRowsToRead:  cfg.ClickHouseQueryMaxRowsToRead,
 		QueryMaxThreads:     cfg.ClickHouseQueryMaxThreads,
 	})
+	datasetAuthorizationService := service.NewDatasetAuthorizationService(queries, openFGAClient, cfg.OpenFGA.Enabled, cfg.OpenFGA.FailClosed)
 	medallionCatalogService := service.NewMedallionCatalogService(queries, driveService, datasetService)
 	dataPipelineService := service.NewDataPipelineService(pool, queries, outboxService, datasetService, medallionCatalogService, auditService)
+	dataPipelineService.SetDatasetAuthorizationService(datasetAuthorizationService)
 	localSearchService := service.NewLocalSearchService(pool, queries, driveService, datasetService, medallionCatalogService, outboxService, tenantSettingsService)
 	systemJobService := service.NewSystemJobService(pool)
 	driveService.SetMedallionCatalogService(medallionCatalogService)
@@ -291,7 +293,7 @@ func main() {
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	appExtras := []any{entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService, medallionCatalogService, dataPipelineService, localSearchService, systemJobService, realtimeService}
+	appExtras := []any{entitlementService, webhookService, customerSignalImportService, customerSignalSavedFilterService, supportAccessService, driveService, driveOCRService, datasetService, datasetAuthorizationService, medallionCatalogService, dataPipelineService, localSearchService, systemJobService, realtimeService}
 	markdownDocsFS, err := backendweb.MarkdownDocsFS()
 	if err != nil {
 		logger.Warn("markdown docs unavailable", "error", err)

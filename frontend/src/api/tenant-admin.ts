@@ -1,9 +1,12 @@
 import { readCookie } from './client'
 import {
   approveTenantAdminDriveShareApproval,
+  addTenantAdminDataAccessGroupMember,
   createTenantAdminDriveLocalSearchRebuild,
+  createTenantAdminDataAccessGroup,
   createTenantAdminTenant,
   deactivateTenantAdminTenant,
+  getTenantAdminDataAccessGroup,
   getTenantAdminDriveOpenFgaDrift,
   getTenantAdminDriveOcrStatus,
   getTenantAdminDriveOperationsHealth,
@@ -15,10 +18,17 @@ import {
   listTenantAdminDriveShareApprovals,
   listTenantAdminDriveShareLinks,
   listTenantAdminDriveShares,
+  listTenantAdminDataAccessGroups,
+  listTenantAdminDataAccessResourcePermissions,
+  listTenantAdminDataAccessScopePermissions,
+  putTenantAdminDataAccessResourcePermissions,
+  putTenantAdminDataAccessScopePermissions,
   listTenantAdminTenants,
   rejectTenantAdminDriveShareApproval,
+  removeTenantAdminDataAccessGroupMember,
   repairTenantAdminDriveOpenFgaSync,
   revokeTenantAdminRole,
+  updateTenantAdminDataAccessGroup,
   updateTenantAdminTenant,
 } from './generated/sdk.gen'
 import type {
@@ -30,6 +40,12 @@ import type {
   TenantAdminDriveSyncOutputBody,
   TenantAdminDriveOcrStatusBody,
   TenantAdminDriveOperationsHealthBody,
+  TenantAdminDataAccessGrantBody,
+  TenantAdminDataAccessGroupBody,
+  TenantAdminDataAccessGroupCreateBodyWritable,
+  TenantAdminDataAccessGroupUpdateBodyWritable,
+  TenantAdminDataAccessMemberWriteBodyWritable,
+  TenantAdminDataAccessPermissionWriteBodyWritable,
   TenantAdminMembershipRequestBody,
   TenantAdminTenantBody,
   TenantAdminTenantDetailBody,
@@ -49,6 +65,103 @@ export async function fetchTenantAdminDriveShares(tenantSlug: string): Promise<T
     throwOnError: true,
   }) as unknown as { items: TenantAdminDriveShareStateBody[] | null }
   return data.items ?? []
+}
+
+export type DataAccessResourceType = 'dataset' | 'work_table' | 'data_pipeline'
+
+export async function fetchTenantAdminDataAccessGroups(tenantSlug: string): Promise<TenantAdminDataAccessGroupBody[]> {
+  const data = await listTenantAdminDataAccessGroups({
+    path: { tenantSlug },
+    query: { limit: 200 },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: TenantAdminDataAccessGroupBody[] | null }
+  return data.items ?? []
+}
+
+export async function createTenantAdminDataAccessGroupItem(tenantSlug: string, body: TenantAdminDataAccessGroupCreateBodyWritable): Promise<TenantAdminDataAccessGroupBody> {
+  return createTenantAdminDataAccessGroup({
+    headers: csrfHeaders(),
+    path: { tenantSlug },
+    body,
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<TenantAdminDataAccessGroupBody>
+}
+
+export async function fetchTenantAdminDataAccessGroup(tenantSlug: string, groupPublicId: string): Promise<TenantAdminDataAccessGroupBody> {
+  return getTenantAdminDataAccessGroup({
+    path: { tenantSlug, groupPublicId },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<TenantAdminDataAccessGroupBody>
+}
+
+export async function updateTenantAdminDataAccessGroupItem(tenantSlug: string, groupPublicId: string, body: TenantAdminDataAccessGroupUpdateBodyWritable): Promise<TenantAdminDataAccessGroupBody> {
+  return updateTenantAdminDataAccessGroup({
+    headers: csrfHeaders(),
+    path: { tenantSlug, groupPublicId },
+    body,
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<TenantAdminDataAccessGroupBody>
+}
+
+export async function addTenantAdminDataAccessGroupMemberItem(tenantSlug: string, groupPublicId: string, body: TenantAdminDataAccessMemberWriteBodyWritable): Promise<void> {
+  await addTenantAdminDataAccessGroupMember({
+    headers: csrfHeaders(),
+    path: { tenantSlug, groupPublicId },
+    body,
+    responseStyle: 'data',
+    throwOnError: true,
+  })
+}
+
+export async function removeTenantAdminDataAccessGroupMemberItem(tenantSlug: string, groupPublicId: string, userPublicId: string): Promise<void> {
+  await removeTenantAdminDataAccessGroupMember({
+    headers: csrfHeaders(),
+    path: { tenantSlug, groupPublicId, userPublicId },
+    responseStyle: 'data',
+    throwOnError: true,
+  })
+}
+
+export async function fetchTenantAdminDataAccessScopePermissions(tenantSlug: string): Promise<TenantAdminDataAccessGrantBody[]> {
+  const data = await listTenantAdminDataAccessScopePermissions({
+    path: { tenantSlug },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: TenantAdminDataAccessGrantBody[] | null }
+  return data.items ?? []
+}
+
+export async function putTenantAdminDataAccessScopePermission(tenantSlug: string, body: TenantAdminDataAccessPermissionWriteBodyWritable): Promise<void> {
+  await putTenantAdminDataAccessScopePermissions({
+    headers: csrfHeaders(),
+    path: { tenantSlug },
+    body,
+    responseStyle: 'data',
+    throwOnError: true,
+  })
+}
+
+export async function fetchTenantAdminDataAccessResourcePermissions(tenantSlug: string, resourceType: DataAccessResourceType, resourcePublicId: string): Promise<TenantAdminDataAccessGrantBody[]> {
+  const data = await listTenantAdminDataAccessResourcePermissions({
+    path: { tenantSlug, resourceType, resourcePublicId },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: TenantAdminDataAccessGrantBody[] | null }
+  return data.items ?? []
+}
+
+export async function putTenantAdminDataAccessResourcePermission(tenantSlug: string, resourceType: DataAccessResourceType, resourcePublicId: string, body: TenantAdminDataAccessPermissionWriteBodyWritable): Promise<void> {
+  await putTenantAdminDataAccessResourcePermissions({
+    headers: csrfHeaders(),
+    path: { tenantSlug, resourceType, resourcePublicId },
+    body,
+    responseStyle: 'data',
+    throwOnError: true,
+  })
 }
 
 export async function fetchTenantAdminDriveShareLinks(tenantSlug: string): Promise<TenantAdminDriveShareLinkStateBody[]> {

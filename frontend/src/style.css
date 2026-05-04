@@ -952,6 +952,54 @@ code {
   text-transform: uppercase;
 }
 
+.data-access-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.38fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.data-access-list-button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-strong);
+  text-align: left;
+}
+
+.data-access-list-button.active {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.data-access-list-button span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.data-access-inline-form,
+.data-access-permission-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.data-access-permission-layout {
+  grid-template-columns: minmax(260px, 1.2fr) minmax(160px, 0.4fr) minmax(220px, 0.8fr);
+}
+
+.data-access-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+
 .cell-subtle {
   display: block;
   margin-top: 4px;
@@ -1095,6 +1143,29 @@ code {
   margin: 0;
   color: var(--danger);
   font-size: 0.94rem;
+}
+
+.data-access-error {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 36%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--danger) 8%, #fff);
+  color: var(--danger);
+  font-size: 0.94rem;
+}
+
+.data-access-error strong,
+.data-access-error p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.data-access-error p {
+  color: var(--text);
+  line-height: 1.5;
 }
 
 .notice-message,
@@ -5225,6 +5296,10 @@ code {
   }
 
   .admin-form,
+  .data-access-action-grid,
+  .data-access-grid,
+  .data-access-inline-form,
+  .data-access-permission-layout,
   .metadata-grid {
     grid-template-columns: 1fr;
   }

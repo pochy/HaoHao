@@ -178,6 +178,7 @@ type DataPipelineService struct {
 	datasets  *DatasetService
 	driveOCR  *DriveOCRService
 	medallion *MedallionCatalogService
+	authz     *DatasetAuthorizationService
 	audit     AuditRecorder
 }
 
@@ -195,6 +196,12 @@ func NewDataPipelineService(pool *pgxpool.Pool, queries *db.Queries, outbox *Out
 func (s *DataPipelineService) SetDriveOCRService(driveOCR *DriveOCRService) {
 	if s != nil {
 		s.driveOCR = driveOCR
+	}
+}
+
+func (s *DataPipelineService) SetDatasetAuthorizationService(authz *DatasetAuthorizationService) {
+	if s != nil {
+		s.authz = authz
 	}
 }
 
@@ -224,6 +231,9 @@ func (s *DataPipelineService) Create(ctx context.Context, tenantID, userID int64
 	if err != nil {
 		return DataPipeline{}, err
 	}
+	if err := s.authzCheckScope(ctx, tenantID, userID, DataActionCreatePipeline); err != nil {
+		return DataPipeline{}, err
+	}
 	row, err := s.queries.CreateDataPipeline(ctx, db.CreateDataPipelineParams{
 		TenantID:        tenantID,
 		CreatedByUserID: pgtype.Int8{Int64: userID, Valid: userID > 0},
@@ -235,6 +245,11 @@ func (s *DataPipelineService) Create(ctx context.Context, tenantID, userID int64
 		return DataPipeline{}, fmt.Errorf("create data pipeline: %w", err)
 	}
 	item := dataPipelineFromDB(row)
+	if s.authz != nil {
+		if err := s.authz.EnsureResourceOwnerTuples(ctx, tenantID, userID, DataResourceDataPipeline, item.PublicID); err != nil {
+			return DataPipeline{}, err
+		}
+	}
 	s.recordAudit(ctx, auditCtx, "data_pipeline.create", "data_pipeline", item.PublicID, nil)
 	return item, nil
 }
@@ -362,6 +377,9 @@ func (s *DataPipelineService) PublishVersion(ctx context.Context, tenantID, user
 	if err != nil {
 		return DataPipelineVersion{}, fmt.Errorf("get data pipeline version: %w", err)
 	}
+	if err := s.checkPipelineByID(ctx, tenantID, userID, version.PipelineID, DataActionPublishVersion); err != nil {
+		return DataPipelineVersion{}, err
+	}
 	graph, err := decodeDataPipelineGraph(version.Graph)
 	if err != nil {
 		return DataPipelineVersion{}, err
@@ -418,6 +436,9 @@ func (s *DataPipelineService) Preview(ctx context.Context, tenantID, actorUserID
 	if err != nil {
 		return DataPipelinePreview{}, err
 	}
+	if err := s.checkPipelineByID(ctx, tenantID, actorUserID, version.PipelineID, DataActionPreview); err != nil {
+		return DataPipelinePreview{}, err
+	}
 	graph, err := decodeDataPipelineGraph(version.Graph)
 	if err != nil {
 		return DataPipelinePreview{}, err
@@ -428,6 +449,11 @@ func (s *DataPipelineService) Preview(ctx context.Context, tenantID, actorUserID
 func (s *DataPipelineService) PreviewDraft(ctx context.Context, tenantID, actorUserID int64, pipelinePublicID string, graph DataPipelineGraph, nodeID string, limit int32) (DataPipelinePreview, error) {
 	if _, err := s.getPipelineRow(ctx, tenantID, pipelinePublicID); err != nil {
 		return DataPipelinePreview{}, err
+	}
+	if s.authz != nil {
+		if err := s.authz.CheckResourceAction(ctx, tenantID, actorUserID, DataResourceDataPipeline, pipelinePublicID, DataActionPreview); err != nil {
+			return DataPipelinePreview{}, err
+		}
 	}
 	return s.previewGraph(ctx, tenantID, actorUserID, graph, nodeID, limit)
 }
@@ -440,6 +466,9 @@ func (s *DataPipelineService) previewGraph(ctx context.Context, tenantID, actorU
 	summary := validateDataPipelinePreviewGraph(previewGraph)
 	if !summary.Valid {
 		return DataPipelinePreview{}, fmt.Errorf("%w: %s", ErrInvalidDataPipelineGraph, strings.Join(summary.Errors, "; "))
+	}
+	if err := s.checkGraphInputPermissions(ctx, tenantID, actorUserID, previewGraph); err != nil {
+		return DataPipelinePreview{}, err
 	}
 	if dataPipelineGraphNeedsHybrid(previewGraph) {
 		return s.previewHybridGraph(ctx, tenantID, actorUserID, previewGraph, selectedNodeID, limit)
@@ -491,6 +520,11 @@ func (s *DataPipelineService) RequestRun(ctx context.Context, tenantID int64, us
 	if !pipeline.PublishedVersionID.Valid || pipeline.PublishedVersionID.Int64 != version.ID {
 		return DataPipelineRun{}, ErrDataPipelineVersionUnpublished
 	}
+	if userID != nil {
+		if err := s.authzCheckResource(ctx, tenantID, *userID, DataResourceDataPipeline, pipeline.PublicID.String(), DataActionRun); err != nil {
+			return DataPipelineRun{}, err
+		}
+	}
 	graph, err := decodeDataPipelineGraph(version.Graph)
 	if err != nil {
 		return DataPipelineRun{}, err
@@ -498,6 +532,16 @@ func (s *DataPipelineService) RequestRun(ctx context.Context, tenantID int64, us
 	summary := validateDataPipelineGraph(graph)
 	if !summary.Valid {
 		return DataPipelineRun{}, fmt.Errorf("%w: %s", ErrInvalidDataPipelineGraph, strings.Join(summary.Errors, "; "))
+	}
+	if userID != nil {
+		if err := s.checkGraphInputPermissions(ctx, tenantID, *userID, graph); err != nil {
+			return DataPipelineRun{}, err
+		}
+		if dataPipelineGraphHasOutput(graph) {
+			if err := s.authzCheckScope(ctx, tenantID, *userID, DataActionCreateWorkTable); err != nil {
+				return DataPipelineRun{}, err
+			}
+		}
 	}
 	if triggerKind == "" {
 		triggerKind = "manual"
@@ -560,6 +604,9 @@ func (s *DataPipelineService) CreateSchedule(ctx context.Context, tenantID, user
 	if err != nil {
 		return DataPipelineSchedule{}, err
 	}
+	if err := s.authzCheckResource(ctx, tenantID, userID, DataResourceDataPipeline, pipeline.PublicID.String(), DataActionManageSchedule); err != nil {
+		return DataPipelineSchedule{}, err
+	}
 	if !pipeline.PublishedVersionID.Valid {
 		return DataPipelineSchedule{}, ErrDataPipelineVersionUnpublished
 	}
@@ -613,6 +660,9 @@ func (s *DataPipelineService) UpdateSchedule(ctx context.Context, tenantID, user
 	if err != nil {
 		return DataPipelineSchedule{}, err
 	}
+	if err := s.checkPipelineByID(ctx, tenantID, userID, existing.PipelineID, DataActionManageSchedule); err != nil {
+		return DataPipelineSchedule{}, err
+	}
 	normalized, nextRun, err := normalizeDataPipelineScheduleInput(input, time.Now())
 	if err != nil {
 		return DataPipelineSchedule{}, err
@@ -642,6 +692,13 @@ func (s *DataPipelineService) UpdateSchedule(ctx context.Context, tenantID, user
 }
 
 func (s *DataPipelineService) DisableSchedule(ctx context.Context, tenantID, userID int64, schedulePublicID string, auditCtx AuditContext) (DataPipelineSchedule, error) {
+	existing, err := s.getScheduleRow(ctx, tenantID, schedulePublicID)
+	if err != nil {
+		return DataPipelineSchedule{}, err
+	}
+	if err := s.checkPipelineByID(ctx, tenantID, userID, existing.PipelineID, DataActionManageSchedule); err != nil {
+		return DataPipelineSchedule{}, err
+	}
 	parsed, err := uuid.Parse(strings.TrimSpace(schedulePublicID))
 	if err != nil {
 		return DataPipelineSchedule{}, ErrDataPipelineScheduleNotFound
@@ -656,6 +713,74 @@ func (s *DataPipelineService) DisableSchedule(ctx context.Context, tenantID, use
 	item := dataPipelineScheduleFromDB(row)
 	s.recordAudit(ctx, auditCtx, "data_pipeline.schedule.disable", "data_pipeline_schedule", item.PublicID, map[string]any{"actorUserID": userID})
 	return item, nil
+}
+
+func (s *DataPipelineService) authzCheckResource(ctx context.Context, tenantID, actorUserID int64, resourceType, resourcePublicID, action string) error {
+	if s == nil || s.authz == nil {
+		return nil
+	}
+	return s.authz.CheckResourceAction(ctx, tenantID, actorUserID, resourceType, resourcePublicID, action)
+}
+
+func (s *DataPipelineService) authzCheckScope(ctx context.Context, tenantID, actorUserID int64, action string) error {
+	if s == nil || s.authz == nil {
+		return nil
+	}
+	return s.authz.CheckScopeAction(ctx, tenantID, actorUserID, action)
+}
+
+func (s *DataPipelineService) checkPipelineByID(ctx context.Context, tenantID, actorUserID, pipelineID int64, action string) error {
+	if s == nil || s.authz == nil {
+		return nil
+	}
+	pipeline, err := s.queries.GetDataPipelineByIDForTenant(ctx, db.GetDataPipelineByIDForTenantParams{TenantID: tenantID, ID: pipelineID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrDataPipelineNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get data pipeline for authorization: %w", err)
+	}
+	return s.authz.CheckResourceAction(ctx, tenantID, actorUserID, DataResourceDataPipeline, pipeline.PublicID.String(), action)
+}
+
+func (s *DataPipelineService) checkGraphInputPermissions(ctx context.Context, tenantID, actorUserID int64, graph DataPipelineGraph) error {
+	if s == nil || s.authz == nil || actorUserID <= 0 {
+		return nil
+	}
+	for _, node := range graph.Nodes {
+		if node.Data.StepType != DataPipelineStepInput {
+			continue
+		}
+		config := node.Data.Config
+		switch dataPipelineString(config, "sourceKind") {
+		case "dataset":
+			publicID := dataPipelineString(config, "datasetPublicId")
+			if err := s.authz.CheckResourceAction(ctx, tenantID, actorUserID, DataResourceDataset, publicID, DataActionView); err != nil {
+				return err
+			}
+			if err := s.authz.CheckResourceAction(ctx, tenantID, actorUserID, DataResourceDataset, publicID, DataActionQuery); err != nil {
+				return err
+			}
+		case "work_table":
+			publicID := dataPipelineString(config, "workTablePublicId")
+			if err := s.authz.CheckResourceAction(ctx, tenantID, actorUserID, DataResourceWorkTable, publicID, DataActionView); err != nil {
+				return err
+			}
+			if err := s.authz.CheckResourceAction(ctx, tenantID, actorUserID, DataResourceWorkTable, publicID, DataActionQuery); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func dataPipelineGraphHasOutput(graph DataPipelineGraph) bool {
+	for _, node := range graph.Nodes {
+		if node.Data.StepType == DataPipelineStepOutput {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *DataPipelineService) HandleRunRequested(ctx context.Context, tenantID, runID, outboxEventID int64) error {

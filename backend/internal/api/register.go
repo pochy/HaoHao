@@ -37,6 +37,7 @@ type Dependencies struct {
 	CustomerSignalSavedFilterService *service.CustomerSignalSavedFilterService
 	SupportAccessService             *service.SupportAccessService
 	DatasetService                   *service.DatasetService
+	DatasetAuthorizationService      *service.DatasetAuthorizationService
 	MedallionCatalogService          *service.MedallionCatalogService
 	DataPipelineService              *service.DataPipelineService
 	LocalSearchService               *service.LocalSearchService
@@ -76,6 +77,7 @@ func RegisterSurface(api huma.API, deps Dependencies, surface Surface) {
 		registerIntegrationRoutes(api, deps)
 		registerTenantRoutes(api, deps)
 		registerTenantAdminRoutes(api, deps)
+		registerTenantAdminDataAccessRoutes(api, deps)
 		registerCustomerSignalRoutes(api, deps)
 		registerTodoRoutes(api, deps)
 		registerNotificationRoutes(api, deps)

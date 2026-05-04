@@ -7,7 +7,81 @@ type group
   relations
     define member: [user]
 
+type dataset_group
+  relations
+    define member: [user]
+
 type share_link
+
+type data_scope
+  relations
+    define owner: [user, dataset_group#member]
+    define dataset_creator: [user, dataset_group#member] or owner
+    define work_table_creator: [user, dataset_group#member] or owner
+    define pipeline_creator: [user, dataset_group#member] or owner
+    define dataset_viewer: [user, dataset_group#member] or owner
+    define work_table_viewer: [user, dataset_group#member] or owner
+    define pipeline_viewer: [user, dataset_group#member] or owner
+    define can_create_dataset: dataset_creator
+    define can_create_work_table: work_table_creator
+    define can_create_pipeline: pipeline_creator
+
+type dataset
+  relations
+    define scope: [data_scope]
+    define owner: [user, dataset_group#member] or owner from scope
+    define viewer: [user, dataset_group#member] or owner or dataset_viewer from scope
+    define updater: [user, dataset_group#member] or owner
+    define deleter: [user, dataset_group#member] or owner
+    define query_runner: [user, dataset_group#member] or updater or owner
+    define exporter: [user, dataset_group#member] or query_runner or owner
+    define permission_manager: [user, dataset_group#member] or owner
+    define can_view: viewer
+    define can_update: updater
+    define can_delete: deleter
+    define can_manage_permissions: permission_manager
+    define can_preview: viewer
+    define can_query: query_runner
+    define can_export: exporter
+
+type work_table
+  relations
+    define scope: [data_scope]
+    define owner: [user, dataset_group#member] or owner from scope
+    define viewer: [user, dataset_group#member] or owner or work_table_viewer from scope
+    define updater: [user, dataset_group#member] or owner
+    define deleter: [user, dataset_group#member] or owner
+    define query_runner: [user, dataset_group#member] or updater or owner
+    define exporter: [user, dataset_group#member] or query_runner or owner
+    define permission_manager: [user, dataset_group#member] or owner
+    define can_view: viewer
+    define can_update: updater
+    define can_delete: deleter
+    define can_manage_permissions: permission_manager
+    define can_preview: viewer
+    define can_query: query_runner
+    define can_export: exporter
+
+type data_pipeline
+  relations
+    define scope: [data_scope]
+    define owner: [user, dataset_group#member] or owner from scope
+    define viewer: [user, dataset_group#member] or owner or pipeline_viewer from scope
+    define updater: [user, dataset_group#member] or owner
+    define deleter: [user, dataset_group#member] or owner
+    define runner: [user, dataset_group#member] or updater or owner
+    define publisher: [user, dataset_group#member] or owner
+    define scheduler: [user, dataset_group#member] or owner
+    define permission_manager: [user, dataset_group#member] or owner
+    define can_view: viewer
+    define can_update: updater
+    define can_delete: deleter
+    define can_manage_permissions: permission_manager
+    define can_save_version: updater
+    define can_publish_version: publisher
+    define can_preview: viewer
+    define can_run: runner
+    define can_manage_schedule: scheduler
 
 type workspace
   relations

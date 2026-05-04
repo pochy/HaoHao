@@ -80,3 +80,36 @@ func TestToHTTPErrorWithLogDoesNotLogMappedDomainError(t *testing.T) {
 		t.Fatalf("mapped domain error should not create application_error log, got %q", output.String())
 	}
 }
+
+func TestDataAccessAuthorizationUnavailableLogsCauseAndSanitizesClientError(t *testing.T) {
+	var output bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&output, nil))
+	ctx := platform.ContextWithRequestMetadata(context.Background(), platform.RequestMetadata{RequestID: "req-data-access"})
+	cause := fmt.Errorf("%w: OpenFGA validation error: type 'dataset_group' not found", service.ErrDataAuthzUnavailable)
+
+	err := dataAccessAuthorizationUnavailableHTTPError(ctx, Dependencies{Logger: logger}, "list tenant admin data access groups", cause)
+
+	var statusErr huma.StatusError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("error does not implement huma.StatusError: %T", err)
+	}
+	if statusErr.GetStatus() != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", statusErr.GetStatus(), http.StatusServiceUnavailable)
+	}
+	if strings.Contains(err.Error(), "dataset_group") {
+		t.Fatalf("client error leaked OpenFGA detail: %q", err.Error())
+	}
+
+	logLine := output.String()
+	for _, want := range []string{
+		`"msg":"application error"`,
+		`"log_type":"application_error"`,
+		`"request_id":"req-data-access"`,
+		`"operation":"list tenant admin data access groups"`,
+		`dataset_group`,
+	} {
+		if !strings.Contains(logLine, want) {
+			t.Fatalf("log line %q does not contain %q", logLine, want)
+		}
+	}
+}

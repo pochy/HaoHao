@@ -9129,6 +9129,290 @@ components:
         - limit
         - offset
       type: object
+    TenantAdminDataAccessGrantBody:
+      additionalProperties: false
+      properties:
+        action:
+          examples:
+            - example
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        subjectGroupName:
+          examples:
+            - Acme
+          type: string
+        subjectGroupPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        subjectType:
+          enum:
+            - user
+            - group
+          examples:
+            - user
+          type: string
+        subjectUserEmail:
+          examples:
+            - demo@example.com
+          type: string
+        subjectUserName:
+          examples:
+            - Acme
+          type: string
+        subjectUserPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+      required:
+        - subjectType
+        - action
+        - createdAt
+      type: object
+    TenantAdminDataAccessGroupBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDataAccessGroupBody.json
+          format: uri
+          readOnly: true
+          type: string
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        createdByUserId:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          type: string
+        members:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/TenantAdminDataAccessMemberBody"
+          type:
+            - array
+            - "null"
+        name:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Acme
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        systemKey:
+          examples:
+            - example
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - name
+        - description
+        - createdAt
+        - updatedAt
+      type: object
+    TenantAdminDataAccessGroupCreateBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDataAccessGroupCreateBody.json
+          format: uri
+          readOnly: true
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          maxLength: 2000
+          type: string
+        name:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Acme
+          maxLength: 160
+          type: string
+      required:
+        - name
+      type: object
+    TenantAdminDataAccessGroupListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDataAccessGroupListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/TenantAdminDataAccessGroupBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    TenantAdminDataAccessGroupUpdateBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDataAccessGroupUpdateBody.json
+          format: uri
+          readOnly: true
+          type: string
+        description:
+          description: resource の説明文です。
+          examples:
+            - Quarterly planning documents.
+          maxLength: 2000
+          type: string
+        name:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Acme
+          maxLength: 160
+          type: string
+      required:
+        - name
+      type: object
+    TenantAdminDataAccessMemberBody:
+      additionalProperties: false
+      properties:
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        displayName:
+          description: 画面表示や検索で使う名前です。
+          examples:
+            - Acme
+          type: string
+        email:
+          description: user または invitee の email address です。
+          examples:
+            - demo@example.com
+          type: string
+        userPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+      required:
+        - userPublicId
+        - email
+        - displayName
+        - createdAt
+      type: object
+    TenantAdminDataAccessMemberWriteBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDataAccessMemberWriteBody.json
+          format: uri
+          readOnly: true
+          type: string
+        userPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+      required:
+        - userPublicId
+      type: object
+    TenantAdminDataAccessPermissionListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDataAccessPermissionListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/TenantAdminDataAccessGrantBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    TenantAdminDataAccessPermissionWriteBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminDataAccessPermissionWriteBody.json
+          format: uri
+          readOnly: true
+          type: string
+        actions:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        subjectPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        subjectType:
+          enum:
+            - user
+            - group
+          examples:
+            - user
+          type: string
+      required:
+        - subjectType
+        - subjectPublicId
+        - actions
+      type: object
     TenantAdminDriveAdminContentSessionBody:
       additionalProperties: false
       properties:
@@ -12604,6 +12888,825 @@ paths:
       security:
         - cookieAuth: []
       summary: tenant を更新する
+      tags:
+        - Tenant Administration
+  /api/v1/admin/tenants/{tenantSlug}/data-access/groups:
+    get:
+      description: |-
+        GET /api/v1/admin/tenants/{tenantSlug}/data-access/groups。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listTenantAdminDataAccessGroups
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - createdAt: "2026-01-15T09:30:00Z"
+                        createdByUserId: 1
+                        description: Quarterly planning documents.
+                        members: []
+                        name: Acme
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        systemKey: example
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/TenantAdminDataAccessGroupListOutputBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      tags:
+        - Tenant Administration
+    post:
+      description: |-
+        POST /api/v1/admin/tenants/{tenantSlug}/data-access/groups。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: createTenantAdminDataAccessGroup
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  description: Quarterly planning documents.
+                  name: Acme
+            schema:
+              $ref: "#/components/schemas/TenantAdminDataAccessGroupCreateBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    createdAt: "2026-01-15T09:30:00Z"
+                    createdByUserId: 1
+                    description: Quarterly planning documents.
+                    members:
+                      - example
+                    name: Acme
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    systemKey: example
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/TenantAdminDataAccessGroupBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      tags:
+        - Tenant Administration
+  /api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}:
+    get:
+      description: |-
+        GET /api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getTenantAdminDataAccessGroup
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            type: string
+        - description: path 内の `groupPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: groupPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/TenantAdminDataAccessGroupBody.json
+                    createdAt: "2026-01-15T09:30:00Z"
+                    createdByUserId: 1
+                    description: Quarterly planning documents.
+                    members:
+                      - example
+                    name: Acme
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    systemKey: example
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/TenantAdminDataAccessGroupBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      tags:
+        - Tenant Administration
+    patch:
+      description: |-
+        PATCH /api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: updateTenantAdminDataAccessGroup
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            type: string
+        - description: path 内の `groupPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: groupPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  description: Quarterly planning documents.
+                  name: Acme
+            schema:
+              $ref: "#/components/schemas/TenantAdminDataAccessGroupUpdateBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/TenantAdminDataAccessGroupBody.json
+                    createdAt: "2026-01-15T09:30:00Z"
+                    createdByUserId: 1
+                    description: Quarterly planning documents.
+                    members:
+                      - example
+                    name: Acme
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    systemKey: example
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/TenantAdminDataAccessGroupBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      tags:
+        - Tenant Administration
+  /api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}/members:
+    post:
+      description: |-
+        POST /api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}/members。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: addTenantAdminDataAccessGroupMember
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            type: string
+        - description: path 内の `groupPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: groupPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  userPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+            schema:
+              $ref: "#/components/schemas/TenantAdminDataAccessMemberWriteBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "204":
+          description: 操作に成功しました。response body はありません。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      tags:
+        - Tenant Administration
+  /api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}/members/{userPublicId}:
+    delete:
+      description: |-
+        DELETE /api/v1/admin/tenants/{tenantSlug}/data-access/groups/{groupPublicId}/members/{userPublicId}。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: removeTenantAdminDataAccessGroupMember
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            type: string
+        - description: path 内の `groupPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: groupPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: path 内の `userPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: userPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: 操作に成功しました。response body はありません。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      tags:
+        - Tenant Administration
+  /api/v1/admin/tenants/{tenantSlug}/data-access/scope/permissions:
+    get:
+      description: |-
+        GET /api/v1/admin/tenants/{tenantSlug}/data-access/scope/permissions。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listTenantAdminDataAccessScopePermissions
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/TenantAdminDataAccessPermissionListOutputBody.json
+                    items:
+                      - example
+              schema:
+                $ref: "#/components/schemas/TenantAdminDataAccessPermissionListOutputBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      tags:
+        - Tenant Administration
+    put:
+      description: |-
+        PUT /api/v1/admin/tenants/{tenantSlug}/data-access/scope/permissions。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: putTenantAdminDataAccessScopePermissions
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  actions:
+                    - example
+                  subjectPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  subjectType: user
+            schema:
+              $ref: "#/components/schemas/TenantAdminDataAccessPermissionWriteBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "204":
+          description: 操作に成功しました。response body はありません。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      tags:
+        - Tenant Administration
+  /api/v1/admin/tenants/{tenantSlug}/data-access/{resourceType}/{resourcePublicId}/permissions:
+    get:
+      description: |-
+        GET /api/v1/admin/tenants/{tenantSlug}/data-access/{resourceType}/{resourcePublicId}/permissions。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listTenantAdminDataAccessResourcePermissions
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            type: string
+        - description: path 内の `resourceType` を指定します。
+          example: dataset
+          in: path
+          name: resourceType
+          required: true
+          schema:
+            enum:
+              - dataset
+              - work_table
+              - data_pipeline
+            type: string
+        - description: path 内の `resourcePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: resourcePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - action: example
+                        createdAt: "2026-01-15T09:30:00Z"
+                        subjectGroupName: Acme
+                        subjectGroupPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        subjectType: user
+                        subjectUserEmail: demo@example.com
+                        subjectUserName: Acme
+                        subjectUserPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+              schema:
+                $ref: "#/components/schemas/TenantAdminDataAccessPermissionListOutputBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      tags:
+        - Tenant Administration
+    put:
+      description: |-
+        PUT /api/v1/admin/tenants/{tenantSlug}/data-access/{resourceType}/{resourcePublicId}/permissions。
+
+        tenant admin 権限を持つ user が tenant lifecycle や support access を管理する endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: putTenantAdminDataAccessResourcePermissions
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            type: string
+        - description: path 内の `resourceType` を指定します。
+          example: dataset
+          in: path
+          name: resourceType
+          required: true
+          schema:
+            enum:
+              - dataset
+              - work_table
+              - data_pipeline
+            type: string
+        - description: path 内の `resourcePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: resourcePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  actions:
+                    - example
+                  subjectPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  subjectType: user
+            schema:
+              $ref: "#/components/schemas/TenantAdminDataAccessPermissionWriteBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "204":
+          description: 操作に成功しました。response body はありません。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
       tags:
         - Tenant Administration
   /api/v1/admin/tenants/{tenantSlug}/drive/audit-events:

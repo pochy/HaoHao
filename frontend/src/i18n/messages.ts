@@ -863,6 +863,7 @@ const en = {
       support: 'Support',
       webhooks: 'Webhooks',
       data: 'Data',
+      dataAccess: 'Data Access',
     },
     sectionDescriptions: {
       overview: 'Identity and state',
@@ -875,6 +876,7 @@ const en = {
       support: 'Support sessions',
       webhooks: 'Outbound endpoints',
       data: 'Exports and imports',
+      dataAccess: 'Dataset permissions',
     },
     status: {
       aiOff: 'AI off',
@@ -2573,6 +2575,7 @@ const ja: MessageSchema = {
       support: 'サポート',
       webhooks: 'Webhook',
       data: 'データ',
+      dataAccess: 'データアクセス',
     },
     sectionDescriptions: {
       overview: '識別情報と状態',
@@ -2585,6 +2588,7 @@ const ja: MessageSchema = {
       support: 'サポートセッション',
       webhooks: '外部通知エンドポイント',
       data: 'エクスポートとインポート',
+      dataAccess: 'Dataset 権限',
     },
     status: {
       aiOff: 'AI オフ',

@@ -813,6 +813,13 @@ func (s *DataPipelineService) executeRun(ctx context.Context, tenantID int64, ru
 					if err != nil {
 						result.Err = err
 					} else {
+						if s.authz != nil {
+							if err := s.authz.EnsureResourceOwnerTuples(ctx, tenantID, userID, DataResourceWorkTable, workTable.PublicID); err != nil {
+								result.Err = err
+								results = append(results, result)
+								continue
+							}
+						}
 						result.WorkTable = workTable
 					}
 				}

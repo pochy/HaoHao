@@ -41,6 +41,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	var driveService *service.DriveService
 	var driveOCRService *service.DriveOCRService
 	var datasetService *service.DatasetService
+	var datasetAuthorizationService *service.DatasetAuthorizationService
 	var medallionCatalogService *service.MedallionCatalogService
 	var dataPipelineService *service.DataPipelineService
 	var localSearchService *service.LocalSearchService
@@ -65,6 +66,8 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 			driveOCRService = item
 		case *service.DatasetService:
 			datasetService = item
+		case *service.DatasetAuthorizationService:
+			datasetAuthorizationService = item
 		case *service.MedallionCatalogService:
 			medallionCatalogService = item
 		case *service.DataPipelineService:
@@ -171,6 +174,7 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 		CustomerSignalSavedFilterService: customerSignalSavedFilterService,
 		SupportAccessService:             supportAccessService,
 		DatasetService:                   datasetService,
+		DatasetAuthorizationService:      datasetAuthorizationService,
 		MedallionCatalogService:          medallionCatalogService,
 		DataPipelineService:              dataPipelineService,
 		LocalSearchService:               localSearchService,
