@@ -24,6 +24,7 @@ var (
 	ErrTenantAdminRoleNotFound      = errors.New("tenant role not found")
 	ErrTenantAdminLocalRoleNotFound = errors.New("local tenant role not found")
 	ErrTenantAdminDuplicateTenant   = errors.New("tenant already exists")
+	ErrTenantAdminLastAdmin         = errors.New("cannot remove the last tenant admin")
 )
 
 const (
@@ -469,6 +470,15 @@ func (s *TenantAdminService) RevokeLocalRole(ctx context.Context, tenantSlug, us
 	}
 	if affectedRows == 0 {
 		return ErrTenantAdminLocalRoleNotFound
+	}
+	if role.Code == "tenant_admin" {
+		adminCount, err := qtx.CountActiveTenantAdmins(ctx, tenant.ID)
+		if err != nil {
+			return fmt.Errorf("count active tenant admins: %w", err)
+		}
+		if adminCount == 0 {
+			return ErrTenantAdminLastAdmin
+		}
 	}
 
 	auditCtx.TenantID = &tenant.ID

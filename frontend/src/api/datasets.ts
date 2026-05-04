@@ -1,4 +1,4 @@
-import { readCookie } from './client'
+import { apiErrorFromResponse, readCookie } from './client'
 import {
   archiveDatasetGoldPublication,
   createDataset,
@@ -89,6 +89,18 @@ export type DatasetLineageLevel = 'table' | 'column' | 'both'
 export type DatasetLineageSource = 'metadata' | 'parser' | 'manual'
 export type DatasetLineageChangeSetStatus = 'draft' | 'published' | 'rejected' | 'archived'
 
+export interface DatasetRowsPageQuery {
+  cursor?: number
+  limit?: number
+}
+
+export interface DatasetRowsPageBody {
+  columns: string[]
+  rows: Array<Record<string, unknown>>
+  nextCursor?: number | null
+  hasMore: boolean
+}
+
 export interface DatasetLineageFetchOptions {
   level?: DatasetLineageLevel
   sources?: DatasetLineageSource[]
@@ -150,6 +162,21 @@ export async function fetchDatasetSourceFiles(query = ''): Promise<DatasetSource
     },
   }) as unknown as { items?: DatasetSourceFileBody[] | null }
   return data.items ?? []
+}
+
+export async function fetchDatasetRows(datasetPublicId: string, query: DatasetRowsPageQuery = {}): Promise<DatasetRowsPageBody> {
+  const cursor = query.cursor ?? 0
+  const limit = query.limit ?? 250
+  const response = await fetch(`/api/v1/datasets/${datasetPublicId}/rows?cursor=${encodeURIComponent(String(cursor))}&limit=${encodeURIComponent(String(limit))}`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+  })
+  if (!response.ok) {
+    throw await apiErrorFromResponse(response, 'データ行の読み込みに失敗しました')
+  }
+  return response.json() as Promise<DatasetRowsPageBody>
 }
 
 export async function fetchDatasetWorkTables(): Promise<DatasetWorkTableBody[]> {

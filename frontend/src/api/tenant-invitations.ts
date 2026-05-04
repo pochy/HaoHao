@@ -1,9 +1,11 @@
-import { readCookie } from './client'
+import { apiErrorFromResponse, readCookie } from './client'
 import {
   acceptTenantInvitation,
   createTenantInvitation,
   listTenantInvitations,
+  provisionTenantInvitationIdentity,
   revokeTenantInvitation,
+  setupTenantInvitationIdentity,
 } from './generated/sdk.gen'
 import type {
   CreateTenantInvitationRequestBodyWritable,
@@ -49,6 +51,40 @@ export async function revokeTenantInvitationItem(
     responseStyle: 'data',
     throwOnError: true,
   })
+}
+
+export async function provisionTenantInvitationIdentityItem(
+  tenantSlug: string,
+  invitationPublicId: string,
+): Promise<TenantInvitationBody> {
+  return provisionTenantInvitationIdentity({
+    headers: csrfHeaders(),
+    path: { tenantSlug, invitationPublicId },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<TenantInvitationBody>
+}
+
+export async function resolveTenantInvitationItem(token: string): Promise<TenantInvitationBody> {
+  const response = await fetch(`/api/v1/invitations/resolve?token=${encodeURIComponent(token)}`, {
+    credentials: 'include',
+  })
+  if (!response.ok) {
+    throw await apiErrorFromResponse(response, 'Invitation could not be loaded')
+  }
+  return response.json() as Promise<TenantInvitationBody>
+}
+
+export async function setupTenantInvitationIdentityItem(
+  invitationPublicId: string,
+  token: string,
+): Promise<TenantInvitationBody> {
+  return setupTenantInvitationIdentity({
+    path: { invitationPublicId },
+    body: { token },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<TenantInvitationBody>
 }
 
 export async function acceptTenantInvitationItem(token: string): Promise<TenantInvitationBody> {

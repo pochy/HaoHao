@@ -3572,6 +3572,14 @@ export type SessionBody = {
     user: UserResponse;
 };
 
+export type SetupTenantInvitationIdentityRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    token: string;
+};
+
 export type StartSupportAccessBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -4261,6 +4269,11 @@ export type TenantInvitationBody = {
      * RFC3339 UTC の timestamp です。
      */
     expiresAt: string;
+    identitySetupDeliveryMode?: string;
+    identitySetupEmailCode?: string;
+    identitySetupInviteCode?: string;
+    identitySetupLoginUrl?: string;
+    identitySetupUserId?: string;
     /**
      * user または invitee の email address です。
      */
@@ -4277,7 +4290,12 @@ export type TenantInvitationBody = {
      * 現在の lifecycle status です。
      */
     status: string;
+    tenantDisplayName?: string;
     tenantId: number;
+    /**
+     * tenant を識別する slug です。
+     */
+    tenantSlug?: string;
     token?: string;
     /**
      * RFC3339 UTC の timestamp です。
@@ -6690,6 +6708,10 @@ export type SessionBodyWritable = {
     user: UserResponse;
 };
 
+export type SetupTenantInvitationIdentityRequestBodyWritable = {
+    token: string;
+};
+
 export type StartSupportAccessBodyWritable = {
     durationMinutes?: number;
     impersonatedUserPublicId: string;
@@ -7021,6 +7043,11 @@ export type TenantInvitationBodyWritable = {
      * RFC3339 UTC の timestamp です。
      */
     expiresAt: string;
+    identitySetupDeliveryMode?: string;
+    identitySetupEmailCode?: string;
+    identitySetupInviteCode?: string;
+    identitySetupLoginUrl?: string;
+    identitySetupUserId?: string;
     /**
      * user または invitee の email address です。
      */
@@ -7037,7 +7064,12 @@ export type TenantInvitationBodyWritable = {
      * 現在の lifecycle status です。
      */
     status: string;
+    tenantDisplayName?: string;
     tenantId: number;
+    /**
+     * tenant を識別する slug です。
+     */
+    tenantSlug?: string;
     token?: string;
     /**
      * RFC3339 UTC の timestamp です。
@@ -10029,6 +10061,46 @@ export type RevokeTenantInvitationResponses = {
 
 export type RevokeTenantInvitationResponse = RevokeTenantInvitationResponses[keyof RevokeTenantInvitationResponses];
 
+export type ProvisionTenantInvitationIdentityData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+        /**
+         * path 内の `invitationPublicId` を指定します。
+         */
+        invitationPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/invitations/{invitationPublicId}/provision-identity';
+};
+
+export type ProvisionTenantInvitationIdentityErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ProvisionTenantInvitationIdentityError = ProvisionTenantInvitationIdentityErrors[keyof ProvisionTenantInvitationIdentityErrors];
+
+export type ProvisionTenantInvitationIdentityResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantInvitationBody;
+};
+
+export type ProvisionTenantInvitationIdentityResponse = ProvisionTenantInvitationIdentityResponses[keyof ProvisionTenantInvitationIdentityResponses];
+
 export type GrantTenantAdminRoleData = {
     /**
      * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
@@ -10535,6 +10607,10 @@ export type StartOidcLoginData = {
          * 結果の絞り込みや pagination に使う query parameter `returnTo` です。
          */
         returnTo?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `loginHint` です。
+         */
+        loginHint?: string;
     };
     url: '/api/v1/auth/login';
 };
@@ -16540,6 +16616,69 @@ export type AcceptTenantInvitationResponses = {
 };
 
 export type AcceptTenantInvitationResponse = AcceptTenantInvitationResponses[keyof AcceptTenantInvitationResponses];
+
+export type ResolveTenantInvitationData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `token` です。
+         */
+        token: string;
+    };
+    url: '/api/v1/invitations/resolve';
+};
+
+export type ResolveTenantInvitationErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ResolveTenantInvitationError = ResolveTenantInvitationErrors[keyof ResolveTenantInvitationErrors];
+
+export type ResolveTenantInvitationResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantInvitationBody;
+};
+
+export type ResolveTenantInvitationResponse = ResolveTenantInvitationResponses[keyof ResolveTenantInvitationResponses];
+
+export type SetupTenantInvitationIdentityData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: SetupTenantInvitationIdentityRequestBodyWritable;
+    path: {
+        /**
+         * path 内の `invitationPublicId` を指定します。
+         */
+        invitationPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/invitations/{invitationPublicId}/setup-identity';
+};
+
+export type SetupTenantInvitationIdentityErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type SetupTenantInvitationIdentityError = SetupTenantInvitationIdentityErrors[keyof SetupTenantInvitationIdentityErrors];
+
+export type SetupTenantInvitationIdentityResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantInvitationBody;
+};
+
+export type SetupTenantInvitationIdentityResponse = SetupTenantInvitationIdentityResponses[keyof SetupTenantInvitationIdentityResponses];
 
 export type ListSystemJobsData = {
     body?: never;

@@ -54,13 +54,16 @@ func NewOIDCClient(ctx context.Context, issuer, clientID, clientSecret, redirect
 	}, nil
 }
 
-func (c *OIDCClient) AuthorizeURL(state, nonce, codeVerifier string) string {
-	return c.config.AuthCodeURL(
-		state,
+func (c *OIDCClient) AuthorizeURL(state, nonce, codeVerifier, loginHint string) string {
+	options := []oauth2.AuthCodeOption{
 		oidc.Nonce(nonce),
 		oauth2.SetAuthURLParam("code_challenge", pkceS256(codeVerifier)),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-	)
+	}
+	if strings.TrimSpace(loginHint) != "" {
+		options = append(options, oauth2.SetAuthURLParam("login_hint", strings.TrimSpace(loginHint)))
+	}
+	return c.config.AuthCodeURL(state, options...)
 }
 
 func (c *OIDCClient) ExchangeCode(ctx context.Context, code, codeVerifier, expectedNonce string) (OIDCIdentity, error) {

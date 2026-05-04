@@ -10,6 +10,7 @@ import (
 func TestParseTenantRoleClaims(t *testing.T) {
 	got := ParseTenantRoleClaims([]string{
 		"tenant:acme:todo_user",
+		"tenant:acme:tenant_admin",
 		"tenant:acme:todo_user",
 		"tenant:beta:docs_reader",
 		"external_api_user",
@@ -19,6 +20,7 @@ func TestParseTenantRoleClaims(t *testing.T) {
 	})
 
 	want := []TenantRoleClaim{
+		{TenantSlug: "acme", RoleCode: "tenant_admin"},
 		{TenantSlug: "acme", RoleCode: "todo_user"},
 		{TenantSlug: "beta", RoleCode: "docs_reader"},
 	}
@@ -46,5 +48,13 @@ func TestTenantAccessFromRowsAppliesOverrides(t *testing.T) {
 	}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("tenant access = %#v, want %#v", got, want)
+	}
+}
+
+func TestSupportedTenantRoleCodes(t *testing.T) {
+	got := supportedTenantRoleCodes()
+	want := []string{"customer_signal_user", "data_pipeline_user", "docs_reader", "tenant_admin", "todo_user"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("supported tenant role codes = %#v, want %#v", got, want)
 	}
 }

@@ -114,7 +114,7 @@ export function createTenantAdminDetailContext() {
 
   const tenant = computed(() => store.current?.tenant ?? null)
   const memberships = computed(() => store.current?.memberships ?? [])
-  const tenantRoleOptions = ['customer_signal_user', 'data_pipeline_user', 'docs_reader', 'todo_user']
+  const tenantRoleOptions = ['customer_signal_user', 'data_pipeline_user', 'docs_reader', 'tenant_admin', 'todo_user']
   const drivePolicyRows = computed(() => [
     [t('tenantAdmin.policy.publicLinks'), enabledLabel(drivePublicLinksEnabled.value)],
     [t('tenantAdmin.policy.externalSharing'), enabledLabel(driveExternalSharingEnabled.value)],
@@ -280,6 +280,13 @@ export function createTenantAdminDetailContext() {
       return
     }
     await store.loadOne(tenantSlug.value)
+    if (store.status !== 'ready' || store.current?.tenant.slug !== tenantSlug.value) {
+      store.resetDriveState()
+      commonStore.reset()
+      syncForm()
+      syncCommonForm()
+      return
+    }
     await store.loadDriveState(tenantSlug.value)
     await commonStore.load(tenantSlug.value)
     syncForm()
@@ -489,9 +496,10 @@ export function createTenantAdminDetailContext() {
         roleCodes: [invitationRoleCode.value],
       })
       invitationEmail.value = ''
-      message.value = created.acceptUrl
-        ? t('tenantAdmin.messages.invitationCreatedWithUrl', { url: created.acceptUrl })
-        : t('tenantAdmin.messages.invitationCreated')
+      const setupCodeMessage = identitySetupCodeMessage(created)
+      message.value = setupCodeMessage || (created.acceptUrl
+        ? t('tenantAdmin.messages.invitationCreatedWithSetupEmailAndUrl', { url: created.acceptUrl })
+        : t('tenantAdmin.messages.invitationCreatedWithSetupEmail'))
     } catch (error) {
       errorMessage.value = toApiErrorMessage(error)
     }
@@ -511,6 +519,44 @@ export function createTenantAdminDetailContext() {
     } catch (error) {
       errorMessage.value = toApiErrorMessage(error)
     }
+  }
+
+  async function provisionInvitationIdentity(publicId: string) {
+    if (!tenant.value) {
+      return
+    }
+
+    message.value = ''
+    errorMessage.value = ''
+
+    try {
+      const updated = await commonStore.provisionInvitationIdentity(tenant.value.slug, publicId)
+      message.value = identitySetupCodeMessage(updated) || t('tenantAdmin.messages.identitySetupEmailSent')
+    } catch (error) {
+      errorMessage.value = toApiErrorMessage(error)
+    }
+  }
+
+  function identitySetupCodeMessage(invitation?: {
+    acceptUrl?: string | null
+    identitySetupEmailCode?: string | null
+    identitySetupInviteCode?: string | null
+    identitySetupLoginUrl?: string | null
+  } | null) {
+    if (!invitation?.identitySetupInviteCode && !invitation?.identitySetupLoginUrl && !invitation?.acceptUrl) {
+      return ''
+    }
+    const parts = []
+    if (invitation.identitySetupInviteCode) {
+      parts.push(t('tenantAdmin.messages.identitySetupInviteCode', { code: invitation.identitySetupInviteCode }))
+    }
+    if (invitation.identitySetupLoginUrl) {
+      parts.push(t('tenantAdmin.messages.identitySetupLoginUrl', { url: invitation.identitySetupLoginUrl }))
+    }
+    if (invitation.acceptUrl) {
+      parts.push(t('tenantAdmin.messages.invitationAcceptUrl', { url: invitation.acceptUrl }))
+    }
+    return parts.join(' ')
   }
 
   async function saveCommonSettings() {
@@ -916,6 +962,7 @@ export function createTenantAdminDetailContext() {
     notificationsEnabled,
     onImportFileChange,
     pendingAction,
+    provisionInvitationIdentity,
     rejectDriveInvitation,
     repairDriveSync,
     requestCSVExport,

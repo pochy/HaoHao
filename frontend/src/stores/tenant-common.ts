@@ -20,6 +20,7 @@ import {
 import {
   createTenantInvitationItem,
   fetchTenantInvitations,
+  provisionTenantInvitationIdentityItem,
   revokeTenantInvitationItem,
 } from '../api/tenant-invitations'
 import {
@@ -62,6 +63,18 @@ export const useTenantCommonStore = defineStore('tenantCommon', {
   },
 
   actions: {
+    reset() {
+      this.invitations = []
+      this.exports = []
+      this.imports = []
+      this.entitlements = []
+      this.webhooks = []
+      this.settings = null
+      this.loading = false
+      this.saving = false
+      this.errorMessage = ''
+    },
+
     async load(tenantSlug: string) {
       this.loading = true
       this.errorMessage = ''
@@ -179,6 +192,23 @@ export const useTenantCommonStore = defineStore('tenantCommon', {
         this.invitations = this.invitations.map((item) => (
           item.publicId === invitationPublicId ? { ...item, status: 'revoked' } : item
         ))
+      } catch (error) {
+        this.errorMessage = toApiErrorMessage(error)
+        throw error
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async provisionInvitationIdentity(tenantSlug: string, invitationPublicId: string) {
+      this.saving = true
+      this.errorMessage = ''
+      try {
+        const updated = await provisionTenantInvitationIdentityItem(tenantSlug, invitationPublicId)
+        this.invitations = this.invitations.map((item) => (
+          item.publicId === invitationPublicId ? { ...item, ...updated } : item
+        ))
+        return updated
       } catch (error) {
         this.errorMessage = toApiErrorMessage(error)
         throw error

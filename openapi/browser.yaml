@@ -8593,6 +8593,23 @@ components:
       required:
         - user
       type: object
+    SetupTenantInvitationIdentityRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SetupTenantInvitationIdentityRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        token:
+          examples:
+            - token_demo_1234567890
+          type: string
+      required:
+        - token
+      type: object
     StartSupportAccessBody:
       additionalProperties: false
       properties:
@@ -10238,6 +10255,27 @@ components:
             - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
+        identitySetupDeliveryMode:
+          examples:
+            - return_code
+          type: string
+        identitySetupEmailCode:
+          examples:
+            - demo@example.com
+          type: string
+        identitySetupInviteCode:
+          examples:
+            - example
+          type: string
+        identitySetupLoginUrl:
+          examples:
+            - https://example.com/webhooks/haohao
+          format: uri
+          type: string
+        identitySetupUserId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
         inviteeEmailNormalized:
           description: user または invitee の email address です。
           examples:
@@ -10264,11 +10302,20 @@ components:
           examples:
             - pending
           type: string
+        tenantDisplayName:
+          examples:
+            - Acme
+          type: string
         tenantId:
           examples:
             - 1
           format: int64
           type: integer
+        tenantSlug:
+          description: tenant を識別する slug です。
+          examples:
+            - acme
+          type: string
         token:
           examples:
             - token_demo_1234567890
@@ -16993,12 +17040,19 @@ paths:
                       - acceptUrl: https://example.com/webhooks/haohao
                         createdAt: "2026-01-15T09:30:00Z"
                         expiresAt: "2026-01-15T09:30:00Z"
+                        identitySetupDeliveryMode: return_code
+                        identitySetupEmailCode: demo@example.com
+                        identitySetupInviteCode: example
+                        identitySetupLoginUrl: https://example.com/webhooks/haohao
+                        identitySetupUserId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                         inviteeEmailNormalized: demo@example.com
                         publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                         roleCodes:
                           - viewer
                         status: pending
+                        tenantDisplayName: Acme
                         tenantId: 1
+                        tenantSlug: acme
                         token: token_demo_1234567890
                         updatedAt: "2026-01-15T09:30:00Z"
               schema:
@@ -17094,12 +17148,19 @@ paths:
                     acceptUrl: https://example.com/webhooks/haohao
                     createdAt: "2026-01-15T09:30:00Z"
                     expiresAt: "2026-01-15T09:30:00Z"
+                    identitySetupDeliveryMode: return_code
+                    identitySetupEmailCode: demo@example.com
+                    identitySetupInviteCode: example
+                    identitySetupLoginUrl: https://example.com/webhooks/haohao
+                    identitySetupUserId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     inviteeEmailNormalized: demo@example.com
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     roleCodes:
                       - viewer
                     status: pending
+                    tenantDisplayName: Acme
                     tenantId: 1
+                    tenantSlug: acme
                     token: token_demo_1234567890
                     updatedAt: "2026-01-15T09:30:00Z"
               schema:
@@ -17196,6 +17257,103 @@ paths:
       security:
         - cookieAuth: []
       summary: tenant invitation を revoke する
+      tags:
+        - Tenant Workspace
+  /api/v1/admin/tenants/{tenantSlug}/invitations/{invitationPublicId}/provision-identity:
+    post:
+      description: |-
+        pending tenant invitation の Zitadel identity 初期化メールを送る。
+
+        active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: provisionTenantInvitationIdentity
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - description: path 内の `invitationPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: invitationPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/TenantInvitationBody.json
+                    acceptUrl: https://example.com/webhooks/haohao
+                    createdAt: "2026-01-15T09:30:00Z"
+                    expiresAt: "2026-01-15T09:30:00Z"
+                    identitySetupDeliveryMode: return_code
+                    identitySetupEmailCode: demo@example.com
+                    identitySetupInviteCode: example
+                    identitySetupLoginUrl: https://example.com/webhooks/haohao
+                    identitySetupUserId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    inviteeEmailNormalized: demo@example.com
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    roleCodes:
+                      - viewer
+                    status: pending
+                    tenantDisplayName: Acme
+                    tenantId: 1
+                    tenantSlug: acme
+                    token: token_demo_1234567890
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/TenantInvitationBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: pending tenant invitation の Zitadel identity 初期化メールを送る
       tags:
         - Tenant Workspace
   /api/v1/admin/tenants/{tenantSlug}/memberships:
@@ -18295,6 +18453,13 @@ paths:
           explode: false
           in: query
           name: returnTo
+          schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `loginHint` です。
+          example: example
+          explode: false
+          in: query
+          name: loginHint
           schema:
             type: string
       responses:
@@ -32251,12 +32416,19 @@ paths:
                     acceptUrl: https://example.com/webhooks/haohao
                     createdAt: "2026-01-15T09:30:00Z"
                     expiresAt: "2026-01-15T09:30:00Z"
+                    identitySetupDeliveryMode: return_code
+                    identitySetupEmailCode: demo@example.com
+                    identitySetupInviteCode: example
+                    identitySetupLoginUrl: https://example.com/webhooks/haohao
+                    identitySetupUserId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     inviteeEmailNormalized: demo@example.com
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     roleCodes:
                       - viewer
                     status: pending
+                    tenantDisplayName: Acme
                     tenantId: 1
+                    tenantSlug: acme
                     token: token_demo_1234567890
                     updatedAt: "2026-01-15T09:30:00Z"
               schema:
@@ -32284,6 +32456,161 @@ paths:
       security:
         - cookieAuth: []
       summary: tenant invitation を accept する
+      tags:
+        - Tenant Workspace
+  /api/v1/invitations/resolve:
+    get:
+      description: |-
+        tenant invitation token の公開情報を返す。
+
+        active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+      operationId: resolveTenantInvitation
+      parameters:
+        - description: 結果の絞り込みや pagination に使う query parameter `token` です。
+          example: token_demo_1234567890
+          explode: false
+          in: query
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/TenantInvitationBody.json
+                    acceptUrl: https://example.com/webhooks/haohao
+                    createdAt: "2026-01-15T09:30:00Z"
+                    expiresAt: "2026-01-15T09:30:00Z"
+                    identitySetupDeliveryMode: return_code
+                    identitySetupEmailCode: demo@example.com
+                    identitySetupInviteCode: example
+                    identitySetupLoginUrl: https://example.com/webhooks/haohao
+                    identitySetupUserId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    inviteeEmailNormalized: demo@example.com
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    roleCodes:
+                      - viewer
+                    status: pending
+                    tenantDisplayName: Acme
+                    tenantId: 1
+                    tenantSlug: acme
+                    token: token_demo_1234567890
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/TenantInvitationBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      summary: tenant invitation token の公開情報を返す
+      tags:
+        - Tenant Workspace
+  /api/v1/invitations/{invitationPublicId}/setup-identity:
+    post:
+      description: |-
+        tenant invitation の Zitadel identity 初期設定を開始する。
+
+        active tenant と tenant 内 workspace の日常操作に使う endpoint です。
+
+        ### 使い方
+
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: setupTenantInvitationIdentity
+      parameters:
+        - description: path 内の `invitationPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: invitationPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  token: token_demo_1234567890
+            schema:
+              $ref: "#/components/schemas/SetupTenantInvitationIdentityRequestBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/TenantInvitationBody.json
+                    acceptUrl: https://example.com/webhooks/haohao
+                    createdAt: "2026-01-15T09:30:00Z"
+                    expiresAt: "2026-01-15T09:30:00Z"
+                    identitySetupDeliveryMode: return_code
+                    identitySetupEmailCode: demo@example.com
+                    identitySetupInviteCode: example
+                    identitySetupLoginUrl: https://example.com/webhooks/haohao
+                    identitySetupUserId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    inviteeEmailNormalized: demo@example.com
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    roleCodes:
+                      - viewer
+                    status: pending
+                    tenantDisplayName: Acme
+                    tenantId: 1
+                    tenantSlug: acme
+                    token: token_demo_1234567890
+                    updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/TenantInvitationBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      summary: tenant invitation の Zitadel identity 初期設定を開始する
       tags:
         - Tenant Workspace
   /api/v1/jobs:

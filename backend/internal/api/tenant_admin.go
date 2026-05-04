@@ -121,10 +121,11 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *ListTenantAdminTenantsInput) (*ListTenantAdminTenantsOutput, error) {
-		if _, err := requireTenantAdmin(ctx, deps, input.SessionCookie.Value, ""); err != nil {
+		_, authCtx, err := requireTenantAdminAuth(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
 			return nil, err
 		}
-		items, err := deps.TenantAdminService.ListTenants(ctx)
+		items, err := listVisibleTenantAdminTenants(ctx, deps, authCtx)
 		if err != nil {
 			return nil, toTenantAdminHTTPError(err)
 		}
@@ -167,7 +168,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *TenantAdminBySlugInput) (*GetTenantAdminTenantOutput, error) {
-		if _, err := requireTenantAdmin(ctx, deps, input.SessionCookie.Value, ""); err != nil {
+		if _, _, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, "", input.TenantSlug); err != nil {
 			return nil, err
 		}
 		detail, err := deps.TenantAdminService.GetTenant(ctx, input.TenantSlug)
@@ -230,7 +231,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *GrantTenantAdminRoleInput) (*TenantAdminNoContentOutput, error) {
-		current, err := requireTenantAdmin(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		current, _, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +255,7 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 			{"cookieAuth": {}},
 		},
 	}, func(ctx context.Context, input *RevokeTenantAdminRoleInput) (*TenantAdminNoContentOutput, error) {
-		current, err := requireTenantAdmin(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		current, _, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
 		if err != nil {
 			return nil, err
 		}
@@ -268,8 +269,26 @@ func registerTenantAdminRoutes(api huma.API, deps Dependencies) {
 }
 
 func requireTenantAdmin(ctx context.Context, deps Dependencies, sessionID, csrfToken string) (service.CurrentSession, error) {
+	current, _, err := requireTenantAdminAuth(ctx, deps, sessionID, csrfToken)
+	if err != nil {
+		return service.CurrentSession{}, err
+	}
+	_, authCtx, err := currentSessionAuthContext(ctx, deps, sessionID)
+	if csrfToken != "" {
+		_, authCtx, err = currentSessionAuthContextWithCSRF(ctx, deps, sessionID, csrfToken)
+	}
+	if err != nil {
+		return service.CurrentSession{}, toHTTPErrorWithLog(ctx, deps, "", err)
+	}
+	if !authCtx.HasRole("tenant_admin") {
+		return service.CurrentSession{}, huma.Error403Forbidden("platform tenant_admin role is required")
+	}
+	return current, nil
+}
+
+func requireTenantAdminAuth(ctx context.Context, deps Dependencies, sessionID, csrfToken string) (service.CurrentSession, service.AuthContext, error) {
 	if deps.TenantAdminService == nil {
-		return service.CurrentSession{}, huma.Error503ServiceUnavailable("tenant admin service is not configured")
+		return service.CurrentSession{}, service.AuthContext{}, huma.Error503ServiceUnavailable("tenant admin service is not configured")
 	}
 
 	var current service.CurrentSession
@@ -283,14 +302,46 @@ func requireTenantAdmin(ctx context.Context, deps Dependencies, sessionID, csrfT
 	if err != nil {
 		var statusErr huma.StatusError
 		if errors.As(err, &statusErr) {
-			return service.CurrentSession{}, err
+			return service.CurrentSession{}, service.AuthContext{}, err
 		}
-		return service.CurrentSession{}, toHTTPErrorWithLog(ctx, deps, "", err)
+		return service.CurrentSession{}, service.AuthContext{}, toHTTPErrorWithLog(ctx, deps, "", err)
 	}
 	if !authCtx.HasRole("tenant_admin") {
-		return service.CurrentSession{}, huma.Error403Forbidden("tenant_admin role is required")
+		hasTenantAdmin := false
+		for _, tenant := range authCtx.Tenants {
+			if tenantHasRole(tenant, "tenant_admin") {
+				hasTenantAdmin = true
+				break
+			}
+		}
+		if !hasTenantAdmin {
+			return service.CurrentSession{}, service.AuthContext{}, huma.Error403Forbidden("tenant_admin role is required")
+		}
 	}
-	return current, nil
+	return current, authCtx, nil
+}
+
+func listVisibleTenantAdminTenants(ctx context.Context, deps Dependencies, authCtx service.AuthContext) ([]service.TenantAdminTenant, error) {
+	if authCtx.HasRole("tenant_admin") {
+		return deps.TenantAdminService.ListTenants(ctx)
+	}
+	items := make([]service.TenantAdminTenant, 0, len(authCtx.Tenants))
+	seen := make(map[string]struct{}, len(authCtx.Tenants))
+	for _, tenant := range authCtx.Tenants {
+		if !tenantHasRole(tenant, "tenant_admin") {
+			continue
+		}
+		if _, ok := seen[tenant.Slug]; ok {
+			continue
+		}
+		seen[tenant.Slug] = struct{}{}
+		detail, err := deps.TenantAdminService.GetTenant(ctx, tenant.Slug)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, detail.Tenant)
+	}
+	return items, nil
 }
 
 func tenantAdminTenantInputFromBody(body TenantAdminTenantRequestBody) service.TenantAdminTenantInput {
@@ -358,6 +409,8 @@ func toTenantAdminHTTPError(err error) error {
 		return huma.Error400BadRequest("unsupported tenant role")
 	case errors.Is(err, service.ErrTenantAdminLocalRoleNotFound):
 		return huma.Error404NotFound("local tenant role not found")
+	case errors.Is(err, service.ErrTenantAdminLastAdmin):
+		return huma.Error409Conflict("cannot remove the last tenant admin")
 	default:
 		return huma.Error500InternalServerError("internal server error")
 	}

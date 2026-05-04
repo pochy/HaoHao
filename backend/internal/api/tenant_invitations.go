@@ -12,16 +12,23 @@ import (
 )
 
 type TenantInvitationBody struct {
-	PublicID               string    `json:"publicId" format:"uuid"`
-	TenantID               int64     `json:"tenantId"`
-	InviteeEmailNormalized string    `json:"inviteeEmailNormalized" format:"email"`
-	RoleCodes              []string  `json:"roleCodes"`
-	Status                 string    `json:"status" example:"pending"`
-	AcceptURL              string    `json:"acceptUrl,omitempty" format:"uri"`
-	Token                  string    `json:"token,omitempty"`
-	ExpiresAt              time.Time `json:"expiresAt" format:"date-time"`
-	CreatedAt              time.Time `json:"createdAt" format:"date-time"`
-	UpdatedAt              time.Time `json:"updatedAt" format:"date-time"`
+	PublicID                  string    `json:"publicId" format:"uuid"`
+	TenantID                  int64     `json:"tenantId"`
+	TenantSlug                string    `json:"tenantSlug,omitempty"`
+	TenantDisplayName         string    `json:"tenantDisplayName,omitempty"`
+	InviteeEmailNormalized    string    `json:"inviteeEmailNormalized" format:"email"`
+	RoleCodes                 []string  `json:"roleCodes"`
+	Status                    string    `json:"status" example:"pending"`
+	AcceptURL                 string    `json:"acceptUrl,omitempty" format:"uri"`
+	Token                     string    `json:"token,omitempty"`
+	IdentitySetupDeliveryMode string    `json:"identitySetupDeliveryMode,omitempty" example:"return_code"`
+	IdentitySetupUserID       string    `json:"identitySetupUserId,omitempty"`
+	IdentitySetupInviteCode   string    `json:"identitySetupInviteCode,omitempty"`
+	IdentitySetupLoginURL     string    `json:"identitySetupLoginUrl,omitempty" format:"uri"`
+	IdentitySetupEmailCode    string    `json:"identitySetupEmailCode,omitempty"`
+	ExpiresAt                 time.Time `json:"expiresAt" format:"date-time"`
+	CreatedAt                 time.Time `json:"createdAt" format:"date-time"`
+	UpdatedAt                 time.Time `json:"updatedAt" format:"date-time"`
 }
 
 type ListTenantInvitationsInput struct {
@@ -55,8 +62,28 @@ type RevokeTenantInvitationInput struct {
 	InvitationPublicID string      `path:"invitationPublicId" format:"uuid"`
 }
 
+type ProvisionTenantInvitationIdentityInput struct {
+	SessionCookie      http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken          string      `header:"X-CSRF-Token" required:"true"`
+	TenantSlug         string      `path:"tenantSlug" minLength:"3" maxLength:"64"`
+	InvitationPublicID string      `path:"invitationPublicId" format:"uuid"`
+}
+
+type SetupTenantInvitationIdentityRequestBody struct {
+	Token string `json:"token"`
+}
+
+type SetupTenantInvitationIdentityInput struct {
+	InvitationPublicID string `path:"invitationPublicId" format:"uuid"`
+	Body               SetupTenantInvitationIdentityRequestBody
+}
+
 type AcceptTenantInvitationRequestBody struct {
 	Token string `json:"token"`
+}
+
+type ResolveTenantInvitationInput struct {
+	Token string `query:"token" required:"true"`
 }
 
 type AcceptTenantInvitationInput struct {
@@ -166,6 +193,64 @@ func registerTenantInvitationRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID: "provisionTenantInvitationIdentity",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/admin/tenants/{tenantSlug}/invitations/{invitationPublicId}/provision-identity",
+		Summary:     "pending tenant invitation の Zitadel identity 初期化メールを送る",
+		Tags:        []string{DocTagTenantWorkspace},
+		Security: []map[string][]string{
+			{"cookieAuth": {}},
+		},
+	}, func(ctx context.Context, input *ProvisionTenantInvitationIdentityInput) (*TenantInvitationOutput, error) {
+		_, tenant, err := requireAdminTenantID(ctx, deps, input.SessionCookie.Value, input.CSRFToken, input.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+		if deps.TenantInvitationService == nil {
+			return nil, huma.Error503ServiceUnavailable("tenant invitation service is not configured")
+		}
+		item, err := deps.TenantInvitationService.ProvisionIdentityForInvitation(ctx, tenant.ID, input.InvitationPublicID)
+		if err != nil {
+			return nil, toTenantInvitationHTTPError(err)
+		}
+		return &TenantInvitationOutput{Body: toTenantInvitationBody(item, false)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "resolveTenantInvitation",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/invitations/resolve",
+		Summary:     "tenant invitation token の公開情報を返す",
+		Tags:        []string{DocTagTenantWorkspace},
+	}, func(ctx context.Context, input *ResolveTenantInvitationInput) (*TenantInvitationOutput, error) {
+		if deps.TenantInvitationService == nil {
+			return nil, huma.Error503ServiceUnavailable("tenant invitation service is not configured")
+		}
+		item, err := deps.TenantInvitationService.Resolve(ctx, input.Token)
+		if err != nil {
+			return nil, toTenantInvitationHTTPError(err)
+		}
+		return &TenantInvitationOutput{Body: toTenantInvitationBody(item, false)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "setupTenantInvitationIdentity",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/invitations/{invitationPublicId}/setup-identity",
+		Summary:     "tenant invitation の Zitadel identity 初期設定を開始する",
+		Tags:        []string{DocTagTenantWorkspace},
+	}, func(ctx context.Context, input *SetupTenantInvitationIdentityInput) (*TenantInvitationOutput, error) {
+		if deps.TenantInvitationService == nil {
+			return nil, huma.Error503ServiceUnavailable("tenant invitation service is not configured")
+		}
+		item, err := deps.TenantInvitationService.SetupIdentityForInvitation(ctx, input.InvitationPublicID, input.Body.Token)
+		if err != nil {
+			return nil, toTenantInvitationHTTPError(err)
+		}
+		return &TenantInvitationOutput{Body: toTenantInvitationBody(item, false)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID: "acceptTenantInvitation",
 		Method:      http.MethodPost,
 		Path:        "/api/v1/invitations/accept",
@@ -204,15 +289,22 @@ func registerTenantInvitationRoutes(api huma.API, deps Dependencies) {
 
 func toTenantInvitationBody(item service.TenantInvitation, includeToken bool) TenantInvitationBody {
 	body := TenantInvitationBody{
-		PublicID:               item.PublicID,
-		TenantID:               item.TenantID,
-		InviteeEmailNormalized: item.InviteeEmailNormalized,
-		RoleCodes:              item.RoleCodes,
-		Status:                 item.Status,
-		AcceptURL:              item.AcceptURL,
-		ExpiresAt:              item.ExpiresAt,
-		CreatedAt:              item.CreatedAt,
-		UpdatedAt:              item.UpdatedAt,
+		PublicID:                  item.PublicID,
+		TenantID:                  item.TenantID,
+		TenantSlug:                item.TenantSlug,
+		TenantDisplayName:         item.TenantDisplayName,
+		InviteeEmailNormalized:    item.InviteeEmailNormalized,
+		RoleCodes:                 item.RoleCodes,
+		Status:                    item.Status,
+		AcceptURL:                 item.AcceptURL,
+		IdentitySetupDeliveryMode: item.IdentitySetupDeliveryMode,
+		IdentitySetupUserID:       item.IdentitySetupUserID,
+		IdentitySetupInviteCode:   item.IdentitySetupInviteCode,
+		IdentitySetupLoginURL:     item.IdentitySetupLoginURL,
+		IdentitySetupEmailCode:    item.IdentitySetupEmailCode,
+		ExpiresAt:                 item.ExpiresAt,
+		CreatedAt:                 item.CreatedAt,
+		UpdatedAt:                 item.UpdatedAt,
 	}
 	if includeToken {
 		body.Token = item.Token
@@ -228,6 +320,12 @@ func toTenantInvitationHTTPError(err error) error {
 		return huma.Error404NotFound("tenant invitation not found")
 	case errors.Is(err, service.ErrTenantInvitationEmailMismatch):
 		return huma.Error403Forbidden("tenant invitation email mismatch")
+	case errors.Is(err, service.ErrTenantInvitationNotPending):
+		return huma.Error409Conflict("tenant invitation is not pending")
+	case errors.Is(err, service.ErrIdentityProvisioningUnavailable):
+		return huma.Error503ServiceUnavailable("Zitadel identity provisioning is not configured")
+	case errors.Is(err, service.ErrIdentityProvisioningFailed):
+		return huma.Error503ServiceUnavailable("Zitadel identity provisioning failed")
 	default:
 		return toHTTPError(err)
 	}

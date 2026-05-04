@@ -59,6 +59,11 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
   }),
 
   actions: {
+    resetAccessState() {
+      this.status = 'idle'
+      this.errorMessage = ''
+    },
+
     async loadList() {
       this.status = 'loading'
       this.errorMessage = ''
@@ -85,6 +90,18 @@ export const useTenantAdminStore = defineStore('tenantAdmin', {
         this.status = isApiForbidden(error) ? 'forbidden' : 'error'
         this.errorMessage = toApiErrorMessage(error)
       }
+    },
+
+    resetDriveState() {
+      this.driveShares = []
+      this.driveShareLinks = []
+      this.driveInvitations = []
+      this.driveApprovals = []
+      this.driveAuditEvents = []
+      this.driveSync = null
+      this.driveHealth = null
+      this.driveOCRStatus = null
+      this.driveLocalSearchJobs = []
     },
 
     async loadDriveState(tenantSlug: string) {

@@ -717,11 +717,50 @@ func (s *DriveService) actor(ctx context.Context, tenantID, userID int64) (Drive
 	if tenantID <= 0 || userID <= 0 {
 		return DriveActor{}, ErrDrivePermissionDenied
 	}
-	publicID, err := s.ensureUserInTenant(ctx, tenantID, userID)
+	publicID, platformAdmin, err := s.ensureActorInTenant(ctx, tenantID, userID)
 	if err != nil {
 		return DriveActor{}, err
 	}
-	return DriveActor{UserID: userID, PublicID: publicID, TenantID: tenantID}, nil
+	return DriveActor{UserID: userID, PublicID: publicID, TenantID: tenantID, PlatformAdmin: platformAdmin}, nil
+}
+
+func (s *DriveService) ensureActorInTenant(ctx context.Context, tenantID, userID int64) (string, bool, error) {
+	publicID, err := s.ensureUserInTenant(ctx, tenantID, userID)
+	if err == nil {
+		return publicID, false, nil
+	}
+	if !errors.Is(err, ErrDrivePermissionDenied) {
+		return "", false, err
+	}
+
+	user, userErr := s.queries.GetUserByID(ctx, userID)
+	if errors.Is(userErr, pgx.ErrNoRows) {
+		return "", false, ErrDrivePermissionDenied
+	}
+	if userErr != nil {
+		return "", false, fmt.Errorf("get user: %w", userErr)
+	}
+	if user.DeactivatedAt.Valid {
+		return "", false, ErrDrivePermissionDenied
+	}
+	roles, roleErr := s.queries.ListRoleCodesByUserID(ctx, userID)
+	if roleErr != nil {
+		return "", false, fmt.Errorf("list user roles: %w", roleErr)
+	}
+	if !driveUserIsPlatformTenantAdmin(roles) {
+		return "", false, ErrDrivePermissionDenied
+	}
+	tenant, tenantErr := s.queries.GetTenantByID(ctx, tenantID)
+	if errors.Is(tenantErr, pgx.ErrNoRows) {
+		return "", false, ErrDrivePermissionDenied
+	}
+	if tenantErr != nil {
+		return "", false, fmt.Errorf("get tenant: %w", tenantErr)
+	}
+	if !tenant.Active {
+		return "", false, ErrDrivePermissionDenied
+	}
+	return user.PublicID.String(), true, nil
 }
 
 func (s *DriveService) ensureUserInTenant(ctx context.Context, tenantID, userID int64) (string, error) {
@@ -745,6 +784,10 @@ func (s *DriveService) ensureUserInTenant(ctx context.Context, tenantID, userID 
 		}
 	}
 	return "", ErrDrivePermissionDenied
+}
+
+func driveUserIsPlatformTenantAdmin(roleCodes []string) bool {
+	return hasRoleCode(roleCodes, "tenant_admin")
 }
 
 func (s *DriveService) getFolderByID(ctx context.Context, tenantID, folderID int64) (DriveFolder, error) {

@@ -126,6 +126,24 @@ WHERE m.group_id = sqlc.arg(group_id)
   AND m.deleted_at IS NULL
 ORDER BY u.display_name, u.email, m.id;
 
+-- name: AddTenantAdminsToDatasetManagersGroup :exec
+INSERT INTO dataset_permission_group_members (
+    group_id,
+    user_id,
+    added_by_user_id
+)
+SELECT
+    sqlc.arg(group_id),
+    tm.user_id,
+    sqlc.narg(added_by_user_id)
+FROM tenant_memberships tm
+JOIN roles r ON r.id = tm.role_id
+WHERE tm.tenant_id = sqlc.arg(tenant_id)
+  AND tm.active = true
+  AND r.code = 'tenant_admin'
+ON CONFLICT (group_id, user_id) WHERE deleted_at IS NULL DO UPDATE
+SET deleted_at = NULL;
+
 -- name: ListDatasetPermissionGrants :many
 SELECT
     g.id,

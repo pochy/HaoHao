@@ -548,7 +548,7 @@ func requireDataPipelineTenant(ctx context.Context, deps Dependencies, sessionID
 	if deps.DataPipelineService == nil {
 		return service.CurrentSession{}, service.TenantAccess{}, huma.Error503ServiceUnavailable("data pipeline service is not configured")
 	}
-	return requireActiveTenantRole(ctx, deps, sessionID, csrfToken, "data_pipeline_user", "data pipeline service")
+	return requireActiveTenantAnyRole(ctx, deps, sessionID, csrfToken, []string{"data_pipeline_user", "tenant_admin"}, "data pipeline service")
 }
 
 func scheduleInputFromBody(body DataPipelineScheduleWriteBody) service.DataPipelineScheduleInput {

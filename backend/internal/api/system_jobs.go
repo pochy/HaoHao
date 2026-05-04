@@ -159,10 +159,17 @@ func requireSystemJobAdmin(ctx context.Context, deps Dependencies, sessionID, cs
 	if authCtx.ActiveTenant == nil {
 		return service.CurrentSession{}, service.AuthContext{}, huma.Error409Conflict("active tenant is required")
 	}
-	if !authCtx.HasRole("tenant_admin") {
-		return service.CurrentSession{}, service.AuthContext{}, huma.Error403Forbidden("tenant_admin role is required")
+	if !canAccessSystemJobs(authCtx) {
+		return service.CurrentSession{}, service.AuthContext{}, huma.Error403Forbidden("tenant_admin role is required for active tenant")
 	}
 	return current, authCtx, nil
+}
+
+func canAccessSystemJobs(authCtx service.AuthContext) bool {
+	if authCtx.HasRole("tenant_admin") {
+		return true
+	}
+	return authCtx.ActiveTenant != nil && tenantHasRole(*authCtx.ActiveTenant, "tenant_admin")
 }
 
 func toSystemJobHTTPError(err error) error {

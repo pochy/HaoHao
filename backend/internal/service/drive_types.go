@@ -33,9 +33,10 @@ const (
 )
 
 type DriveActor struct {
-	UserID   int64
-	PublicID string
-	TenantID int64
+	UserID        int64
+	PublicID      string
+	TenantID      int64
+	PlatformAdmin bool
 }
 
 type DriveResourceRef struct {

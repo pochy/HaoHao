@@ -35,7 +35,7 @@ func NewOIDCLoginService(providerName string, oidcClient *auth.OIDCClient, login
 	}
 }
 
-func (s *OIDCLoginService) StartLogin(ctx context.Context, returnTo string) (string, error) {
+func (s *OIDCLoginService) StartLogin(ctx context.Context, returnTo, loginHint string) (string, error) {
 	if s == nil || s.oidcClient == nil || s.loginState == nil {
 		return "", ErrAuthModeUnsupported
 	}
@@ -45,7 +45,7 @@ func (s *OIDCLoginService) StartLogin(ctx context.Context, returnTo string) (str
 		return "", fmt.Errorf("create oidc login state: %w", err)
 	}
 
-	return s.oidcClient.AuthorizeURL(state, record.Nonce, record.CodeVerifier), nil
+	return s.oidcClient.AuthorizeURL(state, record.Nonce, record.CodeVerifier, sanitizeLoginHint(loginHint)), nil
 }
 
 func (s *OIDCLoginService) FinishLogin(ctx context.Context, code, state string, auditRequest AuditRequest) (OIDCLoginResult, error) {
@@ -72,15 +72,6 @@ func (s *OIDCLoginService) FinishLogin(ctx context.Context, code, state string, 
 	})
 	if err != nil {
 		return OIDCLoginResult{}, fmt.Errorf("resolve local user for oidc identity: %w", err)
-	}
-
-	if s.authzService != nil {
-		if _, err := s.authzService.SyncGlobalRoles(ctx, user.ID, identity.Claims.Groups); err != nil {
-			return OIDCLoginResult{}, fmt.Errorf("sync local roles for oidc login: %w", err)
-		}
-		if _, err := s.authzService.SyncTenantMemberships(ctx, user.ID, "provider_claim", identity.Claims.Groups); err != nil {
-			return OIDCLoginResult{}, fmt.Errorf("sync tenant memberships for oidc login: %w", err)
-		}
 	}
 
 	sessionID, csrfToken, err := s.sessionService.IssueSessionWithProviderHint(ctx, user.ID, identity.RawIDToken)
@@ -115,6 +106,10 @@ func sanitizeReturnTo(returnTo string) string {
 		return "/"
 	}
 	return trimmed
+}
+
+func sanitizeLoginHint(loginHint string) string {
+	return strings.TrimSpace(loginHint)
 }
 
 func IsOIDCLoginFailure(err error) bool {

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+import { readPendingTenantInvitationToken } from '../invitations/pending-token'
 import { useSessionStore } from '../stores/session'
 
 declare module 'vue-router' {
@@ -103,7 +104,6 @@ const router = createRouter({
       name: 'invitation-accept',
       component: InvitationAcceptView,
       meta: {
-        requiresAuth: true,
         title: 'Invitation',
         group: 'Workspace',
         titleKey: 'routes.invitation',
@@ -510,6 +510,16 @@ router.beforeEach(async (to) => {
 
   if (to.name === 'login' && sessionStore.status === 'authenticated') {
     return { name: 'home' }
+  }
+
+  if (sessionStore.status === 'authenticated' && to.name !== 'invitation-accept') {
+    const pendingInvitationToken = readPendingTenantInvitationToken()
+    if (pendingInvitationToken) {
+      return {
+        name: 'invitation-accept',
+        query: { token: pendingInvitationToken },
+      }
+    }
   }
 
   return true

@@ -309,6 +309,42 @@ func TestDatasetScanDestinationsUsesConcreteTypes(t *testing.T) {
 	}
 }
 
+func TestScanDatasetRowsPageUsesRowNumberCursor(t *testing.T) {
+	rows := &fakeDatasetRows{
+		index:   -1,
+		columns: []string{"__row_number", "name", "age"},
+		types: []driver.ColumnType{
+			fakeDatasetColumnType{name: "__row_number", scanType: reflect.TypeOf(uint64(0))},
+			fakeDatasetColumnType{name: "name", scanType: reflect.TypeOf((*string)(nil))},
+			fakeDatasetColumnType{name: "age", scanType: reflect.TypeOf((*string)(nil))},
+		},
+		values: [][]any{
+			{uint64(1), "alice", "10"},
+			{uint64(2), "bob", "20"},
+			{uint64(3), "carol", "30"},
+		},
+	}
+	columns, items, nextCursor, hasMore, err := scanDatasetRowsPage(rows, 2)
+	if err != nil {
+		t.Fatalf("scanDatasetRowsPage() error = %v", err)
+	}
+	if !reflect.DeepEqual(columns, []string{"name", "age"}) {
+		t.Fatalf("scanDatasetRowsPage() columns = %#v", columns)
+	}
+	if len(items) != 2 {
+		t.Fatalf("scanDatasetRowsPage() items length = %d, want 2", len(items))
+	}
+	if items[0]["name"] != "alice" || items[1]["name"] != "bob" {
+		t.Fatalf("scanDatasetRowsPage() items = %#v", items)
+	}
+	if !hasMore {
+		t.Fatal("scanDatasetRowsPage() hasMore = false, want true")
+	}
+	if nextCursor == nil || *nextCursor != 2 {
+		t.Fatalf("scanDatasetRowsPage() nextCursor = %#v, want 2", nextCursor)
+	}
+}
+
 func TestDatasetWorkTableExportFormatNormalizationAndSpec(t *testing.T) {
 	cases := []struct {
 		input string

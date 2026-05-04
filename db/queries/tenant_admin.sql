@@ -132,3 +132,11 @@ WHERE user_id = $1
   AND role_id = $3
   AND source = 'local_override'
   AND active = true;
+
+-- name: CountActiveTenantAdmins :one
+SELECT COUNT(DISTINCT tm.user_id)::bigint
+FROM tenant_memberships tm
+JOIN roles r ON r.id = tm.role_id
+WHERE tm.tenant_id = $1
+  AND r.code = 'tenant_admin'
+  AND tm.active = true;

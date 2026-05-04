@@ -175,6 +175,13 @@ func (s *DatasetAuthorizationService) EnsureScopeManagerTuples(ctx context.Conte
 	if err != nil {
 		return err
 	}
+	if err := s.queries.AddTenantAdminsToDatasetManagersGroup(ctx, db.AddTenantAdminsToDatasetManagersGroupParams{
+		GroupID:       managers.ID,
+		TenantID:      tenantID,
+		AddedByUserID: pgtype.Int8{Int64: actorUserID, Valid: actorUserID > 0},
+	}); err != nil {
+		return fmt.Errorf("add tenant admins to dataset managers group: %w", err)
+	}
 	member := openFGADataGroupMember(managers.PublicID.String())
 	return s.writeTuples(ctx, []OpenFGATuple{
 		{User: member, Relation: "owner", Object: openFGADataScope(scope.PublicID.String())},

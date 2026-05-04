@@ -248,6 +248,7 @@ var supportedTenantRoles = map[string]struct{}{
 	"customer_signal_user": {},
 	"data_pipeline_user":   {},
 	"docs_reader":          {},
+	"tenant_admin":         {},
 	"todo_user":            {},
 }
 
@@ -374,6 +375,14 @@ func (s *AuthzService) SyncTenantMemberships(ctx context.Context, userID int64, 
 }
 
 func (s *AuthzService) ListTenantAccess(ctx context.Context, userID int64, defaultTenantID *int64) ([]TenantAccess, error) {
+	roleCodes, err := s.queries.ListRoleCodesByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list local roles by user id: %w", err)
+	}
+	if hasRoleCode(roleCodes, "tenant_admin") {
+		return s.listPlatformAdminTenantAccess(ctx, defaultTenantID)
+	}
+
 	rows, err := s.queries.ListTenantMembershipRowsByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list tenant memberships: %w", err)
@@ -388,6 +397,40 @@ func (s *AuthzService) ListTenantAccess(ctx context.Context, userID int64, defau
 		if defaultTenantID != nil && tenants[i].ID == *defaultTenantID {
 			tenants[i].Default = true
 		}
+	}
+	return tenants, nil
+}
+
+func (s *AuthzService) listPlatformAdminTenantAccess(ctx context.Context, defaultTenantID *int64) ([]TenantAccess, error) {
+	if s == nil || s.pool == nil {
+		return nil, fmt.Errorf("authz service is not configured")
+	}
+	rows, err := s.pool.Query(ctx, `
+SELECT id, slug, display_name
+FROM tenants
+WHERE active = true
+ORDER BY slug
+`)
+	if err != nil {
+		return nil, fmt.Errorf("list platform admin tenants: %w", err)
+	}
+	defer rows.Close()
+
+	roles := supportedTenantRoleCodes()
+	tenants := make([]TenantAccess, 0)
+	for rows.Next() {
+		var tenant TenantAccess
+		if err := rows.Scan(&tenant.ID, &tenant.Slug, &tenant.DisplayName); err != nil {
+			return nil, err
+		}
+		tenant.Roles = append([]string(nil), roles...)
+		if defaultTenantID != nil && tenant.ID == *defaultTenantID {
+			tenant.Default = true
+		}
+		tenants = append(tenants, tenant)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return tenants, nil
 }
@@ -447,6 +490,28 @@ func (s *AuthzService) resolveTenantAccess(ctx context.Context, userID int64, de
 		}
 	}
 	return tenants, activeTenant, defaultTenant, nil
+}
+
+func hasRoleCode(roleCodes []string, role string) bool {
+	needle := strings.ToLower(strings.TrimSpace(role))
+	if needle == "" {
+		return true
+	}
+	for _, code := range roleCodes {
+		if strings.ToLower(strings.TrimSpace(code)) == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func supportedTenantRoleCodes() []string {
+	roles := make([]string, 0, len(supportedTenantRoles))
+	for role := range supportedTenantRoles {
+		roles = append(roles, role)
+	}
+	sort.Strings(roles)
+	return roles
 }
 
 func normalizeGlobalRoleCodes(providerGroups []string) []string {

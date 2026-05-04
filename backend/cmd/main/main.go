@@ -156,6 +156,19 @@ func main() {
 	driveService.SetOutboxService(outboxService)
 	driveOCRService := service.NewDriveOCRService(pool, queries, driveService, fileStorage, tenantSettingsService, auditService, nil, nil)
 	tenantInvitationService := service.NewTenantInvitationService(pool, queries, outboxService, auditService, cfg.InvitationTTL, cfg.FrontendBaseURL)
+	if cfg.AuthMode == "zitadel" {
+		if cfg.ZitadelManagementAPIToken == "" {
+			tenantInvitationService.SetIdentityProvisioner(service.NewUnavailableIdentityProvisioner("ZITADEL_MANAGEMENT_API_TOKEN is required when AUTH_MODE=zitadel"))
+		} else {
+			tenantInvitationService.SetIdentityProvisioner(service.NewZitadelUserProvisioningService(service.ZitadelUserProvisioningConfig{
+				Issuer:          cfg.ZitadelIssuer,
+				ManagementToken: cfg.ZitadelManagementAPIToken,
+				OrganizationID:  cfg.ZitadelOrganizationID,
+				DefaultLanguage: cfg.ZitadelUserDefaultLanguage,
+				DeliveryMode:    cfg.ZitadelInviteDeliveryMode,
+			}))
+		}
+	}
 	tenantDataExportService := service.NewTenantDataExportService(pool, queries, outboxService, fileService, auditService, cfg.DataExportTTL, entitlementService)
 	customerSignalImportService := service.NewCustomerSignalImportService(pool, queries, outboxService, fileService, entitlementService, auditService)
 	datasetService := service.NewDatasetService(pool, queries, outboxService, fileService, auditService, clickHouseConn, service.DatasetClickHouseConfig{

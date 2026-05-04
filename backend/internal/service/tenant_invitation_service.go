@@ -27,20 +27,28 @@ var (
 	ErrInvalidTenantInvitation       = errors.New("invalid tenant invitation")
 	ErrTenantInvitationNotFound      = errors.New("tenant invitation not found")
 	ErrTenantInvitationEmailMismatch = errors.New("tenant invitation email mismatch")
+	ErrTenantInvitationNotPending    = errors.New("tenant invitation is not pending")
 )
 
 type TenantInvitation struct {
-	ID                     int64
-	PublicID               string
-	TenantID               int64
-	InviteeEmailNormalized string
-	RoleCodes              []string
-	Status                 string
-	Token                  string
-	AcceptURL              string
-	ExpiresAt              time.Time
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
+	ID                        int64
+	PublicID                  string
+	TenantID                  int64
+	TenantSlug                string
+	TenantDisplayName         string
+	InviteeEmailNormalized    string
+	RoleCodes                 []string
+	Status                    string
+	Token                     string
+	AcceptURL                 string
+	IdentitySetupDeliveryMode string
+	IdentitySetupUserID       string
+	IdentitySetupInviteCode   string
+	IdentitySetupLoginURL     string
+	IdentitySetupEmailCode    string
+	ExpiresAt                 time.Time
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
 }
 
 type TenantInvitationInput struct {
@@ -58,6 +66,7 @@ type TenantInvitationService struct {
 	ttl             time.Duration
 	frontendBaseURL string
 	realtime        RealtimePublisher
+	provisioner     TenantInvitationIdentityProvisioner
 }
 
 func NewTenantInvitationService(pool *pgxpool.Pool, queries *db.Queries, outbox *OutboxService, audit AuditRecorder, ttl time.Duration, frontendBaseURL string) *TenantInvitationService {
@@ -80,11 +89,21 @@ func (s *TenantInvitationService) SetRealtimeService(realtime RealtimePublisher)
 	}
 }
 
+func (s *TenantInvitationService) SetIdentityProvisioner(provisioner TenantInvitationIdentityProvisioner) {
+	if s != nil {
+		s.provisioner = provisioner
+	}
+}
+
 func (s *TenantInvitationService) Create(ctx context.Context, input TenantInvitationInput, auditCtx AuditContext) (TenantInvitation, error) {
 	if s == nil || s.pool == nil || s.queries == nil {
 		return TenantInvitation{}, fmt.Errorf("tenant invitation service is not configured")
 	}
 	normalized, err := normalizeTenantInvitationInput(input)
+	if err != nil {
+		return TenantInvitation{}, err
+	}
+	identityResult, err := s.ensureInviteeIdentity(ctx, normalized.Email)
 	if err != nil {
 		return TenantInvitation{}, err
 	}
@@ -189,6 +208,7 @@ func (s *TenantInvitationService) Create(ctx context.Context, input TenantInvita
 	item := tenantInvitationFromDB(row)
 	item.Token = token
 	item.AcceptURL = s.acceptURL(token)
+	applyIdentityProvisioningResult(&item, identityResult)
 	if directNotification != nil && s.realtime != nil {
 		notification := notificationFromDB(*directNotification)
 		_, _ = s.realtime.Publish(ctx, RealtimeEventInput{
@@ -224,6 +244,98 @@ func (s *TenantInvitationService) List(ctx context.Context, tenantID int64, limi
 		items = append(items, tenantInvitationFromDB(row))
 	}
 	return items, nil
+}
+
+func (s *TenantInvitationService) ProvisionIdentityForInvitation(ctx context.Context, tenantID int64, publicID string) (TenantInvitation, error) {
+	if s == nil || s.queries == nil {
+		return TenantInvitation{}, fmt.Errorf("tenant invitation service is not configured")
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(publicID))
+	if err != nil {
+		return TenantInvitation{}, ErrTenantInvitationNotFound
+	}
+	row, err := s.queries.GetTenantInvitationByPublicIDForTenant(ctx, db.GetTenantInvitationByPublicIDForTenantParams{
+		TenantID: tenantID,
+		PublicID: parsed,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TenantInvitation{}, ErrTenantInvitationNotFound
+	}
+	if err != nil {
+		return TenantInvitation{}, fmt.Errorf("get tenant invitation: %w", err)
+	}
+	if row.Status != "pending" || !row.ExpiresAt.Valid || !row.ExpiresAt.Time.After(time.Now()) {
+		return TenantInvitation{}, ErrTenantInvitationNotPending
+	}
+	identityResult, err := s.ensureInviteeIdentity(ctx, row.InviteeEmailNormalized)
+	if err != nil {
+		return TenantInvitation{}, err
+	}
+	token, err := newInvitationToken()
+	if err != nil {
+		return TenantInvitation{}, err
+	}
+	renewed, err := s.queries.RenewTenantInvitationToken(ctx, db.RenewTenantInvitationTokenParams{
+		TenantID:  tenantID,
+		PublicID:  parsed,
+		TokenHash: invitationTokenHash(token),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TenantInvitation{}, ErrTenantInvitationNotPending
+	}
+	if err != nil {
+		return TenantInvitation{}, fmt.Errorf("renew tenant invitation token: %w", err)
+	}
+	item := tenantInvitationFromDB(renewed)
+	item.Token = token
+	item.AcceptURL = s.acceptURL(token)
+	applyIdentityProvisioningResult(&item, identityResult)
+	return item, nil
+}
+
+func (s *TenantInvitationService) SetupIdentityForInvitation(ctx context.Context, publicID, token string) (TenantInvitation, error) {
+	if s == nil || s.queries == nil {
+		return TenantInvitation{}, fmt.Errorf("tenant invitation service is not configured")
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(publicID))
+	if err != nil {
+		return TenantInvitation{}, ErrTenantInvitationNotFound
+	}
+	if strings.TrimSpace(token) == "" {
+		return TenantInvitation{}, ErrTenantInvitationNotFound
+	}
+	row, err := s.queries.GetPendingTenantInvitationByPublicIDAndTokenHash(ctx, db.GetPendingTenantInvitationByPublicIDAndTokenHashParams{
+		PublicID:  parsed,
+		TokenHash: invitationTokenHash(token),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TenantInvitation{}, ErrTenantInvitationNotFound
+	}
+	if err != nil {
+		return TenantInvitation{}, fmt.Errorf("get pending tenant invitation: %w", err)
+	}
+	identityResult, err := s.ensureInviteeIdentity(ctx, row.InviteeEmailNormalized)
+	if err != nil {
+		return TenantInvitation{}, err
+	}
+	item := tenantInvitationFromDB(row)
+	item.AcceptURL = s.acceptURL(token)
+	applyIdentityProvisioningResult(&item, identityResult)
+	return item, nil
+}
+
+func (s *TenantInvitationService) Resolve(ctx context.Context, token string) (TenantInvitation, error) {
+	if s == nil || s.queries == nil {
+		return TenantInvitation{}, fmt.Errorf("tenant invitation service is not configured")
+	}
+	row, err := s.queries.ResolveTenantInvitationByTokenHash(ctx, invitationTokenHash(token))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TenantInvitation{}, ErrTenantInvitationNotFound
+	}
+	if err != nil {
+		return TenantInvitation{}, fmt.Errorf("resolve tenant invitation: %w", err)
+	}
+	return tenantInvitationFromResolveRow(row), nil
 }
 
 func (s *TenantInvitationService) Revoke(ctx context.Context, tenantID int64, publicID string, auditCtx AuditContext) error {
@@ -354,6 +466,24 @@ func (s *TenantInvitationService) HandleInvitationCreated(ctx context.Context, i
 	return nil
 }
 
+func (s *TenantInvitationService) ensureInviteeIdentity(ctx context.Context, email string) (IdentityProvisioningResult, error) {
+	if s.provisioner == nil {
+		return IdentityProvisioningResult{}, nil
+	}
+	return s.provisioner.EnsureHumanUser(ctx, email)
+}
+
+func applyIdentityProvisioningResult(item *TenantInvitation, result IdentityProvisioningResult) {
+	if item == nil {
+		return
+	}
+	item.IdentitySetupDeliveryMode = result.DeliveryMode
+	item.IdentitySetupUserID = result.UserID
+	item.IdentitySetupInviteCode = result.InviteCode
+	item.IdentitySetupLoginURL = result.LoginURL
+	item.IdentitySetupEmailCode = result.EmailVerificationCode
+}
+
 func normalizeTenantInvitationInput(input TenantInvitationInput) (TenantInvitationInput, error) {
 	input.Email = normalizeEmail(input.Email)
 	if input.TenantID <= 0 || input.ActorID <= 0 || input.Email == "" {
@@ -419,6 +549,31 @@ func tenantInvitationFromDB(row db.TenantInvitation) TenantInvitation {
 		CreatedAt:              row.CreatedAt.Time,
 		UpdatedAt:              row.UpdatedAt.Time,
 	}
+}
+
+func tenantInvitationFromResolveRow(row db.ResolveTenantInvitationByTokenHashRow) TenantInvitation {
+	return TenantInvitation{
+		ID:                     row.ID,
+		PublicID:               row.PublicID.String(),
+		TenantID:               row.TenantID,
+		TenantSlug:             row.TenantSlug,
+		TenantDisplayName:      row.TenantDisplayName,
+		InviteeEmailNormalized: row.InviteeEmailNormalized,
+		RoleCodes:              rowRoleCodesFromJSON(row.RoleCodes),
+		Status:                 row.Status,
+		ExpiresAt:              row.ExpiresAt.Time,
+		CreatedAt:              row.CreatedAt.Time,
+		UpdatedAt:              row.UpdatedAt.Time,
+	}
+}
+
+func rowRoleCodesFromJSON(payload []byte) []string {
+	var roles []string
+	if len(payload) > 0 {
+		_ = json.Unmarshal(payload, &roles)
+	}
+	sort.Strings(roles)
+	return roles
 }
 
 func (s *TenantInvitationService) acceptURL(token string) string {

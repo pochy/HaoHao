@@ -120,6 +120,43 @@ func (q *Queries) ExpireTenantInvitations(ctx context.Context) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const getPendingTenantInvitationByPublicIDAndTokenHash = `-- name: GetPendingTenantInvitationByPublicIDAndTokenHash :one
+SELECT id, public_id, tenant_id, invited_by_user_id, accepted_by_user_id, invitee_email_normalized, role_codes, token_hash, status, expires_at, accepted_at, revoked_at, created_at, updated_at
+FROM tenant_invitations
+WHERE public_id = $1
+  AND token_hash = $2
+  AND status = 'pending'
+  AND expires_at > now()
+LIMIT 1
+`
+
+type GetPendingTenantInvitationByPublicIDAndTokenHashParams struct {
+	PublicID  uuid.UUID `json:"public_id"`
+	TokenHash string    `json:"token_hash"`
+}
+
+func (q *Queries) GetPendingTenantInvitationByPublicIDAndTokenHash(ctx context.Context, arg GetPendingTenantInvitationByPublicIDAndTokenHashParams) (TenantInvitation, error) {
+	row := q.db.QueryRow(ctx, getPendingTenantInvitationByPublicIDAndTokenHash, arg.PublicID, arg.TokenHash)
+	var i TenantInvitation
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.InvitedByUserID,
+		&i.AcceptedByUserID,
+		&i.InviteeEmailNormalized,
+		&i.RoleCodes,
+		&i.TokenHash,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getPendingTenantInvitationByTokenHash = `-- name: GetPendingTenantInvitationByTokenHash :one
 SELECT id, public_id, tenant_id, invited_by_user_id, accepted_by_user_id, invitee_email_normalized, role_codes, token_hash, status, expires_at, accepted_at, revoked_at, created_at, updated_at
 FROM tenant_invitations
@@ -130,6 +167,41 @@ WHERE token_hash = $1
 
 func (q *Queries) GetPendingTenantInvitationByTokenHash(ctx context.Context, tokenHash string) (TenantInvitation, error) {
 	row := q.db.QueryRow(ctx, getPendingTenantInvitationByTokenHash, tokenHash)
+	var i TenantInvitation
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.InvitedByUserID,
+		&i.AcceptedByUserID,
+		&i.InviteeEmailNormalized,
+		&i.RoleCodes,
+		&i.TokenHash,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getTenantInvitationByPublicIDForTenant = `-- name: GetTenantInvitationByPublicIDForTenant :one
+SELECT id, public_id, tenant_id, invited_by_user_id, accepted_by_user_id, invitee_email_normalized, role_codes, token_hash, status, expires_at, accepted_at, revoked_at, created_at, updated_at
+FROM tenant_invitations
+WHERE tenant_id = $1
+  AND public_id = $2
+LIMIT 1
+`
+
+type GetTenantInvitationByPublicIDForTenantParams struct {
+	TenantID int64     `json:"tenant_id"`
+	PublicID uuid.UUID `json:"public_id"`
+}
+
+func (q *Queries) GetTenantInvitationByPublicIDForTenant(ctx context.Context, arg GetTenantInvitationByPublicIDForTenantParams) (TenantInvitation, error) {
+	row := q.db.QueryRow(ctx, getTenantInvitationByPublicIDForTenant, arg.TenantID, arg.PublicID)
 	var i TenantInvitation
 	err := row.Scan(
 		&i.ID,
@@ -196,6 +268,100 @@ func (q *Queries) ListTenantInvitations(ctx context.Context, arg ListTenantInvit
 		return nil, err
 	}
 	return items, nil
+}
+
+const renewTenantInvitationToken = `-- name: RenewTenantInvitationToken :one
+UPDATE tenant_invitations
+SET
+    token_hash = $3,
+    updated_at = now()
+WHERE tenant_id = $1
+  AND public_id = $2
+  AND status = 'pending'
+  AND expires_at > now()
+RETURNING id, public_id, tenant_id, invited_by_user_id, accepted_by_user_id, invitee_email_normalized, role_codes, token_hash, status, expires_at, accepted_at, revoked_at, created_at, updated_at
+`
+
+type RenewTenantInvitationTokenParams struct {
+	TenantID  int64     `json:"tenant_id"`
+	PublicID  uuid.UUID `json:"public_id"`
+	TokenHash string    `json:"token_hash"`
+}
+
+func (q *Queries) RenewTenantInvitationToken(ctx context.Context, arg RenewTenantInvitationTokenParams) (TenantInvitation, error) {
+	row := q.db.QueryRow(ctx, renewTenantInvitationToken, arg.TenantID, arg.PublicID, arg.TokenHash)
+	var i TenantInvitation
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.InvitedByUserID,
+		&i.AcceptedByUserID,
+		&i.InviteeEmailNormalized,
+		&i.RoleCodes,
+		&i.TokenHash,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const resolveTenantInvitationByTokenHash = `-- name: ResolveTenantInvitationByTokenHash :one
+SELECT
+    i.id, i.public_id, i.tenant_id, i.invited_by_user_id, i.accepted_by_user_id, i.invitee_email_normalized, i.role_codes, i.token_hash, i.status, i.expires_at, i.accepted_at, i.revoked_at, i.created_at, i.updated_at,
+    t.slug AS tenant_slug,
+    t.display_name AS tenant_display_name
+FROM tenant_invitations i
+JOIN tenants t ON t.id = i.tenant_id
+WHERE i.token_hash = $1
+LIMIT 1
+`
+
+type ResolveTenantInvitationByTokenHashRow struct {
+	ID                     int64              `json:"id"`
+	PublicID               uuid.UUID          `json:"public_id"`
+	TenantID               int64              `json:"tenant_id"`
+	InvitedByUserID        pgtype.Int8        `json:"invited_by_user_id"`
+	AcceptedByUserID       pgtype.Int8        `json:"accepted_by_user_id"`
+	InviteeEmailNormalized string             `json:"invitee_email_normalized"`
+	RoleCodes              []byte             `json:"role_codes"`
+	TokenHash              string             `json:"token_hash"`
+	Status                 string             `json:"status"`
+	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
+	AcceptedAt             pgtype.Timestamptz `json:"accepted_at"`
+	RevokedAt              pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	TenantSlug             string             `json:"tenant_slug"`
+	TenantDisplayName      string             `json:"tenant_display_name"`
+}
+
+func (q *Queries) ResolveTenantInvitationByTokenHash(ctx context.Context, tokenHash string) (ResolveTenantInvitationByTokenHashRow, error) {
+	row := q.db.QueryRow(ctx, resolveTenantInvitationByTokenHash, tokenHash)
+	var i ResolveTenantInvitationByTokenHashRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.InvitedByUserID,
+		&i.AcceptedByUserID,
+		&i.InviteeEmailNormalized,
+		&i.RoleCodes,
+		&i.TokenHash,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TenantSlug,
+		&i.TenantDisplayName,
+	)
+	return i, err
 }
 
 const revokeTenantInvitation = `-- name: RevokeTenantInvitation :one

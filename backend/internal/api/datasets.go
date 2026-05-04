@@ -208,6 +208,13 @@ type DatasetWorkTablePreviewBody struct {
 	PreviewRows []map[string]any `json:"previewRows"`
 }
 
+type DatasetRowsPageBody struct {
+	Columns    []string         `json:"columns"`
+	Rows       []map[string]any `json:"rows"`
+	NextCursor *int64           `json:"nextCursor,omitempty"`
+	HasMore    bool             `json:"hasMore"`
+}
+
 type DatasetLineageNodeBody struct {
 	ID           string                      `json:"id" example:"dataset:018f2f05-c6c9-7a49-b32d-04f4dd84ef4a"`
 	ResourceType string                      `json:"resourceType" enum:"dataset,dataset_query_job,dataset_work_table,dataset_work_table_export,dataset_work_table_export_schedule,dataset_sync_job,custom" example:"dataset"`
@@ -352,6 +359,10 @@ type DatasetWorkTablePreviewOutput struct {
 	Body DatasetWorkTablePreviewBody
 }
 
+type DatasetRowsPageOutput struct {
+	Body DatasetRowsPageBody
+}
+
 type DatasetLineageOutput struct {
 	Body DatasetLineageBody
 }
@@ -477,6 +488,13 @@ type DatasetWorkTablePreviewInput struct {
 	Database      string      `path:"database" maxLength:"128"`
 	Table         string      `path:"table" maxLength:"256"`
 	Limit         int32       `query:"limit" minimum:"1" maximum:"1000" default:"100"`
+}
+
+type DatasetRowsPageInput struct {
+	SessionCookie   http.Cookie `cookie:"SESSION_ID"`
+	DatasetPublicID string      `path:"datasetPublicId" format:"uuid"`
+	Cursor          int64       `query:"cursor" minimum:"0" default:"0"`
+	Limit           int32       `query:"limit" minimum:"1" maximum:"1000" default:"250"`
 }
 
 type DatasetWorkTablePreviewByPublicIDInput struct {
@@ -1337,6 +1355,32 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID: "listDatasetRows",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/datasets/{datasetPublicId}/rows",
+		Summary:     "active tenant の dataset rows を返す",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetRowsPageInput) (*DatasetRowsPageOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		item, err := deps.DatasetService.Get(ctx, tenant.ID, input.DatasetPublicID)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasetRows", err)
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataset, item.PublicID, service.DataActionView); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasetRows", err)
+		}
+		page, err := deps.DatasetService.ListDatasetRows(ctx, tenant.ID, input.DatasetPublicID, input.Cursor, input.Limit)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "listDatasetRows", err)
+		}
+		return &DatasetRowsPageOutput{Body: toDatasetRowsPageBody(page)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID: "getDatasetLineage",
 		Method:      http.MethodGet,
 		Path:        "/api/v1/datasets/{datasetPublicId}/lineage",
@@ -1965,6 +2009,15 @@ func toDatasetWorkTablePreviewBody(item service.DatasetWorkTablePreview) Dataset
 		Table:       item.Table,
 		Columns:     item.Columns,
 		PreviewRows: item.PreviewRows,
+	}
+}
+
+func toDatasetRowsPageBody(item service.DatasetRowsPage) DatasetRowsPageBody {
+	return DatasetRowsPageBody{
+		Columns:    item.Columns,
+		Rows:       item.Rows,
+		NextCursor: item.NextCursor,
+		HasMore:    item.HasMore,
 	}
 }
 

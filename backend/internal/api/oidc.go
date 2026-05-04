@@ -12,7 +12,8 @@ import (
 )
 
 type StartOIDCLoginInput struct {
-	ReturnTo string `query:"returnTo"`
+	ReturnTo  string `query:"returnTo"`
+	LoginHint string `query:"loginHint"`
 }
 
 type StartOIDCLoginOutput struct {
@@ -44,7 +45,7 @@ func registerOIDCRoutes(api huma.API, deps Dependencies) {
 			return nil, huma.Error501NotImplemented("oidc login is not configured")
 		}
 
-		location, err := deps.OIDCLoginService.StartLogin(ctx, input.ReturnTo)
+		location, err := deps.OIDCLoginService.StartLogin(ctx, input.ReturnTo, input.LoginHint)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to start oidc login")
 		}

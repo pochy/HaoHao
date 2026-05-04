@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Play, RefreshCw, RotateCw, Table2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { VList, type VListHandle } from 'virtua/vue'
 
 import { toApiErrorMessage, toApiErrorRequestId } from '../api/client'
 import type { DatasetLineageGraphSaveBodyWritable, DatasetQueryJobBody } from '../api/generated/types.gen'
@@ -11,12 +12,26 @@ import LineageCompactGraph from '../components/LineageCompactGraph.vue'
 import LineageFlowGraph from '../components/LineageFlowGraph.vue'
 import LineageTimeline from '../components/LineageTimeline.vue'
 import MedallionCatalogPanel from '../components/MedallionCatalogPanel.vue'
+import { fetchDatasetRows, type DatasetRowsPageBody } from '../api/datasets'
 import { useDatasetStore } from '../stores/datasets'
 import { useRealtimeStore } from '../stores/realtime'
 import { useTenantStore } from '../stores/tenants'
 
-type DatasetTab = 'sql' | 'schema' | 'history'
+type DatasetTab = 'sql' | 'data' | 'schema' | 'history'
 type LineageGraphTab = 'flow' | 'compact'
+type DatasetDataRow = DatasetRowsPageBody['rows'][number]
+type DatasetDataColumnAlign = 'left' | 'right'
+
+interface DatasetDataColumnMeta {
+  name: string
+  width: number
+  align: DatasetDataColumnAlign
+  kind: 'index' | 'id' | 'number' | 'text'
+}
+
+const DATA_PAGE_SIZE = 250
+const DATA_ROW_HEIGHT = 34
+const DATA_BUFFER_SIZE = 800
 
 const route = useRoute()
 const router = useRouter()
@@ -27,11 +42,17 @@ const { d, n, t } = useI18n()
 
 const statement = ref('')
 const actionErrorMessage = ref('')
+const dataErrorMessage = ref('')
 const deleteTargetPublicId = ref('')
 const syncConfirmOpen = ref(false)
+const dataListRef = ref<VListHandle | null>(null)
 const activeDatasetTab = ref<DatasetTab>('sql')
 const activeLineageGraphTab = ref<LineageGraphTab>('flow')
 const lineageEditMode = ref(false)
+const dataLoading = ref(false)
+const dataColumns = ref<string[]>([])
+const dataRowsByPage = reactive(new Map<number, DatasetDataRow[]>())
+const dataPendingPages = reactive(new Set<number>())
 let refreshTimer: number | undefined
 
 const datasetPublicId = computed(() => {
@@ -47,7 +68,27 @@ const latestSync = computed(() => selectedDataset.value?.latestSyncJob ?? datase
 const latestQueryFailed = computed(() => latestQuery.value?.status === 'failed')
 const resultColumns = computed(() => latestQuery.value?.resultColumns ?? [])
 const resultRows = computed(() => latestQuery.value?.resultRows ?? [])
+const dataRowCount = computed(() => selectedDataset.value?.rowCount ?? 0)
+const dataListItems = computed(() => new Array(dataRowCount.value))
+const firstDataRows = computed(() => dataRowsByPage.get(0) ?? [])
+const dataColumnMeta = computed<DatasetDataColumnMeta[]>(() => (
+  dataColumns.value.map((column) => inferDataColumnMeta(column, firstDataRows.value))
+))
+const dataColumnMetaByName = computed(() => new Map(dataColumnMeta.value.map((column) => [column.name, column])))
+const dataGridTemplate = computed(() => {
+  if (dataColumnMeta.value.length === 0) {
+    return 'minmax(160px, 1fr)'
+  }
+  return dataColumnMeta.value.map((column) => `${column.width}px`).join(' ')
+})
+const dataGridWidth = computed(() => dataColumnMeta.value.reduce((width, column) => width + column.width, 0))
+const dataGridWidthStyle = computed(() => `${Math.max(dataGridWidth.value, 160)}px`)
+const dataGridStyle = computed(() => ({
+  gridTemplateColumns: dataGridTemplate.value,
+  width: dataGridWidthStyle.value,
+}))
 const requestErrorMessage = computed(() => actionErrorMessage.value || datasetStore.errorMessage)
+const dataRequestErrorMessage = computed(() => dataErrorMessage.value)
 const isWorkTableDataset = computed(() => selectedDataset.value?.sourceKind === 'work_table')
 const sourceWorkTableLabel = computed(() => {
   const item = selectedDataset.value
@@ -106,6 +147,7 @@ watch(
     datasetStore.latestQuery = null
     datasetStore.queryJobs = []
     datasetStore.syncJobs = []
+    resetDataState()
     if (!slug || !publicId) {
       datasetStore.selectedPublicId = ''
       return
@@ -122,12 +164,21 @@ watch(
       ])
       await datasetStore.loadLatestQueryLineageParseRuns()
       fillSampleQuery()
+      if (activeDatasetTab.value === 'data') {
+        await loadDataForOffset(0)
+      }
     } catch (error) {
       actionErrorMessage.value = formatActionError(error)
     }
   },
   { immediate: true },
 )
+
+watch(activeDatasetTab, async (tab) => {
+  if (tab === 'data') {
+    await loadDataForOffset(0)
+  }
+})
 
 function formatDate(value?: string) {
   return value ? d(new Date(value), 'long') : '-'
@@ -264,6 +315,174 @@ async function runQuery() {
   }
 }
 
+function resetDataState() {
+  dataColumns.value = []
+  dataRowsByPage.clear()
+  dataPendingPages.clear()
+  dataErrorMessage.value = ''
+  dataLoading.value = false
+}
+
+function dataPageStartForIndex(index: number) {
+  return Math.floor(index / DATA_PAGE_SIZE) * DATA_PAGE_SIZE
+}
+
+function dataRowForIndex(index: number): DatasetDataRow | undefined {
+  const pageStart = dataPageStartForIndex(index)
+  return dataRowsByPage.get(pageStart)?.[index - pageStart]
+}
+
+function clampDataColumnWidth(width: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, width))
+}
+
+function isDataIndexColumn(column: string) {
+  const normalized = column.trim().toLowerCase()
+  return normalized === 'index' || normalized === '__row_number' || normalized === 'row_number'
+}
+
+function isDataIdColumn(column: string) {
+  const normalized = column.trim().toLowerCase()
+  return normalized === 'id' || normalized.endsWith('_id')
+}
+
+function isDataNumericText(value: string) {
+  const normalized = value.trim()
+  return normalized !== '' && /^-?\d+(?:\.\d+)?$/.test(normalized)
+}
+
+function dataCellText(value: unknown) {
+  if (value === null || value === undefined) {
+    return 'NULL'
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value)
+  }
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function inferDataColumnMeta(column: string, rows: DatasetDataRow[]): DatasetDataColumnMeta {
+  const samples = rows
+    .slice(0, DATA_PAGE_SIZE)
+    .map((row) => dataCellText(row[column]))
+    .filter((value) => value !== 'NULL')
+  const maxLength = Math.max(column.length, ...samples.map((value) => value.length), 1)
+
+  if (isDataIndexColumn(column)) {
+    return { name: column, width: 72, align: 'right', kind: 'index' }
+  }
+  if (isDataIdColumn(column)) {
+    return { name: column, width: 180, align: 'left', kind: 'id' }
+  }
+
+  const hasSamples = samples.length > 0
+  const isNumeric = hasSamples && samples.every(isDataNumericText)
+  if (isNumeric) {
+    return {
+      name: column,
+      width: clampDataColumnWidth(maxLength * 8 + 28, 96, 150),
+      align: 'right',
+      kind: 'number',
+    }
+  }
+
+  return {
+    name: column,
+    width: clampDataColumnWidth(maxLength * 8 + 36, 140, maxLength > 28 ? 280 : 220),
+    align: 'left',
+    kind: 'text',
+  }
+}
+
+function dataColumnAlign(column: string) {
+  return dataColumnMetaByName.value.get(column)?.align ?? 'left'
+}
+
+function dataCellValue(row: DatasetDataRow | undefined, column: string) {
+  if (!row) {
+    return '...'
+  }
+  return dataCellText(row[column])
+}
+
+function dataCellTitle(row: DatasetDataRow | undefined, column: string) {
+  if (!row) {
+    return ''
+  }
+  return dataCellText(row[column])
+}
+
+async function loadDataPage(pageStart: number, force = false) {
+  if (!datasetPublicId.value || !selectedDataset.value) {
+    return
+  }
+  if (pageStart < 0 || (dataRowCount.value > 0 && pageStart >= dataRowCount.value)) {
+    return
+  }
+  if (!force && (dataRowsByPage.has(pageStart) || dataPendingPages.has(pageStart))) {
+    return
+  }
+
+  if (dataPendingPages.size === 0) {
+    dataLoading.value = true
+  }
+  dataPendingPages.add(pageStart)
+  dataErrorMessage.value = ''
+  const requestedDatasetPublicId = datasetPublicId.value
+  try {
+    const page = await fetchDatasetRows(requestedDatasetPublicId, {
+      cursor: pageStart,
+      limit: DATA_PAGE_SIZE,
+    })
+    if (datasetPublicId.value !== requestedDatasetPublicId) {
+      return
+    }
+    if (page.columns.length > 0) {
+      dataColumns.value = page.columns
+    }
+    dataRowsByPage.set(pageStart, page.rows)
+  } catch (error) {
+    dataErrorMessage.value = formatActionError(error)
+  } finally {
+    dataPendingPages.delete(pageStart)
+    dataLoading.value = dataPendingPages.size > 0
+  }
+}
+
+function dataVisiblePageStarts(offset: number) {
+  const viewportSize = dataListRef.value?.viewportSize || DATA_ROW_HEIGHT * 30
+  const startOffset = Math.max(0, offset - DATA_BUFFER_SIZE)
+  const endOffset = offset + viewportSize + DATA_BUFFER_SIZE
+  const startIndex = Math.max(0, Math.floor(startOffset / DATA_ROW_HEIGHT))
+  const endIndex = Math.min(
+    Math.max(dataRowCount.value - 1, 0),
+    Math.ceil(endOffset / DATA_ROW_HEIGHT),
+  )
+  const startPage = dataPageStartForIndex(startIndex)
+  const endPage = dataPageStartForIndex(endIndex)
+  const pageStarts: number[] = []
+  for (let pageStart = startPage; pageStart <= endPage; pageStart += DATA_PAGE_SIZE) {
+    pageStarts.push(pageStart)
+  }
+  return pageStarts
+}
+
+async function loadDataForOffset(offset: number, force = false) {
+  await Promise.all(dataVisiblePageStarts(offset).map((pageStart) => loadDataPage(pageStart, force)))
+}
+
+async function refreshDataTab() {
+  resetDataState()
+  await loadDataForOffset(0, true)
+}
+
 function requestDelete(publicId: string) {
   deleteTargetPublicId.value = publicId
 }
@@ -353,6 +572,17 @@ function formatActionError(error: unknown) {
           @click="activeDatasetTab = 'sql'"
         >
           {{ t('datasets.sql') }}
+        </button>
+        <button
+          id="dataset-tab-data"
+          type="button"
+          role="tab"
+          :aria-selected="activeDatasetTab === 'data'"
+          aria-controls="dataset-panel-data"
+          :class="{ active: activeDatasetTab === 'data' }"
+          @click="activeDatasetTab = 'data'"
+        >
+          {{ t('datasets.data') }}
         </button>
         <button
           id="dataset-tab-schema"
@@ -483,6 +713,79 @@ function formatActionError(error: unknown) {
 
           <div v-else class="empty-state">
             <p>{{ t('datasets.noLinkedWorkTables') }}</p>
+          </div>
+        </section>
+      </div>
+
+      <div
+        v-else-if="activeDatasetTab === 'data'"
+        id="dataset-panel-data"
+        class="dataset-tab-panel"
+        role="tabpanel"
+        aria-labelledby="dataset-tab-data"
+      >
+        <section class="panel stack">
+          <div class="section-header">
+            <div>
+              <span class="status-pill">{{ t('datasets.data') }}</span>
+              <h2>{{ selectedDataset.name }}</h2>
+              <span class="cell-subtle monospace-cell">{{ selectedTableName }}</span>
+            </div>
+            <button class="secondary-button compact-button" :disabled="dataLoading" type="button" @click="refreshDataTab">
+              <RefreshCw :size="16" aria-hidden="true" />
+              {{ dataLoading ? t('datasets.loadingData') : t('common.refresh') }}
+            </button>
+          </div>
+
+          <p v-if="dataRequestErrorMessage" class="error-message">
+            {{ dataRequestErrorMessage }}
+          </p>
+
+          <div v-if="dataColumns.length > 0" class="dataset-data-scroll">
+            <div class="dataset-data-table" :style="{ width: dataGridWidthStyle }">
+              <div class="dataset-data-header" :style="dataGridStyle">
+                <span
+                  v-for="column in dataColumns"
+                  :key="column"
+                  :class="['dataset-data-header-cell', `dataset-data-cell--${dataColumnAlign(column)}`]"
+                  :title="column"
+                >
+                  {{ column }}
+                </span>
+              </div>
+              <VList
+                ref="dataListRef"
+                :data="dataListItems"
+                class="dataset-data-list"
+                :item-size="DATA_ROW_HEIGHT"
+                :buffer-size="DATA_BUFFER_SIZE"
+                @scroll="loadDataForOffset"
+              >
+                <template #default="{ index: rowIndex }">
+                  <div
+                    :class="['dataset-data-row', { 'dataset-data-row--alt': rowIndex % 2 === 1 }]"
+                    :style="dataGridStyle"
+                  >
+                    <span
+                      v-for="column in dataColumns"
+                      :key="column"
+                      :class="['dataset-data-cell', 'monospace-cell', `dataset-data-cell--${dataColumnAlign(column)}`]"
+                      :title="dataCellTitle(dataRowForIndex(rowIndex), column)"
+                    >
+                      {{ dataCellValue(dataRowForIndex(rowIndex), column) }}
+                    </span>
+                  </div>
+                </template>
+              </VList>
+            </div>
+          </div>
+
+          <div v-else-if="dataLoading" class="empty-state">
+            <p>{{ t('datasets.loadingData') }}</p>
+          </div>
+
+          <div v-else-if="!dataRequestErrorMessage" class="empty-state">
+            <p>{{ t('datasets.noDataRows') }}</p>
           </div>
         </section>
       </div>

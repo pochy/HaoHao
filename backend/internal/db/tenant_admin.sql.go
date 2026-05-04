@@ -12,6 +12,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countActiveTenantAdmins = `-- name: CountActiveTenantAdmins :one
+SELECT COUNT(DISTINCT tm.user_id)::bigint
+FROM tenant_memberships tm
+JOIN roles r ON r.id = tm.role_id
+WHERE tm.tenant_id = $1
+  AND r.code = 'tenant_admin'
+  AND tm.active = true
+`
+
+func (q *Queries) CountActiveTenantAdmins(ctx context.Context, tenantID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveTenantAdmins, tenantID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createTenantAdminTenant = `-- name: CreateTenantAdminTenant :one
 INSERT INTO tenants (
     slug,

@@ -11,6 +11,7 @@ const {
   formatDate,
   invitationEmail,
   invitationRoleCode,
+  provisionInvitationIdentity,
   revokeInvitation,
   tenantRoleOptions,
 } = useTenantAdminDetailContext()
@@ -67,15 +68,49 @@ const {
           <strong>{{ invitation.inviteeEmailNormalized }}</strong>
           <span class="cell-subtle">{{ invitation.roleCodes?.join(', ') }} / {{ invitation.status }}</span>
           <span class="cell-subtle">{{ t('tenantAdmin.labels.expiresAt', { date: formatDate(invitation.expiresAt) }) }}</span>
+          <span v-if="invitation.identitySetupInviteCode" class="cell-subtle">
+            {{ t('tenantAdmin.messages.identitySetupStepCode', { code: invitation.identitySetupInviteCode }) }}
+          </span>
+          <a
+            v-if="invitation.identitySetupLoginUrl"
+            class="cell-link"
+            :href="invitation.identitySetupLoginUrl"
+            target="_blank"
+            rel="noreferrer"
+          >
+            {{ t('tenantAdmin.messages.identitySetupStepLoginUrl', { url: invitation.identitySetupLoginUrl }) }}
+          </a>
+          <a
+            v-if="invitation.acceptUrl"
+            class="cell-link"
+            :href="invitation.acceptUrl"
+            target="_blank"
+            rel="noreferrer"
+          >
+            {{ t('tenantAdmin.messages.invitationAcceptStepUrl', { url: invitation.acceptUrl }) }}
+          </a>
+          <span v-if="invitation.identitySetupInviteCode" class="cell-subtle">
+            {{ t('tenantAdmin.messages.identitySetupInviteCodeNote') }}
+          </span>
         </div>
-        <button
-          class="secondary-button danger-button compact-button"
-          type="button"
-          :disabled="invitation.status !== 'pending' || commonStore.saving"
-          @click="revokeInvitation(invitation.publicId)"
-        >
-          {{ t('tenantAdmin.actions.revoke') }}
-        </button>
+        <div class="action-row">
+          <button
+            class="secondary-button compact-button"
+            type="button"
+            :disabled="invitation.status !== 'pending' || commonStore.saving"
+            @click="provisionInvitationIdentity(invitation.publicId)"
+          >
+            {{ t('tenantAdmin.actions.resendIdentitySetup') }}
+          </button>
+          <button
+            class="secondary-button danger-button compact-button"
+            type="button"
+            :disabled="invitation.status !== 'pending' || commonStore.saving"
+            @click="revokeInvitation(invitation.publicId)"
+          >
+            {{ t('tenantAdmin.actions.revoke') }}
+          </button>
+        </div>
       </article>
     </div>
 

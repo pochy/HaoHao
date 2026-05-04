@@ -36,6 +36,7 @@ const (
 	datasetColumnType        = "Nullable(String)"
 	datasetInsertBatchSize   = 50000
 	datasetPreviewRowLimit   = 1000
+	datasetRowsPageLimit     = 250
 
 	datasetWorkTableExportFormatCSV     = "csv"
 	datasetWorkTableExportFormatJSON    = "json"
@@ -216,6 +217,13 @@ type DatasetWorkTablePreview struct {
 	Table       string
 	Columns     []string
 	PreviewRows []map[string]any
+}
+
+type DatasetRowsPage struct {
+	Columns    []string
+	Rows       []map[string]any
+	NextCursor *int64
+	HasMore    bool
 }
 
 type DatasetWorkTableExport struct {
@@ -1242,6 +1250,52 @@ func (s *DatasetService) PreviewManagedWorkTable(ctx context.Context, tenantID i
 		return DatasetWorkTablePreview{}, ErrDatasetWorkTableNotFound
 	}
 	return s.PreviewWorkTable(ctx, tenantID, row.WorkDatabase, row.WorkTable, limit)
+}
+
+func (s *DatasetService) ListDatasetRows(ctx context.Context, tenantID int64, publicID string, cursor int64, limit int32) (DatasetRowsPage, error) {
+	if s == nil || s.clickhouse == nil {
+		return DatasetRowsPage{}, fmt.Errorf("dataset service is not configured")
+	}
+	row, err := s.Get(ctx, tenantID, publicID)
+	if err != nil {
+		return DatasetRowsPage{}, err
+	}
+	if err := s.ensureTenantSandbox(ctx, tenantID); err != nil {
+		return DatasetRowsPage{}, err
+	}
+	if limit <= 0 || limit > datasetRowsPageLimit {
+		limit = datasetRowsPageLimit
+	}
+	conn, err := s.openTenantConn(ctx, tenantID)
+	if err != nil {
+		return DatasetRowsPage{}, err
+	}
+	defer conn.Close()
+
+	queryLimit := int(limit) + 1
+	query := fmt.Sprintf(
+		"SELECT * FROM %s.%s WHERE __row_number > %d ORDER BY __row_number LIMIT %d",
+		quoteCHIdent(row.RawDatabase),
+		quoteCHIdent(row.RawTable),
+		cursor,
+		queryLimit,
+	)
+	rows, err := conn.Query(clickhouse.Context(ctx, clickhouse.WithSettings(s.querySettings())), query)
+	if err != nil {
+		return DatasetRowsPage{}, fmt.Errorf("list dataset rows: %w", err)
+	}
+	defer rows.Close()
+
+	columns, pageRows, nextCursor, hasMore, err := scanDatasetRowsPage(rows, int(limit))
+	if err != nil {
+		return DatasetRowsPage{}, fmt.Errorf("scan dataset rows: %w", err)
+	}
+	return DatasetRowsPage{
+		Columns:    columns,
+		Rows:       pageRows,
+		NextCursor: nextCursor,
+		HasMore:    hasMore,
+	}, nil
 }
 
 func (s *DatasetService) RenameWorkTable(ctx context.Context, tenantID int64, publicID, newTable string, auditCtx AuditContext) (DatasetWorkTable, error) {
@@ -3763,6 +3817,85 @@ func scanDatasetRows(rows driver.Rows, limit int) ([]string, []map[string]any, e
 		return columns, resultRows, err
 	}
 	return columns, resultRows, nil
+}
+
+func scanDatasetRowsPage(rows driver.Rows, limit int) ([]string, []map[string]any, *int64, bool, error) {
+	if limit <= 0 || limit > datasetRowsPageLimit {
+		limit = datasetRowsPageLimit
+	}
+	columns := rows.Columns()
+	columnTypes := rows.ColumnTypes()
+	if len(columns) == 0 {
+		return nil, nil, nil, false, nil
+	}
+	dataColumns := columns
+	if len(dataColumns) > 0 && dataColumns[0] == "__row_number" {
+		dataColumns = dataColumns[1:]
+	}
+	resultRows := make([]map[string]any, 0, limit)
+	var lastKeptCursor int64
+	var hasKeptCursor bool
+	var hasMore bool
+	count := 0
+	for rows.Next() {
+		holders, dest := datasetScanDestinations(columnTypes, len(columns))
+		if err := rows.Scan(dest...); err != nil {
+			return dataColumns, resultRows, nil, false, err
+		}
+		cursorValue, err := datasetRowNumberValue(holders[0])
+		if err != nil {
+			return dataColumns, resultRows, nil, false, err
+		}
+		row := make(map[string]any, len(dataColumns))
+		for i, column := range dataColumns {
+			row[column] = datasetJSONValue(datasetScannedValue(holders[i+1]))
+		}
+		count++
+		if count <= limit {
+			resultRows = append(resultRows, row)
+			lastKeptCursor = cursorValue
+			hasKeptCursor = true
+			continue
+		}
+		hasMore = true
+		break
+	}
+	if err := rows.Err(); err != nil {
+		return dataColumns, resultRows, nil, false, err
+	}
+	var nextCursor *int64
+	if hasMore && hasKeptCursor {
+		cursor := lastKeptCursor
+		nextCursor = &cursor
+	}
+	return dataColumns, resultRows, nextCursor, hasMore, nil
+}
+
+func datasetRowNumberValue(holder any) (int64, error) {
+	switch value := datasetScannedValue(holder).(type) {
+	case nil:
+		return 0, fmt.Errorf("missing dataset row cursor")
+	case int64:
+		return value, nil
+	case int32:
+		return int64(value), nil
+	case int:
+		return int64(value), nil
+	case uint64:
+		return uint64ToDatasetInt64(value), nil
+	case uint32:
+		return int64(value), nil
+	case uint:
+		return int64(value), nil
+	case string:
+		parsed, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("parse dataset row cursor: %w", err)
+		}
+		return parsed, nil
+	default:
+		return 0, fmt.Errorf("unsupported dataset row cursor type %T", value)
+	}
 }
 
 func datasetScannedValue(holder any) any {

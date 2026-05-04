@@ -47,6 +47,36 @@ func (q *Queries) AddDatasetPermissionGroupMember(ctx context.Context, arg AddDa
 	return i, err
 }
 
+const addTenantAdminsToDatasetManagersGroup = `-- name: AddTenantAdminsToDatasetManagersGroup :exec
+INSERT INTO dataset_permission_group_members (
+    group_id,
+    user_id,
+    added_by_user_id
+)
+SELECT
+    $1,
+    tm.user_id,
+    $2
+FROM tenant_memberships tm
+JOIN roles r ON r.id = tm.role_id
+WHERE tm.tenant_id = $3
+  AND tm.active = true
+  AND r.code = 'tenant_admin'
+ON CONFLICT (group_id, user_id) WHERE deleted_at IS NULL DO UPDATE
+SET deleted_at = NULL
+`
+
+type AddTenantAdminsToDatasetManagersGroupParams struct {
+	GroupID       int64       `json:"group_id"`
+	AddedByUserID pgtype.Int8 `json:"added_by_user_id"`
+	TenantID      int64       `json:"tenant_id"`
+}
+
+func (q *Queries) AddTenantAdminsToDatasetManagersGroup(ctx context.Context, arg AddTenantAdminsToDatasetManagersGroupParams) error {
+	_, err := q.db.Exec(ctx, addTenantAdminsToDatasetManagersGroup, arg.GroupID, arg.AddedByUserID, arg.TenantID)
+	return err
+}
+
 const createDatasetPermissionGrant = `-- name: CreateDatasetPermissionGrant :one
 INSERT INTO dataset_permission_grants (
     tenant_id,

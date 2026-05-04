@@ -40,6 +40,10 @@ type Config struct {
 	ZitadelRedirectURI                   string
 	ZitadelPostLogoutRedirectURI         string
 	ZitadelScopes                        string
+	ZitadelManagementAPIToken            string
+	ZitadelOrganizationID                string
+	ZitadelUserDefaultLanguage           string
+	ZitadelInviteDeliveryMode            string
 	ExternalExpectedAudience             string
 	ExternalRequiredScopePrefix          string
 	ExternalRequiredRole                 string
@@ -324,6 +328,10 @@ func Load() (Config, error) {
 		ZitadelRedirectURI:                   getEnv("ZITADEL_REDIRECT_URI", "http://127.0.0.1:8080/api/v1/auth/callback"),
 		ZitadelPostLogoutRedirectURI:         zitadelPostLogoutRedirectURI,
 		ZitadelScopes:                        getEnv("ZITADEL_SCOPES", "openid profile email"),
+		ZitadelManagementAPIToken:            strings.TrimSpace(getEnv("ZITADEL_MANAGEMENT_API_TOKEN", "")),
+		ZitadelOrganizationID:                strings.TrimSpace(getEnv("ZITADEL_ORGANIZATION_ID", "")),
+		ZitadelUserDefaultLanguage:           strings.TrimSpace(getEnv("ZITADEL_USER_DEFAULT_LANGUAGE", "ja")),
+		ZitadelInviteDeliveryMode:            strings.ToLower(strings.TrimSpace(getEnv("ZITADEL_INVITE_DELIVERY_MODE", "email"))),
 		ExternalExpectedAudience:             getEnv("EXTERNAL_EXPECTED_AUDIENCE", "haohao-external"),
 		ExternalRequiredScopePrefix:          getEnv("EXTERNAL_REQUIRED_SCOPE_PREFIX", ""),
 		ExternalRequiredRole:                 getEnv("EXTERNAL_REQUIRED_ROLE", "external_api_user"),
