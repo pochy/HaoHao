@@ -1711,6 +1711,33 @@ code {
   background: #fff;
 }
 
+.dataset-data-header-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dataset-data-row-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.dataset-data-row-count strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
 .dataset-data-table {
   display: flex;
   flex-direction: column;

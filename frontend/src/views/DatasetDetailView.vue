@@ -731,10 +731,16 @@ function formatActionError(error: unknown) {
               <h2>{{ selectedDataset.name }}</h2>
               <span class="cell-subtle monospace-cell">{{ selectedTableName }}</span>
             </div>
-            <button class="secondary-button compact-button" :disabled="dataLoading" type="button" @click="refreshDataTab">
-              <RefreshCw :size="16" aria-hidden="true" />
-              {{ dataLoading ? t('datasets.loadingData') : t('common.refresh') }}
-            </button>
+            <div class="dataset-data-header-actions">
+              <span class="dataset-data-row-count">
+                <span>{{ t('datasets.rows') }}</span>
+                <strong class="tabular-cell">{{ n(dataRowCount) }}</strong>
+              </span>
+              <button class="secondary-button compact-button" :disabled="dataLoading" type="button" @click="refreshDataTab">
+                <RefreshCw :size="16" aria-hidden="true" />
+                {{ dataLoading ? t('datasets.loadingData') : t('common.refresh') }}
+              </button>
+            </div>
           </div>
 
           <p v-if="dataRequestErrorMessage" class="error-message">
