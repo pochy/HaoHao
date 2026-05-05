@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { VueFlow, useVueFlow, type Connection } from '@vue-flow/core'
 import { ControlButton, Controls } from '@vue-flow/controls'
-import type { ELK, ElkExtendedEdge, ElkNode } from 'elkjs/lib/elk.bundled'
+import type { ELK, ElkExtendedEdge, ElkNode } from 'elkjs/lib/elk-api'
 import { AlignHorizontalSpaceBetween, ArrowDownToLine, GitBranch, Plus, Search, SlidersHorizontal, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -345,7 +345,10 @@ async function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataP
 }
 
 function getElk() {
-  elkPromise ??= import('elkjs/lib/elk.bundled').then(({ default: Elk }) => new Elk())
+  elkPromise ??= Promise.all([
+    import('elkjs/lib/elk-api'),
+    import('elkjs/lib/elk-worker.min.js?worker'),
+  ]).then(([{ default: Elk }, { default: ElkWorker }]) => new Elk({ workerFactory: () => new ElkWorker() }))
   return elkPromise
 }
 
