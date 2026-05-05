@@ -1,0 +1,4 @@
+interface:
+  display_name: "HaoHao DB Dev"
+  short_description: "Inspect HaoHao Postgres with make sql"
+  default_prompt: "Use $haohao-db-dev to inspect the local HaoHao database with make sql and summarize useful findings."
