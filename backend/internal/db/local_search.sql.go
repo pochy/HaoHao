@@ -463,7 +463,7 @@ func (q *Queries) ListLocalSearchMatchesForFile(ctx context.Context, arg ListLoc
 }
 
 const listLocalSearchRebuildDriveFiles = `-- name: ListLocalSearchRebuildDriveFiles :many
-SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
+SELECT id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description, metadata
 FROM file_objects
 WHERE tenant_id = $1
   AND purpose = 'drive'
@@ -538,6 +538,7 @@ func (q *Queries) ListLocalSearchRebuildDriveFiles(ctx context.Context, arg List
 			&i.E2eeFileKeyPublicID,
 			&i.StorageGatewayID,
 			&i.Description,
+			&i.Metadata,
 		); err != nil {
 			return nil, err
 		}
@@ -811,7 +812,7 @@ WITH candidate_files AS (
       )
     GROUP BY d.file_object_id
 )
-SELECT f.id, f.public_id, f.tenant_id, f.uploaded_by_user_id, f.purpose, f.attached_to_type, f.attached_to_id, f.original_filename, f.content_type, f.byte_size, f.sha256_hex, f.storage_driver, f.storage_key, f.status, f.created_at, f.updated_at, f.deleted_at, f.purged_at, f.purge_attempts, f.purge_locked_at, f.purge_locked_by, f.last_purge_error, f.drive_folder_id, f.locked_at, f.locked_by_user_id, f.lock_reason, f.inheritance_enabled, f.deleted_by_user_id, f.deleted_parent_folder_id, f.retention_until, f.legal_hold_at, f.legal_hold_by_user_id, f.legal_hold_reason, f.purge_block_reason, f.workspace_id, f.storage_bucket, f.storage_version, f.content_sha256, f.etag, f.scan_status, f.scan_reason, f.scan_engine, f.scanned_at, f.dlp_blocked, f.upload_state, f.office_mime_family, f.office_coauthoring_enabled, f.office_last_revision, f.encryption_mode, f.e2ee_file_key_public_id, f.storage_gateway_id, f.description
+SELECT f.id, f.public_id, f.tenant_id, f.uploaded_by_user_id, f.purpose, f.attached_to_type, f.attached_to_id, f.original_filename, f.content_type, f.byte_size, f.sha256_hex, f.storage_driver, f.storage_key, f.status, f.created_at, f.updated_at, f.deleted_at, f.purged_at, f.purge_attempts, f.purge_locked_at, f.purge_locked_by, f.last_purge_error, f.drive_folder_id, f.locked_at, f.locked_by_user_id, f.lock_reason, f.inheritance_enabled, f.deleted_by_user_id, f.deleted_parent_folder_id, f.retention_until, f.legal_hold_at, f.legal_hold_by_user_id, f.legal_hold_reason, f.purge_block_reason, f.workspace_id, f.storage_bucket, f.storage_version, f.content_sha256, f.etag, f.scan_status, f.scan_reason, f.scan_engine, f.scanned_at, f.dlp_blocked, f.upload_state, f.office_mime_family, f.office_coauthoring_enabled, f.office_last_revision, f.encryption_mode, f.e2ee_file_key_public_id, f.storage_gateway_id, f.description, f.metadata
 FROM candidate_files c
 JOIN file_objects f ON f.id = c.file_object_id
 ORDER BY c.rank DESC, c.latest_indexed_at DESC, f.updated_at DESC, f.id DESC
@@ -896,6 +897,7 @@ func (q *Queries) SearchLocalSearchDriveFileCandidates(ctx context.Context, arg 
 			&i.E2eeFileKeyPublicID,
 			&i.StorageGatewayID,
 			&i.Description,
+			&i.Metadata,
 		); err != nil {
 			return nil, err
 		}

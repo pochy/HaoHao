@@ -3500,6 +3500,7 @@ CREATE TABLE public.file_objects (
     e2ee_file_key_public_id uuid,
     storage_gateway_id bigint,
     description text DEFAULT ''::text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
     CONSTRAINT file_objects_byte_size_check CHECK ((byte_size >= 0)),
     CONSTRAINT file_objects_encryption_mode_check CHECK ((encryption_mode = ANY (ARRAY['server_managed'::text, 'tenant_managed'::text, 'hsm_managed'::text, 'zero_knowledge'::text]))),
     CONSTRAINT file_objects_purge_attempts_check CHECK ((purge_attempts >= 0)),

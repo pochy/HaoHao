@@ -121,6 +121,36 @@ export type DriveDownloadedFile = {
   filename: string
 }
 
+export type DriveDocumentSheetManifest = {
+  name: string
+  index: number
+  visible: boolean
+  usedRange?: string
+  rowCountHint?: number
+  columnCountHint?: number
+  headerPreview?: string[]
+}
+
+export type DriveDocumentManifestBody = {
+  file: {
+    publicId: string
+    originalFilename: string
+    contentType: string
+    byteSize: number
+    sha256Hex: string
+  }
+  documentType: 'excel' | 'pdf' | 'unsupported' | string
+  manifest: {
+    sheets?: DriveDocumentSheetManifest[]
+    pageCount?: number
+    pages?: Array<Record<string, unknown>>
+  } & Record<string, unknown>
+  generatedAt: string
+  parserVersion: string
+  stale: boolean
+  reason?: string
+}
+
 function csrfHeaders() {
   return {
     'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
@@ -194,6 +224,22 @@ export async function fetchDriveFolder(folderPublicId: string): Promise<DriveFol
   return getDriveFolder({
     path: { folderPublicId },
   }) as unknown as Promise<DriveFolderBody>
+}
+
+export async function fetchDriveFileManifest(filePublicId: string): Promise<DriveDocumentManifestBody> {
+  const response = await driveFetch(`/api/v1/drive/files/${encodePath(filePublicId)}/manifest`)
+  return await response.json() as DriveDocumentManifestBody
+}
+
+export async function refreshDriveFileManifest(filePublicId: string): Promise<DriveDocumentManifestBody> {
+  const response = await driveFetch(`/api/v1/drive/files/${encodePath(filePublicId)}/manifest/refresh`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  })
+  return await response.json() as DriveDocumentManifestBody
 }
 
 export async function fetchDriveWorkspaces(): Promise<DriveWorkspaceBody[]> {

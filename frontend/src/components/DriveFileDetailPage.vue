@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   Download,
   Edit3,
@@ -7,6 +7,7 @@ import {
   FileText,
   Info,
   Lock,
+  RefreshCw,
   Share2,
   ShieldCheck,
   Tags,
@@ -14,6 +15,8 @@ import {
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
+import { refreshDriveFileManifest } from '../api/drive'
+import { toApiErrorMessage } from '../api/client'
 import type {
   DriveActivityBody,
   DriveFileBody,
@@ -73,6 +76,9 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const activeTab = ref<'details' | 'activity' | 'permissions' | 'ocr'>('details')
+const manifestRefreshing = ref(false)
+const manifestMessage = ref('')
+const manifestError = ref('')
 
 const file = computed(() => props.selectedItem?.file ?? null)
 const title = computed(() => (props.selectedItem ? driveItemName(props.selectedItem) : t('routes.driveFile')))
@@ -165,6 +171,28 @@ const productFacts = computed(() => {
   ].filter((entry) => entry.value)
 })
 
+watch(() => file.value?.publicId ?? '', () => {
+  manifestMessage.value = ''
+  manifestError.value = ''
+})
+
+async function refreshManifest() {
+  if (!file.value || manifestRefreshing.value) {
+    return
+  }
+  manifestRefreshing.value = true
+  manifestMessage.value = ''
+  manifestError.value = ''
+  try {
+    const manifest = await refreshDriveFileManifest(file.value.publicId)
+    manifestMessage.value = t('drive.manifestRefreshSuccess', { type: manifest.documentType })
+  } catch (error) {
+    manifestError.value = toApiErrorMessage(error)
+  } finally {
+    manifestRefreshing.value = false
+  }
+}
+
 </script>
 
 <template>
@@ -211,6 +239,10 @@ const productFacts = computed(() => {
           <button class="secondary-button compact-button" type="button" :disabled="file.locked" @click="emit('editMetadataItem', selectedItem)">
             <Tags :size="16" stroke-width="1.9" aria-hidden="true" />
             {{ t('drive.metadata') }}
+          </button>
+          <button class="secondary-button compact-button" type="button" :disabled="manifestRefreshing" @click="refreshManifest">
+            <RefreshCw :size="16" stroke-width="1.9" aria-hidden="true" />
+            {{ manifestRefreshing ? t('drive.manifestRefreshing') : t('drive.refreshManifest') }}
           </button>
           <button class="secondary-button compact-button" type="button" :disabled="file.locked" @click="emit('overwriteFile', file)">
             <Upload :size="16" stroke-width="1.9" aria-hidden="true" />
@@ -277,6 +309,9 @@ const productFacts = computed(() => {
               <dd>{{ selectedItem.source }}</dd>
             </div>
           </dl>
+
+          <p v-if="manifestMessage" class="drive-file-detail-notice success">{{ manifestMessage }}</p>
+          <p v-if="manifestError" class="drive-file-detail-notice error">{{ manifestError }}</p>
 
           <div class="drive-file-detail-primary-metric">
             <span>{{ t('drive.sort.size') }}</span>

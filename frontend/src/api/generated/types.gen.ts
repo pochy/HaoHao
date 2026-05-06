@@ -1258,6 +1258,19 @@ export type DatasetQueryListBody = {
     items: Array<DatasetQueryJobBody> | null;
 };
 
+export type DatasetRowsPageBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    columns: Array<string> | null;
+    hasMore: boolean;
+    nextCursor?: number;
+    rows: Array<{
+        [key: string]: unknown;
+    }> | null;
+};
+
 export type DatasetSourceFileBody = {
     byteSize: number;
     contentType: string;
@@ -1838,6 +1851,33 @@ export type DriveDeviceRevokeInputBody = {
     reason?: string;
 };
 
+export type DriveDocumentManifest = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    documentType: string;
+    file: DriveDocumentManifestFile;
+    generatedAt: string;
+    manifest: {
+        [key: string]: unknown;
+    };
+    parserVersion: string;
+    reason?: string;
+    stale: boolean;
+};
+
+export type DriveDocumentManifestFile = {
+    byteSize: number;
+    contentType: string;
+    originalFilename: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    sha256Hex: string;
+};
+
 export type DriveE2EeEnvelopeBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -2068,6 +2108,9 @@ export type DriveFileBody = {
      * RFC3339 UTC の timestamp です。
      */
     lockedAt?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
     originalFilename: string;
     /**
      * client や URL path で参照する public UUID です。
@@ -5323,6 +5366,15 @@ export type DatasetQueryListBodyWritable = {
     items: Array<DatasetQueryJobBodyWritable> | null;
 };
 
+export type DatasetRowsPageBodyWritable = {
+    columns: Array<string> | null;
+    hasMore: boolean;
+    nextCursor?: number;
+    rows: Array<{
+        [key: string]: unknown;
+    }> | null;
+};
+
 export type DatasetSourceFileListBodyWritable = {
     items: Array<DatasetSourceFileBody> | null;
 };
@@ -5703,6 +5755,18 @@ export type DriveDeviceRevokeInputBodyWritable = {
     reason?: string;
 };
 
+export type DriveDocumentManifestWritable = {
+    documentType: string;
+    file: DriveDocumentManifestFile;
+    generatedAt: string;
+    manifest: {
+        [key: string]: unknown;
+    };
+    parserVersion: string;
+    reason?: string;
+    stale: boolean;
+};
+
 export type DriveE2EeEnvelopeBodyWritable = {
     /**
      * RFC3339 UTC の timestamp です。
@@ -5877,6 +5941,9 @@ export type DriveFileBodyWritable = {
      * RFC3339 UTC の timestamp です。
      */
     lockedAt?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
     originalFilename: string;
     /**
      * client や URL path で参照する public UUID です。
@@ -12844,6 +12911,45 @@ export type CreateDatasetScopedQueryJobResponses = {
 
 export type CreateDatasetScopedQueryJobResponse = CreateDatasetScopedQueryJobResponses[keyof CreateDatasetScopedQueryJobResponses];
 
+export type ListDatasetRowsData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `datasetPublicId` を指定します。
+         */
+        datasetPublicId: string;
+    };
+    query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `cursor` です。
+         */
+        cursor?: number;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/datasets/{datasetPublicId}/rows';
+};
+
+export type ListDatasetRowsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDatasetRowsError = ListDatasetRowsErrors[keyof ListDatasetRowsErrors];
+
+export type ListDatasetRowsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetRowsPageBody;
+};
+
+export type ListDatasetRowsResponse = ListDatasetRowsResponses[keyof ListDatasetRowsResponses];
+
 export type ListDatasetSyncJobsData = {
     body?: never;
     path: {
@@ -13826,6 +13932,72 @@ export type CreateDriveFileShareInvitationResponses = {
 };
 
 export type CreateDriveFileShareInvitationResponse = CreateDriveFileShareInvitationResponses[keyof CreateDriveFileShareInvitationResponses];
+
+export type GetDriveFileManifestData = {
+    body?: never;
+    path: {
+        /**
+         * Drive file の public UUID です。
+         */
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/manifest';
+};
+
+export type GetDriveFileManifestErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetDriveFileManifestError = GetDriveFileManifestErrors[keyof GetDriveFileManifestErrors];
+
+export type GetDriveFileManifestResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DriveDocumentManifest;
+};
+
+export type GetDriveFileManifestResponse = GetDriveFileManifestResponses[keyof GetDriveFileManifestResponses];
+
+export type RefreshDriveFileManifestData = {
+    body?: never;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * Drive file の public UUID です。
+         */
+        filePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/drive/files/{filePublicId}/manifest/refresh';
+};
+
+export type RefreshDriveFileManifestErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type RefreshDriveFileManifestError = RefreshDriveFileManifestErrors[keyof RefreshDriveFileManifestErrors];
+
+export type RefreshDriveFileManifestResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DriveDocumentManifest;
+};
+
+export type RefreshDriveFileManifestResponse = RefreshDriveFileManifestResponses[keyof RefreshDriveFileManifestResponses];
 
 export type GetDriveOcrData = {
     body?: never;

@@ -2826,6 +2826,27 @@ code {
   color: var(--muted);
 }
 
+.data-pipeline-manifest-section,
+.data-pipeline-sheet-hint {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.data-pipeline-manifest-section {
+  grid-column: 1 / -1;
+}
+
+.data-pipeline-sheet-hint {
+  grid-column: 1 / -1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .drive-file-picker-dialog {
   width: min(1120px, calc(100vw - 32px));
 }
@@ -5092,6 +5113,27 @@ code {
 .drive-file-detail-primary-metric small {
   color: var(--muted);
   font-weight: 700;
+}
+
+.drive-file-detail-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  color: var(--muted);
+}
+
+.drive-file-detail-notice.success {
+  border-color: rgba(22, 163, 74, 0.3);
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.drive-file-detail-notice.error {
+  border-color: rgba(220, 38, 38, 0.28);
+  background: #fef2f2;
+  color: var(--danger);
 }
 
 .drive-file-detail-section h2,

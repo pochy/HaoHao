@@ -1557,6 +1557,7 @@ type FileObject struct {
 	E2eeFileKeyPublicID      pgtype.UUID        `json:"e2ee_file_key_public_id"`
 	StorageGatewayID         pgtype.Int8        `json:"storage_gateway_id"`
 	Description              string             `json:"description"`
+	Metadata                 []byte             `json:"metadata"`
 }
 
 type IdempotencyKey struct {

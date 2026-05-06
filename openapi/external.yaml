@@ -122,6 +122,11 @@ components:
             - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
         originalFilename:
           examples:
             - spec.md
@@ -915,6 +920,7 @@ paths:
                     lockReason: example
                     locked: true
                     lockedAt: "2026-01-15T09:30:00Z"
+                    metadata: {}
                     originalFilename: spec.md
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     scanStatus: active

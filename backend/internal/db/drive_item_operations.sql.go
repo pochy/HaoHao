@@ -93,7 +93,7 @@ WHERE source.id = $12
   AND source.tenant_id = $13
   AND source.purpose = 'drive'
   AND source.deleted_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description, metadata
 `
 
 type CopyDriveFileObjectParams struct {
@@ -182,6 +182,7 @@ func (q *Queries) CopyDriveFileObject(ctx context.Context, arg CopyDriveFileObje
 		&i.E2eeFileKeyPublicID,
 		&i.StorageGatewayID,
 		&i.Description,
+		&i.Metadata,
 	)
 	return i, err
 }
@@ -798,7 +799,7 @@ WHERE id = $1
   AND legal_hold_at IS NULL
   AND purge_block_reason IS NULL
   AND (retention_until IS NULL OR retention_until <= now())
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description, metadata
 `
 
 type MarkDriveFilePermanentlyDeletedParams struct {
@@ -862,6 +863,7 @@ func (q *Queries) MarkDriveFilePermanentlyDeleted(ctx context.Context, arg MarkD
 		&i.E2eeFileKeyPublicID,
 		&i.StorageGatewayID,
 		&i.Description,
+		&i.Metadata,
 	)
 	return i, err
 }
@@ -976,7 +978,7 @@ WHERE id = $2
   AND tenant_id = $3
   AND purpose = 'drive'
   AND deleted_at IS NULL
-RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description
+RETURNING id, public_id, tenant_id, uploaded_by_user_id, purpose, attached_to_type, attached_to_id, original_filename, content_type, byte_size, sha256_hex, storage_driver, storage_key, status, created_at, updated_at, deleted_at, purged_at, purge_attempts, purge_locked_at, purge_locked_by, last_purge_error, drive_folder_id, locked_at, locked_by_user_id, lock_reason, inheritance_enabled, deleted_by_user_id, deleted_parent_folder_id, retention_until, legal_hold_at, legal_hold_by_user_id, legal_hold_reason, purge_block_reason, workspace_id, storage_bucket, storage_version, content_sha256, etag, scan_status, scan_reason, scan_engine, scanned_at, dlp_blocked, upload_state, office_mime_family, office_coauthoring_enabled, office_last_revision, encryption_mode, e2ee_file_key_public_id, storage_gateway_id, description, metadata
 `
 
 type UpdateDriveFileOwnerParams struct {
@@ -1041,6 +1043,7 @@ func (q *Queries) UpdateDriveFileOwner(ctx context.Context, arg UpdateDriveFileO
 		&i.E2eeFileKeyPublicID,
 		&i.StorageGatewayID,
 		&i.Description,
+		&i.Metadata,
 	)
 	return i, err
 }

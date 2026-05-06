@@ -88,6 +88,7 @@ type DriveFile struct {
 	InheritanceEnabled bool
 	LockedAt           *time.Time
 	LockReason         string
+	Metadata           map[string]any
 	DeletedAt          *time.Time
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
@@ -599,6 +600,10 @@ func driveFolderFromDB(row db.DriveFolder) DriveFolder {
 }
 
 func driveFileFromDB(row db.FileObject) DriveFile {
+	metadata := map[string]any{}
+	if len(row.Metadata) > 0 {
+		_ = json.Unmarshal(row.Metadata, &metadata)
+	}
 	return DriveFile{
 		ID:                 row.ID,
 		PublicID:           row.PublicID.String(),
@@ -624,6 +629,7 @@ func driveFileFromDB(row db.FileObject) DriveFile {
 		InheritanceEnabled: row.InheritanceEnabled,
 		LockedAt:           optionalPgTime(row.LockedAt),
 		LockReason:         optionalText(row.LockReason),
+		Metadata:           metadata,
 		DeletedAt:          optionalPgTime(row.DeletedAt),
 		CreatedAt:          row.CreatedAt.Time,
 		UpdatedAt:          row.UpdatedAt.Time,

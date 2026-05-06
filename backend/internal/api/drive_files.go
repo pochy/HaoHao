@@ -22,8 +22,23 @@ type DriveFileOutput struct {
 	Body DriveFileBody
 }
 
+type DriveDocumentManifestOutput struct {
+	Body service.DriveDocumentManifest
+}
+
 type GetDriveFileInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	FilePublicID  string      `path:"filePublicId"`
+}
+
+type GetDriveDocumentManifestInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	FilePublicID  string      `path:"filePublicId"`
+}
+
+type RefreshDriveDocumentManifestInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
 	FilePublicID  string      `path:"filePublicId"`
 }
 
@@ -72,6 +87,44 @@ func registerDriveFileRoutes(api huma.API, deps Dependencies) {
 			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
 		}
 		return &DriveFileOutput{Body: toDriveFileBody(file)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getDriveFileManifest",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/drive/files/{filePublicId}/manifest",
+		Summary:     "Drive file document manifest を返す",
+		Tags:        []string{DocTagDriveFilesFolders},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *GetDriveDocumentManifestInput) (*DriveDocumentManifestOutput, error) {
+		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		manifest, err := deps.DriveService.GetDocumentManifest(ctx, tenant.ID, current.User.ID, input.FilePublicID, false, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
+		}
+		return &DriveDocumentManifestOutput{Body: manifest}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "refreshDriveFileManifest",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/drive/files/{filePublicId}/manifest/refresh",
+		Summary:     "Drive file document manifest を再解析する",
+		Tags:        []string{DocTagDriveFilesFolders},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *RefreshDriveDocumentManifestInput) (*DriveDocumentManifestOutput, error) {
+		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		manifest, err := deps.DriveService.GetDocumentManifest(ctx, tenant.ID, current.User.ID, input.FilePublicID, true, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
+		}
+		return &DriveDocumentManifestOutput{Body: manifest}, nil
 	})
 
 	huma.Register(api, huma.Operation{

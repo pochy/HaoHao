@@ -3177,6 +3177,47 @@ components:
       required:
         - items
       type: object
+    DatasetRowsPageBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetRowsPageBody.json
+          format: uri
+          readOnly: true
+          type: string
+        columns:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        hasMore:
+          examples:
+            - true
+          type: boolean
+        nextCursor:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        rows:
+          examples:
+            - - {}
+          items:
+            additionalProperties: {}
+            type: object
+          type:
+            - array
+            - "null"
+      required:
+        - columns
+        - rows
+        - hasMore
+      type: object
     DatasetSourceFileBody:
       additionalProperties: false
       properties:
@@ -4594,6 +4635,86 @@ components:
             - example
           type: string
       type: object
+    DriveDocumentManifest:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveDocumentManifest.json
+          format: uri
+          readOnly: true
+          type: string
+        documentType:
+          examples:
+            - example
+          type: string
+        file:
+          $ref: "#/components/schemas/DriveDocumentManifestFile"
+          examples:
+            - example
+        generatedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        manifest:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
+        parserVersion:
+          examples:
+            - example
+          type: string
+        reason:
+          examples:
+            - example
+          type: string
+        stale:
+          examples:
+            - true
+          type: boolean
+      required:
+        - file
+        - documentType
+        - manifest
+        - generatedAt
+        - parserVersion
+        - stale
+      type: object
+    DriveDocumentManifestFile:
+      additionalProperties: false
+      properties:
+        byteSize:
+          examples:
+            - 1048576
+          format: int64
+          type: integer
+        contentType:
+          examples:
+            - text/markdown
+          type: string
+        originalFilename:
+          examples:
+            - roadmap.md
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        sha256Hex:
+          examples:
+            - 3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7
+          type: string
+      required:
+        - publicId
+        - originalFilename
+        - contentType
+        - byteSize
+        - sha256Hex
+      type: object
     DriveE2EEEnvelopeBody:
       additionalProperties: false
       properties:
@@ -5101,6 +5222,11 @@ components:
             - "2026-01-15T09:30:00Z"
           format: date-time
           type: string
+        metadata:
+          additionalProperties: {}
+          examples:
+            - {}
+          type: object
         originalFilename:
           examples:
             - spec.md
@@ -11450,6 +11576,7 @@ paths:
                     lockReason: example
                     locked: true
                     lockedAt: "2026-01-15T09:30:00Z"
+                    metadata: {}
                     originalFilename: spec.md
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     scanStatus: active
@@ -11989,6 +12116,7 @@ paths:
                       lockReason: example
                       locked: true
                       lockedAt: "2026-01-15T09:30:00Z"
+                      metadata: {}
                       originalFilename: spec.md
                       publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       scanStatus: active
@@ -14671,6 +14799,7 @@ paths:
                     lockReason: example
                     locked: true
                     lockedAt: "2026-01-15T09:30:00Z"
+                    metadata: {}
                     originalFilename: spec.md
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     scanStatus: active
@@ -25299,6 +25428,95 @@ paths:
       summary: active tenant の dataset に紐づく SQL query job を作成する
       tags:
         - Data & Datasets
+  /api/v1/datasets/{datasetPublicId}/rows:
+    get:
+      description: |-
+        active tenant の dataset rows を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listDatasetRows
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `datasetPublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: datasetPublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `cursor` です。
+          example: 1
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            default: 0
+            format: int64
+            minimum: 0
+            type: integer
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 250
+            format: int32
+            maximum: 1000
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    columns:
+                      - example
+                    hasMore: true
+                    nextCursor: 1
+                    rows:
+                      - {}
+              schema:
+                $ref: "#/components/schemas/DatasetRowsPageBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: active tenant の dataset rows を返す
+      tags:
+        - Data & Datasets
   /api/v1/datasets/{datasetPublicId}/syncs:
     get:
       description: |-
@@ -26140,6 +26358,7 @@ paths:
                     lockReason: example
                     locked: true
                     lockedAt: "2026-01-15T09:30:00Z"
+                    metadata: {}
                     originalFilename: spec.md
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     scanStatus: active
@@ -26243,6 +26462,7 @@ paths:
                     lockReason: example
                     locked: true
                     lockedAt: "2026-01-15T09:30:00Z"
+                    metadata: {}
                     originalFilename: spec.md
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     scanStatus: active
@@ -26644,6 +26864,7 @@ paths:
                       lockReason: example
                       locked: true
                       lockedAt: "2026-01-15T09:30:00Z"
+                      metadata: {}
                       originalFilename: spec.md
                       publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       scanStatus: active
@@ -27241,6 +27462,7 @@ paths:
                       lockReason: example
                       locked: true
                       lockedAt: "2026-01-15T09:30:00Z"
+                      metadata: {}
                       originalFilename: spec.md
                       publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       scanStatus: active
@@ -27530,6 +27752,160 @@ paths:
       summary: Drive file external share invitation を作成する
       tags:
         - Drive Sharing & Permissions
+  /api/v1/drive/files/{filePublicId}/manifest:
+    get:
+      description: |-
+        Drive file document manifest を返す。
+
+        Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getDriveFileManifest
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Drive file の public UUID です。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    documentType: example
+                    file:
+                      byteSize: 1048576
+                      contentType: text/markdown
+                      originalFilename: roadmap.md
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      sha256Hex: 3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7
+                    generatedAt: "2026-01-15T09:30:00Z"
+                    manifest: {}
+                    parserVersion: example
+                    reason: example
+                    stale: true
+              schema:
+                $ref: "#/components/schemas/DriveDocumentManifest"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Drive file document manifest を返す
+      tags:
+        - Drive Files & Folders
+  /api/v1/drive/files/{filePublicId}/manifest/refresh:
+    post:
+      description: |-
+        Drive file document manifest を再解析する。
+
+        Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: refreshDriveFileManifest
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: Drive file の public UUID です。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: filePublicId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/DriveDocumentManifest.json
+                    documentType: example
+                    file:
+                      byteSize: 1048576
+                      contentType: text/markdown
+                      originalFilename: roadmap.md
+                      publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      sha256Hex: 3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7
+                    generatedAt: "2026-01-15T09:30:00Z"
+                    manifest: {}
+                    parserVersion: example
+                    reason: example
+                    stale: true
+              schema:
+                $ref: "#/components/schemas/DriveDocumentManifest"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Drive file document manifest を再解析する
+      tags:
+        - Drive Files & Folders
   /api/v1/drive/files/{filePublicId}/ocr:
     get:
       description: |-
@@ -27846,6 +28222,7 @@ paths:
                       lockReason: example
                       locked: true
                       lockedAt: "2026-01-15T09:30:00Z"
+                      metadata: {}
                       originalFilename: spec.md
                       publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       scanStatus: active
@@ -28265,6 +28642,7 @@ paths:
                     lockReason: example
                     locked: true
                     lockedAt: "2026-01-15T09:30:00Z"
+                    metadata: {}
                     originalFilename: spec.md
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     scanStatus: active
@@ -29382,6 +29760,7 @@ paths:
                       lockReason: example
                       locked: true
                       lockedAt: "2026-01-15T09:30:00Z"
+                      metadata: {}
                       originalFilename: spec.md
                       publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       scanStatus: active
@@ -29675,6 +30054,7 @@ paths:
                       lockReason: example
                       locked: true
                       lockedAt: "2026-01-15T09:30:00Z"
+                      metadata: {}
                       originalFilename: spec.md
                       publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       scanStatus: active

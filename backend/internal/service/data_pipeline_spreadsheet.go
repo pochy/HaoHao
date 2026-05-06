@@ -22,9 +22,10 @@ const (
 )
 
 type dataPipelineSpreadsheetRows struct {
-	SheetName string
-	Header    []string
-	Rows      [][]string
+	SheetName  string
+	SheetIndex int
+	Header     []string
+	Rows       [][]string
 }
 
 func dataPipelineDriveInputMode(config map[string]any) string {
@@ -53,14 +54,21 @@ func (s *DataPipelineService) materializeDriveSpreadsheetInput(ctx context.Conte
 	}
 
 	sheetName := dataPipelineString(node.Data.Config, "sheetName")
+	sheetIndex := int(dataPipelineFloat(node.Data.Config, "sheetIndex", -1))
+	cellRange := dataPipelineString(node.Data.Config, "range")
 	headerRow := int(dataPipelineFloat(node.Data.Config, "headerRow", 1))
 	configColumns := dataPipelineStringSlice(node.Data.Config, "columns")
+	includeSourceMetadataColumns := dataPipelineBool(node.Data.Config, "includeSourceMetadataColumns", true)
 	maxRows := int(dataPipelineFloat(node.Data.Config, "maxRows", dataPipelineSpreadsheetMaxRows))
 	if maxRows <= 0 || maxRows > dataPipelineSpreadsheetMaxRows {
 		maxRows = dataPipelineSpreadsheetMaxRows
 	}
 
-	columns := []string{"file_public_id", "file_name", "mime_type", "file_revision", "sheet_name", "row_number"}
+	sourceMetadataColumns := []string{"file_public_id", "file_name", "mime_type", "file_revision", "sheet_name", "sheet_index", "row_number"}
+	columns := []string{}
+	if includeSourceMetadataColumns {
+		columns = append(columns, sourceMetadataColumns...)
+	}
 	rows := make([]map[string]any, 0)
 	dataColumns := []string{}
 	for _, publicID := range publicIDs {
@@ -73,7 +81,7 @@ func (s *DataPipelineService) materializeDriveSpreadsheetInput(ctx context.Conte
 		if err != nil {
 			return dataPipelineMaterializedRelation{}, fmt.Errorf("read spreadsheet %s: %w", publicID, err)
 		}
-		parsed, err := readDataPipelineSpreadsheet(download.File, body, sheetName, headerRow, maxRows, configColumns)
+		parsed, err := readDataPipelineSpreadsheet(download.File, body, sheetName, sheetIndex, cellRange, headerRow, maxRows, configColumns)
 		if err != nil {
 			return dataPipelineMaterializedRelation{}, err
 		}
@@ -85,13 +93,15 @@ func (s *DataPipelineService) materializeDriveSpreadsheetInput(ctx context.Conte
 			columns = append(columns, dataColumns...)
 		}
 		for index, row := range parsed.Rows {
-			next := map[string]any{
-				"file_public_id": publicID,
-				"file_name":      download.File.OriginalFilename,
-				"mime_type":      download.File.ContentType,
-				"file_revision":  driveFileContentRevision(download.File),
-				"sheet_name":     parsed.SheetName,
-				"row_number":     strconv.Itoa(index + spreadsheetDataStartRow(headerRow)),
+			next := map[string]any{}
+			if includeSourceMetadataColumns {
+				next["file_public_id"] = publicID
+				next["file_name"] = download.File.OriginalFilename
+				next["mime_type"] = download.File.ContentType
+				next["file_revision"] = driveFileContentRevision(download.File)
+				next["sheet_name"] = parsed.SheetName
+				next["sheet_index"] = strconv.Itoa(parsed.SheetIndex)
+				next["row_number"] = strconv.Itoa(index + spreadsheetDataStartRow(headerRow))
 			}
 			for i, column := range dataColumns {
 				if i < len(row) {
@@ -109,33 +119,44 @@ func (s *DataPipelineService) materializeDriveSpreadsheetInput(ctx context.Conte
 	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
 }
 
-func readDataPipelineSpreadsheet(file DriveFile, body []byte, sheetName string, headerRow, maxRows int, configColumns []string) (dataPipelineSpreadsheetRows, error) {
+func readDataPipelineSpreadsheet(file DriveFile, body []byte, sheetName string, sheetIndex int, cellRange string, headerRow, maxRows int, configColumns []string) (dataPipelineSpreadsheetRows, error) {
 	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(file.OriginalFilename)))
 	contentType := normalizeContentType(file.ContentType)
 	switch {
 	case ext == ".xlsx" || strings.Contains(contentType, "spreadsheetml"):
-		return readDataPipelineXLSX(body, sheetName, headerRow, maxRows, configColumns)
+		return readDataPipelineXLSX(body, sheetName, sheetIndex, cellRange, headerRow, maxRows, configColumns)
 	case ext == ".xls" || contentType == "application/vnd.ms-excel":
-		return readDataPipelineXLS(body, sheetName, headerRow, maxRows, configColumns)
+		return readDataPipelineXLS(body, sheetName, sheetIndex, cellRange, headerRow, maxRows, configColumns)
 	default:
 		return dataPipelineSpreadsheetRows{}, fmt.Errorf("%w: unsupported spreadsheet type %s", ErrInvalidDataPipelineInput, firstNonEmpty(file.ContentType, file.OriginalFilename))
 	}
 }
 
-func readDataPipelineXLS(body []byte, sheetName string, headerRow, maxRows int, configColumns []string) (dataPipelineSpreadsheetRows, error) {
+func readDataPipelineXLS(body []byte, sheetName string, sheetIndex int, cellRange string, headerRow, maxRows int, configColumns []string) (dataPipelineSpreadsheetRows, error) {
 	workbook, err := xls.OpenReader(bytes.NewReader(body), "utf-8")
 	if err != nil {
 		return dataPipelineSpreadsheetRows{}, fmt.Errorf("%w: read xls: %v", ErrInvalidDataPipelineInput, err)
 	}
-	sheet := workbook.GetSheet(0)
+	resolvedIndex := 0
+	sheet := workbook.GetSheet(resolvedIndex)
 	if sheetName != "" {
+		found := false
 		for i := 0; i < workbook.NumSheets(); i++ {
 			candidate := workbook.GetSheet(i)
 			if candidate != nil && strings.EqualFold(strings.TrimSpace(candidate.Name), strings.TrimSpace(sheetName)) {
 				sheet = candidate
+				resolvedIndex = i
+				found = true
 				break
 			}
 		}
+		if !found && sheetIndex >= 0 && sheetIndex < workbook.NumSheets() {
+			resolvedIndex = sheetIndex
+			sheet = workbook.GetSheet(sheetIndex)
+		}
+	} else if sheetIndex >= 0 && sheetIndex < workbook.NumSheets() {
+		resolvedIndex = sheetIndex
+		sheet = workbook.GetSheet(sheetIndex)
 	}
 	if sheet == nil {
 		return dataPipelineSpreadsheetRows{}, fmt.Errorf("%w: spreadsheet sheet not found", ErrInvalidDataPipelineInput)
@@ -153,20 +174,37 @@ func readDataPipelineXLS(body []byte, sheetName string, headerRow, maxRows int, 
 		}
 		allRows = append(allRows, trimTrailingEmptyStrings(values))
 	}
-	return spreadsheetRowsFromRaw(sheet.Name, allRows, headerRow, maxRows, configColumns)
+	allRows = applySpreadsheetRange(allRows, cellRange)
+	return spreadsheetRowsFromRaw(sheet.Name, resolvedIndex, allRows, headerRow, maxRows, configColumns)
 }
 
-func readDataPipelineXLSX(body []byte, sheetName string, headerRow, maxRows int, configColumns []string) (dataPipelineSpreadsheetRows, error) {
+func readDataPipelineXLSX(body []byte, sheetName string, sheetIndex int, cellRange string, headerRow, maxRows int, configColumns []string) (dataPipelineSpreadsheetRows, error) {
 	workbook, err := excelize.OpenReader(bytes.NewReader(body))
 	if err != nil {
 		return dataPipelineSpreadsheetRows{}, fmt.Errorf("%w: read xlsx: %v", ErrInvalidDataPipelineInput, err)
 	}
 	defer func() { _ = workbook.Close() }()
-	if sheetName == "" {
-		sheets := workbook.GetSheetList()
-		if len(sheets) > 0 {
-			sheetName = sheets[0]
+	sheets := workbook.GetSheetList()
+	resolvedIndex := 0
+	if sheetName != "" {
+		found := false
+		for index, name := range sheets {
+			if strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(sheetName)) {
+				sheetName = name
+				resolvedIndex = index
+				found = true
+				break
+			}
 		}
+		if !found && sheetIndex >= 0 && sheetIndex < len(sheets) {
+			resolvedIndex = sheetIndex
+			sheetName = sheets[sheetIndex]
+		}
+	} else if sheetIndex >= 0 && sheetIndex < len(sheets) {
+		resolvedIndex = sheetIndex
+		sheetName = sheets[sheetIndex]
+	} else if len(sheets) > 0 {
+		sheetName = sheets[0]
 	}
 	if sheetName == "" {
 		return dataPipelineSpreadsheetRows{}, fmt.Errorf("%w: spreadsheet sheet not found", ErrInvalidDataPipelineInput)
@@ -190,10 +228,58 @@ func readDataPipelineXLSX(body []byte, sheetName string, headerRow, maxRows int,
 	if err := iterator.Error(); err != nil {
 		return dataPipelineSpreadsheetRows{}, fmt.Errorf("%w: read xlsx rows: %v", ErrInvalidDataPipelineInput, err)
 	}
-	return spreadsheetRowsFromRaw(sheetName, allRows, headerRow, maxRows, configColumns)
+	allRows = applySpreadsheetRange(allRows, cellRange)
+	return spreadsheetRowsFromRaw(sheetName, resolvedIndex, allRows, headerRow, maxRows, configColumns)
 }
 
-func spreadsheetRowsFromRaw(sheetName string, allRows [][]string, headerRow, maxRows int, configColumns []string) (dataPipelineSpreadsheetRows, error) {
+func applySpreadsheetRange(rows [][]string, cellRange string) [][]string {
+	startCol, startRow, endCol, endRow := parseSpreadsheetRange(cellRange)
+	if startCol <= 0 && startRow <= 0 && endCol <= 0 && endRow <= 0 {
+		return rows
+	}
+	if startCol <= 0 {
+		startCol = 1
+	}
+	if startRow <= 0 {
+		startRow = 1
+	}
+	out := make([][]string, 0)
+	for index, row := range rows {
+		rowNumber := index + 1
+		if rowNumber < startRow {
+			continue
+		}
+		if endRow > 0 && rowNumber > endRow {
+			break
+		}
+		start := min(startCol-1, len(row))
+		end := len(row)
+		if endCol > 0 {
+			end = min(endCol, len(row))
+		}
+		out = append(out, trimTrailingEmptyStrings(row[start:end]))
+	}
+	return out
+}
+
+func parseSpreadsheetRange(cellRange string) (int, int, int, int) {
+	cellRange = strings.TrimSpace(cellRange)
+	if cellRange == "" {
+		return 0, 0, 0, 0
+	}
+	parts := strings.Split(cellRange, ":")
+	startCol, startRow, err := excelize.CellNameToCoordinates(parts[0])
+	if err != nil {
+		return 0, 0, 0, 0
+	}
+	endCol, endRow := 0, 0
+	if len(parts) > 1 {
+		endCol, endRow, _ = excelize.CellNameToCoordinates(parts[1])
+	}
+	return startCol, startRow, endCol, endRow
+}
+
+func spreadsheetRowsFromRaw(sheetName string, sheetIndex int, allRows [][]string, headerRow, maxRows int, configColumns []string) (dataPipelineSpreadsheetRows, error) {
 	if headerRow <= 0 {
 		header := trimTrailingEmptyStrings(configColumns)
 		if len(header) == 0 {
@@ -213,7 +299,7 @@ func spreadsheetRowsFromRaw(sheetName string, allRows [][]string, headerRow, max
 				break
 			}
 		}
-		return dataPipelineSpreadsheetRows{SheetName: sheetName, Header: header, Rows: rows}, nil
+		return dataPipelineSpreadsheetRows{SheetName: sheetName, SheetIndex: sheetIndex, Header: header, Rows: rows}, nil
 	}
 	headerIndex := headerRow - 1
 	if headerIndex < 0 || headerIndex >= len(allRows) {
@@ -240,7 +326,7 @@ func spreadsheetRowsFromRaw(sheetName string, allRows [][]string, headerRow, max
 			break
 		}
 	}
-	return dataPipelineSpreadsheetRows{SheetName: sheetName, Header: header, Rows: rows}, nil
+	return dataPipelineSpreadsheetRows{SheetName: sheetName, SheetIndex: sheetIndex, Header: header, Rows: rows}, nil
 }
 
 func spreadsheetDataStartRow(headerRow int) int {

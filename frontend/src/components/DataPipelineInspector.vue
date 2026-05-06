@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { AlertCircle, Check, MousePointerClick, Plus, Trash2, Zap } from 'lucide-vue-next'
+import { AlertCircle, Check, MousePointerClick, Plus, RefreshCw, Trash2, Zap } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import { fetchDriveFile } from '../api/drive'
+import { fetchDriveFile, fetchDriveFileManifest, refreshDriveFileManifest, type DriveDocumentManifestBody, type DriveDocumentSheetManifest } from '../api/drive'
 import { isDataPipelineAutoPreviewEnabled, type DataPipelineGraph, type DataPipelineStepType } from '../api/data-pipelines'
 import type { DatasetBody, DatasetWorkTableBody, DriveFileBody } from '../api/generated/types.gen'
 import DriveFilePickerDialog from './DriveFilePickerDialog.vue'
@@ -78,6 +78,9 @@ const activeConfigTab = ref<'ui' | 'json'>('ui')
 const drivePickerOpen = ref(false)
 const selectedDriveFiles = ref<SelectedDriveFile[]>([])
 const selectedDriveFilesLoading = ref(false)
+const driveManifest = ref<DriveDocumentManifestBody | null>(null)
+const driveManifestLoading = ref(false)
+const driveManifestError = ref('')
 let syncingLocalChange = false
 const { t } = useI18n()
 
@@ -92,6 +95,15 @@ const previewModeIcon = computed(() => autoPreviewEnabled.value ? Zap : MousePoi
 const datasetOptions = computed(() => props.datasets ?? [])
 const workTableOptions = computed(() => (props.workTables ?? []).filter((item) => Boolean(item.publicId)))
 const driveFileIds = computed(() => stringList(configDraft.value.filePublicIds))
+const primaryDriveFileId = computed(() => driveFileIds.value[0] ?? '')
+const driveManifestSheets = computed(() => driveManifest.value?.documentType === 'excel' ? (driveManifest.value.manifest.sheets ?? []) : [])
+const selectedManifestSheet = computed(() => {
+  const sheetName = stringConfig('sheetName')
+  const sheetIndex = numberConfig('sheetIndex')
+  return driveManifestSheets.value.find((sheet) => sheet.name === sheetName)
+    ?? driveManifestSheets.value.find((sheet) => sheet.index === sheetIndex)
+    ?? null
+})
 const primaryColumns = computed(() => {
   if (stepType.value === 'input') {
     return sourceColumnsFromConfig(configDraft.value, 'sourceKind', 'datasetPublicId', 'workTablePublicId')
@@ -147,6 +159,15 @@ watch(() => driveFileIds.value.join('\n'), () => {
     void hydrateSelectedDriveFiles(driveFileIds.value)
   } else {
     selectedDriveFiles.value = []
+  }
+}, { immediate: true })
+
+watch(() => `${primaryDriveFileId.value}:${driveInputMode()}`, () => {
+  if (sourceKind() === 'drive_file' && driveInputMode() === 'spreadsheet' && primaryDriveFileId.value) {
+    void loadDriveManifest(false)
+  } else {
+    driveManifest.value = null
+    driveManifestError.value = ''
   }
 }, { immediate: true })
 
@@ -292,6 +313,58 @@ function selectedDriveFileSubtitle(item: SelectedDriveFile) {
   return item.file ? [item.file.contentType, item.publicId].filter(Boolean).join(' · ') : item.publicId
 }
 
+async function loadDriveManifest(refresh: boolean) {
+  const publicId = primaryDriveFileId.value
+  if (!publicId) {
+    driveManifest.value = null
+    driveManifestError.value = ''
+    return
+  }
+  driveManifestLoading.value = true
+  driveManifestError.value = ''
+  try {
+    driveManifest.value = refresh
+      ? await refreshDriveFileManifest(publicId)
+      : await fetchDriveFileManifest(publicId)
+  } catch (error) {
+    driveManifest.value = null
+    driveManifestError.value = error instanceof Error ? error.message : t('dataPipelines.documentManifestLoadFailed')
+  } finally {
+    driveManifestLoading.value = false
+  }
+}
+
+function selectManifestSheet(value: string) {
+  const index = Number(value)
+  const sheet = driveManifestSheets.value.find((item) => item.index === index)
+  if (!sheet) {
+    return
+  }
+  configDraft.value = {
+    ...configDraft.value,
+    sheetName: sheet.name,
+    sheetIndex: sheet.index,
+  }
+  syncConfigText()
+}
+
+function sheetOptionLabel(sheet: DriveDocumentSheetManifest) {
+  return [
+    `${sheet.index + 1}. ${sheet.name}`,
+    sheet.usedRange,
+    sheet.rowCountHint ? t('dataPipelines.rowCountHint', { count: sheet.rowCountHint }) : '',
+  ].filter(Boolean).join(' · ')
+}
+
+function selectedSheetValue() {
+  const sheet = selectedManifestSheet.value
+  if (sheet) {
+    return String(sheet.index)
+  }
+  const sheetIndex = numberConfig('sheetIndex')
+  return sheetIndex >= 0 ? String(sheetIndex) : ''
+}
+
 function updateConfigOptionalNumber(key: string, value: string) {
   const next = { ...configDraft.value }
   const trimmed = value.trim()
@@ -323,9 +396,12 @@ function setDriveInputMode(mode: string) {
     delete next.inputMode
     delete next.format
     delete next.sheetName
+    delete next.sheetIndex
+    delete next.range
     delete next.headerRow
     delete next.columns
     delete next.maxRows
+    delete next.includeSourceMetadataColumns
   }
   configDraft.value = next
   syncConfigText()
@@ -386,9 +462,12 @@ function setSourceKind(kind: string, right = false) {
     delete configDraft.value.inputMode
     delete configDraft.value.format
     delete configDraft.value.sheetName
+    delete configDraft.value.sheetIndex
+    delete configDraft.value.range
     delete configDraft.value.headerRow
     delete configDraft.value.columns
     delete configDraft.value.maxRows
+    delete configDraft.value.includeSourceMetadataColumns
   }
   syncConfigText()
 }
@@ -408,6 +487,15 @@ function setSourcePublicId(publicId: string, right = false) {
 
 function stringConfig(key: string) {
   return stringValue(configDraft.value[key])
+}
+
+function numberConfig(key: string) {
+  const raw = configDraft.value[key]
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return raw
+  }
+  const parsed = Number(stringValue(raw))
+  return Number.isFinite(parsed) ? parsed : -1
 }
 
 function stringField(record: ConfigRecord, key: string) {
@@ -634,13 +722,11 @@ function removeObjectEntry(key: string, index: number) {
 function sourceColumnsFromConfig(config: ConfigRecord, kindKey: string, datasetKey: string, workTableKey: string) {
   const kind = stringValue(config[kindKey]) || 'dataset'
   if (kind === 'drive_file' && spreadsheetInputModeFromConfig(config)) {
+    const sourceMetadataColumns = config.includeSourceMetadataColumns === false
+      ? []
+      : ['file_public_id', 'file_name', 'mime_type', 'file_revision', 'sheet_name', 'sheet_index', 'row_number']
     return uniqueStrings([
-      'file_public_id',
-      'file_name',
-      'mime_type',
-      'file_revision',
-      'sheet_name',
-      'row_number',
+      ...sourceMetadataColumns,
       ...stringList(config.columns),
     ])
   }
@@ -1052,9 +1138,40 @@ function labelForStep(type: DataPipelineStepType | string) {
               </select>
             </label>
             <div v-if="driveInputMode() === 'spreadsheet'" class="config-grid">
+              <div class="data-pipeline-manifest-section">
+                <div class="config-section-header">
+                  <h3>{{ t('dataPipelines.documentManifest') }}</h3>
+                  <button class="secondary-button compact-button" type="button" :disabled="!primaryDriveFileId || driveManifestLoading" @click="loadDriveManifest(true)">
+                    <RefreshCw :size="14" stroke-width="1.9" aria-hidden="true" />
+                    {{ t('dataPipelines.refreshManifest') }}
+                  </button>
+                </div>
+                <p v-if="driveManifestLoading" class="cell-subtle">{{ t('common.loading') }}</p>
+                <p v-else-if="driveManifestError" class="error-message">{{ driveManifestError }}</p>
+                <p v-else-if="!primaryDriveFileId" class="cell-subtle">{{ t('dataPipelines.selectDriveFileForManifest') }}</p>
+                <p v-else-if="driveManifest && driveManifest.documentType !== 'excel'" class="cell-subtle">
+                  {{ t('dataPipelines.unsupportedSpreadsheetManifest') }}
+                </p>
+              </div>
               <label class="field">
                 <span>{{ t('dataPipelines.sheetName') }}</span>
-                <input :value="stringConfig('sheetName')" :placeholder="t('dataPipelines.firstSheet')" @input="updateConfigOptionalString('sheetName', targetValue($event))">
+                <select :value="selectedSheetValue()" :disabled="driveManifestSheets.length === 0" @change="selectManifestSheet(targetValue($event))">
+                  <option value="">{{ t('dataPipelines.selectSheet') }}</option>
+                  <option v-for="sheet in driveManifestSheets" :key="sheet.index" :value="String(sheet.index)">
+                    {{ sheetOptionLabel(sheet) }}
+                  </option>
+                </select>
+              </label>
+              <div v-if="selectedManifestSheet" class="data-pipeline-sheet-hint">
+                <span v-if="selectedManifestSheet.usedRange">{{ selectedManifestSheet.usedRange }}</span>
+                <span v-if="selectedManifestSheet.headerPreview?.length">{{ t('dataPipelines.headerPreview') }}: {{ selectedManifestSheet.headerPreview.join(', ') }}</span>
+              </div>
+              <p v-else-if="stringConfig('sheetName')" class="cell-subtle">
+                {{ t('dataPipelines.sheetFromJsonOnly', { name: stringConfig('sheetName') }) }}
+              </p>
+              <label class="field">
+                <span>{{ t('dataPipelines.range') }}</span>
+                <input :value="stringConfig('range')" :placeholder="selectedManifestSheet?.usedRange || 'A1:H1200'" @input="updateConfigOptionalString('range', targetValue($event))">
               </label>
               <label class="field">
                 <span>{{ t('dataPipelines.headerRow') }}</span>
@@ -1067,6 +1184,10 @@ function labelForStep(type: DataPipelineStepType | string) {
               <label class="field">
                 <span>{{ t('dataPipelines.columns') }}</span>
                 <textarea :value="listToInput(configDraft.columns)" rows="3" :placeholder="t('dataPipelines.spreadsheetColumnsPlaceholder')" @input="updateConfigList('columns', targetValue($event))" />
+              </label>
+              <label class="checkbox-field">
+                <input :checked="configDraft.includeSourceMetadataColumns !== false" type="checkbox" @change="updateConfigField('includeSourceMetadataColumns', targetChecked($event))">
+                <span>{{ t('dataPipelines.includeSourceMetadataColumns') }}</span>
               </label>
             </div>
             <DriveFilePickerDialog

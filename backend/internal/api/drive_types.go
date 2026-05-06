@@ -25,23 +25,24 @@ type DriveFolderBody struct {
 }
 
 type DriveFileBody struct {
-	PublicID           string     `json:"publicId" example:"018f2f05-c6c9-7a49-b32d-04f4dd84ef4a"`
-	WorkspacePublicID  string     `json:"workspacePublicId,omitempty"`
-	OriginalFilename   string     `json:"originalFilename" example:"spec.md"`
-	Description        string     `json:"description,omitempty"`
-	ContentType        string     `json:"contentType" example:"text/markdown"`
-	ByteSize           int64      `json:"byteSize"`
-	SHA256Hex          string     `json:"sha256Hex"`
-	Status             string     `json:"status"`
-	ScanStatus         string     `json:"scanStatus"`
-	DLPBlocked         bool       `json:"dlpBlocked"`
-	InheritanceEnabled bool       `json:"inheritanceEnabled"`
-	Locked             bool       `json:"locked"`
-	LockReason         string     `json:"lockReason,omitempty"`
-	CreatedAt          time.Time  `json:"createdAt" format:"date-time"`
-	UpdatedAt          time.Time  `json:"updatedAt" format:"date-time"`
-	LockedAt           *time.Time `json:"lockedAt,omitempty" format:"date-time"`
-	DeletedAt          *time.Time `json:"deletedAt,omitempty" format:"date-time"`
+	PublicID           string         `json:"publicId" example:"018f2f05-c6c9-7a49-b32d-04f4dd84ef4a"`
+	WorkspacePublicID  string         `json:"workspacePublicId,omitempty"`
+	OriginalFilename   string         `json:"originalFilename" example:"spec.md"`
+	Description        string         `json:"description,omitempty"`
+	ContentType        string         `json:"contentType" example:"text/markdown"`
+	ByteSize           int64          `json:"byteSize"`
+	SHA256Hex          string         `json:"sha256Hex"`
+	Status             string         `json:"status"`
+	ScanStatus         string         `json:"scanStatus"`
+	DLPBlocked         bool           `json:"dlpBlocked"`
+	InheritanceEnabled bool           `json:"inheritanceEnabled"`
+	Locked             bool           `json:"locked"`
+	LockReason         string         `json:"lockReason,omitempty"`
+	Metadata           map[string]any `json:"metadata,omitempty"`
+	CreatedAt          time.Time      `json:"createdAt" format:"date-time"`
+	UpdatedAt          time.Time      `json:"updatedAt" format:"date-time"`
+	LockedAt           *time.Time     `json:"lockedAt,omitempty" format:"date-time"`
+	DeletedAt          *time.Time     `json:"deletedAt,omitempty" format:"date-time"`
 }
 
 type DriveWorkspaceBody struct {
@@ -387,6 +388,7 @@ func toDriveFileBody(item service.DriveFile) DriveFileBody {
 		InheritanceEnabled: item.InheritanceEnabled,
 		Locked:             item.LockedAt != nil,
 		LockReason:         item.LockReason,
+		Metadata:           item.Metadata,
 		CreatedAt:          item.CreatedAt,
 		UpdatedAt:          item.UpdatedAt,
 		LockedAt:           item.LockedAt,
