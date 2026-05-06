@@ -2,10 +2,10 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
-      - handmaid2
+  # push:
+  #   branches:
+  #     - main
+  #     - handmaid2
 
 jobs:
   verify:
