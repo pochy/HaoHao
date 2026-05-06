@@ -3050,6 +3050,10 @@ code {
   align-items: end;
 }
 
+.config-grid-full {
+  grid-column: 1 / -1;
+}
+
 .config-form-section .icon-button {
   width: 36px;
   height: 36px;

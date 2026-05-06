@@ -122,6 +122,116 @@ func (s *DataPipelineService) materializeDriveSpreadsheetInput(ctx context.Conte
 	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
 }
 
+func (s *DataPipelineService) materializeExcelExtract(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation, tenantID, actorUserID int64) (dataPipelineMaterializedRelation, error) {
+	if s == nil || s.driveOCR == nil || s.driveOCR.drive == nil {
+		return dataPipelineMaterializedRelation{}, fmt.Errorf("Drive service is not configured")
+	}
+	sourceFileColumn := dataPipelineString(node.Data.Config, "sourceFileColumn")
+	if sourceFileColumn == "" {
+		sourceFileColumn = "file_public_id"
+	}
+	if err := dataPipelineValidateIdentifier(sourceFileColumn); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	if !containsString(upstream.Columns, sourceFileColumn) {
+		return dataPipelineMaterializedRelation{}, fmt.Errorf("%w: excel_extract sourceFileColumn not found: %s", ErrInvalidDataPipelineGraph, sourceFileColumn)
+	}
+
+	rows, err := readHybridRows(ctx, conn, upstream, 5000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	sheetName := dataPipelineString(node.Data.Config, "sheetName")
+	sheetIndex := int(dataPipelineFloat(node.Data.Config, "sheetIndex", -1))
+	cellRange := dataPipelineString(node.Data.Config, "range")
+	headerRow := int(dataPipelineFloat(node.Data.Config, "headerRow", 1))
+	configColumns := dataPipelineStringSlice(node.Data.Config, "columns")
+	includeSourceColumns := dataPipelineBool(node.Data.Config, "includeSourceColumns", true)
+	includeSourceMetadataColumns := dataPipelineBool(node.Data.Config, "includeSourceMetadataColumns", true)
+	maxRows := int(dataPipelineFloat(node.Data.Config, "maxRows", dataPipelineSpreadsheetMaxRows))
+	if maxRows <= 0 || maxRows > dataPipelineSpreadsheetMaxRows {
+		maxRows = dataPipelineSpreadsheetMaxRows
+	}
+
+	sourceMetadataColumns := []string{"file_public_id", "file_name", "mime_type", "file_revision", "sheet_name", "sheet_index", "row_number"}
+	columns := []string{}
+	if includeSourceColumns {
+		columns = append(columns, upstream.Columns...)
+	}
+	if includeSourceMetadataColumns {
+		columns = append(columns, sourceMetadataColumns...)
+	}
+	out := make([]map[string]any, 0, min(len(rows), maxRows))
+	dataColumns := []string{}
+	seenFiles := map[string]struct{}{}
+	for _, sourceRow := range rows {
+		if len(out) >= maxRows {
+			break
+		}
+		publicID := strings.TrimSpace(fmt.Sprint(sourceRow[sourceFileColumn]))
+		if publicID == "" {
+			continue
+		}
+		if _, ok := seenFiles[publicID]; ok {
+			continue
+		}
+		seenFiles[publicID] = struct{}{}
+		if len(seenFiles) > dataPipelineSpreadsheetMaxFiles {
+			return dataPipelineMaterializedRelation{}, fmt.Errorf("%w: excel_extract cannot contain more than %d files", ErrInvalidDataPipelineGraph, dataPipelineSpreadsheetMaxFiles)
+		}
+		download, err := s.driveOCR.drive.DownloadFile(ctx, tenantID, actorUserID, publicID, AuditContext{})
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		body, err := io.ReadAll(download.Body)
+		_ = download.Body.Close()
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, fmt.Errorf("read spreadsheet %s: %w", publicID, err)
+		}
+		parsed, err := readDataPipelineSpreadsheet(download.File, body, sheetName, sheetIndex, cellRange, headerRow, maxRows-len(out), configColumns)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		if len(dataColumns) == 0 {
+			dataColumns = sanitizeDatasetColumns(parsed.Header)
+			if len(dataColumns) == 0 {
+				return dataPipelineMaterializedRelation{}, fmt.Errorf("%w: spreadsheet header is required", ErrInvalidDataPipelineInput)
+			}
+			columns = uniqueStringList(append(columns, dataColumns...))
+		}
+		for index, row := range parsed.Rows {
+			next := map[string]any{}
+			if includeSourceColumns {
+				next = cloneRow(sourceRow)
+			}
+			if includeSourceMetadataColumns {
+				next["file_public_id"] = publicID
+				next["file_name"] = download.File.OriginalFilename
+				next["mime_type"] = download.File.ContentType
+				next["file_revision"] = driveFileContentRevision(download.File)
+				next["sheet_name"] = parsed.SheetName
+				next["sheet_index"] = strconv.Itoa(parsed.SheetIndex)
+				next["row_number"] = strconv.Itoa(index + spreadsheetDataStartRow(headerRow))
+			}
+			for i, column := range dataColumns {
+				if i < len(row) {
+					next[column] = row[i]
+				} else {
+					next[column] = ""
+				}
+			}
+			out = append(out, next)
+			if len(out) >= maxRows {
+				break
+			}
+		}
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+}
+
 func readDataPipelineSpreadsheet(file DriveFile, body []byte, sheetName string, sheetIndex int, cellRange string, headerRow, maxRows int, configColumns []string) (dataPipelineSpreadsheetRows, error) {
 	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(file.OriginalFilename)))
 	contentType := normalizeContentType(file.ContentType)

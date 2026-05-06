@@ -22,6 +22,7 @@ const (
 	DataPipelineStepOutput           = "output"
 	DataPipelineStepExtractText      = "extract_text"
 	DataPipelineStepJSONExtract      = "json_extract"
+	DataPipelineStepExcelExtract     = "excel_extract"
 	DataPipelineStepClassifyDocument = "classify_document"
 	DataPipelineStepExtractFields    = "extract_fields"
 	DataPipelineStepExtractTable     = "extract_table"
@@ -56,6 +57,7 @@ var dataPipelineStepCatalog = map[string]struct{}{
 	DataPipelineStepOutput:           {},
 	DataPipelineStepExtractText:      {},
 	DataPipelineStepJSONExtract:      {},
+	DataPipelineStepExcelExtract:     {},
 	DataPipelineStepClassifyDocument: {},
 	DataPipelineStepExtractFields:    {},
 	DataPipelineStepExtractTable:     {},

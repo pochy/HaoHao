@@ -848,6 +848,8 @@ function columnsForNodeOutput(nodeId?: string, visited = new Set<string>()): str
     return sourceColumnsFromConfig(config, 'sourceKind', 'datasetPublicId', 'workTablePublicId')
   case 'json_extract':
     return inferJSONExtractColumns(config, upstreamColumns())
+  case 'excel_extract':
+    return inferExcelExtractColumns(config, upstreamColumns())
   case 'schema_mapping':
     return inferSchemaMappingColumns(config, upstreamColumns())
   case 'schema_completion':
@@ -906,6 +908,18 @@ function inferJSONExtractColumns(config: ConfigRecord, upstreamColumns: string[]
     ...metadataColumns,
     ...extractedColumns,
     ...rawRecordColumns,
+  ])
+}
+
+function inferExcelExtractColumns(config: ConfigRecord, upstreamColumns: string[]) {
+  const baseColumns = config.includeSourceColumns === false ? [] : upstreamColumns
+  const metadataColumns = config.includeSourceMetadataColumns === false
+    ? []
+    : ['file_public_id', 'file_name', 'mime_type', 'file_revision', 'sheet_name', 'sheet_index', 'row_number']
+  return uniqueStrings([
+    ...baseColumns,
+    ...metadataColumns,
+    ...stringList(config.columns),
   ])
 }
 
@@ -1414,6 +1428,47 @@ function labelForStep(type: DataPipelineStepType | string) {
                 <input :value="stringField(field, 'default')" @input="updateConfigOptionalStringForArray('fields', index, 'default', targetValue($event))">
               </label>
             </div>
+          </div>
+        </template>
+
+        <template v-else-if="stepType === 'excel_extract'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.sourceFileColumn') }}</span>
+              <input :value="stringConfig('sourceFileColumn')" list="data-pipeline-column-options" placeholder="file_public_id" @input="updateConfigOptionalString('sourceFileColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.sheetName') }}</span>
+              <input :value="stringConfig('sheetName')" :placeholder="t('dataPipelines.firstSheet')" @input="updateConfigOptionalString('sheetName', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.sheetIndex') }}</span>
+              <input :value="numberField(configDraft, 'sheetIndex')" type="number" min="0" step="1" placeholder="0" @input="updateConfigOptionalNumber('sheetIndex', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.range') }}</span>
+              <input :value="stringConfig('range')" placeholder="A1:H1200" @input="updateConfigOptionalString('range', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.headerRow') }}</span>
+              <input :value="numberField(configDraft, 'headerRow')" type="number" min="0" step="1" :placeholder="t('dataPipelines.headerRowPlaceholder')" @input="updateConfigOptionalNumber('headerRow', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.maxRows') }}</span>
+              <input :value="numberField(configDraft, 'maxRows')" type="number" min="1" step="1" placeholder="100000" @input="updateConfigOptionalNumber('maxRows', targetValue($event))">
+            </label>
+            <label class="field config-grid-full">
+              <span>{{ t('dataPipelines.columns') }}</span>
+              <textarea :value="listToInput(configDraft.columns)" rows="3" :placeholder="t('dataPipelines.spreadsheetColumnsPlaceholder')" @input="updateConfigList('columns', targetValue($event))" />
+            </label>
+            <label class="checkbox-field">
+              <input :checked="configDraft.includeSourceColumns !== false" type="checkbox" @change="updateConfigField('includeSourceColumns', targetChecked($event))">
+              <span>{{ t('dataPipelines.includeSourceColumns') }}</span>
+            </label>
+            <label class="checkbox-field">
+              <input :checked="configDraft.includeSourceMetadataColumns !== false" type="checkbox" @change="updateConfigField('includeSourceMetadataColumns', targetChecked($event))">
+              <span>{{ t('dataPipelines.includeSourceMetadataColumns') }}</span>
+            </label>
           </div>
         </template>
 

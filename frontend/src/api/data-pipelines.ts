@@ -14,6 +14,7 @@ export type DataPipelineStepType =
   | 'output'
   | 'extract_text'
   | 'json_extract'
+  | 'excel_extract'
   | 'classify_document'
   | 'extract_fields'
   | 'extract_table'
@@ -252,6 +253,7 @@ export function isDataPipelineDraftRunPreviewGraph(graph: DataPipelineGraph): bo
 
 const manualPreviewStepTypes = new Set([
   'extract_text',
+  'excel_extract',
   'classify_document',
   'extract_fields',
   'extract_table',

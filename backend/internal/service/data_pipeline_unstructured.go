@@ -49,6 +49,7 @@ func dataPipelineUnstructuredStep(stepType string) bool {
 	switch stepType {
 	case DataPipelineStepExtractText,
 		DataPipelineStepJSONExtract,
+		DataPipelineStepExcelExtract,
 		DataPipelineStepClassifyDocument,
 		DataPipelineStepExtractFields,
 		DataPipelineStepExtractTable,
@@ -284,6 +285,12 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 			return dataPipelineMaterializedRelation{}, err
 		}
 		return s.materializeJSONExtract(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepExcelExtract:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeExcelExtract(ctx, conn, database, table, node, upstream, tenantID, actorUserID)
 	case DataPipelineStepClassifyDocument:
 		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
 		if err != nil {
