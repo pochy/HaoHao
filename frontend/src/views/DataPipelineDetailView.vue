@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, Play, RefreshCw, RotateCcw, RotateCw, Save, Send, Settings2, Workflow } from 'lucide-vue-next'
+import { ArrowLeft, Play, RefreshCw, RotateCcw, RotateCw, Save, Send, Settings2, Workflow, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { isDataPipelineDraftRunPreviewGraph, sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineScheduleWriteBody, type DataPipelineStepType } from '../api/data-pipelines'
@@ -621,23 +621,31 @@ async function applySettings() {
       @cancel.prevent="closeSettings"
     >
       <form class="confirm-dialog-panel data-pipeline-settings-panel" @submit.prevent="applySettings">
-        <div class="stack">
-          <span class="status-pill">{{ t('dataPipelines.settings') }}</span>
-          <h2>{{ t('dataPipelines.pipelineSettings') }}</h2>
+        <header class="data-pipeline-settings-header">
+          <div>
+            <span class="status-pill">{{ t('dataPipelines.settings') }}</span>
+            <h2>{{ t('dataPipelines.pipelineSettings') }}</h2>
+          </div>
+          <button class="secondary-button compact-button" type="button" :disabled="store.actionLoading" @click="closeSettings">
+            <X :size="15" stroke-width="1.9" aria-hidden="true" />
+            {{ t('common.close') }}
+          </button>
+        </header>
 
-          <div class="data-pipeline-settings-grid">
+        <div class="data-pipeline-settings-content">
+          <div class="data-pipeline-settings-basic-grid">
             <label class="field">
               <span class="field-label">{{ t('dataPipelines.name') }}</span>
               <input ref="settingsNameInputRef" v-model="settingsName" class="field-input" autocomplete="off" :disabled="store.actionLoading" required>
             </label>
             <label class="field">
               <span class="field-label">{{ t('dataPipelines.description') }}</span>
-              <input v-model="settingsDescription" class="field-input" autocomplete="off" :disabled="store.actionLoading">
+              <textarea v-model="settingsDescription" class="field-input data-pipeline-settings-description" autocomplete="off" :disabled="store.actionLoading" rows="3" />
             </label>
           </div>
 
           <section class="data-pipeline-settings-section" :aria-label="t('dataPipelines.schedule')">
-            <div class="panel-header compact">
+            <div class="data-pipeline-settings-section-header">
               <h3>{{ t('dataPipelines.schedule') }}</h3>
               <label class="data-pipeline-toggle">
                 <input v-model="settingsScheduleEnabled" type="checkbox" :disabled="store.actionLoading">
@@ -676,7 +684,7 @@ async function applySettings() {
           <p v-if="settingsError" class="form-error">{{ settingsError }}</p>
         </div>
 
-        <div class="action-row data-pipeline-dialog-actions">
+        <div class="data-pipeline-settings-actions data-pipeline-dialog-actions">
           <button class="secondary-button" type="button" :disabled="store.actionLoading" @click="closeSettings">
             {{ t('common.cancel') }}
           </button>

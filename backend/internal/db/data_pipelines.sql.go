@@ -1387,28 +1387,187 @@ func (q *Queries) ListDataPipelineVersions(ctx context.Context, arg ListDataPipe
 }
 
 const listDataPipelines = `-- name: ListDataPipelines :many
-SELECT id, public_id, tenant_id, created_by_user_id, updated_by_user_id, name, description, status, published_version_id, created_at, updated_at, archived_at
-FROM data_pipelines
-WHERE tenant_id = $1
-  AND archived_at IS NULL
-ORDER BY updated_at DESC, id DESC
-LIMIT $2
+WITH base AS (
+    SELECT
+        p.id, p.public_id, p.tenant_id, p.created_by_user_id, p.updated_by_user_id, p.name, p.description, p.status, p.published_version_id, p.created_at, p.updated_at, p.archived_at,
+        latest_run.public_id AS latest_run_public_id,
+        latest_run.status AS latest_run_status,
+        latest_run.created_at AS latest_run_at,
+        COALESCE(schedule_summary.enabled_schedule_count, 0)::bigint AS enabled_schedule_count,
+        COALESCE(schedule_summary.disabled_schedule_count, 0)::bigint AS disabled_schedule_count,
+        schedule_summary.next_run_at,
+        CASE
+            WHEN COALESCE(schedule_summary.enabled_schedule_count, 0) > 0 THEN 'enabled'
+            WHEN COALESCE(schedule_summary.disabled_schedule_count, 0) > 0 THEN 'disabled'
+            ELSE 'none'
+        END AS schedule_state
+    FROM data_pipelines p
+    LEFT JOIN LATERAL (
+        SELECT public_id, status, created_at
+        FROM data_pipeline_runs r
+        WHERE r.tenant_id = p.tenant_id
+          AND r.pipeline_id = p.id
+        ORDER BY r.created_at DESC, r.id DESC
+        LIMIT 1
+    ) latest_run ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT
+            COUNT(*) FILTER (WHERE enabled)::bigint AS enabled_schedule_count,
+            COUNT(*) FILTER (WHERE NOT enabled)::bigint AS disabled_schedule_count,
+            MIN(next_run_at) FILTER (WHERE enabled) AS next_run_at
+        FROM data_pipeline_schedules s
+        WHERE s.tenant_id = p.tenant_id
+          AND s.pipeline_id = p.id
+    ) schedule_summary ON TRUE
+    WHERE p.tenant_id = $11
+      AND p.archived_at IS NULL
+)
+SELECT
+    id,
+    public_id,
+    tenant_id,
+    created_by_user_id,
+    updated_by_user_id,
+    name,
+    description,
+    status,
+    published_version_id,
+    created_at,
+    updated_at,
+    archived_at,
+    COALESCE(latest_run_public_id::text, '') AS latest_run_public_id,
+    COALESCE(latest_run_status, '') AS latest_run_status,
+    latest_run_at,
+    schedule_state,
+    enabled_schedule_count,
+    disabled_schedule_count,
+    next_run_at::timestamptz AS next_run_at
+FROM base
+WHERE (
+    $1::text IS NULL
+    OR btrim($1::text) = ''
+    OR name ILIKE '%' || $1::text || '%'
+    OR description ILIKE '%' || $1::text || '%'
+    OR public_id::text ILIKE '%' || $1::text || '%'
+)
+AND (
+    $2::text IS NULL
+    OR status = $2::text
+)
+AND (
+    $3::text = 'all'
+    OR ($3::text = 'published' AND published_version_id IS NOT NULL)
+    OR ($3::text = 'unpublished' AND published_version_id IS NULL)
+)
+AND (
+    $4::text IS NULL
+    OR latest_run_status = $4::text
+)
+AND (
+    $5::text = 'all'
+    OR schedule_state = $5::text
+)
+AND (
+    $6::bigint IS NULL
+    OR (
+        $7::text = 'updated_desc'
+        AND (updated_at, id) < ($8::timestamptz, $6::bigint)
+    )
+    OR (
+        $7::text = 'updated_asc'
+        AND (updated_at, id) > ($8::timestamptz, $6::bigint)
+    )
+    OR (
+        $7::text = 'created_desc'
+        AND (created_at, id) < ($8::timestamptz, $6::bigint)
+    )
+    OR (
+        $7::text = 'created_asc'
+        AND (created_at, id) > ($8::timestamptz, $6::bigint)
+    )
+    OR (
+        $7::text = 'name_asc'
+        AND (lower(name), id) > ($9::text, $6::bigint)
+    )
+    OR (
+        $7::text = 'name_desc'
+        AND (lower(name), id) < ($9::text, $6::bigint)
+    )
+    OR (
+        $7::text = 'latest_run_desc'
+        AND (COALESCE(latest_run_at, '0001-01-02'::timestamptz), id) < ($8::timestamptz, $6::bigint)
+    )
+)
+ORDER BY
+    CASE WHEN $7::text = 'updated_desc' THEN updated_at END DESC,
+    CASE WHEN $7::text = 'updated_asc' THEN updated_at END ASC,
+    CASE WHEN $7::text = 'created_desc' THEN created_at END DESC,
+    CASE WHEN $7::text = 'created_asc' THEN created_at END ASC,
+    CASE WHEN $7::text = 'name_asc' THEN lower(name) END ASC,
+    CASE WHEN $7::text = 'name_desc' THEN lower(name) END DESC,
+    CASE WHEN $7::text = 'latest_run_desc' THEN COALESCE(latest_run_at, '0001-01-02'::timestamptz) END DESC,
+    CASE WHEN $7::text IN ('updated_desc', 'created_desc', 'name_desc', 'latest_run_desc') THEN id END DESC,
+    CASE WHEN $7::text IN ('updated_asc', 'created_asc', 'name_asc') THEN id END ASC
+LIMIT $10
 `
 
 type ListDataPipelinesParams struct {
-	TenantID   int64 `json:"tenant_id"`
-	LimitCount int32 `json:"limit_count"`
+	Q                   pgtype.Text        `json:"q"`
+	Status              pgtype.Text        `json:"status"`
+	Publication         string             `json:"publication"`
+	RunStatus           pgtype.Text        `json:"run_status"`
+	ScheduleStateFilter string             `json:"schedule_state_filter"`
+	CursorID            pgtype.Int8        `json:"cursor_id"`
+	SortKey             string             `json:"sort_key"`
+	CursorTime          pgtype.Timestamptz `json:"cursor_time"`
+	CursorText          pgtype.Text        `json:"cursor_text"`
+	ResultLimit         int32              `json:"result_limit"`
+	TenantID            int64              `json:"tenant_id"`
 }
 
-func (q *Queries) ListDataPipelines(ctx context.Context, arg ListDataPipelinesParams) ([]DataPipeline, error) {
-	rows, err := q.db.Query(ctx, listDataPipelines, arg.TenantID, arg.LimitCount)
+type ListDataPipelinesRow struct {
+	ID                    int64              `json:"id"`
+	PublicID              uuid.UUID          `json:"public_id"`
+	TenantID              int64              `json:"tenant_id"`
+	CreatedByUserID       pgtype.Int8        `json:"created_by_user_id"`
+	UpdatedByUserID       pgtype.Int8        `json:"updated_by_user_id"`
+	Name                  string             `json:"name"`
+	Description           string             `json:"description"`
+	Status                string             `json:"status"`
+	PublishedVersionID    pgtype.Int8        `json:"published_version_id"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	ArchivedAt            pgtype.Timestamptz `json:"archived_at"`
+	LatestRunPublicID     interface{}        `json:"latest_run_public_id"`
+	LatestRunStatus       string             `json:"latest_run_status"`
+	LatestRunAt           pgtype.Timestamptz `json:"latest_run_at"`
+	ScheduleState         string             `json:"schedule_state"`
+	EnabledScheduleCount  int64              `json:"enabled_schedule_count"`
+	DisabledScheduleCount int64              `json:"disabled_schedule_count"`
+	NextRunAt             pgtype.Timestamptz `json:"next_run_at"`
+}
+
+func (q *Queries) ListDataPipelines(ctx context.Context, arg ListDataPipelinesParams) ([]ListDataPipelinesRow, error) {
+	rows, err := q.db.Query(ctx, listDataPipelines,
+		arg.Q,
+		arg.Status,
+		arg.Publication,
+		arg.RunStatus,
+		arg.ScheduleStateFilter,
+		arg.CursorID,
+		arg.SortKey,
+		arg.CursorTime,
+		arg.CursorText,
+		arg.ResultLimit,
+		arg.TenantID,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []DataPipeline
+	var items []ListDataPipelinesRow
 	for rows.Next() {
-		var i DataPipeline
+		var i ListDataPipelinesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.PublicID,
@@ -1422,6 +1581,13 @@ func (q *Queries) ListDataPipelines(ctx context.Context, arg ListDataPipelinesPa
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ArchivedAt,
+			&i.LatestRunPublicID,
+			&i.LatestRunStatus,
+			&i.LatestRunAt,
+			&i.ScheduleState,
+			&i.EnabledScheduleCount,
+			&i.DisabledScheduleCount,
+			&i.NextRunAt,
 		); err != nil {
 			return nil, err
 		}

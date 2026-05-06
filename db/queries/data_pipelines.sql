@@ -15,12 +15,128 @@ INSERT INTO data_pipelines (
 RETURNING *;
 
 -- name: ListDataPipelines :many
-SELECT *
-FROM data_pipelines
-WHERE tenant_id = sqlc.arg(tenant_id)
-  AND archived_at IS NULL
-ORDER BY updated_at DESC, id DESC
-LIMIT sqlc.arg(limit_count);
+WITH base AS (
+    SELECT
+        p.*,
+        latest_run.public_id AS latest_run_public_id,
+        latest_run.status AS latest_run_status,
+        latest_run.created_at AS latest_run_at,
+        COALESCE(schedule_summary.enabled_schedule_count, 0)::bigint AS enabled_schedule_count,
+        COALESCE(schedule_summary.disabled_schedule_count, 0)::bigint AS disabled_schedule_count,
+        schedule_summary.next_run_at,
+        CASE
+            WHEN COALESCE(schedule_summary.enabled_schedule_count, 0) > 0 THEN 'enabled'
+            WHEN COALESCE(schedule_summary.disabled_schedule_count, 0) > 0 THEN 'disabled'
+            ELSE 'none'
+        END AS schedule_state
+    FROM data_pipelines p
+    LEFT JOIN LATERAL (
+        SELECT public_id, status, created_at
+        FROM data_pipeline_runs r
+        WHERE r.tenant_id = p.tenant_id
+          AND r.pipeline_id = p.id
+        ORDER BY r.created_at DESC, r.id DESC
+        LIMIT 1
+    ) latest_run ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT
+            COUNT(*) FILTER (WHERE enabled)::bigint AS enabled_schedule_count,
+            COUNT(*) FILTER (WHERE NOT enabled)::bigint AS disabled_schedule_count,
+            MIN(next_run_at) FILTER (WHERE enabled) AS next_run_at
+        FROM data_pipeline_schedules s
+        WHERE s.tenant_id = p.tenant_id
+          AND s.pipeline_id = p.id
+    ) schedule_summary ON TRUE
+    WHERE p.tenant_id = sqlc.arg(tenant_id)
+      AND p.archived_at IS NULL
+)
+SELECT
+    id,
+    public_id,
+    tenant_id,
+    created_by_user_id,
+    updated_by_user_id,
+    name,
+    description,
+    status,
+    published_version_id,
+    created_at,
+    updated_at,
+    archived_at,
+    COALESCE(latest_run_public_id::text, '') AS latest_run_public_id,
+    COALESCE(latest_run_status, '') AS latest_run_status,
+    latest_run_at,
+    schedule_state,
+    enabled_schedule_count,
+    disabled_schedule_count,
+    next_run_at::timestamptz AS next_run_at
+FROM base
+WHERE (
+    sqlc.narg(q)::text IS NULL
+    OR btrim(sqlc.narg(q)::text) = ''
+    OR name ILIKE '%' || sqlc.narg(q)::text || '%'
+    OR description ILIKE '%' || sqlc.narg(q)::text || '%'
+    OR public_id::text ILIKE '%' || sqlc.narg(q)::text || '%'
+)
+AND (
+    sqlc.narg(status)::text IS NULL
+    OR status = sqlc.narg(status)::text
+)
+AND (
+    sqlc.arg(publication)::text = 'all'
+    OR (sqlc.arg(publication)::text = 'published' AND published_version_id IS NOT NULL)
+    OR (sqlc.arg(publication)::text = 'unpublished' AND published_version_id IS NULL)
+)
+AND (
+    sqlc.narg(run_status)::text IS NULL
+    OR latest_run_status = sqlc.narg(run_status)::text
+)
+AND (
+    sqlc.arg(schedule_state_filter)::text = 'all'
+    OR schedule_state = sqlc.arg(schedule_state_filter)::text
+)
+AND (
+    sqlc.narg(cursor_id)::bigint IS NULL
+    OR (
+        sqlc.arg(sort_key)::text = 'updated_desc'
+        AND (updated_at, id) < (sqlc.narg(cursor_time)::timestamptz, sqlc.narg(cursor_id)::bigint)
+    )
+    OR (
+        sqlc.arg(sort_key)::text = 'updated_asc'
+        AND (updated_at, id) > (sqlc.narg(cursor_time)::timestamptz, sqlc.narg(cursor_id)::bigint)
+    )
+    OR (
+        sqlc.arg(sort_key)::text = 'created_desc'
+        AND (created_at, id) < (sqlc.narg(cursor_time)::timestamptz, sqlc.narg(cursor_id)::bigint)
+    )
+    OR (
+        sqlc.arg(sort_key)::text = 'created_asc'
+        AND (created_at, id) > (sqlc.narg(cursor_time)::timestamptz, sqlc.narg(cursor_id)::bigint)
+    )
+    OR (
+        sqlc.arg(sort_key)::text = 'name_asc'
+        AND (lower(name), id) > (sqlc.narg(cursor_text)::text, sqlc.narg(cursor_id)::bigint)
+    )
+    OR (
+        sqlc.arg(sort_key)::text = 'name_desc'
+        AND (lower(name), id) < (sqlc.narg(cursor_text)::text, sqlc.narg(cursor_id)::bigint)
+    )
+    OR (
+        sqlc.arg(sort_key)::text = 'latest_run_desc'
+        AND (COALESCE(latest_run_at, '0001-01-02'::timestamptz), id) < (sqlc.narg(cursor_time)::timestamptz, sqlc.narg(cursor_id)::bigint)
+    )
+)
+ORDER BY
+    CASE WHEN sqlc.arg(sort_key)::text = 'updated_desc' THEN updated_at END DESC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'updated_asc' THEN updated_at END ASC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'created_desc' THEN created_at END DESC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'created_asc' THEN created_at END ASC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'name_asc' THEN lower(name) END ASC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'name_desc' THEN lower(name) END DESC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'latest_run_desc' THEN COALESCE(latest_run_at, '0001-01-02'::timestamptz) END DESC,
+    CASE WHEN sqlc.arg(sort_key)::text IN ('updated_desc', 'created_desc', 'name_desc', 'latest_run_desc') THEN id END DESC,
+    CASE WHEN sqlc.arg(sort_key)::text IN ('updated_asc', 'created_asc', 'name_asc') THEN id END ASC
+LIMIT sqlc.arg(result_limit);
 
 -- name: GetDataPipelineForTenant :one
 SELECT *

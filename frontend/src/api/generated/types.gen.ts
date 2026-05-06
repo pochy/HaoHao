@@ -364,15 +364,22 @@ export type DataPipelineBody = {
      * resource の説明文です。
      */
     description: string;
+    disabledScheduleCount?: number;
+    enabledScheduleCount?: number;
+    latestRunAt?: string;
+    latestRunPublicId?: string;
+    latestRunStatus?: string;
     /**
      * 画面表示や検索で使う名前です。
      */
     name: string;
+    nextRunAt?: string;
     /**
      * client や URL path で参照する public UUID です。
      */
     publicId: string;
     publishedVersionId?: number;
+    scheduleState?: 'enabled' | 'disabled' | 'none';
     /**
      * 現在の lifecycle status です。
      */
@@ -446,6 +453,7 @@ export type DataPipelineListBody = {
      */
     readonly $schema?: string;
     items: Array<DataPipelineBody> | null;
+    nextCursor?: string;
 };
 
 export type DataPipelineNode = {
@@ -4898,15 +4906,22 @@ export type DataPipelineBodyWritable = {
      * resource の説明文です。
      */
     description: string;
+    disabledScheduleCount?: number;
+    enabledScheduleCount?: number;
+    latestRunAt?: string;
+    latestRunPublicId?: string;
+    latestRunStatus?: string;
     /**
      * 画面表示や検索で使う名前です。
      */
     name: string;
+    nextRunAt?: string;
     /**
      * client や URL path で参照する public UUID です。
      */
     publicId: string;
     publishedVersionId?: number;
+    scheduleState?: 'enabled' | 'disabled' | 'none';
     /**
      * 現在の lifecycle status です。
      */
@@ -4947,6 +4962,7 @@ export type DataPipelineDraftPreviewRequestBodyWritable = {
 
 export type DataPipelineListBodyWritable = {
     items: Array<DataPipelineBodyWritable> | null;
+    nextCursor?: string;
 };
 
 export type DataPipelinePreviewBodyWritable = {
@@ -11296,6 +11312,34 @@ export type ListDataPipelinesData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * 検索語または filter query です。
+         */
+        q?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `status` です。
+         */
+        status?: 'draft' | 'published';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `publication` です。
+         */
+        publication?: 'all' | 'published' | 'unpublished';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `runStatus` です。
+         */
+        runStatus?: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `scheduleState` です。
+         */
+        scheduleState?: 'all' | 'enabled' | 'disabled' | 'none';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `sort` です。
+         */
+        sort?: 'updated_desc' | 'updated_asc' | 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc' | 'latest_run_desc';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `cursor` です。
+         */
+        cursor?: string;
         /**
          * 返却件数の上限です。大量の結果は pagination で分割してください。
          */

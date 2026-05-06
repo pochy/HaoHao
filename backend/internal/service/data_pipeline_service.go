@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,18 +29,25 @@ var (
 )
 
 type DataPipeline struct {
-	ID                 int64
-	PublicID           string
-	TenantID           int64
-	CreatedByUserID    *int64
-	UpdatedByUserID    *int64
-	Name               string
-	Description        string
-	Status             string
-	PublishedVersionID *int64
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
-	ArchivedAt         *time.Time
+	ID                    int64
+	PublicID              string
+	TenantID              int64
+	CreatedByUserID       *int64
+	UpdatedByUserID       *int64
+	Name                  string
+	Description           string
+	Status                string
+	PublishedVersionID    *int64
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	ArchivedAt            *time.Time
+	LatestRunStatus       string
+	LatestRunAt           *time.Time
+	LatestRunPublicID     string
+	ScheduleState         string
+	EnabledScheduleCount  int64
+	DisabledScheduleCount int64
+	NextRunAt             *time.Time
 }
 
 type DataPipelineVersion struct {
@@ -147,6 +155,22 @@ type DataPipelineInput struct {
 	Description string
 }
 
+type DataPipelineListInput struct {
+	Query         string
+	Status        string
+	Publication   string
+	RunStatus     string
+	ScheduleState string
+	Sort          string
+	Cursor        string
+	Limit         int32
+}
+
+type DataPipelineListResult struct {
+	Items      []DataPipeline
+	NextCursor string
+}
+
 type DataPipelineScheduleInput struct {
 	Frequency string
 	Timezone  string
@@ -205,22 +229,78 @@ func (s *DataPipelineService) SetDatasetAuthorizationService(authz *DatasetAutho
 	}
 }
 
-func (s *DataPipelineService) List(ctx context.Context, tenantID int64, limit int32) ([]DataPipeline, error) {
+func (s *DataPipelineService) List(ctx context.Context, tenantID, actorUserID int64, input DataPipelineListInput) (DataPipelineListResult, error) {
 	if s == nil || s.queries == nil {
-		return nil, fmt.Errorf("data pipeline service is not configured")
+		return DataPipelineListResult{}, fmt.Errorf("data pipeline service is not configured")
 	}
+	normalized, cursor, err := normalizeDataPipelineListInput(input)
+	if err != nil {
+		return DataPipelineListResult{}, err
+	}
+	if s.authz == nil {
+		return DataPipelineListResult{}, ErrDataAuthzUnavailable
+	}
+	limit := normalized.Limit
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
-	rows, err := s.queries.ListDataPipelines(ctx, db.ListDataPipelinesParams{TenantID: tenantID, LimitCount: limit})
-	if err != nil {
-		return nil, fmt.Errorf("list data pipelines: %w", err)
+	result := DataPipelineListResult{Items: make([]DataPipeline, 0, limit)}
+	for {
+		rows, err := s.queries.ListDataPipelines(ctx, db.ListDataPipelinesParams{
+			TenantID:            tenantID,
+			Q:                   nullableText(normalized.Query),
+			Status:              nullableText(normalized.Status),
+			Publication:         normalized.Publication,
+			RunStatus:           nullableText(normalized.RunStatus),
+			ScheduleStateFilter: normalized.ScheduleState,
+			SortKey:             normalized.Sort,
+			CursorID:            nullableInt8(cursor.ID),
+			CursorTime:          nullableTime(cursor.Time),
+			CursorText:          nullableText(cursor.Text),
+			ResultLimit:         listDataPipelineCandidateLimit(limit),
+		})
+		if err != nil {
+			return DataPipelineListResult{}, fmt.Errorf("list data pipelines: %w", err)
+		}
+		if len(rows) == 0 {
+			return result, nil
+		}
+		publicIDs := make([]string, 0, len(rows))
+		candidates := make([]DataPipeline, 0, len(rows))
+		for _, row := range rows {
+			item := dataPipelineFromListRow(row)
+			publicIDs = append(publicIDs, item.PublicID)
+			candidates = append(candidates, item)
+		}
+		allowed, err := s.authz.FilterResourcePublicIDs(ctx, actorUserID, DataResourceDataPipeline, DataActionView, publicIDs)
+		if err != nil {
+			return DataPipelineListResult{}, err
+		}
+		for _, item := range candidates {
+			if !allowed[item.PublicID] {
+				continue
+			}
+			result.Items = append(result.Items, item)
+			if int32(len(result.Items)) > limit {
+				break
+			}
+		}
+		if int32(len(result.Items)) > limit {
+			visible := result.Items[:limit]
+			next, err := encodeDataPipelineListCursor(normalized.Sort, visible[len(visible)-1])
+			if err != nil {
+				return DataPipelineListResult{}, err
+			}
+			result.Items = visible
+			result.NextCursor = next
+			return result, nil
+		}
+		last := candidates[len(candidates)-1]
+		cursor = dataPipelineListCursorFromItem(normalized.Sort, last)
+		if len(rows) < int(listDataPipelineCandidateLimit(limit)) {
+			return result, nil
+		}
 	}
-	items := make([]DataPipeline, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, dataPipelineFromDB(row))
-	}
-	return items, nil
 }
 
 func (s *DataPipelineService) Create(ctx context.Context, tenantID, userID int64, input DataPipelineInput, auditCtx AuditContext) (DataPipeline, error) {
@@ -1219,6 +1299,188 @@ func dataPipelineFromDB(row db.DataPipeline) DataPipeline {
 		UpdatedAt:          row.UpdatedAt.Time,
 		ArchivedAt:         optionalPgTime(row.ArchivedAt),
 	}
+}
+
+type dataPipelineListCursor struct {
+	Sort string    `json:"sort"`
+	ID   int64     `json:"id"`
+	Time time.Time `json:"time,omitempty"`
+	Text string    `json:"text,omitempty"`
+}
+
+func normalizeDataPipelineListInput(input DataPipelineListInput) (DataPipelineListInput, dataPipelineListCursor, error) {
+	out := input
+	out.Query = strings.TrimSpace(out.Query)
+	out.Status = strings.TrimSpace(out.Status)
+	out.Publication = strings.TrimSpace(out.Publication)
+	out.RunStatus = strings.TrimSpace(out.RunStatus)
+	out.ScheduleState = strings.TrimSpace(out.ScheduleState)
+	out.Sort = strings.TrimSpace(out.Sort)
+	if out.Publication == "" {
+		out.Publication = "all"
+	}
+	if out.ScheduleState == "" {
+		out.ScheduleState = "all"
+	}
+	if out.Sort == "" {
+		out.Sort = "updated_desc"
+	}
+	if out.Limit <= 0 {
+		out.Limit = 25
+	}
+	if out.Limit > 100 {
+		out.Limit = 100
+	}
+	if out.Status != "" && !dataPipelineListStatuses[out.Status] {
+		return DataPipelineListInput{}, dataPipelineListCursor{}, ErrInvalidDataPipelineInput
+	}
+	if out.Publication != "all" && out.Publication != "published" && out.Publication != "unpublished" {
+		return DataPipelineListInput{}, dataPipelineListCursor{}, ErrInvalidDataPipelineInput
+	}
+	if out.RunStatus != "" && !dataPipelineRunStatuses[out.RunStatus] {
+		return DataPipelineListInput{}, dataPipelineListCursor{}, ErrInvalidDataPipelineInput
+	}
+	if out.ScheduleState != "all" && out.ScheduleState != "enabled" && out.ScheduleState != "disabled" && out.ScheduleState != "none" {
+		return DataPipelineListInput{}, dataPipelineListCursor{}, ErrInvalidDataPipelineInput
+	}
+	if !dataPipelineListSorts[out.Sort] {
+		return DataPipelineListInput{}, dataPipelineListCursor{}, ErrInvalidDataPipelineInput
+	}
+	cursor, err := decodeDataPipelineListCursor(out.Cursor)
+	if err != nil {
+		return DataPipelineListInput{}, dataPipelineListCursor{}, err
+	}
+	if cursor.ID > 0 && cursor.Sort != out.Sort {
+		return DataPipelineListInput{}, dataPipelineListCursor{}, ErrInvalidCursor
+	}
+	return out, cursor, nil
+}
+
+var dataPipelineListStatuses = map[string]bool{"draft": true, "published": true}
+var dataPipelineRunStatuses = map[string]bool{"pending": true, "processing": true, "completed": true, "failed": true, "skipped": true}
+var dataPipelineListSorts = map[string]bool{
+	"updated_desc":    true,
+	"updated_asc":     true,
+	"created_desc":    true,
+	"created_asc":     true,
+	"name_asc":        true,
+	"name_desc":       true,
+	"latest_run_desc": true,
+}
+
+func listDataPipelineCandidateLimit(limit int32) int32 {
+	if limit <= 0 {
+		return 26
+	}
+	candidateLimit := limit * 3
+	if candidateLimit < limit+1 {
+		candidateLimit = limit + 1
+	}
+	if candidateLimit > 100 {
+		return 100
+	}
+	return candidateLimit
+}
+
+func decodeDataPipelineListCursor(value string) (dataPipelineListCursor, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return dataPipelineListCursor{}, nil
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(trimmed)
+	if err != nil {
+		return dataPipelineListCursor{}, ErrInvalidCursor
+	}
+	var cursor dataPipelineListCursor
+	if err := json.Unmarshal(payload, &cursor); err != nil {
+		return dataPipelineListCursor{}, ErrInvalidCursor
+	}
+	if cursor.ID <= 0 || cursor.Sort == "" || !dataPipelineListSorts[cursor.Sort] {
+		return dataPipelineListCursor{}, ErrInvalidCursor
+	}
+	if strings.HasPrefix(cursor.Sort, "name_") && cursor.Text == "" {
+		return dataPipelineListCursor{}, ErrInvalidCursor
+	}
+	if !strings.HasPrefix(cursor.Sort, "name_") && cursor.Time.IsZero() {
+		return dataPipelineListCursor{}, ErrInvalidCursor
+	}
+	return cursor, nil
+}
+
+func encodeDataPipelineListCursor(sort string, item DataPipeline) (string, error) {
+	cursor := dataPipelineListCursorFromItem(sort, item)
+	if cursor.ID <= 0 {
+		return "", ErrInvalidCursor
+	}
+	payload, err := json.Marshal(cursor)
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(payload), nil
+}
+
+func dataPipelineListCursorFromItem(sort string, item DataPipeline) dataPipelineListCursor {
+	cursor := dataPipelineListCursor{Sort: sort, ID: item.ID}
+	switch sort {
+	case "created_desc", "created_asc":
+		cursor.Time = item.CreatedAt
+	case "name_asc", "name_desc":
+		cursor.Text = strings.ToLower(item.Name)
+	case "latest_run_desc":
+		if item.LatestRunAt != nil {
+			cursor.Time = *item.LatestRunAt
+		} else {
+			cursor.Time = time.Date(1, 1, 2, 0, 0, 0, 0, time.UTC)
+		}
+	default:
+		cursor.Time = item.UpdatedAt
+	}
+	return cursor
+}
+
+func dataPipelineFromListRow(row db.ListDataPipelinesRow) DataPipeline {
+	item := DataPipeline{
+		ID:                    row.ID,
+		PublicID:              row.PublicID.String(),
+		TenantID:              row.TenantID,
+		CreatedByUserID:       optionalPgInt8(row.CreatedByUserID),
+		UpdatedByUserID:       optionalPgInt8(row.UpdatedByUserID),
+		Name:                  row.Name,
+		Description:           row.Description,
+		Status:                row.Status,
+		PublishedVersionID:    optionalPgInt8(row.PublishedVersionID),
+		CreatedAt:             row.CreatedAt.Time,
+		UpdatedAt:             row.UpdatedAt.Time,
+		ArchivedAt:            optionalPgTime(row.ArchivedAt),
+		LatestRunStatus:       row.LatestRunStatus,
+		LatestRunAt:           optionalPgTime(row.LatestRunAt),
+		ScheduleState:         row.ScheduleState,
+		EnabledScheduleCount:  row.EnabledScheduleCount,
+		DisabledScheduleCount: row.DisabledScheduleCount,
+		NextRunAt:             optionalPgTime(row.NextRunAt),
+	}
+	switch value := row.LatestRunPublicID.(type) {
+	case string:
+		item.LatestRunPublicID = value
+	case []byte:
+		item.LatestRunPublicID = string(value)
+	}
+	return item
+}
+
+func nullableText(value string) pgtype.Text {
+	return pgText(strings.TrimSpace(value))
+}
+
+func nullableInt8(value int64) pgtype.Int8 {
+	if value <= 0 {
+		return pgtype.Int8{}
+	}
+	return pgtype.Int8{Int64: value, Valid: true}
+}
+
+func nullableTime(value time.Time) pgtype.Timestamptz {
+	return pgTimestamp(value)
 }
 
 func dataPipelineVersionFromDB(row db.DataPipelineVersion) (DataPipelineVersion, error) {

@@ -855,10 +855,39 @@ components:
           examples:
             - Quarterly planning documents.
           type: string
+        disabledScheduleCount:
+          examples:
+            - 3
+          format: int64
+          type: integer
+        enabledScheduleCount:
+          examples:
+            - 3
+          format: int64
+          type: integer
+        latestRunAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        latestRunPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        latestRunStatus:
+          examples:
+            - active
+          type: string
         name:
           description: 画面表示や検索で使う名前です。
           examples:
             - Customer cleansing
+          type: string
+        nextRunAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
           type: string
         publicId:
           description: client や URL path で参照する public UUID です。
@@ -871,6 +900,14 @@ components:
             - 1
           format: int64
           type: integer
+        scheduleState:
+          enum:
+            - enabled
+            - disabled
+            - none
+          examples:
+            - enabled
+          type: string
         status:
           description: 現在の lifecycle status です。
           examples:
@@ -1054,6 +1091,10 @@ components:
           type:
             - array
             - "null"
+        nextCursor:
+          examples:
+            - example
+          type: string
       required:
         - items
       type: object
@@ -19955,15 +19996,93 @@ paths:
           name: SESSION_ID
           schema:
             $ref: "#/components/schemas/Cookie"
+        - description: 検索語または filter query です。
+          example: roadmap
+          explode: false
+          in: query
+          name: q
+          schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `status` です。
+          example: draft
+          explode: false
+          in: query
+          name: status
+          schema:
+            enum:
+              - draft
+              - published
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `publication` です。
+          example: all
+          explode: false
+          in: query
+          name: publication
+          schema:
+            default: all
+            enum:
+              - all
+              - published
+              - unpublished
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `runStatus` です。
+          example: pending
+          explode: false
+          in: query
+          name: runStatus
+          schema:
+            enum:
+              - pending
+              - processing
+              - completed
+              - failed
+              - skipped
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `scheduleState` です。
+          example: all
+          explode: false
+          in: query
+          name: scheduleState
+          schema:
+            default: all
+            enum:
+              - all
+              - enabled
+              - disabled
+              - none
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `sort` です。
+          example: updated_desc
+          explode: false
+          in: query
+          name: sort
+          schema:
+            default: updated_desc
+            enum:
+              - updated_desc
+              - updated_asc
+              - created_desc
+              - created_asc
+              - name_asc
+              - name_desc
+              - latest_run_desc
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `cursor` です。
+          example: example
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            type: string
         - description: 返却件数の上限です。大量の結果は pagination で分割してください。
           example: 50
           explode: false
           in: query
           name: limit
           schema:
-            default: 100
+            default: 25
             format: int32
-            maximum: 200
+            maximum: 100
             minimum: 1
             type: integer
       responses:
@@ -19979,11 +20098,19 @@ paths:
                       - archivedAt: "2026-01-15T09:30:00Z"
                         createdAt: "2026-01-15T09:30:00Z"
                         description: Quarterly planning documents.
+                        disabledScheduleCount: 3
+                        enabledScheduleCount: 3
+                        latestRunAt: "2026-01-15T09:30:00Z"
+                        latestRunPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        latestRunStatus: active
                         name: Customer cleansing
+                        nextRunAt: "2026-01-15T09:30:00Z"
                         publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                         publishedVersionId: 1
+                        scheduleState: enabled
                         status: draft
                         updatedAt: "2026-01-15T09:30:00Z"
+                    nextCursor: example
               schema:
                 $ref: "#/components/schemas/DataPipelineListBody"
           description: 操作に成功し、response body に結果を返します。
@@ -20068,9 +20195,16 @@ paths:
                     archivedAt: "2026-01-15T09:30:00Z"
                     createdAt: "2026-01-15T09:30:00Z"
                     description: Quarterly planning documents.
+                    disabledScheduleCount: 3
+                    enabledScheduleCount: 3
+                    latestRunAt: "2026-01-15T09:30:00Z"
+                    latestRunPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    latestRunStatus: active
                     name: Customer cleansing
+                    nextRunAt: "2026-01-15T09:30:00Z"
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     publishedVersionId: 1
+                    scheduleState: enabled
                     status: draft
                     updatedAt: "2026-01-15T09:30:00Z"
               schema:
@@ -20140,9 +20274,16 @@ paths:
                       archivedAt: "2026-01-15T09:30:00Z"
                       createdAt: "2026-01-15T09:30:00Z"
                       description: Quarterly planning documents.
+                      disabledScheduleCount: 3
+                      enabledScheduleCount: 3
+                      latestRunAt: "2026-01-15T09:30:00Z"
+                      latestRunPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      latestRunStatus: active
                       name: Customer cleansing
+                      nextRunAt: "2026-01-15T09:30:00Z"
                       publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       publishedVersionId: 1
+                      scheduleState: enabled
                       status: draft
                       updatedAt: "2026-01-15T09:30:00Z"
                     publishedVersion:
@@ -20285,9 +20426,16 @@ paths:
                     archivedAt: "2026-01-15T09:30:00Z"
                     createdAt: "2026-01-15T09:30:00Z"
                     description: Quarterly planning documents.
+                    disabledScheduleCount: 3
+                    enabledScheduleCount: 3
+                    latestRunAt: "2026-01-15T09:30:00Z"
+                    latestRunPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    latestRunStatus: active
                     name: Customer cleansing
+                    nextRunAt: "2026-01-15T09:30:00Z"
                     publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     publishedVersionId: 1
+                    scheduleState: enabled
                     status: draft
                     updatedAt: "2026-01-15T09:30:00Z"
               schema:

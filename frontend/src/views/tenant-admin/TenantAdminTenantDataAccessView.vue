@@ -199,12 +199,12 @@ async function loadAll() {
       fetchTenantAdminDataAccessGroups(slug),
       fetchDatasets(),
       fetchDatasetWorkTables(),
-      fetchDataPipelines(),
+      fetchDataPipelines({ limit: 100 }),
     ])
     groups.value = loadedGroups
     datasets.value = loadedDatasets
     workTables.value = loadedWorkTables
-    pipelines.value = loadedPipelines
+    pipelines.value = loadedPipelines.items
     selectedGroupPublicId.value = selectedGroupPublicId.value || loadedGroups[0]?.publicId || ''
     await Promise.all([
       loadSelectedGroup(),

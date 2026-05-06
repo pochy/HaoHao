@@ -12,14 +12,21 @@ import (
 )
 
 type DataPipelineBody struct {
-	PublicID           string     `json:"publicId" format:"uuid"`
-	Name               string     `json:"name" example:"Customer cleansing"`
-	Description        string     `json:"description"`
-	Status             string     `json:"status" example:"draft"`
-	PublishedVersionID *int64     `json:"publishedVersionId,omitempty"`
-	CreatedAt          time.Time  `json:"createdAt" format:"date-time"`
-	UpdatedAt          time.Time  `json:"updatedAt" format:"date-time"`
-	ArchivedAt         *time.Time `json:"archivedAt,omitempty" format:"date-time"`
+	PublicID              string     `json:"publicId" format:"uuid"`
+	Name                  string     `json:"name" example:"Customer cleansing"`
+	Description           string     `json:"description"`
+	Status                string     `json:"status" example:"draft"`
+	PublishedVersionID    *int64     `json:"publishedVersionId,omitempty"`
+	CreatedAt             time.Time  `json:"createdAt" format:"date-time"`
+	UpdatedAt             time.Time  `json:"updatedAt" format:"date-time"`
+	ArchivedAt            *time.Time `json:"archivedAt,omitempty" format:"date-time"`
+	LatestRunStatus       string     `json:"latestRunStatus,omitempty"`
+	LatestRunAt           *time.Time `json:"latestRunAt,omitempty" format:"date-time"`
+	LatestRunPublicID     string     `json:"latestRunPublicId,omitempty" format:"uuid"`
+	ScheduleState         string     `json:"scheduleState,omitempty" enum:"enabled,disabled,none"`
+	EnabledScheduleCount  int64      `json:"enabledScheduleCount,omitempty"`
+	DisabledScheduleCount int64      `json:"disabledScheduleCount,omitempty"`
+	NextRunAt             *time.Time `json:"nextRunAt,omitempty" format:"date-time"`
 }
 
 type DataPipelineVersionBody struct {
@@ -104,7 +111,8 @@ type DataPipelineDetailBody struct {
 }
 
 type DataPipelineListBody struct {
-	Items []DataPipelineBody `json:"items"`
+	Items      []DataPipelineBody `json:"items"`
+	NextCursor string             `json:"nextCursor,omitempty"`
 }
 
 type DataPipelineRunListBody struct {
@@ -201,7 +209,14 @@ type DataPipelineCreateInput struct {
 
 type DataPipelineListInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
-	Limit         int32       `query:"limit" minimum:"1" maximum:"200" default:"100"`
+	Query         string      `query:"q"`
+	Status        string      `query:"status" enum:"draft,published"`
+	Publication   string      `query:"publication" enum:"all,published,unpublished" default:"all"`
+	RunStatus     string      `query:"runStatus" enum:"pending,processing,completed,failed,skipped"`
+	ScheduleState string      `query:"scheduleState" enum:"all,enabled,disabled,none" default:"all"`
+	Sort          string      `query:"sort" enum:"updated_desc,updated_asc,created_desc,created_asc,name_asc,name_desc,latest_run_desc" default:"updated_desc"`
+	Cursor        string      `query:"cursor"`
+	Limit         int32       `query:"limit" minimum:"1" maximum:"100" default:"25"`
 }
 
 type DataPipelineByPublicIDInput struct {
@@ -294,17 +309,23 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, err
 		}
-		items, err := deps.DataPipelineService.List(ctx, tenant.ID, input.Limit)
-		if err != nil {
-			return nil, toDataPipelineHTTPError(ctx, deps, "listDataPipelines", err)
-		}
-		items, err = filterDataPipelinesForAction(ctx, deps, current.User.ID, items, service.DataActionView)
+		result, err := deps.DataPipelineService.List(ctx, tenant.ID, current.User.ID, service.DataPipelineListInput{
+			Query:         input.Query,
+			Status:        input.Status,
+			Publication:   input.Publication,
+			RunStatus:     input.RunStatus,
+			ScheduleState: input.ScheduleState,
+			Sort:          input.Sort,
+			Cursor:        input.Cursor,
+			Limit:         input.Limit,
+		})
 		if err != nil {
 			return nil, toDataPipelineHTTPError(ctx, deps, "listDataPipelines", err)
 		}
 		out := &DataPipelineListOutput{}
-		out.Body.Items = make([]DataPipelineBody, 0, len(items))
-		for _, item := range items {
+		out.Body.NextCursor = result.NextCursor
+		out.Body.Items = make([]DataPipelineBody, 0, len(result.Items))
+		for _, item := range result.Items {
 			out.Body.Items = append(out.Body.Items, toDataPipelineBody(item))
 		}
 		return out, nil
@@ -559,7 +580,7 @@ func toDataPipelineHTTPError(ctx context.Context, deps Dependencies, operation s
 	switch {
 	case errors.Is(err, service.ErrDataPipelineNotFound), errors.Is(err, service.ErrDataPipelineVersionNotFound), errors.Is(err, service.ErrDataPipelineRunNotFound), errors.Is(err, service.ErrDataPipelineScheduleNotFound):
 		return huma.Error404NotFound(err.Error())
-	case errors.Is(err, service.ErrInvalidDataPipelineInput), errors.Is(err, service.ErrInvalidDataPipelineGraph):
+	case errors.Is(err, service.ErrInvalidDataPipelineInput), errors.Is(err, service.ErrInvalidDataPipelineGraph), errors.Is(err, service.ErrInvalidCursor):
 		return huma.Error400BadRequest(err.Error())
 	case errors.Is(err, service.ErrDataPipelineVersionUnpublished):
 		return huma.Error409Conflict(err.Error())
@@ -619,7 +640,23 @@ func toDataPipelineDetailBody(detail service.DataPipelineDetail) DataPipelineDet
 }
 
 func toDataPipelineBody(item service.DataPipeline) DataPipelineBody {
-	return DataPipelineBody{PublicID: item.PublicID, Name: item.Name, Description: item.Description, Status: item.Status, PublishedVersionID: item.PublishedVersionID, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt, ArchivedAt: item.ArchivedAt}
+	return DataPipelineBody{
+		PublicID:              item.PublicID,
+		Name:                  item.Name,
+		Description:           item.Description,
+		Status:                item.Status,
+		PublishedVersionID:    item.PublishedVersionID,
+		CreatedAt:             item.CreatedAt,
+		UpdatedAt:             item.UpdatedAt,
+		ArchivedAt:            item.ArchivedAt,
+		LatestRunStatus:       item.LatestRunStatus,
+		LatestRunAt:           item.LatestRunAt,
+		LatestRunPublicID:     item.LatestRunPublicID,
+		ScheduleState:         item.ScheduleState,
+		EnabledScheduleCount:  item.EnabledScheduleCount,
+		DisabledScheduleCount: item.DisabledScheduleCount,
+		NextRunAt:             item.NextRunAt,
+	}
 }
 
 func toDataPipelineVersionBody(item service.DataPipelineVersion) DataPipelineVersionBody {

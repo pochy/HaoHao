@@ -60,6 +60,29 @@ export type DataPipelineBody = {
   createdAt: string
   updatedAt: string
   archivedAt?: string | null
+  latestRunStatus?: string
+  latestRunAt?: string | null
+  latestRunPublicId?: string
+  scheduleState?: 'enabled' | 'disabled' | 'none' | string
+  enabledScheduleCount?: number
+  disabledScheduleCount?: number
+  nextRunAt?: string | null
+}
+
+export type DataPipelineListParams = {
+  q?: string
+  status?: string
+  publication?: string
+  runStatus?: string
+  scheduleState?: string
+  sort?: string
+  cursor?: string
+  limit?: number
+}
+
+export type DataPipelineListResult = {
+  items: DataPipelineBody[]
+  nextCursor: string
 }
 
 export type DataPipelineVersionBody = {
@@ -366,9 +389,19 @@ async function request<T>(path: string, init: RequestInit = {}, withCSRF = true)
   return await response.json() as T
 }
 
-export async function fetchDataPipelines(): Promise<DataPipelineBody[]> {
-  const data = await request<{ items?: DataPipelineBody[] }>('/api/v1/data-pipelines?limit=100')
-  return data.items ?? []
+export async function fetchDataPipelines(params: DataPipelineListParams = {}): Promise<DataPipelineListResult> {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      search.set(key, String(value))
+    }
+  }
+  const query = search.toString()
+  const data = await request<{ items?: DataPipelineBody[], nextCursor?: string }>(`/api/v1/data-pipelines${query ? `?${query}` : ''}`)
+  return {
+    items: data.items ?? [],
+    nextCursor: data.nextCursor ?? '',
+  }
 }
 
 export async function createDataPipeline(body: { name: string, description?: string }): Promise<DataPipelineBody> {

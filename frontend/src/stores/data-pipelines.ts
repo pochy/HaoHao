@@ -20,6 +20,7 @@ import {
   type DataPipelineBody,
   type DataPipelineDetailBody,
   type DataPipelineGraph,
+  type DataPipelineListParams,
   type DataPipelinePreviewBody,
   type DataPipelineRunBody,
   type DataPipelineScheduleBody,
@@ -42,6 +43,7 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
   state: () => ({
     status: 'idle' as DataPipelineStatus,
     items: [] as DataPipelineBody[],
+    nextCursor: '',
     selectedPublicId: '',
     detail: null as DataPipelineDetailBody | null,
     draftGraph: defaultDataPipelineGraph(),
@@ -91,6 +93,7 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
     reset() {
       this.status = 'idle'
       this.items = []
+      this.nextCursor = ''
       this.selectedPublicId = ''
       this.detail = null
       this.draftGraph = defaultDataPipelineGraph()
@@ -107,11 +110,13 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
       this.runsLoading = false
     },
 
-    async load(loadFirstDetail = false) {
+    async load(loadFirstDetail = false, params: DataPipelineListParams = {}, append = false) {
       this.status = 'loading'
       this.errorMessage = ''
       try {
-        this.items = await fetchDataPipelines()
+        const result = await fetchDataPipelines(params)
+        this.items = append ? [...this.items, ...result.items] : result.items
+        this.nextCursor = result.nextCursor
         if (this.selectedPublicId && !this.items.some((item) => item.publicId === this.selectedPublicId)) {
           this.selectedPublicId = ''
         }
@@ -128,6 +133,7 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
         }
       } catch (error) {
         this.items = []
+        this.nextCursor = ''
         this.detail = null
         this.status = toApiErrorStatus(error) === 403 || isApiForbidden(error) ? 'forbidden' : 'error'
         this.errorMessage = toApiErrorMessage(error)
