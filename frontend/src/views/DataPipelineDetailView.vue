@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, History, Play, RefreshCw, RotateCcw, RotateCw, Save, Send, Settings2, Workflow, X } from 'lucide-vue-next'
+import { ArrowLeft, History, MoreHorizontal, Play, RefreshCw, RotateCcw, RotateCw, Save, Send, Settings2, Workflow, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { isDataPipelineDraftRunPreviewGraph, sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineScheduleWriteBody, type DataPipelineStepType, type DataPipelineVersionBody } from '../api/data-pipelines'
@@ -9,6 +9,9 @@ import AdminAccessDenied from '../components/AdminAccessDenied.vue'
 import DataPipelineFlowBuilder from '../components/DataPipelineFlowBuilder.vue'
 import DataPipelineInspector from '../components/DataPipelineInspector.vue'
 import DataPipelinePreviewPanel from '../components/DataPipelinePreviewPanel.vue'
+import { Button } from '../components/ui/button'
+import { ButtonGroup } from '../components/ui/button-group'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../components/ui/resizable'
 import { useDataPipelineStore } from '../stores/data-pipelines'
 import { useDatasetStore } from '../stores/datasets'
@@ -524,57 +527,81 @@ async function applySettings() {
           </span>
         </div>
       </div>
-      <div class="page-header-actions">
-        <RouterLink class="secondary-button link-button" :to="{ name: 'data-pipelines' }">
-          <ArrowLeft :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ t('dataPipelines.backToPipelines') }}
-        </RouterLink>
-        <button
-          class="secondary-button"
-          type="button"
-          :disabled="!canUndoGraph"
-          :title="`${t('common.undo')} (Ctrl/Cmd+Z)`"
-          :aria-label="`${t('common.undo')} (Ctrl/Cmd+Z)`"
-          @click="undoGraph"
-        >
-          <RotateCcw :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ t('common.undo') }}
-        </button>
-        <button
-          class="secondary-button"
-          type="button"
-          :disabled="!canRedoGraph"
-          :title="`${t('common.redo')} (Ctrl/Cmd+Shift+Z)`"
-          :aria-label="`${t('common.redo')} (Ctrl/Cmd+Shift+Z)`"
-          @click="redoGraph"
-        >
-          <RotateCw :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ t('common.redo') }}
-        </button>
-        <button class="secondary-button" type="button" :disabled="store.status === 'loading'" @click="refreshDetail">
-          <RefreshCw :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ t('common.refresh') }}
-        </button>
-        <button class="primary-button" type="button" :disabled="store.actionLoading || !selectedPipeline || !editName.trim()" @click="saveDraft">
-          <Save :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ t('common.save') }}
-        </button>
-        <button class="primary-button" type="button" :disabled="store.actionLoading || !selectedPipeline" :title="runDisabledReason" @click="runPublished">
-          <Play :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ store.actionLoading ? t('dataPipelines.running') : t('dataPipelines.run') }}
-        </button>
-        <button class="secondary-button" type="button" :disabled="store.actionLoading || !selectedPipeline" @click="openSettings">
-          <Settings2 :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ t('dataPipelines.settings') }}
-        </button>
-        <button class="secondary-button" type="button" :disabled="!selectedPipeline" @click="openVersionHistory">
-          <History :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ t('dataPipelines.changeHistory') }}
-        </button>
-        <button class="secondary-button" type="button" :disabled="activateDisabled" :title="activateButtonTitle" @click="publishLatest">
-          <Send :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ activateButtonLabel }}
-        </button>
+      <div class="page-header-actions data-pipeline-header-actions">
+        <ButtonGroup class="data-pipeline-edit-actions" :aria-label="t('dataPipelines.graphSummary')">
+          <Button
+            variant="secondary"
+            size="icon"
+            :disabled="!canUndoGraph"
+            :title="`${t('common.undo')} (Ctrl/Cmd+Z)`"
+            :aria-label="`${t('common.undo')} (Ctrl/Cmd+Z)`"
+            @click="undoGraph"
+          >
+            <RotateCcw :size="16" stroke-width="1.9" aria-hidden="true" />
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon"
+            :disabled="!canRedoGraph"
+            :title="`${t('common.redo')} (Ctrl/Cmd+Shift+Z)`"
+            :aria-label="`${t('common.redo')} (Ctrl/Cmd+Shift+Z)`"
+            @click="redoGraph"
+          >
+            <RotateCw :size="16" stroke-width="1.9" aria-hidden="true" />
+          </Button>
+        </ButtonGroup>
+
+        <ButtonGroup class="data-pipeline-primary-actions" :aria-label="t('common.actions')">
+          <Button variant="primary" size="sm" :disabled="store.actionLoading || !selectedPipeline || !editName.trim()" @click="saveDraft">
+            <Save :size="16" stroke-width="1.9" aria-hidden="true" />
+            {{ t('common.save') }}
+          </Button>
+          <Button variant="primary" size="sm" :disabled="store.actionLoading || !selectedPipeline" :title="runDisabledReason" @click="runPublished">
+            <Play :size="16" stroke-width="1.9" aria-hidden="true" />
+            {{ store.actionLoading ? t('dataPipelines.running') : t('dataPipelines.run') }}
+          </Button>
+        </ButtonGroup>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button
+              variant="secondary"
+              size="icon"
+              :aria-label="t('common.actions')"
+              :title="t('common.actions')"
+            >
+              <MoreHorizontal :size="18" stroke-width="1.9" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>{{ t('common.actions') }}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem as-child>
+              <RouterLink class="ui-dropdown-menu-link" :to="{ name: 'data-pipelines' }">
+                <ArrowLeft :size="16" stroke-width="1.9" aria-hidden="true" />
+                {{ t('dataPipelines.backToPipelines') }}
+              </RouterLink>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem :disabled="store.status === 'loading'" @select="refreshDetail">
+              <RefreshCw :size="16" stroke-width="1.9" aria-hidden="true" />
+              {{ t('common.refresh') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem :disabled="store.actionLoading || !selectedPipeline" @select="openSettings">
+              <Settings2 :size="16" stroke-width="1.9" aria-hidden="true" />
+              {{ t('dataPipelines.settings') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem :disabled="!selectedPipeline" @select="openVersionHistory">
+              <History :size="16" stroke-width="1.9" aria-hidden="true" />
+              {{ t('dataPipelines.changeHistory') }}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem :disabled="activateDisabled" :title="activateButtonTitle" @select="publishLatest">
+              <Send :size="16" stroke-width="1.9" aria-hidden="true" />
+              {{ activateButtonLabel }}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
 
