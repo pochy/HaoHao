@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, Play, RefreshCw, RotateCcw, RotateCw, Save, Send, Settings2, Workflow, X } from 'lucide-vue-next'
+import { ArrowLeft, History, Play, RefreshCw, RotateCcw, RotateCw, Save, Send, Settings2, Workflow, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import { isDataPipelineDraftRunPreviewGraph, sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineScheduleWriteBody, type DataPipelineStepType } from '../api/data-pipelines'
+import { isDataPipelineDraftRunPreviewGraph, sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineScheduleWriteBody, type DataPipelineStepType, type DataPipelineVersionBody } from '../api/data-pipelines'
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
 import DataPipelineFlowBuilder from '../components/DataPipelineFlowBuilder.vue'
 import DataPipelineInspector from '../components/DataPipelineInspector.vue'
@@ -21,6 +21,7 @@ const route = useRoute()
 const { t } = useI18n()
 
 const settingsDialogRef = ref<HTMLDialogElement | null>(null)
+const versionHistoryDialogRef = ref<HTMLDialogElement | null>(null)
 const settingsNameInputRef = ref<HTMLInputElement | null>(null)
 const editName = ref('')
 const editDescription = ref('')
@@ -34,6 +35,7 @@ const settingsScheduleRunTime = ref('03:00')
 const settingsScheduleWeekday = ref<number | null>(1)
 const settingsScheduleMonthDay = ref<number | null>(1)
 const settingsError = ref('')
+const selectedHistoryVersionPublicId = ref('')
 const compactLayout = ref(false)
 let compactLayoutMediaQuery: MediaQueryList | undefined
 let refreshTimer: number | undefined
@@ -89,6 +91,39 @@ const pipelinePublicId = computed(() => String(route.params.pipelinePublicId ?? 
 const selectedPipeline = computed(() => store.detail?.pipeline ?? null)
 const primarySchedule = computed(() => store.schedules.find((schedule) => schedule.enabled) ?? store.schedules[0] ?? null)
 const pageTitle = computed(() => selectedPipeline.value?.name || t('dataPipelines.pipelineDetail'))
+const latestVersionNumber = computed(() => store.latestVersion?.versionNumber ?? null)
+const activeVersionNumber = computed(() => store.publishedVersion?.versionNumber ?? null)
+const latestVersionIsActive = computed(() => Boolean(store.latestVersion?.publicId && store.latestVersion.publicId === store.publishedVersion?.publicId))
+const activateButtonLabel = computed(() => {
+  if (!store.latestVersion) return t('dataPipelines.publish')
+  if (latestVersionIsActive.value) return t('dataPipelines.activated')
+  if (store.publishedVersion) return t('dataPipelines.activateCurrentVersion')
+  return t('dataPipelines.publish')
+})
+const activateDisabled = computed(() => store.actionLoading || !store.latestVersion || latestVersionIsActive.value)
+const activateButtonTitle = computed(() => (latestVersionIsActive.value ? t('dataPipelines.alreadyActivatedTitle') : ''))
+const activeVersionLabel = computed(() => (
+  activeVersionNumber.value
+    ? t('dataPipelines.versionValue', { version: activeVersionNumber.value })
+    : t('dataPipelines.noActiveVersion')
+))
+const editingVersionLabel = computed(() => (
+  latestVersionNumber.value
+    ? t('dataPipelines.versionValue', { version: latestVersionNumber.value })
+    : t('dataPipelines.unsavedVersion')
+))
+const versionHistoryItems = computed(() => store.detail?.versions ?? [])
+const selectedHistoryVersion = computed(() => (
+  versionHistoryItems.value.find((version) => version.publicId === selectedHistoryVersionPublicId.value)
+  ?? versionHistoryItems.value[0]
+  ?? null
+))
+const selectedHistoryStepTypes = computed(() => {
+  const version = selectedHistoryVersion.value
+  if (!version) return []
+  return version.graph.nodes.map((node) => node.data.stepType)
+})
+const selectedHistoryValidationErrors = computed(() => selectedHistoryVersion.value?.validationSummary?.errors ?? [])
 const canPreview = computed(() => Boolean(selectedPipeline.value))
 const draftRunPreview = computed(() => isDataPipelineDraftRunPreviewGraph(store.draftGraph))
 const previewDisabledReason = computed(() => {
@@ -123,6 +158,9 @@ onBeforeUnmount(() => {
   }
   if (settingsDialogRef.value?.open) {
     settingsDialogRef.value.close()
+  }
+  if (versionHistoryDialogRef.value?.open) {
+    versionHistoryDialogRef.value.close()
   }
   window.removeEventListener('keydown', handleGraphHistoryShortcut)
   teardownCompactLayoutListener()
@@ -379,6 +417,40 @@ function handleSettingsClose() {
   settingsError.value = ''
 }
 
+async function openVersionHistory() {
+  selectedHistoryVersionPublicId.value = store.publishedVersion?.publicId ?? store.latestVersion?.publicId ?? versionHistoryItems.value[0]?.publicId ?? ''
+  await nextTick()
+  if (!versionHistoryDialogRef.value?.open) {
+    versionHistoryDialogRef.value?.showModal()
+  }
+}
+
+function closeVersionHistory() {
+  if (versionHistoryDialogRef.value?.open) {
+    versionHistoryDialogRef.value.close()
+  }
+}
+
+function selectHistoryVersion(version: DataPipelineVersionBody) {
+  selectedHistoryVersionPublicId.value = version.publicId
+}
+
+function versionHistoryBadgeKey(version: DataPipelineVersionBody) {
+  if (version.publicId === store.publishedVersion?.publicId) return 'activeVersionBadge'
+  if (version.publicId === store.latestVersion?.publicId) return 'latestDraftBadge'
+  return 'pastVersionBadge'
+}
+
+function versionHistoryBadgeClass(version: DataPipelineVersionBody) {
+  if (version.publicId === store.publishedVersion?.publicId) return 'success'
+  if (version.publicId === store.latestVersion?.publicId) return 'warning'
+  return ''
+}
+
+function formatDateTime(value?: string | null) {
+  return value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-'
+}
+
 function cloneGraph(graph: DataPipelineGraph): DataPipelineGraph {
   return sanitizeDataPipelineGraph(JSON.parse(JSON.stringify(graph)) as DataPipelineGraph)
 }
@@ -443,6 +515,14 @@ async function applySettings() {
     <header class="page-header">
       <div class="page-header-copy">
         <h1>{{ pageTitle }}</h1>
+        <div v-if="selectedPipeline" class="data-pipeline-version-summary" aria-live="polite">
+          <span class="status-pill" :class="{ success: activeVersionNumber }">
+            {{ t('dataPipelines.activeVersion') }}: {{ activeVersionLabel }}
+          </span>
+          <span class="status-pill">
+            {{ t('dataPipelines.editingVersion') }}: {{ editingVersionLabel }}
+          </span>
+        </div>
       </div>
       <div class="page-header-actions">
         <RouterLink class="secondary-button link-button" :to="{ name: 'data-pipelines' }">
@@ -487,9 +567,13 @@ async function applySettings() {
           <Settings2 :size="16" stroke-width="1.9" aria-hidden="true" />
           {{ t('dataPipelines.settings') }}
         </button>
-        <button class="secondary-button" type="button" :disabled="store.actionLoading || !store.latestVersion" @click="publishLatest">
+        <button class="secondary-button" type="button" :disabled="!selectedPipeline" @click="openVersionHistory">
+          <History :size="16" stroke-width="1.9" aria-hidden="true" />
+          {{ t('dataPipelines.changeHistory') }}
+        </button>
+        <button class="secondary-button" type="button" :disabled="activateDisabled" :title="activateButtonTitle" @click="publishLatest">
           <Send :size="16" stroke-width="1.9" aria-hidden="true" />
-          {{ t('dataPipelines.publish') }}
+          {{ activateButtonLabel }}
         </button>
       </div>
     </header>
@@ -693,6 +777,111 @@ async function applySettings() {
           </button>
         </div>
       </form>
+    </dialog>
+
+    <dialog
+      ref="versionHistoryDialogRef"
+      class="confirm-dialog data-pipeline-version-history-dialog"
+      @cancel.prevent="closeVersionHistory"
+    >
+      <div class="confirm-dialog-panel data-pipeline-version-history-panel">
+        <header class="data-pipeline-settings-header">
+          <div>
+            <span class="status-pill">{{ t('dataPipelines.changeHistory') }}</span>
+            <h2>{{ t('dataPipelines.versionHistory') }}</h2>
+          </div>
+          <button class="secondary-button compact-button" type="button" @click="closeVersionHistory">
+            <X :size="15" stroke-width="1.9" aria-hidden="true" />
+            {{ t('common.close') }}
+          </button>
+        </header>
+
+        <div v-if="versionHistoryItems.length === 0" class="empty-state data-pipeline-version-history-empty">
+          <Workflow :size="28" stroke-width="1.8" aria-hidden="true" />
+          <h2>{{ t('dataPipelines.noVersionHistory') }}</h2>
+        </div>
+
+        <div v-else class="data-pipeline-version-history-content">
+          <div class="data-pipeline-version-history-list" role="listbox" :aria-label="t('dataPipelines.versionHistory')">
+            <button
+              v-for="version in versionHistoryItems"
+              :key="version.publicId"
+              class="data-pipeline-version-history-row"
+              :class="{ selected: selectedHistoryVersion?.publicId === version.publicId }"
+              type="button"
+              role="option"
+              :aria-selected="selectedHistoryVersion?.publicId === version.publicId"
+              @click="selectHistoryVersion(version)"
+            >
+              <span class="data-pipeline-version-history-row-main">
+                <strong>{{ t('dataPipelines.versionValue', { version: version.versionNumber }) }}</strong>
+                <span class="status-pill" :class="versionHistoryBadgeClass(version)">
+                  {{ t(`dataPipelines.${versionHistoryBadgeKey(version)}`) }}
+                </span>
+              </span>
+              <span class="data-pipeline-version-history-meta">
+                {{ t('dataPipelines.savedAt') }}: {{ formatDateTime(version.createdAt) }}
+              </span>
+              <span v-if="version.publishedAt" class="data-pipeline-version-history-meta">
+                {{ t('dataPipelines.activatedAt') }}: {{ formatDateTime(version.publishedAt) }}
+              </span>
+              <span class="data-pipeline-version-history-meta">
+                {{ t('dataPipelines.graphSummary') }}:
+                {{ t('dataPipelines.nodesCount', { count: version.graph.nodes.length }) }},
+                {{ t('dataPipelines.edgesCount', { count: version.graph.edges.length }) }}
+              </span>
+              <span class="status-pill" :class="version.validationSummary.valid ? 'success' : 'danger'">
+                {{ version.validationSummary.valid ? t('dataPipelines.validationValid') : t('dataPipelines.validationInvalid') }}
+              </span>
+            </button>
+          </div>
+
+          <aside v-if="selectedHistoryVersion" class="data-pipeline-version-history-detail">
+            <header>
+              <span class="status-pill" :class="versionHistoryBadgeClass(selectedHistoryVersion)">
+                {{ t(`dataPipelines.${versionHistoryBadgeKey(selectedHistoryVersion)}`) }}
+              </span>
+              <h3>{{ t('dataPipelines.versionValue', { version: selectedHistoryVersion.versionNumber }) }}</h3>
+            </header>
+
+            <dl class="data-pipeline-version-history-facts">
+              <div>
+                <dt>{{ t('dataPipelines.savedAt') }}</dt>
+                <dd>{{ formatDateTime(selectedHistoryVersion.createdAt) }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('dataPipelines.activatedAt') }}</dt>
+                <dd>{{ formatDateTime(selectedHistoryVersion.publishedAt) }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('dataPipelines.publicId') }}</dt>
+                <dd>{{ selectedHistoryVersion.publicId }}</dd>
+              </div>
+            </dl>
+
+            <section class="data-pipeline-version-history-section">
+              <h4>{{ t('dataPipelines.graphSummary') }}</h4>
+              <p>
+                {{ t('dataPipelines.nodesCount', { count: selectedHistoryVersion.graph.nodes.length }) }} /
+                {{ t('dataPipelines.edgesCount', { count: selectedHistoryVersion.graph.edges.length }) }}
+              </p>
+              <div class="data-pipeline-version-step-list">
+                <span v-for="(stepType, index) in selectedHistoryStepTypes" :key="`${stepType}-${index}`" class="status-pill">
+                  {{ stepType }}
+                </span>
+              </div>
+            </section>
+
+            <section class="data-pipeline-version-history-section">
+              <h4>{{ t('dataPipelines.validationErrors') }}</h4>
+              <ul v-if="selectedHistoryValidationErrors.length > 0">
+                <li v-for="error in selectedHistoryValidationErrors" :key="error">{{ error }}</li>
+              </ul>
+              <p v-else>{{ t('dataPipelines.validationValid') }}</p>
+            </section>
+          </aside>
+        </div>
+      </div>
     </dialog>
   </section>
 </template>
