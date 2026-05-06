@@ -1358,6 +1358,22 @@ code {
   color: var(--warning);
 }
 
+.config-warning-list {
+  display: grid;
+  gap: 6px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--warning) 32%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 8%, #fff);
+}
+
+.config-warning-list .warning-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.4;
+}
+
 .danger-button {
   color: var(--danger);
 }

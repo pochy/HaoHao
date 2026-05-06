@@ -122,6 +122,7 @@ const rightColumns = computed(() => {
   return sourceColumnsFromConfig(configDraft.value, 'rightSourceKind', 'rightDatasetPublicId', 'rightWorkTablePublicId')
 })
 const knownColumns = computed(() => uniqueStrings([...primaryColumns.value, ...rightColumns.value]))
+const missingColumnWarnings = computed(() => selectedMissingColumnWarnings())
 const crossJoinSelected = computed(() => stringConfig('joinType') === 'cross')
 const effectiveJoinSelectColumns = computed(() => {
   const configured = stringList(configDraft.value.selectColumns)
@@ -811,6 +812,9 @@ function sourceColumnsFromConfig(config: ConfigRecord, kindKey: string, datasetK
       ...rawRecordColumns,
     ])
   }
+  if (kind === 'drive_file') {
+    return ['file_public_id', 'file_name', 'mime_type', 'file_revision']
+  }
   const publicId = stringValue(kind === 'work_table' ? config[workTableKey] : config[datasetKey])
   if (!publicId) {
     return []
@@ -871,6 +875,115 @@ function columnsForNodeOutput(nodeId?: string, visited = new Set<string>()): str
   default:
     return upstreamColumns()
   }
+}
+
+function selectedMissingColumnWarnings() {
+  if (!selectedNode.value || stepType.value === 'input') {
+    return []
+  }
+  const warnings: string[] = []
+  const primaryMissing = missingColumns(configuredPrimaryColumnRefs(stepType.value, configDraft.value), primaryColumns.value)
+  if (primaryMissing.length > 0) {
+    warnings.push(t('dataPipelines.missingUpstreamColumns', { columns: primaryMissing.join(', ') }))
+  }
+  if (stepType.value === 'join') {
+    const rightMissing = missingColumns(stringList(configDraft.value.rightKeys), rightColumns.value)
+    if (rightMissing.length > 0) {
+      warnings.push(t('dataPipelines.missingRightUpstreamColumns', { columns: rightMissing.join(', ') }))
+    }
+  }
+  return warnings
+}
+
+function configuredPrimaryColumnRefs(type: string, config: ConfigRecord) {
+  switch (type) {
+  case 'json_extract':
+    return [stringValue(config.sourceColumn)]
+  case 'excel_extract':
+    return [stringValue(config.sourceFileColumn)]
+  case 'clean':
+    return arrayFromConfig(config, 'rules').flatMap(cleanRuleColumnRefs)
+  case 'normalize':
+    return arrayFromConfig(config, 'rules').map((rule) => stringField(rule, 'column'))
+  case 'validate':
+    return arrayFromConfig(config, 'rules').map((rule) => stringField(rule, 'column'))
+  case 'schema_mapping':
+    return arrayFromConfig(config, 'mappings').map((mapping) => stringField(mapping, 'sourceColumn'))
+  case 'schema_completion':
+    return arrayFromConfig(config, 'rules').flatMap((rule) => [
+      stringField(rule, 'sourceColumn'),
+      ...stringList(rule.sourceColumns),
+    ])
+  case 'join':
+    return stringList(config.leftKeys)
+  case 'transform':
+    return transformColumnRefs(config)
+  case 'schema_inference':
+  case 'quality_report':
+  case 'deduplicate':
+  case 'redact_pii':
+    return stringList(config.columns)
+  case 'canonicalize':
+    return arrayFromConfig(config, 'rules').map((rule) => stringField(rule, 'column'))
+  case 'classify_document':
+  case 'relationship_extraction':
+    return [stringValue(config.textColumn)]
+  case 'detect_language_encoding':
+    return [stringValue(config.column)]
+  case 'unit_conversion':
+    return arrayFromConfig(config, 'rules').flatMap((rule) => [
+      stringField(rule, 'valueColumn'),
+      stringField(rule, 'unitColumn'),
+    ])
+  case 'sample_compare':
+    return arrayFromConfig(config, 'pairs').flatMap((pair) => [
+      stringField(pair, 'beforeColumn'),
+      stringField(pair, 'afterColumn'),
+    ])
+  case 'output':
+    return stringList(config.orderBy)
+  default:
+    return []
+  }
+}
+
+function cleanRuleColumnRefs(rule: ConfigRecord) {
+  const operation = stringField(rule, 'operation')
+  if (operation === 'dedupe') {
+    return [...stringList(rule.keys), stringField(rule, 'orderBy')]
+  }
+  if (operation === 'drop_null_rows') {
+    return stringList(rule.columns || rule.column)
+  }
+  return [stringField(rule, 'column')]
+}
+
+function transformColumnRefs(config: ConfigRecord) {
+  const operation = stringValue(config.operation || config.type) || 'select_columns'
+  switch (operation) {
+  case 'select_columns':
+  case 'drop_columns':
+    return stringList(config.columns)
+  case 'rename_columns':
+    return Object.keys(asRecord(config.renames))
+  case 'filter':
+    return arrayFromConfig(config, 'conditions').map((condition) => stringField(condition, 'column'))
+  case 'sort':
+    return arrayFromConfig(config, 'sorts').map((sort) => stringField(sort, 'column'))
+  case 'aggregate':
+    return [
+      ...stringList(config.groupBy),
+      ...arrayFromConfig(config, 'aggregations').map((aggregation) => stringField(aggregation, 'column')),
+    ]
+  default:
+    return []
+  }
+}
+
+function missingColumns(columns: string[], availableColumns: string[]) {
+  const available = new Set(availableColumns)
+  return uniqueStrings(columns.map((column) => column.trim()).filter(Boolean))
+    .filter((column) => !available.has(column))
 }
 
 function incomingNodeIds(nodeId: string) {
@@ -1204,6 +1317,12 @@ function labelForStep(type: DataPipelineStepType | string) {
           <h3>{{ t('dataPipelines.configUi') }}</h3>
           <span class="status-pill">{{ stepLabel(stepType) }}</span>
         </header>
+        <div v-if="missingColumnWarnings.length > 0" class="config-warning-list" role="status">
+          <p v-for="warning in missingColumnWarnings" :key="warning" class="warning-message">
+            <AlertCircle :size="14" stroke-width="1.9" aria-hidden="true" />
+            {{ warning }}
+          </p>
+        </div>
 
         <template v-if="stepType === 'input'">
           <label class="field">
