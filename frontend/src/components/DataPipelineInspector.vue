@@ -3,10 +3,16 @@ import { computed, ref, watch } from 'vue'
 import { AlertCircle, Check, MousePointerClick, Plus, Trash2, Zap } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
+import { fetchDriveFile } from '../api/drive'
 import { isDataPipelineAutoPreviewEnabled, type DataPipelineGraph, type DataPipelineStepType } from '../api/data-pipelines'
-import type { DatasetBody, DatasetWorkTableBody } from '../api/generated/types.gen'
+import type { DatasetBody, DatasetWorkTableBody, DriveFileBody } from '../api/generated/types.gen'
+import DriveFilePickerDialog from './DriveFilePickerDialog.vue'
 
 type ConfigRecord = Record<string, unknown>
+type SelectedDriveFile = {
+  publicId: string
+  file: DriveFileBody | null
+}
 
 const props = defineProps<{
   graph: DataPipelineGraph
@@ -58,6 +64,10 @@ const aggregateFunctions = ['count', 'sum', 'avg', 'min', 'max']
 const fieldTypes = ['string', 'number', 'date', 'boolean', 'json']
 const canonicalizeOperations = ['trim', 'lowercase', 'uppercase', 'normalize_spaces', 'remove_symbols', 'zenkaku_to_hankaku_basic']
 const piiTypes = ['email', 'phone', 'postal_code', 'api_key_like', 'credit_card_like']
+const driveInputModes = [
+  { value: '', labelKey: 'dataPipelines.driveInputMode.files' },
+  { value: 'spreadsheet', labelKey: 'dataPipelines.driveInputMode.spreadsheet' },
+]
 
 const label = ref('')
 const configText = ref('{}')
@@ -65,6 +75,9 @@ const configDraft = ref<ConfigRecord>({})
 const parseError = ref('')
 const uiError = ref('')
 const activeConfigTab = ref<'ui' | 'json'>('ui')
+const drivePickerOpen = ref(false)
+const selectedDriveFiles = ref<SelectedDriveFile[]>([])
+const selectedDriveFilesLoading = ref(false)
 let syncingLocalChange = false
 const { t } = useI18n()
 
@@ -78,6 +91,7 @@ const previewModeTitle = computed(() => autoPreviewEnabled.value ? t('dataPipeli
 const previewModeIcon = computed(() => autoPreviewEnabled.value ? Zap : MousePointerClick)
 const datasetOptions = computed(() => props.datasets ?? [])
 const workTableOptions = computed(() => (props.workTables ?? []).filter((item) => Boolean(item.publicId)))
+const driveFileIds = computed(() => stringList(configDraft.value.filePublicIds))
 const primaryColumns = computed(() => {
   if (stepType.value === 'input') {
     return sourceColumnsFromConfig(configDraft.value, 'sourceKind', 'datasetPublicId', 'workTablePublicId')
@@ -126,6 +140,14 @@ watch(selectedNode, (node) => {
   configText.value = JSON.stringify(configDraft.value, null, 2)
   parseError.value = ''
   uiError.value = ''
+}, { immediate: true })
+
+watch(() => driveFileIds.value.join('\n'), () => {
+  if (sourceKind() === 'drive_file') {
+    void hydrateSelectedDriveFiles(driveFileIds.value)
+  } else {
+    selectedDriveFiles.value = []
+  }
 }, { immediate: true })
 
 function onJsonInput(event: Event) {
@@ -228,6 +250,87 @@ function updateConfigList(key: string, value: string) {
   setConfig({ [key]: parseListInput(value) })
 }
 
+async function hydrateSelectedDriveFiles(ids: string[]) {
+  const uniqueIds = uniqueStrings(ids)
+  if (uniqueIds.length === 0) {
+    selectedDriveFiles.value = []
+    return
+  }
+  selectedDriveFilesLoading.value = true
+  const existing = new Map(selectedDriveFiles.value.map((item) => [item.publicId, item]))
+  try {
+    selectedDriveFiles.value = await Promise.all(uniqueIds.map(async (publicId) => {
+      const cached = existing.get(publicId)
+      if (cached?.file) {
+        return cached
+      }
+      try {
+        return { publicId, file: await fetchDriveFile(publicId) }
+      } catch {
+        return { publicId, file: null }
+      }
+    }))
+  } finally {
+    selectedDriveFilesLoading.value = false
+  }
+}
+
+function applyDriveFileSelection(filePublicIds: string[]) {
+  drivePickerOpen.value = false
+  setConfig({ filePublicIds: uniqueStrings(filePublicIds) })
+}
+
+function removeDriveFile(publicId: string) {
+  setConfig({ filePublicIds: driveFileIds.value.filter((item) => item !== publicId) })
+}
+
+function selectedDriveFileName(item: SelectedDriveFile) {
+  return item.file?.originalFilename ?? t('dataPipelines.unknownDriveFile')
+}
+
+function selectedDriveFileSubtitle(item: SelectedDriveFile) {
+  return item.file ? [item.file.contentType, item.publicId].filter(Boolean).join(' · ') : item.publicId
+}
+
+function updateConfigOptionalNumber(key: string, value: string) {
+  const next = { ...configDraft.value }
+  const trimmed = value.trim()
+  if (trimmed) {
+    next[key] = Number(trimmed)
+  } else {
+    delete next[key]
+  }
+  configDraft.value = next
+  syncConfigText()
+}
+
+function driveInputMode() {
+  const mode = stringConfig('inputMode') || stringConfig('format')
+  return ['spreadsheet', 'excel', 'xls', 'xlsx'].includes(mode) ? 'spreadsheet' : ''
+}
+
+function setDriveInputMode(mode: string) {
+  const next = { ...configDraft.value }
+  if (mode === 'spreadsheet') {
+    next.inputMode = 'spreadsheet'
+    if (next.headerRow === undefined) {
+      next.headerRow = 1
+    }
+    if (!Array.isArray(next.columns)) {
+      next.columns = []
+    }
+  } else {
+    delete next.inputMode
+    delete next.format
+    delete next.sheetName
+    delete next.headerRow
+    delete next.columns
+    delete next.maxRows
+  }
+  configDraft.value = next
+  syncConfigText()
+}
+
 function joinSelectColumnChecked(column: string) {
   return effectiveJoinSelectColumns.value.includes(column)
 }
@@ -266,12 +369,28 @@ function setSourceKind(kind: string, right = false) {
     })
     return
   }
-  setConfig({
+  const next: ConfigRecord = {
     sourceKind: kind,
     datasetPublicId: kind === 'dataset' ? stringConfig('datasetPublicId') : '',
     workTablePublicId: kind === 'work_table' ? stringConfig('workTablePublicId') : '',
     filePublicIds: kind === 'drive_file' ? stringList(configDraft.value.filePublicIds) : [],
-  })
+  }
+  if (kind === 'drive_file') {
+    next.inputMode = stringConfig('inputMode')
+  }
+  configDraft.value = {
+    ...configDraft.value,
+    ...next,
+  }
+  if (kind !== 'drive_file') {
+    delete configDraft.value.inputMode
+    delete configDraft.value.format
+    delete configDraft.value.sheetName
+    delete configDraft.value.headerRow
+    delete configDraft.value.columns
+    delete configDraft.value.maxRows
+  }
+  syncConfigText()
 }
 
 function setSourcePublicId(publicId: string, right = false) {
@@ -514,6 +633,17 @@ function removeObjectEntry(key: string, index: number) {
 
 function sourceColumnsFromConfig(config: ConfigRecord, kindKey: string, datasetKey: string, workTableKey: string) {
   const kind = stringValue(config[kindKey]) || 'dataset'
+  if (kind === 'drive_file' && spreadsheetInputModeFromConfig(config)) {
+    return uniqueStrings([
+      'file_public_id',
+      'file_name',
+      'mime_type',
+      'file_revision',
+      'sheet_name',
+      'row_number',
+      ...stringList(config.columns),
+    ])
+  }
   const publicId = stringValue(kind === 'work_table' ? config[workTableKey] : config[datasetKey])
   if (!publicId) {
     return []
@@ -522,6 +652,11 @@ function sourceColumnsFromConfig(config: ConfigRecord, kindKey: string, datasetK
     return workTableOptions.value.find((item) => item.publicId === publicId)?.columns?.map((column) => column.columnName) ?? []
   }
   return datasetOptions.value.find((item) => item.publicId === publicId)?.columns?.map((column) => column.columnName) ?? []
+}
+
+function spreadsheetInputModeFromConfig(config: ConfigRecord) {
+  const mode = stringValue(config.inputMode || config.format)
+  return ['spreadsheet', 'excel', 'xls', 'xlsx'].includes(mode)
 }
 
 function columnsForNodeOutput(nodeId?: string, visited = new Set<string>()): string[] {
@@ -887,10 +1022,62 @@ function labelForStep(type: DataPipelineStepType | string) {
               </option>
             </select>
           </label>
-          <label v-else class="field">
-            <span>{{ t('dataPipelines.filePublicIds') }}</span>
-            <textarea :value="listToInput(configDraft.filePublicIds)" rows="4" :placeholder="t('dataPipelines.filePublicIdsPlaceholder')" @input="updateConfigList('filePublicIds', targetValue($event))" />
-          </label>
+          <template v-else>
+            <div class="data-pipeline-drive-file-selector">
+              <div class="config-section-header">
+                <h3>{{ t('dataPipelines.selectedDriveFiles') }}</h3>
+                <button class="secondary-button compact-button" type="button" @click="drivePickerOpen = true">
+                  <Plus :size="15" stroke-width="1.9" aria-hidden="true" />
+                  {{ t('dataPipelines.chooseDriveFiles') }}
+                </button>
+              </div>
+              <p v-if="selectedDriveFilesLoading" class="cell-subtle">{{ t('common.loading') }}</p>
+              <p v-else-if="selectedDriveFiles.length === 0" class="cell-subtle">{{ t('dataPipelines.noSelectedDriveFiles') }}</p>
+              <div v-else class="data-pipeline-selected-drive-files">
+                <div v-for="item in selectedDriveFiles" :key="item.publicId" class="data-pipeline-selected-drive-file">
+                  <span>
+                    <strong>{{ selectedDriveFileName(item) }}</strong>
+                    <small>{{ selectedDriveFileSubtitle(item) }}</small>
+                  </span>
+                  <button class="icon-button danger" type="button" :aria-label="t('dataPipelines.removeDriveFile', { name: selectedDriveFileName(item) })" @click="removeDriveFile(item.publicId)">
+                    <Trash2 :size="14" stroke-width="1.9" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <label class="field">
+              <span>{{ t('dataPipelines.driveInputModeLabel') }}</span>
+              <select :value="driveInputMode()" @change="setDriveInputMode(targetValue($event))">
+                <option v-for="mode in driveInputModes" :key="mode.value" :value="mode.value">{{ t(mode.labelKey) }}</option>
+              </select>
+            </label>
+            <div v-if="driveInputMode() === 'spreadsheet'" class="config-grid">
+              <label class="field">
+                <span>{{ t('dataPipelines.sheetName') }}</span>
+                <input :value="stringConfig('sheetName')" :placeholder="t('dataPipelines.firstSheet')" @input="updateConfigOptionalString('sheetName', targetValue($event))">
+              </label>
+              <label class="field">
+                <span>{{ t('dataPipelines.headerRow') }}</span>
+                <input :value="numberField(configDraft, 'headerRow')" type="number" min="0" step="1" :placeholder="t('dataPipelines.headerRowPlaceholder')" @input="updateConfigOptionalNumber('headerRow', targetValue($event))">
+              </label>
+              <label class="field">
+                <span>{{ t('dataPipelines.maxRows') }}</span>
+                <input :value="numberField(configDraft, 'maxRows')" type="number" min="1" step="1" placeholder="100000" @input="updateConfigOptionalNumber('maxRows', targetValue($event))">
+              </label>
+              <label class="field">
+                <span>{{ t('dataPipelines.columns') }}</span>
+                <textarea :value="listToInput(configDraft.columns)" rows="3" :placeholder="t('dataPipelines.spreadsheetColumnsPlaceholder')" @input="updateConfigList('columns', targetValue($event))" />
+              </label>
+            </div>
+            <DriveFilePickerDialog
+              :open="drivePickerOpen"
+              :selected-file-ids="driveFileIds"
+              :multiple="false"
+              :spreadsheet-mode="driveInputMode() === 'spreadsheet'"
+              @close="drivePickerOpen = false"
+              @apply="applyDriveFileSelection"
+            />
+          </template>
         </template>
 
         <template v-else-if="stepType === 'clean'">

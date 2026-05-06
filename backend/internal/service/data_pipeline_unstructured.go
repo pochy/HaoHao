@@ -263,6 +263,9 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 	switch node.Data.StepType {
 	case DataPipelineStepInput:
 		if dataPipelineString(node.Data.Config, "sourceKind") == dataPipelineDriveFileSource {
+			if dataPipelineDriveInputMode(node.Data.Config) == "spreadsheet" {
+				return s.materializeDriveSpreadsheetInput(ctx, conn, database, table, node, tenantID, actorUserID)
+			}
 			return s.materializeDriveFileInput(ctx, conn, database, table, node)
 		}
 	case DataPipelineStepExtractText:

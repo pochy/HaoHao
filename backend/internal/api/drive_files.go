@@ -525,8 +525,12 @@ func maxRawDriveUploadBytes(fileMaxBytes, datasetMaxBytes int64) int64 {
 }
 
 func rawDriveLooksLikeCSV(filename, contentType string) bool {
-	if strings.EqualFold(filepath.Ext(strings.TrimSpace(filename)), ".csv") {
+	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(filename)))
+	if ext == ".csv" {
 		return true
+	}
+	if ext == ".xls" || ext == ".xlsx" {
+		return false
 	}
 	switch strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0])) {
 	case "text/csv", "application/csv", "application/vnd.ms-excel":
