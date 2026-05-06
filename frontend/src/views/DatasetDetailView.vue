@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Play, RefreshCw, RotateCw, Table2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -32,6 +32,7 @@ interface DatasetDataColumnMeta {
 const DATA_PAGE_SIZE = 250
 const DATA_ROW_HEIGHT = 34
 const DATA_BUFFER_SIZE = 800
+const SqlMonacoEditor = defineAsyncComponent(() => import('../components/SqlMonacoEditor.vue'))
 
 const route = useRoute()
 const router = useRouter()
@@ -104,6 +105,36 @@ const canRequestSync = computed(() => (
 ))
 const canReviewLineage = computed(() => tenantStore.activeTenant?.roles?.includes('tenant_admin') ?? false)
 const activeLineageDraftSource = computed(() => datasetStore.selectedLineageChangeSet?.changeSet.sourceKind ?? 'manual')
+const sqlSchemaHints = computed(() => {
+  const tables = []
+  const dataset = selectedDataset.value
+  if (dataset?.rawDatabase && dataset.rawTable) {
+    tables.push({
+      database: dataset.rawDatabase,
+      table: dataset.rawTable,
+      columns: (dataset.columns ?? []).map((column) => ({
+        name: column.columnName,
+        type: column.clickHouseType,
+      })),
+    })
+  }
+
+  for (const table of datasetStore.linkedWorkTables) {
+    if (!table.database || !table.table) {
+      continue
+    }
+    tables.push({
+      database: table.database,
+      table: table.table,
+      columns: (table.columns ?? []).map((column) => ({
+        name: column.columnName,
+        type: column.clickHouseType,
+      })),
+    })
+  }
+
+  return { tables }
+})
 
 const selectedTableName = computed(() => {
   const item = selectedDataset.value
@@ -626,11 +657,12 @@ function formatActionError(error: unknown) {
             </button>
           </div>
 
-          <textarea
+          <SqlMonacoEditor
             v-model="statement"
-            class="field-input textarea-input dataset-sql-input"
-            spellcheck="false"
+            :disabled="datasetStore.executing"
             :placeholder="t('datasets.sqlPlaceholder')"
+            :schema-hints="sqlSchemaHints"
+            @run="runQuery"
           />
 
           <div class="action-row">

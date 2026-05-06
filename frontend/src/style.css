@@ -1693,6 +1693,37 @@ code {
   line-height: 1.5;
 }
 
+.dataset-sql-editor {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  overflow: hidden;
+}
+
+.dataset-sql-editor:focus-within {
+  border-color: rgba(37, 99, 235, 0.62);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+
+.dataset-sql-editor-host {
+  width: 100%;
+  min-width: 0;
+  height: clamp(220px, 34dvh, 420px);
+}
+
+.dataset-sql-editor-fallback {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  resize: vertical;
+}
+
+.dataset-sql-editor-fallback:focus {
+  box-shadow: none;
+}
+
 .dataset-result-table table {
   min-width: 720px;
 }
