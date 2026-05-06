@@ -49,12 +49,14 @@ type GraphUpdateOptions = {
   commit?: boolean
 }
 
-const autoLayoutColumnGap = 330
-const autoLayoutRowGap = 120
+const autoLayoutColumnGap = 275
+const autoLayoutRowGap = 99
 const autoLayoutStartX = 60
 const autoLayoutStartY = 80
 const autoLayoutNodeWidth = 220
 const autoLayoutNodeHeight = 78
+const autoLayoutColumnSpacing = autoLayoutColumnGap - autoLayoutNodeWidth
+const autoLayoutRowSpacing = autoLayoutRowGap - autoLayoutNodeHeight
 const snapGridSize = 15
 const stepOrder: Record<DataPipelineStepType, number> = {
   input: 0,
@@ -326,8 +328,8 @@ async function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataP
       'elk.direction': 'RIGHT',
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.separateConnectedComponents': 'false',
-      'elk.spacing.nodeNode': String(Math.max(40, autoLayoutRowGap - autoLayoutNodeHeight)),
-      'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': String(Math.max(80, autoLayoutColumnGap - autoLayoutNodeWidth)),
+      'elk.spacing.nodeNode': String(autoLayoutRowSpacing),
+      'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': String(autoLayoutColumnSpacing),
       'org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers': '48',
       'org.eclipse.elk.layered.crossingMinimization.forceNodeModelOrder': 'true',
       'org.eclipse.elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
