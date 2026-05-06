@@ -67,6 +67,7 @@ const piiTypes = ['email', 'phone', 'postal_code', 'api_key_like', 'credit_card_
 const driveInputModes = [
   { value: '', labelKey: 'dataPipelines.driveInputMode.files' },
   { value: 'spreadsheet', labelKey: 'dataPipelines.driveInputMode.spreadsheet' },
+  { value: 'json', labelKey: 'dataPipelines.driveInputMode.json' },
 ]
 
 const label = ref('')
@@ -379,7 +380,13 @@ function updateConfigOptionalNumber(key: string, value: string) {
 
 function driveInputMode() {
   const mode = stringConfig('inputMode') || stringConfig('format')
-  return ['spreadsheet', 'excel', 'xls', 'xlsx'].includes(mode) ? 'spreadsheet' : ''
+  if (['spreadsheet', 'excel', 'xls', 'xlsx'].includes(mode)) {
+    return 'spreadsheet'
+  }
+  if (['json', 'application/json'].includes(mode)) {
+    return 'json'
+  }
+  return ''
 }
 
 function setDriveInputMode(mode: string) {
@@ -392,6 +399,29 @@ function setDriveInputMode(mode: string) {
     if (!Array.isArray(next.columns)) {
       next.columns = []
     }
+    delete next.recordPath
+    delete next.fields
+    delete next.includeRawRecord
+  } else if (mode === 'json') {
+    next.inputMode = 'json'
+    if (next.recordPath === undefined) {
+      next.recordPath = '$'
+    }
+    if (next.maxRows === undefined) {
+      next.maxRows = 100000
+    }
+    if (next.includeSourceMetadataColumns === undefined) {
+      next.includeSourceMetadataColumns = true
+    }
+    if (!Array.isArray(next.fields)) {
+      next.fields = []
+    }
+    delete next.format
+    delete next.sheetName
+    delete next.sheetIndex
+    delete next.range
+    delete next.headerRow
+    delete next.columns
   } else {
     delete next.inputMode
     delete next.format
@@ -402,6 +432,9 @@ function setDriveInputMode(mode: string) {
     delete next.columns
     delete next.maxRows
     delete next.includeSourceMetadataColumns
+    delete next.recordPath
+    delete next.fields
+    delete next.includeRawRecord
   }
   configDraft.value = next
   syncConfigText()
@@ -468,6 +501,9 @@ function setSourceKind(kind: string, right = false) {
     delete configDraft.value.columns
     delete configDraft.value.maxRows
     delete configDraft.value.includeSourceMetadataColumns
+    delete configDraft.value.recordPath
+    delete configDraft.value.fields
+    delete configDraft.value.includeRawRecord
   }
   syncConfigText()
 }
@@ -543,6 +579,26 @@ function removeArrayItem(key: string, index: number) {
   setArray(key, arrayConfig(key).filter((_, itemIndex) => itemIndex !== index))
 }
 
+function jsonFieldPath(field: ConfigRecord) {
+  const path = stringField(field, 'path').trim()
+  if (path) {
+    return path
+  }
+  return stringList(field.pathSegments).join('.')
+}
+
+function updateJsonFieldPath(key: string, index: number, value: string) {
+  const item = { ...arrayConfig(key)[index] }
+  const trimmed = value.trim()
+  delete item.pathSegments
+  if (trimmed) {
+    item.path = trimmed
+  } else {
+    delete item.path
+  }
+  replaceArrayItem(key, index, item)
+}
+
 function updateArrayListField(key: string, index: number, field: string, value: string) {
   updateArrayItem(key, index, { [field]: parseListInput(value) })
 }
@@ -556,6 +612,17 @@ function updateDropNullColumns(index: number, value: string) {
 
 function updateArrayScalarField(key: string, index: number, field: string, value: string) {
   updateArrayItem(key, index, { [field]: parseScalarInput(value) })
+}
+
+function updateConfigOptionalStringForArray(key: string, index: number, field: string, value: string) {
+  const item = { ...arrayConfig(key)[index] }
+  const trimmed = value.trim()
+  if (trimmed) {
+    item[field] = trimmed
+  } else {
+    delete item[field]
+  }
+  replaceArrayItem(key, index, item)
 }
 
 function updateArrayOptionalNumberField(key: string, index: number, field: string, value: string) {
@@ -730,6 +797,20 @@ function sourceColumnsFromConfig(config: ConfigRecord, kindKey: string, datasetK
       ...stringList(config.columns),
     ])
   }
+  if (kind === 'drive_file' && jsonInputModeFromConfig(config)) {
+    const sourceMetadataColumns = config.includeSourceMetadataColumns === false
+      ? []
+      : ['file_public_id', 'file_name', 'mime_type', 'file_revision', 'row_number', 'record_path']
+    const jsonColumns = arrayFromConfig(config, 'fields')
+      .map((field) => stringField(field, 'column').trim())
+      .filter(Boolean)
+    const rawRecordColumns = config.includeRawRecord === true ? ['raw_record_json'] : []
+    return uniqueStrings([
+      ...sourceMetadataColumns,
+      ...jsonColumns,
+      ...rawRecordColumns,
+    ])
+  }
   const publicId = stringValue(kind === 'work_table' ? config[workTableKey] : config[datasetKey])
   if (!publicId) {
     return []
@@ -743,6 +824,11 @@ function sourceColumnsFromConfig(config: ConfigRecord, kindKey: string, datasetK
 function spreadsheetInputModeFromConfig(config: ConfigRecord) {
   const mode = stringValue(config.inputMode || config.format)
   return ['spreadsheet', 'excel', 'xls', 'xlsx'].includes(mode)
+}
+
+function jsonInputModeFromConfig(config: ConfigRecord) {
+  const mode = stringValue(config.inputMode || config.format)
+  return ['json', 'application/json'].includes(mode)
 }
 
 function columnsForNodeOutput(nodeId?: string, visited = new Set<string>()): string[] {
@@ -760,6 +846,8 @@ function columnsForNodeOutput(nodeId?: string, visited = new Set<string>()): str
   switch (node.data.stepType) {
   case 'input':
     return sourceColumnsFromConfig(config, 'sourceKind', 'datasetPublicId', 'workTablePublicId')
+  case 'json_extract':
+    return inferJSONExtractColumns(config, upstreamColumns())
   case 'schema_mapping':
     return inferSchemaMappingColumns(config, upstreamColumns())
   case 'schema_completion':
@@ -804,6 +892,21 @@ function inferSchemaMappingColumns(config: ConfigRecord, upstreamColumns: string
     .map((mapping) => stringField(mapping, 'targetColumn').trim())
     .filter(Boolean)
   return columns.length > 0 ? uniqueStrings(columns) : upstreamColumns
+}
+
+function inferJSONExtractColumns(config: ConfigRecord, upstreamColumns: string[]) {
+  const extractedColumns = arrayFromConfig(config, 'fields')
+    .map((field) => stringField(field, 'column').trim())
+    .filter(Boolean)
+  const baseColumns = config.includeSourceColumns === false ? [] : upstreamColumns
+  const metadataColumns = ['json_row_number', 'json_record_path']
+  const rawRecordColumns = config.includeRawRecord === true ? ['raw_record_json'] : []
+  return uniqueStrings([
+    ...baseColumns,
+    ...metadataColumns,
+    ...extractedColumns,
+    ...rawRecordColumns,
+  ])
 }
 
 function inferSchemaCompletionColumns(config: ConfigRecord, upstreamColumns: string[]) {
@@ -1190,6 +1293,60 @@ function labelForStep(type: DataPipelineStepType | string) {
                 <span>{{ t('dataPipelines.includeSourceMetadataColumns') }}</span>
               </label>
             </div>
+            <template v-else-if="driveInputMode() === 'json'">
+              <div class="config-grid">
+                <label class="field">
+                  <span>{{ t('dataPipelines.jsonRecordPath') }}</span>
+                  <input :value="stringConfig('recordPath') || '$'" placeholder="$" @input="updateConfigOptionalString('recordPath', targetValue($event))">
+                </label>
+                <label class="field">
+                  <span>{{ t('dataPipelines.maxRows') }}</span>
+                  <input :value="numberField(configDraft, 'maxRows')" type="number" min="1" step="1" placeholder="100000" @input="updateConfigOptionalNumber('maxRows', targetValue($event))">
+                </label>
+                <label class="checkbox-field">
+                  <input :checked="configDraft.includeSourceMetadataColumns !== false" type="checkbox" @change="updateConfigField('includeSourceMetadataColumns', targetChecked($event))">
+                  <span>{{ t('dataPipelines.includeSourceMetadataColumns') }}</span>
+                </label>
+                <label class="checkbox-field">
+                  <input :checked="boolField(configDraft, 'includeRawRecord')" type="checkbox" @change="updateConfigField('includeRawRecord', targetChecked($event))">
+                  <span>{{ t('dataPipelines.includeRawRecordJson') }}</span>
+                </label>
+              </div>
+              <div class="config-section-header">
+                <h3>{{ t('dataPipelines.jsonFields') }}</h3>
+                <button class="secondary-button compact-button" type="button" @click="addArrayItem('fields', { column: '', path: '' })">
+                  <Plus :size="15" stroke-width="1.9" aria-hidden="true" />
+                  {{ t('dataPipelines.addJsonField') }}
+                </button>
+              </div>
+              <p v-if="arrayConfig('fields').length === 0" class="cell-subtle">{{ t('dataPipelines.noConfigFields') }}</p>
+              <div v-for="(field, index) in arrayConfig('fields')" :key="index" class="config-rule">
+                <div class="config-rule-header">
+                  <strong>{{ stringField(field, 'column') || `${t('dataPipelines.jsonField')} ${index + 1}` }}</strong>
+                  <button class="icon-button danger" type="button" :aria-label="t('dataPipelines.removeJsonField', { index: index + 1 })" @click="removeArrayItem('fields', index)">
+                    <Trash2 :size="14" stroke-width="1.9" aria-hidden="true" />
+                  </button>
+                </div>
+                <div class="config-grid two-column">
+                  <label class="field">
+                    <span>{{ t('dataPipelines.column') }}</span>
+                    <input :value="stringField(field, 'column')" placeholder="name_en" @input="updateArrayItem('fields', index, { column: targetValue($event) })">
+                  </label>
+                  <label class="field">
+                    <span>{{ t('dataPipelines.jsonPath') }}</span>
+                    <input :value="jsonFieldPath(field)" placeholder="name.english" @input="updateJsonFieldPath('fields', index, targetValue($event))">
+                  </label>
+                  <label class="field">
+                    <span>{{ t('dataPipelines.joinArrayWith') }}</span>
+                    <input :value="stringField(field, 'join')" placeholder="|" @input="updateConfigOptionalStringForArray('fields', index, 'join', targetValue($event))">
+                  </label>
+                  <label class="field">
+                    <span>{{ t('dataPipelines.defaultValue') }}</span>
+                    <input :value="stringField(field, 'default')" @input="updateConfigOptionalStringForArray('fields', index, 'default', targetValue($event))">
+                  </label>
+                </div>
+              </div>
+            </template>
             <DriveFilePickerDialog
               :open="drivePickerOpen"
               :selected-file-ids="driveFileIds"
@@ -1199,6 +1356,65 @@ function labelForStep(type: DataPipelineStepType | string) {
               @apply="applyDriveFileSelection"
             />
           </template>
+        </template>
+
+        <template v-else-if="stepType === 'json_extract'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.sourceColumn') }}</span>
+              <input :value="stringConfig('sourceColumn')" list="data-pipeline-column-options" placeholder="raw_record_json" @input="updateConfigOptionalString('sourceColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.jsonRecordPath') }}</span>
+              <input :value="stringConfig('recordPath') || '$'" placeholder="$" @input="updateConfigOptionalString('recordPath', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.maxRows') }}</span>
+              <input :value="numberField(configDraft, 'maxRows')" type="number" min="1" step="1" placeholder="100000" @input="updateConfigOptionalNumber('maxRows', targetValue($event))">
+            </label>
+            <label class="checkbox-field">
+              <input :checked="configDraft.includeSourceColumns !== false" type="checkbox" @change="updateConfigField('includeSourceColumns', targetChecked($event))">
+              <span>{{ t('dataPipelines.includeSourceColumns') }}</span>
+            </label>
+            <label class="checkbox-field">
+              <input :checked="boolField(configDraft, 'includeRawRecord')" type="checkbox" @change="updateConfigField('includeRawRecord', targetChecked($event))">
+              <span>{{ t('dataPipelines.includeRawRecordJson') }}</span>
+            </label>
+          </div>
+          <div class="config-section-header">
+            <h3>{{ t('dataPipelines.jsonFields') }}</h3>
+            <button class="secondary-button compact-button" type="button" @click="addArrayItem('fields', { column: '', path: '' })">
+              <Plus :size="15" stroke-width="1.9" aria-hidden="true" />
+              {{ t('dataPipelines.addJsonField') }}
+            </button>
+          </div>
+          <p v-if="arrayConfig('fields').length === 0" class="cell-subtle">{{ t('dataPipelines.noConfigFields') }}</p>
+          <div v-for="(field, index) in arrayConfig('fields')" :key="index" class="config-rule">
+            <div class="config-rule-header">
+              <strong>{{ stringField(field, 'column') || `${t('dataPipelines.jsonField')} ${index + 1}` }}</strong>
+              <button class="icon-button danger" type="button" :aria-label="t('dataPipelines.removeJsonField', { index: index + 1 })" @click="removeArrayItem('fields', index)">
+                <Trash2 :size="14" stroke-width="1.9" aria-hidden="true" />
+              </button>
+            </div>
+            <div class="config-grid two-column">
+              <label class="field">
+                <span>{{ t('dataPipelines.column') }}</span>
+                <input :value="stringField(field, 'column')" placeholder="name_en" @input="updateArrayItem('fields', index, { column: targetValue($event) })">
+              </label>
+              <label class="field">
+                <span>{{ t('dataPipelines.jsonPath') }}</span>
+                <input :value="jsonFieldPath(field)" placeholder="name.english" @input="updateJsonFieldPath('fields', index, targetValue($event))">
+              </label>
+              <label class="field">
+                <span>{{ t('dataPipelines.joinArrayWith') }}</span>
+                <input :value="stringField(field, 'join')" placeholder="|" @input="updateConfigOptionalStringForArray('fields', index, 'join', targetValue($event))">
+              </label>
+              <label class="field">
+                <span>{{ t('dataPipelines.defaultValue') }}</span>
+                <input :value="stringField(field, 'default')" @input="updateConfigOptionalStringForArray('fields', index, 'default', targetValue($event))">
+              </label>
+            </div>
+          </div>
         </template>
 
         <template v-else-if="stepType === 'clean'">

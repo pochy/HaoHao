@@ -13,6 +13,7 @@ export type DataPipelineStepType =
   | 'transform'
   | 'output'
   | 'extract_text'
+  | 'json_extract'
   | 'classify_document'
   | 'extract_fields'
   | 'extract_table'

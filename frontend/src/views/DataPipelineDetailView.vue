@@ -63,6 +63,7 @@ const graphHistory = ref<GraphHistory>({
 const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
   { type: 'input', labelKey: 'dataPipelines.step.input' },
   { type: 'extract_text', labelKey: 'dataPipelines.step.extract_text' },
+  { type: 'json_extract', labelKey: 'dataPipelines.step.json_extract' },
   { type: 'classify_document', labelKey: 'dataPipelines.step.classify_document' },
   { type: 'extract_fields', labelKey: 'dataPipelines.step.extract_fields' },
   { type: 'extract_table', labelKey: 'dataPipelines.step.extract_table' },

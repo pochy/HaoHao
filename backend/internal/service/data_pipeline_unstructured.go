@@ -48,6 +48,7 @@ func dataPipelineGraphNeedsHybrid(graph DataPipelineGraph) bool {
 func dataPipelineUnstructuredStep(stepType string) bool {
 	switch stepType {
 	case DataPipelineStepExtractText,
+		DataPipelineStepJSONExtract,
 		DataPipelineStepClassifyDocument,
 		DataPipelineStepExtractFields,
 		DataPipelineStepExtractTable,
@@ -263,8 +264,11 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 	switch node.Data.StepType {
 	case DataPipelineStepInput:
 		if dataPipelineString(node.Data.Config, "sourceKind") == dataPipelineDriveFileSource {
-			if dataPipelineDriveInputMode(node.Data.Config) == "spreadsheet" {
+			switch dataPipelineDriveInputMode(node.Data.Config) {
+			case dataPipelineDriveInputModeSpreadsheet:
 				return s.materializeDriveSpreadsheetInput(ctx, conn, database, table, node, tenantID, actorUserID)
+			case dataPipelineDriveInputModeJSON:
+				return s.materializeDriveJSONInput(ctx, conn, database, table, node, tenantID, actorUserID)
 			}
 			return s.materializeDriveFileInput(ctx, conn, database, table, node)
 		}
@@ -274,6 +278,12 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 			return dataPipelineMaterializedRelation{}, err
 		}
 		return s.materializeExtractText(ctx, conn, database, table, node, upstream, tenantID, actorUserID, ocrReason)
+	case DataPipelineStepJSONExtract:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeJSONExtract(ctx, conn, database, table, node, upstream)
 	case DataPipelineStepClassifyDocument:
 		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
 		if err != nil {
@@ -1142,8 +1152,35 @@ func readHybridRows(ctx context.Context, conn driver.Conn, relation dataPipeline
 		return nil, fmt.Errorf("read hybrid data pipeline rows: %w", err)
 	}
 	defer rows.Close()
-	_, items, err := scanDatasetRows(rows, int(limit))
+	_, items, err := scanHybridRows(rows, int(limit))
 	return items, err
+}
+
+func scanHybridRows(rows driver.Rows, limit int) ([]string, []map[string]any, error) {
+	if limit <= 0 || limit > dataPipelineJSONMaxRows {
+		limit = dataPipelineJSONMaxRows
+	}
+	columns := rows.Columns()
+	columnTypes := rows.ColumnTypes()
+	resultRows := make([]map[string]any, 0)
+	for rows.Next() {
+		holders, dest := datasetScanDestinations(columnTypes, len(columns))
+		if err := rows.Scan(dest...); err != nil {
+			return columns, resultRows, err
+		}
+		row := make(map[string]any, len(columns))
+		for i, column := range columns {
+			row[column] = datasetJSONValue(datasetScannedValue(holders[i]))
+		}
+		resultRows = append(resultRows, row)
+		if len(resultRows) >= limit {
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return columns, resultRows, err
+	}
+	return columns, resultRows, nil
 }
 
 func quoteCHIdentList(columns []string) string {

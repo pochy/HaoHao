@@ -16,6 +16,7 @@ import (
 
 const (
 	dataPipelineDriveInputModeSpreadsheet = "spreadsheet"
+	dataPipelineDriveInputModeJSON        = "json"
 	dataPipelineSpreadsheetMaxFiles       = 20
 	dataPipelineSpreadsheetMaxRows        = 100000
 	dataPipelineSpreadsheetMaxColumns     = 256
@@ -36,6 +37,8 @@ func dataPipelineDriveInputMode(config map[string]any) string {
 	switch mode {
 	case "spreadsheet", "excel", "xls", "xlsx":
 		return dataPipelineDriveInputModeSpreadsheet
+	case "json", "application/json":
+		return dataPipelineDriveInputModeJSON
 	default:
 		return mode
 	}

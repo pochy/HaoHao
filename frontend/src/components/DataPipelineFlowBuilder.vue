@@ -70,6 +70,7 @@ const stepOrder: Record<DataPipelineStepType, number> = {
   enrich_join: 70,
   transform: 80,
   extract_text: 12,
+  json_extract: 13,
   classify_document: 14,
   extract_fields: 16,
   extract_table: 18,
@@ -99,6 +100,7 @@ const stepCategory: Record<DataPipelineStepType, PaletteCategory> = {
   input: 'input_output',
   output: 'input_output',
   extract_text: 'extraction',
+  json_extract: 'extraction',
   classify_document: 'extraction',
   extract_fields: 'extraction',
   extract_table: 'extraction',
@@ -646,6 +648,8 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
     return { sourceKind: 'dataset', datasetPublicId: '' }
   case 'extract_text':
     return { chunkMode: 'page', includeBoxes: true }
+  case 'json_extract':
+    return { sourceColumn: 'raw_record_json', recordPath: '$', fields: [], includeSourceColumns: true, includeRawRecord: false, maxRows: 100000 }
   case 'classify_document':
     return { classes: [{ label: 'invoice', keywords: ['invoice', '請求書'], priority: 10 }], outputColumn: 'document_type', confidenceColumn: 'document_type_confidence' }
   case 'extract_fields':
