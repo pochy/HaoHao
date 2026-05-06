@@ -61,9 +61,11 @@ const en = {
     title: 'Title',
     upload: 'Upload',
     uploading: 'Uploading...',
+    undo: 'Undo',
     updated: 'Updated',
     user: 'User',
     userPublicId: 'User public ID',
+    redo: 'Redo',
   },
   access: {
     forbidden: 'Forbidden',
@@ -1788,9 +1790,11 @@ const ja: MessageSchema = {
     title: 'タイトル',
     upload: 'アップロード',
     uploading: 'アップロード中...',
+    undo: '元に戻す',
     updated: '更新日時',
     user: 'ユーザー',
     userPublicId: 'ユーザー公開 ID',
+    redo: 'やり直す',
   },
   access: {
     forbidden: 'アクセス不可',

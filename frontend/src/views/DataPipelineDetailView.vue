@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, Play, RefreshCw, Save, Send, Settings2, Workflow } from 'lucide-vue-next'
+import { ArrowLeft, Play, RefreshCw, RotateCcw, RotateCw, Save, Send, Settings2, Workflow } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { isDataPipelineDraftRunPreviewGraph, sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineScheduleWriteBody, type DataPipelineStepType } from '../api/data-pipelines'
@@ -37,6 +37,23 @@ const settingsError = ref('')
 const compactLayout = ref(false)
 let compactLayoutMediaQuery: MediaQueryList | undefined
 let refreshTimer: number | undefined
+
+type GraphUpdateOptions = {
+  transient?: boolean
+  commit?: boolean
+}
+type GraphHistory = {
+  past: DataPipelineGraph[]
+  current: DataPipelineGraph
+  future: DataPipelineGraph[]
+}
+
+const graphHistoryLimit = 100
+const graphHistory = ref<GraphHistory>({
+  past: [],
+  current: sanitizeDataPipelineGraph(store.draftGraph),
+  future: [],
+})
 
 const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
   { type: 'input', labelKey: 'dataPipelines.step.input' },
@@ -79,11 +96,14 @@ const previewDisabledReason = computed(() => {
   return ''
 })
 const runDisabledReason = computed(() => (selectedPipeline.value ? '' : t('dataPipelines.createOrSelectFirst')))
+const canUndoGraph = computed(() => graphHistory.value.past.length > 0)
+const canRedoGraph = computed(() => graphHistory.value.future.length > 0)
 const autoPreviewDelayMs = 350
 let autoPreviewTimer: number | undefined
 
 onMounted(async () => {
   setupCompactLayoutListener()
+  window.addEventListener('keydown', handleGraphHistoryShortcut)
   if (tenantStore.status === 'idle') {
     await tenantStore.load()
   }
@@ -104,6 +124,7 @@ onBeforeUnmount(() => {
   if (settingsDialogRef.value?.open) {
     settingsDialogRef.value.close()
   }
+  window.removeEventListener('keydown', handleGraphHistoryShortcut)
   teardownCompactLayoutListener()
 })
 
@@ -143,6 +164,7 @@ watch(
 async function loadRoutePipeline(slug: string | undefined, publicId: string) {
   store.reset()
   datasetStore.reset()
+  resetGraphHistory(store.draftGraph)
   if (!slug || !publicId) {
     return
   }
@@ -153,6 +175,7 @@ async function loadRoutePipeline(slug: string | undefined, publicId: string) {
   ])
   if (store.status !== 'forbidden') {
     await store.loadDetail(publicId).catch(() => undefined)
+    resetGraphHistory(store.draftGraph)
   }
 }
 
@@ -160,12 +183,119 @@ async function refreshDetail() {
   await loadRoutePipeline(tenantStore.activeTenant?.slug, pipelinePublicId.value)
 }
 
-function updateGraph(graph: DataPipelineGraph) {
-  store.draftGraph = sanitizeDataPipelineGraph(graph)
+function updateGraph(graph: DataPipelineGraph, options: GraphUpdateOptions = {}) {
+  const sanitized = sanitizeDataPipelineGraph(graph)
+  if (options.transient) {
+    store.draftGraph = cloneGraph(sanitized)
+    normalizeSelectedNodeForGraph(sanitized)
+    return
+  }
+  recordGraphChange(sanitized)
+  store.draftGraph = cloneGraph(sanitized)
+  normalizeSelectedNodeForGraph(sanitized)
 }
 
 function selectNode(nodeId: string) {
   store.selectedNodeId = nodeId
+}
+
+function resetGraphHistory(graph: DataPipelineGraph) {
+  const sanitized = sanitizeDataPipelineGraph(graph)
+  graphHistory.value = {
+    past: [],
+    current: cloneGraph(sanitized),
+    future: [],
+  }
+}
+
+function recordGraphChange(graph: DataPipelineGraph) {
+  const sanitized = sanitizeDataPipelineGraph(graph)
+  if (graphsEqual(graphHistory.value.current, sanitized)) {
+    return
+  }
+  graphHistory.value = {
+    past: [...graphHistory.value.past, cloneGraph(graphHistory.value.current)].slice(-graphHistoryLimit),
+    current: cloneGraph(sanitized),
+    future: [],
+  }
+}
+
+function undoGraph() {
+  if (!canUndoGraph.value) {
+    return
+  }
+  const previous = graphHistory.value.past[graphHistory.value.past.length - 1]
+  graphHistory.value = {
+    past: graphHistory.value.past.slice(0, -1),
+    current: cloneGraph(previous),
+    future: [cloneGraph(graphHistory.value.current), ...graphHistory.value.future],
+  }
+  applyHistoryGraph(previous)
+}
+
+function redoGraph() {
+  if (!canRedoGraph.value) {
+    return
+  }
+  const next = graphHistory.value.future[0]
+  graphHistory.value = {
+    past: [...graphHistory.value.past, cloneGraph(graphHistory.value.current)].slice(-graphHistoryLimit),
+    current: cloneGraph(next),
+    future: graphHistory.value.future.slice(1),
+  }
+  applyHistoryGraph(next)
+}
+
+function applyHistoryGraph(graph: DataPipelineGraph) {
+  const sanitized = sanitizeDataPipelineGraph(graph)
+  store.draftGraph = cloneGraph(sanitized)
+  normalizeSelectedNodeForGraph(sanitized)
+}
+
+function normalizeSelectedNodeForGraph(graph: DataPipelineGraph) {
+  if (graph.nodes.some((node) => node.id === store.selectedNodeId)) {
+    return
+  }
+  store.selectedNodeId = graph.nodes[0]?.id ?? ''
+}
+
+function handleGraphHistoryShortcut(event: KeyboardEvent) {
+  if (!selectedPipeline.value || graphHistoryShortcutShouldUseNativeUndo(event)) {
+    return
+  }
+  const key = event.key.toLowerCase()
+  const modifierPressed = event.metaKey || event.ctrlKey
+  if (!modifierPressed || event.altKey) {
+    return
+  }
+  if (key === 'z' && event.shiftKey) {
+    event.preventDefault()
+    redoGraph()
+    return
+  }
+  if (key === 'z') {
+    event.preventDefault()
+    undoGraph()
+    return
+  }
+  if (key === 'y' && event.ctrlKey && !event.metaKey && !event.shiftKey) {
+    event.preventDefault()
+    redoGraph()
+  }
+}
+
+function graphHistoryShortcutShouldUseNativeUndo(event: KeyboardEvent) {
+  const target = event.target
+  if (document.querySelector('dialog[open]')) {
+    return true
+  }
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+  if (target.isContentEditable) {
+    return true
+  }
+  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
 }
 
 function setupCompactLayoutListener() {
@@ -192,10 +322,12 @@ async function saveDraft() {
     }
   }
   await store.saveDraft()
+  resetGraphHistory(store.draftGraph)
 }
 
 async function publishLatest() {
   await store.publishLatest()
+  resetGraphHistory(store.draftGraph)
 }
 
 async function previewSelected() {
@@ -203,7 +335,10 @@ async function previewSelected() {
 }
 
 async function runPublished() {
-  await store.runPublished().catch(() => undefined)
+  const run = await store.runPublished().catch(() => null)
+  if (run) {
+    resetGraphHistory(store.draftGraph)
+  }
 }
 
 async function disableSchedule(publicId: string) {
@@ -242,6 +377,14 @@ function closeSettings() {
 
 function handleSettingsClose() {
   settingsError.value = ''
+}
+
+function cloneGraph(graph: DataPipelineGraph): DataPipelineGraph {
+  return sanitizeDataPipelineGraph(JSON.parse(JSON.stringify(graph)) as DataPipelineGraph)
+}
+
+function graphsEqual(a: DataPipelineGraph, b: DataPipelineGraph) {
+  return JSON.stringify(sanitizeDataPipelineGraph(a)) === JSON.stringify(sanitizeDataPipelineGraph(b))
 }
 
 function scheduleWriteBody(): DataPipelineScheduleWriteBody {
@@ -306,6 +449,28 @@ async function applySettings() {
           <ArrowLeft :size="16" stroke-width="1.9" aria-hidden="true" />
           {{ t('dataPipelines.backToPipelines') }}
         </RouterLink>
+        <button
+          class="secondary-button"
+          type="button"
+          :disabled="!canUndoGraph"
+          :title="`${t('common.undo')} (Ctrl/Cmd+Z)`"
+          :aria-label="`${t('common.undo')} (Ctrl/Cmd+Z)`"
+          @click="undoGraph"
+        >
+          <RotateCcw :size="16" stroke-width="1.9" aria-hidden="true" />
+          {{ t('common.undo') }}
+        </button>
+        <button
+          class="secondary-button"
+          type="button"
+          :disabled="!canRedoGraph"
+          :title="`${t('common.redo')} (Ctrl/Cmd+Shift+Z)`"
+          :aria-label="`${t('common.redo')} (Ctrl/Cmd+Shift+Z)`"
+          @click="redoGraph"
+        >
+          <RotateCw :size="16" stroke-width="1.9" aria-hidden="true" />
+          {{ t('common.redo') }}
+        </button>
         <button class="secondary-button" type="button" :disabled="store.status === 'loading'" @click="refreshDetail">
           <RefreshCw :size="16" stroke-width="1.9" aria-hidden="true" />
           {{ t('common.refresh') }}

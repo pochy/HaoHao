@@ -27,7 +27,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:graph': [graph: DataPipelineGraph]
+  'update:graph': [graph: DataPipelineGraph, options?: GraphUpdateOptions]
   'select-node': [nodeId: string]
 }>()
 
@@ -41,6 +41,13 @@ const paletteSearch = ref('')
 const { t } = useI18n()
 let elkPromise: Promise<ELK> | null = null
 let autoLayouting = false
+let nodeDragging = false
+let nodeDragStartGraph: DataPipelineGraph | null = null
+
+type GraphUpdateOptions = {
+  transient?: boolean
+  commit?: boolean
+}
 
 const autoLayoutColumnGap = 330
 const autoLayoutRowGap = 120
@@ -168,10 +175,7 @@ watch(
 )
 
 watch([nodes, edges], () => {
-  emit('update:graph', sanitizeDataPipelineGraph({
-    nodes: clone(nodes.value),
-    edges: clone(edges.value),
-  }))
+  emitCurrentGraph(nodeDragging ? { transient: true } : undefined)
 }, { deep: true })
 
 onBeforeUnmount(() => {
@@ -255,6 +259,32 @@ function onNodeClick(event: any) {
   if (nodeId) {
     emit('select-node', nodeId)
   }
+}
+
+function onNodeDragStart() {
+  nodeDragging = true
+  nodeDragStartGraph = currentGraph()
+}
+
+function onNodeDragStop() {
+  const startGraph = nodeDragStartGraph
+  const endGraph = currentGraph()
+  nodeDragging = false
+  nodeDragStartGraph = null
+  if (startGraph && !graphsEqual(startGraph, endGraph)) {
+    emit('update:graph', endGraph, { commit: true })
+  }
+}
+
+function emitCurrentGraph(options?: GraphUpdateOptions) {
+  emit('update:graph', currentGraph(), options)
+}
+
+function currentGraph() {
+  return sanitizeDataPipelineGraph({
+    nodes: clone(nodes.value),
+    edges: clone(edges.value),
+  })
 }
 
 async function autoLayout() {
@@ -572,6 +602,10 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+function graphsEqual(a: DataPipelineGraph, b: DataPipelineGraph) {
+  return JSON.stringify(sanitizeDataPipelineGraph(a)) === JSON.stringify(sanitizeDataPipelineGraph(b))
+}
+
 defineExpose({ addNode })
 </script>
 
@@ -589,6 +623,8 @@ defineExpose({ addNode })
       :elements-selectable="true"
       @connect="onConnect"
       @node-click="onNodeClick"
+      @node-drag-start="onNodeDragStart"
+      @node-drag-stop="onNodeDragStop"
     >
       <template #node-pipelineStep="nodeProps">
         <DataPipelineNode
