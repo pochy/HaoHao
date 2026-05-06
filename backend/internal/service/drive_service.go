@@ -727,7 +727,11 @@ func (s *DriveService) actor(ctx context.Context, tenantID, userID int64) (Drive
 func (s *DriveService) ensureActorInTenant(ctx context.Context, tenantID, userID int64) (string, bool, error) {
 	publicID, err := s.ensureUserInTenant(ctx, tenantID, userID)
 	if err == nil {
-		return publicID, false, nil
+		roles, roleErr := s.queries.ListRoleCodesByUserID(ctx, userID)
+		if roleErr != nil {
+			return "", false, fmt.Errorf("list user roles: %w", roleErr)
+		}
+		return publicID, driveUserIsPlatformTenantAdmin(roles), nil
 	}
 	if !errors.Is(err, ErrDrivePermissionDenied) {
 		return "", false, err

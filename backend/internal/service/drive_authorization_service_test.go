@@ -81,6 +81,58 @@ func TestDriveAuthorizationLockedFileRejectsBeforeOpenFGA(t *testing.T) {
 	}
 }
 
+func TestDriveAuthorizationPlatformAdminBypassesResourceChecks(t *testing.T) {
+	client := &fakeOpenFGAClient{checkAllowed: false}
+	svc := NewDriveAuthorizationService(client, DriveAuthorizationConfig{Enabled: true, FailClosed: true})
+	actor := testDriveActor()
+	actor.PlatformAdmin = true
+
+	if err := svc.CanViewFile(context.Background(), actor, testDriveFile(false)); err != nil {
+		t.Fatalf("CanViewFile() error = %v, want nil", err)
+	}
+	if err := svc.CanEditFile(context.Background(), actor, testDriveFile(false)); err != nil {
+		t.Fatalf("CanEditFile() error = %v, want nil", err)
+	}
+	if err := svc.CanViewFolder(context.Background(), actor, testDriveFolder(false)); err != nil {
+		t.Fatalf("CanViewFolder() error = %v, want nil", err)
+	}
+	if err := svc.CanShareFolder(context.Background(), actor, testDriveFolder(false)); err != nil {
+		t.Fatalf("CanShareFolder() error = %v, want nil", err)
+	}
+	if len(client.checkCalls) != 0 {
+		t.Fatalf("OpenFGA Check calls = %d, want 0", len(client.checkCalls))
+	}
+}
+
+func TestDriveAuthorizationPlatformAdminFiltersTenantResourcesWithoutOpenFGA(t *testing.T) {
+	client := &fakeOpenFGAClient{checkAllowed: false}
+	svc := NewDriveAuthorizationService(client, DriveAuthorizationConfig{Enabled: true, FailClosed: true})
+	actor := testDriveActor()
+	actor.PlatformAdmin = true
+
+	files, err := svc.FilterViewableFiles(context.Background(), actor, []DriveFile{
+		testDriveFile(false),
+		{ID: 3, PublicID: "other-tenant-file", TenantID: 11},
+	})
+	if err != nil {
+		t.Fatalf("FilterViewableFiles() error = %v, want nil", err)
+	}
+	if len(files) != 1 || files[0].PublicID != "file-public-id" {
+		t.Fatalf("FilterViewableFiles() = %#v, want only same-tenant file", files)
+	}
+
+	folders, err := svc.FilterViewableFolders(context.Background(), actor, []DriveFolder{
+		testDriveFolder(false),
+		{ID: 4, PublicID: "other-tenant-folder", TenantID: 11},
+	})
+	if err != nil {
+		t.Fatalf("FilterViewableFolders() error = %v, want nil", err)
+	}
+	if len(folders) != 1 || folders[0].PublicID != "folder-public-id" {
+		t.Fatalf("FilterViewableFolders() = %#v, want only same-tenant folder", folders)
+	}
+}
+
 func TestDriveAuthorizationWriteShareTupleForGroup(t *testing.T) {
 	client := &fakeOpenFGAClient{}
 	svc := NewDriveAuthorizationService(client, DriveAuthorizationConfig{Enabled: true, FailClosed: true})
@@ -139,4 +191,13 @@ func testDriveFile(locked bool) DriveFile {
 		file.LockedAt = &now
 	}
 	return file
+}
+
+func testDriveFolder(deleted bool) DriveFolder {
+	folder := DriveFolder{ID: 3, PublicID: "folder-public-id", TenantID: 10}
+	if deleted {
+		now := time.Now()
+		folder.DeletedAt = &now
+	}
+	return folder
 }

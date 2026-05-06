@@ -1076,6 +1076,9 @@ func (s *DriveService) ensureResourceOwner(ctx context.Context, actor DriveActor
 	if err := validateDriveActorResourceForDeleted(actor, resource); err != nil {
 		return err
 	}
+	if actor.PlatformAdmin {
+		return nil
+	}
 	return s.authz.checkResource(ctx, openFGAUser(actor.PublicID), "owner", openFGAResourceObject(resource), string(resource.Type), s.authz.currentTimeContext())
 }
 
@@ -1349,13 +1352,13 @@ func (s *DriveService) recordDriveFilePreviewStateBestEffort(ctx context.Context
 		errorCode = pgText("unsupported_content_type")
 	}
 	_ = s.queries.UpsertDriveFilePreviewState(ctx, db.UpsertDriveFilePreviewStateParams{
-		TenantID:             file.TenantID,
-		FileObjectID:         file.ID,
-		Status:               status,
-		ThumbnailStorageKey:  thumbnailKey,
-		PreviewStorageKey:    previewKey,
-		ContentType:          contentType,
-		ErrorCode:            errorCode,
+		TenantID:            file.TenantID,
+		FileObjectID:        file.ID,
+		Status:              status,
+		ThumbnailStorageKey: thumbnailKey,
+		PreviewStorageKey:   previewKey,
+		ContentType:         contentType,
+		ErrorCode:           errorCode,
 	})
 }
 

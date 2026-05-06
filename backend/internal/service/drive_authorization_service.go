@@ -45,12 +45,18 @@ func (s *DriveAuthorizationService) CanViewFile(ctx context.Context, actor Drive
 	if err := validateDriveActorResource(actor, file.ResourceRef(), file.DeletedAt); err != nil {
 		return err
 	}
+	if actor.PlatformAdmin {
+		return nil
+	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_view", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanDownloadFile(ctx context.Context, actor DriveActor, file DriveFile) error {
 	if err := validateDriveActorResource(actor, file.ResourceRef(), file.DeletedAt); err != nil {
 		return err
+	}
+	if actor.PlatformAdmin {
+		return nil
 	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_download", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
@@ -62,6 +68,9 @@ func (s *DriveAuthorizationService) CanEditFile(ctx context.Context, actor Drive
 	if file.LockedAt != nil {
 		return ErrDriveLocked
 	}
+	if actor.PlatformAdmin {
+		return nil
+	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_edit", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
 
@@ -72,12 +81,18 @@ func (s *DriveAuthorizationService) CanDeleteFile(ctx context.Context, actor Dri
 	if file.LockedAt != nil {
 		return ErrDriveLocked
 	}
+	if actor.PlatformAdmin {
+		return nil
+	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanRestoreFile(ctx context.Context, actor DriveActor, file DriveFile) error {
 	if err := validateDriveActorResourceForDeleted(actor, file.ResourceRef()); err != nil {
 		return err
+	}
+	if actor.PlatformAdmin {
+		return nil
 	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
@@ -89,12 +104,18 @@ func (s *DriveAuthorizationService) CanShareFile(ctx context.Context, actor Driv
 	if file.LockedAt != nil {
 		return ErrDriveLocked
 	}
+	if actor.PlatformAdmin {
+		return nil
+	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_share", openFGAFile(file.PublicID), "file", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanViewFolder(ctx context.Context, actor DriveActor, folder DriveFolder) error {
 	if err := validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt); err != nil {
 		return err
+	}
+	if actor.PlatformAdmin {
+		return nil
 	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_view", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
 }
@@ -103,12 +124,18 @@ func (s *DriveAuthorizationService) CanEditFolder(ctx context.Context, actor Dri
 	if err := validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt); err != nil {
 		return err
 	}
+	if actor.PlatformAdmin {
+		return nil
+	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_edit", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanDeleteFolder(ctx context.Context, actor DriveActor, folder DriveFolder) error {
 	if err := validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt); err != nil {
 		return err
+	}
+	if actor.PlatformAdmin {
+		return nil
 	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
 }
@@ -117,12 +144,18 @@ func (s *DriveAuthorizationService) CanRestoreFolder(ctx context.Context, actor 
 	if err := validateDriveActorResourceForDeleted(actor, folder.ResourceRef()); err != nil {
 		return err
 	}
+	if actor.PlatformAdmin {
+		return nil
+	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_delete", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
 }
 
 func (s *DriveAuthorizationService) CanShareFolder(ctx context.Context, actor DriveActor, folder DriveFolder) error {
 	if err := validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt); err != nil {
 		return err
+	}
+	if actor.PlatformAdmin {
+		return nil
 	}
 	return s.checkResource(ctx, openFGAUser(actor.PublicID), "can_share", openFGAFolder(folder.PublicID), "folder", s.currentTimeContext())
 }
@@ -182,6 +215,15 @@ func (s *DriveAuthorizationService) FilterViewableFiles(ctx context.Context, act
 		s.recordDenied("can_view", "file")
 		return nil, ErrDrivePermissionDenied
 	}
+	if actor.PlatformAdmin {
+		items := make([]DriveFile, 0, len(files))
+		for _, file := range files {
+			if validateDriveActorResource(actor, file.ResourceRef(), file.DeletedAt) == nil {
+				items = append(items, file)
+			}
+		}
+		return items, nil
+	}
 	tuples := make([]OpenFGATuple, 0, len(files))
 	indexes := make([]int, 0, len(files))
 	for i, file := range files {
@@ -217,6 +259,15 @@ func (s *DriveAuthorizationService) FilterViewableFolders(ctx context.Context, a
 		s.recordDenied("can_view", "folder")
 		return nil, ErrDrivePermissionDenied
 	}
+	if actor.PlatformAdmin {
+		items := make([]DriveFolder, 0, len(folders))
+		for _, folder := range folders {
+			if validateDriveActorResource(actor, folder.ResourceRef(), folder.DeletedAt) == nil {
+				items = append(items, folder)
+			}
+		}
+		return items, nil
+	}
 	tuples := make([]OpenFGATuple, 0, len(folders))
 	indexes := make([]int, 0, len(folders))
 	for i, folder := range folders {
@@ -248,6 +299,9 @@ func (s *DriveAuthorizationService) ListViewableFiles(ctx context.Context, actor
 	if actor.TenantID <= 0 || strings.TrimSpace(actor.PublicID) == "" {
 		return nil, ErrDrivePermissionDenied
 	}
+	if actor.PlatformAdmin {
+		return nil, nil
+	}
 	objects, err := s.listObjects(ctx, openFGAUser(actor.PublicID), "can_view", "file", s.currentTimeContext())
 	if err != nil {
 		return nil, err
@@ -258,6 +312,9 @@ func (s *DriveAuthorizationService) ListViewableFiles(ctx context.Context, actor
 func (s *DriveAuthorizationService) ListViewableFolders(ctx context.Context, actor DriveActor) ([]string, error) {
 	if actor.TenantID <= 0 || strings.TrimSpace(actor.PublicID) == "" {
 		return nil, ErrDrivePermissionDenied
+	}
+	if actor.PlatformAdmin {
+		return nil, nil
 	}
 	objects, err := s.listObjects(ctx, openFGAUser(actor.PublicID), "can_view", "folder", s.currentTimeContext())
 	if err != nil {
