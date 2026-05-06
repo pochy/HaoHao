@@ -49,13 +49,13 @@ type GraphUpdateOptions = {
   commit?: boolean
 }
 
-const autoLayoutColumnGap = 275
+const autoLayoutLayerGap = 72
 const autoLayoutRowGap = 99
 const autoLayoutStartX = 60
 const autoLayoutStartY = 80
-const autoLayoutNodeWidth = 220
+const autoLayoutNodeMinWidth = 190
+const autoLayoutNodeFallbackWidth = 220
 const autoLayoutNodeHeight = 78
-const autoLayoutColumnSpacing = autoLayoutColumnGap - autoLayoutNodeWidth
 const autoLayoutRowSpacing = autoLayoutRowGap - autoLayoutNodeHeight
 const snapGridSize = 15
 const stepOrder: Record<DataPipelineStepType, number> = {
@@ -297,6 +297,7 @@ async function autoLayout() {
   })
   autoLayouting = true
   try {
+    await nextTick()
     const positions = await autoLayoutPositions(graph.nodes, graph.edges)
     nodes.value = graph.nodes.map((node) => ({
       ...node,
@@ -321,6 +322,7 @@ async function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataP
   const nodeIndex = new Map(graphNodes.map((node, index) => [node.id, index]))
   const validEdges = graphEdges.filter((edge) => nodeMap.has(edge.source) && nodeMap.has(edge.target) && edge.source !== edge.target)
   const sortedNodes = [...graphNodes].sort((a, b) => compareLayoutOrder(a, b, nodeIndex))
+  const layoutSizes = layoutNodeSizes(graphNodes)
   const layoutGraph: ElkNode = {
     id: 'data-pipeline-layout-root',
     layoutOptions: {
@@ -329,7 +331,7 @@ async function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataP
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.separateConnectedComponents': 'false',
       'elk.spacing.nodeNode': String(autoLayoutRowSpacing),
-      'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': String(autoLayoutColumnSpacing),
+      'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': String(autoLayoutLayerGap),
       'org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers': '48',
       'org.eclipse.elk.layered.crossingMinimization.forceNodeModelOrder': 'true',
       'org.eclipse.elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
@@ -339,8 +341,8 @@ async function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataP
     },
     children: sortedNodes.map((node, index) => ({
       id: node.id,
-      width: autoLayoutNodeWidth,
-      height: autoLayoutNodeHeight,
+      width: layoutSizes.get(node.id)?.width ?? autoLayoutNodeFallbackWidth,
+      height: layoutSizes.get(node.id)?.height ?? autoLayoutNodeHeight,
       layoutOptions: {
         'org.eclipse.elk.layered.crossingMinimization.positionId': String(index),
         ...nodeLayerConstraint(node),
@@ -374,6 +376,83 @@ async function autoLayoutPositions(graphNodes: PipelineNode[], graphEdges: DataP
   }
 
   return positions
+}
+
+function layoutNodeSizes(graphNodes: PipelineNode[]) {
+  const sizes = new Map<string, { width: number, height: number }>()
+  for (const node of graphNodes) {
+    sizes.set(node.id, measureRenderedNode(node) ?? estimateNodeSize(node))
+  }
+  return sizes
+}
+
+function measureRenderedNode(node: PipelineNode) {
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  const renderedNode = document.querySelector(
+    `.vue-flow__node[data-id="${cssEscape(node.id)}"] .data-pipeline-node`,
+  )
+  if (!(renderedNode instanceof HTMLElement)) {
+    return null
+  }
+
+  const width = renderedNode.offsetWidth
+  const height = renderedNode.offsetHeight
+  if (!Number.isFinite(width) || width <= 0) {
+    return null
+  }
+
+  return {
+    width: clampNodeWidth(width),
+    height: Math.max(autoLayoutNodeHeight, Math.ceil(height)),
+  }
+}
+
+function estimateNodeSize(node: PipelineNode) {
+  const labelWidth = estimateTextWidth(displayLabelForLayout(node), '700 13.76px "Avenir Next", "Segoe UI", sans-serif')
+  const stepWidth = estimateTextWidth(t(`dataPipelines.step.${node.data.stepType}`), '400 11.68px "Avenir Next", "Segoe UI", sans-serif')
+  const copyWidth = Math.max(labelWidth, stepWidth + 23)
+  const chromeWidth = 24 + 30 + 16 + 15
+
+  return {
+    width: clampNodeWidth(Math.ceil(chromeWidth + copyWidth + 28)),
+    height: autoLayoutNodeHeight,
+  }
+}
+
+function estimateTextWidth(text: string, font: string) {
+  if (typeof document === 'undefined') {
+    return text.length * 8
+  }
+
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  if (!context) {
+    return text.length * 8
+  }
+  context.font = font
+  return context.measureText(text).width
+}
+
+function displayLabelForLayout(node: PipelineNode) {
+  const text = node.data.label?.trim()
+  if (!text || text === englishLabelForStep(node.data.stepType)) {
+    return t(`dataPipelines.step.${node.data.stepType}`)
+  }
+  return text
+}
+
+function clampNodeWidth(width: number) {
+  return Math.max(autoLayoutNodeMinWidth, Math.ceil(width))
+}
+
+function cssEscape(value: string) {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value)
+  }
+  return value.replace(/["\\]/g, '\\$&')
 }
 
 function getElk() {
@@ -502,6 +581,23 @@ function fallbackAutoLayoutPositions(graphNodes: PipelineNode[], graphEdges: Dat
     layers.set(itemDepth, [...(layers.get(itemDepth) ?? []), node])
   }
 
+  const layoutSizes = layoutNodeSizes(graphNodes)
+  const layerWidths = new Map<number, number>()
+  for (const [itemDepth, layerNodes] of layers.entries()) {
+    layerWidths.set(itemDepth, Math.max(
+      autoLayoutNodeFallbackWidth,
+      ...layerNodes.map((node) => layoutSizes.get(node.id)?.width ?? autoLayoutNodeFallbackWidth),
+    ))
+  }
+
+  const sortedLayerDepths = [...layers.keys()].sort((a, b) => a - b)
+  const layerX = new Map<number, number>()
+  let nextX = autoLayoutStartX
+  for (const itemDepth of sortedLayerDepths) {
+    layerX.set(itemDepth, nextX)
+    nextX += (layerWidths.get(itemDepth) ?? autoLayoutNodeFallbackWidth) + autoLayoutLayerGap
+  }
+
   const maxLayerSize = Math.max(1, ...[...layers.values()].map((layer) => layer.length))
   const positions = new Map<string, { x: number, y: number }>()
   for (const [itemDepth, layerNodes] of [...layers.entries()].sort(([a], [b]) => a - b)) {
@@ -509,7 +605,7 @@ function fallbackAutoLayoutPositions(graphNodes: PipelineNode[], graphEdges: Dat
     const yOffset = ((maxLayerSize - sortedLayerNodes.length) * autoLayoutRowGap) / 2
     sortedLayerNodes.forEach((node, index) => {
       positions.set(node.id, {
-        x: snapValue(autoLayoutStartX + itemDepth * autoLayoutColumnGap),
+        x: snapValue(layerX.get(itemDepth) ?? autoLayoutStartX),
         y: snapValue(autoLayoutStartY + yOffset + index * autoLayoutRowGap),
       })
     })
@@ -531,6 +627,13 @@ function snapValue(value: number) {
 }
 
 function labelForStep(type: DataPipelineStepType) {
+  return type
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function englishLabelForStep(type: DataPipelineStepType) {
   return type
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
