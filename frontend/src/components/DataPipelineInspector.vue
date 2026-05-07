@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { AlertCircle, Check, MousePointerClick, Plus, RefreshCw, Trash2, Zap } from 'lucide-vue-next'
+import { AlertCircle, Check, MousePointerClick, Plus, RefreshCw, Sparkles, Trash2, Zap } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import { fetchDriveFile, fetchDriveFileManifest, refreshDriveFileManifest, type DriveDocumentManifestBody, type DriveDocumentSheetManifest } from '../api/drive'
-import { isDataPipelineAutoPreviewEnabled, type DataPipelineGraph, type DataPipelineStepType } from '../api/data-pipelines'
+import { fetchSchemaMappingCandidates, isDataPipelineAutoPreviewEnabled, recordSchemaMappingExample, type DataPipelineGraph, type DataPipelinePreviewBody, type DataPipelineStepType, type SchemaMappingCandidateBody, type SchemaMappingCandidateItem } from '../api/data-pipelines'
+import { toApiErrorMessage } from '../api/client'
 import type { DatasetBody, DatasetWorkTableBody, DriveFileBody } from '../api/generated/types.gen'
 import DriveFilePickerDialog from './DriveFilePickerDialog.vue'
 
@@ -19,6 +20,9 @@ const props = defineProps<{
   selectedNodeId: string
   datasets?: DatasetBody[]
   workTables?: DatasetWorkTableBody[]
+  preview?: DataPipelinePreviewBody | null
+  pipelinePublicId?: string
+  versionPublicId?: string
 }>()
 
 const emit = defineEmits<{
@@ -82,6 +86,9 @@ const selectedDriveFilesLoading = ref(false)
 const driveManifest = ref<DriveDocumentManifestBody | null>(null)
 const driveManifestLoading = ref(false)
 const driveManifestError = ref('')
+const schemaMappingCandidateLoading = ref(false)
+const schemaMappingCandidateError = ref('')
+const schemaMappingCandidateItems = ref<SchemaMappingCandidateItem[]>([])
 let syncingLocalChange = false
 const { t } = useI18n()
 
@@ -144,6 +151,14 @@ const outputTableNameError = computed(() => {
     && String(node.data.config?.tableName ?? '').trim().toLowerCase() === tableName.toLowerCase())
   return duplicate ? t('dataPipelines.duplicateOutputTableName') : ''
 })
+const schemaMappingCandidateMap = computed(() => {
+  const out = new Map<string, SchemaMappingCandidateBody[]>()
+  for (const item of schemaMappingCandidateItems.value) {
+    out.set(item.sourceColumn, item.candidates ?? [])
+  }
+  return out
+})
+const schemaMappingCandidateReady = computed(() => schemaMappingRequestColumns().length > 0)
 
 watch(selectedNode, (node) => {
   if (syncingLocalChange) {
@@ -154,6 +169,8 @@ watch(selectedNode, (node) => {
   configText.value = JSON.stringify(configDraft.value, null, 2)
   parseError.value = ''
   uiError.value = ''
+  schemaMappingCandidateItems.value = []
+  schemaMappingCandidateError.value = ''
 }, { immediate: true })
 
 watch(() => driveFileIds.value.join('\n'), () => {
@@ -716,6 +733,117 @@ function addStepRule() {
 
 function addMapping() {
   addArrayItem('mappings', { sourceColumn: '', targetColumn: '', cast: '', required: false })
+}
+
+function schemaMappingRequestColumns() {
+  return arrayFromConfig(configDraft.value, 'mappings')
+    .map((mapping, index) => ({
+      sourceColumn: stringField(mapping, 'sourceColumn').trim(),
+      neighborColumns: knownColumns.value.filter((column) => column !== stringField(mapping, 'sourceColumn').trim()).slice(0, 20),
+      index,
+    }))
+    .filter((item) => item.sourceColumn)
+}
+
+async function loadSchemaMappingCandidates() {
+  const columns = schemaMappingRequestColumns()
+  if (columns.length === 0) {
+    uiError.value = t('dataPipelines.schemaMappingCandidatesNeedSourceColumns')
+    return
+  }
+  schemaMappingCandidateLoading.value = true
+  schemaMappingCandidateError.value = ''
+  try {
+    const result = await fetchSchemaMappingCandidates({
+      pipelinePublicId: props.pipelinePublicId || undefined,
+      versionPublicId: props.versionPublicId || undefined,
+      domain: stringConfig('domain') || undefined,
+      schemaType: stringConfig('schemaType') || undefined,
+      limit: 3,
+      columns: columns.map((column) => ({
+        sourceColumn: column.sourceColumn,
+        sampleValues: schemaMappingSampleValues(column.sourceColumn, column.index),
+        neighborColumns: column.neighborColumns,
+      })),
+    })
+    schemaMappingCandidateItems.value = result.items ?? []
+  } catch (error) {
+    schemaMappingCandidateItems.value = []
+    schemaMappingCandidateError.value = toApiErrorMessage(error)
+  } finally {
+    schemaMappingCandidateLoading.value = false
+  }
+}
+
+function schemaMappingCandidatesFor(sourceColumn: string) {
+  return schemaMappingCandidateMap.value.get(sourceColumn.trim()) ?? []
+}
+
+function schemaMappingSampleValues(sourceColumn: string, mappingIndex: number) {
+  const preview = props.preview
+  if (!preview?.previewRows?.length) {
+    return []
+  }
+  const mapping = arrayFromConfig(configDraft.value, 'mappings')[mappingIndex] ?? {}
+  const targetColumn = stringField(mapping, 'targetColumn').trim()
+  const candidateColumns = uniqueStrings([sourceColumn.trim(), targetColumn])
+  const out: string[] = []
+  for (const row of preview.previewRows) {
+    for (const column of candidateColumns) {
+      if (!column || !(column in row)) {
+        continue
+      }
+      const value = previewSampleValue(row[column])
+      if (value && !out.includes(value)) {
+        out.push(value)
+      }
+      break
+    }
+    if (out.length >= 5) {
+      break
+    }
+  }
+  return out
+}
+
+function previewSampleValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return ''
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value).slice(0, 160)
+  }
+  return String(value).trim().slice(0, 160)
+}
+
+async function applySchemaMappingCandidate(index: number, candidate: SchemaMappingCandidateBody) {
+  const mapping = arrayFromConfig(configDraft.value, 'mappings')[index] ?? {}
+  const sourceColumn = stringField(mapping, 'sourceColumn').trim()
+  const neighborColumns = knownColumns.value.filter((column) => column !== sourceColumn).slice(0, 20)
+  updateArrayItem('mappings', index, { targetColumn: candidate.targetColumn })
+  if (!props.pipelinePublicId || !sourceColumn) {
+    return
+  }
+  try {
+    await recordSchemaMappingExample({
+      pipelinePublicId: props.pipelinePublicId,
+      versionPublicId: props.versionPublicId || undefined,
+      schemaColumnPublicId: candidate.schemaColumnPublicId,
+      sourceColumn,
+      sampleValues: schemaMappingSampleValues(sourceColumn, index),
+      neighborColumns,
+      decision: 'accepted',
+    })
+  } catch (error) {
+    schemaMappingCandidateError.value = toApiErrorMessage(error)
+  }
+}
+
+function schemaMappingScoreLabel(score: number) {
+  if (!Number.isFinite(score)) {
+    return '0.00'
+  }
+  return score.toFixed(2)
 }
 
 function addTransformCondition() {
@@ -1737,6 +1865,27 @@ function labelForStep(type: DataPipelineStepType | string) {
         </template>
 
         <template v-else-if="stepType === 'schema_mapping'">
+          <div class="config-section-header">
+            <h3>{{ t('dataPipelines.schemaMappingCandidates') }}</h3>
+            <button class="secondary-button compact-button" type="button" :disabled="schemaMappingCandidateLoading || !schemaMappingCandidateReady" @click="loadSchemaMappingCandidates">
+              <Sparkles :size="15" stroke-width="1.9" aria-hidden="true" />
+              {{ schemaMappingCandidateLoading ? t('common.loading') : t('dataPipelines.getSchemaMappingCandidates') }}
+            </button>
+          </div>
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.domain') }}</span>
+              <input :value="stringConfig('domain')" placeholder="invoice" @input="updateConfigOptionalString('domain', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.schemaType') }}</span>
+              <input :value="stringConfig('schemaType')" placeholder="ap_invoice" @input="updateConfigOptionalString('schemaType', targetValue($event))">
+            </label>
+          </div>
+          <p v-if="schemaMappingCandidateError" class="inline-error">
+            <AlertCircle :size="14" stroke-width="1.9" aria-hidden="true" />
+            {{ schemaMappingCandidateError }}
+          </p>
           <div v-for="(mapping, index) in arrayConfig('mappings')" :key="index" class="config-rule">
             <div class="config-rule-header">
               <label class="field">
@@ -1767,6 +1916,24 @@ function labelForStep(type: DataPipelineStepType | string) {
               <input :checked="boolField(mapping, 'required')" type="checkbox" @change="updateArrayItem('mappings', index, { required: targetChecked($event) })">
               <span>{{ t('dataPipelines.required') }}</span>
             </label>
+            <div v-if="schemaMappingCandidatesFor(stringField(mapping, 'sourceColumn')).length > 0" class="schema-mapping-candidates">
+              <span class="cell-subtle">{{ t('dataPipelines.schemaMappingCandidates') }}</span>
+              <button
+                v-for="candidate in schemaMappingCandidatesFor(stringField(mapping, 'sourceColumn'))"
+                :key="candidate.schemaColumnPublicId"
+                class="schema-mapping-candidate-button"
+                type="button"
+                @click="applySchemaMappingCandidate(index, candidate)"
+              >
+                <span>
+                  <strong>{{ candidate.targetColumn }}</strong>
+                  <small>{{ candidate.matchMethod }} · {{ schemaMappingScoreLabel(candidate.score) }} · {{ candidate.reason }}</small>
+                </span>
+                <span v-if="candidate.acceptedEvidence || candidate.rejectedEvidence" class="status-pill">
+                  {{ candidate.acceptedEvidence }}/{{ candidate.rejectedEvidence }}
+                </span>
+              </button>
+            </div>
           </div>
           <button class="secondary-button compact-button" type="button" @click="addMapping">
             <Plus :size="15" stroke-width="1.9" aria-hidden="true" />

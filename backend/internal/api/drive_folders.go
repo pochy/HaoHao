@@ -95,6 +95,7 @@ type ListDriveItemsInput struct {
 type SearchDriveItemsInput struct {
 	SessionCookie http.Cookie `cookie:"SESSION_ID"`
 	Query         string      `query:"q"`
+	Mode          string      `query:"mode" default:"keyword" enum:"keyword,semantic,hybrid"`
 	ContentType   string      `query:"contentType"`
 	Type          string      `query:"type" default:"all"`
 	Owner         string      `query:"owner" default:"all"`

@@ -94,6 +94,7 @@ func RegisterSurface(api huma.API, deps Dependencies, surface Surface) {
 		registerDatasetRoutes(api, deps)
 		registerDatasetGoldPublicationRoutes(api, deps)
 		registerDataPipelineRoutes(api, deps)
+		registerTenantAdminDataPipelineRoutes(api, deps)
 		registerDriveRoutes(api, deps)
 		registerMedallionCatalogRoutes(api, deps)
 		registerSystemJobRoutes(api, deps)

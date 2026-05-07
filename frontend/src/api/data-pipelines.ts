@@ -184,6 +184,62 @@ export type DataPipelineScheduleWriteBody = {
   enabled?: boolean
 }
 
+export type SchemaMappingCandidateColumnInput = {
+  sourceColumn: string
+  sheetName?: string
+  sampleValues?: string[]
+  neighborColumns?: string[]
+}
+
+export type SchemaMappingCandidateBody = {
+  schemaColumnPublicId: string
+  targetColumn: string
+  score: number
+  matchMethod: string
+  reason: string
+  snippet?: string
+  acceptedEvidence: number
+  rejectedEvidence: number
+}
+
+export type SchemaMappingCandidateItem = {
+  sourceColumn: string
+  candidates: SchemaMappingCandidateBody[]
+}
+
+export type SchemaMappingCandidateResult = {
+  items: SchemaMappingCandidateItem[]
+}
+
+export type SchemaMappingCandidateRequest = {
+  pipelinePublicId?: string
+  versionPublicId?: string
+  domain?: string
+  schemaType?: string
+  columns: SchemaMappingCandidateColumnInput[]
+  limit?: number
+}
+
+export type SchemaMappingExampleRequest = {
+  pipelinePublicId: string
+  versionPublicId?: string
+  schemaColumnPublicId: string
+  sourceColumn: string
+  sheetName?: string
+  sampleValues?: string[]
+  neighborColumns?: string[]
+  decision: 'accepted' | 'rejected'
+}
+
+export type SchemaMappingExampleBody = {
+  publicId: string
+  schemaColumnPublicId: string
+  sourceColumn: string
+  targetColumn: string
+  decision: string
+  sharedScope: string
+}
+
 export function sanitizeDataPipelineGraph(graph: DataPipelineGraph): DataPipelineGraph {
   return {
     nodes: (graph.nodes ?? []).map((node) => {
@@ -496,6 +552,23 @@ export async function disableDataPipelineSchedule(publicId: string): Promise<Dat
   return request<DataPipelineScheduleBody>(`/api/v1/data-pipeline-schedules/${encodeURIComponent(publicId)}`, {
     method: 'DELETE',
     headers: csrfHeaders(),
+  })
+}
+
+export async function fetchSchemaMappingCandidates(body: SchemaMappingCandidateRequest): Promise<SchemaMappingCandidateResult> {
+  const data = await request<{ items?: SchemaMappingCandidateItem[] }>('/api/v1/data-pipelines/schema-mapping/candidates', {
+    method: 'POST',
+    headers: csrfHeaders(),
+    body: JSON.stringify(body),
+  })
+  return { items: data.items ?? [] }
+}
+
+export async function recordSchemaMappingExample(body: SchemaMappingExampleRequest): Promise<SchemaMappingExampleBody> {
+  return request<SchemaMappingExampleBody>('/api/v1/data-pipelines/schema-mapping/examples', {
+    method: 'POST',
+    headers: csrfHeaders(),
+    body: JSON.stringify(body),
   })
 }
 

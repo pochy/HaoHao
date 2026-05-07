@@ -188,6 +188,7 @@ func main() {
 	dataPipelineService := service.NewDataPipelineService(pool, queries, outboxService, datasetService, medallionCatalogService, auditService)
 	dataPipelineService.SetDatasetAuthorizationService(datasetAuthorizationService)
 	localSearchService := service.NewLocalSearchService(pool, queries, driveService, datasetService, medallionCatalogService, outboxService, tenantSettingsService)
+	dataPipelineService.SetLocalSearchService(localSearchService)
 	systemJobService := service.NewSystemJobService(pool)
 	driveService.SetMedallionCatalogService(medallionCatalogService)
 	driveService.SetLocalSearchService(localSearchService)

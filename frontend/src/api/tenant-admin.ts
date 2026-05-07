@@ -12,6 +12,7 @@ import {
   getTenantAdminDriveOperationsHealth,
   getTenantAdminTenant,
   grantTenantAdminRole,
+  listTenantAdminSchemaMappingExamples,
   listTenantAdminDriveAuditEvents,
   listTenantAdminDriveInvitations,
   listTenantAdminDriveLocalSearchIndexJobs,
@@ -23,17 +24,20 @@ import {
   listTenantAdminDataAccessScopePermissions,
   putTenantAdminDataAccessResourcePermissions,
   putTenantAdminDataAccessScopePermissions,
+  rebuildTenantAdminSchemaMappingSearchDocuments,
   listTenantAdminTenants,
   rejectTenantAdminDriveShareApproval,
   removeTenantAdminDataAccessGroupMember,
   repairTenantAdminDriveOpenFgaSync,
   revokeTenantAdminRole,
+  updateTenantAdminSchemaMappingExampleSharing,
   updateTenantAdminDataAccessGroup,
   updateTenantAdminTenant,
 } from './generated/sdk.gen'
 import type {
   DriveShareInvitationBody,
   LocalSearchIndexJobBody,
+  SchemaMappingExampleBody,
   TenantAdminDriveAuditEventBody,
   TenantAdminDriveShareLinkStateBody,
   TenantAdminDriveShareStateBody,
@@ -47,6 +51,8 @@ import type {
   TenantAdminDataAccessMemberWriteBodyWritable,
   TenantAdminDataAccessPermissionWriteBodyWritable,
   TenantAdminMembershipRequestBody,
+  TenantAdminSchemaMappingExampleListItemBody,
+  TenantAdminSchemaMappingSearchDocumentsRebuildInputBodyWritable,
   TenantAdminTenantBody,
   TenantAdminTenantDetailBody,
   TenantAdminTenantRequestBody,
@@ -258,6 +264,66 @@ export async function createTenantAdminDriveLocalSearchRebuildJob(tenantSlug: st
     responseStyle: 'data',
     throwOnError: true,
   }) as unknown as Promise<LocalSearchIndexJobBody>
+}
+
+export type TenantAdminSchemaMappingExampleFilters = {
+  q?: string
+  sharedScope?: 'private' | 'tenant'
+  decision?: 'accepted' | 'rejected'
+  limit?: number
+}
+
+export async function fetchTenantAdminSchemaMappingExamples(
+  tenantSlug: string,
+  filters: TenantAdminSchemaMappingExampleFilters = {},
+): Promise<TenantAdminSchemaMappingExampleListItemBody[]> {
+  const query: TenantAdminSchemaMappingExampleFilters = {}
+  if (filters.q?.trim()) {
+    query.q = filters.q.trim()
+  }
+  if (filters.sharedScope) {
+    query.sharedScope = filters.sharedScope
+  }
+  if (filters.decision) {
+    query.decision = filters.decision
+  }
+  if (filters.limit) {
+    query.limit = filters.limit
+  }
+  const data = await listTenantAdminSchemaMappingExamples({
+    path: { tenantSlug },
+    query,
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as { items: TenantAdminSchemaMappingExampleListItemBody[] | null }
+  return data.items ?? []
+}
+
+export async function updateTenantAdminSchemaMappingExampleSharedScope(
+  tenantSlug: string,
+  mappingExamplePublicId: string,
+  sharedScope: 'private' | 'tenant',
+): Promise<SchemaMappingExampleBody> {
+  return updateTenantAdminSchemaMappingExampleSharing({
+    headers: csrfHeaders(),
+    path: { tenantSlug, mappingExamplePublicId },
+    body: { sharedScope },
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<SchemaMappingExampleBody>
+}
+
+export async function rebuildTenantAdminSchemaMappingSearchIndex(
+  tenantSlug: string,
+  body: TenantAdminSchemaMappingSearchDocumentsRebuildInputBodyWritable = { limit: 100 },
+): Promise<{ indexed: number, schemaColumnsIndexed: number, mappingExamplesIndexed: number }> {
+  return rebuildTenantAdminSchemaMappingSearchDocuments({
+    headers: csrfHeaders(),
+    path: { tenantSlug },
+    body,
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<{ indexed: number, schemaColumnsIndexed: number, mappingExamplesIndexed: number }>
 }
 
 export async function repairTenantAdminDriveSync(tenantSlug: string): Promise<TenantAdminDriveSyncOutputBody> {

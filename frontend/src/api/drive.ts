@@ -44,6 +44,7 @@ import {
   listDriveStarred,
   permanentlyDeleteDriveFile,
   permanentlyDeleteDriveFolder,
+  queryDriveRag,
   listDriveTrashItems,
   listDriveWorkspaces,
   restoreDriveFile,
@@ -85,6 +86,8 @@ import type {
   DriveSearchResultBody,
   DrivePermissionsBody,
   DriveProductExtractionItemBody,
+  DriveRagAnswerBody,
+  DriveRagQueryBodyWritable,
   DriveShareBody,
   DriveShareInvitationBody,
   DriveShareLinkBody,
@@ -107,6 +110,8 @@ export type DriveResourceRef = {
   type: DriveResourceType
   publicId: string
 }
+
+export type DriveSearchMode = 'keyword' | 'semantic' | 'hybrid'
 
 export type DriveListFilters = {
   type?: 'all' | 'file' | 'folder'
@@ -284,10 +289,11 @@ export async function searchDriveItemsByKeyword(query: string, contentType = '',
   return data.items ?? []
 }
 
-export async function searchDriveDocumentsByKeyword(query: string, contentType = '', filters: DriveListFilters = {}): Promise<DriveSearchResultBody[]> {
+export async function searchDriveDocumentsByKeyword(query: string, contentType = '', filters: DriveListFilters = {}, mode: DriveSearchMode = 'keyword'): Promise<DriveSearchResultBody[]> {
   const data = await searchDriveDocuments({
     query: {
       q: query,
+      mode,
       contentType,
       ...(filters.type ? { type: filters.type } : {}),
       ...(filters.owner ? { owner: filters.owner } : {}),
@@ -297,6 +303,15 @@ export async function searchDriveDocumentsByKeyword(query: string, contentType =
     },
   }) as unknown as { items: DriveSearchResultBody[] | null }
   return data.items ?? []
+}
+
+export async function queryDriveRAG(body: DriveRagQueryBodyWritable): Promise<DriveRagAnswerBody> {
+  return queryDriveRag({
+    headers: csrfHeaders(),
+    body,
+    responseStyle: 'data',
+    throwOnError: true,
+  }) as unknown as Promise<DriveRagAnswerBody>
 }
 
 export async function fetchDriveSharedWithMe(): Promise<DriveItemBody[]> {

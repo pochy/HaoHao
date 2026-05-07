@@ -1,0 +1,223 @@
+{
+  "domain": "invoice",
+  "schemaType": "ap_invoice",
+  "language": "ja",
+  "version": 1,
+  "columns": [
+    {
+      "targetColumn": "invoice_number",
+      "description": "仕入先請求書の請求書番号。Invoice No、請求No、請求番号、invoice_no などから対応する。",
+      "aliases": [
+        "請求No",
+        "請求番号",
+        "Invoice No",
+        "Invoice Number",
+        "invoice_no",
+        "bill_no",
+        "請求書番号",
+        "請求ID",
+        "invoice_id",
+        "伝票No",
+        "伝票番号",
+        "発票番号",
+        "請求書No"
+      ],
+      "examples": [
+        "INV-2026-00045",
+        "A-1042",
+        "2026-05-001"
+      ]
+    },
+    {
+      "targetColumn": "invoice_date",
+      "description": "請求書の発行日。請求日、発行日、Invoice Date などから対応する。",
+      "aliases": [
+        "請求日",
+        "発行日",
+        "Invoice Date",
+        "invoice_date",
+        "billing_date",
+        "請求年月日",
+        "Invoice Issued Date",
+        "発生日",
+        "bill_date",
+        "計上対象日",
+        "請求発行日"
+      ],
+      "examples": [
+        "2026-05-01",
+        "2026/05/01",
+        "令和8年5月1日"
+      ]
+    },
+    {
+      "targetColumn": "due_date",
+      "description": "支払期限または振込期限。支払期日、Due Date、Payment Due などから対応する。",
+      "aliases": [
+        "支払期限",
+        "支払期日",
+        "振込期限",
+        "Due Date",
+        "Payment Due",
+        "due_date",
+        "入金期限",
+        "お支払期限",
+        "Payment Terms Due",
+        "振込予定日",
+        "支払予定日"
+      ],
+      "examples": [
+        "2026-05-31",
+        "月末",
+        "翌月末"
+      ]
+    },
+    {
+      "targetColumn": "vendor_name",
+      "description": "請求元または仕入先の会社名。仕入先、支払先、Vendor、Supplier Name などから対応する。",
+      "aliases": [
+        "仕入先",
+        "支払先",
+        "請求元",
+        "取引先名",
+        "Vendor",
+        "Supplier",
+        "Supplier Name",
+        "仕入先名",
+        "取引先",
+        "Vendor Company",
+        "請求元会社",
+        "支払先会社名",
+        "supplier"
+      ],
+      "examples": [
+        "株式会社サンプル商事",
+        "Acme Supplies Ltd.",
+        "東京部品株式会社"
+      ]
+    },
+    {
+      "targetColumn": "vendor_registration_number",
+      "description": "適格請求書発行事業者の登録番号。登録番号、インボイス登録番号などから対応する。",
+      "aliases": [
+        "登録番号",
+        "インボイス登録番号",
+        "事業者登録番号",
+        "Registration No",
+        "tax_registration_number",
+        "qualified_invoice_number",
+        "適格請求書発行事業者番号",
+        "Tax ID",
+        "適格番号",
+        "インボイス登録No"
+      ],
+      "examples": [
+        "T1234567890123",
+        "T9876543210987"
+      ]
+    },
+    {
+      "targetColumn": "subtotal_amount",
+      "description": "税抜小計金額。小計、税抜金額、Subtotal などから対応する。",
+      "aliases": [
+        "小計",
+        "税抜金額",
+        "税抜合計",
+        "Subtotal",
+        "subtotal_amount",
+        "Net Amount",
+        "net_total",
+        "課税対象額",
+        "本体価格合計"
+      ],
+      "examples": [
+        "100000",
+        "45,000",
+        "¥128,000"
+      ]
+    },
+    {
+      "targetColumn": "tax_amount",
+      "description": "消費税額。税額、消費税、Tax Amount、VAT などから対応する。",
+      "aliases": [
+        "消費税",
+        "税額",
+        "消費税額",
+        "Tax Amount",
+        "VAT",
+        "tax_amount",
+        "vat_total",
+        "内消費税",
+        "税区分金額"
+      ],
+      "examples": [
+        "10000",
+        "4,500",
+        "¥12,800"
+      ]
+    },
+    {
+      "targetColumn": "total_amount",
+      "description": "請求書の税込合計金額または支払金額。税込合計、請求金額、Total Amount、Amount Due などから対応する。",
+      "aliases": [
+        "税込合計",
+        "請求金額",
+        "合計金額",
+        "支払金額",
+        "Total Amount",
+        "Amount Due",
+        "amount_due",
+        "gross_total",
+        "今回請求額",
+        "支払総額",
+        "お支払金額",
+        "請求額"
+      ],
+      "examples": [
+        "110000",
+        "¥45,320",
+        "128,000"
+      ]
+    },
+    {
+      "targetColumn": "currency",
+      "description": "請求金額の通貨。通貨、Currency などから対応する。",
+      "aliases": [
+        "通貨",
+        "Currency",
+        "currency_code",
+        "通貨コード",
+        "支払通貨",
+        "currency",
+        "金額単位",
+        "決済通貨"
+      ],
+      "examples": [
+        "JPY",
+        "USD",
+        "円"
+      ]
+    },
+    {
+      "targetColumn": "purchase_order_number",
+      "description": "発注書番号または注文番号。PO Number、注文番号、発注No などから対応する。",
+      "aliases": [
+        "注文番号",
+        "発注番号",
+        "発注No",
+        "PO Number",
+        "Purchase Order",
+        "po_no",
+        "Purchase Order No",
+        "po_number",
+        "注文書番号",
+        "購買依頼参照",
+        "注文書参照"
+      ],
+      "examples": [
+        "PO-2026-0142",
+        "ORD-10045"
+      ]
+    }
+  ]
+}

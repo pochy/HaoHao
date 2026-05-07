@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 const completeLocalSearchIndexJob = `-- name: CompleteLocalSearchIndexJob :one
@@ -160,6 +161,22 @@ func (q *Queries) DeleteLocalSearchDocumentsForFile(ctx context.Context, arg Del
 	return err
 }
 
+const deleteLocalSearchEmbeddingsForDocument = `-- name: DeleteLocalSearchEmbeddingsForDocument :exec
+DELETE FROM local_search_embeddings
+WHERE tenant_id = $1
+  AND document_id = $2
+`
+
+type DeleteLocalSearchEmbeddingsForDocumentParams struct {
+	TenantID   int64 `json:"tenant_id"`
+	DocumentID int64 `json:"document_id"`
+}
+
+func (q *Queries) DeleteLocalSearchEmbeddingsForDocument(ctx context.Context, arg DeleteLocalSearchEmbeddingsForDocumentParams) error {
+	_, err := q.db.Exec(ctx, deleteLocalSearchEmbeddingsForDocument, arg.TenantID, arg.DocumentID)
+	return err
+}
+
 const failLocalSearchIndexJob = `-- name: FailLocalSearchIndexJob :one
 UPDATE local_search_index_jobs
 SET
@@ -244,6 +261,86 @@ func (q *Queries) GetDriveProductExtractionItemByIDForTenant(ctx context.Context
 		&i.Attributes,
 		&i.Confidence,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getLocalSearchDocumentByIDForTenant = `-- name: GetLocalSearchDocumentByIDForTenant :one
+SELECT id, public_id, tenant_id, resource_kind, resource_id, resource_public_id, file_object_id, medallion_asset_id, gold_publication_id, title, body_text, snippet, content_hash, source_updated_at, indexed_at, search_vector, created_at, updated_at
+FROM local_search_documents
+WHERE tenant_id = $1
+  AND id = $2
+LIMIT 1
+`
+
+type GetLocalSearchDocumentByIDForTenantParams struct {
+	TenantID int64 `json:"tenant_id"`
+	ID       int64 `json:"id"`
+}
+
+func (q *Queries) GetLocalSearchDocumentByIDForTenant(ctx context.Context, arg GetLocalSearchDocumentByIDForTenantParams) (LocalSearchDocument, error) {
+	row := q.db.QueryRow(ctx, getLocalSearchDocumentByIDForTenant, arg.TenantID, arg.ID)
+	var i LocalSearchDocument
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.ResourceKind,
+		&i.ResourceID,
+		&i.ResourcePublicID,
+		&i.FileObjectID,
+		&i.MedallionAssetID,
+		&i.GoldPublicationID,
+		&i.Title,
+		&i.BodyText,
+		&i.Snippet,
+		&i.ContentHash,
+		&i.SourceUpdatedAt,
+		&i.IndexedAt,
+		&i.SearchVector,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getLocalSearchDocumentForResource = `-- name: GetLocalSearchDocumentForResource :one
+SELECT id, public_id, tenant_id, resource_kind, resource_id, resource_public_id, file_object_id, medallion_asset_id, gold_publication_id, title, body_text, snippet, content_hash, source_updated_at, indexed_at, search_vector, created_at, updated_at
+FROM local_search_documents
+WHERE tenant_id = $1
+  AND resource_kind = $2
+  AND resource_id = $3
+LIMIT 1
+`
+
+type GetLocalSearchDocumentForResourceParams struct {
+	TenantID     int64  `json:"tenant_id"`
+	ResourceKind string `json:"resource_kind"`
+	ResourceID   int64  `json:"resource_id"`
+}
+
+func (q *Queries) GetLocalSearchDocumentForResource(ctx context.Context, arg GetLocalSearchDocumentForResourceParams) (LocalSearchDocument, error) {
+	row := q.db.QueryRow(ctx, getLocalSearchDocumentForResource, arg.TenantID, arg.ResourceKind, arg.ResourceID)
+	var i LocalSearchDocument
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.ResourceKind,
+		&i.ResourceID,
+		&i.ResourcePublicID,
+		&i.FileObjectID,
+		&i.MedallionAssetID,
+		&i.GoldPublicationID,
+		&i.Title,
+		&i.BodyText,
+		&i.Snippet,
+		&i.ContentHash,
+		&i.SourceUpdatedAt,
+		&i.IndexedAt,
+		&i.SearchVector,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -724,6 +821,77 @@ func (q *Queries) ListLocalSearchRebuildProductExtractionItems(ctx context.Conte
 	return items, nil
 }
 
+const listPendingLocalSearchEmbeddings = `-- name: ListPendingLocalSearchEmbeddings :many
+SELECT d.id, d.public_id, d.tenant_id, d.resource_kind, d.resource_id, d.resource_public_id, d.file_object_id, d.medallion_asset_id, d.gold_publication_id, d.title, d.body_text, d.snippet, d.content_hash, d.source_updated_at, d.indexed_at, d.search_vector, d.created_at, d.updated_at
+FROM local_search_documents d
+WHERE d.tenant_id = $1
+  AND (
+      $2::text IS NULL
+      OR d.resource_kind = $2::text
+  )
+  AND NOT EXISTS (
+      SELECT 1
+      FROM local_search_embeddings e
+      WHERE e.document_id = d.id
+        AND e.model = $3
+        AND e.content_hash = d.content_hash
+        AND e.status = 'completed'
+  )
+ORDER BY d.indexed_at ASC, d.id ASC
+LIMIT $4
+`
+
+type ListPendingLocalSearchEmbeddingsParams struct {
+	TenantID     int64       `json:"tenant_id"`
+	ResourceKind pgtype.Text `json:"resource_kind"`
+	Model        string      `json:"model"`
+	LimitCount   int32       `json:"limit_count"`
+}
+
+func (q *Queries) ListPendingLocalSearchEmbeddings(ctx context.Context, arg ListPendingLocalSearchEmbeddingsParams) ([]LocalSearchDocument, error) {
+	rows, err := q.db.Query(ctx, listPendingLocalSearchEmbeddings,
+		arg.TenantID,
+		arg.ResourceKind,
+		arg.Model,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LocalSearchDocument
+	for rows.Next() {
+		var i LocalSearchDocument
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.ResourceKind,
+			&i.ResourceID,
+			&i.ResourcePublicID,
+			&i.FileObjectID,
+			&i.MedallionAssetID,
+			&i.GoldPublicationID,
+			&i.Title,
+			&i.BodyText,
+			&i.Snippet,
+			&i.ContentHash,
+			&i.SourceUpdatedAt,
+			&i.IndexedAt,
+			&i.SearchVector,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markLocalSearchIndexJobProcessing = `-- name: MarkLocalSearchIndexJobProcessing :one
 UPDATE local_search_index_jobs
 SET
@@ -909,6 +1077,86 @@ func (q *Queries) SearchLocalSearchDriveFileCandidates(ctx context.Context, arg 
 	return items, nil
 }
 
+const searchLocalSearchEmbeddingsCosine = `-- name: SearchLocalSearchEmbeddingsCosine :many
+SELECT
+    e.document_id,
+    e.resource_kind,
+    e.resource_id,
+    e.resource_public_id::text AS resource_public_id,
+    e.chunk_ordinal,
+    e.source_text,
+    e.model,
+    e.content_hash,
+    (1.0 - (e.embedding <=> $1::vector))::float8 AS score,
+    e.indexed_at
+FROM local_search_embeddings e
+WHERE e.tenant_id = $2
+  AND e.resource_kind = $3
+  AND e.model = $4
+  AND e.status = 'completed'
+  AND e.embedding IS NOT NULL
+ORDER BY e.embedding <=> $1::vector
+LIMIT $5
+`
+
+type SearchLocalSearchEmbeddingsCosineParams struct {
+	QueryEmbedding pgvector.Vector `json:"query_embedding"`
+	TenantID       int64           `json:"tenant_id"`
+	ResourceKind   string          `json:"resource_kind"`
+	Model          string          `json:"model"`
+	LimitCount     int32           `json:"limit_count"`
+}
+
+type SearchLocalSearchEmbeddingsCosineRow struct {
+	DocumentID       int64              `json:"document_id"`
+	ResourceKind     string             `json:"resource_kind"`
+	ResourceID       int64              `json:"resource_id"`
+	ResourcePublicID string             `json:"resource_public_id"`
+	ChunkOrdinal     int32              `json:"chunk_ordinal"`
+	SourceText       string             `json:"source_text"`
+	Model            string             `json:"model"`
+	ContentHash      string             `json:"content_hash"`
+	Score            float64            `json:"score"`
+	IndexedAt        pgtype.Timestamptz `json:"indexed_at"`
+}
+
+func (q *Queries) SearchLocalSearchEmbeddingsCosine(ctx context.Context, arg SearchLocalSearchEmbeddingsCosineParams) ([]SearchLocalSearchEmbeddingsCosineRow, error) {
+	rows, err := q.db.Query(ctx, searchLocalSearchEmbeddingsCosine,
+		arg.QueryEmbedding,
+		arg.TenantID,
+		arg.ResourceKind,
+		arg.Model,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchLocalSearchEmbeddingsCosineRow
+	for rows.Next() {
+		var i SearchLocalSearchEmbeddingsCosineRow
+		if err := rows.Scan(
+			&i.DocumentID,
+			&i.ResourceKind,
+			&i.ResourceID,
+			&i.ResourcePublicID,
+			&i.ChunkOrdinal,
+			&i.SourceText,
+			&i.Model,
+			&i.ContentHash,
+			&i.Score,
+			&i.IndexedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertLocalSearchDocument = `-- name: UpsertLocalSearchDocument :one
 INSERT INTO local_search_documents (
     tenant_id,
@@ -1003,6 +1251,116 @@ func (q *Queries) UpsertLocalSearchDocument(ctx context.Context, arg UpsertLocal
 		&i.SearchVector,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertLocalSearchEmbedding = `-- name: UpsertLocalSearchEmbedding :one
+INSERT INTO local_search_embeddings (
+    tenant_id,
+    resource_kind,
+    resource_id,
+    resource_public_id,
+    document_id,
+    chunk_ordinal,
+    source_text,
+    model,
+    dimension,
+    content_hash,
+    embedding,
+    metadata,
+    indexed_at,
+    status,
+    error_summary
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9,
+    $10,
+    $11::vector,
+    COALESCE($12::jsonb, '{}'::jsonb),
+    CASE WHEN $11::text IS NULL THEN NULL ELSE now() END,
+    $13,
+    $14
+)
+ON CONFLICT (document_id, chunk_ordinal, model, content_hash) DO UPDATE
+SET
+    tenant_id = EXCLUDED.tenant_id,
+    resource_kind = EXCLUDED.resource_kind,
+    resource_id = EXCLUDED.resource_id,
+    resource_public_id = EXCLUDED.resource_public_id,
+    source_text = EXCLUDED.source_text,
+    dimension = EXCLUDED.dimension,
+    embedding = EXCLUDED.embedding,
+    metadata = EXCLUDED.metadata,
+    indexed_at = EXCLUDED.indexed_at,
+    status = EXCLUDED.status,
+    error_summary = EXCLUDED.error_summary,
+    updated_at = now()
+RETURNING id, public_id, document_id, chunk_ordinal, source_text, model, dimension, content_hash, status, error_summary, created_at, updated_at, tenant_id, resource_kind, resource_id, resource_public_id, metadata, indexed_at, embedding
+`
+
+type UpsertLocalSearchEmbeddingParams struct {
+	TenantID         int64           `json:"tenant_id"`
+	ResourceKind     string          `json:"resource_kind"`
+	ResourceID       int64           `json:"resource_id"`
+	ResourcePublicID uuid.UUID       `json:"resource_public_id"`
+	DocumentID       int64           `json:"document_id"`
+	ChunkOrdinal     int32           `json:"chunk_ordinal"`
+	SourceText       string          `json:"source_text"`
+	Model            string          `json:"model"`
+	Dimension        int32           `json:"dimension"`
+	ContentHash      string          `json:"content_hash"`
+	Embedding        pgvector.Vector `json:"embedding"`
+	Metadata         []byte          `json:"metadata"`
+	Status           string          `json:"status"`
+	ErrorSummary     pgtype.Text     `json:"error_summary"`
+}
+
+func (q *Queries) UpsertLocalSearchEmbedding(ctx context.Context, arg UpsertLocalSearchEmbeddingParams) (LocalSearchEmbedding, error) {
+	row := q.db.QueryRow(ctx, upsertLocalSearchEmbedding,
+		arg.TenantID,
+		arg.ResourceKind,
+		arg.ResourceID,
+		arg.ResourcePublicID,
+		arg.DocumentID,
+		arg.ChunkOrdinal,
+		arg.SourceText,
+		arg.Model,
+		arg.Dimension,
+		arg.ContentHash,
+		arg.Embedding,
+		arg.Metadata,
+		arg.Status,
+		arg.ErrorSummary,
+	)
+	var i LocalSearchEmbedding
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.DocumentID,
+		&i.ChunkOrdinal,
+		&i.SourceText,
+		&i.Model,
+		&i.Dimension,
+		&i.ContentHash,
+		&i.Status,
+		&i.ErrorSummary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TenantID,
+		&i.ResourceKind,
+		&i.ResourceID,
+		&i.ResourcePublicID,
+		&i.Metadata,
+		&i.IndexedAt,
+		&i.Embedding,
 	)
 	return i, err
 }

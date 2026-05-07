@@ -301,6 +301,53 @@ func (q *Queries) CountActiveDataPipelineRunsForSchedule(ctx context.Context, ar
 	return column_1, err
 }
 
+const countDataPipelineMappingEvidence = `-- name: CountDataPipelineMappingEvidence :many
+SELECT
+    schema_column_id,
+    decision,
+    count(*)::bigint AS evidence_count
+FROM data_pipeline_mapping_examples
+WHERE tenant_id = $1
+  AND schema_column_id = ANY($2::bigint[])
+  AND (
+      shared_scope = 'tenant'
+      OR pipeline_id = $3::bigint
+  )
+GROUP BY schema_column_id, decision
+`
+
+type CountDataPipelineMappingEvidenceParams struct {
+	TenantID        int64       `json:"tenant_id"`
+	SchemaColumnIds []int64     `json:"schema_column_ids"`
+	PipelineID      pgtype.Int8 `json:"pipeline_id"`
+}
+
+type CountDataPipelineMappingEvidenceRow struct {
+	SchemaColumnID int64  `json:"schema_column_id"`
+	Decision       string `json:"decision"`
+	EvidenceCount  int64  `json:"evidence_count"`
+}
+
+func (q *Queries) CountDataPipelineMappingEvidence(ctx context.Context, arg CountDataPipelineMappingEvidenceParams) ([]CountDataPipelineMappingEvidenceRow, error) {
+	rows, err := q.db.Query(ctx, countDataPipelineMappingEvidence, arg.TenantID, arg.SchemaColumnIds, arg.PipelineID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountDataPipelineMappingEvidenceRow
+	for rows.Next() {
+		var i CountDataPipelineMappingEvidenceRow
+		if err := rows.Scan(&i.SchemaColumnID, &i.Decision, &i.EvidenceCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createDataPipeline = `-- name: CreateDataPipeline :one
 INSERT INTO data_pipelines (
     tenant_id,
@@ -955,6 +1002,76 @@ func (q *Queries) GetDataPipelineForTenant(ctx context.Context, arg GetDataPipel
 	return i, err
 }
 
+const getDataPipelineMappingExampleByPublicIDForTenant = `-- name: GetDataPipelineMappingExampleByPublicIDForTenant :one
+SELECT
+    e.id, e.public_id, e.tenant_id, e.pipeline_id, e.version_id, e.schema_column_id, e.source_column, e.sheet_name, e.sample_values, e.neighbor_columns, e.decision, e.decided_by_user_id, e.decided_at, e.shared_scope, e.shared_by_user_id, e.shared_at, e.created_at, e.updated_at,
+    c.public_id AS schema_column_public_id,
+    c.target_column
+FROM data_pipeline_mapping_examples e
+JOIN data_pipeline_schema_columns c
+  ON c.tenant_id = e.tenant_id
+ AND c.id = e.schema_column_id
+WHERE e.tenant_id = $1
+  AND e.public_id = $2
+LIMIT 1
+`
+
+type GetDataPipelineMappingExampleByPublicIDForTenantParams struct {
+	TenantID int64     `json:"tenant_id"`
+	PublicID uuid.UUID `json:"public_id"`
+}
+
+type GetDataPipelineMappingExampleByPublicIDForTenantRow struct {
+	ID                   int64              `json:"id"`
+	PublicID             uuid.UUID          `json:"public_id"`
+	TenantID             int64              `json:"tenant_id"`
+	PipelineID           int64              `json:"pipeline_id"`
+	VersionID            pgtype.Int8        `json:"version_id"`
+	SchemaColumnID       int64              `json:"schema_column_id"`
+	SourceColumn         string             `json:"source_column"`
+	SheetName            string             `json:"sheet_name"`
+	SampleValues         []byte             `json:"sample_values"`
+	NeighborColumns      []byte             `json:"neighbor_columns"`
+	Decision             string             `json:"decision"`
+	DecidedByUserID      pgtype.Int8        `json:"decided_by_user_id"`
+	DecidedAt            pgtype.Timestamptz `json:"decided_at"`
+	SharedScope          string             `json:"shared_scope"`
+	SharedByUserID       pgtype.Int8        `json:"shared_by_user_id"`
+	SharedAt             pgtype.Timestamptz `json:"shared_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	SchemaColumnPublicID uuid.UUID          `json:"schema_column_public_id"`
+	TargetColumn         string             `json:"target_column"`
+}
+
+func (q *Queries) GetDataPipelineMappingExampleByPublicIDForTenant(ctx context.Context, arg GetDataPipelineMappingExampleByPublicIDForTenantParams) (GetDataPipelineMappingExampleByPublicIDForTenantRow, error) {
+	row := q.db.QueryRow(ctx, getDataPipelineMappingExampleByPublicIDForTenant, arg.TenantID, arg.PublicID)
+	var i GetDataPipelineMappingExampleByPublicIDForTenantRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.PipelineID,
+		&i.VersionID,
+		&i.SchemaColumnID,
+		&i.SourceColumn,
+		&i.SheetName,
+		&i.SampleValues,
+		&i.NeighborColumns,
+		&i.Decision,
+		&i.DecidedByUserID,
+		&i.DecidedAt,
+		&i.SharedScope,
+		&i.SharedByUserID,
+		&i.SharedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SchemaColumnPublicID,
+		&i.TargetColumn,
+	)
+	return i, err
+}
+
 const getDataPipelineRunByIDForTenant = `-- name: GetDataPipelineRunByIDForTenant :one
 SELECT id, public_id, tenant_id, pipeline_id, version_id, schedule_id, requested_by_user_id, trigger_kind, status, output_work_table_id, outbox_event_id, row_count, error_summary, started_at, completed_at, created_at, updated_at
 FROM data_pipeline_runs
@@ -1071,6 +1188,78 @@ func (q *Queries) GetDataPipelineScheduleForTenant(ctx context.Context, arg GetD
 	return i, err
 }
 
+const getDataPipelineSchemaColumnByIDForTenant = `-- name: GetDataPipelineSchemaColumnByIDForTenant :one
+SELECT id, public_id, tenant_id, domain, schema_type, target_column, description, aliases, examples, language, version, archived_at, created_at, updated_at
+FROM data_pipeline_schema_columns
+WHERE tenant_id = $1
+  AND id = $2
+  AND archived_at IS NULL
+LIMIT 1
+`
+
+type GetDataPipelineSchemaColumnByIDForTenantParams struct {
+	TenantID int64 `json:"tenant_id"`
+	ID       int64 `json:"id"`
+}
+
+func (q *Queries) GetDataPipelineSchemaColumnByIDForTenant(ctx context.Context, arg GetDataPipelineSchemaColumnByIDForTenantParams) (DataPipelineSchemaColumn, error) {
+	row := q.db.QueryRow(ctx, getDataPipelineSchemaColumnByIDForTenant, arg.TenantID, arg.ID)
+	var i DataPipelineSchemaColumn
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.Domain,
+		&i.SchemaType,
+		&i.TargetColumn,
+		&i.Description,
+		&i.Aliases,
+		&i.Examples,
+		&i.Language,
+		&i.Version,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getDataPipelineSchemaColumnByPublicIDForTenant = `-- name: GetDataPipelineSchemaColumnByPublicIDForTenant :one
+SELECT id, public_id, tenant_id, domain, schema_type, target_column, description, aliases, examples, language, version, archived_at, created_at, updated_at
+FROM data_pipeline_schema_columns
+WHERE tenant_id = $1
+  AND public_id = $2
+  AND archived_at IS NULL
+LIMIT 1
+`
+
+type GetDataPipelineSchemaColumnByPublicIDForTenantParams struct {
+	TenantID int64     `json:"tenant_id"`
+	PublicID uuid.UUID `json:"public_id"`
+}
+
+func (q *Queries) GetDataPipelineSchemaColumnByPublicIDForTenant(ctx context.Context, arg GetDataPipelineSchemaColumnByPublicIDForTenantParams) (DataPipelineSchemaColumn, error) {
+	row := q.db.QueryRow(ctx, getDataPipelineSchemaColumnByPublicIDForTenant, arg.TenantID, arg.PublicID)
+	var i DataPipelineSchemaColumn
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.Domain,
+		&i.SchemaType,
+		&i.TargetColumn,
+		&i.Description,
+		&i.Aliases,
+		&i.Examples,
+		&i.Language,
+		&i.Version,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getDataPipelineVersionByIDForTenant = `-- name: GetDataPipelineVersionByIDForTenant :one
 SELECT id, public_id, tenant_id, pipeline_id, version_number, status, graph, validation_summary, created_by_user_id, published_by_user_id, created_at, published_at
 FROM data_pipeline_versions
@@ -1135,6 +1324,104 @@ func (q *Queries) GetDataPipelineVersionForTenant(ctx context.Context, arg GetDa
 		&i.PublishedAt,
 	)
 	return i, err
+}
+
+const listDataPipelineMappingExamplesForIndex = `-- name: ListDataPipelineMappingExamplesForIndex :many
+SELECT
+    e.id,
+    e.public_id,
+    e.tenant_id,
+    e.pipeline_id,
+    e.version_id,
+    e.schema_column_id,
+    e.source_column,
+    e.sheet_name,
+    e.sample_values,
+    e.neighbor_columns,
+    e.decision,
+    e.decided_by_user_id,
+    e.decided_at,
+    e.shared_scope,
+    e.shared_by_user_id,
+    e.shared_at,
+    e.created_at,
+    e.updated_at,
+    c.target_column
+FROM data_pipeline_mapping_examples e
+JOIN data_pipeline_schema_columns c
+  ON c.tenant_id = e.tenant_id
+ AND c.id = e.schema_column_id
+ AND c.archived_at IS NULL
+WHERE e.tenant_id = $1
+ORDER BY e.id
+LIMIT $2
+`
+
+type ListDataPipelineMappingExamplesForIndexParams struct {
+	TenantID   int64 `json:"tenant_id"`
+	LimitCount int32 `json:"limit_count"`
+}
+
+type ListDataPipelineMappingExamplesForIndexRow struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	TenantID        int64              `json:"tenant_id"`
+	PipelineID      int64              `json:"pipeline_id"`
+	VersionID       pgtype.Int8        `json:"version_id"`
+	SchemaColumnID  int64              `json:"schema_column_id"`
+	SourceColumn    string             `json:"source_column"`
+	SheetName       string             `json:"sheet_name"`
+	SampleValues    []byte             `json:"sample_values"`
+	NeighborColumns []byte             `json:"neighbor_columns"`
+	Decision        string             `json:"decision"`
+	DecidedByUserID pgtype.Int8        `json:"decided_by_user_id"`
+	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
+	SharedScope     string             `json:"shared_scope"`
+	SharedByUserID  pgtype.Int8        `json:"shared_by_user_id"`
+	SharedAt        pgtype.Timestamptz `json:"shared_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TargetColumn    string             `json:"target_column"`
+}
+
+func (q *Queries) ListDataPipelineMappingExamplesForIndex(ctx context.Context, arg ListDataPipelineMappingExamplesForIndexParams) ([]ListDataPipelineMappingExamplesForIndexRow, error) {
+	rows, err := q.db.Query(ctx, listDataPipelineMappingExamplesForIndex, arg.TenantID, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDataPipelineMappingExamplesForIndexRow
+	for rows.Next() {
+		var i ListDataPipelineMappingExamplesForIndexRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.PipelineID,
+			&i.VersionID,
+			&i.SchemaColumnID,
+			&i.SourceColumn,
+			&i.SheetName,
+			&i.SampleValues,
+			&i.NeighborColumns,
+			&i.Decision,
+			&i.DecidedByUserID,
+			&i.DecidedAt,
+			&i.SharedScope,
+			&i.SharedByUserID,
+			&i.SharedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TargetColumn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDataPipelineRunOutputs = `-- name: ListDataPipelineRunOutputs :many
@@ -1325,6 +1612,55 @@ func (q *Queries) ListDataPipelineSchedules(ctx context.Context, arg ListDataPip
 			&i.LastStatus,
 			&i.LastErrorSummary,
 			&i.LastRunID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDataPipelineSchemaColumnsForIndex = `-- name: ListDataPipelineSchemaColumnsForIndex :many
+SELECT id, public_id, tenant_id, domain, schema_type, target_column, description, aliases, examples, language, version, archived_at, created_at, updated_at
+FROM data_pipeline_schema_columns
+WHERE tenant_id = $1
+  AND archived_at IS NULL
+ORDER BY id
+LIMIT $2
+`
+
+type ListDataPipelineSchemaColumnsForIndexParams struct {
+	TenantID   int64 `json:"tenant_id"`
+	LimitCount int32 `json:"limit_count"`
+}
+
+func (q *Queries) ListDataPipelineSchemaColumnsForIndex(ctx context.Context, arg ListDataPipelineSchemaColumnsForIndexParams) ([]DataPipelineSchemaColumn, error) {
+	rows, err := q.db.Query(ctx, listDataPipelineSchemaColumnsForIndex, arg.TenantID, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DataPipelineSchemaColumn
+	for rows.Next() {
+		var i DataPipelineSchemaColumn
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.Domain,
+			&i.SchemaType,
+			&i.TargetColumn,
+			&i.Description,
+			&i.Aliases,
+			&i.Examples,
+			&i.Language,
+			&i.Version,
+			&i.ArchivedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1588,6 +1924,134 @@ func (q *Queries) ListDataPipelines(ctx context.Context, arg ListDataPipelinesPa
 			&i.EnabledScheduleCount,
 			&i.DisabledScheduleCount,
 			&i.NextRunAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTenantAdminDataPipelineMappingExamples = `-- name: ListTenantAdminDataPipelineMappingExamples :many
+SELECT
+    e.public_id,
+    e.source_column,
+    e.sheet_name,
+    e.sample_values,
+    e.neighbor_columns,
+    e.decision,
+    e.shared_scope,
+    e.decided_at,
+    e.shared_at,
+    e.created_at,
+    e.updated_at,
+    p.public_id AS pipeline_public_id,
+    p.name AS pipeline_name,
+    c.public_id AS schema_column_public_id,
+    c.domain,
+    c.schema_type,
+    c.target_column,
+    EXISTS (
+        SELECT 1
+        FROM local_search_documents d
+        WHERE d.tenant_id = e.tenant_id
+          AND d.resource_kind = 'mapping_example'
+          AND d.resource_id = e.id
+    ) AS search_document_materialized
+FROM data_pipeline_mapping_examples e
+JOIN data_pipelines p
+  ON p.tenant_id = e.tenant_id
+ AND p.id = e.pipeline_id
+JOIN data_pipeline_schema_columns c
+  ON c.tenant_id = e.tenant_id
+ AND c.id = e.schema_column_id
+WHERE e.tenant_id = $1
+  AND (
+      $2::text IS NULL
+      OR e.shared_scope = $2::text
+  )
+  AND (
+      $3::text IS NULL
+      OR e.decision = $3::text
+  )
+  AND (
+      $4::text IS NULL
+      OR e.source_column ILIKE '%' || $4::text || '%'
+      OR c.target_column ILIKE '%' || $4::text || '%'
+      OR p.name ILIKE '%' || $4::text || '%'
+      OR c.domain ILIKE '%' || $4::text || '%'
+      OR c.schema_type ILIKE '%' || $4::text || '%'
+  )
+ORDER BY e.updated_at DESC, e.id DESC
+LIMIT $5
+`
+
+type ListTenantAdminDataPipelineMappingExamplesParams struct {
+	TenantID    int64       `json:"tenant_id"`
+	SharedScope pgtype.Text `json:"shared_scope"`
+	Decision    pgtype.Text `json:"decision"`
+	Query       pgtype.Text `json:"query"`
+	LimitCount  int32       `json:"limit_count"`
+}
+
+type ListTenantAdminDataPipelineMappingExamplesRow struct {
+	PublicID                   uuid.UUID          `json:"public_id"`
+	SourceColumn               string             `json:"source_column"`
+	SheetName                  string             `json:"sheet_name"`
+	SampleValues               []byte             `json:"sample_values"`
+	NeighborColumns            []byte             `json:"neighbor_columns"`
+	Decision                   string             `json:"decision"`
+	SharedScope                string             `json:"shared_scope"`
+	DecidedAt                  pgtype.Timestamptz `json:"decided_at"`
+	SharedAt                   pgtype.Timestamptz `json:"shared_at"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+	PipelinePublicID           uuid.UUID          `json:"pipeline_public_id"`
+	PipelineName               string             `json:"pipeline_name"`
+	SchemaColumnPublicID       uuid.UUID          `json:"schema_column_public_id"`
+	Domain                     string             `json:"domain"`
+	SchemaType                 string             `json:"schema_type"`
+	TargetColumn               string             `json:"target_column"`
+	SearchDocumentMaterialized bool               `json:"search_document_materialized"`
+}
+
+func (q *Queries) ListTenantAdminDataPipelineMappingExamples(ctx context.Context, arg ListTenantAdminDataPipelineMappingExamplesParams) ([]ListTenantAdminDataPipelineMappingExamplesRow, error) {
+	rows, err := q.db.Query(ctx, listTenantAdminDataPipelineMappingExamples,
+		arg.TenantID,
+		arg.SharedScope,
+		arg.Decision,
+		arg.Query,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTenantAdminDataPipelineMappingExamplesRow
+	for rows.Next() {
+		var i ListTenantAdminDataPipelineMappingExamplesRow
+		if err := rows.Scan(
+			&i.PublicID,
+			&i.SourceColumn,
+			&i.SheetName,
+			&i.SampleValues,
+			&i.NeighborColumns,
+			&i.Decision,
+			&i.SharedScope,
+			&i.DecidedAt,
+			&i.SharedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PipelinePublicID,
+			&i.PipelineName,
+			&i.SchemaColumnPublicID,
+			&i.Domain,
+			&i.SchemaType,
+			&i.TargetColumn,
+			&i.SearchDocumentMaterialized,
 		); err != nil {
 			return nil, err
 		}
@@ -1933,6 +2397,97 @@ func (q *Queries) PublishDataPipelineVersion(ctx context.Context, arg PublishDat
 	return i, err
 }
 
+const searchDataPipelineSchemaMappingCandidates = `-- name: SearchDataPipelineSchemaMappingCandidates :many
+SELECT
+    c.id,
+    c.public_id,
+    c.target_column,
+    c.description,
+    c.aliases,
+    c.examples,
+    d.public_id AS document_public_id,
+    d.snippet,
+    ts_rank_cd(d.search_vector, websearch_to_tsquery('simple', $1::text))::float8 AS keyword_score
+FROM data_pipeline_schema_columns c
+JOIN local_search_documents d
+  ON d.tenant_id = c.tenant_id
+ AND d.resource_kind = 'schema_column'
+ AND d.resource_id = c.id
+WHERE c.tenant_id = $2
+  AND c.archived_at IS NULL
+  AND (
+      $3::text IS NULL
+      OR c.domain = $3::text
+  )
+  AND (
+      $4::text IS NULL
+      OR c.schema_type = $4::text
+  )
+  AND (
+      d.search_vector @@ websearch_to_tsquery('simple', $1::text)
+      OR d.title ILIKE '%' || $1::text || '%'
+      OR d.body_text ILIKE '%' || $1::text || '%'
+  )
+ORDER BY keyword_score DESC, c.updated_at DESC, c.id DESC
+LIMIT $5
+`
+
+type SearchDataPipelineSchemaMappingCandidatesParams struct {
+	Query      string      `json:"query"`
+	TenantID   int64       `json:"tenant_id"`
+	Domain     pgtype.Text `json:"domain"`
+	SchemaType pgtype.Text `json:"schema_type"`
+	LimitCount int32       `json:"limit_count"`
+}
+
+type SearchDataPipelineSchemaMappingCandidatesRow struct {
+	ID               int64     `json:"id"`
+	PublicID         uuid.UUID `json:"public_id"`
+	TargetColumn     string    `json:"target_column"`
+	Description      string    `json:"description"`
+	Aliases          []byte    `json:"aliases"`
+	Examples         []byte    `json:"examples"`
+	DocumentPublicID uuid.UUID `json:"document_public_id"`
+	Snippet          string    `json:"snippet"`
+	KeywordScore     float64   `json:"keyword_score"`
+}
+
+func (q *Queries) SearchDataPipelineSchemaMappingCandidates(ctx context.Context, arg SearchDataPipelineSchemaMappingCandidatesParams) ([]SearchDataPipelineSchemaMappingCandidatesRow, error) {
+	rows, err := q.db.Query(ctx, searchDataPipelineSchemaMappingCandidates,
+		arg.Query,
+		arg.TenantID,
+		arg.Domain,
+		arg.SchemaType,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchDataPipelineSchemaMappingCandidatesRow
+	for rows.Next() {
+		var i SearchDataPipelineSchemaMappingCandidatesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TargetColumn,
+			&i.Description,
+			&i.Aliases,
+			&i.Examples,
+			&i.DocumentPublicID,
+			&i.Snippet,
+			&i.KeywordScore,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setDataPipelinePublishedVersion = `-- name: SetDataPipelinePublishedVersion :one
 UPDATE data_pipelines
 SET
@@ -2066,6 +2621,62 @@ func (q *Queries) UpdateDataPipeline(ctx context.Context, arg UpdateDataPipeline
 	return i, err
 }
 
+const updateDataPipelineMappingExampleSharing = `-- name: UpdateDataPipelineMappingExampleSharing :one
+UPDATE data_pipeline_mapping_examples
+SET
+    shared_scope = $1,
+    shared_by_user_id = CASE
+        WHEN $1::text = 'tenant' THEN $2::bigint
+        ELSE NULL
+    END,
+    shared_at = CASE
+        WHEN $1::text = 'tenant' THEN now()
+        ELSE NULL
+    END,
+    updated_at = now()
+WHERE tenant_id = $3
+  AND public_id = $4
+RETURNING id, public_id, tenant_id, pipeline_id, version_id, schema_column_id, source_column, sheet_name, sample_values, neighbor_columns, decision, decided_by_user_id, decided_at, shared_scope, shared_by_user_id, shared_at, created_at, updated_at
+`
+
+type UpdateDataPipelineMappingExampleSharingParams struct {
+	SharedScope    string      `json:"shared_scope"`
+	SharedByUserID pgtype.Int8 `json:"shared_by_user_id"`
+	TenantID       int64       `json:"tenant_id"`
+	PublicID       uuid.UUID   `json:"public_id"`
+}
+
+func (q *Queries) UpdateDataPipelineMappingExampleSharing(ctx context.Context, arg UpdateDataPipelineMappingExampleSharingParams) (DataPipelineMappingExample, error) {
+	row := q.db.QueryRow(ctx, updateDataPipelineMappingExampleSharing,
+		arg.SharedScope,
+		arg.SharedByUserID,
+		arg.TenantID,
+		arg.PublicID,
+	)
+	var i DataPipelineMappingExample
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.PipelineID,
+		&i.VersionID,
+		&i.SchemaColumnID,
+		&i.SourceColumn,
+		&i.SheetName,
+		&i.SampleValues,
+		&i.NeighborColumns,
+		&i.Decision,
+		&i.DecidedByUserID,
+		&i.DecidedAt,
+		&i.SharedScope,
+		&i.SharedByUserID,
+		&i.SharedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateDataPipelineSchedule = `-- name: UpdateDataPipelineSchedule :one
 UPDATE data_pipeline_schedules
 SET
@@ -2125,6 +2736,253 @@ func (q *Queries) UpdateDataPipelineSchedule(ctx context.Context, arg UpdateData
 		&i.LastStatus,
 		&i.LastErrorSummary,
 		&i.LastRunID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertDataPipelineMappingExample = `-- name: UpsertDataPipelineMappingExample :one
+INSERT INTO data_pipeline_mapping_examples (
+    tenant_id,
+    pipeline_id,
+    version_id,
+    schema_column_id,
+    source_column,
+    sheet_name,
+    sample_values,
+    neighbor_columns,
+    decision,
+    decided_by_user_id
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    COALESCE($7::jsonb, '[]'::jsonb),
+    COALESCE($8::jsonb, '[]'::jsonb),
+    $9,
+    $10
+)
+ON CONFLICT (tenant_id, pipeline_id, version_id, source_column, schema_column_id, decision)
+WHERE version_id IS NOT NULL
+DO UPDATE
+SET
+    sheet_name = EXCLUDED.sheet_name,
+    sample_values = EXCLUDED.sample_values,
+    neighbor_columns = EXCLUDED.neighbor_columns,
+    decided_by_user_id = EXCLUDED.decided_by_user_id,
+    decided_at = now(),
+    updated_at = now()
+RETURNING id, public_id, tenant_id, pipeline_id, version_id, schema_column_id, source_column, sheet_name, sample_values, neighbor_columns, decision, decided_by_user_id, decided_at, shared_scope, shared_by_user_id, shared_at, created_at, updated_at
+`
+
+type UpsertDataPipelineMappingExampleParams struct {
+	TenantID        int64       `json:"tenant_id"`
+	PipelineID      int64       `json:"pipeline_id"`
+	VersionID       pgtype.Int8 `json:"version_id"`
+	SchemaColumnID  int64       `json:"schema_column_id"`
+	SourceColumn    string      `json:"source_column"`
+	SheetName       string      `json:"sheet_name"`
+	SampleValues    []byte      `json:"sample_values"`
+	NeighborColumns []byte      `json:"neighbor_columns"`
+	Decision        string      `json:"decision"`
+	DecidedByUserID pgtype.Int8 `json:"decided_by_user_id"`
+}
+
+func (q *Queries) UpsertDataPipelineMappingExample(ctx context.Context, arg UpsertDataPipelineMappingExampleParams) (DataPipelineMappingExample, error) {
+	row := q.db.QueryRow(ctx, upsertDataPipelineMappingExample,
+		arg.TenantID,
+		arg.PipelineID,
+		arg.VersionID,
+		arg.SchemaColumnID,
+		arg.SourceColumn,
+		arg.SheetName,
+		arg.SampleValues,
+		arg.NeighborColumns,
+		arg.Decision,
+		arg.DecidedByUserID,
+	)
+	var i DataPipelineMappingExample
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.PipelineID,
+		&i.VersionID,
+		&i.SchemaColumnID,
+		&i.SourceColumn,
+		&i.SheetName,
+		&i.SampleValues,
+		&i.NeighborColumns,
+		&i.Decision,
+		&i.DecidedByUserID,
+		&i.DecidedAt,
+		&i.SharedScope,
+		&i.SharedByUserID,
+		&i.SharedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertDataPipelineMappingExampleWithoutVersion = `-- name: UpsertDataPipelineMappingExampleWithoutVersion :one
+INSERT INTO data_pipeline_mapping_examples (
+    tenant_id,
+    pipeline_id,
+    schema_column_id,
+    source_column,
+    sheet_name,
+    sample_values,
+    neighbor_columns,
+    decision,
+    decided_by_user_id
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    COALESCE($6::jsonb, '[]'::jsonb),
+    COALESCE($7::jsonb, '[]'::jsonb),
+    $8,
+    $9
+)
+ON CONFLICT (tenant_id, pipeline_id, source_column, schema_column_id, decision)
+WHERE version_id IS NULL
+DO UPDATE
+SET
+    sheet_name = EXCLUDED.sheet_name,
+    sample_values = EXCLUDED.sample_values,
+    neighbor_columns = EXCLUDED.neighbor_columns,
+    decided_by_user_id = EXCLUDED.decided_by_user_id,
+    decided_at = now(),
+    updated_at = now()
+RETURNING id, public_id, tenant_id, pipeline_id, version_id, schema_column_id, source_column, sheet_name, sample_values, neighbor_columns, decision, decided_by_user_id, decided_at, shared_scope, shared_by_user_id, shared_at, created_at, updated_at
+`
+
+type UpsertDataPipelineMappingExampleWithoutVersionParams struct {
+	TenantID        int64       `json:"tenant_id"`
+	PipelineID      int64       `json:"pipeline_id"`
+	SchemaColumnID  int64       `json:"schema_column_id"`
+	SourceColumn    string      `json:"source_column"`
+	SheetName       string      `json:"sheet_name"`
+	SampleValues    []byte      `json:"sample_values"`
+	NeighborColumns []byte      `json:"neighbor_columns"`
+	Decision        string      `json:"decision"`
+	DecidedByUserID pgtype.Int8 `json:"decided_by_user_id"`
+}
+
+func (q *Queries) UpsertDataPipelineMappingExampleWithoutVersion(ctx context.Context, arg UpsertDataPipelineMappingExampleWithoutVersionParams) (DataPipelineMappingExample, error) {
+	row := q.db.QueryRow(ctx, upsertDataPipelineMappingExampleWithoutVersion,
+		arg.TenantID,
+		arg.PipelineID,
+		arg.SchemaColumnID,
+		arg.SourceColumn,
+		arg.SheetName,
+		arg.SampleValues,
+		arg.NeighborColumns,
+		arg.Decision,
+		arg.DecidedByUserID,
+	)
+	var i DataPipelineMappingExample
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.PipelineID,
+		&i.VersionID,
+		&i.SchemaColumnID,
+		&i.SourceColumn,
+		&i.SheetName,
+		&i.SampleValues,
+		&i.NeighborColumns,
+		&i.Decision,
+		&i.DecidedByUserID,
+		&i.DecidedAt,
+		&i.SharedScope,
+		&i.SharedByUserID,
+		&i.SharedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertDataPipelineSchemaColumn = `-- name: UpsertDataPipelineSchemaColumn :one
+INSERT INTO data_pipeline_schema_columns (
+    tenant_id,
+    domain,
+    schema_type,
+    target_column,
+    description,
+    aliases,
+    examples,
+    language,
+    version
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    COALESCE($6::jsonb, '[]'::jsonb),
+    COALESCE($7::jsonb, '[]'::jsonb),
+    $8,
+    $9
+)
+ON CONFLICT (tenant_id, domain, schema_type, target_column, version) DO UPDATE
+SET
+    description = EXCLUDED.description,
+    aliases = EXCLUDED.aliases,
+    examples = EXCLUDED.examples,
+    language = EXCLUDED.language,
+    archived_at = NULL,
+    updated_at = now()
+RETURNING id, public_id, tenant_id, domain, schema_type, target_column, description, aliases, examples, language, version, archived_at, created_at, updated_at
+`
+
+type UpsertDataPipelineSchemaColumnParams struct {
+	TenantID     int64  `json:"tenant_id"`
+	Domain       string `json:"domain"`
+	SchemaType   string `json:"schema_type"`
+	TargetColumn string `json:"target_column"`
+	Description  string `json:"description"`
+	Aliases      []byte `json:"aliases"`
+	Examples     []byte `json:"examples"`
+	Language     string `json:"language"`
+	Version      int32  `json:"version"`
+}
+
+func (q *Queries) UpsertDataPipelineSchemaColumn(ctx context.Context, arg UpsertDataPipelineSchemaColumnParams) (DataPipelineSchemaColumn, error) {
+	row := q.db.QueryRow(ctx, upsertDataPipelineSchemaColumn,
+		arg.TenantID,
+		arg.Domain,
+		arg.SchemaType,
+		arg.TargetColumn,
+		arg.Description,
+		arg.Aliases,
+		arg.Examples,
+		arg.Language,
+		arg.Version,
+	)
+	var i DataPipelineSchemaColumn
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.TenantID,
+		&i.Domain,
+		&i.SchemaType,
+		&i.TargetColumn,
+		&i.Description,
+		&i.Aliases,
+		&i.Examples,
+		&i.Language,
+		&i.Version,
+		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

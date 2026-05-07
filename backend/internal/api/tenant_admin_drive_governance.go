@@ -25,7 +25,7 @@ type TenantAdminDriveLocalSearchIndexJobsInput struct {
 
 type LocalSearchIndexJobBody struct {
 	PublicID         string     `json:"publicId" format:"uuid"`
-	ResourceKind     string     `json:"resourceKind,omitempty" enum:"drive_file,ocr_run,product_extraction,gold_table"`
+	ResourceKind     string     `json:"resourceKind,omitempty" enum:"drive_file,ocr_run,product_extraction,gold_table,schema_column,mapping_example"`
 	ResourceID       *int64     `json:"resourceId,omitempty"`
 	ResourcePublicID string     `json:"resourcePublicId,omitempty" format:"uuid"`
 	Reason           string     `json:"reason"`

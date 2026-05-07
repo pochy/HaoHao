@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://127.0.0.1:8080'
 
 function copyMarkdownDocsPlugin(): Plugin {
   return {
@@ -48,31 +49,31 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8080',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
       '/openapi.json': {
-        target: 'http://127.0.0.1:8080',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
       '/openapi.yaml': {
-        target: 'http://127.0.0.1:8080',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
       '/openapi-3.0.json': {
-        target: 'http://127.0.0.1:8080',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
       '/openapi-3.0.yaml': {
-        target: 'http://127.0.0.1:8080',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
       '/docs': {
-        target: 'http://127.0.0.1:8080',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
       '/_docs': {
-        target: 'http://127.0.0.1:8080',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
     },

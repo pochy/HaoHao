@@ -33,6 +33,39 @@ type DriveSearchResultOutput struct {
 	}
 }
 
+type DriveRAGQueryBody struct {
+	Query string `json:"query" minLength:"1" maxLength:"1000"`
+	Mode  string `json:"mode,omitempty" enum:"keyword,semantic,hybrid"`
+	Limit int32  `json:"limit,omitempty" minimum:"1" maximum:"20"`
+}
+
+type DriveRAGCitationBody struct {
+	CitationID       string  `json:"citationId"`
+	ResourceKind     string  `json:"resourceKind" enum:"drive_file,ocr_run,product_extraction,gold_table"`
+	ResourcePublicID string  `json:"resourcePublicId" format:"uuid"`
+	FilePublicID     string  `json:"filePublicId" format:"uuid"`
+	Filename         string  `json:"filename"`
+	Snippet          string  `json:"snippet"`
+	Score            float64 `json:"score,omitempty"`
+}
+
+type DriveRAGAnswerBody struct {
+	Answer    string                 `json:"answer"`
+	Citations []DriveRAGCitationBody `json:"citations"`
+	Matches   []DriveRAGCitationBody `json:"matches"`
+	Blocked   bool                   `json:"blocked"`
+}
+
+type DriveRAGQueryInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
+	Body          DriveRAGQueryBody
+}
+
+type DriveRAGQueryOutput struct {
+	Body DriveRAGAnswerBody
+}
+
 type DriveIndexRebuildBody struct {
 	Indexed int `json:"indexed"`
 	Skipped int `json:"skipped"`
@@ -195,6 +228,7 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 			TenantID:    tenant.ID,
 			ActorUserID: current.User.ID,
 			Query:       input.Query,
+			Mode:        input.Mode,
 			ContentType: input.ContentType,
 			Filter: service.DriveListItemsFilter{
 				Type:      input.Type,
@@ -229,6 +263,34 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 			})
 		}
 		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "queryDriveRAG",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/drive/rag/query",
+		Summary:     "Drive content を permission-filtered RAG で回答する",
+		Tags:        []string{DocTagDriveFilesFolders},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DriveRAGQueryInput) (*DriveRAGQueryOutput, error) {
+		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		if deps.DriveService == nil {
+			return nil, huma.Error503ServiceUnavailable("drive service is not configured")
+		}
+		result, err := deps.DriveService.QueryRAG(ctx, service.DriveRAGQueryInput{
+			TenantID:    tenant.ID,
+			ActorUserID: current.User.ID,
+			Query:       input.Body.Query,
+			Mode:        input.Body.Mode,
+			Limit:       input.Body.Limit,
+		}, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
+		}
+		return &DriveRAGQueryOutput{Body: toDriveRAGAnswerBody(result)}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -406,6 +468,31 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 		out.Body.Conflicted = result.Conflicted
 		return out, nil
 	})
+}
+
+func toDriveRAGAnswerBody(result service.DriveRAGResult) DriveRAGAnswerBody {
+	return DriveRAGAnswerBody{
+		Answer:    result.Answer,
+		Citations: toDriveRAGCitationBodies(result.Citations),
+		Matches:   toDriveRAGCitationBodies(result.Matches),
+		Blocked:   result.Blocked,
+	}
+}
+
+func toDriveRAGCitationBodies(items []service.DriveRAGCitation) []DriveRAGCitationBody {
+	out := make([]DriveRAGCitationBody, 0, len(items))
+	for _, item := range items {
+		out = append(out, DriveRAGCitationBody{
+			CitationID:       item.CitationID,
+			ResourceKind:     item.ResourceKind,
+			ResourcePublicID: item.ResourcePublicID,
+			FilePublicID:     item.FilePublicID,
+			Filename:         item.Filename,
+			Snippet:          item.Snippet,
+			Score:            item.Score,
+		})
+	}
+	return out
 }
 
 func bearerToken(header string) string {

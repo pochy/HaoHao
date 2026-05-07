@@ -646,6 +646,8 @@ async function applySettings() {
                       :selected-node-id="store.selectedNodeId"
                       :datasets="datasetStore.items"
                       :work-tables="datasetStore.workTables"
+                      :preview="store.selectedPreview"
+                      :pipeline-public-id="selectedPipeline.publicId"
                       @update:graph="updateGraph"
                     />
                   </ResizablePanel>
@@ -692,6 +694,8 @@ async function applySettings() {
                 :selected-node-id="store.selectedNodeId"
                 :datasets="datasetStore.items"
                 :work-tables="datasetStore.workTables"
+                :preview="store.selectedPreview"
+                :pipeline-public-id="selectedPipeline.publicId"
                 @update:graph="updateGraph"
               />
             </div>

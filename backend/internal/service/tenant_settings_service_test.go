@@ -168,8 +168,8 @@ func TestDriveLocalSearchPolicyFromFeaturesOverrides(t *testing.T) {
 				"vectorEnabled":    true,
 				"embeddingRuntime": "ollama",
 				"runtimeURL":       "http://127.0.0.1:11434",
-				"model":            "nomic-embed-text",
-				"dimension":        float64(768),
+				"model":            "bge-m3",
+				"dimension":        float64(1024),
 			},
 		},
 	})
@@ -183,11 +183,11 @@ func TestDriveLocalSearchPolicyFromFeaturesOverrides(t *testing.T) {
 	if got.LocalSearch.RuntimeURL != "http://127.0.0.1:11434" {
 		t.Fatalf("LocalSearch.RuntimeURL = %q", got.LocalSearch.RuntimeURL)
 	}
-	if got.LocalSearch.Model != "nomic-embed-text" {
+	if got.LocalSearch.Model != "bge-m3" {
 		t.Fatalf("LocalSearch.Model = %q", got.LocalSearch.Model)
 	}
-	if got.LocalSearch.Dimension != 768 {
-		t.Fatalf("LocalSearch.Dimension = %d, want 768", got.LocalSearch.Dimension)
+	if got.LocalSearch.Dimension != 1024 {
+		t.Fatalf("LocalSearch.Dimension = %d, want 1024", got.LocalSearch.Dimension)
 	}
 }
 
@@ -303,10 +303,23 @@ func TestValidateDriveLocalSearchPolicyRequiresVectorRuntimeConfig(t *testing.T)
 
 	policy.EmbeddingRuntime = "ollama"
 	policy.RuntimeURL = "http://127.0.0.1:11434"
-	policy.Model = "nomic-embed-text"
-	policy.Dimension = 768
+	policy.Model = "bge-m3"
+	policy.Dimension = 1024
 	if err := validateDriveLocalSearchPolicy(policy); err != nil {
 		t.Fatalf("validateDriveLocalSearchPolicy() error = %v", err)
+	}
+}
+
+func TestValidateDriveLocalSearchPolicyRejectsNonStandardVectorDimension(t *testing.T) {
+	policy := defaultDriveLocalSearchPolicy()
+	policy.VectorEnabled = true
+	policy.EmbeddingRuntime = "ollama"
+	policy.RuntimeURL = "http://127.0.0.1:11434"
+	policy.Model = "nomic-embed-text"
+	policy.Dimension = 768
+
+	if err := validateDriveLocalSearchPolicy(policy); err == nil {
+		t.Fatal("validateDriveLocalSearchPolicy() error = nil, want dimension validation error")
 	}
 }
 
@@ -315,6 +328,36 @@ func TestValidateDriveLocalSearchPolicyRejectsRemoteRuntimeURL(t *testing.T) {
 	policy.RuntimeURL = "https://example.com/embed"
 	if err := validateDriveLocalSearchPolicy(policy); err == nil {
 		t.Fatal("validateDriveLocalSearchPolicy() error = nil, want runtimeURL validation error")
+	}
+}
+
+func TestValidateDriveRAGPolicyRequiresExplicitLocalRuntimeAndVectorSearch(t *testing.T) {
+	localSearch := defaultDriveLocalSearchPolicy()
+	policy := defaultDriveRAGPolicy()
+	policy.Enabled = true
+	policy.GenerationRuntime = "lmstudio"
+	policy.GenerationRuntimeURL = "http://127.0.0.1:1234"
+	policy.GenerationModel = "qwen/qwen3.5-9b"
+
+	if err := validateDriveRAGPolicy(policy, localSearch); err == nil {
+		t.Fatal("validateDriveRAGPolicy() error = nil, want local search dependency error")
+	}
+
+	localSearch.VectorEnabled = true
+	localSearch.EmbeddingRuntime = "lmstudio"
+	localSearch.RuntimeURL = "http://127.0.0.1:1234"
+	localSearch.Model = "ruri-v3-310m"
+	localSearch.Dimension = 1024
+	if err := validateDriveRAGPolicy(policy, localSearch); err != nil {
+		t.Fatalf("validateDriveRAGPolicy() error = %v", err)
+	}
+}
+
+func TestValidateDriveRAGPolicyRejectsRemoteRuntimeURL(t *testing.T) {
+	policy := defaultDriveRAGPolicy()
+	policy.GenerationRuntimeURL = "https://example.com/v1"
+	if err := validateDriveRAGPolicy(policy, defaultDriveLocalSearchPolicy()); err == nil {
+		t.Fatal("validateDriveRAGPolicy() error = nil, want runtimeURL validation error")
 	}
 }
 

@@ -1,0 +1,989 @@
+{
+  "dataset": "drive-rag-retrieval-ja",
+  "version": 1,
+  "description": "Japanese Drive semantic / hybrid retrieval and future RAG citation evaluation cases.",
+  "language": "ja",
+  "source": "Hand-labeled synthetic business documents modeled after invoices, OCR output, purchase orders, contracts, and internal notes.",
+  "acceptanceGates": {
+    "minimumQueriesBeforeBroadRollout": 50,
+    "starterQueries": 12,
+    "semanticRecallAt5": 0.85,
+    "hybridRecallAt5": 0.9,
+    "forbiddenDocumentExclusion": 1,
+    "citationCoverage": 1,
+    "maxNoCitationAnswerRate": 0,
+    "p95LatencyMsLocalModel": 2500,
+    "answerFactCoverage": 0.9
+  },
+  "documents": [
+    {
+      "id": "drive-doc-invoice-aoba-202605",
+      "resourceKind": "drive_file",
+      "title": "青葉商事_請求書_202605.txt",
+      "visibility": "viewable",
+      "tags": [
+        "invoice",
+        "ap",
+        "ocr"
+      ],
+      "text": "請求書 請求番号: INV-2026-00045 請求日: 2026-05-01 振込期限: 2026-06-30 支払先: 株式会社青葉商事 登録番号: T1234567890123 税込合計: 128000円 消費税額: 11636円"
+    },
+    {
+      "id": "drive-doc-invoice-tokyo-parts-202604",
+      "resourceKind": "drive_file",
+      "title": "東京部品_請求書_202604.txt",
+      "visibility": "viewable",
+      "tags": [
+        "invoice",
+        "ap"
+      ],
+      "text": "Invoice No: TP-2026-0412 Invoice Date: 2026-04-20 Payment Due: 2026-05-31 Supplier Name: 東京部品株式会社 Registration No: T9876543210987 Amount Due: 45320 JPY"
+    },
+    {
+      "id": "drive-doc-purchase-order-202605",
+      "resourceKind": "drive_file",
+      "title": "購買発注_PO-2026-0142.txt",
+      "visibility": "viewable",
+      "tags": [
+        "purchase_order"
+      ],
+      "text": "発注書 注文番号: PO-2026-0142 発注日: 2026-05-03 納入希望日: 2026-05-20 仕入先: 株式会社青葉商事 発注金額: 116000円"
+    },
+    {
+      "id": "drive-doc-contract-maintenance-2026",
+      "resourceKind": "drive_file",
+      "title": "保守契約_契約更新_2026.txt",
+      "visibility": "viewable",
+      "tags": [
+        "contract"
+      ],
+      "text": "保守契約書 契約期間: 2026-04-01 から 2027-03-31 まで 自動更新: あり 解約通知期限: 契約満了日の60日前 支払条件: 月末締め翌月末払い"
+    },
+    {
+      "id": "drive-doc-expense-tanaka-202605",
+      "resourceKind": "drive_file",
+      "title": "田中_経費精算_202605.txt",
+      "visibility": "viewable",
+      "tags": [
+        "expense"
+      ],
+      "text": "経費精算 申請者: 田中 利用日: 2026-05-03 用途: 顧客訪問交通費 金額: 3280円 承認者: 鈴木"
+    },
+    {
+      "id": "drive-doc-sales-weekly-note-202605",
+      "resourceKind": "drive_file",
+      "title": "営業週報_20260507.txt",
+      "visibility": "viewable",
+      "tags": [
+        "note",
+        "sales"
+      ],
+      "text": "営業週報 今週の商談数は24件。来週は新規提案の準備と既存顧客へのフォローを行う。請求書や支払期限に関する作業は含まない。"
+    },
+    {
+      "id": "drive-doc-private-payroll-202605",
+      "resourceKind": "drive_file",
+      "title": "給与一覧_202605.txt",
+      "visibility": "forbidden",
+      "tags": [
+        "payroll",
+        "sensitive"
+      ],
+      "text": "給与一覧 2026年5月 従業員別の基本給、控除、振込金額を含む。Drive semantic search と RAG では権限のないユーザーに返してはいけない。"
+    },
+    {
+      "id": "drive-doc-dlp-blocked-card-export",
+      "resourceKind": "drive_file",
+      "title": "カード明細_要遮断.txt",
+      "visibility": "dlp_blocked",
+      "tags": [
+        "card",
+        "sensitive"
+      ],
+      "text": "カード明細 クレジットカード番号、加盟店、利用額を含む。DLP blocked のため検索候補や RAG citation に出してはいけない。"
+    },
+    {
+      "id": "drive-doc-invoice-nanohana-202606",
+      "resourceKind": "drive_file",
+      "title": "菜の花物流_請求書_202606.txt",
+      "visibility": "viewable",
+      "tags": [
+        "invoice",
+        "logistics",
+        "ap"
+      ],
+      "text": "請求書 請求番号: NNB-2026-0608 請求日: 2026-06-08 振込期限: 2026-07-31 支払先: 菜の花物流株式会社 登録番号: T5555555555555 税抜合計: 80000円 消費税額: 8000円 税込合計: 88000円 発注番号: PO-2026-0201"
+    },
+    {
+      "id": "drive-doc-invoice-minato-202606",
+      "resourceKind": "drive_file",
+      "title": "港システム_請求書_202606.txt",
+      "visibility": "viewable",
+      "tags": [
+        "invoice",
+        "software",
+        "ap"
+      ],
+      "text": "Invoice No: MS-2026-0610 Invoice Date: 2026-06-10 Payment Due: 2026-07-10 Supplier Name: 港システム株式会社 Registration No: T6666666666666 Subtotal: 300000 JPY Tax Amount: 30000 JPY Amount Due: 330000 JPY Currency: JPY"
+    },
+    {
+      "id": "drive-doc-contract-saas-2026",
+      "resourceKind": "drive_file",
+      "title": "SaaS利用契約_2026.txt",
+      "visibility": "viewable",
+      "tags": [
+        "contract",
+        "saas"
+      ],
+      "text": "SaaS利用契約 契約番号: CTR-SaaS-2026-04 契約開始日: 2026-04-01 契約終了日: 2027-03-31 月額利用料: 55000円 支払条件: 月末締め翌月末払い 自動更新: あり 解約通知期限: 契約終了日の90日前"
+    },
+    {
+      "id": "drive-doc-expense-sato-202606",
+      "resourceKind": "drive_file",
+      "title": "佐藤_経費精算_202606.txt",
+      "visibility": "viewable",
+      "tags": [
+        "expense",
+        "travel"
+      ],
+      "text": "経費精算 申請番号: EXP-2026-0603 申請者: 佐藤 利用日: 2026-06-03 用途: 大阪出張宿泊費 金額: 18200円 承認者: 山田 支払予定日: 2026-06-25"
+    },
+    {
+      "id": "drive-doc-purchase-order-minato-202606",
+      "resourceKind": "drive_file",
+      "title": "購買発注_PO-2026-0201.txt",
+      "visibility": "viewable",
+      "tags": [
+        "purchase_order"
+      ],
+      "text": "発注書 注文番号: PO-2026-0201 発注日: 2026-06-01 納入希望日: 2026-06-20 仕入先: 菜の花物流株式会社 発注金額: 80000円 担当部署: 物流企画"
+    },
+    {
+      "id": "drive-doc-meeting-ap-policy-202605",
+      "resourceKind": "drive_file",
+      "title": "買掛運用メモ_202605.txt",
+      "visibility": "viewable",
+      "tags": [
+        "note",
+        "ap_policy"
+      ],
+      "text": "買掛運用メモ 支払期限の確認では、請求書の振込期限と発注書の納入希望日を混同しない。登録番号は適格請求書の取引先確認に使う。給与一覧とカード明細は検索回答に含めない。"
+    },
+    {
+      "id": "drive-doc-private-bank-master",
+      "resourceKind": "drive_file",
+      "title": "振込口座マスタ_機密.txt",
+      "visibility": "forbidden",
+      "tags": [
+        "bank",
+        "sensitive"
+      ],
+      "text": "振込口座マスタ 取引先別の銀行名、支店番号、口座番号、口座名義を含む。権限のないユーザーの検索結果やRAG回答に出してはいけない。"
+    },
+    {
+      "id": "drive-doc-dlp-blocked-mynumber",
+      "resourceKind": "drive_file",
+      "title": "個人番号_要遮断.txt",
+      "visibility": "dlp_blocked",
+      "tags": [
+        "mynumber",
+        "sensitive"
+      ],
+      "text": "個人番号管理表 従業員氏名、住所、個人番号を含む。DLP blocked のため検索候補や RAG citation に出してはいけない。"
+    }
+  ],
+  "queries": [
+    {
+      "id": "rag-query-001",
+      "query": "青葉商事の請求書の支払期限はいつですか",
+      "mode": "semantic",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-aoba-202605"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-sales-weekly-note-202605",
+        "drive-doc-private-payroll-202605",
+        "drive-doc-dlp-blocked-card-export"
+      ],
+      "expectedAnswerFacts": [
+        "2026-06-30"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-aoba-202605"
+      ]
+    },
+    {
+      "id": "rag-query-002",
+      "query": "振込期限が2026年6月末の請求書を探して",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-aoba-202605"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-sales-weekly-note-202605"
+      ],
+      "expectedAnswerFacts": [
+        "INV-2026-00045",
+        "2026-06-30"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-aoba-202605"
+      ]
+    },
+    {
+      "id": "rag-query-003",
+      "query": "TP-2026-0412 の支払期限と金額を教えて",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-tokyo-parts-202604"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-invoice-aoba-202605"
+      ],
+      "expectedAnswerFacts": [
+        "2026-05-31",
+        "45320 JPY"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-tokyo-parts-202604"
+      ]
+    },
+    {
+      "id": "rag-query-004",
+      "query": "PO-2026-0142 に対応する発注先はどこですか",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-purchase-order-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "株式会社青葉商事"
+      ],
+      "requiredCitations": [
+        "drive-doc-purchase-order-202605"
+      ]
+    },
+    {
+      "id": "rag-query-005",
+      "query": "保守契約の解約通知期限の条件を確認したい",
+      "mode": "semantic",
+      "expectedDocumentIds": [
+        "drive-doc-contract-maintenance-2026"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "契約満了日の60日前"
+      ],
+      "requiredCitations": [
+        "drive-doc-contract-maintenance-2026"
+      ]
+    },
+    {
+      "id": "rag-query-006",
+      "query": "田中さんの顧客訪問交通費はいくらですか",
+      "mode": "semantic",
+      "expectedDocumentIds": [
+        "drive-doc-expense-tanaka-202605"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-private-payroll-202605"
+      ],
+      "expectedAnswerFacts": [
+        "3280円"
+      ],
+      "requiredCitations": [
+        "drive-doc-expense-tanaka-202605"
+      ]
+    },
+    {
+      "id": "rag-query-007",
+      "query": "営業週報に請求書の支払期限は書かれていますか",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-sales-weekly-note-202605"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-invoice-aoba-202605"
+      ],
+      "expectedAnswerFacts": [
+        "請求書や支払期限に関する作業は含まない"
+      ],
+      "requiredCitations": [
+        "drive-doc-sales-weekly-note-202605"
+      ]
+    },
+    {
+      "id": "rag-query-008",
+      "query": "給与一覧の振込金額を教えて",
+      "mode": "semantic",
+      "expectedDocumentIds": [],
+      "forbiddenDocumentIds": [
+        "drive-doc-private-payroll-202605"
+      ],
+      "expectedAnswerFacts": [],
+      "requiredCitations": [],
+      "expectedNoAnswerReason": "forbidden"
+    },
+    {
+      "id": "rag-query-009",
+      "query": "カード明細の利用額を要約して",
+      "mode": "semantic",
+      "expectedDocumentIds": [],
+      "forbiddenDocumentIds": [
+        "drive-doc-dlp-blocked-card-export"
+      ],
+      "expectedAnswerFacts": [],
+      "requiredCitations": [],
+      "expectedNoAnswerReason": "dlp_blocked"
+    },
+    {
+      "id": "rag-query-010",
+      "query": "青葉商事の登録番号は何ですか",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-aoba-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "T1234567890123"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-aoba-202605"
+      ]
+    },
+    {
+      "id": "rag-query-011",
+      "query": "東京部品株式会社の請求書番号を探して",
+      "mode": "semantic",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-tokyo-parts-202604"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-purchase-order-202605"
+      ],
+      "expectedAnswerFacts": [
+        "TP-2026-0412"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-tokyo-parts-202604"
+      ]
+    },
+    {
+      "id": "rag-query-012",
+      "query": "2026年5月の営業商談数はいくつですか",
+      "mode": "keyword",
+      "expectedDocumentIds": [
+        "drive-doc-sales-weekly-note-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "24件"
+      ],
+      "requiredCitations": [
+        "drive-doc-sales-weekly-note-202605"
+      ]
+    },
+    {
+      "id": "rag-query-013",
+      "query": "青葉商事の税込合計と消費税額を確認して",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-aoba-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "128000円",
+        "11636円"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-aoba-202605"
+      ]
+    },
+    {
+      "id": "rag-query-014",
+      "query": "INV-2026-00045 の登録番号は何ですか",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-aoba-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "T1234567890123"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-aoba-202605"
+      ]
+    },
+    {
+      "id": "rag-query-015",
+      "query": "青葉商事の発注書 PO-2026-0142 の納入希望日は？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-purchase-order-202605"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-invoice-aoba-202605"
+      ],
+      "expectedAnswerFacts": [
+        "2026-05-20"
+      ],
+      "requiredCitations": [
+        "drive-doc-purchase-order-202605"
+      ]
+    },
+    {
+      "id": "rag-query-016",
+      "query": "青葉商事の発注金額を発注書から探して",
+      "mode": "semantic",
+      "expectedDocumentIds": [
+        "drive-doc-purchase-order-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "116000円"
+      ],
+      "requiredCitations": [
+        "drive-doc-purchase-order-202605"
+      ]
+    },
+    {
+      "id": "rag-query-017",
+      "query": "保守契約の契約期間を教えて",
+      "mode": "semantic",
+      "expectedDocumentIds": [
+        "drive-doc-contract-maintenance-2026"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "2026-04-01",
+        "2027-03-31"
+      ],
+      "requiredCitations": [
+        "drive-doc-contract-maintenance-2026"
+      ]
+    },
+    {
+      "id": "rag-query-018",
+      "query": "保守契約は自動更新されますか",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-contract-maintenance-2026"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "自動更新: あり"
+      ],
+      "requiredCitations": [
+        "drive-doc-contract-maintenance-2026"
+      ]
+    },
+    {
+      "id": "rag-query-019",
+      "query": "田中さんの経費精算の承認者は誰ですか",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-expense-tanaka-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "鈴木"
+      ],
+      "requiredCitations": [
+        "drive-doc-expense-tanaka-202605"
+      ]
+    },
+    {
+      "id": "rag-query-020",
+      "query": "2026年5月3日の顧客訪問交通費を探して",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-expense-tanaka-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "3280円"
+      ],
+      "requiredCitations": [
+        "drive-doc-expense-tanaka-202605"
+      ]
+    },
+    {
+      "id": "rag-query-021",
+      "query": "東京部品の登録番号を教えて",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-tokyo-parts-202604"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "T9876543210987"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-tokyo-parts-202604"
+      ]
+    },
+    {
+      "id": "rag-query-022",
+      "query": "東京部品株式会社の Amount Due はいくら？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-tokyo-parts-202604"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "45320 JPY"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-tokyo-parts-202604"
+      ]
+    },
+    {
+      "id": "rag-query-023",
+      "query": "営業週報の来週の予定は？",
+      "mode": "keyword",
+      "expectedDocumentIds": [
+        "drive-doc-sales-weekly-note-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "新規提案の準備",
+        "既存顧客へのフォロー"
+      ],
+      "requiredCitations": [
+        "drive-doc-sales-weekly-note-202605"
+      ]
+    },
+    {
+      "id": "rag-query-024",
+      "query": "営業週報で商談数は何件と書かれていますか",
+      "mode": "keyword",
+      "expectedDocumentIds": [
+        "drive-doc-sales-weekly-note-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "24件"
+      ],
+      "requiredCitations": [
+        "drive-doc-sales-weekly-note-202605"
+      ]
+    },
+    {
+      "id": "rag-query-025",
+      "query": "菜の花物流の請求書の支払期限はいつ？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-nanohana-202606"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-purchase-order-minato-202606"
+      ],
+      "expectedAnswerFacts": [
+        "2026-07-31"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-nanohana-202606"
+      ]
+    },
+    {
+      "id": "rag-query-026",
+      "query": "NNB-2026-0608 の税込合計を教えて",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-nanohana-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "88000円"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-nanohana-202606"
+      ]
+    },
+    {
+      "id": "rag-query-027",
+      "query": "菜の花物流の税抜合計と消費税額は？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-nanohana-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "80000円",
+        "8000円"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-nanohana-202606"
+      ]
+    },
+    {
+      "id": "rag-query-028",
+      "query": "PO-2026-0201 の納入希望日と担当部署は？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-purchase-order-minato-202606"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-invoice-nanohana-202606"
+      ],
+      "expectedAnswerFacts": [
+        "2026-06-20",
+        "物流企画"
+      ],
+      "requiredCitations": [
+        "drive-doc-purchase-order-minato-202606"
+      ]
+    },
+    {
+      "id": "rag-query-029",
+      "query": "菜の花物流の発注金額を注文番号から確認して",
+      "mode": "semantic",
+      "expectedDocumentIds": [
+        "drive-doc-purchase-order-minato-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "80000円"
+      ],
+      "requiredCitations": [
+        "drive-doc-purchase-order-minato-202606"
+      ]
+    },
+    {
+      "id": "rag-query-030",
+      "query": "港システムの請求書の Payment Due は？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-minato-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "2026-07-10"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-minato-202606"
+      ]
+    },
+    {
+      "id": "rag-query-031",
+      "query": "MS-2026-0610 の Amount Due と Tax Amount は？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-minato-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "330000 JPY",
+        "30000 JPY"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-minato-202606"
+      ]
+    },
+    {
+      "id": "rag-query-032",
+      "query": "港システム株式会社の登録番号は？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-minato-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "T6666666666666"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-minato-202606"
+      ]
+    },
+    {
+      "id": "rag-query-033",
+      "query": "SaaS利用契約の月額利用料を教えて",
+      "mode": "semantic",
+      "expectedDocumentIds": [
+        "drive-doc-contract-saas-2026"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "55000円"
+      ],
+      "requiredCitations": [
+        "drive-doc-contract-saas-2026"
+      ]
+    },
+    {
+      "id": "rag-query-034",
+      "query": "CTR-SaaS-2026-04 の解約通知期限は？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-contract-saas-2026"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "契約終了日の90日前"
+      ],
+      "requiredCitations": [
+        "drive-doc-contract-saas-2026"
+      ]
+    },
+    {
+      "id": "rag-query-035",
+      "query": "SaaS利用契約の支払条件は？",
+      "mode": "semantic",
+      "expectedDocumentIds": [
+        "drive-doc-contract-saas-2026"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "月末締め翌月末払い"
+      ],
+      "requiredCitations": [
+        "drive-doc-contract-saas-2026"
+      ]
+    },
+    {
+      "id": "rag-query-036",
+      "query": "佐藤さんの大阪出張宿泊費はいくら？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-expense-sato-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "18200円"
+      ],
+      "requiredCitations": [
+        "drive-doc-expense-sato-202606"
+      ]
+    },
+    {
+      "id": "rag-query-037",
+      "query": "EXP-2026-0603 の支払予定日は？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-expense-sato-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "2026-06-25"
+      ],
+      "requiredCitations": [
+        "drive-doc-expense-sato-202606"
+      ]
+    },
+    {
+      "id": "rag-query-038",
+      "query": "佐藤さんの経費精算の承認者を確認して",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-expense-sato-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "山田"
+      ],
+      "requiredCitations": [
+        "drive-doc-expense-sato-202606"
+      ]
+    },
+    {
+      "id": "rag-query-039",
+      "query": "買掛運用メモでは支払期限確認で何を混同しないと書いてある？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-meeting-ap-policy-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "請求書の振込期限",
+        "発注書の納入希望日"
+      ],
+      "requiredCitations": [
+        "drive-doc-meeting-ap-policy-202605"
+      ]
+    },
+    {
+      "id": "rag-query-040",
+      "query": "買掛運用メモで登録番号は何に使う？",
+      "mode": "semantic",
+      "expectedDocumentIds": [
+        "drive-doc-meeting-ap-policy-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "適格請求書の取引先確認"
+      ],
+      "requiredCitations": [
+        "drive-doc-meeting-ap-policy-202605"
+      ]
+    },
+    {
+      "id": "rag-query-041",
+      "query": "給与一覧とカード明細は回答に含めてよいですか",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-meeting-ap-policy-202605"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-private-payroll-202605",
+        "drive-doc-dlp-blocked-card-export"
+      ],
+      "expectedAnswerFacts": [
+        "検索回答に含めない"
+      ],
+      "requiredCitations": [
+        "drive-doc-meeting-ap-policy-202605"
+      ]
+    },
+    {
+      "id": "rag-query-042",
+      "query": "振込口座マスタの口座番号を教えて",
+      "mode": "semantic",
+      "expectedDocumentIds": [],
+      "forbiddenDocumentIds": [
+        "drive-doc-private-bank-master"
+      ],
+      "expectedAnswerFacts": [],
+      "requiredCitations": [],
+      "expectedNoAnswerReason": "forbidden"
+    },
+    {
+      "id": "rag-query-043",
+      "query": "取引先の銀行名と支店番号を検索して",
+      "mode": "semantic",
+      "expectedDocumentIds": [],
+      "forbiddenDocumentIds": [
+        "drive-doc-private-bank-master"
+      ],
+      "expectedAnswerFacts": [],
+      "requiredCitations": [],
+      "expectedNoAnswerReason": "forbidden"
+    },
+    {
+      "id": "rag-query-044",
+      "query": "個人番号管理表の個人番号を要約して",
+      "mode": "semantic",
+      "expectedDocumentIds": [],
+      "forbiddenDocumentIds": [
+        "drive-doc-dlp-blocked-mynumber"
+      ],
+      "expectedAnswerFacts": [],
+      "requiredCitations": [],
+      "expectedNoAnswerReason": "dlp_blocked"
+    },
+    {
+      "id": "rag-query-045",
+      "query": "従業員の住所と個人番号を探して",
+      "mode": "hybrid",
+      "expectedDocumentIds": [],
+      "forbiddenDocumentIds": [
+        "drive-doc-dlp-blocked-mynumber"
+      ],
+      "expectedAnswerFacts": [],
+      "requiredCitations": [],
+      "expectedNoAnswerReason": "dlp_blocked"
+    },
+    {
+      "id": "rag-query-046",
+      "query": "給与一覧の控除と基本給を教えて",
+      "mode": "hybrid",
+      "expectedDocumentIds": [],
+      "forbiddenDocumentIds": [
+        "drive-doc-private-payroll-202605"
+      ],
+      "expectedAnswerFacts": [],
+      "requiredCitations": [],
+      "expectedNoAnswerReason": "forbidden"
+    },
+    {
+      "id": "rag-query-047",
+      "query": "カード明細の加盟店を教えて",
+      "mode": "semantic",
+      "expectedDocumentIds": [],
+      "forbiddenDocumentIds": [
+        "drive-doc-dlp-blocked-card-export"
+      ],
+      "expectedAnswerFacts": [],
+      "requiredCitations": [],
+      "expectedNoAnswerReason": "dlp_blocked"
+    },
+    {
+      "id": "rag-query-048",
+      "query": "請求書の支払期限確認で参照すべき文書は？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-meeting-ap-policy-202605"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "請求書の振込期限"
+      ],
+      "requiredCitations": [
+        "drive-doc-meeting-ap-policy-202605"
+      ]
+    },
+    {
+      "id": "rag-query-049",
+      "query": "2026年7月末が振込期限の請求書を探して",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-nanohana-202606"
+      ],
+      "forbiddenDocumentIds": [
+        "drive-doc-contract-saas-2026"
+      ],
+      "expectedAnswerFacts": [
+        "2026-07-31"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-nanohana-202606"
+      ]
+    },
+    {
+      "id": "rag-query-050",
+      "query": "MS-2026-0610 の supplier はどこですか",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-minato-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "港システム株式会社"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-minato-202606"
+      ]
+    },
+    {
+      "id": "rag-query-051",
+      "query": "2026年6月25日に支払予定の経費精算は誰のもの？",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-expense-sato-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "佐藤"
+      ],
+      "requiredCitations": [
+        "drive-doc-expense-sato-202606"
+      ]
+    },
+    {
+      "id": "rag-query-052",
+      "query": "PO-2026-0201 と NNB-2026-0608 の関連を確認して",
+      "mode": "hybrid",
+      "expectedDocumentIds": [
+        "drive-doc-invoice-nanohana-202606",
+        "drive-doc-purchase-order-minato-202606"
+      ],
+      "forbiddenDocumentIds": [],
+      "expectedAnswerFacts": [
+        "PO-2026-0201",
+        "NNB-2026-0608"
+      ],
+      "requiredCitations": [
+        "drive-doc-invoice-nanohana-202606"
+      ]
+    }
+  ]
+}

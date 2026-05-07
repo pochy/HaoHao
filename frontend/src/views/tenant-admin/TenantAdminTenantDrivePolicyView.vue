@@ -33,6 +33,9 @@ const {
   driveHsmEnabled,
   driveLegalDiscoveryEnabled,
   driveLocalSearchEmbeddingRuntime,
+  driveLocalSearchDimension,
+  driveLocalSearchModel,
+  driveLocalSearchRuntimeURL,
   driveLocalSearchVectorEnabled,
   driveM2MApiEnabled,
   driveMarketplaceEnabled,
@@ -58,6 +61,13 @@ const {
   drivePolicyRows,
   drivePrimaryRegion,
   drivePublicLinksEnabled,
+  driveRagEnabled,
+  driveRagGenerationModel,
+  driveRagGenerationRuntime,
+  driveRagGenerationRuntimeURL,
+  driveRagMaxContextChunks,
+  driveRagMaxContextRunes,
+  driveRagRuntimeConfigVisible,
   driveRequireApproval,
   driveRequireLinkPassword,
   driveRulesCandidateScoreThreshold,
@@ -163,6 +173,60 @@ const {
       <label class="checkbox-field">
         <input v-model="driveSearchEnabled" type="checkbox">
         <span>{{ t('tenantAdmin.fields.searchIndexEnabled') }}</span>
+      </label>
+      <label class="checkbox-field">
+        <input v-model="driveLocalSearchVectorEnabled" type="checkbox">
+        <span>{{ t('tenantAdmin.fields.localSearchVector') }}</span>
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.localSearchRuntime') }}</span>
+        <select v-model="driveLocalSearchEmbeddingRuntime" class="field-input">
+          <option value="none">{{ t('common.disabled') }}</option>
+          <option value="ollama">Ollama</option>
+          <option value="lmstudio">LM Studio</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.localSearchRuntimeUrl') }}</span>
+        <input v-model="driveLocalSearchRuntimeURL" class="field-input" autocomplete="off" placeholder="http://127.0.0.1:1234">
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.localSearchModel') }}</span>
+        <input v-model="driveLocalSearchModel" class="field-input" autocomplete="off" placeholder="text-embedding-mxbai-embed-large-v1">
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.localSearchDimension') }}</span>
+        <input v-model.number="driveLocalSearchDimension" class="field-input" min="1" max="8192" type="number">
+      </label>
+      <label class="checkbox-field">
+        <input v-model="driveRagEnabled" type="checkbox">
+        <span>{{ t('tenantAdmin.fields.ragEnabled') }}</span>
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.ragGenerationRuntime') }}</span>
+        <select v-model="driveRagGenerationRuntime" class="field-input">
+          <option value="none">{{ t('common.disabled') }}</option>
+          <option value="ollama">Ollama</option>
+          <option value="lmstudio">LM Studio</option>
+        </select>
+      </label>
+      <template v-if="driveRagRuntimeConfigVisible">
+        <label class="field">
+          <span class="field-label">{{ t('tenantAdmin.fields.ragGenerationRuntimeUrl') }}</span>
+          <input v-model="driveRagGenerationRuntimeURL" class="field-input" autocomplete="off" placeholder="http://127.0.0.1:1234">
+        </label>
+        <label class="field">
+          <span class="field-label">{{ t('tenantAdmin.fields.ragGenerationModel') }}</span>
+          <input v-model="driveRagGenerationModel" class="field-input" autocomplete="off" placeholder="qwen/qwen3.5-9b">
+        </label>
+      </template>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.ragMaxContextChunks') }}</span>
+        <input v-model.number="driveRagMaxContextChunks" class="field-input" min="1" max="20" type="number">
+      </label>
+      <label class="field">
+        <span class="field-label">{{ t('tenantAdmin.fields.ragMaxContextRunes') }}</span>
+        <input v-model.number="driveRagMaxContextRunes" class="field-input" min="500" max="30000" type="number">
       </label>
       <label class="checkbox-field">
         <input v-model="driveCollaborationEnabled" type="checkbox">

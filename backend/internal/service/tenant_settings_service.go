@@ -96,6 +96,7 @@ type DrivePolicy struct {
 	E2EEZeroKnowledgeRequired           bool
 	OCR                                 DriveOCRPolicy
 	LocalSearch                         DriveLocalSearchPolicy
+	RAG                                 DriveRAGPolicy
 	AIEnabled                           bool
 	AITrainingOptOut                    bool
 	MarketplaceEnabled                  bool
@@ -125,6 +126,15 @@ type DriveLocalSearchPolicy struct {
 	RuntimeURL       string
 	Model            string
 	Dimension        int
+}
+
+type DriveRAGPolicy struct {
+	Enabled              bool
+	GenerationRuntime    string
+	GenerationRuntimeURL string
+	GenerationModel      string
+	MaxContextChunks     int
+	MaxContextRunes      int
 }
 
 type DriveOCRRulesPolicy struct {
@@ -386,6 +396,7 @@ func defaultDrivePolicy() DrivePolicy {
 		E2EEZeroKnowledgeRequired:           true,
 		OCR:                                 defaultDriveOCRPolicy(),
 		LocalSearch:                         defaultDriveLocalSearchPolicy(),
+		RAG:                                 defaultDriveRAGPolicy(),
 		AIEnabled:                           false,
 		AITrainingOptOut:                    true,
 		MarketplaceEnabled:                  false,
@@ -456,6 +467,9 @@ func drivePolicyFromFeatures(features map[string]any) DrivePolicy {
 	if localSearchRaw, ok := raw["localSearch"].(map[string]any); ok {
 		policy.LocalSearch = driveLocalSearchPolicyFromFeatureMap(localSearchRaw, policy.LocalSearch)
 	}
+	if ragRaw, ok := raw["rag"].(map[string]any); ok {
+		policy.RAG = driveRAGPolicyFromFeatureMap(ragRaw, policy.RAG)
+	}
 	policy.AIEnabled = featureBool(raw, "aiEnabled", policy.AIEnabled)
 	policy.AITrainingOptOut = featureBool(raw, "aiTrainingOptOut", policy.AITrainingOptOut)
 	policy.MarketplaceEnabled = featureBool(raw, "marketplaceEnabled", policy.MarketplaceEnabled)
@@ -512,6 +526,7 @@ func normalizeDrivePolicy(policy DrivePolicy) DrivePolicy {
 	}
 	policy.OCR = normalizeDriveOCRPolicy(policy.OCR)
 	policy.LocalSearch = normalizeDriveLocalSearchPolicy(policy.LocalSearch)
+	policy.RAG = normalizeDriveRAGPolicy(policy.RAG)
 	policy = applyDrivePlanCaps(policy)
 	return policy
 }
@@ -556,6 +571,9 @@ func normalizeDrivePolicyForSave(policy DrivePolicy) (DrivePolicy, error) {
 		return DrivePolicy{}, err
 	}
 	if err := validateDriveLocalSearchPolicy(policy.LocalSearch); err != nil {
+		return DrivePolicy{}, err
+	}
+	if err := validateDriveRAGPolicy(policy.RAG, policy.LocalSearch); err != nil {
 		return DrivePolicy{}, err
 	}
 	return policy, nil
@@ -614,6 +632,7 @@ func drivePolicyToFeatureMap(policy DrivePolicy) map[string]any {
 		"e2eeZeroKnowledgeRequired":           policy.E2EEZeroKnowledgeRequired,
 		"ocr":                                 driveOCRPolicyToFeatureMap(policy.OCR),
 		"localSearch":                         driveLocalSearchPolicyToFeatureMap(policy.LocalSearch),
+		"rag":                                 driveRAGPolicyToFeatureMap(policy.RAG),
 		"aiEnabled":                           policy.AIEnabled,
 		"aiTrainingOptOut":                    policy.AITrainingOptOut,
 		"marketplaceEnabled":                  policy.MarketplaceEnabled,
@@ -693,6 +712,17 @@ func defaultDriveLocalSearchPolicy() DriveLocalSearchPolicy {
 		RuntimeURL:       "",
 		Model:            "",
 		Dimension:        0,
+	}
+}
+
+func defaultDriveRAGPolicy() DriveRAGPolicy {
+	return DriveRAGPolicy{
+		Enabled:              false,
+		GenerationRuntime:    "none",
+		GenerationRuntimeURL: "",
+		GenerationModel:      "",
+		MaxContextChunks:     6,
+		MaxContextRunes:      6000,
 	}
 }
 
@@ -866,6 +896,9 @@ func normalizeDriveLocalSearchPolicy(policy DriveLocalSearchPolicy) DriveLocalSe
 	if policy.Dimension < 0 {
 		policy.Dimension = defaults.Dimension
 	}
+	if policy.VectorEnabled && policy.Dimension == 0 {
+		policy.Dimension = LocalSearchEmbeddingDimension
+	}
 	if !policy.VectorEnabled && policy.EmbeddingRuntime == "" {
 		policy.EmbeddingRuntime = defaults.EmbeddingRuntime
 	}
@@ -882,16 +915,22 @@ func validateDriveLocalSearchPolicy(policy DriveLocalSearchPolicy) error {
 		return fmt.Errorf("%w: drive local search runtimeURL must be localhost or 127.0.0.1", ErrInvalidTenantSettings)
 	}
 	if !policy.VectorEnabled {
+		if policy.Dimension != 0 && policy.Dimension != LocalSearchEmbeddingDimension {
+			return fmt.Errorf("%w: drive local search dimension must be 0 or 1024 when vector search is disabled", ErrInvalidTenantSettings)
+		}
 		return nil
 	}
 	if policy.EmbeddingRuntime == "none" {
 		return fmt.Errorf("%w: drive local search vectorEnabled requires embeddingRuntime", ErrInvalidTenantSettings)
 	}
+	if strings.TrimSpace(policy.RuntimeURL) == "" {
+		return fmt.Errorf("%w: drive local search runtimeURL is required when vector search is enabled", ErrInvalidTenantSettings)
+	}
 	if strings.TrimSpace(policy.Model) == "" {
 		return fmt.Errorf("%w: drive local search model is required when vector search is enabled", ErrInvalidTenantSettings)
 	}
-	if policy.Dimension < 1 || policy.Dimension > 8192 {
-		return fmt.Errorf("%w: drive local search dimension must be between 1 and 8192", ErrInvalidTenantSettings)
+	if policy.Dimension != LocalSearchEmbeddingDimension {
+		return fmt.Errorf("%w: drive local search dimension must be 1024", ErrInvalidTenantSettings)
 	}
 	return nil
 }
@@ -904,6 +943,79 @@ func driveLocalSearchPolicyToFeatureMap(policy DriveLocalSearchPolicy) map[strin
 		"runtimeURL":       policy.RuntimeURL,
 		"model":            policy.Model,
 		"dimension":        policy.Dimension,
+	}
+}
+
+func driveRAGPolicyFromFeatureMap(raw map[string]any, fallback DriveRAGPolicy) DriveRAGPolicy {
+	policy := fallback
+	policy.Enabled = featureBool(raw, "enabled", featureBool(raw, "ragEnabled", policy.Enabled))
+	policy.GenerationRuntime = featureString(raw, "generationRuntime", policy.GenerationRuntime)
+	policy.GenerationRuntimeURL = featureString(raw, "generationRuntimeURL", policy.GenerationRuntimeURL)
+	policy.GenerationModel = featureString(raw, "generationModel", policy.GenerationModel)
+	policy.MaxContextChunks = featureInt(raw, "maxContextChunks", policy.MaxContextChunks)
+	policy.MaxContextRunes = featureInt(raw, "maxContextRunes", policy.MaxContextRunes)
+	return normalizeDriveRAGPolicy(policy)
+}
+
+func normalizeDriveRAGPolicy(policy DriveRAGPolicy) DriveRAGPolicy {
+	defaults := defaultDriveRAGPolicy()
+	policy.GenerationRuntime = strings.ToLower(strings.TrimSpace(policy.GenerationRuntime))
+	if policy.GenerationRuntime == "" {
+		policy.GenerationRuntime = defaults.GenerationRuntime
+	}
+	policy.GenerationRuntimeURL = strings.TrimSpace(policy.GenerationRuntimeURL)
+	policy.GenerationModel = strings.TrimSpace(policy.GenerationModel)
+	if policy.MaxContextChunks <= 0 {
+		policy.MaxContextChunks = defaults.MaxContextChunks
+	}
+	if policy.MaxContextRunes <= 0 {
+		policy.MaxContextRunes = defaults.MaxContextRunes
+	}
+	return policy
+}
+
+func validateDriveRAGPolicy(policy DriveRAGPolicy, localSearch DriveLocalSearchPolicy) error {
+	switch policy.GenerationRuntime {
+	case "none", "ollama", "lmstudio":
+	default:
+		return fmt.Errorf("%w: unsupported drive rag generationRuntime", ErrInvalidTenantSettings)
+	}
+	if strings.TrimSpace(policy.GenerationRuntimeURL) != "" && !isAllowedLocalHTTPURL(policy.GenerationRuntimeURL) {
+		return fmt.Errorf("%w: drive rag generationRuntimeURL must be localhost or 127.0.0.1", ErrInvalidTenantSettings)
+	}
+	if policy.MaxContextChunks < 1 || policy.MaxContextChunks > 20 {
+		return fmt.Errorf("%w: drive rag maxContextChunks must be between 1 and 20", ErrInvalidTenantSettings)
+	}
+	if policy.MaxContextRunes < 500 || policy.MaxContextRunes > 30000 {
+		return fmt.Errorf("%w: drive rag maxContextRunes must be between 500 and 30000", ErrInvalidTenantSettings)
+	}
+	if !policy.Enabled {
+		return nil
+	}
+	if !localSearch.VectorEnabled {
+		return fmt.Errorf("%w: drive rag requires local search vectorEnabled", ErrInvalidTenantSettings)
+	}
+	if policy.GenerationRuntime == "none" {
+		return fmt.Errorf("%w: drive rag requires generationRuntime", ErrInvalidTenantSettings)
+	}
+	if strings.TrimSpace(policy.GenerationRuntimeURL) == "" {
+		return fmt.Errorf("%w: drive rag generationRuntimeURL is required", ErrInvalidTenantSettings)
+	}
+	if strings.TrimSpace(policy.GenerationModel) == "" {
+		return fmt.Errorf("%w: drive rag generationModel is required", ErrInvalidTenantSettings)
+	}
+	return nil
+}
+
+func driveRAGPolicyToFeatureMap(policy DriveRAGPolicy) map[string]any {
+	policy = normalizeDriveRAGPolicy(policy)
+	return map[string]any{
+		"enabled":              policy.Enabled,
+		"generationRuntime":    policy.GenerationRuntime,
+		"generationRuntimeURL": policy.GenerationRuntimeURL,
+		"generationModel":      policy.GenerationModel,
+		"maxContextChunks":     policy.MaxContextChunks,
+		"maxContextRunes":      policy.MaxContextRunes,
 	}
 }
 

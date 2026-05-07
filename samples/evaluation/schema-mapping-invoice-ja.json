@@ -1,0 +1,1785 @@
+{
+  "dataset": "schema-mapping-invoice-ja",
+  "version": 1,
+  "description": "Japanese invoice schema mapping evaluation cases for local vector / hybrid candidate search.",
+  "domain": "invoice",
+  "schemaType": "ap_invoice",
+  "language": "ja",
+  "source": "Hand-labeled synthetic cases based on realistic Japanese AP invoice exports and OCR-derived column names.",
+  "acceptanceGates": {
+    "minimumCasesBeforeBroadRollout": 100,
+    "starterCases": 30,
+    "top1Accuracy": 0.75,
+    "top3Accuracy": 0.9,
+    "noCandidatePrecision": 0.8,
+    "maxFalsePositiveRate": 0.08
+  },
+  "targetColumns": [
+    "invoice_number",
+    "invoice_date",
+    "due_date",
+    "vendor_name",
+    "vendor_registration_number",
+    "subtotal_amount",
+    "tax_amount",
+    "total_amount",
+    "currency",
+    "purchase_order_number"
+  ],
+  "cases": [
+    {
+      "id": "sm-invoice-001",
+      "sourceColumn": "請求No",
+      "sheetName": "仕入請求一覧",
+      "sampleValues": [
+        "INV-2026-00045",
+        "A-1042",
+        "2026-05-001"
+      ],
+      "neighborColumns": [
+        "請求日",
+        "支払先",
+        "税込合計"
+      ],
+      "expectedTargetColumn": "invoice_number",
+      "acceptableTargetColumns": [
+        "invoice_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-002",
+      "sourceColumn": "伝票番号",
+      "sheetName": "請求取込",
+      "sampleValues": [
+        "BILL-8842",
+        "INV-A-1009",
+        "202605-77"
+      ],
+      "neighborColumns": [
+        "取引先名",
+        "支払期日",
+        "請求金額"
+      ],
+      "expectedTargetColumn": "invoice_number",
+      "acceptableTargetColumns": [
+        "invoice_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-003",
+      "sourceColumn": "Invoice Number",
+      "sheetName": "AP Import",
+      "sampleValues": [
+        "INV-1042",
+        "IN-2026-04-10"
+      ],
+      "neighborColumns": [
+        "Invoice Date",
+        "Vendor",
+        "Amount Due"
+      ],
+      "expectedTargetColumn": "invoice_number",
+      "acceptableTargetColumns": [
+        "invoice_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-004",
+      "sourceColumn": "発行日",
+      "sheetName": "請求書",
+      "sampleValues": [
+        "2026/05/01",
+        "令和8年5月1日"
+      ],
+      "neighborColumns": [
+        "請求番号",
+        "支払期限",
+        "小計"
+      ],
+      "expectedTargetColumn": "invoice_date",
+      "acceptableTargetColumns": [
+        "invoice_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-005",
+      "sourceColumn": "billing_date",
+      "sheetName": "invoice_header",
+      "sampleValues": [
+        "2026-04-30",
+        "2026-05-15"
+      ],
+      "neighborColumns": [
+        "invoice_no",
+        "supplier_name",
+        "due_date"
+      ],
+      "expectedTargetColumn": "invoice_date",
+      "acceptableTargetColumns": [
+        "invoice_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-006",
+      "sourceColumn": "振込期限",
+      "sheetName": "支払予定",
+      "sampleValues": [
+        "2026-06-30",
+        "翌月末"
+      ],
+      "neighborColumns": [
+        "支払先",
+        "税込合計",
+        "請求No"
+      ],
+      "expectedTargetColumn": "due_date",
+      "acceptableTargetColumns": [
+        "due_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-007",
+      "sourceColumn": "Payment Due",
+      "sheetName": "AP",
+      "sampleValues": [
+        "2026-06-15",
+        "Net 30"
+      ],
+      "neighborColumns": [
+        "Vendor",
+        "Invoice Number",
+        "Total Amount"
+      ],
+      "expectedTargetColumn": "due_date",
+      "acceptableTargetColumns": [
+        "due_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-008",
+      "sourceColumn": "支払先",
+      "sheetName": "仕入先請求",
+      "sampleValues": [
+        "株式会社青葉商事",
+        "Acme Supplies Ltd."
+      ],
+      "neighborColumns": [
+        "登録番号",
+        "請求日",
+        "請求金額"
+      ],
+      "expectedTargetColumn": "vendor_name",
+      "acceptableTargetColumns": [
+        "vendor_name"
+      ]
+    },
+    {
+      "id": "sm-invoice-009",
+      "sourceColumn": "Supplier Name",
+      "sheetName": "Invoice",
+      "sampleValues": [
+        "Tokyo Parts Co., Ltd.",
+        "Northwind Traders"
+      ],
+      "neighborColumns": [
+        "Registration No",
+        "Invoice No",
+        "Amount Due"
+      ],
+      "expectedTargetColumn": "vendor_name",
+      "acceptableTargetColumns": [
+        "vendor_name"
+      ]
+    },
+    {
+      "id": "sm-invoice-010",
+      "sourceColumn": "適格番号",
+      "sheetName": "インボイス",
+      "sampleValues": [
+        "T1234567890123",
+        "T9876543210987"
+      ],
+      "neighborColumns": [
+        "請求元",
+        "消費税",
+        "税込合計"
+      ],
+      "expectedTargetColumn": "vendor_registration_number",
+      "acceptableTargetColumns": [
+        "vendor_registration_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-011",
+      "sourceColumn": "tax_registration_number",
+      "sheetName": "vendor_invoice",
+      "sampleValues": [
+        "T1111111111111",
+        "T2222222222222"
+      ],
+      "neighborColumns": [
+        "vendor_name",
+        "tax_amount",
+        "total_amount"
+      ],
+      "expectedTargetColumn": "vendor_registration_number",
+      "acceptableTargetColumns": [
+        "vendor_registration_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-012",
+      "sourceColumn": "税抜合計",
+      "sheetName": "請求明細",
+      "sampleValues": [
+        "100000",
+        "45,000",
+        "128,000"
+      ],
+      "neighborColumns": [
+        "消費税",
+        "税込合計",
+        "通貨"
+      ],
+      "expectedTargetColumn": "subtotal_amount",
+      "acceptableTargetColumns": [
+        "subtotal_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-013",
+      "sourceColumn": "Net Amount",
+      "sheetName": "AP Import",
+      "sampleValues": [
+        "1000.00",
+        "450.25"
+      ],
+      "neighborColumns": [
+        "Tax Amount",
+        "Amount Due",
+        "Currency"
+      ],
+      "expectedTargetColumn": "subtotal_amount",
+      "acceptableTargetColumns": [
+        "subtotal_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-014",
+      "sourceColumn": "消費税額",
+      "sheetName": "仕訳連携",
+      "sampleValues": [
+        "10000",
+        "4,500",
+        "12,800"
+      ],
+      "neighborColumns": [
+        "税抜金額",
+        "合計金額"
+      ],
+      "expectedTargetColumn": "tax_amount",
+      "acceptableTargetColumns": [
+        "tax_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-015",
+      "sourceColumn": "VAT",
+      "sheetName": "Invoice",
+      "sampleValues": [
+        "10.00",
+        "45.32"
+      ],
+      "neighborColumns": [
+        "Subtotal",
+        "Total Amount",
+        "Currency"
+      ],
+      "expectedTargetColumn": "tax_amount",
+      "acceptableTargetColumns": [
+        "tax_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-016",
+      "sourceColumn": "税込合計",
+      "sheetName": "請求データ",
+      "sampleValues": [
+        "110000",
+        "¥45,320",
+        "128,000"
+      ],
+      "neighborColumns": [
+        "小計",
+        "消費税",
+        "支払期限"
+      ],
+      "expectedTargetColumn": "total_amount",
+      "acceptableTargetColumns": [
+        "total_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-017",
+      "sourceColumn": "Amount Due",
+      "sheetName": "invoice_header",
+      "sampleValues": [
+        "1100.00",
+        "453.20"
+      ],
+      "neighborColumns": [
+        "Payment Due",
+        "Vendor",
+        "Currency"
+      ],
+      "expectedTargetColumn": "total_amount",
+      "acceptableTargetColumns": [
+        "total_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-018",
+      "sourceColumn": "通貨",
+      "sheetName": "海外請求",
+      "sampleValues": [
+        "JPY",
+        "USD",
+        "円"
+      ],
+      "neighborColumns": [
+        "税込合計",
+        "支払先"
+      ],
+      "expectedTargetColumn": "currency",
+      "acceptableTargetColumns": [
+        "currency"
+      ]
+    },
+    {
+      "id": "sm-invoice-019",
+      "sourceColumn": "currency_code",
+      "sheetName": "AP Import",
+      "sampleValues": [
+        "JPY",
+        "EUR"
+      ],
+      "neighborColumns": [
+        "Total Amount",
+        "Vendor"
+      ],
+      "expectedTargetColumn": "currency",
+      "acceptableTargetColumns": [
+        "currency"
+      ]
+    },
+    {
+      "id": "sm-invoice-020",
+      "sourceColumn": "発注No",
+      "sheetName": "発注照合",
+      "sampleValues": [
+        "PO-2026-0142",
+        "ORD-10045"
+      ],
+      "neighborColumns": [
+        "請求No",
+        "仕入先",
+        "税込合計"
+      ],
+      "expectedTargetColumn": "purchase_order_number",
+      "acceptableTargetColumns": [
+        "purchase_order_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-021",
+      "sourceColumn": "PO Number",
+      "sheetName": "ThreeWayMatch",
+      "sampleValues": [
+        "PO-9001",
+        "PO-9002"
+      ],
+      "neighborColumns": [
+        "Invoice Number",
+        "Supplier",
+        "Amount Due"
+      ],
+      "expectedTargetColumn": "purchase_order_number",
+      "acceptableTargetColumns": [
+        "purchase_order_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-022",
+      "sourceColumn": "社内メモ",
+      "sheetName": "請求取込",
+      "sampleValues": [
+        "月末までに確認",
+        "営業部確認済み"
+      ],
+      "neighborColumns": [
+        "請求No",
+        "支払先"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-023",
+      "sourceColumn": "承認者",
+      "sheetName": "ワークフロー",
+      "sampleValues": [
+        "田中",
+        "Suzuki"
+      ],
+      "neighborColumns": [
+        "承認日",
+        "コメント"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-024",
+      "sourceColumn": "取込ファイル名",
+      "sheetName": "system",
+      "sampleValues": [
+        "invoice_202605.csv",
+        "ap_upload.xlsx"
+      ],
+      "neighborColumns": [
+        "取込日時",
+        "処理ID"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-025",
+      "sourceColumn": "部署コード",
+      "sheetName": "費用配賦",
+      "sampleValues": [
+        "D-100",
+        "FIN-02"
+      ],
+      "neighborColumns": [
+        "部門名",
+        "勘定科目"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-026",
+      "sourceColumn": "支払予定日",
+      "sheetName": "支払管理",
+      "sampleValues": [
+        "2026-06-30",
+        "2026/07/31"
+      ],
+      "neighborColumns": [
+        "支払先",
+        "請求金額"
+      ],
+      "expectedTargetColumn": "due_date",
+      "acceptableTargetColumns": [
+        "due_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-027",
+      "sourceColumn": "請求元会社",
+      "sheetName": "OCR結果",
+      "sampleValues": [
+        "株式会社青葉商事",
+        "東京部品株式会社"
+      ],
+      "neighborColumns": [
+        "登録番号",
+        "請求番号"
+      ],
+      "expectedTargetColumn": "vendor_name",
+      "acceptableTargetColumns": [
+        "vendor_name"
+      ]
+    },
+    {
+      "id": "sm-invoice-028",
+      "sourceColumn": "お支払金額",
+      "sheetName": "OCR結果",
+      "sampleValues": [
+        "128,000円",
+        "45,320円"
+      ],
+      "neighborColumns": [
+        "振込期限",
+        "支払先"
+      ],
+      "expectedTargetColumn": "total_amount",
+      "acceptableTargetColumns": [
+        "total_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-029",
+      "sourceColumn": "インボイス登録No",
+      "sheetName": "OCR結果",
+      "sampleValues": [
+        "T1234567890123"
+      ],
+      "neighborColumns": [
+        "請求元会社",
+        "消費税額"
+      ],
+      "expectedTargetColumn": "vendor_registration_number",
+      "acceptableTargetColumns": [
+        "vendor_registration_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-030",
+      "sourceColumn": "注文書参照",
+      "sheetName": "購買照合",
+      "sampleValues": [
+        "PO-2026-0142",
+        "PO-2026-0143"
+      ],
+      "neighborColumns": [
+        "請求No",
+        "税込合計"
+      ],
+      "expectedTargetColumn": "purchase_order_number",
+      "acceptableTargetColumns": [
+        "purchase_order_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-031",
+      "sourceColumn": "請求書番号",
+      "sheetName": "支払一覧",
+      "sampleValues": [
+        "INV-2026-0501",
+        "INV-2026-0502"
+      ],
+      "neighborColumns": [
+        "発行日",
+        "仕入先",
+        "合計"
+      ],
+      "expectedTargetColumn": "invoice_number",
+      "acceptableTargetColumns": [
+        "invoice_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-032",
+      "sourceColumn": "請求ID",
+      "sheetName": "OCR取込",
+      "sampleValues": [
+        "AOB-2026-77",
+        "TKP-2026-12"
+      ],
+      "neighborColumns": [
+        "請求元",
+        "振込期限",
+        "税込額"
+      ],
+      "expectedTargetColumn": "invoice_number",
+      "acceptableTargetColumns": [
+        "invoice_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-033",
+      "sourceColumn": "invoice_id",
+      "sheetName": "ap_upload",
+      "sampleValues": [
+        "INV-77",
+        "BILL-2026-8"
+      ],
+      "neighborColumns": [
+        "invoice_date",
+        "supplier",
+        "amount_due"
+      ],
+      "expectedTargetColumn": "invoice_number",
+      "acceptableTargetColumns": [
+        "invoice_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-034",
+      "sourceColumn": "伝票No",
+      "sheetName": "買掛計上",
+      "sampleValues": [
+        "SLIP-1042",
+        "INV-2044"
+      ],
+      "neighborColumns": [
+        "計上日",
+        "取引先",
+        "税額"
+      ],
+      "expectedTargetColumn": "invoice_number",
+      "acceptableTargetColumns": [
+        "invoice_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-035",
+      "sourceColumn": "発票番号",
+      "sheetName": "海外請求",
+      "sampleValues": [
+        "CN-INV-9001",
+        "INV-CN-9002"
+      ],
+      "neighborColumns": [
+        "発票日",
+        "供給商",
+        "含税金額"
+      ],
+      "expectedTargetColumn": "invoice_number",
+      "acceptableTargetColumns": [
+        "invoice_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-036",
+      "sourceColumn": "請求書No",
+      "sheetName": "月次AP",
+      "sampleValues": [
+        "2026-05-A01",
+        "INV-2026-05-B02"
+      ],
+      "neighborColumns": [
+        "請求日",
+        "登録番号",
+        "支払金額"
+      ],
+      "expectedTargetColumn": "invoice_number",
+      "acceptableTargetColumns": [
+        "invoice_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-037",
+      "sourceColumn": "請求年月日",
+      "sheetName": "仕入請求",
+      "sampleValues": [
+        "2026/05/10",
+        "2026年5月11日"
+      ],
+      "neighborColumns": [
+        "請求番号",
+        "支払期日",
+        "支払先"
+      ],
+      "expectedTargetColumn": "invoice_date",
+      "acceptableTargetColumns": [
+        "invoice_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-038",
+      "sourceColumn": "Invoice Issued Date",
+      "sheetName": "AP Header",
+      "sampleValues": [
+        "2026-05-10",
+        "May 11 2026"
+      ],
+      "neighborColumns": [
+        "Invoice Number",
+        "Supplier Name",
+        "Amount Due"
+      ],
+      "expectedTargetColumn": "invoice_date",
+      "acceptableTargetColumns": [
+        "invoice_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-039",
+      "sourceColumn": "発生日",
+      "sheetName": "OCR請求",
+      "sampleValues": [
+        "令和8年5月12日",
+        "2026-05-12"
+      ],
+      "neighborColumns": [
+        "請求No",
+        "合計金額",
+        "支払期限"
+      ],
+      "expectedTargetColumn": "invoice_date",
+      "acceptableTargetColumns": [
+        "invoice_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-040",
+      "sourceColumn": "bill_date",
+      "sheetName": "vendor_invoice",
+      "sampleValues": [
+        "2026-04-25",
+        "2026-05-02"
+      ],
+      "neighborColumns": [
+        "bill_no",
+        "vendor_name",
+        "payment_due"
+      ],
+      "expectedTargetColumn": "invoice_date",
+      "acceptableTargetColumns": [
+        "invoice_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-041",
+      "sourceColumn": "計上対象日",
+      "sheetName": "支払予定",
+      "sampleValues": [
+        "2026-05-31",
+        "2026-06-30"
+      ],
+      "neighborColumns": [
+        "伝票番号",
+        "請求元会社",
+        "税込合計"
+      ],
+      "expectedTargetColumn": "invoice_date",
+      "acceptableTargetColumns": [
+        "invoice_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-042",
+      "sourceColumn": "請求発行日",
+      "sheetName": "電子帳票",
+      "sampleValues": [
+        "2026.05.01",
+        "2026.05.15"
+      ],
+      "neighborColumns": [
+        "インボイス番号",
+        "適格番号",
+        "小計"
+      ],
+      "expectedTargetColumn": "invoice_date",
+      "acceptableTargetColumns": [
+        "invoice_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-043",
+      "sourceColumn": "支払期日",
+      "sheetName": "支払一覧",
+      "sampleValues": [
+        "2026-06-30",
+        "2026-07-31"
+      ],
+      "neighborColumns": [
+        "請求No",
+        "支払先",
+        "請求金額"
+      ],
+      "expectedTargetColumn": "due_date",
+      "acceptableTargetColumns": [
+        "due_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-044",
+      "sourceColumn": "入金期限",
+      "sheetName": "請求書OCR",
+      "sampleValues": [
+        "翌月末",
+        "2026/06/30"
+      ],
+      "neighborColumns": [
+        "請求元",
+        "税込合計",
+        "消費税"
+      ],
+      "expectedTargetColumn": "due_date",
+      "acceptableTargetColumns": [
+        "due_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-045",
+      "sourceColumn": "due_date",
+      "sheetName": "ap_import",
+      "sampleValues": [
+        "2026-06-15",
+        "Net 45"
+      ],
+      "neighborColumns": [
+        "invoice_id",
+        "vendor_name",
+        "total_amount"
+      ],
+      "expectedTargetColumn": "due_date",
+      "acceptableTargetColumns": [
+        "due_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-046",
+      "sourceColumn": "お支払期限",
+      "sheetName": "買掛金",
+      "sampleValues": [
+        "2026年6月30日",
+        "2026年7月31日"
+      ],
+      "neighborColumns": [
+        "請求番号",
+        "取引先名",
+        "支払金額"
+      ],
+      "expectedTargetColumn": "due_date",
+      "acceptableTargetColumns": [
+        "due_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-047",
+      "sourceColumn": "Payment Terms Due",
+      "sheetName": "AP",
+      "sampleValues": [
+        "Net 30",
+        "2026-05-31"
+      ],
+      "neighborColumns": [
+        "Invoice No",
+        "Supplier",
+        "Amount Due"
+      ],
+      "expectedTargetColumn": "due_date",
+      "acceptableTargetColumns": [
+        "due_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-048",
+      "sourceColumn": "振込予定日",
+      "sheetName": "支払管理",
+      "sampleValues": [
+        "2026/06/28",
+        "2026/07/30"
+      ],
+      "neighborColumns": [
+        "仕入先",
+        "請求額",
+        "伝票番号"
+      ],
+      "expectedTargetColumn": "due_date",
+      "acceptableTargetColumns": [
+        "due_date"
+      ]
+    },
+    {
+      "id": "sm-invoice-049",
+      "sourceColumn": "仕入先名",
+      "sheetName": "仕入請求",
+      "sampleValues": [
+        "株式会社青葉商事",
+        "東京部品株式会社"
+      ],
+      "neighborColumns": [
+        "登録番号",
+        "請求番号",
+        "税込合計"
+      ],
+      "expectedTargetColumn": "vendor_name",
+      "acceptableTargetColumns": [
+        "vendor_name"
+      ]
+    },
+    {
+      "id": "sm-invoice-050",
+      "sourceColumn": "取引先",
+      "sheetName": "買掛一覧",
+      "sampleValues": [
+        "北斗物流株式会社",
+        "Acme Supplies Ltd."
+      ],
+      "neighborColumns": [
+        "請求No",
+        "支払期日",
+        "通貨"
+      ],
+      "expectedTargetColumn": "vendor_name",
+      "acceptableTargetColumns": [
+        "vendor_name"
+      ]
+    },
+    {
+      "id": "sm-invoice-051",
+      "sourceColumn": "Vendor Company",
+      "sheetName": "AP Upload",
+      "sampleValues": [
+        "Aoba Trading Co.",
+        "Tokyo Parts Co."
+      ],
+      "neighborColumns": [
+        "Tax ID",
+        "Invoice Number",
+        "Amount Due"
+      ],
+      "expectedTargetColumn": "vendor_name",
+      "acceptableTargetColumns": [
+        "vendor_name"
+      ]
+    },
+    {
+      "id": "sm-invoice-052",
+      "sourceColumn": "請求元",
+      "sheetName": "OCR結果",
+      "sampleValues": [
+        "株式会社南町印刷",
+        "株式会社青葉商事"
+      ],
+      "neighborColumns": [
+        "インボイス登録No",
+        "消費税額",
+        "お支払金額"
+      ],
+      "expectedTargetColumn": "vendor_name",
+      "acceptableTargetColumns": [
+        "vendor_name"
+      ]
+    },
+    {
+      "id": "sm-invoice-053",
+      "sourceColumn": "supplier",
+      "sheetName": "invoice_header",
+      "sampleValues": [
+        "Global Materials KK",
+        "Northwind Traders"
+      ],
+      "neighborColumns": [
+        "registration_no",
+        "invoice_no",
+        "total"
+      ],
+      "expectedTargetColumn": "vendor_name",
+      "acceptableTargetColumns": [
+        "vendor_name"
+      ]
+    },
+    {
+      "id": "sm-invoice-054",
+      "sourceColumn": "支払先会社名",
+      "sheetName": "支払予定",
+      "sampleValues": [
+        "東京部品株式会社",
+        "北斗物流株式会社"
+      ],
+      "neighborColumns": [
+        "振込期限",
+        "請求額",
+        "発注No"
+      ],
+      "expectedTargetColumn": "vendor_name",
+      "acceptableTargetColumns": [
+        "vendor_name"
+      ]
+    },
+    {
+      "id": "sm-invoice-055",
+      "sourceColumn": "登録番号",
+      "sheetName": "インボイス",
+      "sampleValues": [
+        "T1234567890123",
+        "T9876543210987"
+      ],
+      "neighborColumns": [
+        "請求元",
+        "税額",
+        "税込合計"
+      ],
+      "expectedTargetColumn": "vendor_registration_number",
+      "acceptableTargetColumns": [
+        "vendor_registration_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-056",
+      "sourceColumn": "事業者登録番号",
+      "sheetName": "電子請求",
+      "sampleValues": [
+        "T1112223334445",
+        "T5556667778889"
+      ],
+      "neighborColumns": [
+        "仕入先名",
+        "請求番号",
+        "小計"
+      ],
+      "expectedTargetColumn": "vendor_registration_number",
+      "acceptableTargetColumns": [
+        "vendor_registration_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-057",
+      "sourceColumn": "Registration No",
+      "sheetName": "Invoice",
+      "sampleValues": [
+        "T0000000000001",
+        "T2222222222222"
+      ],
+      "neighborColumns": [
+        "Supplier Name",
+        "Invoice Date",
+        "Tax Amount"
+      ],
+      "expectedTargetColumn": "vendor_registration_number",
+      "acceptableTargetColumns": [
+        "vendor_registration_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-058",
+      "sourceColumn": "qualified_invoice_number",
+      "sheetName": "ap_import",
+      "sampleValues": [
+        "T3333333333333",
+        "T4444444444444"
+      ],
+      "neighborColumns": [
+        "vendor",
+        "invoice_id",
+        "amount_due"
+      ],
+      "expectedTargetColumn": "vendor_registration_number",
+      "acceptableTargetColumns": [
+        "vendor_registration_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-059",
+      "sourceColumn": "適格請求書発行事業者番号",
+      "sheetName": "OCR",
+      "sampleValues": [
+        "T1357913579135"
+      ],
+      "neighborColumns": [
+        "請求元会社",
+        "消費税",
+        "支払金額"
+      ],
+      "expectedTargetColumn": "vendor_registration_number",
+      "acceptableTargetColumns": [
+        "vendor_registration_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-060",
+      "sourceColumn": "Tax ID",
+      "sheetName": "foreign_invoice",
+      "sampleValues": [
+        "T2468024680246",
+        "T1111111111111"
+      ],
+      "neighborColumns": [
+        "Vendor Company",
+        "VAT",
+        "Total Amount"
+      ],
+      "expectedTargetColumn": "vendor_registration_number",
+      "acceptableTargetColumns": [
+        "vendor_registration_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-061",
+      "sourceColumn": "小計",
+      "sheetName": "請求明細",
+      "sampleValues": [
+        "100000",
+        "45,000"
+      ],
+      "neighborColumns": [
+        "消費税額",
+        "税込合計",
+        "通貨"
+      ],
+      "expectedTargetColumn": "subtotal_amount",
+      "acceptableTargetColumns": [
+        "subtotal_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-062",
+      "sourceColumn": "税抜金額",
+      "sheetName": "仕訳連携",
+      "sampleValues": [
+        "120000",
+        "80000"
+      ],
+      "neighborColumns": [
+        "税額",
+        "合計金額",
+        "請求No"
+      ],
+      "expectedTargetColumn": "subtotal_amount",
+      "acceptableTargetColumns": [
+        "subtotal_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-063",
+      "sourceColumn": "Subtotal",
+      "sheetName": "AP Import",
+      "sampleValues": [
+        "1000.00",
+        "250.00"
+      ],
+      "neighborColumns": [
+        "Tax Amount",
+        "Amount Due",
+        "Currency"
+      ],
+      "expectedTargetColumn": "subtotal_amount",
+      "acceptableTargetColumns": [
+        "subtotal_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-064",
+      "sourceColumn": "net_total",
+      "sheetName": "invoice_lines",
+      "sampleValues": [
+        "98000",
+        "43200"
+      ],
+      "neighborColumns": [
+        "vat_total",
+        "gross_total",
+        "currency_code"
+      ],
+      "expectedTargetColumn": "subtotal_amount",
+      "acceptableTargetColumns": [
+        "subtotal_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-065",
+      "sourceColumn": "課税対象額",
+      "sheetName": "インボイス",
+      "sampleValues": [
+        "116364",
+        "41200"
+      ],
+      "neighborColumns": [
+        "消費税",
+        "税込合計",
+        "登録番号"
+      ],
+      "expectedTargetColumn": "subtotal_amount",
+      "acceptableTargetColumns": [
+        "subtotal_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-066",
+      "sourceColumn": "本体価格合計",
+      "sheetName": "請求データ",
+      "sampleValues": [
+        "200000",
+        "300000"
+      ],
+      "neighborColumns": [
+        "消費税額",
+        "請求金額",
+        "支払先"
+      ],
+      "expectedTargetColumn": "subtotal_amount",
+      "acceptableTargetColumns": [
+        "subtotal_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-067",
+      "sourceColumn": "税額",
+      "sheetName": "仕訳",
+      "sampleValues": [
+        "10000",
+        "4532"
+      ],
+      "neighborColumns": [
+        "税抜金額",
+        "税込合計",
+        "請求番号"
+      ],
+      "expectedTargetColumn": "tax_amount",
+      "acceptableTargetColumns": [
+        "tax_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-068",
+      "sourceColumn": "消費税",
+      "sheetName": "OCR結果",
+      "sampleValues": [
+        "11,636円",
+        "4,120円"
+      ],
+      "neighborColumns": [
+        "小計",
+        "お支払金額",
+        "適格番号"
+      ],
+      "expectedTargetColumn": "tax_amount",
+      "acceptableTargetColumns": [
+        "tax_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-069",
+      "sourceColumn": "Tax Amount",
+      "sheetName": "Invoice",
+      "sampleValues": [
+        "10.00",
+        "45.32"
+      ],
+      "neighborColumns": [
+        "Subtotal",
+        "Amount Due",
+        "Currency"
+      ],
+      "expectedTargetColumn": "tax_amount",
+      "acceptableTargetColumns": [
+        "tax_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-070",
+      "sourceColumn": "vat_total",
+      "sheetName": "ap_lines",
+      "sampleValues": [
+        "8000",
+        "12000"
+      ],
+      "neighborColumns": [
+        "net_total",
+        "gross_total",
+        "vendor"
+      ],
+      "expectedTargetColumn": "tax_amount",
+      "acceptableTargetColumns": [
+        "tax_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-071",
+      "sourceColumn": "内消費税",
+      "sheetName": "請求書",
+      "sampleValues": [
+        "9,091",
+        "11,636"
+      ],
+      "neighborColumns": [
+        "請求金額",
+        "支払期限",
+        "登録番号"
+      ],
+      "expectedTargetColumn": "tax_amount",
+      "acceptableTargetColumns": [
+        "tax_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-072",
+      "sourceColumn": "税区分金額",
+      "sheetName": "税集計",
+      "sampleValues": [
+        "10%: 11636",
+        "8%: 3200"
+      ],
+      "neighborColumns": [
+        "税抜合計",
+        "税込合計",
+        "通貨"
+      ],
+      "expectedTargetColumn": "tax_amount",
+      "acceptableTargetColumns": [
+        "tax_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-073",
+      "sourceColumn": "請求金額",
+      "sheetName": "支払予定",
+      "sampleValues": [
+        "128000円",
+        "45,320円"
+      ],
+      "neighborColumns": [
+        "振込期限",
+        "支払先",
+        "請求No"
+      ],
+      "expectedTargetColumn": "total_amount",
+      "acceptableTargetColumns": [
+        "total_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-074",
+      "sourceColumn": "合計金額",
+      "sheetName": "請求取込",
+      "sampleValues": [
+        "¥128,000",
+        "45320"
+      ],
+      "neighborColumns": [
+        "消費税額",
+        "支払期日",
+        "登録番号"
+      ],
+      "expectedTargetColumn": "total_amount",
+      "acceptableTargetColumns": [
+        "total_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-075",
+      "sourceColumn": "Total Amount",
+      "sheetName": "AP Header",
+      "sampleValues": [
+        "128000",
+        "45320"
+      ],
+      "neighborColumns": [
+        "Invoice Number",
+        "Payment Due",
+        "Supplier"
+      ],
+      "expectedTargetColumn": "total_amount",
+      "acceptableTargetColumns": [
+        "total_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-076",
+      "sourceColumn": "gross_total",
+      "sheetName": "invoice_lines",
+      "sampleValues": [
+        "110000",
+        "55000"
+      ],
+      "neighborColumns": [
+        "net_total",
+        "vat_total",
+        "currency_code"
+      ],
+      "expectedTargetColumn": "total_amount",
+      "acceptableTargetColumns": [
+        "total_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-077",
+      "sourceColumn": "今回請求額",
+      "sheetName": "電子請求",
+      "sampleValues": [
+        "128,000",
+        "99,000"
+      ],
+      "neighborColumns": [
+        "請求元",
+        "振込期限",
+        "消費税"
+      ],
+      "expectedTargetColumn": "total_amount",
+      "acceptableTargetColumns": [
+        "total_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-078",
+      "sourceColumn": "支払総額",
+      "sheetName": "買掛",
+      "sampleValues": [
+        "JPY 45,320",
+        "JPY 128,000"
+      ],
+      "neighborColumns": [
+        "仕入先",
+        "支払予定日",
+        "伝票番号"
+      ],
+      "expectedTargetColumn": "total_amount",
+      "acceptableTargetColumns": [
+        "total_amount"
+      ]
+    },
+    {
+      "id": "sm-invoice-079",
+      "sourceColumn": "通貨コード",
+      "sheetName": "海外請求",
+      "sampleValues": [
+        "JPY",
+        "USD"
+      ],
+      "neighborColumns": [
+        "税込合計",
+        "支払先",
+        "請求番号"
+      ],
+      "expectedTargetColumn": "currency",
+      "acceptableTargetColumns": [
+        "currency"
+      ]
+    },
+    {
+      "id": "sm-invoice-080",
+      "sourceColumn": "支払通貨",
+      "sheetName": "AP Import",
+      "sampleValues": [
+        "JPY",
+        "EUR"
+      ],
+      "neighborColumns": [
+        "Amount Due",
+        "Vendor",
+        "Payment Due"
+      ],
+      "expectedTargetColumn": "currency",
+      "acceptableTargetColumns": [
+        "currency"
+      ]
+    },
+    {
+      "id": "sm-invoice-081",
+      "sourceColumn": "Currency",
+      "sheetName": "Invoice",
+      "sampleValues": [
+        "JPY",
+        "USD"
+      ],
+      "neighborColumns": [
+        "Total Amount",
+        "Supplier",
+        "Invoice No"
+      ],
+      "expectedTargetColumn": "currency",
+      "acceptableTargetColumns": [
+        "currency"
+      ]
+    },
+    {
+      "id": "sm-invoice-082",
+      "sourceColumn": "currency",
+      "sheetName": "foreign_ap",
+      "sampleValues": [
+        "EUR",
+        "JPY"
+      ],
+      "neighborColumns": [
+        "gross_total",
+        "vendor",
+        "due_date"
+      ],
+      "expectedTargetColumn": "currency",
+      "acceptableTargetColumns": [
+        "currency"
+      ]
+    },
+    {
+      "id": "sm-invoice-083",
+      "sourceColumn": "金額単位",
+      "sheetName": "請求OCR",
+      "sampleValues": [
+        "円",
+        "米ドル"
+      ],
+      "neighborColumns": [
+        "請求金額",
+        "請求元",
+        "登録番号"
+      ],
+      "expectedTargetColumn": "currency",
+      "acceptableTargetColumns": [
+        "currency"
+      ]
+    },
+    {
+      "id": "sm-invoice-084",
+      "sourceColumn": "決済通貨",
+      "sheetName": "支払管理",
+      "sampleValues": [
+        "JPY",
+        "SGD"
+      ],
+      "neighborColumns": [
+        "支払金額",
+        "振込予定日",
+        "取引先"
+      ],
+      "expectedTargetColumn": "currency",
+      "acceptableTargetColumns": [
+        "currency"
+      ]
+    },
+    {
+      "id": "sm-invoice-085",
+      "sourceColumn": "発注番号",
+      "sheetName": "購買照合",
+      "sampleValues": [
+        "PO-2026-0142",
+        "PO-2026-0143"
+      ],
+      "neighborColumns": [
+        "請求No",
+        "仕入先",
+        "税込合計"
+      ],
+      "expectedTargetColumn": "purchase_order_number",
+      "acceptableTargetColumns": [
+        "purchase_order_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-086",
+      "sourceColumn": "注文番号",
+      "sheetName": "三点照合",
+      "sampleValues": [
+        "ORD-10045",
+        "PO-9001"
+      ],
+      "neighborColumns": [
+        "請求書番号",
+        "支払先",
+        "請求額"
+      ],
+      "expectedTargetColumn": "purchase_order_number",
+      "acceptableTargetColumns": [
+        "purchase_order_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-087",
+      "sourceColumn": "Purchase Order No",
+      "sheetName": "AP Import",
+      "sampleValues": [
+        "PO-9001",
+        "PO-9002"
+      ],
+      "neighborColumns": [
+        "Invoice Number",
+        "Supplier",
+        "Amount Due"
+      ],
+      "expectedTargetColumn": "purchase_order_number",
+      "acceptableTargetColumns": [
+        "purchase_order_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-088",
+      "sourceColumn": "po_number",
+      "sheetName": "three_way_match",
+      "sampleValues": [
+        "PO-7777",
+        "PO-8888"
+      ],
+      "neighborColumns": [
+        "invoice_id",
+        "vendor_name",
+        "total_amount"
+      ],
+      "expectedTargetColumn": "purchase_order_number",
+      "acceptableTargetColumns": [
+        "purchase_order_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-089",
+      "sourceColumn": "注文書番号",
+      "sheetName": "OCR結果",
+      "sampleValues": [
+        "PO-2026-0501",
+        "ORD-2026-55"
+      ],
+      "neighborColumns": [
+        "請求番号",
+        "請求元会社",
+        "お支払金額"
+      ],
+      "expectedTargetColumn": "purchase_order_number",
+      "acceptableTargetColumns": [
+        "purchase_order_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-090",
+      "sourceColumn": "購買依頼参照",
+      "sheetName": "購買",
+      "sampleValues": [
+        "PO-ABC-100",
+        "PO-ABC-101"
+      ],
+      "neighborColumns": [
+        "伝票No",
+        "取引先",
+        "合計金額"
+      ],
+      "expectedTargetColumn": "purchase_order_number",
+      "acceptableTargetColumns": [
+        "purchase_order_number"
+      ]
+    },
+    {
+      "id": "sm-invoice-091",
+      "sourceColumn": "備考",
+      "sheetName": "請求取込",
+      "sampleValues": [
+        "至急確認",
+        "担当者へ連絡"
+      ],
+      "neighborColumns": [
+        "請求No",
+        "支払先"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-092",
+      "sourceColumn": "添付URL",
+      "sheetName": "system",
+      "sampleValues": [
+        "https://example.test/a.pdf",
+        "s3://bucket/file"
+      ],
+      "neighborColumns": [
+        "取込ファイル名",
+        "処理ID"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-093",
+      "sourceColumn": "承認コメント",
+      "sheetName": "ワークフロー",
+      "sampleValues": [
+        "OK",
+        "差戻し"
+      ],
+      "neighborColumns": [
+        "承認者",
+        "承認日"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-094",
+      "sourceColumn": "部門名",
+      "sheetName": "費用配賦",
+      "sampleValues": [
+        "営業部",
+        "管理部"
+      ],
+      "neighborColumns": [
+        "部署コード",
+        "勘定科目"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-095",
+      "sourceColumn": "勘定科目",
+      "sheetName": "仕訳",
+      "sampleValues": [
+        "消耗品費",
+        "通信費"
+      ],
+      "neighborColumns": [
+        "部門名",
+        "税区分"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-096",
+      "sourceColumn": "取込日時",
+      "sheetName": "system",
+      "sampleValues": [
+        "2026-05-07 10:00",
+        "2026-05-07 10:05"
+      ],
+      "neighborColumns": [
+        "取込ファイル名",
+        "処理ID"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-097",
+      "sourceColumn": "処理ステータス",
+      "sheetName": "system",
+      "sampleValues": [
+        "成功",
+        "エラー"
+      ],
+      "neighborColumns": [
+        "処理ID",
+        "エラー内容"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-098",
+      "sourceColumn": "担当者メール",
+      "sheetName": "ワークフロー",
+      "sampleValues": [
+        "tanaka@example.com",
+        "suzuki@example.com"
+      ],
+      "neighborColumns": [
+        "担当者",
+        "承認者"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-099",
+      "sourceColumn": "明細摘要",
+      "sheetName": "請求明細",
+      "sampleValues": [
+        "部品A 10個",
+        "作業費"
+      ],
+      "neighborColumns": [
+        "数量",
+        "単価"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    },
+    {
+      "id": "sm-invoice-100",
+      "sourceColumn": "銀行口座",
+      "sheetName": "支払先マスタ",
+      "sampleValues": [
+        "0001-1234567",
+        "普通 1234567"
+      ],
+      "neighborColumns": [
+        "支払先",
+        "銀行名"
+      ],
+      "expectedTargetColumn": null,
+      "acceptableTargetColumns": []
+    }
+  ]
+}

@@ -181,10 +181,15 @@ type DriveCleanRoomExport struct {
 }
 
 func (s *DriveService) SearchDocuments(ctx context.Context, input DriveSearchInput, auditCtx AuditContext) ([]DriveSearchResult, error) {
+	mode := normalizeDriveSearchMode(input.Mode)
+	input.Mode = mode
 	if s.localSearch != nil {
 		results, err := s.localSearch.SearchDriveFiles(ctx, input)
-		if err == nil && len(results) > 0 {
+		if err == nil && (len(results) > 0 || mode != DriveSearchModeKeyword) {
 			return results, nil
+		}
+		if err != nil && mode != DriveSearchModeKeyword {
+			return nil, err
 		}
 	}
 	items, err := s.Search(ctx, input, auditCtx)

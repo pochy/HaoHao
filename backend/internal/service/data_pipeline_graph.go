@@ -520,6 +520,27 @@ func decodeDataPipelineJSONMap(payload []byte) map[string]any {
 	return out
 }
 
+func decodeDataPipelineJSONStringList(payload []byte) []string {
+	if len(payload) == 0 {
+		return []string{}
+	}
+	var out []string
+	if err := json.Unmarshal(payload, &out); err == nil && out != nil {
+		return out
+	}
+	var values []any
+	if err := json.Unmarshal(payload, &values); err != nil {
+		return []string{}
+	}
+	out = make([]string, 0, len(values))
+	for _, value := range values {
+		if text, ok := value.(string); ok {
+			out = append(out, text)
+		}
+	}
+	return out
+}
+
 func nextDataPipelineScheduleRunAfter(frequency, timezoneName, runTime string, weekday, monthDay *int32, after time.Time) (time.Time, error) {
 	return nextWorkTableExportScheduleRunAfter(frequency, timezoneName, runTime, weekday, monthDay, after)
 }

@@ -16,6 +16,7 @@ import { useI18n } from 'vue-i18n'
 import type {
   DriveModifiedFilter,
   DriveOwnerFilter,
+  DriveSearchMode,
   DriveSortKey,
   DriveSourceFilter,
   DriveTypeFilter,
@@ -31,6 +32,7 @@ const props = defineProps<{
   ownerFilter: DriveOwnerFilter
   modifiedFilter: DriveModifiedFilter
   sourceFilter: DriveSourceFilter
+  searchMode: DriveSearchMode
   sortKey: DriveSortKey
   sortDirection: 'asc' | 'desc'
   selectionCount: number
@@ -46,6 +48,7 @@ const emit = defineEmits<{
   updateOwnerFilter: [filter: DriveOwnerFilter]
   updateModifiedFilter: [filter: DriveModifiedFilter]
   updateSourceFilter: [filter: DriveSourceFilter]
+  updateSearchMode: [mode: DriveSearchMode]
   updateSort: [key: DriveSortKey]
   refresh: []
   downloadArchive: []
@@ -123,6 +126,14 @@ function clearAll() {
           <option value="generated">{{ t('drive.source.generated') }}</option>
           <option value="sync">{{ t('drive.source.sync') }}</option>
           <option value="external">{{ t('drive.source.external') }}</option>
+        </select>
+      </label>
+      <label class="drive-filter-chip">
+        <span>{{ t('drive.searchModeLabel') }}</span>
+        <select :value="searchMode" :disabled="disabled || busy" @change="emit('updateSearchMode', ($event.target as HTMLSelectElement).value as DriveSearchMode)">
+          <option value="keyword">{{ t('drive.searchMode.keyword') }}</option>
+          <option value="semantic">{{ t('drive.searchMode.semantic') }}</option>
+          <option value="hybrid">{{ t('drive.searchMode.hybrid') }}</option>
         </select>
       </label>
       <button class="secondary-button compact-button" type="button" :disabled="disabled || busy" @click="clearAll">

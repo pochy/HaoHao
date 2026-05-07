@@ -69,7 +69,7 @@ db-down:
 # Prefer Homebrew postgresql@18's psql-18 when on PATH; override with make psql PSQL=psql
 PSQL ?= $(shell command -v psql-18 2>/dev/null || command -v psql 2>/dev/null || echo psql)
 
-.PHONY: psql sql air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check clickhouse-wait
+.PHONY: psql sql seed-schema-mapping-columns validate-vector-rag-eval eval-vector-rag-retrieval smoke-lmstudio-vector-api smoke-lmstudio-drive-rag air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check clickhouse-wait
 psql:
 	$(export-env) && $(PSQL) "$$DATABASE_URL" $(ARGS)
 
@@ -80,6 +80,21 @@ db-schema: db-wait
 
 seed-demo-user: db-wait
 	$(DOCKER_COMPOSE) exec -T postgres psql -U haohao -d haohao < scripts/seed-demo-user.sql
+
+seed-schema-mapping-columns: db-wait
+	$(export-env) && node scripts/seed-schema-mapping-columns.mjs
+
+validate-vector-rag-eval:
+	node scripts/validate-vector-rag-evaluation-datasets.mjs
+
+eval-vector-rag-retrieval:
+	node scripts/evaluate-vector-rag-retrieval.mjs
+
+smoke-lmstudio-vector-api:
+	node scripts/smoke-lmstudio-vector-api.mjs
+
+smoke-lmstudio-drive-rag:
+	node scripts/smoke-lmstudio-drive-rag.mjs
 
 sqlc:
 	cd backend && sqlc generate

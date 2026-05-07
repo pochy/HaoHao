@@ -375,6 +375,7 @@ type DriveSearchInput struct {
 	TenantID      int64
 	ActorUserID   int64
 	Query         string
+	Mode          string
 	ContentType   string
 	UpdatedAfter  *time.Time
 	UpdatedBefore *time.Time

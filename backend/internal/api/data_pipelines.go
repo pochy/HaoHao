@@ -130,6 +130,62 @@ type DataPipelinePreviewBody struct {
 	PreviewRows []map[string]any `json:"previewRows"`
 }
 
+type SchemaMappingCandidateRequestBody struct {
+	PipelinePublicID string                             `json:"pipelinePublicId,omitempty" format:"uuid"`
+	VersionPublicID  string                             `json:"versionPublicId,omitempty" format:"uuid"`
+	Domain           string                             `json:"domain,omitempty" maxLength:"120"`
+	SchemaType       string                             `json:"schemaType,omitempty" maxLength:"120"`
+	Columns          []SchemaMappingCandidateColumnBody `json:"columns" minItems:"1" maxItems:"100"`
+	Limit            int32                              `json:"limit,omitempty" minimum:"1" maximum:"10"`
+}
+
+type SchemaMappingCandidateColumnBody struct {
+	SourceColumn    string   `json:"sourceColumn" maxLength:"240"`
+	SheetName       string   `json:"sheetName,omitempty" maxLength:"240"`
+	SampleValues    []string `json:"sampleValues,omitempty" maxItems:"20"`
+	NeighborColumns []string `json:"neighborColumns,omitempty" maxItems:"40"`
+}
+
+type SchemaMappingCandidateListBody struct {
+	Items []SchemaMappingCandidateItemBody `json:"items"`
+}
+
+type SchemaMappingCandidateItemBody struct {
+	SourceColumn string                       `json:"sourceColumn"`
+	Candidates   []SchemaMappingCandidateBody `json:"candidates"`
+}
+
+type SchemaMappingCandidateBody struct {
+	SchemaColumnPublicID string  `json:"schemaColumnPublicId" format:"uuid"`
+	TargetColumn         string  `json:"targetColumn"`
+	Score                float64 `json:"score"`
+	MatchMethod          string  `json:"matchMethod" enum:"keyword,vector,hybrid,strict"`
+	Reason               string  `json:"reason"`
+	Snippet              string  `json:"snippet,omitempty"`
+	AcceptedEvidence     int64   `json:"acceptedEvidence"`
+	RejectedEvidence     int64   `json:"rejectedEvidence"`
+}
+
+type SchemaMappingExampleWriteBody struct {
+	PipelinePublicID     string   `json:"pipelinePublicId" format:"uuid"`
+	VersionPublicID      string   `json:"versionPublicId,omitempty" format:"uuid"`
+	SchemaColumnPublicID string   `json:"schemaColumnPublicId" format:"uuid"`
+	SourceColumn         string   `json:"sourceColumn" maxLength:"240"`
+	SheetName            string   `json:"sheetName,omitempty" maxLength:"240"`
+	SampleValues         []string `json:"sampleValues,omitempty" maxItems:"20"`
+	NeighborColumns      []string `json:"neighborColumns,omitempty" maxItems:"40"`
+	Decision             string   `json:"decision" enum:"accepted,rejected"`
+}
+
+type SchemaMappingExampleBody struct {
+	PublicID             string `json:"publicId" format:"uuid"`
+	SchemaColumnPublicID string `json:"schemaColumnPublicId" format:"uuid"`
+	SourceColumn         string `json:"sourceColumn"`
+	TargetColumn         string `json:"targetColumn"`
+	Decision             string `json:"decision"`
+	SharedScope          string `json:"sharedScope"`
+}
+
 type DataPipelineCreateBody struct {
 	Name        string `json:"name" maxLength:"160"`
 	Description string `json:"description,omitempty" maxLength:"2000"`
@@ -194,6 +250,14 @@ type DataPipelineRunListOutput struct {
 
 type DataPipelineScheduleOutput struct {
 	Body DataPipelineScheduleBody
+}
+
+type SchemaMappingCandidateOutput struct {
+	Body SchemaMappingCandidateListBody
+}
+
+type SchemaMappingExampleOutput struct {
+	Body SchemaMappingExampleBody
 }
 
 type DataPipelineScheduleListOutput struct {
@@ -294,6 +358,18 @@ type DataPipelineScheduleDeleteInput struct {
 	SessionCookie    http.Cookie `cookie:"SESSION_ID"`
 	CSRFToken        string      `header:"X-CSRF-Token" required:"true"`
 	SchedulePublicID string      `path:"schedulePublicId" format:"uuid"`
+}
+
+type SchemaMappingCandidateInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
+	Body          SchemaMappingCandidateRequestBody
+}
+
+type SchemaMappingExampleInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken     string      `header:"X-CSRF-Token" required:"true"`
+	Body          SchemaMappingExampleWriteBody
 }
 
 func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
@@ -455,6 +531,30 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		return &DataPipelinePreviewOutput{Body: DataPipelinePreviewBody{NodeID: preview.NodeID, StepType: preview.StepType, Columns: preview.Columns, PreviewRows: preview.PreviewRows}}, nil
 	})
 
+	huma.Register(api, huma.Operation{OperationID: "schemaMappingCandidates", Method: http.MethodPost, Path: "/api/v1/data-pipelines/schema-mapping/candidates", Summary: "schema mapping 候補を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *SchemaMappingCandidateInput) (*SchemaMappingCandidateOutput, error) {
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		result, err := deps.DataPipelineService.SchemaMappingCandidates(ctx, tenant.ID, current.User.ID, schemaMappingCandidateInputFromBody(input.Body))
+		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "schemaMappingCandidates", err)
+		}
+		return &SchemaMappingCandidateOutput{Body: toSchemaMappingCandidateListBody(result)}, nil
+	})
+
+	huma.Register(api, huma.Operation{OperationID: "recordSchemaMappingExample", Method: http.MethodPost, Path: "/api/v1/data-pipelines/schema-mapping/examples", Summary: "schema mapping の採用/却下履歴を記録する", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *SchemaMappingExampleInput) (*SchemaMappingExampleOutput, error) {
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		result, err := deps.DataPipelineService.RecordSchemaMappingExample(ctx, tenant.ID, current.User.ID, schemaMappingExampleInputFromBody(input.Body), sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "recordSchemaMappingExample", err)
+		}
+		return &SchemaMappingExampleOutput{Body: toSchemaMappingExampleBody(result)}, nil
+	})
+
 	huma.Register(api, huma.Operation{OperationID: "listDataPipelineRuns", Method: http.MethodGet, Path: "/api/v1/data-pipelines/{pipelinePublicId}/runs", Summary: "data pipeline run history を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineRunsInput) (*DataPipelineRunListOutput, error) {
 		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
@@ -574,6 +674,74 @@ func requireDataPipelineTenant(ctx context.Context, deps Dependencies, sessionID
 
 func scheduleInputFromBody(body DataPipelineScheduleWriteBody) service.DataPipelineScheduleInput {
 	return service.DataPipelineScheduleInput{Frequency: body.Frequency, Timezone: body.Timezone, RunTime: body.RunTime, Weekday: body.Weekday, MonthDay: body.MonthDay, Enabled: body.Enabled}
+}
+
+func schemaMappingCandidateInputFromBody(body SchemaMappingCandidateRequestBody) service.DataPipelineSchemaMappingCandidateInput {
+	columns := make([]service.DataPipelineSchemaMappingSourceColumn, 0, len(body.Columns))
+	for _, column := range body.Columns {
+		columns = append(columns, service.DataPipelineSchemaMappingSourceColumn{
+			SourceColumn:    column.SourceColumn,
+			SheetName:       column.SheetName,
+			SampleValues:    column.SampleValues,
+			NeighborColumns: column.NeighborColumns,
+		})
+	}
+	return service.DataPipelineSchemaMappingCandidateInput{
+		PipelinePublicID: body.PipelinePublicID,
+		VersionPublicID:  body.VersionPublicID,
+		Domain:           body.Domain,
+		SchemaType:       body.SchemaType,
+		Columns:          columns,
+		Limit:            body.Limit,
+	}
+}
+
+func schemaMappingExampleInputFromBody(body SchemaMappingExampleWriteBody) service.DataPipelineSchemaMappingExampleInput {
+	return service.DataPipelineSchemaMappingExampleInput{
+		PipelinePublicID:     body.PipelinePublicID,
+		VersionPublicID:      body.VersionPublicID,
+		SchemaColumnPublicID: body.SchemaColumnPublicID,
+		SourceColumn:         body.SourceColumn,
+		SheetName:            body.SheetName,
+		SampleValues:         body.SampleValues,
+		NeighborColumns:      body.NeighborColumns,
+		Decision:             body.Decision,
+	}
+}
+
+func toSchemaMappingCandidateListBody(result service.DataPipelineSchemaMappingCandidateResult) SchemaMappingCandidateListBody {
+	body := SchemaMappingCandidateListBody{Items: make([]SchemaMappingCandidateItemBody, 0, len(result.Items))}
+	for _, item := range result.Items {
+		out := SchemaMappingCandidateItemBody{
+			SourceColumn: item.SourceColumn,
+			Candidates:   make([]SchemaMappingCandidateBody, 0, len(item.Candidates)),
+		}
+		for _, candidate := range item.Candidates {
+			out.Candidates = append(out.Candidates, SchemaMappingCandidateBody{
+				SchemaColumnPublicID: candidate.SchemaColumnPublicID,
+				TargetColumn:         candidate.TargetColumn,
+				Score:                candidate.Score,
+				MatchMethod:          candidate.MatchMethod,
+				Reason:               candidate.Reason,
+				Snippet:              candidate.Snippet,
+				AcceptedEvidence:     candidate.AcceptedEvidence,
+				RejectedEvidence:     candidate.RejectedEvidence,
+			})
+		}
+		body.Items = append(body.Items, out)
+	}
+	return body
+}
+
+func toSchemaMappingExampleBody(result service.DataPipelineSchemaMappingExample) SchemaMappingExampleBody {
+	return SchemaMappingExampleBody{
+		PublicID:             result.PublicID,
+		SchemaColumnPublicID: result.SchemaColumnPublicID,
+		SourceColumn:         result.SourceColumn,
+		TargetColumn:         result.TargetColumn,
+		Decision:             result.Decision,
+		SharedScope:          result.SharedScope,
+	}
 }
 
 func toDataPipelineHTTPError(ctx context.Context, deps Dependencies, operation string, err error) error {

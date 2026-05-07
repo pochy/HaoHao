@@ -92,6 +92,27 @@ type DataPipeline struct {
 	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
 }
 
+type DataPipelineMappingExample struct {
+	ID              int64              `json:"id"`
+	PublicID        uuid.UUID          `json:"public_id"`
+	TenantID        int64              `json:"tenant_id"`
+	PipelineID      int64              `json:"pipeline_id"`
+	VersionID       pgtype.Int8        `json:"version_id"`
+	SchemaColumnID  int64              `json:"schema_column_id"`
+	SourceColumn    string             `json:"source_column"`
+	SheetName       string             `json:"sheet_name"`
+	SampleValues    []byte             `json:"sample_values"`
+	NeighborColumns []byte             `json:"neighbor_columns"`
+	Decision        string             `json:"decision"`
+	DecidedByUserID pgtype.Int8        `json:"decided_by_user_id"`
+	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
+	SharedScope     string             `json:"shared_scope"`
+	SharedByUserID  pgtype.Int8        `json:"shared_by_user_id"`
+	SharedAt        pgtype.Timestamptz `json:"shared_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DataPipelineRun struct {
 	ID                int64              `json:"id"`
 	PublicID          uuid.UUID          `json:"public_id"`
@@ -165,6 +186,23 @@ type DataPipelineSchedule struct {
 	LastRunID        pgtype.Int8        `json:"last_run_id"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DataPipelineSchemaColumn struct {
+	ID           int64              `json:"id"`
+	PublicID     uuid.UUID          `json:"public_id"`
+	TenantID     int64              `json:"tenant_id"`
+	Domain       string             `json:"domain"`
+	SchemaType   string             `json:"schema_type"`
+	TargetColumn string             `json:"target_column"`
+	Description  string             `json:"description"`
+	Aliases      []byte             `json:"aliases"`
+	Examples     []byte             `json:"examples"`
+	Language     string             `json:"language"`
+	Version      int32              `json:"version"`
+	ArchivedAt   pgtype.Timestamptz `json:"archived_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type DataPipelineVersion struct {
@@ -1601,19 +1639,25 @@ type LocalSearchDocument struct {
 }
 
 type LocalSearchEmbedding struct {
-	ID           int64              `json:"id"`
-	PublicID     uuid.UUID          `json:"public_id"`
-	DocumentID   int64              `json:"document_id"`
-	ChunkOrdinal int32              `json:"chunk_ordinal"`
-	SourceText   string             `json:"source_text"`
-	Model        string             `json:"model"`
-	Dimension    int32              `json:"dimension"`
-	ContentHash  string             `json:"content_hash"`
-	Embedding    []float64          `json:"embedding"`
-	Status       string             `json:"status"`
-	ErrorSummary pgtype.Text        `json:"error_summary"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID               int64              `json:"id"`
+	PublicID         uuid.UUID          `json:"public_id"`
+	DocumentID       int64              `json:"document_id"`
+	ChunkOrdinal     int32              `json:"chunk_ordinal"`
+	SourceText       string             `json:"source_text"`
+	Model            string             `json:"model"`
+	Dimension        int32              `json:"dimension"`
+	ContentHash      string             `json:"content_hash"`
+	Status           string             `json:"status"`
+	ErrorSummary     pgtype.Text        `json:"error_summary"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	TenantID         int64              `json:"tenant_id"`
+	ResourceKind     string             `json:"resource_kind"`
+	ResourceID       int64              `json:"resource_id"`
+	ResourcePublicID uuid.UUID          `json:"resource_public_id"`
+	Metadata         []byte             `json:"metadata"`
+	IndexedAt        pgtype.Timestamptz `json:"indexed_at"`
+	Embedding        interface{}        `json:"embedding"`
 }
 
 type LocalSearchIndexJob struct {

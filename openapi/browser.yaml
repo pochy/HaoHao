@@ -6882,6 +6882,130 @@ components:
       required:
         - items
       type: object
+    DriveRAGAnswerBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveRAGAnswerBody.json
+          format: uri
+          readOnly: true
+          type: string
+        answer:
+          examples:
+            - example
+          type: string
+        blocked:
+          examples:
+            - false
+          type: boolean
+        citations:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DriveRAGCitationBody"
+          type:
+            - array
+            - "null"
+        matches:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DriveRAGCitationBody"
+          type:
+            - array
+            - "null"
+      required:
+        - answer
+        - citations
+        - matches
+        - blocked
+      type: object
+    DriveRAGCitationBody:
+      additionalProperties: false
+      properties:
+        citationId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        filePublicId:
+          description: 対象 Drive file の public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        filename:
+          examples:
+            - roadmap.md
+          type: string
+        resourceKind:
+          enum:
+            - drive_file
+            - ocr_run
+            - product_extraction
+            - gold_table
+          examples:
+            - drive_file
+          type: string
+        resourcePublicId:
+          description: 対象 resource の public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        score:
+          examples:
+            - 42.5
+          format: double
+          type: number
+        snippet:
+          examples:
+            - example
+          type: string
+      required:
+        - citationId
+        - resourceKind
+        - resourcePublicId
+        - filePublicId
+        - filename
+        - snippet
+      type: object
+    DriveRAGQueryBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DriveRAGQueryBody.json
+          format: uri
+          readOnly: true
+          type: string
+        limit:
+          description: pagination で返す最大件数です。
+          examples:
+            - 50
+          format: int32
+          maximum: 20
+          minimum: 1
+          type: integer
+        mode:
+          enum:
+            - keyword
+            - semantic
+            - hybrid
+          examples:
+            - keyword
+          type: string
+        query:
+          examples:
+            - roadmap
+          maxLength: 1000
+          minLength: 1
+          type: string
+      required:
+        - query
+      type: object
     DriveRegisterDeviceBody:
       additionalProperties: false
       properties:
@@ -7949,6 +8073,8 @@ components:
             - ocr_run
             - product_extraction
             - gold_table
+            - schema_column
+            - mapping_example
           examples:
             - drive_file
           type: string
@@ -8703,6 +8829,295 @@ components:
           examples:
             - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
+      type: object
+    SchemaMappingCandidateBody:
+      additionalProperties: false
+      properties:
+        acceptedEvidence:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        matchMethod:
+          enum:
+            - keyword
+            - vector
+            - hybrid
+            - strict
+          examples:
+            - keyword
+          type: string
+        reason:
+          examples:
+            - example
+          type: string
+        rejectedEvidence:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        schemaColumnPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        score:
+          examples:
+            - 42.5
+          format: double
+          type: number
+        snippet:
+          examples:
+            - example
+          type: string
+        targetColumn:
+          examples:
+            - example
+          type: string
+      required:
+        - schemaColumnPublicId
+        - targetColumn
+        - score
+        - matchMethod
+        - reason
+        - acceptedEvidence
+        - rejectedEvidence
+      type: object
+    SchemaMappingCandidateColumnBody:
+      additionalProperties: false
+      properties:
+        neighborColumns:
+          examples:
+            - - example
+          items:
+            type: string
+          maxItems: 40
+          type:
+            - array
+            - "null"
+        sampleValues:
+          examples:
+            - - example
+          items:
+            type: string
+          maxItems: 20
+          type:
+            - array
+            - "null"
+        sheetName:
+          examples:
+            - Acme
+          maxLength: 240
+          type: string
+        sourceColumn:
+          examples:
+            - support
+          maxLength: 240
+          type: string
+      required:
+        - sourceColumn
+      type: object
+    SchemaMappingCandidateItemBody:
+      additionalProperties: false
+      properties:
+        candidates:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/SchemaMappingCandidateBody"
+          type:
+            - array
+            - "null"
+        sourceColumn:
+          examples:
+            - support
+          type: string
+      required:
+        - sourceColumn
+        - candidates
+      type: object
+    SchemaMappingCandidateListBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SchemaMappingCandidateListBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/SchemaMappingCandidateItemBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    SchemaMappingCandidateRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SchemaMappingCandidateRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        columns:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/SchemaMappingCandidateColumnBody"
+          maxItems: 100
+          minItems: 1
+          type:
+            - array
+            - "null"
+        domain:
+          examples:
+            - example
+          maxLength: 120
+          type: string
+        limit:
+          description: pagination で返す最大件数です。
+          examples:
+            - 50
+          format: int32
+          maximum: 10
+          minimum: 1
+          type: integer
+        pipelinePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        schemaType:
+          examples:
+            - example
+          maxLength: 120
+          type: string
+        versionPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+      required:
+        - columns
+      type: object
+    SchemaMappingExampleBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SchemaMappingExampleBody.json
+          format: uri
+          readOnly: true
+          type: string
+        decision:
+          examples:
+            - example
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        schemaColumnPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        sharedScope:
+          examples:
+            - example
+          type: string
+        sourceColumn:
+          examples:
+            - support
+          type: string
+        targetColumn:
+          examples:
+            - example
+          type: string
+      required:
+        - publicId
+        - schemaColumnPublicId
+        - sourceColumn
+        - targetColumn
+        - decision
+        - sharedScope
+      type: object
+    SchemaMappingExampleWriteBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SchemaMappingExampleWriteBody.json
+          format: uri
+          readOnly: true
+          type: string
+        decision:
+          enum:
+            - accepted
+            - rejected
+          examples:
+            - accepted
+          type: string
+        neighborColumns:
+          examples:
+            - - example
+          items:
+            type: string
+          maxItems: 40
+          type:
+            - array
+            - "null"
+        pipelinePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        sampleValues:
+          examples:
+            - - example
+          items:
+            type: string
+          maxItems: 20
+          type:
+            - array
+            - "null"
+        schemaColumnPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        sheetName:
+          examples:
+            - Acme
+          maxLength: 240
+          type: string
+        sourceColumn:
+          examples:
+            - support
+          maxLength: 240
+          type: string
+        versionPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+      required:
+        - pipelinePublicId
+        - schemaColumnPublicId
+        - sourceColumn
+        - decision
       type: object
     SelectTenantInputBody:
       additionalProperties: false
@@ -10148,6 +10563,207 @@ components:
         - roleCode
         - source
         - active
+      type: object
+    TenantAdminSchemaMappingExampleListItemBody:
+      additionalProperties: false
+      properties:
+        createdAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        decidedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        decision:
+          examples:
+            - example
+          type: string
+        domain:
+          examples:
+            - example
+          type: string
+        neighborColumns:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        pipelineName:
+          examples:
+            - Acme
+          type: string
+        pipelinePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        publicId:
+          description: client や URL path で参照する public UUID です。
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        sampleValues:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        schemaColumnPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        schemaType:
+          examples:
+            - example
+          type: string
+        searchDocumentMaterialized:
+          examples:
+            - true
+          type: boolean
+        sharedAt:
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        sharedScope:
+          examples:
+            - example
+          type: string
+        sheetName:
+          examples:
+            - Acme
+          type: string
+        sourceColumn:
+          examples:
+            - support
+          type: string
+        targetColumn:
+          examples:
+            - example
+          type: string
+        updatedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+      required:
+        - publicId
+        - pipelinePublicId
+        - pipelineName
+        - schemaColumnPublicId
+        - domain
+        - schemaType
+        - sourceColumn
+        - sampleValues
+        - neighborColumns
+        - targetColumn
+        - decision
+        - sharedScope
+        - searchDocumentMaterialized
+        - decidedAt
+        - createdAt
+        - updatedAt
+      type: object
+    TenantAdminSchemaMappingExampleListOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminSchemaMappingExampleListOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/TenantAdminSchemaMappingExampleListItemBody"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    TenantAdminSchemaMappingExampleSharingInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminSchemaMappingExampleSharingInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        sharedScope:
+          enum:
+            - private
+            - tenant
+          examples:
+            - private
+          type: string
+      required:
+        - sharedScope
+      type: object
+    TenantAdminSchemaMappingSearchDocumentsRebuildInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminSchemaMappingSearchDocumentsRebuildInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        limit:
+          description: pagination で返す最大件数です。
+          examples:
+            - 50
+          format: int32
+          maximum: 1000
+          minimum: 1
+          type: integer
+      type: object
+    TenantAdminSchemaMappingSearchDocumentsRebuildOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TenantAdminSchemaMappingSearchDocumentsRebuildOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        indexed:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        mappingExamplesIndexed:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        schemaColumnsIndexed:
+          examples:
+            - 1
+          format: int64
+          type: integer
+      required:
+        - indexed
+        - schemaColumnsIndexed
+        - mappingExamplesIndexed
       type: object
     TenantAdminTenantBody:
       additionalProperties: false
@@ -12667,6 +13283,314 @@ paths:
         - cookieAuth: []
       tags:
         - Tenant Administration
+  /api/v1/admin/tenants/{tenantSlug}/data-pipelines/schema-mapping/examples:
+    get:
+      description: |-
+        tenant admin 用 schema mapping example 一覧を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: listTenantAdminSchemaMappingExamples
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - description: 検索語または filter query です。
+          example: roadmap
+          explode: false
+          in: query
+          name: q
+          schema:
+            maxLength: 240
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `sharedScope` です。
+          example: private
+          explode: false
+          in: query
+          name: sharedScope
+          schema:
+            enum:
+              - private
+              - tenant
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `decision` です。
+          example: accepted
+          explode: false
+          in: query
+          name: decision
+          schema:
+            enum:
+              - accepted
+              - rejected
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - createdAt: "2026-01-15T09:30:00Z"
+                        decidedAt: "2026-01-15T09:30:00Z"
+                        decision: example
+                        domain: example
+                        neighborColumns:
+                          - example
+                        pipelineName: Acme
+                        pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        sampleValues:
+                          - example
+                        schemaColumnPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        schemaType: example
+                        searchDocumentMaterialized: true
+                        sharedAt: "2026-01-15T09:30:00Z"
+                        sharedScope: example
+                        sheetName: Acme
+                        sourceColumn: support
+                        targetColumn: example
+                        updatedAt: "2026-01-15T09:30:00Z"
+              schema:
+                $ref: "#/components/schemas/TenantAdminSchemaMappingExampleListOutputBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: tenant admin 用 schema mapping example 一覧を返す
+      tags:
+        - Data & Datasets
+  /api/v1/admin/tenants/{tenantSlug}/data-pipelines/schema-mapping/examples/{mappingExamplePublicId}/sharing:
+    patch:
+      description: |-
+        schema mapping example の tenant 共有を切り替える。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: updateTenantAdminSchemaMappingExampleSharing
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+        - description: path 内の `mappingExamplePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: mappingExamplePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  sharedScope: private
+            schema:
+              $ref: "#/components/schemas/TenantAdminSchemaMappingExampleSharingInputBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    $schema: https://example.com/schemas/SchemaMappingExampleBody.json
+                    decision: example
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    schemaColumnPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    sharedScope: example
+                    sourceColumn: support
+                    targetColumn: example
+              schema:
+                $ref: "#/components/schemas/SchemaMappingExampleBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: schema mapping example の tenant 共有を切り替える
+      tags:
+        - Data & Datasets
+  /api/v1/admin/tenants/{tenantSlug}/data-pipelines/schema-mapping/search-documents/rebuild:
+    post:
+      description: |-
+        schema mapping search documents を rebuild する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: rebuildTenantAdminSchemaMappingSearchDocuments
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+        - description: "tenant を識別する slug です。例: `acme`。"
+          example: acme
+          in: path
+          name: tenantSlug
+          required: true
+          schema:
+            maxLength: 64
+            minLength: 3
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  limit: 50
+            schema:
+              $ref: "#/components/schemas/TenantAdminSchemaMappingSearchDocumentsRebuildInputBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    indexed: 1
+                    mappingExamplesIndexed: 1
+                    schemaColumnsIndexed: 1
+              schema:
+                $ref: "#/components/schemas/TenantAdminSchemaMappingSearchDocumentsRebuildOutputBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: schema mapping search documents を rebuild する
+      tags:
+        - Data & Datasets
   /api/v1/admin/tenants/{tenantSlug}/drive/audit-events:
     get:
       description: |-
@@ -20232,6 +21156,185 @@ paths:
       security:
         - cookieAuth: []
       summary: active tenant に data pipeline を作成する
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipelines/schema-mapping/candidates:
+    post:
+      description: |-
+        schema mapping 候補を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: schemaMappingCandidates
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  columns:
+                    - neighborColumns:
+                        - example
+                      sampleValues:
+                        - example
+                      sheetName: Acme
+                      sourceColumn: support
+                  domain: example
+                  limit: 50
+                  pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  schemaType: example
+                  versionPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+            schema:
+              $ref: "#/components/schemas/SchemaMappingCandidateRequestBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    items:
+                      - candidates: []
+                        sourceColumn: support
+              schema:
+                $ref: "#/components/schemas/SchemaMappingCandidateListBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: schema mapping 候補を返す
+      tags:
+        - Data & Datasets
+  /api/v1/data-pipelines/schema-mapping/examples:
+    post:
+      description: |-
+        schema mapping の採用/却下履歴を記録する。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: recordSchemaMappingExample
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  decision: accepted
+                  neighborColumns:
+                    - example
+                  pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  sampleValues:
+                    - example
+                  schemaColumnPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                  sheetName: Acme
+                  sourceColumn: support
+                  versionPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+            schema:
+              $ref: "#/components/schemas/SchemaMappingExampleWriteBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    decision: example
+                    publicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    schemaColumnPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                    sharedScope: example
+                    sourceColumn: support
+                    targetColumn: example
+              schema:
+                $ref: "#/components/schemas/SchemaMappingExampleBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: schema mapping の採用/却下履歴を記録する
       tags:
         - Data & Datasets
   /api/v1/data-pipelines/{pipelinePublicId}:
@@ -30667,6 +31770,101 @@ paths:
       summary: Drive Office edit session を revoke する
       tags:
         - Drive Collaboration & Sync
+  /api/v1/drive/rag/query:
+    post:
+      description: |-
+        Drive content を permission-filtered RAG で回答する。
+
+        Drive の file/folder metadata、list、search、copy、trash などの基本操作に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+        - request body は `application/json` を基本にし、必須 field と enum は schema に従って指定します。
+      operationId: queryDriveRAG
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: Cookie session を使う state-changing request に必要な CSRF token です。
+          example: csrf_demo_1234567890
+          in: header
+          name: X-CSRF-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              default:
+                description: ローカル demo tenant を想定した request body 例です。
+                summary: Example request
+                value:
+                  limit: 50
+                  mode: keyword
+                  query: roadmap
+            schema:
+              $ref: "#/components/schemas/DriveRAGQueryBody"
+        description: request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    answer: example
+                    blocked: false
+                    citations:
+                      - citationId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        filePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        filename: roadmap.md
+                        resourceKind: drive_file
+                        resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        score: 42.5
+                        snippet: example
+                    matches:
+                      - citationId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        filePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        filename: roadmap.md
+                        resourceKind: drive_file
+                        resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                        score: 42.5
+                        snippet: example
+              schema:
+                $ref: "#/components/schemas/DriveRAGAnswerBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: Drive content を permission-filtered RAG で回答する
+      tags:
+        - Drive Files & Folders
   /api/v1/drive/recent:
     get:
       description: |-
@@ -30757,6 +31955,18 @@ paths:
           in: query
           name: q
           schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `mode` です。
+          example: keyword
+          explode: false
+          in: query
+          name: mode
+          schema:
+            default: keyword
+            enum:
+              - keyword
+              - semantic
+              - hybrid
             type: string
         - description: 結果の絞り込みや pagination に使う query parameter `contentType` です。
           example: text/markdown
@@ -30877,6 +32087,18 @@ paths:
           in: query
           name: q
           schema:
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `mode` です。
+          example: keyword
+          explode: false
+          in: query
+          name: mode
+          schema:
+            default: keyword
+            enum:
+              - keyword
+              - semantic
+              - hybrid
             type: string
         - description: 結果の絞り込みや pagination に使う query parameter `contentType` です。
           example: text/markdown

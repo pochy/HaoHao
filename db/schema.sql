@@ -32,6 +32,20 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
 
+--
+-- Name: vector; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION vector; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION vector IS 'vector data type and ivfflat and hnsw access methods';
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -190,6 +204,330 @@ CREATE TABLE public.customer_signals (
 
 ALTER TABLE public.customer_signals ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.customer_signals_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: data_pipeline_mapping_examples; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_pipeline_mapping_examples (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    pipeline_id bigint NOT NULL,
+    version_id bigint,
+    schema_column_id bigint NOT NULL,
+    source_column text NOT NULL,
+    sheet_name text DEFAULT ''::text NOT NULL,
+    sample_values jsonb DEFAULT '[]'::jsonb NOT NULL,
+    neighbor_columns jsonb DEFAULT '[]'::jsonb NOT NULL,
+    decision text NOT NULL,
+    decided_by_user_id bigint,
+    decided_at timestamp with time zone DEFAULT now() NOT NULL,
+    shared_scope text DEFAULT 'private'::text NOT NULL,
+    shared_by_user_id bigint,
+    shared_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_mapping_examples_decision_check CHECK ((decision = ANY (ARRAY['accepted'::text, 'rejected'::text]))),
+    CONSTRAINT data_pipeline_mapping_examples_neighbor_columns_array_check CHECK ((jsonb_typeof(neighbor_columns) = 'array'::text)),
+    CONSTRAINT data_pipeline_mapping_examples_sample_values_array_check CHECK ((jsonb_typeof(sample_values) = 'array'::text)),
+    CONSTRAINT data_pipeline_mapping_examples_share_shape_check CHECK ((((shared_scope = 'private'::text) AND (shared_at IS NULL)) OR ((shared_scope = 'tenant'::text) AND (shared_at IS NOT NULL)))),
+    CONSTRAINT data_pipeline_mapping_examples_shared_scope_check CHECK ((shared_scope = ANY (ARRAY['private'::text, 'tenant'::text]))),
+    CONSTRAINT data_pipeline_mapping_examples_source_column_check CHECK ((btrim(source_column) <> ''::text))
+);
+
+
+--
+-- Name: data_pipeline_mapping_examples_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_pipeline_mapping_examples ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.data_pipeline_mapping_examples_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: data_pipeline_run_outputs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_pipeline_run_outputs (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    run_id bigint NOT NULL,
+    node_id text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    output_work_table_id bigint,
+    row_count bigint DEFAULT 0 NOT NULL,
+    error_summary text,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_run_outputs_node_id_check CHECK ((btrim(node_id) <> ''::text)),
+    CONSTRAINT data_pipeline_run_outputs_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT data_pipeline_run_outputs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
+);
+
+
+--
+-- Name: data_pipeline_run_outputs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_pipeline_run_outputs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.data_pipeline_run_outputs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: data_pipeline_run_steps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_pipeline_run_steps (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    run_id bigint NOT NULL,
+    node_id text NOT NULL,
+    step_type text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    row_count bigint DEFAULT 0 NOT NULL,
+    error_summary text,
+    error_sample jsonb DEFAULT '[]'::jsonb NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_run_steps_node_id_check CHECK ((btrim(node_id) <> ''::text)),
+    CONSTRAINT data_pipeline_run_steps_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT data_pipeline_run_steps_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
+);
+
+
+--
+-- Name: data_pipeline_run_steps_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_pipeline_run_steps ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.data_pipeline_run_steps_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: data_pipeline_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_pipeline_runs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    pipeline_id bigint NOT NULL,
+    version_id bigint NOT NULL,
+    schedule_id bigint,
+    requested_by_user_id bigint,
+    trigger_kind text DEFAULT 'manual'::text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    output_work_table_id bigint,
+    outbox_event_id bigint,
+    row_count bigint DEFAULT 0 NOT NULL,
+    error_summary text,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_runs_row_count_check CHECK ((row_count >= 0)),
+    CONSTRAINT data_pipeline_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text]))),
+    CONSTRAINT data_pipeline_runs_trigger_kind_check CHECK ((trigger_kind = ANY (ARRAY['manual'::text, 'scheduled'::text])))
+);
+
+
+--
+-- Name: data_pipeline_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_pipeline_runs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.data_pipeline_runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: data_pipeline_schedules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_pipeline_schedules (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    pipeline_id bigint NOT NULL,
+    version_id bigint NOT NULL,
+    created_by_user_id bigint,
+    frequency text NOT NULL,
+    timezone text NOT NULL,
+    run_time text NOT NULL,
+    weekday smallint,
+    month_day smallint,
+    enabled boolean DEFAULT true NOT NULL,
+    next_run_at timestamp with time zone NOT NULL,
+    last_run_at timestamp with time zone,
+    last_status text,
+    last_error_summary text,
+    last_run_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_schedules_frequency_check CHECK ((frequency = ANY (ARRAY['daily'::text, 'weekly'::text, 'monthly'::text]))),
+    CONSTRAINT data_pipeline_schedules_frequency_shape_check CHECK ((((frequency = 'daily'::text) AND (weekday IS NULL) AND (month_day IS NULL)) OR ((frequency = 'weekly'::text) AND (weekday IS NOT NULL) AND (month_day IS NULL)) OR ((frequency = 'monthly'::text) AND (weekday IS NULL) AND (month_day IS NOT NULL)))),
+    CONSTRAINT data_pipeline_schedules_month_day_check CHECK (((month_day IS NULL) OR ((month_day >= 1) AND (month_day <= 28)))),
+    CONSTRAINT data_pipeline_schedules_run_time_check CHECK ((run_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'::text)),
+    CONSTRAINT data_pipeline_schedules_weekday_check CHECK (((weekday IS NULL) OR ((weekday >= 1) AND (weekday <= 7))))
+);
+
+
+--
+-- Name: data_pipeline_schedules_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_pipeline_schedules ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.data_pipeline_schedules_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: data_pipeline_schema_columns; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_pipeline_schema_columns (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    domain text DEFAULT ''::text NOT NULL,
+    schema_type text DEFAULT ''::text NOT NULL,
+    target_column text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    aliases jsonb DEFAULT '[]'::jsonb NOT NULL,
+    examples jsonb DEFAULT '[]'::jsonb NOT NULL,
+    language text DEFAULT ''::text NOT NULL,
+    version integer DEFAULT 1 NOT NULL,
+    archived_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_schema_columns_aliases_array_check CHECK ((jsonb_typeof(aliases) = 'array'::text)),
+    CONSTRAINT data_pipeline_schema_columns_examples_array_check CHECK ((jsonb_typeof(examples) = 'array'::text)),
+    CONSTRAINT data_pipeline_schema_columns_target_column_check CHECK ((btrim(target_column) <> ''::text)),
+    CONSTRAINT data_pipeline_schema_columns_version_check CHECK ((version > 0))
+);
+
+
+--
+-- Name: data_pipeline_schema_columns_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_pipeline_schema_columns ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.data_pipeline_schema_columns_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: data_pipeline_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_pipeline_versions (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    pipeline_id bigint NOT NULL,
+    version_number integer NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    graph jsonb NOT NULL,
+    validation_summary jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by_user_id bigint,
+    published_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    published_at timestamp with time zone,
+    CONSTRAINT data_pipeline_versions_graph_object_check CHECK ((jsonb_typeof(graph) = 'object'::text)),
+    CONSTRAINT data_pipeline_versions_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text]))),
+    CONSTRAINT data_pipeline_versions_version_number_check CHECK ((version_number > 0))
+);
+
+
+--
+-- Name: data_pipeline_versions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_pipeline_versions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.data_pipeline_versions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: data_pipelines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_pipelines (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    created_by_user_id bigint,
+    updated_by_user_id bigint,
+    name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    published_version_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    archived_at timestamp with time zone,
+    CONSTRAINT data_pipelines_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT data_pipelines_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text])))
+);
+
+
+--
+-- Name: data_pipelines_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_pipelines ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.data_pipelines_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -536,6 +874,106 @@ CREATE TABLE public.dataset_lineage_parse_runs (
 
 ALTER TABLE public.dataset_lineage_parse_runs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.dataset_lineage_parse_runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: dataset_permission_grants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_permission_grants (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    resource_type text NOT NULL,
+    resource_public_id uuid,
+    subject_type text NOT NULL,
+    subject_user_id bigint,
+    subject_group_id bigint,
+    action text NOT NULL,
+    created_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    revoked_at timestamp with time zone,
+    CONSTRAINT dataset_permission_grants_action_check CHECK ((btrim(action) <> ''::text)),
+    CONSTRAINT dataset_permission_grants_check CHECK ((((resource_type = 'data_scope'::text) AND (resource_public_id IS NULL)) OR ((resource_type <> 'data_scope'::text) AND (resource_public_id IS NOT NULL)))),
+    CONSTRAINT dataset_permission_grants_check1 CHECK ((((subject_type = 'user'::text) AND (subject_user_id IS NOT NULL) AND (subject_group_id IS NULL)) OR ((subject_type = 'group'::text) AND (subject_group_id IS NOT NULL) AND (subject_user_id IS NULL)))),
+    CONSTRAINT dataset_permission_grants_resource_type_check CHECK ((resource_type = ANY (ARRAY['data_scope'::text, 'dataset'::text, 'work_table'::text, 'data_pipeline'::text]))),
+    CONSTRAINT dataset_permission_grants_subject_type_check CHECK ((subject_type = ANY (ARRAY['user'::text, 'group'::text])))
+);
+
+
+--
+-- Name: dataset_permission_grants_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_permission_grants ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_permission_grants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: dataset_permission_group_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_permission_group_members (
+    id bigint NOT NULL,
+    group_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    added_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone
+);
+
+
+--
+-- Name: dataset_permission_group_members_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_permission_group_members ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_permission_group_members_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: dataset_permission_groups; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dataset_permission_groups (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    system_key text,
+    created_by_user_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    CONSTRAINT dataset_permission_groups_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT dataset_permission_groups_system_key_check CHECK (((system_key IS NULL) OR (btrim(system_key) <> ''::text)))
+);
+
+
+--
+-- Name: dataset_permission_groups_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dataset_permission_groups ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.dataset_permission_groups_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -3587,7 +4025,7 @@ CREATE TABLE public.local_search_documents (
     search_vector tsvector GENERATED ALWAYS AS ((setweight(to_tsvector('simple'::regconfig, COALESCE(title, ''::text)), 'A'::"char") || setweight(to_tsvector('simple'::regconfig, COALESCE(body_text, ''::text)), 'B'::"char"))) STORED,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT local_search_documents_resource_kind_check CHECK ((resource_kind = ANY (ARRAY['drive_file'::text, 'ocr_run'::text, 'product_extraction'::text, 'gold_table'::text]))),
+    CONSTRAINT local_search_documents_resource_kind_check CHECK ((resource_kind = ANY (ARRAY['drive_file'::text, 'ocr_run'::text, 'product_extraction'::text, 'gold_table'::text, 'schema_column'::text, 'mapping_example'::text]))),
     CONSTRAINT local_search_documents_title_check CHECK ((btrim(title) <> ''::text))
 );
 
@@ -3619,11 +4057,17 @@ CREATE TABLE public.local_search_embeddings (
     model text DEFAULT ''::text NOT NULL,
     dimension integer DEFAULT 0 NOT NULL,
     content_hash text DEFAULT ''::text NOT NULL,
-    embedding double precision[],
     status text DEFAULT 'pending'::text NOT NULL,
     error_summary text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    tenant_id bigint NOT NULL,
+    resource_kind text NOT NULL,
+    resource_id bigint NOT NULL,
+    resource_public_id uuid NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    indexed_at timestamp with time zone,
+    embedding public.vector(1024),
     CONSTRAINT local_search_embeddings_chunk_ordinal_check CHECK ((chunk_ordinal >= 0)),
     CONSTRAINT local_search_embeddings_dimension_check CHECK ((dimension >= 0)),
     CONSTRAINT local_search_embeddings_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
@@ -3671,7 +4115,7 @@ CREATE TABLE public.local_search_index_jobs (
     CONSTRAINT local_search_index_jobs_failed_count_check CHECK ((failed_count >= 0)),
     CONSTRAINT local_search_index_jobs_indexed_count_check CHECK ((indexed_count >= 0)),
     CONSTRAINT local_search_index_jobs_reason_check CHECK ((btrim(reason) <> ''::text)),
-    CONSTRAINT local_search_index_jobs_resource_kind_check CHECK (((resource_kind IS NULL) OR (resource_kind = ANY (ARRAY['drive_file'::text, 'ocr_run'::text, 'product_extraction'::text, 'gold_table'::text])))),
+    CONSTRAINT local_search_index_jobs_resource_kind_check CHECK (((resource_kind IS NULL) OR (resource_kind = ANY (ARRAY['drive_file'::text, 'ocr_run'::text, 'product_extraction'::text, 'gold_table'::text, 'schema_column'::text, 'mapping_example'::text])))),
     CONSTRAINT local_search_index_jobs_skipped_count_check CHECK ((skipped_count >= 0)),
     CONSTRAINT local_search_index_jobs_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
 );
@@ -4115,6 +4559,33 @@ CREATE TABLE public.support_access_sessions (
 
 ALTER TABLE public.support_access_sessions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.support_access_sessions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: tenant_data_access_scopes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenant_data_access_scopes (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: tenant_data_access_scopes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.tenant_data_access_scopes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.tenant_data_access_scopes_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -4696,6 +5167,150 @@ ALTER TABLE ONLY public.customer_signals
 
 
 --
+-- Name: data_pipeline_mapping_examples data_pipeline_mapping_examples_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_mapping_examples
+    ADD CONSTRAINT data_pipeline_mapping_examples_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_pipeline_mapping_examples data_pipeline_mapping_examples_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_mapping_examples
+    ADD CONSTRAINT data_pipeline_mapping_examples_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: data_pipeline_run_outputs data_pipeline_run_outputs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_run_outputs
+    ADD CONSTRAINT data_pipeline_run_outputs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_pipeline_run_outputs data_pipeline_run_outputs_run_node_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_run_outputs
+    ADD CONSTRAINT data_pipeline_run_outputs_run_node_key UNIQUE (run_id, node_id);
+
+
+--
+-- Name: data_pipeline_run_steps data_pipeline_run_steps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_run_steps
+    ADD CONSTRAINT data_pipeline_run_steps_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_pipeline_run_steps data_pipeline_run_steps_run_node_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_run_steps
+    ADD CONSTRAINT data_pipeline_run_steps_run_node_key UNIQUE (run_id, node_id);
+
+
+--
+-- Name: data_pipeline_runs data_pipeline_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_runs
+    ADD CONSTRAINT data_pipeline_runs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_pipeline_runs data_pipeline_runs_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_runs
+    ADD CONSTRAINT data_pipeline_runs_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: data_pipeline_schedules data_pipeline_schedules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schedules
+    ADD CONSTRAINT data_pipeline_schedules_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_pipeline_schedules data_pipeline_schedules_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schedules
+    ADD CONSTRAINT data_pipeline_schedules_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: data_pipeline_schema_columns data_pipeline_schema_columns_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schema_columns
+    ADD CONSTRAINT data_pipeline_schema_columns_key UNIQUE (tenant_id, domain, schema_type, target_column, version);
+
+
+--
+-- Name: data_pipeline_schema_columns data_pipeline_schema_columns_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schema_columns
+    ADD CONSTRAINT data_pipeline_schema_columns_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_pipeline_schema_columns data_pipeline_schema_columns_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schema_columns
+    ADD CONSTRAINT data_pipeline_schema_columns_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: data_pipeline_versions data_pipeline_versions_pipeline_version_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_versions
+    ADD CONSTRAINT data_pipeline_versions_pipeline_version_key UNIQUE (pipeline_id, version_number);
+
+
+--
+-- Name: data_pipeline_versions data_pipeline_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_versions
+    ADD CONSTRAINT data_pipeline_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_pipeline_versions data_pipeline_versions_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_versions
+    ADD CONSTRAINT data_pipeline_versions_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: data_pipelines data_pipelines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipelines
+    ADD CONSTRAINT data_pipelines_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_pipelines data_pipelines_public_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipelines
+    ADD CONSTRAINT data_pipelines_public_id_key UNIQUE (public_id);
+
+
+--
 -- Name: dataset_columns dataset_columns_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4821,6 +5436,30 @@ ALTER TABLE ONLY public.dataset_lineage_parse_runs
 
 ALTER TABLE ONLY public.dataset_lineage_parse_runs
     ADD CONSTRAINT dataset_lineage_parse_runs_public_id_key UNIQUE (public_id);
+
+
+--
+-- Name: dataset_permission_grants dataset_permission_grants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_grants
+    ADD CONSTRAINT dataset_permission_grants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_permission_group_members dataset_permission_group_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_group_members
+    ADD CONSTRAINT dataset_permission_group_members_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dataset_permission_groups dataset_permission_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_groups
+    ADD CONSTRAINT dataset_permission_groups_pkey PRIMARY KEY (id);
 
 
 --
@@ -5832,6 +6471,14 @@ ALTER TABLE ONLY public.support_access_sessions
 
 
 --
+-- Name: tenant_data_access_scopes tenant_data_access_scopes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_data_access_scopes
+    ADD CONSTRAINT tenant_data_access_scopes_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: tenant_data_exports tenant_data_exports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6093,6 +6740,111 @@ CREATE INDEX customer_signals_tenant_status_created_at_idx ON public.customer_si
 
 
 --
+-- Name: data_pipeline_mapping_examples_pipeline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_mapping_examples_pipeline_idx ON public.data_pipeline_mapping_examples USING btree (tenant_id, pipeline_id, decided_at DESC);
+
+
+--
+-- Name: data_pipeline_mapping_examples_schema_column_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_mapping_examples_schema_column_idx ON public.data_pipeline_mapping_examples USING btree (tenant_id, schema_column_id, decision, decided_at DESC);
+
+
+--
+-- Name: data_pipeline_mapping_examples_unique_null_version_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX data_pipeline_mapping_examples_unique_null_version_idx ON public.data_pipeline_mapping_examples USING btree (tenant_id, pipeline_id, source_column, schema_column_id, decision) WHERE (version_id IS NULL);
+
+
+--
+-- Name: data_pipeline_mapping_examples_unique_version_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX data_pipeline_mapping_examples_unique_version_idx ON public.data_pipeline_mapping_examples USING btree (tenant_id, pipeline_id, version_id, source_column, schema_column_id, decision) WHERE (version_id IS NOT NULL);
+
+
+--
+-- Name: data_pipeline_run_outputs_run_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_run_outputs_run_idx ON public.data_pipeline_run_outputs USING btree (run_id, id);
+
+
+--
+-- Name: data_pipeline_run_steps_run_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_run_steps_run_idx ON public.data_pipeline_run_steps USING btree (run_id, id);
+
+
+--
+-- Name: data_pipeline_runs_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_runs_active_idx ON public.data_pipeline_runs USING btree (tenant_id, pipeline_id, created_at DESC, id DESC) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]));
+
+
+--
+-- Name: data_pipeline_runs_pipeline_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_runs_pipeline_created_idx ON public.data_pipeline_runs USING btree (pipeline_id, created_at DESC, id DESC);
+
+
+--
+-- Name: data_pipeline_runs_schedule_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_runs_schedule_active_idx ON public.data_pipeline_runs USING btree (tenant_id, schedule_id) WHERE ((schedule_id IS NOT NULL) AND (status = ANY (ARRAY['pending'::text, 'processing'::text])));
+
+
+--
+-- Name: data_pipeline_schedules_due_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_schedules_due_idx ON public.data_pipeline_schedules USING btree (next_run_at, id) WHERE enabled;
+
+
+--
+-- Name: data_pipeline_schedules_pipeline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_schedules_pipeline_idx ON public.data_pipeline_schedules USING btree (pipeline_id, updated_at DESC, id DESC);
+
+
+--
+-- Name: data_pipeline_schema_columns_lookup_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_schema_columns_lookup_idx ON public.data_pipeline_schema_columns USING btree (tenant_id, domain, schema_type, target_column, version) WHERE (archived_at IS NULL);
+
+
+--
+-- Name: data_pipeline_versions_pipeline_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_versions_pipeline_created_idx ON public.data_pipeline_versions USING btree (pipeline_id, created_at DESC, id DESC);
+
+
+--
+-- Name: data_pipeline_versions_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipeline_versions_tenant_status_idx ON public.data_pipeline_versions USING btree (tenant_id, status, created_at DESC, id DESC);
+
+
+--
+-- Name: data_pipelines_tenant_updated_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX data_pipelines_tenant_updated_idx ON public.data_pipelines USING btree (tenant_id, updated_at DESC, id DESC) WHERE (archived_at IS NULL);
+
+
+--
 -- Name: dataset_columns_dataset_column_name_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6230,6 +6982,62 @@ CREATE INDEX dataset_lineage_nodes_resource_idx ON public.dataset_lineage_nodes 
 --
 
 CREATE INDEX dataset_lineage_parse_runs_query_job_idx ON public.dataset_lineage_parse_runs USING btree (tenant_id, query_job_id, created_at DESC, id DESC);
+
+
+--
+-- Name: dataset_permission_grants_active_group_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_permission_grants_active_group_key ON public.dataset_permission_grants USING btree (tenant_id, resource_type, COALESCE(resource_public_id, '00000000-0000-0000-0000-000000000000'::uuid), subject_group_id, action) WHERE ((revoked_at IS NULL) AND (subject_type = 'group'::text));
+
+
+--
+-- Name: dataset_permission_grants_active_user_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_permission_grants_active_user_key ON public.dataset_permission_grants USING btree (tenant_id, resource_type, COALESCE(resource_public_id, '00000000-0000-0000-0000-000000000000'::uuid), subject_user_id, action) WHERE ((revoked_at IS NULL) AND (subject_type = 'user'::text));
+
+
+--
+-- Name: dataset_permission_grants_resource_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_permission_grants_resource_idx ON public.dataset_permission_grants USING btree (tenant_id, resource_type, resource_public_id, subject_type, created_at DESC) WHERE (revoked_at IS NULL);
+
+
+--
+-- Name: dataset_permission_group_members_active_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_permission_group_members_active_key ON public.dataset_permission_group_members USING btree (group_id, user_id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: dataset_permission_group_members_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_permission_group_members_user_idx ON public.dataset_permission_group_members USING btree (user_id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: dataset_permission_groups_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_permission_groups_public_id_key ON public.dataset_permission_groups USING btree (public_id);
+
+
+--
+-- Name: dataset_permission_groups_tenant_system_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dataset_permission_groups_tenant_system_key ON public.dataset_permission_groups USING btree (tenant_id, system_key) WHERE ((system_key IS NOT NULL) AND (deleted_at IS NULL));
+
+
+--
+-- Name: dataset_permission_groups_tenant_updated_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_permission_groups_tenant_updated_idx ON public.dataset_permission_groups USING btree (tenant_id, updated_at DESC, id DESC) WHERE (deleted_at IS NULL);
 
 
 --
@@ -7374,10 +8182,24 @@ CREATE INDEX local_search_embeddings_document_idx ON public.local_search_embeddi
 
 
 --
+-- Name: local_search_embeddings_hnsw_cosine_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_embeddings_hnsw_cosine_idx ON public.local_search_embeddings USING hnsw (embedding public.vector_cosine_ops) WHERE ((status = 'completed'::text) AND (embedding IS NOT NULL));
+
+
+--
 -- Name: local_search_embeddings_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX local_search_embeddings_status_idx ON public.local_search_embeddings USING btree (status, created_at DESC, id DESC);
+
+
+--
+-- Name: local_search_embeddings_tenant_kind_model_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_embeddings_tenant_kind_model_status_idx ON public.local_search_embeddings USING btree (tenant_id, resource_kind, model, status, indexed_at DESC);
 
 
 --
@@ -7602,6 +8424,20 @@ CREATE INDEX support_access_sessions_support_active_idx ON public.support_access
 --
 
 CREATE INDEX support_access_sessions_tenant_created_idx ON public.support_access_sessions USING btree (tenant_id, created_at DESC);
+
+
+--
+-- Name: tenant_data_access_scopes_public_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX tenant_data_access_scopes_public_id_key ON public.tenant_data_access_scopes USING btree (public_id);
+
+
+--
+-- Name: tenant_data_access_scopes_tenant_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX tenant_data_access_scopes_tenant_key ON public.tenant_data_access_scopes USING btree (tenant_id);
 
 
 --
@@ -7852,6 +8688,262 @@ ALTER TABLE ONLY public.customer_signals
 
 ALTER TABLE ONLY public.customer_signals
     ADD CONSTRAINT customer_signals_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_mapping_examples data_pipeline_mapping_examples_decided_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_mapping_examples
+    ADD CONSTRAINT data_pipeline_mapping_examples_decided_by_user_id_fkey FOREIGN KEY (decided_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_mapping_examples data_pipeline_mapping_examples_pipeline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_mapping_examples
+    ADD CONSTRAINT data_pipeline_mapping_examples_pipeline_id_fkey FOREIGN KEY (pipeline_id) REFERENCES public.data_pipelines(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_mapping_examples data_pipeline_mapping_examples_schema_column_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_mapping_examples
+    ADD CONSTRAINT data_pipeline_mapping_examples_schema_column_id_fkey FOREIGN KEY (schema_column_id) REFERENCES public.data_pipeline_schema_columns(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: data_pipeline_mapping_examples data_pipeline_mapping_examples_shared_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_mapping_examples
+    ADD CONSTRAINT data_pipeline_mapping_examples_shared_by_user_id_fkey FOREIGN KEY (shared_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_mapping_examples data_pipeline_mapping_examples_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_mapping_examples
+    ADD CONSTRAINT data_pipeline_mapping_examples_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_mapping_examples data_pipeline_mapping_examples_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_mapping_examples
+    ADD CONSTRAINT data_pipeline_mapping_examples_version_id_fkey FOREIGN KEY (version_id) REFERENCES public.data_pipeline_versions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_run_outputs data_pipeline_run_outputs_output_work_table_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_run_outputs
+    ADD CONSTRAINT data_pipeline_run_outputs_output_work_table_id_fkey FOREIGN KEY (output_work_table_id) REFERENCES public.dataset_work_tables(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_run_outputs data_pipeline_run_outputs_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_run_outputs
+    ADD CONSTRAINT data_pipeline_run_outputs_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.data_pipeline_runs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_run_outputs data_pipeline_run_outputs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_run_outputs
+    ADD CONSTRAINT data_pipeline_run_outputs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_run_steps data_pipeline_run_steps_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_run_steps
+    ADD CONSTRAINT data_pipeline_run_steps_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.data_pipeline_runs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_run_steps data_pipeline_run_steps_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_run_steps
+    ADD CONSTRAINT data_pipeline_run_steps_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_runs data_pipeline_runs_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_runs
+    ADD CONSTRAINT data_pipeline_runs_outbox_event_id_fkey FOREIGN KEY (outbox_event_id) REFERENCES public.outbox_events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_runs data_pipeline_runs_output_work_table_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_runs
+    ADD CONSTRAINT data_pipeline_runs_output_work_table_id_fkey FOREIGN KEY (output_work_table_id) REFERENCES public.dataset_work_tables(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_runs data_pipeline_runs_pipeline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_runs
+    ADD CONSTRAINT data_pipeline_runs_pipeline_id_fkey FOREIGN KEY (pipeline_id) REFERENCES public.data_pipelines(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_runs data_pipeline_runs_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_runs
+    ADD CONSTRAINT data_pipeline_runs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_runs data_pipeline_runs_schedule_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_runs
+    ADD CONSTRAINT data_pipeline_runs_schedule_id_fkey FOREIGN KEY (schedule_id) REFERENCES public.data_pipeline_schedules(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_runs data_pipeline_runs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_runs
+    ADD CONSTRAINT data_pipeline_runs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_runs data_pipeline_runs_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_runs
+    ADD CONSTRAINT data_pipeline_runs_version_id_fkey FOREIGN KEY (version_id) REFERENCES public.data_pipeline_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: data_pipeline_schedules data_pipeline_schedules_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schedules
+    ADD CONSTRAINT data_pipeline_schedules_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_schedules data_pipeline_schedules_last_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schedules
+    ADD CONSTRAINT data_pipeline_schedules_last_run_id_fkey FOREIGN KEY (last_run_id) REFERENCES public.data_pipeline_runs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_schedules data_pipeline_schedules_pipeline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schedules
+    ADD CONSTRAINT data_pipeline_schedules_pipeline_id_fkey FOREIGN KEY (pipeline_id) REFERENCES public.data_pipelines(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_schedules data_pipeline_schedules_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schedules
+    ADD CONSTRAINT data_pipeline_schedules_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_schedules data_pipeline_schedules_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schedules
+    ADD CONSTRAINT data_pipeline_schedules_version_id_fkey FOREIGN KEY (version_id) REFERENCES public.data_pipeline_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: data_pipeline_schema_columns data_pipeline_schema_columns_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_schema_columns
+    ADD CONSTRAINT data_pipeline_schema_columns_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_versions data_pipeline_versions_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_versions
+    ADD CONSTRAINT data_pipeline_versions_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_versions data_pipeline_versions_pipeline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_versions
+    ADD CONSTRAINT data_pipeline_versions_pipeline_id_fkey FOREIGN KEY (pipeline_id) REFERENCES public.data_pipelines(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipeline_versions data_pipeline_versions_published_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_versions
+    ADD CONSTRAINT data_pipeline_versions_published_by_user_id_fkey FOREIGN KEY (published_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipeline_versions data_pipeline_versions_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipeline_versions
+    ADD CONSTRAINT data_pipeline_versions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipelines data_pipelines_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipelines
+    ADD CONSTRAINT data_pipelines_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipelines data_pipelines_published_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipelines
+    ADD CONSTRAINT data_pipelines_published_version_id_fkey FOREIGN KEY (published_version_id) REFERENCES public.data_pipeline_versions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: data_pipelines data_pipelines_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipelines
+    ADD CONSTRAINT data_pipelines_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: data_pipelines data_pipelines_updated_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_pipelines
+    ADD CONSTRAINT data_pipelines_updated_by_user_id_fkey FOREIGN KEY (updated_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --
@@ -8124,6 +9216,78 @@ ALTER TABLE ONLY public.dataset_lineage_parse_runs
 
 ALTER TABLE ONLY public.dataset_lineage_parse_runs
     ADD CONSTRAINT dataset_lineage_parse_runs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_permission_grants dataset_permission_grants_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_grants
+    ADD CONSTRAINT dataset_permission_grants_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_permission_grants dataset_permission_grants_subject_group_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_grants
+    ADD CONSTRAINT dataset_permission_grants_subject_group_id_fkey FOREIGN KEY (subject_group_id) REFERENCES public.dataset_permission_groups(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_permission_grants dataset_permission_grants_subject_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_grants
+    ADD CONSTRAINT dataset_permission_grants_subject_user_id_fkey FOREIGN KEY (subject_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_permission_grants dataset_permission_grants_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_grants
+    ADD CONSTRAINT dataset_permission_grants_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_permission_group_members dataset_permission_group_members_added_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_group_members
+    ADD CONSTRAINT dataset_permission_group_members_added_by_user_id_fkey FOREIGN KEY (added_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_permission_group_members dataset_permission_group_members_group_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_group_members
+    ADD CONSTRAINT dataset_permission_group_members_group_id_fkey FOREIGN KEY (group_id) REFERENCES public.dataset_permission_groups(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_permission_group_members dataset_permission_group_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_group_members
+    ADD CONSTRAINT dataset_permission_group_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dataset_permission_groups dataset_permission_groups_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_groups
+    ADD CONSTRAINT dataset_permission_groups_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_permission_groups dataset_permission_groups_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_permission_groups
+    ADD CONSTRAINT dataset_permission_groups_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -10047,6 +11211,14 @@ ALTER TABLE ONLY public.local_search_embeddings
 
 
 --
+-- Name: local_search_embeddings local_search_embeddings_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.local_search_embeddings
+    ADD CONSTRAINT local_search_embeddings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: local_search_index_jobs local_search_index_jobs_outbox_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10244,6 +11416,14 @@ ALTER TABLE ONLY public.support_access_sessions
 
 ALTER TABLE ONLY public.support_access_sessions
     ADD CONSTRAINT support_access_sessions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenant_data_access_scopes tenant_data_access_scopes_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_data_access_scopes
+    ADD CONSTRAINT tenant_data_access_scopes_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -10465,214 +11645,3 @@ ALTER TABLE ONLY public.webhook_endpoints
 --
 -- PostgreSQL database dump complete
 --
-CREATE TABLE public.data_pipelines (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    updated_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    name text NOT NULL,
-    description text DEFAULT ''::text NOT NULL,
-    status text DEFAULT 'draft'::text NOT NULL,
-    published_version_id bigint,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    archived_at timestamp with time zone,
-    CONSTRAINT data_pipelines_name_check CHECK ((btrim(name) <> ''::text)),
-    CONSTRAINT data_pipelines_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text])))
-);
-
-CREATE INDEX data_pipelines_tenant_updated_idx ON public.data_pipelines USING btree (tenant_id, updated_at DESC, id DESC) WHERE (archived_at IS NULL);
-
-CREATE TABLE public.data_pipeline_versions (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    pipeline_id bigint NOT NULL REFERENCES public.data_pipelines(id) ON DELETE CASCADE,
-    version_number integer NOT NULL,
-    status text DEFAULT 'draft'::text NOT NULL,
-    graph jsonb NOT NULL,
-    validation_summary jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    published_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    published_at timestamp with time zone,
-    CONSTRAINT data_pipeline_versions_graph_object_check CHECK ((jsonb_typeof(graph) = 'object'::text)),
-    CONSTRAINT data_pipeline_versions_pipeline_version_key UNIQUE (pipeline_id, version_number),
-    CONSTRAINT data_pipeline_versions_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text]))),
-    CONSTRAINT data_pipeline_versions_version_check CHECK ((version_number > 0))
-);
-
-ALTER TABLE ONLY public.data_pipelines
-    ADD CONSTRAINT data_pipelines_published_version_id_fkey FOREIGN KEY (published_version_id) REFERENCES public.data_pipeline_versions(id) ON DELETE SET NULL;
-
-CREATE INDEX data_pipeline_versions_pipeline_created_idx ON public.data_pipeline_versions USING btree (pipeline_id, created_at DESC, id DESC);
-CREATE INDEX data_pipeline_versions_tenant_status_idx ON public.data_pipeline_versions USING btree (tenant_id, status, created_at DESC, id DESC);
-
-CREATE TABLE public.data_pipeline_runs (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    pipeline_id bigint NOT NULL REFERENCES public.data_pipelines(id) ON DELETE CASCADE,
-    version_id bigint NOT NULL REFERENCES public.data_pipeline_versions(id) ON DELETE RESTRICT,
-    schedule_id bigint,
-    requested_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    trigger_kind text DEFAULT 'manual'::text NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    output_work_table_id bigint REFERENCES public.dataset_work_tables(id) ON DELETE SET NULL,
-    outbox_event_id bigint REFERENCES public.outbox_events(id) ON DELETE SET NULL,
-    row_count bigint DEFAULT 0 NOT NULL,
-    error_summary text,
-    started_at timestamp with time zone,
-    completed_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT data_pipeline_runs_row_count_check CHECK ((row_count >= 0)),
-    CONSTRAINT data_pipeline_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text]))),
-    CONSTRAINT data_pipeline_runs_trigger_kind_check CHECK ((trigger_kind = ANY (ARRAY['manual'::text, 'scheduled'::text])))
-);
-
-CREATE INDEX data_pipeline_runs_active_idx ON public.data_pipeline_runs USING btree (tenant_id, pipeline_id, created_at DESC, id DESC) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]));
-CREATE INDEX data_pipeline_runs_pipeline_created_idx ON public.data_pipeline_runs USING btree (pipeline_id, created_at DESC, id DESC);
-CREATE INDEX data_pipeline_runs_schedule_active_idx ON public.data_pipeline_runs USING btree (tenant_id, schedule_id) WHERE ((schedule_id IS NOT NULL) AND (status = ANY (ARRAY['pending'::text, 'processing'::text])));
-
-CREATE TABLE public.data_pipeline_run_outputs (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    run_id bigint NOT NULL REFERENCES public.data_pipeline_runs(id) ON DELETE CASCADE,
-    node_id text NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    output_work_table_id bigint REFERENCES public.dataset_work_tables(id) ON DELETE SET NULL,
-    row_count bigint DEFAULT 0 NOT NULL,
-    error_summary text,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    started_at timestamp with time zone,
-    completed_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT data_pipeline_run_outputs_node_id_check CHECK ((btrim(node_id) <> ''::text)),
-    CONSTRAINT data_pipeline_run_outputs_row_count_check CHECK ((row_count >= 0)),
-    CONSTRAINT data_pipeline_run_outputs_run_node_key UNIQUE (run_id, node_id),
-    CONSTRAINT data_pipeline_run_outputs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
-);
-
-CREATE INDEX data_pipeline_run_outputs_run_idx ON public.data_pipeline_run_outputs USING btree (run_id, id);
-
-CREATE TABLE public.data_pipeline_run_steps (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    run_id bigint NOT NULL REFERENCES public.data_pipeline_runs(id) ON DELETE CASCADE,
-    node_id text NOT NULL,
-    step_type text NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    row_count bigint DEFAULT 0 NOT NULL,
-    error_summary text,
-    error_sample jsonb DEFAULT '[]'::jsonb NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    started_at timestamp with time zone,
-    completed_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT data_pipeline_run_steps_node_id_check CHECK ((btrim(node_id) <> ''::text)),
-    CONSTRAINT data_pipeline_run_steps_row_count_check CHECK ((row_count >= 0)),
-    CONSTRAINT data_pipeline_run_steps_run_node_key UNIQUE (run_id, node_id),
-    CONSTRAINT data_pipeline_run_steps_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
-);
-
-CREATE INDEX data_pipeline_run_steps_run_idx ON public.data_pipeline_run_steps USING btree (run_id, id);
-
-CREATE TABLE public.data_pipeline_schedules (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    pipeline_id bigint NOT NULL REFERENCES public.data_pipelines(id) ON DELETE CASCADE,
-    version_id bigint NOT NULL REFERENCES public.data_pipeline_versions(id) ON DELETE RESTRICT,
-    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    frequency text NOT NULL,
-    timezone text NOT NULL,
-    run_time text NOT NULL,
-    weekday smallint,
-    month_day smallint,
-    enabled boolean DEFAULT true NOT NULL,
-    next_run_at timestamp with time zone NOT NULL,
-    last_run_at timestamp with time zone,
-    last_status text,
-    last_error_summary text,
-    last_run_id bigint REFERENCES public.data_pipeline_runs(id) ON DELETE SET NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT data_pipeline_schedules_frequency_check CHECK ((frequency = ANY (ARRAY['daily'::text, 'weekly'::text, 'monthly'::text]))),
-    CONSTRAINT data_pipeline_schedules_frequency_shape_check CHECK ((((frequency = 'daily'::text) AND (weekday IS NULL) AND (month_day IS NULL)) OR ((frequency = 'weekly'::text) AND (weekday IS NOT NULL) AND (month_day IS NULL)) OR ((frequency = 'monthly'::text) AND (weekday IS NULL) AND (month_day IS NOT NULL)))),
-    CONSTRAINT data_pipeline_schedules_month_day_check CHECK (((month_day IS NULL) OR ((month_day >= 1) AND (month_day <= 28)))),
-    CONSTRAINT data_pipeline_schedules_run_time_check CHECK ((run_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'::text)),
-    CONSTRAINT data_pipeline_schedules_weekday_check CHECK (((weekday IS NULL) OR ((weekday >= 1) AND (weekday <= 7))))
-);
-
-ALTER TABLE ONLY public.data_pipeline_runs
-    ADD CONSTRAINT data_pipeline_runs_schedule_id_fkey FOREIGN KEY (schedule_id) REFERENCES public.data_pipeline_schedules(id) ON DELETE SET NULL;
-
-CREATE INDEX data_pipeline_schedules_due_idx ON public.data_pipeline_schedules USING btree (next_run_at, id) WHERE enabled;
-CREATE INDEX data_pipeline_schedules_pipeline_idx ON public.data_pipeline_schedules USING btree (pipeline_id, updated_at DESC, id DESC);
-
-CREATE TABLE public.tenant_data_access_scopes (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-CREATE UNIQUE INDEX tenant_data_access_scopes_tenant_key ON public.tenant_data_access_scopes USING btree (tenant_id);
-
-CREATE TABLE public.dataset_permission_groups (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id uuid DEFAULT public.uuidv7() NOT NULL UNIQUE,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    name text NOT NULL,
-    description text DEFAULT ''::text NOT NULL,
-    system_key text,
-    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    deleted_at timestamp with time zone,
-    CONSTRAINT dataset_permission_groups_name_check CHECK ((btrim(name) <> ''::text)),
-    CONSTRAINT dataset_permission_groups_system_key_check CHECK (((system_key IS NULL) OR (btrim(system_key) <> ''::text)))
-);
-
-CREATE UNIQUE INDEX dataset_permission_groups_tenant_system_key ON public.dataset_permission_groups USING btree (tenant_id, system_key) WHERE ((system_key IS NOT NULL) AND (deleted_at IS NULL));
-CREATE INDEX dataset_permission_groups_tenant_updated_idx ON public.dataset_permission_groups USING btree (tenant_id, updated_at DESC, id DESC) WHERE (deleted_at IS NULL);
-
-CREATE TABLE public.dataset_permission_group_members (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    group_id bigint NOT NULL REFERENCES public.dataset_permission_groups(id) ON DELETE CASCADE,
-    user_id bigint NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    added_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    deleted_at timestamp with time zone
-);
-
-CREATE UNIQUE INDEX dataset_permission_group_members_active_key ON public.dataset_permission_group_members USING btree (group_id, user_id) WHERE (deleted_at IS NULL);
-CREATE INDEX dataset_permission_group_members_user_idx ON public.dataset_permission_group_members USING btree (user_id) WHERE (deleted_at IS NULL);
-
-CREATE TABLE public.dataset_permission_grants (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id bigint NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    resource_type text NOT NULL,
-    resource_public_id uuid,
-    subject_type text NOT NULL,
-    subject_user_id bigint REFERENCES public.users(id) ON DELETE CASCADE,
-    subject_group_id bigint REFERENCES public.dataset_permission_groups(id) ON DELETE CASCADE,
-    action text NOT NULL,
-    created_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    revoked_at timestamp with time zone,
-    CONSTRAINT dataset_permission_grants_resource_type_check CHECK ((resource_type = ANY (ARRAY['data_scope'::text, 'dataset'::text, 'work_table'::text, 'data_pipeline'::text]))),
-    CONSTRAINT dataset_permission_grants_resource_public_id_check CHECK ((((resource_type = 'data_scope'::text) AND (resource_public_id IS NULL)) OR ((resource_type <> 'data_scope'::text) AND (resource_public_id IS NOT NULL)))),
-    CONSTRAINT dataset_permission_grants_subject_type_check CHECK ((subject_type = ANY (ARRAY['user'::text, 'group'::text]))),
-    CONSTRAINT dataset_permission_grants_subject_check CHECK ((((subject_type = 'user'::text) AND (subject_user_id IS NOT NULL) AND (subject_group_id IS NULL)) OR ((subject_type = 'group'::text) AND (subject_group_id IS NOT NULL) AND (subject_user_id IS NULL)))),
-    CONSTRAINT dataset_permission_grants_action_check CHECK ((btrim(action) <> ''::text))
-);
-
-CREATE UNIQUE INDEX dataset_permission_grants_active_user_key ON public.dataset_permission_grants USING btree (tenant_id, resource_type, COALESCE(resource_public_id, '00000000-0000-0000-0000-000000000000'::uuid), subject_user_id, action) WHERE ((revoked_at IS NULL) AND (subject_type = 'user'::text));
-CREATE UNIQUE INDEX dataset_permission_grants_active_group_key ON public.dataset_permission_grants USING btree (tenant_id, resource_type, COALESCE(resource_public_id, '00000000-0000-0000-0000-000000000000'::uuid), subject_group_id, action) WHERE ((revoked_at IS NULL) AND (subject_type = 'group'::text));
-CREATE INDEX dataset_permission_grants_resource_idx ON public.dataset_permission_grants USING btree (tenant_id, resource_type, resource_public_id, subject_type, created_at DESC) WHERE (revoked_at IS NULL);

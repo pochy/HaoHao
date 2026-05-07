@@ -59,6 +59,12 @@ export function createTenantAdminDetailContext() {
   const driveLocalSearchRuntimeURL = ref('')
   const driveLocalSearchModel = ref('')
   const driveLocalSearchDimension = ref(0)
+  const driveRagEnabled = ref(false)
+  const driveRagGenerationRuntime = ref('none')
+  const driveRagGenerationRuntimeURL = ref('')
+  const driveRagGenerationModel = ref('')
+  const driveRagMaxContextChunks = ref(6)
+  const driveRagMaxContextRunes = ref(6000)
   const driveCollaborationEnabled = ref(false)
   const driveSyncEnabled = ref(false)
   const driveMobileOfflineEnabled = ref(false)
@@ -135,6 +141,10 @@ export function createTenantAdminDetailContext() {
       runtime: driveLocalSearchEmbeddingRuntime.value || 'none',
       vector: driveLocalSearchVectorEnabled.value ? t('tenantAdmin.status.vectorOn') : t('tenantAdmin.status.vectorOff'),
     })],
+    [t('tenantAdmin.policy.rag'), t('tenantAdmin.policy.ragValue', {
+      runtime: driveRagGenerationRuntime.value || 'none',
+      state: driveRagEnabled.value ? t('common.enabled') : t('common.disabled'),
+    })],
     [t('tenantAdmin.policy.syncMobile'), t('tenantAdmin.policy.syncMobileValue', {
       sync: driveSyncEnabled.value ? t('tenantAdmin.status.syncOn') : t('tenantAdmin.status.syncOff'),
       mobile: driveMobileOfflineEnabled.value ? t('tenantAdmin.status.mobileOfflineOn') : t('tenantAdmin.status.mobileOfflineOff'),
@@ -188,6 +198,7 @@ export function createTenantAdminDetailContext() {
   const driveRulesConfigVisible = computed(() => driveStructuredExtractor.value === 'rules')
   const driveOllamaConfigVisible = computed(() => driveStructuredExtractor.value === 'ollama')
   const driveLMStudioConfigVisible = computed(() => driveStructuredExtractor.value === 'lmstudio')
+  const driveRagRuntimeConfigVisible = computed(() => driveRagGenerationRuntime.value === 'ollama' || driveRagGenerationRuntime.value === 'lmstudio')
   const latestDriveLocalSearchJob = computed(() => store.driveLocalSearchJobs[0] ?? null)
   const latestDriveLocalSearchJobLabel = computed(() => {
     const job = latestDriveLocalSearchJob.value
@@ -329,6 +340,12 @@ export function createTenantAdminDetailContext() {
       driveLocalSearchRuntimeURL.value = ''
       driveLocalSearchModel.value = ''
       driveLocalSearchDimension.value = 0
+      driveRagEnabled.value = false
+      driveRagGenerationRuntime.value = 'none'
+      driveRagGenerationRuntimeURL.value = ''
+      driveRagGenerationModel.value = ''
+      driveRagMaxContextChunks.value = 6
+      driveRagMaxContextRunes.value = 6000
       return
     }
     fileQuotaBytes.value = commonStore.settings.fileQuotaBytes
@@ -367,6 +384,15 @@ export function createTenantAdminDetailContext() {
     driveLocalSearchRuntimeURL.value = stringValue(driveLocalSearch.runtimeURL, '')
     driveLocalSearchModel.value = stringValue(driveLocalSearch.model, '')
     driveLocalSearchDimension.value = numberValue(driveLocalSearch.dimension, 0)
+    const driveRag = typeof drive.rag === 'object' && drive.rag !== null
+      ? drive.rag as Record<string, unknown>
+      : {}
+    driveRagEnabled.value = Boolean(driveRag.enabled ?? driveRag.ragEnabled)
+    driveRagGenerationRuntime.value = stringValue(driveRag.generationRuntime, 'none')
+    driveRagGenerationRuntimeURL.value = stringValue(driveRag.generationRuntimeURL, '')
+    driveRagGenerationModel.value = stringValue(driveRag.generationModel, '')
+    driveRagMaxContextChunks.value = numberValue(driveRag.maxContextChunks, 6)
+    driveRagMaxContextRunes.value = numberValue(driveRag.maxContextRunes, 6000)
     driveCollaborationEnabled.value = Boolean(drive.collaborationEnabled)
     driveSyncEnabled.value = Boolean(drive.syncEnabled)
     driveMobileOfflineEnabled.value = Boolean(drive.mobileOfflineEnabled)
@@ -610,6 +636,14 @@ export function createTenantAdminDetailContext() {
               runtimeURL: driveLocalSearchRuntimeURL.value.trim(),
               model: driveLocalSearchModel.value.trim(),
               dimension: driveLocalSearchDimension.value,
+            },
+            rag: {
+              enabled: driveRagEnabled.value,
+              generationRuntime: driveRagGenerationRuntime.value || 'none',
+              generationRuntimeURL: driveRagGenerationRuntimeURL.value.trim(),
+              generationModel: driveRagGenerationModel.value.trim(),
+              maxContextChunks: driveRagMaxContextChunks.value,
+              maxContextRunes: driveRagMaxContextRunes.value,
             },
             collaborationEnabled: driveCollaborationEnabled.value,
             syncEnabled: driveSyncEnabled.value,
@@ -907,7 +941,17 @@ export function createTenantAdminDetailContext() {
     driveHsmEnabled,
     driveLegalDiscoveryEnabled,
     driveLocalSearchEmbeddingRuntime,
+    driveLocalSearchModel,
+    driveLocalSearchRuntimeURL,
     driveLocalSearchVectorEnabled,
+    driveLocalSearchDimension,
+    driveRagEnabled,
+    driveRagGenerationModel,
+    driveRagGenerationRuntime,
+    driveRagGenerationRuntimeURL,
+    driveRagMaxContextChunks,
+    driveRagMaxContextRunes,
+    driveRagRuntimeConfigVisible,
     driveM2MApiEnabled,
     driveMarketplaceEnabled,
     driveMaxFileSizeBytes,

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -187,6 +188,126 @@ type DataPipelinePreview struct {
 	PreviewRows []map[string]any
 }
 
+type DataPipelineSchemaMappingCandidateInput struct {
+	PipelinePublicID string
+	VersionPublicID  string
+	Domain           string
+	SchemaType       string
+	Columns          []DataPipelineSchemaMappingSourceColumn
+	Limit            int32
+}
+
+type DataPipelineSchemaMappingExampleInput struct {
+	PipelinePublicID     string
+	VersionPublicID      string
+	SchemaColumnPublicID string
+	SourceColumn         string
+	SheetName            string
+	SampleValues         []string
+	NeighborColumns      []string
+	Decision             string
+}
+
+type DataPipelineSchemaMappingExample struct {
+	PublicID             string
+	SchemaColumnPublicID string
+	SourceColumn         string
+	TargetColumn         string
+	Decision             string
+	SharedScope          string
+}
+
+type DataPipelineSchemaMappingExampleListInput struct {
+	Query       string
+	SharedScope string
+	Decision    string
+	Limit       int32
+}
+
+type DataPipelineSchemaMappingExampleListItem struct {
+	PublicID                   string
+	PipelinePublicID           string
+	PipelineName               string
+	SchemaColumnPublicID       string
+	Domain                     string
+	SchemaType                 string
+	SourceColumn               string
+	SheetName                  string
+	SampleValues               []string
+	NeighborColumns            []string
+	TargetColumn               string
+	Decision                   string
+	SharedScope                string
+	SearchDocumentMaterialized bool
+	DecidedAt                  time.Time
+	SharedAt                   *time.Time
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
+}
+
+type DataPipelineSchemaMappingSearchRebuildResult struct {
+	Indexed                int
+	SchemaColumnsIndexed   int
+	MappingExamplesIndexed int
+}
+
+type DataPipelineSchemaMappingExampleSharingInput struct {
+	ExamplePublicID string
+	SharedScope     string
+}
+
+type DataPipelineSchemaMappingSourceColumn struct {
+	SourceColumn    string
+	SheetName       string
+	SampleValues    []string
+	NeighborColumns []string
+}
+
+type DataPipelineSchemaMappingCandidateResult struct {
+	Items []DataPipelineSchemaMappingCandidateItem
+}
+
+type DataPipelineSchemaMappingCandidateItem struct {
+	SourceColumn string
+	Candidates   []DataPipelineSchemaMappingCandidate
+}
+
+type DataPipelineSchemaMappingCandidate struct {
+	SchemaColumnID       int64
+	SchemaColumnPublicID string
+	TargetColumn         string
+	Score                float64
+	MatchMethod          string
+	Reason               string
+	Snippet              string
+	AcceptedEvidence     int64
+	RejectedEvidence     int64
+}
+
+type schemaMappingCandidateDraft struct {
+	SchemaColumnID       int64
+	SchemaColumnPublicID string
+	TargetColumn         string
+	KeywordScore         float64
+	VectorScore          float64
+	HasKeyword           bool
+	HasVector            bool
+	Snippet              string
+}
+
+type schemaMappingExampleIndexInput struct {
+	ID              int64
+	PublicID        string
+	TenantID        int64
+	SourceColumn    string
+	SheetName       string
+	SampleValues    []byte
+	NeighborColumns []byte
+	TargetColumn    string
+	Decision        string
+	UpdatedAt       *time.Time
+}
+
 type DataPipelineScheduleRunSummary struct {
 	Claimed  int
 	Created  int
@@ -196,14 +317,15 @@ type DataPipelineScheduleRunSummary struct {
 }
 
 type DataPipelineService struct {
-	pool      *pgxpool.Pool
-	queries   *db.Queries
-	outbox    *OutboxService
-	datasets  *DatasetService
-	driveOCR  *DriveOCRService
-	medallion *MedallionCatalogService
-	authz     *DatasetAuthorizationService
-	audit     AuditRecorder
+	pool        *pgxpool.Pool
+	queries     *db.Queries
+	outbox      *OutboxService
+	datasets    *DatasetService
+	driveOCR    *DriveOCRService
+	medallion   *MedallionCatalogService
+	authz       *DatasetAuthorizationService
+	localSearch *LocalSearchService
+	audit       AuditRecorder
 }
 
 func NewDataPipelineService(pool *pgxpool.Pool, queries *db.Queries, outbox *OutboxService, datasets *DatasetService, medallion *MedallionCatalogService, audit AuditRecorder) *DataPipelineService {
@@ -226,6 +348,12 @@ func (s *DataPipelineService) SetDriveOCRService(driveOCR *DriveOCRService) {
 func (s *DataPipelineService) SetDatasetAuthorizationService(authz *DatasetAuthorizationService) {
 	if s != nil {
 		s.authz = authz
+	}
+}
+
+func (s *DataPipelineService) SetLocalSearchService(localSearch *LocalSearchService) {
+	if s != nil {
+		s.localSearch = localSearch
 	}
 }
 
@@ -303,6 +431,437 @@ func (s *DataPipelineService) List(ctx context.Context, tenantID, actorUserID in
 	}
 }
 
+func (s *DataPipelineService) SchemaMappingCandidates(ctx context.Context, tenantID, actorUserID int64, input DataPipelineSchemaMappingCandidateInput) (DataPipelineSchemaMappingCandidateResult, error) {
+	if s == nil || s.queries == nil {
+		return DataPipelineSchemaMappingCandidateResult{}, fmt.Errorf("data pipeline service is not configured")
+	}
+	limit := input.Limit
+	if limit <= 0 || limit > 10 {
+		limit = 5
+	}
+	var pipelineID pgtype.Int8
+	if strings.TrimSpace(input.PipelinePublicID) != "" {
+		pipeline, err := s.getPipelineRow(ctx, tenantID, input.PipelinePublicID)
+		if err != nil {
+			return DataPipelineSchemaMappingCandidateResult{}, err
+		}
+		if err := s.checkPipelineByID(ctx, tenantID, actorUserID, pipeline.ID, DataActionView); err != nil {
+			return DataPipelineSchemaMappingCandidateResult{}, err
+		}
+		pipelineID = pgtype.Int8{Int64: pipeline.ID, Valid: true}
+	}
+	if strings.TrimSpace(input.VersionPublicID) != "" {
+		version, err := s.getVersionRow(ctx, tenantID, input.VersionPublicID)
+		if err != nil {
+			return DataPipelineSchemaMappingCandidateResult{}, err
+		}
+		if pipelineID.Valid && version.PipelineID != pipelineID.Int64 {
+			return DataPipelineSchemaMappingCandidateResult{}, fmt.Errorf("%w: version does not belong to pipeline", ErrInvalidDataPipelineInput)
+		}
+		if err := s.checkPipelineByID(ctx, tenantID, actorUserID, version.PipelineID, DataActionView); err != nil {
+			return DataPipelineSchemaMappingCandidateResult{}, err
+		}
+		if !pipelineID.Valid {
+			pipelineID = pgtype.Int8{Int64: version.PipelineID, Valid: true}
+		}
+	}
+	if len(input.Columns) == 0 || len(input.Columns) > 100 {
+		return DataPipelineSchemaMappingCandidateResult{}, fmt.Errorf("%w: columns must contain 1 to 100 items", ErrInvalidDataPipelineInput)
+	}
+	domain := nullableText(strings.TrimSpace(input.Domain))
+	schemaType := nullableText(strings.TrimSpace(input.SchemaType))
+	result := DataPipelineSchemaMappingCandidateResult{Items: make([]DataPipelineSchemaMappingCandidateItem, 0, len(input.Columns))}
+	for _, column := range input.Columns {
+		sourceColumn := strings.TrimSpace(column.SourceColumn)
+		if sourceColumn == "" {
+			return DataPipelineSchemaMappingCandidateResult{}, fmt.Errorf("%w: sourceColumn is required", ErrInvalidDataPipelineInput)
+		}
+		queryText := sourceColumn
+		rows, err := s.queries.SearchDataPipelineSchemaMappingCandidates(ctx, db.SearchDataPipelineSchemaMappingCandidatesParams{
+			TenantID:   tenantID,
+			Domain:     domain,
+			SchemaType: schemaType,
+			Query:      queryText,
+			LimitCount: limit,
+		})
+		if err != nil {
+			return DataPipelineSchemaMappingCandidateResult{}, fmt.Errorf("search schema mapping candidates: %w", err)
+		}
+		drafts := map[int64]schemaMappingCandidateDraft{}
+		for _, row := range rows {
+			drafts[row.ID] = schemaMappingCandidateDraft{
+				SchemaColumnID:       row.ID,
+				SchemaColumnPublicID: row.PublicID.String(),
+				TargetColumn:         row.TargetColumn,
+				KeywordScore:         row.KeywordScore,
+				HasKeyword:           true,
+				Snippet:              row.Snippet,
+			}
+		}
+		if s.localSearch != nil {
+			hits, err := s.localSearch.SearchSemantic(ctx, tenantID, LocalSearchResourceSchemaColumn, schemaMappingCandidateSemanticText(column), limit*5)
+			if err == nil {
+				for _, hit := range hits {
+					schemaColumn, ok, err := s.schemaColumnForSemanticHit(ctx, tenantID, hit, domain, schemaType)
+					if err != nil {
+						return DataPipelineSchemaMappingCandidateResult{}, err
+					}
+					if !ok {
+						continue
+					}
+					draft := drafts[schemaColumn.ID]
+					draft.SchemaColumnID = schemaColumn.ID
+					draft.SchemaColumnPublicID = schemaColumn.PublicID.String()
+					draft.TargetColumn = schemaColumn.TargetColumn
+					draft.VectorScore = hit.Score
+					draft.HasVector = true
+					if strings.TrimSpace(draft.Snippet) == "" {
+						draft.Snippet = searchSnippet(hit.SourceText, sourceColumn)
+					}
+					drafts[schemaColumn.ID] = draft
+				}
+			}
+		}
+		ids := make([]int64, 0, len(drafts))
+		for id := range drafts {
+			ids = append(ids, id)
+		}
+		evidence := map[int64]map[string]int64{}
+		if len(ids) > 0 {
+			counts, err := s.queries.CountDataPipelineMappingEvidence(ctx, db.CountDataPipelineMappingEvidenceParams{
+				TenantID:        tenantID,
+				SchemaColumnIds: ids,
+				PipelineID:      pipelineID,
+			})
+			if err != nil {
+				return DataPipelineSchemaMappingCandidateResult{}, fmt.Errorf("count schema mapping evidence: %w", err)
+			}
+			for _, count := range counts {
+				if evidence[count.SchemaColumnID] == nil {
+					evidence[count.SchemaColumnID] = map[string]int64{}
+				}
+				evidence[count.SchemaColumnID][count.Decision] = count.EvidenceCount
+			}
+		}
+		orderedDrafts := make([]schemaMappingCandidateDraft, 0, len(drafts))
+		for _, draft := range drafts {
+			orderedDrafts = append(orderedDrafts, draft)
+		}
+		sort.SliceStable(orderedDrafts, func(i, j int) bool {
+			left := schemaMappingCandidateScore(orderedDrafts[i].KeywordScore, orderedDrafts[i].VectorScore, orderedDrafts[i].HasVector, evidence[orderedDrafts[i].SchemaColumnID]["accepted"], evidence[orderedDrafts[i].SchemaColumnID]["rejected"], sourceColumn, orderedDrafts[i].TargetColumn)
+			right := schemaMappingCandidateScore(orderedDrafts[j].KeywordScore, orderedDrafts[j].VectorScore, orderedDrafts[j].HasVector, evidence[orderedDrafts[j].SchemaColumnID]["accepted"], evidence[orderedDrafts[j].SchemaColumnID]["rejected"], sourceColumn, orderedDrafts[j].TargetColumn)
+			if left == right {
+				return orderedDrafts[i].TargetColumn < orderedDrafts[j].TargetColumn
+			}
+			return left > right
+		})
+		if int32(len(orderedDrafts)) > limit {
+			orderedDrafts = orderedDrafts[:limit]
+		}
+		item := DataPipelineSchemaMappingCandidateItem{SourceColumn: sourceColumn, Candidates: make([]DataPipelineSchemaMappingCandidate, 0, len(orderedDrafts))}
+		for _, draft := range orderedDrafts {
+			accepted := evidence[draft.SchemaColumnID]["accepted"]
+			rejected := evidence[draft.SchemaColumnID]["rejected"]
+			score := schemaMappingCandidateScore(draft.KeywordScore, draft.VectorScore, draft.HasVector, accepted, rejected, sourceColumn, draft.TargetColumn)
+			item.Candidates = append(item.Candidates, DataPipelineSchemaMappingCandidate{
+				SchemaColumnID:       draft.SchemaColumnID,
+				SchemaColumnPublicID: draft.SchemaColumnPublicID,
+				TargetColumn:         draft.TargetColumn,
+				Score:                score,
+				MatchMethod:          schemaMappingMatchMethod(draft.HasKeyword, draft.HasVector),
+				Reason:               schemaMappingCandidateReason(sourceColumn, draft.TargetColumn, draft.HasVector, accepted, rejected),
+				Snippet:              draft.Snippet,
+				AcceptedEvidence:     accepted,
+				RejectedEvidence:     rejected,
+			})
+		}
+		result.Items = append(result.Items, item)
+	}
+	return result, nil
+}
+
+func (s *DataPipelineService) RebuildSchemaMappingSearchDocuments(ctx context.Context, tenantID int64, limit int32) (DataPipelineSchemaMappingSearchRebuildResult, error) {
+	if s == nil || s.queries == nil || s.localSearch == nil {
+		return DataPipelineSchemaMappingSearchRebuildResult{}, fmt.Errorf("data pipeline schema mapping index is not configured")
+	}
+	if limit <= 0 || limit > 1000 {
+		limit = 1000
+	}
+	rows, err := s.queries.ListDataPipelineSchemaColumnsForIndex(ctx, db.ListDataPipelineSchemaColumnsForIndexParams{TenantID: tenantID, LimitCount: limit})
+	if err != nil {
+		return DataPipelineSchemaMappingSearchRebuildResult{}, fmt.Errorf("list schema columns for index: %w", err)
+	}
+	result := DataPipelineSchemaMappingSearchRebuildResult{}
+	for _, row := range rows {
+		body := schemaColumnIndexText(row.TargetColumn, row.Description, row.Aliases, row.Examples, row.Domain, row.SchemaType)
+		if err := s.localSearch.UpsertDocument(ctx, LocalSearchDocumentInput{
+			TenantID:         row.TenantID,
+			ResourceKind:     LocalSearchResourceSchemaColumn,
+			ResourceID:       row.ID,
+			ResourcePublicID: row.PublicID.String(),
+			Title:            row.TargetColumn,
+			BodyText:         body,
+			Snippet:          searchSnippet(body, row.TargetColumn),
+			ContentHash:      localSearchHash(row.PublicID.String(), body),
+			SourceUpdatedAt:  &row.UpdatedAt.Time,
+		}); err != nil {
+			return result, err
+		}
+		result.SchemaColumnsIndexed++
+		result.Indexed++
+	}
+	examples, err := s.queries.ListDataPipelineMappingExamplesForIndex(ctx, db.ListDataPipelineMappingExamplesForIndexParams{TenantID: tenantID, LimitCount: limit})
+	if err != nil {
+		return result, fmt.Errorf("list mapping examples for index: %w", err)
+	}
+	for _, row := range examples {
+		if err := s.indexSchemaMappingExample(ctx, schemaMappingExampleIndexInput{
+			ID:              row.ID,
+			PublicID:        row.PublicID.String(),
+			TenantID:        row.TenantID,
+			SourceColumn:    row.SourceColumn,
+			SheetName:       row.SheetName,
+			SampleValues:    row.SampleValues,
+			NeighborColumns: row.NeighborColumns,
+			TargetColumn:    row.TargetColumn,
+			Decision:        row.Decision,
+			UpdatedAt:       &row.UpdatedAt.Time,
+		}); err != nil {
+			return result, err
+		}
+		result.MappingExamplesIndexed++
+		result.Indexed++
+	}
+	return result, nil
+}
+
+func (s *DataPipelineService) ListSchemaMappingExamplesForAdmin(ctx context.Context, tenantID int64, input DataPipelineSchemaMappingExampleListInput) ([]DataPipelineSchemaMappingExampleListItem, error) {
+	if s == nil || s.queries == nil {
+		return nil, fmt.Errorf("data pipeline service is not configured")
+	}
+	limit := input.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	sharedScope := strings.ToLower(strings.TrimSpace(input.SharedScope))
+	if sharedScope != "" && sharedScope != "private" && sharedScope != "tenant" {
+		return nil, fmt.Errorf("%w: sharedScope must be private or tenant", ErrInvalidDataPipelineInput)
+	}
+	decision := strings.ToLower(strings.TrimSpace(input.Decision))
+	if decision != "" && decision != "accepted" && decision != "rejected" {
+		return nil, fmt.Errorf("%w: decision must be accepted or rejected", ErrInvalidDataPipelineInput)
+	}
+	rows, err := s.queries.ListTenantAdminDataPipelineMappingExamples(ctx, db.ListTenantAdminDataPipelineMappingExamplesParams{
+		TenantID:    tenantID,
+		SharedScope: nullableText(sharedScope),
+		Decision:    nullableText(decision),
+		Query:       nullableText(strings.TrimSpace(input.Query)),
+		LimitCount:  limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list schema mapping examples: %w", err)
+	}
+	items := make([]DataPipelineSchemaMappingExampleListItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, DataPipelineSchemaMappingExampleListItem{
+			PublicID:                   row.PublicID.String(),
+			PipelinePublicID:           row.PipelinePublicID.String(),
+			PipelineName:               row.PipelineName,
+			SchemaColumnPublicID:       row.SchemaColumnPublicID.String(),
+			Domain:                     row.Domain,
+			SchemaType:                 row.SchemaType,
+			SourceColumn:               row.SourceColumn,
+			SheetName:                  row.SheetName,
+			SampleValues:               decodeDataPipelineJSONStringList(row.SampleValues),
+			NeighborColumns:            decodeDataPipelineJSONStringList(row.NeighborColumns),
+			TargetColumn:               row.TargetColumn,
+			Decision:                   row.Decision,
+			SharedScope:                row.SharedScope,
+			SearchDocumentMaterialized: row.SearchDocumentMaterialized,
+			DecidedAt:                  row.DecidedAt.Time,
+			SharedAt:                   optionalPgTime(row.SharedAt),
+			CreatedAt:                  row.CreatedAt.Time,
+			UpdatedAt:                  row.UpdatedAt.Time,
+		})
+	}
+	return items, nil
+}
+
+func (s *DataPipelineService) RecordSchemaMappingExample(ctx context.Context, tenantID, actorUserID int64, input DataPipelineSchemaMappingExampleInput, auditCtx AuditContext) (DataPipelineSchemaMappingExample, error) {
+	if s == nil || s.queries == nil {
+		return DataPipelineSchemaMappingExample{}, fmt.Errorf("data pipeline service is not configured")
+	}
+	pipeline, err := s.getPipelineRow(ctx, tenantID, input.PipelinePublicID)
+	if err != nil {
+		return DataPipelineSchemaMappingExample{}, err
+	}
+	if err := s.checkPipelineByID(ctx, tenantID, actorUserID, pipeline.ID, DataActionUpdate); err != nil {
+		return DataPipelineSchemaMappingExample{}, err
+	}
+	var versionID pgtype.Int8
+	if strings.TrimSpace(input.VersionPublicID) != "" {
+		version, err := s.getVersionRow(ctx, tenantID, input.VersionPublicID)
+		if err != nil {
+			return DataPipelineSchemaMappingExample{}, err
+		}
+		if version.PipelineID != pipeline.ID {
+			return DataPipelineSchemaMappingExample{}, fmt.Errorf("%w: version does not belong to pipeline", ErrInvalidDataPipelineInput)
+		}
+		versionID = pgtype.Int8{Int64: version.ID, Valid: true}
+	}
+	sourceColumn := strings.TrimSpace(input.SourceColumn)
+	if sourceColumn == "" {
+		return DataPipelineSchemaMappingExample{}, fmt.Errorf("%w: sourceColumn is required", ErrInvalidDataPipelineInput)
+	}
+	decision := strings.ToLower(strings.TrimSpace(input.Decision))
+	if decision != "accepted" && decision != "rejected" {
+		return DataPipelineSchemaMappingExample{}, fmt.Errorf("%w: decision must be accepted or rejected", ErrInvalidDataPipelineInput)
+	}
+	parsedSchemaColumnID, err := uuid.Parse(strings.TrimSpace(input.SchemaColumnPublicID))
+	if err != nil {
+		return DataPipelineSchemaMappingExample{}, fmt.Errorf("%w: invalid schemaColumnPublicId", ErrInvalidDataPipelineInput)
+	}
+	schemaColumn, err := s.queries.GetDataPipelineSchemaColumnByPublicIDForTenant(ctx, db.GetDataPipelineSchemaColumnByPublicIDForTenantParams{
+		TenantID: tenantID,
+		PublicID: parsedSchemaColumnID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DataPipelineSchemaMappingExample{}, ErrDataPipelineNotFound
+	}
+	if err != nil {
+		return DataPipelineSchemaMappingExample{}, fmt.Errorf("get schema column for mapping example: %w", err)
+	}
+	sampleValues, err := encodeDataPipelineJSON(trimStringList(input.SampleValues, 20, 160))
+	if err != nil {
+		return DataPipelineSchemaMappingExample{}, err
+	}
+	neighborColumns, err := encodeDataPipelineJSON(trimStringList(input.NeighborColumns, 40, 240))
+	if err != nil {
+		return DataPipelineSchemaMappingExample{}, err
+	}
+	params := db.UpsertDataPipelineMappingExampleWithoutVersionParams{
+		TenantID:        tenantID,
+		PipelineID:      pipeline.ID,
+		SchemaColumnID:  schemaColumn.ID,
+		SourceColumn:    sourceColumn,
+		SheetName:       strings.TrimSpace(input.SheetName),
+		SampleValues:    sampleValues,
+		NeighborColumns: neighborColumns,
+		Decision:        decision,
+		DecidedByUserID: pgtype.Int8{Int64: actorUserID, Valid: actorUserID > 0},
+	}
+	var example db.DataPipelineMappingExample
+	if versionID.Valid {
+		example, err = s.queries.UpsertDataPipelineMappingExample(ctx, db.UpsertDataPipelineMappingExampleParams{
+			TenantID:        params.TenantID,
+			PipelineID:      params.PipelineID,
+			VersionID:       versionID,
+			SchemaColumnID:  params.SchemaColumnID,
+			SourceColumn:    params.SourceColumn,
+			SheetName:       params.SheetName,
+			SampleValues:    params.SampleValues,
+			NeighborColumns: params.NeighborColumns,
+			Decision:        params.Decision,
+			DecidedByUserID: params.DecidedByUserID,
+		})
+	} else {
+		example, err = s.queries.UpsertDataPipelineMappingExampleWithoutVersion(ctx, params)
+	}
+	if err != nil {
+		return DataPipelineSchemaMappingExample{}, fmt.Errorf("upsert schema mapping example: %w", err)
+	}
+	if s.localSearch != nil {
+		if err := s.indexSchemaMappingExample(ctx, schemaMappingExampleIndexInput{
+			ID:              example.ID,
+			PublicID:        example.PublicID.String(),
+			TenantID:        tenantID,
+			SourceColumn:    sourceColumn,
+			SheetName:       params.SheetName,
+			SampleValues:    sampleValues,
+			NeighborColumns: neighborColumns,
+			TargetColumn:    schemaColumn.TargetColumn,
+			Decision:        decision,
+			UpdatedAt:       &example.UpdatedAt.Time,
+		}); err != nil {
+			return DataPipelineSchemaMappingExample{}, err
+		}
+	}
+	out := DataPipelineSchemaMappingExample{
+		PublicID:             example.PublicID.String(),
+		SchemaColumnPublicID: schemaColumn.PublicID.String(),
+		SourceColumn:         sourceColumn,
+		TargetColumn:         schemaColumn.TargetColumn,
+		Decision:             decision,
+		SharedScope:          example.SharedScope,
+	}
+	s.recordAudit(ctx, auditCtx, "data_pipeline.schema_mapping_example.record", "data_pipeline_mapping_example", out.PublicID, nil)
+	return out, nil
+}
+
+func (s *DataPipelineService) UpdateSchemaMappingExampleSharing(ctx context.Context, tenantID, actorUserID int64, input DataPipelineSchemaMappingExampleSharingInput, auditCtx AuditContext) (DataPipelineSchemaMappingExample, error) {
+	if s == nil || s.queries == nil {
+		return DataPipelineSchemaMappingExample{}, fmt.Errorf("data pipeline service is not configured")
+	}
+	parsedExampleID, err := uuid.Parse(strings.TrimSpace(input.ExamplePublicID))
+	if err != nil {
+		return DataPipelineSchemaMappingExample{}, ErrDataPipelineNotFound
+	}
+	sharedScope := strings.ToLower(strings.TrimSpace(input.SharedScope))
+	if sharedScope != "private" && sharedScope != "tenant" {
+		return DataPipelineSchemaMappingExample{}, fmt.Errorf("%w: sharedScope must be private or tenant", ErrInvalidDataPipelineInput)
+	}
+	existing, err := s.queries.GetDataPipelineMappingExampleByPublicIDForTenant(ctx, db.GetDataPipelineMappingExampleByPublicIDForTenantParams{
+		TenantID: tenantID,
+		PublicID: parsedExampleID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DataPipelineSchemaMappingExample{}, ErrDataPipelineNotFound
+	}
+	if err != nil {
+		return DataPipelineSchemaMappingExample{}, fmt.Errorf("get schema mapping example: %w", err)
+	}
+	updated, err := s.queries.UpdateDataPipelineMappingExampleSharing(ctx, db.UpdateDataPipelineMappingExampleSharingParams{
+		TenantID:       tenantID,
+		PublicID:       parsedExampleID,
+		SharedScope:    sharedScope,
+		SharedByUserID: pgtype.Int8{Int64: actorUserID, Valid: actorUserID > 0 && sharedScope == "tenant"},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DataPipelineSchemaMappingExample{}, ErrDataPipelineNotFound
+	}
+	if err != nil {
+		return DataPipelineSchemaMappingExample{}, fmt.Errorf("update schema mapping example sharing: %w", err)
+	}
+	out := DataPipelineSchemaMappingExample{
+		PublicID:             updated.PublicID.String(),
+		SchemaColumnPublicID: existing.SchemaColumnPublicID.String(),
+		SourceColumn:         updated.SourceColumn,
+		TargetColumn:         existing.TargetColumn,
+		Decision:             updated.Decision,
+		SharedScope:          updated.SharedScope,
+	}
+	s.recordAudit(ctx, auditCtx, "data_pipeline.schema_mapping_example.sharing.update", "data_pipeline_mapping_example", out.PublicID, map[string]any{"sharedScope": out.SharedScope})
+	return out, nil
+}
+
+func (s *DataPipelineService) indexSchemaMappingExample(ctx context.Context, input schemaMappingExampleIndexInput) error {
+	if s == nil || s.localSearch == nil {
+		return nil
+	}
+	body := mappingExampleIndexText(input.SourceColumn, input.SheetName, input.SampleValues, input.NeighborColumns, input.TargetColumn, input.Decision)
+	return s.localSearch.UpsertDocument(ctx, LocalSearchDocumentInput{
+		TenantID:         input.TenantID,
+		ResourceKind:     LocalSearchResourceMappingExample,
+		ResourceID:       input.ID,
+		ResourcePublicID: input.PublicID,
+		Title:            input.SourceColumn + " -> " + input.TargetColumn,
+		BodyText:         body,
+		Snippet:          searchSnippet(body, input.SourceColumn),
+		ContentHash:      localSearchHash(input.PublicID, body),
+		SourceUpdatedAt:  input.UpdatedAt,
+	})
+}
+
 func (s *DataPipelineService) Create(ctx context.Context, tenantID, userID int64, input DataPipelineInput, auditCtx AuditContext) (DataPipeline, error) {
 	if s == nil || s.queries == nil {
 		return DataPipeline{}, fmt.Errorf("data pipeline service is not configured")
@@ -332,6 +891,175 @@ func (s *DataPipelineService) Create(ctx context.Context, tenantID, userID int64
 	}
 	s.recordAudit(ctx, auditCtx, "data_pipeline.create", "data_pipeline", item.PublicID, nil)
 	return item, nil
+}
+
+func (s *DataPipelineService) schemaColumnForSemanticHit(ctx context.Context, tenantID int64, hit LocalSearchSemanticHit, domain, schemaType pgtype.Text) (db.DataPipelineSchemaColumn, bool, error) {
+	if hit.ResourceKind != LocalSearchResourceSchemaColumn || hit.ResourceID <= 0 {
+		return db.DataPipelineSchemaColumn{}, false, nil
+	}
+	row, err := s.queries.GetDataPipelineSchemaColumnByIDForTenant(ctx, db.GetDataPipelineSchemaColumnByIDForTenantParams{
+		TenantID: tenantID,
+		ID:       hit.ResourceID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.DataPipelineSchemaColumn{}, false, nil
+	}
+	if err != nil {
+		return db.DataPipelineSchemaColumn{}, false, fmt.Errorf("get semantic schema column: %w", err)
+	}
+	if domain.Valid && row.Domain != domain.String {
+		return db.DataPipelineSchemaColumn{}, false, nil
+	}
+	if schemaType.Valid && row.SchemaType != schemaType.String {
+		return db.DataPipelineSchemaColumn{}, false, nil
+	}
+	return row, true, nil
+}
+
+func schemaMappingCandidateScore(keywordScore, vectorScore float64, hasVector bool, accepted, rejected int64, sourceColumn, targetColumn string) float64 {
+	score := keywordScore
+	if hasVector {
+		score += vectorScore * 0.7
+	}
+	if schemaMappingStrictHint(sourceColumn, targetColumn) {
+		score += 1.0
+	}
+	score += float64(accepted) * 0.08
+	score -= float64(rejected) * 0.12
+	if score < 0 {
+		return 0
+	}
+	return score
+}
+
+func schemaMappingMatchMethod(hasKeyword, hasVector bool) string {
+	if hasKeyword && hasVector {
+		return "hybrid"
+	}
+	if hasVector {
+		return "vector"
+	}
+	return "keyword"
+}
+
+func schemaMappingCandidateReason(sourceColumn, targetColumn string, hasVector bool, accepted, rejected int64) string {
+	if schemaMappingStrictHint(sourceColumn, targetColumn) {
+		return "source column matches a strict schema-mapping hint"
+	}
+	if hasVector && accepted > 0 {
+		return "hybrid match with accepted mapping history"
+	}
+	if hasVector && rejected > 0 {
+		return "semantic match with rejected mapping evidence"
+	}
+	if hasVector {
+		return "semantic match against schema column definition"
+	}
+	if accepted > 0 {
+		return "keyword match with accepted mapping history"
+	}
+	if rejected > 0 {
+		return "keyword match with rejected mapping evidence"
+	}
+	return "keyword match against schema column definition"
+}
+
+func schemaMappingCandidateSemanticText(column DataPipelineSchemaMappingSourceColumn) string {
+	parts := []string{
+		column.SourceColumn,
+		column.SheetName,
+		strings.Join(column.SampleValues, " "),
+		strings.Join(column.NeighborColumns, " "),
+	}
+	text := sanitizeSearchText(strings.Join(parts, " "))
+	if text == "" {
+		return strings.TrimSpace(column.SourceColumn)
+	}
+	return text
+}
+
+func schemaMappingStrictHint(sourceColumn, targetColumn string) bool {
+	source := strings.ToLower(strings.TrimSpace(sourceColumn))
+	target := strings.ToLower(strings.TrimSpace(targetColumn))
+	invoiceHints := []string{"invoice", "請求", "請求no", "請求 no", "伝票"}
+	vendorHints := []string{"vendor", "supplier", "仕入", "取引先", "請求元"}
+	dueDateHints := []string{"due", "期限", "支払", "入金予定", "振込"}
+	return hasAnySchemaMappingHint(source, invoiceHints) && hasAnySchemaMappingHint(target, []string{"invoice", "請求"}) ||
+		hasAnySchemaMappingHint(source, vendorHints) && hasAnySchemaMappingHint(target, []string{"vendor", "supplier", "取引先", "仕入"}) ||
+		hasAnySchemaMappingHint(source, dueDateHints) && hasAnySchemaMappingHint(target, []string{"due", "期限", "支払"})
+}
+
+func hasAnySchemaMappingHint(value string, hints []string) bool {
+	for _, hint := range hints {
+		if strings.Contains(value, hint) {
+			return true
+		}
+	}
+	return false
+}
+
+func schemaColumnIndexText(targetColumn, description string, aliases, examples []byte, domain, schemaType string) string {
+	parts := []string{targetColumn, description, jsonArrayText(aliases), jsonArrayText(examples), domain, schemaType}
+	return sanitizeSearchText(strings.Join(parts, " "))
+}
+
+func mappingExampleIndexText(sourceColumn, sheetName string, sampleValues, neighborColumns []byte, targetColumn, decision string) string {
+	parts := []string{
+		sourceColumn,
+		sheetName,
+		jsonArrayText(sampleValues),
+		jsonArrayText(neighborColumns),
+		targetColumn,
+		decision,
+	}
+	return sanitizeSearchText(strings.Join(parts, " "))
+}
+
+func trimStringList(values []string, maxItems int, maxRunes int) []string {
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		runes := []rune(trimmed)
+		if maxRunes > 0 && len(runes) > maxRunes {
+			trimmed = string(runes[:maxRunes])
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+		if maxItems > 0 && len(out) >= maxItems {
+			break
+		}
+	}
+	return out
+}
+
+func jsonArrayText(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var values []any
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return string(raw)
+	}
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		switch typed := value.(type) {
+		case string:
+			parts = append(parts, typed)
+		default:
+			encoded, err := json.Marshal(typed)
+			if err == nil {
+				parts = append(parts, string(encoded))
+			}
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 func (s *DataPipelineService) Get(ctx context.Context, tenantID int64, publicID string) (DataPipelineDetail, error) {

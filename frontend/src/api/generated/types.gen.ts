@@ -2845,6 +2845,46 @@ export type DriveProductExtractionsOutputBody = {
     items: Array<DriveProductExtractionItemBody> | null;
 };
 
+export type DriveRagAnswerBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    answer: string;
+    blocked: boolean;
+    citations: Array<DriveRagCitationBody> | null;
+    matches: Array<DriveRagCitationBody> | null;
+};
+
+export type DriveRagCitationBody = {
+    citationId: string;
+    /**
+     * 対象 Drive file の public UUID です。
+     */
+    filePublicId: string;
+    filename: string;
+    resourceKind: 'drive_file' | 'ocr_run' | 'product_extraction' | 'gold_table';
+    /**
+     * 対象 resource の public UUID です。
+     */
+    resourcePublicId: string;
+    score?: number;
+    snippet: string;
+};
+
+export type DriveRagQueryBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit?: number;
+    mode?: 'keyword' | 'semantic' | 'hybrid';
+    query: string;
+};
+
 export type DriveRegisterDeviceBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -3312,7 +3352,7 @@ export type LocalSearchIndexJobBody = {
     publicId: string;
     reason: string;
     resourceId?: number;
-    resourceKind?: 'drive_file' | 'ocr_run' | 'product_extraction' | 'gold_table';
+    resourceKind?: 'drive_file' | 'ocr_run' | 'product_extraction' | 'gold_table' | 'schema_column' | 'mapping_example';
     /**
      * 対象 resource の public UUID です。
      */
@@ -3593,6 +3633,84 @@ export type RestoreDriveResourceBody = {
      */
     readonly $schema?: string;
     parentFolderPublicId?: string;
+};
+
+export type SchemaMappingCandidateBody = {
+    acceptedEvidence: number;
+    matchMethod: 'keyword' | 'vector' | 'hybrid' | 'strict';
+    reason: string;
+    rejectedEvidence: number;
+    schemaColumnPublicId: string;
+    score: number;
+    snippet?: string;
+    targetColumn: string;
+};
+
+export type SchemaMappingCandidateColumnBody = {
+    neighborColumns?: Array<string> | null;
+    sampleValues?: Array<string> | null;
+    sheetName?: string;
+    sourceColumn: string;
+};
+
+export type SchemaMappingCandidateItemBody = {
+    candidates: Array<SchemaMappingCandidateBody> | null;
+    sourceColumn: string;
+};
+
+export type SchemaMappingCandidateListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<SchemaMappingCandidateItemBody> | null;
+};
+
+export type SchemaMappingCandidateRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    columns: Array<SchemaMappingCandidateColumnBody> | null;
+    domain?: string;
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit?: number;
+    pipelinePublicId?: string;
+    schemaType?: string;
+    versionPublicId?: string;
+};
+
+export type SchemaMappingExampleBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    decision: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    schemaColumnPublicId: string;
+    sharedScope: string;
+    sourceColumn: string;
+    targetColumn: string;
+};
+
+export type SchemaMappingExampleWriteBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    decision: 'accepted' | 'rejected';
+    neighborColumns?: Array<string> | null;
+    pipelinePublicId: string;
+    sampleValues?: Array<string> | null;
+    schemaColumnPublicId: string;
+    sheetName?: string;
+    sourceColumn: string;
+    versionPublicId?: string;
 };
 
 export type SelectTenantInputBody = {
@@ -4195,6 +4313,73 @@ export type TenantAdminRoleBindingBody = {
      * record の発生元または permission の由来です。
      */
     source: string;
+};
+
+export type TenantAdminSchemaMappingExampleListItemBody = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    decidedAt: string;
+    decision: string;
+    domain: string;
+    neighborColumns: Array<string> | null;
+    pipelineName: string;
+    pipelinePublicId: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    sampleValues: Array<string> | null;
+    schemaColumnPublicId: string;
+    schemaType: string;
+    searchDocumentMaterialized: boolean;
+    sharedAt?: string;
+    sharedScope: string;
+    sheetName?: string;
+    sourceColumn: string;
+    targetColumn: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+};
+
+export type TenantAdminSchemaMappingExampleListOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<TenantAdminSchemaMappingExampleListItemBody> | null;
+};
+
+export type TenantAdminSchemaMappingExampleSharingInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    sharedScope: 'private' | 'tenant';
+};
+
+export type TenantAdminSchemaMappingSearchDocumentsRebuildInputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit?: number;
+};
+
+export type TenantAdminSchemaMappingSearchDocumentsRebuildOutputBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    indexed: number;
+    mappingExamplesIndexed: number;
+    schemaColumnsIndexed: number;
 };
 
 export type TenantAdminTenantBody = {
@@ -6375,6 +6560,22 @@ export type DriveProductExtractionsOutputBodyWritable = {
     items: Array<DriveProductExtractionItemBody> | null;
 };
 
+export type DriveRagAnswerBodyWritable = {
+    answer: string;
+    blocked: boolean;
+    citations: Array<DriveRagCitationBody> | null;
+    matches: Array<DriveRagCitationBody> | null;
+};
+
+export type DriveRagQueryBodyWritable = {
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit?: number;
+    mode?: 'keyword' | 'semantic' | 'hybrid';
+    query: string;
+};
+
 export type DriveRegisterDeviceBodyWritable = {
     deviceName: string;
     platform?: 'desktop' | 'mobile' | 'web';
@@ -6628,7 +6829,7 @@ export type LocalSearchIndexJobBodyWritable = {
     publicId: string;
     reason: string;
     resourceId?: number;
-    resourceKind?: 'drive_file' | 'ocr_run' | 'product_extraction' | 'gold_table';
+    resourceKind?: 'drive_file' | 'ocr_run' | 'product_extraction' | 'gold_table' | 'schema_column' | 'mapping_example';
     /**
      * 対象 resource の public UUID です。
      */
@@ -6773,6 +6974,45 @@ export type PublicDriveShareLinkOutputBodyWritable = {
 
 export type RestoreDriveResourceBodyWritable = {
     parentFolderPublicId?: string;
+};
+
+export type SchemaMappingCandidateListBodyWritable = {
+    items: Array<SchemaMappingCandidateItemBody> | null;
+};
+
+export type SchemaMappingCandidateRequestBodyWritable = {
+    columns: Array<SchemaMappingCandidateColumnBody> | null;
+    domain?: string;
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit?: number;
+    pipelinePublicId?: string;
+    schemaType?: string;
+    versionPublicId?: string;
+};
+
+export type SchemaMappingExampleBodyWritable = {
+    decision: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    schemaColumnPublicId: string;
+    sharedScope: string;
+    sourceColumn: string;
+    targetColumn: string;
+};
+
+export type SchemaMappingExampleWriteBodyWritable = {
+    decision: 'accepted' | 'rejected';
+    neighborColumns?: Array<string> | null;
+    pipelinePublicId: string;
+    sampleValues?: Array<string> | null;
+    schemaColumnPublicId: string;
+    sheetName?: string;
+    sourceColumn: string;
+    versionPublicId?: string;
 };
 
 export type SelectTenantInputBodyWritable = {
@@ -7043,6 +7283,27 @@ export type TenantAdminMembershipRequestBodyWritable = {
      * user または invitee の email address です。
      */
     userEmail: string;
+};
+
+export type TenantAdminSchemaMappingExampleListOutputBodyWritable = {
+    items: Array<TenantAdminSchemaMappingExampleListItemBody> | null;
+};
+
+export type TenantAdminSchemaMappingExampleSharingInputBodyWritable = {
+    sharedScope: 'private' | 'tenant';
+};
+
+export type TenantAdminSchemaMappingSearchDocumentsRebuildInputBodyWritable = {
+    /**
+     * pagination で返す最大件数です。
+     */
+    limit?: number;
+};
+
+export type TenantAdminSchemaMappingSearchDocumentsRebuildOutputBodyWritable = {
+    indexed: number;
+    mappingExamplesIndexed: number;
+    schemaColumnsIndexed: number;
 };
 
 export type TenantAdminTenantBodyWritable = {
@@ -8022,6 +8283,135 @@ export type PutTenantAdminDataAccessResourcePermissionsResponses = {
 };
 
 export type PutTenantAdminDataAccessResourcePermissionsResponse = PutTenantAdminDataAccessResourcePermissionsResponses[keyof PutTenantAdminDataAccessResourcePermissionsResponses];
+
+export type ListTenantAdminSchemaMappingExamplesData = {
+    body?: never;
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+    };
+    query?: {
+        /**
+         * 検索語または filter query です。
+         */
+        q?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `sharedScope` です。
+         */
+        sharedScope?: 'private' | 'tenant';
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `decision` です。
+         */
+        decision?: 'accepted' | 'rejected';
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-pipelines/schema-mapping/examples';
+};
+
+export type ListTenantAdminSchemaMappingExamplesErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListTenantAdminSchemaMappingExamplesError = ListTenantAdminSchemaMappingExamplesErrors[keyof ListTenantAdminSchemaMappingExamplesErrors];
+
+export type ListTenantAdminSchemaMappingExamplesResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantAdminSchemaMappingExampleListOutputBody;
+};
+
+export type ListTenantAdminSchemaMappingExamplesResponse = ListTenantAdminSchemaMappingExamplesResponses[keyof ListTenantAdminSchemaMappingExamplesResponses];
+
+export type UpdateTenantAdminSchemaMappingExampleSharingData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: TenantAdminSchemaMappingExampleSharingInputBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+        /**
+         * path 内の `mappingExamplePublicId` を指定します。
+         */
+        mappingExamplePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-pipelines/schema-mapping/examples/{mappingExamplePublicId}/sharing';
+};
+
+export type UpdateTenantAdminSchemaMappingExampleSharingErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type UpdateTenantAdminSchemaMappingExampleSharingError = UpdateTenantAdminSchemaMappingExampleSharingErrors[keyof UpdateTenantAdminSchemaMappingExampleSharingErrors];
+
+export type UpdateTenantAdminSchemaMappingExampleSharingResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: SchemaMappingExampleBody;
+};
+
+export type UpdateTenantAdminSchemaMappingExampleSharingResponse = UpdateTenantAdminSchemaMappingExampleSharingResponses[keyof UpdateTenantAdminSchemaMappingExampleSharingResponses];
+
+export type RebuildTenantAdminSchemaMappingSearchDocumentsData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: TenantAdminSchemaMappingSearchDocumentsRebuildInputBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * tenant を識別する slug です。例: `acme`。
+         */
+        tenantSlug: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/tenants/{tenantSlug}/data-pipelines/schema-mapping/search-documents/rebuild';
+};
+
+export type RebuildTenantAdminSchemaMappingSearchDocumentsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type RebuildTenantAdminSchemaMappingSearchDocumentsError = RebuildTenantAdminSchemaMappingSearchDocumentsErrors[keyof RebuildTenantAdminSchemaMappingSearchDocumentsErrors];
+
+export type RebuildTenantAdminSchemaMappingSearchDocumentsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: TenantAdminSchemaMappingSearchDocumentsRebuildOutputBody;
+};
+
+export type RebuildTenantAdminSchemaMappingSearchDocumentsResponse = RebuildTenantAdminSchemaMappingSearchDocumentsResponses[keyof RebuildTenantAdminSchemaMappingSearchDocumentsResponses];
 
 export type ListTenantAdminDriveAuditEventsData = {
     body?: never;
@@ -11403,6 +11793,74 @@ export type CreateDataPipelineResponses = {
 };
 
 export type CreateDataPipelineResponse = CreateDataPipelineResponses[keyof CreateDataPipelineResponses];
+
+export type SchemaMappingCandidatesData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: SchemaMappingCandidateRequestBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/data-pipelines/schema-mapping/candidates';
+};
+
+export type SchemaMappingCandidatesErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type SchemaMappingCandidatesError = SchemaMappingCandidatesErrors[keyof SchemaMappingCandidatesErrors];
+
+export type SchemaMappingCandidatesResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: SchemaMappingCandidateListBody;
+};
+
+export type SchemaMappingCandidatesResponse = SchemaMappingCandidatesResponses[keyof SchemaMappingCandidatesResponses];
+
+export type RecordSchemaMappingExampleData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: SchemaMappingExampleWriteBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/data-pipelines/schema-mapping/examples';
+};
+
+export type RecordSchemaMappingExampleErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type RecordSchemaMappingExampleError = RecordSchemaMappingExampleErrors[keyof RecordSchemaMappingExampleErrors];
+
+export type RecordSchemaMappingExampleResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: SchemaMappingExampleBody;
+};
+
+export type RecordSchemaMappingExampleResponse = RecordSchemaMappingExampleResponses[keyof RecordSchemaMappingExampleResponses];
 
 export type GetDataPipelineData = {
     body?: never;
@@ -15799,6 +16257,40 @@ export type RevokeDriveOfficeSessionResponses = {
 
 export type RevokeDriveOfficeSessionResponse = RevokeDriveOfficeSessionResponses[keyof RevokeDriveOfficeSessionResponses];
 
+export type QueryDriveRagData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DriveRagQueryBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/drive/rag/query';
+};
+
+export type QueryDriveRagErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type QueryDriveRagError = QueryDriveRagErrors[keyof QueryDriveRagErrors];
+
+export type QueryDriveRagResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DriveRagAnswerBody;
+};
+
+export type QueryDriveRagResponse = QueryDriveRagResponses[keyof QueryDriveRagResponses];
+
 export type ListDriveRecentData = {
     body?: never;
     path?: never;
@@ -15837,6 +16329,10 @@ export type SearchDriveItemsData = {
          * 検索語または filter query です。
          */
         q?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `mode` です。
+         */
+        mode?: 'keyword' | 'semantic' | 'hybrid';
         /**
          * 結果の絞り込みや pagination に使う query parameter `contentType` です。
          */
@@ -15895,6 +16391,10 @@ export type SearchDriveDocumentsData = {
          * 検索語または filter query です。
          */
         q?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `mode` です。
+         */
+        mode?: 'keyword' | 'semantic' | 'hybrid';
         /**
          * 結果の絞り込みや pagination に使う query parameter `contentType` です。
          */

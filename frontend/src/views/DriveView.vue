@@ -3,8 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
-import type { DriveFileBody, DriveItemBody, DrivePermissionBody, DriveSearchResultBody } from '../api/generated/types.gen'
+import type { DriveFileBody, DriveItemBody, DrivePermissionBody, DriveRagAnswerBody, DriveRagCitationBody, DriveSearchResultBody } from '../api/generated/types.gen'
 import { toApiErrorMessage } from '../api/client'
+import { queryDriveRAG } from '../api/drive'
 import ConfirmActionDialog from '../components/ConfirmActionDialog.vue'
 import DriveCommandBar from '../components/DriveCommandBar.vue'
 import DriveBreadcrumbs from '../components/DriveBreadcrumbs.vue'
@@ -24,6 +25,7 @@ import {
   labelFromDriveItem,
   type DriveModifiedFilter,
   type DriveOwnerFilter,
+  type DriveSearchMode,
   type DriveSortKey,
   type DriveSourceFilter,
   type DriveTypeFilter,
@@ -67,6 +69,10 @@ const storageMode = ref(false)
 const fileDetailMode = ref(false)
 const dropActive = ref(false)
 const dragDepth = ref(0)
+const ragQuery = ref('')
+const ragResult = ref<DriveRagAnswerBody | null>(null)
+const ragLoading = ref(false)
+const ragError = ref('')
 
 const routeFolderPublicId = computed(() => {
   const raw = route.params.folderPublicId
@@ -177,6 +183,8 @@ const currentWorkspaceName = computed(() => driveStore.currentWorkspace?.name ??
 const itemCount = computed(() => visibleItems.value.length)
 const fileCount = computed(() => visibleItems.value.filter((item) => item.file).length)
 const folderCount = computed(() => visibleItems.value.filter((item) => item.folder).length)
+const ragCitations = computed(() => ragResult.value?.citations ?? [])
+const ragMatches = computed(() => ragResult.value?.matches ?? [])
 const driveTitle = computed(() => {
   if (trashMode.value) {
     return t('routes.driveTrash')
@@ -288,6 +296,7 @@ const validOwnerFilters: DriveOwnerFilter[] = ['all', 'me', 'shared_with_me']
 const validModifiedFilters: DriveModifiedFilter[] = ['any', 'today', 'last_7_days', 'last_30_days']
 const validSourceFilters: DriveSourceFilter[] = ['all', 'upload', 'external', 'generated', 'sync']
 const validSortKeys: DriveSortKey[] = ['updated_at', 'name', 'size']
+const validSearchModes: DriveSearchMode[] = ['keyword', 'semantic', 'hybrid']
 
 function routeString(value: unknown) {
   return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : ''
@@ -311,6 +320,9 @@ function applyRouteQueryFilters() {
   const source = routeString(route.query.source)
   driveStore.setSourceFilter(validSourceFilters.includes(source as DriveSourceFilter) ? source as DriveSourceFilter : 'all')
 
+  const mode = routeString(route.query.mode)
+  driveStore.setSearchMode(validSearchModes.includes(mode as DriveSearchMode) ? mode as DriveSearchMode : 'keyword')
+
   const sort = routeString(route.query.sort)
   driveStore.sortKey = validSortKeys.includes(sort as DriveSortKey) ? sort as DriveSortKey : 'updated_at'
 
@@ -325,6 +337,7 @@ function driveFilterQuery() {
     ...(driveStore.ownerFilter !== 'all' ? { owner: driveStore.ownerFilter } : {}),
     ...(driveStore.modifiedFilter !== 'any' ? { modified: driveStore.modifiedFilter } : {}),
     ...(driveStore.sourceFilter !== 'all' ? { source: driveStore.sourceFilter } : {}),
+    ...(driveStore.searchMode !== 'keyword' ? { mode: driveStore.searchMode } : {}),
     ...(driveStore.sortKey !== 'updated_at' ? { sort: driveStore.sortKey } : {}),
     ...(driveStore.sortDirection !== 'desc' ? { direction: driveStore.sortDirection } : {}),
   }
@@ -896,6 +909,9 @@ async function requestProductExtraction(filePublicId: string) {
 
 async function search(query: string) {
   driveStore.setQuery(query)
+  ragQuery.value = query
+  ragResult.value = null
+  ragError.value = ''
   if (!query) {
     searchMode.value = false
     await router.push({ name: 'drive', query: driveFilterQuery() })
@@ -910,8 +926,38 @@ async function search(query: string) {
   await driveStore.search(query)
 }
 
+async function askDriveRag() {
+  const query = ragQuery.value.trim() || driveStore.query.trim()
+  if (!query) {
+    ragError.value = t('drive.rag.emptyQuery')
+    return
+  }
+
+  ragLoading.value = true
+  ragError.value = ''
+  ragResult.value = null
+  try {
+    ragResult.value = await queryDriveRAG({
+      query,
+      mode: driveStore.searchMode === 'keyword' ? 'hybrid' : driveStore.searchMode,
+      limit: 8,
+    })
+  } catch (error) {
+    ragError.value = toApiErrorMessage(error)
+  } finally {
+    ragLoading.value = false
+  }
+}
+
+function citationScoreLabel(item: DriveRagCitationBody) {
+  return typeof item.score === 'number' ? item.score.toFixed(3) : '-'
+}
+
 async function clearDriveFilters() {
   driveStore.clearFilters()
+  ragQuery.value = ''
+  ragResult.value = null
+  ragError.value = ''
   if (searchMode.value) {
     searchMode.value = false
     await router.push('/drive')
@@ -971,6 +1017,14 @@ async function updateSourceFilter(filter: DriveSourceFilter) {
   driveStore.setSourceFilter(filter)
   await replaceDriveQuery()
   await refreshDrive()
+}
+
+async function updateSearchMode(mode: DriveSearchMode) {
+  driveStore.setSearchMode(mode)
+  await replaceDriveQuery()
+  if (searchMode.value && driveStore.query) {
+    await driveStore.search(driveStore.query)
+  }
 }
 
 async function updateSort(key: DriveSortKey) {
@@ -1053,6 +1107,7 @@ async function toggleStar(item: DriveItemBody) {
         :owner-filter="driveStore.ownerFilter"
         :modified-filter="driveStore.modifiedFilter"
         :source-filter="driveStore.sourceFilter"
+        :search-mode="driveStore.searchMode"
         :sort-key="driveStore.sortKey"
         :sort-direction="driveStore.sortDirection"
         :selection-count="selectedArchiveItems.length"
@@ -1063,6 +1118,7 @@ async function toggleStar(item: DriveItemBody) {
         @update-modified-filter="updateModifiedFilter"
         @update-owner-filter="updateOwnerFilter"
         @update-source-filter="updateSourceFilter"
+        @update-search-mode="updateSearchMode"
         @update-sort="updateSort"
         @refresh="refreshDrive"
         @download-archive="downloadArchive()"
@@ -1158,6 +1214,69 @@ async function toggleStar(item: DriveItemBody) {
             <dd>{{ driveStore.storageUsage?.storageDriver || '-' }}</dd>
           </div>
         </dl>
+      </section>
+
+      <section v-if="searchMode" class="data-card drive-rag-panel">
+        <div class="card-header">
+          <div>
+            <span class="status-pill">{{ t('drive.rag.badge') }}</span>
+            <h2>{{ t('drive.rag.title') }}</h2>
+            <p>{{ t('drive.rag.subtitle') }}</p>
+          </div>
+        </div>
+
+        <form class="drive-rag-form" @submit.prevent="askDriveRag">
+          <label class="field drive-rag-query">
+            <span class="field-label">{{ t('drive.rag.question') }}</span>
+            <textarea
+              v-model="ragQuery"
+              class="field-input textarea-input"
+              rows="3"
+              :placeholder="t('drive.rag.placeholder')"
+              :disabled="ragLoading || driveStore.isBusy"
+            />
+          </label>
+          <div class="drive-rag-actions">
+            <button class="primary-button compact-button" type="submit" :disabled="ragLoading || driveStore.isBusy">
+              {{ ragLoading ? t('drive.rag.answering') : t('drive.rag.ask') }}
+            </button>
+            <span class="cell-subtle">{{ t('drive.rag.mode', { mode: driveStore.searchMode === 'keyword' ? t('drive.searchMode.hybrid') : t(`drive.searchMode.${driveStore.searchMode}`) }) }}</span>
+          </div>
+        </form>
+
+        <p v-if="ragError" class="form-error">{{ ragError }}</p>
+        <div v-if="ragResult" class="drive-rag-answer">
+          <div>
+            <span :class="['status-pill', ragResult.blocked ? 'warning' : 'success']">
+              {{ ragResult.blocked ? t('drive.rag.blocked') : t('drive.rag.answered') }}
+            </span>
+            <p class="drive-rag-answer-text">{{ ragResult.answer || t('drive.rag.noAnswer') }}</p>
+          </div>
+
+          <div v-if="ragCitations.length > 0" class="drive-rag-citations">
+            <h3>{{ t('drive.rag.citations') }}</h3>
+            <article v-for="item in ragCitations" :key="item.citationId" class="drive-rag-citation">
+              <div>
+                <strong>{{ item.filename }}</strong>
+                <span class="cell-subtle">{{ item.resourceKind }} / {{ t('drive.rag.score', { score: citationScoreLabel(item) }) }}</span>
+              </div>
+              <p>{{ item.snippet }}</p>
+              <button class="secondary-button compact-button" type="button" @click="navigateFile(item.filePublicId)">
+                {{ t('common.open') }}
+              </button>
+            </article>
+          </div>
+
+          <details v-if="ragMatches.length > ragCitations.length" class="drive-rag-matches">
+            <summary>{{ t('drive.rag.matches', { count: ragMatches.length }) }}</summary>
+            <ul>
+              <li v-for="item in ragMatches" :key="item.citationId">
+                <span>{{ item.filename }}</span>
+                <span class="cell-subtle">{{ t('drive.rag.score', { score: citationScoreLabel(item) }) }}</span>
+              </li>
+            </ul>
+          </details>
+        </div>
       </section>
 
       <EmptyState

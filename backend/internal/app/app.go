@@ -90,6 +90,9 @@ func New(cfg config.Config, logger *slog.Logger, sessionService *service.Session
 	if dataPipelineService != nil && driveOCRService != nil {
 		dataPipelineService.SetDriveOCRService(driveOCRService)
 	}
+	if dataPipelineService != nil && localSearchService != nil {
+		dataPipelineService.SetLocalSearchService(localSearchService)
+	}
 
 	router := gin.New()
 	trustedProxies := cfg.TrustedProxyCIDRs

@@ -47,6 +47,7 @@ import {
   updateDriveFolderItem,
   updateDriveShareItem,
   uploadDriveFileItem,
+  type DriveSearchMode,
   type DriveListFilters,
   type DriveDownloadedFile,
   type DriveResourceRef,
@@ -91,6 +92,7 @@ export type DriveModifiedFilter = 'any' | 'today' | 'last_7_days' | 'last_30_day
 export type DriveSourceFilter = 'all' | 'upload' | 'external' | 'generated' | 'sync'
 export type DriveSortKey = 'updated_at' | 'name' | 'size'
 export type DriveSortDirection = 'asc' | 'desc'
+export type { DriveSearchMode }
 export type DriveUploadQueueItem = {
   id: string
   file: File
@@ -230,6 +232,7 @@ export const useDriveStore = defineStore('drive', {
     ownerFilter: 'all' as DriveOwnerFilter,
     modifiedFilter: 'any' as DriveModifiedFilter,
     sourceFilter: 'all' as DriveSourceFilter,
+    searchMode: 'keyword' as DriveSearchMode,
     sortKey: 'updated_at' as DriveSortKey,
     sortDirection: 'desc' as DriveSortDirection,
   }),
@@ -292,6 +295,10 @@ export const useDriveStore = defineStore('drive', {
       this.sourceFilter = filter
     },
 
+    setSearchMode(mode: DriveSearchMode) {
+      this.searchMode = mode
+    },
+
     setSort(key: DriveSortKey) {
       if (this.sortKey === key) {
         this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc'
@@ -307,6 +314,7 @@ export const useDriveStore = defineStore('drive', {
       this.ownerFilter = 'all'
       this.modifiedFilter = 'any'
       this.sourceFilter = 'all'
+      this.searchMode = 'keyword'
       this.documentSearchResults = []
     },
 
@@ -886,9 +894,9 @@ export const useDriveStore = defineStore('drive', {
       this.status = 'loading'
       this.errorMessage = ''
       try {
-        this.documentSearchResults = await searchDriveDocumentsByKeyword(query, contentType, this.listFilters())
+        this.documentSearchResults = await searchDriveDocumentsByKeyword(query, contentType, this.listFilters(), this.searchMode)
         this.searchResults = this.documentSearchResults.map((result) => driveItemWithDefaults(result.item))
-        if (this.searchResults.length === 0) {
+        if (this.searchResults.length === 0 && this.searchMode === 'keyword') {
           this.searchResults = await searchDriveItemsByKeyword(query, contentType, this.listFilters())
         }
         this.status = this.searchResults.length > 0 ? 'ready' : 'empty'

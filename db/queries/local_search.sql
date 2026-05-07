@@ -52,6 +52,21 @@ DELETE FROM local_search_documents
 WHERE tenant_id = sqlc.arg(tenant_id)
   AND file_object_id = sqlc.arg(file_object_id);
 
+-- name: GetLocalSearchDocumentByIDForTenant :one
+SELECT *
+FROM local_search_documents
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND id = sqlc.arg(id)
+LIMIT 1;
+
+-- name: GetLocalSearchDocumentForResource :one
+SELECT *
+FROM local_search_documents
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND resource_kind = sqlc.arg(resource_kind)
+  AND resource_id = sqlc.arg(resource_id)
+LIMIT 1;
+
 -- name: SearchLocalSearchDriveFileCandidates :many
 WITH candidate_files AS (
     SELECT
@@ -208,6 +223,101 @@ FROM local_search_index_jobs
 WHERE tenant_id = sqlc.arg(tenant_id)
   AND id = sqlc.arg(id)
 LIMIT 1;
+
+-- name: UpsertLocalSearchEmbedding :one
+INSERT INTO local_search_embeddings (
+    tenant_id,
+    resource_kind,
+    resource_id,
+    resource_public_id,
+    document_id,
+    chunk_ordinal,
+    source_text,
+    model,
+    dimension,
+    content_hash,
+    embedding,
+    metadata,
+    indexed_at,
+    status,
+    error_summary
+) VALUES (
+    sqlc.arg(tenant_id),
+    sqlc.arg(resource_kind),
+    sqlc.arg(resource_id),
+    sqlc.arg(resource_public_id),
+    sqlc.arg(document_id),
+    sqlc.arg(chunk_ordinal),
+    sqlc.arg(source_text),
+    sqlc.arg(model),
+    sqlc.arg(dimension),
+    sqlc.arg(content_hash),
+    sqlc.narg(embedding)::vector,
+    COALESCE(sqlc.narg(metadata)::jsonb, '{}'::jsonb),
+    CASE WHEN sqlc.narg(embedding)::text IS NULL THEN NULL ELSE now() END,
+    sqlc.arg(status),
+    sqlc.narg(error_summary)
+)
+ON CONFLICT (document_id, chunk_ordinal, model, content_hash) DO UPDATE
+SET
+    tenant_id = EXCLUDED.tenant_id,
+    resource_kind = EXCLUDED.resource_kind,
+    resource_id = EXCLUDED.resource_id,
+    resource_public_id = EXCLUDED.resource_public_id,
+    source_text = EXCLUDED.source_text,
+    dimension = EXCLUDED.dimension,
+    embedding = EXCLUDED.embedding,
+    metadata = EXCLUDED.metadata,
+    indexed_at = EXCLUDED.indexed_at,
+    status = EXCLUDED.status,
+    error_summary = EXCLUDED.error_summary,
+    updated_at = now()
+RETURNING *;
+
+-- name: DeleteLocalSearchEmbeddingsForDocument :exec
+DELETE FROM local_search_embeddings
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND document_id = sqlc.arg(document_id);
+
+-- name: ListPendingLocalSearchEmbeddings :many
+SELECT d.*
+FROM local_search_documents d
+WHERE d.tenant_id = sqlc.arg(tenant_id)
+  AND (
+      sqlc.narg(resource_kind)::text IS NULL
+      OR d.resource_kind = sqlc.narg(resource_kind)::text
+  )
+  AND NOT EXISTS (
+      SELECT 1
+      FROM local_search_embeddings e
+      WHERE e.document_id = d.id
+        AND e.model = sqlc.arg(model)
+        AND e.content_hash = d.content_hash
+        AND e.status = 'completed'
+  )
+ORDER BY d.indexed_at ASC, d.id ASC
+LIMIT sqlc.arg(limit_count);
+
+-- name: SearchLocalSearchEmbeddingsCosine :many
+SELECT
+    e.document_id,
+    e.resource_kind,
+    e.resource_id,
+    e.resource_public_id::text AS resource_public_id,
+    e.chunk_ordinal,
+    e.source_text,
+    e.model,
+    e.content_hash,
+    (1.0 - (e.embedding <=> sqlc.arg(query_embedding)::vector))::float8 AS score,
+    e.indexed_at
+FROM local_search_embeddings e
+WHERE e.tenant_id = sqlc.arg(tenant_id)
+  AND e.resource_kind = sqlc.arg(resource_kind)
+  AND e.model = sqlc.arg(model)
+  AND e.status = 'completed'
+  AND e.embedding IS NOT NULL
+ORDER BY e.embedding <=> sqlc.arg(query_embedding)::vector
+LIMIT sqlc.arg(limit_count);
 
 -- name: GetDriveProductExtractionItemByIDForTenant :one
 SELECT *

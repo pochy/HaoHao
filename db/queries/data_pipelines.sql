@@ -595,3 +595,290 @@ SET
 WHERE tenant_id = sqlc.arg(tenant_id)
   AND id = sqlc.arg(id)
 RETURNING *;
+
+-- name: UpsertDataPipelineSchemaColumn :one
+INSERT INTO data_pipeline_schema_columns (
+    tenant_id,
+    domain,
+    schema_type,
+    target_column,
+    description,
+    aliases,
+    examples,
+    language,
+    version
+) VALUES (
+    sqlc.arg(tenant_id),
+    sqlc.arg(domain),
+    sqlc.arg(schema_type),
+    sqlc.arg(target_column),
+    sqlc.arg(description),
+    COALESCE(sqlc.narg(aliases)::jsonb, '[]'::jsonb),
+    COALESCE(sqlc.narg(examples)::jsonb, '[]'::jsonb),
+    sqlc.arg(language),
+    sqlc.arg(version)
+)
+ON CONFLICT (tenant_id, domain, schema_type, target_column, version) DO UPDATE
+SET
+    description = EXCLUDED.description,
+    aliases = EXCLUDED.aliases,
+    examples = EXCLUDED.examples,
+    language = EXCLUDED.language,
+    archived_at = NULL,
+    updated_at = now()
+RETURNING *;
+
+-- name: GetDataPipelineSchemaColumnByIDForTenant :one
+SELECT *
+FROM data_pipeline_schema_columns
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND id = sqlc.arg(id)
+  AND archived_at IS NULL
+LIMIT 1;
+
+-- name: GetDataPipelineSchemaColumnByPublicIDForTenant :one
+SELECT *
+FROM data_pipeline_schema_columns
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND public_id = sqlc.arg(public_id)
+  AND archived_at IS NULL
+LIMIT 1;
+
+-- name: ListDataPipelineSchemaColumnsForIndex :many
+SELECT *
+FROM data_pipeline_schema_columns
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND archived_at IS NULL
+ORDER BY id
+LIMIT sqlc.arg(limit_count);
+
+-- name: ListDataPipelineMappingExamplesForIndex :many
+SELECT
+    e.id,
+    e.public_id,
+    e.tenant_id,
+    e.pipeline_id,
+    e.version_id,
+    e.schema_column_id,
+    e.source_column,
+    e.sheet_name,
+    e.sample_values,
+    e.neighbor_columns,
+    e.decision,
+    e.decided_by_user_id,
+    e.decided_at,
+    e.shared_scope,
+    e.shared_by_user_id,
+    e.shared_at,
+    e.created_at,
+    e.updated_at,
+    c.target_column
+FROM data_pipeline_mapping_examples e
+JOIN data_pipeline_schema_columns c
+  ON c.tenant_id = e.tenant_id
+ AND c.id = e.schema_column_id
+ AND c.archived_at IS NULL
+WHERE e.tenant_id = sqlc.arg(tenant_id)
+ORDER BY e.id
+LIMIT sqlc.arg(limit_count);
+
+-- name: ListTenantAdminDataPipelineMappingExamples :many
+SELECT
+    e.public_id,
+    e.source_column,
+    e.sheet_name,
+    e.sample_values,
+    e.neighbor_columns,
+    e.decision,
+    e.shared_scope,
+    e.decided_at,
+    e.shared_at,
+    e.created_at,
+    e.updated_at,
+    p.public_id AS pipeline_public_id,
+    p.name AS pipeline_name,
+    c.public_id AS schema_column_public_id,
+    c.domain,
+    c.schema_type,
+    c.target_column,
+    EXISTS (
+        SELECT 1
+        FROM local_search_documents d
+        WHERE d.tenant_id = e.tenant_id
+          AND d.resource_kind = 'mapping_example'
+          AND d.resource_id = e.id
+    ) AS search_document_materialized
+FROM data_pipeline_mapping_examples e
+JOIN data_pipelines p
+  ON p.tenant_id = e.tenant_id
+ AND p.id = e.pipeline_id
+JOIN data_pipeline_schema_columns c
+  ON c.tenant_id = e.tenant_id
+ AND c.id = e.schema_column_id
+WHERE e.tenant_id = sqlc.arg(tenant_id)
+  AND (
+      sqlc.narg(shared_scope)::text IS NULL
+      OR e.shared_scope = sqlc.narg(shared_scope)::text
+  )
+  AND (
+      sqlc.narg(decision)::text IS NULL
+      OR e.decision = sqlc.narg(decision)::text
+  )
+  AND (
+      sqlc.narg(query)::text IS NULL
+      OR e.source_column ILIKE '%' || sqlc.narg(query)::text || '%'
+      OR c.target_column ILIKE '%' || sqlc.narg(query)::text || '%'
+      OR p.name ILIKE '%' || sqlc.narg(query)::text || '%'
+      OR c.domain ILIKE '%' || sqlc.narg(query)::text || '%'
+      OR c.schema_type ILIKE '%' || sqlc.narg(query)::text || '%'
+  )
+ORDER BY e.updated_at DESC, e.id DESC
+LIMIT sqlc.arg(limit_count);
+
+-- name: SearchDataPipelineSchemaMappingCandidates :many
+SELECT
+    c.id,
+    c.public_id,
+    c.target_column,
+    c.description,
+    c.aliases,
+    c.examples,
+    d.public_id AS document_public_id,
+    d.snippet,
+    ts_rank_cd(d.search_vector, websearch_to_tsquery('simple', sqlc.arg(query)::text))::float8 AS keyword_score
+FROM data_pipeline_schema_columns c
+JOIN local_search_documents d
+  ON d.tenant_id = c.tenant_id
+ AND d.resource_kind = 'schema_column'
+ AND d.resource_id = c.id
+WHERE c.tenant_id = sqlc.arg(tenant_id)
+  AND c.archived_at IS NULL
+  AND (
+      sqlc.narg(domain)::text IS NULL
+      OR c.domain = sqlc.narg(domain)::text
+  )
+  AND (
+      sqlc.narg(schema_type)::text IS NULL
+      OR c.schema_type = sqlc.narg(schema_type)::text
+  )
+  AND (
+      d.search_vector @@ websearch_to_tsquery('simple', sqlc.arg(query)::text)
+      OR d.title ILIKE '%' || sqlc.arg(query)::text || '%'
+      OR d.body_text ILIKE '%' || sqlc.arg(query)::text || '%'
+  )
+ORDER BY keyword_score DESC, c.updated_at DESC, c.id DESC
+LIMIT sqlc.arg(limit_count);
+
+-- name: CountDataPipelineMappingEvidence :many
+SELECT
+    schema_column_id,
+    decision,
+    count(*)::bigint AS evidence_count
+FROM data_pipeline_mapping_examples
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND schema_column_id = ANY(sqlc.arg(schema_column_ids)::bigint[])
+  AND (
+      shared_scope = 'tenant'
+      OR pipeline_id = sqlc.narg(pipeline_id)::bigint
+  )
+GROUP BY schema_column_id, decision;
+
+-- name: GetDataPipelineMappingExampleByPublicIDForTenant :one
+SELECT
+    e.*,
+    c.public_id AS schema_column_public_id,
+    c.target_column
+FROM data_pipeline_mapping_examples e
+JOIN data_pipeline_schema_columns c
+  ON c.tenant_id = e.tenant_id
+ AND c.id = e.schema_column_id
+WHERE e.tenant_id = sqlc.arg(tenant_id)
+  AND e.public_id = sqlc.arg(public_id)
+LIMIT 1;
+
+-- name: UpdateDataPipelineMappingExampleSharing :one
+UPDATE data_pipeline_mapping_examples
+SET
+    shared_scope = sqlc.arg(shared_scope),
+    shared_by_user_id = CASE
+        WHEN sqlc.arg(shared_scope)::text = 'tenant' THEN sqlc.narg(shared_by_user_id)::bigint
+        ELSE NULL
+    END,
+    shared_at = CASE
+        WHEN sqlc.arg(shared_scope)::text = 'tenant' THEN now()
+        ELSE NULL
+    END,
+    updated_at = now()
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND public_id = sqlc.arg(public_id)
+RETURNING *;
+
+-- name: UpsertDataPipelineMappingExample :one
+INSERT INTO data_pipeline_mapping_examples (
+    tenant_id,
+    pipeline_id,
+    version_id,
+    schema_column_id,
+    source_column,
+    sheet_name,
+    sample_values,
+    neighbor_columns,
+    decision,
+    decided_by_user_id
+) VALUES (
+    sqlc.arg(tenant_id),
+    sqlc.arg(pipeline_id),
+    sqlc.narg(version_id),
+    sqlc.arg(schema_column_id),
+    sqlc.arg(source_column),
+    sqlc.arg(sheet_name),
+    COALESCE(sqlc.arg(sample_values)::jsonb, '[]'::jsonb),
+    COALESCE(sqlc.arg(neighbor_columns)::jsonb, '[]'::jsonb),
+    sqlc.arg(decision),
+    sqlc.narg(decided_by_user_id)
+)
+ON CONFLICT (tenant_id, pipeline_id, version_id, source_column, schema_column_id, decision)
+WHERE version_id IS NOT NULL
+DO UPDATE
+SET
+    sheet_name = EXCLUDED.sheet_name,
+    sample_values = EXCLUDED.sample_values,
+    neighbor_columns = EXCLUDED.neighbor_columns,
+    decided_by_user_id = EXCLUDED.decided_by_user_id,
+    decided_at = now(),
+    updated_at = now()
+RETURNING *;
+
+-- name: UpsertDataPipelineMappingExampleWithoutVersion :one
+INSERT INTO data_pipeline_mapping_examples (
+    tenant_id,
+    pipeline_id,
+    schema_column_id,
+    source_column,
+    sheet_name,
+    sample_values,
+    neighbor_columns,
+    decision,
+    decided_by_user_id
+) VALUES (
+    sqlc.arg(tenant_id),
+    sqlc.arg(pipeline_id),
+    sqlc.arg(schema_column_id),
+    sqlc.arg(source_column),
+    sqlc.arg(sheet_name),
+    COALESCE(sqlc.arg(sample_values)::jsonb, '[]'::jsonb),
+    COALESCE(sqlc.arg(neighbor_columns)::jsonb, '[]'::jsonb),
+    sqlc.arg(decision),
+    sqlc.narg(decided_by_user_id)
+)
+ON CONFLICT (tenant_id, pipeline_id, source_column, schema_column_id, decision)
+WHERE version_id IS NULL
+DO UPDATE
+SET
+    sheet_name = EXCLUDED.sheet_name,
+    sample_values = EXCLUDED.sample_values,
+    neighbor_columns = EXCLUDED.neighbor_columns,
+    decided_by_user_id = EXCLUDED.decided_by_user_id,
+    decided_at = now(),
+    updated_at = now()
+RETURNING *;
