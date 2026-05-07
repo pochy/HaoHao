@@ -106,6 +106,9 @@ func (s *DatasetAuthorizationService) CheckScopeAction(ctx context.Context, tena
 	if err != nil {
 		return err
 	}
+	if err := s.EnsureScopeManagerTuples(ctx, tenantID, actorUserID); err != nil {
+		return err
+	}
 	scope, err := s.ensureScope(ctx, tenantID)
 	if err != nil {
 		return err
@@ -182,13 +185,11 @@ func (s *DatasetAuthorizationService) EnsureScopeManagerTuples(ctx context.Conte
 	}); err != nil {
 		return fmt.Errorf("add tenant admins to dataset managers group: %w", err)
 	}
-	member := openFGADataGroupMember(managers.PublicID.String())
-	return s.writeTuples(ctx, []OpenFGATuple{
-		{User: member, Relation: "owner", Object: openFGADataScope(scope.PublicID.String())},
-		{User: member, Relation: "dataset_creator", Object: openFGADataScope(scope.PublicID.String())},
-		{User: member, Relation: "work_table_creator", Object: openFGADataScope(scope.PublicID.String())},
-		{User: member, Relation: "pipeline_creator", Object: openFGADataScope(scope.PublicID.String())},
-	})
+	members, err := s.listGroupMembers(ctx, managers.ID)
+	if err != nil {
+		return err
+	}
+	return s.writeTuples(ctx, dataScopeManagerTuples(scope.PublicID.String(), managers.PublicID.String(), members))
 }
 
 func (s *DatasetAuthorizationService) RepairTenantTuples(ctx context.Context, tenantID, actorUserID int64) error {
@@ -639,6 +640,24 @@ func openFGADataGroup(publicID string) string {
 
 func openFGADataGroupMember(publicID string) string {
 	return openFGADataGroup(publicID) + "#member"
+}
+
+func dataScopeManagerTuples(scopePublicID, groupPublicID string, members []DatasetPermissionGroupMember) []OpenFGATuple {
+	groupMember := openFGADataGroupMember(groupPublicID)
+	scope := openFGADataScope(scopePublicID)
+	tuples := []OpenFGATuple{
+		{User: groupMember, Relation: "owner", Object: scope},
+		{User: groupMember, Relation: "dataset_creator", Object: scope},
+		{User: groupMember, Relation: "work_table_creator", Object: scope},
+		{User: groupMember, Relation: "pipeline_creator", Object: scope},
+	}
+	for _, member := range members {
+		if strings.TrimSpace(member.PublicID) == "" {
+			continue
+		}
+		tuples = append(tuples, OpenFGATuple{User: openFGAUser(member.PublicID), Relation: "member", Object: openFGADataGroup(groupPublicID)})
+	}
+	return tuples
 }
 
 func validateDataResourceTarget(resourceType, resourcePublicID string) error {

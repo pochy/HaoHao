@@ -1,8 +1,10 @@
 .DS_Store
 .env
+.compose.auth.env
 .air/
 .local/
 .data/
+.dev/
 .cache/
 .venv-paddleocr/
 

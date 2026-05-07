@@ -30,15 +30,138 @@ OpenAPI 3.1 優先 + Monorepo + 単一バイナリ配信を基本方針とした
 
 ## クイックスタート
 
-- 必要環境: Go 1.26.0 / Node.js 22 / Docker / GNU Make / sqlc / golang-migrate / Air
-- 初回のみ Air をインストール: `go install github.com/air-verse/air@latest`
-- 依存サービスを起動: `make up`
-- マイグレーションを適用: `make db-up`
-- 生成物を更新（sqlc + OpenAPI + frontend SDK）: `make gen`
-- バックエンドをホットリロード起動: `make backend-dev`
-- フロントエンドを起動: `make frontend-dev`
+必要環境は Go 1.26.0 / Node.js 22 / Docker / GNU Make / jq です。通常は次の 1 コマンドで、ローカル開発に必要な構成をまとめて準備できます。
 
-詳細な手順は [TUTORIAL.md](TUTORIAL.md) を参照してください。
+```bash
+scripts/setup-dev-env.sh
+```
+
+このスクリプトは、このセッションで実施した開発環境構築の流れを自動化したものです。`.env` 作成、`air` / `migrate` / `sqlc` / `fga` の確認とインストール、`npm ci`、Docker services 起動、DB migration、demo user seed、生成物更新、OpenFGA bootstrap、SeaweedFS bucket 作成、Zitadel 起動、backend/frontend 起動、疎通確認、ログイン情報表示まで実行します。
+
+オプション:
+
+```bash
+scripts/setup-dev-env.sh --skip-app    # backend/frontend は起動しない
+scripts/setup-dev-env.sh --no-install  # 依存ツールと npm install をスキップ
+```
+
+構築後に表示される主な接続先:
+
+- Frontend: `http://127.0.0.1:5173/`
+- Backend: `http://127.0.0.1:8080`
+- Readiness: `http://127.0.0.1:8080/readyz`
+- OpenFGA: `http://127.0.0.1:8088`
+- SeaweedFS Master UI: `http://127.0.0.1:9333`
+- SeaweedFS Filer UI: `http://127.0.0.1:8888`
+- SeaweedFS S3 endpoint: `http://127.0.0.1:8333`
+- Zitadel Console: `http://localhost:8081/ui/console?login_hint=zitadel-admin@zitadel.localhost`
+
+開発用ログイン情報:
+
+```text
+HaoHao local login
+email:    demo@example.com
+password: changeme123
+
+Zitadel admin
+login:    zitadel-admin@zitadel.localhost
+password: Password1!
+```
+
+`scripts/setup-dev-env.sh` は OpenFGA の `OPENFGA_STORE_ID` / `OPENFGA_AUTHORIZATION_MODEL_ID` を発行して `.env` に反映します。SeaweedFS は `haohao-drive-dev` bucket を作成し、`.env` を `FILE_STORAGE_DRIVER=seaweedfs_s3` に切り替えます。HaoHao は初期状態では `AUTH_MODE=local` のままです。Zitadel 認証へ切り替える場合は、Zitadel Console で HaoHao 用 Project / OIDC application を作成し、`.env` に `AUTH_MODE=zitadel`, `ZITADEL_ISSUER`, `ZITADEL_CLIENT_ID`, `ZITADEL_CLIENT_SECRET` を設定してください。
+
+手動で同じ流れを実行する場合も、次の手順を残しています。
+
+1. `.env` と開発ツールを準備します。
+
+```bash
+cp .env.example .env
+
+go install github.com/air-verse/air@latest
+go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.0
+export PATH=$PATH:$(go env GOPATH)/bin
+brew install openfga/tap/fga
+```
+
+2. フロントエンド依存をインストールします。
+
+```bash
+cd frontend
+npm ci
+cd ..
+```
+
+3. PostgreSQL / Redis / ClickHouse / OpenFGA を起動し、DB を準備します。
+
+```bash
+make up
+make db-up
+make seed-demo-user
+```
+
+4. 生成物を更新します。
+
+```bash
+make gen
+```
+
+5. OpenFGA の Drive authorization model を投入し、出力された ID を `.env` に反映します。
+
+```bash
+make openfga-bootstrap
+```
+
+```dotenv
+OPENFGA_ENABLED=true
+OPENFGA_API_URL=http://127.0.0.1:8088
+OPENFGA_STORE_ID=<make openfga-bootstrap の OPENFGA_STORE_ID>
+OPENFGA_AUTHORIZATION_MODEL_ID=<make openfga-bootstrap の OPENFGA_AUTHORIZATION_MODEL_ID>
+OPENFGA_API_TOKEN=
+OPENFGA_TIMEOUT=2s
+OPENFGA_FAIL_CLOSED=true
+```
+
+6. SeaweedFS を起動し、Drive 用 bucket を作成します。
+
+```bash
+make seaweedfs-up
+docker exec haohao-seaweedfs sh -lc \
+  'printf "s3.bucket.create -name haohao-drive-dev\ns3.bucket.list\n" | weed shell -master=localhost:9333 -filer=localhost:8888'
+```
+
+SeaweedFS を Drive file body storage として使う場合は `.env` を次の設定にします。
+
+```dotenv
+FILE_STORAGE_DRIVER=seaweedfs_s3
+FILE_S3_ENDPOINT=http://127.0.0.1:8333
+FILE_S3_REGION=us-east-1
+FILE_S3_BUCKET=haohao-drive-dev
+FILE_S3_ACCESS_KEY_ID=haohao
+FILE_S3_SECRET_ACCESS_KEY=haohao-secret
+FILE_S3_FORCE_PATH_STYLE=true
+```
+
+7. Zitadel を起動します。
+
+```bash
+make zitadel-up
+```
+
+`dev/zitadel/.env` に次を設定してから再度 `make zitadel-up` すると、ローカル backend callback と redirect 設定が揃います。
+
+```dotenv
+ZITADEL_DEFAULT_REDIRECT_URI=http://127.0.0.1:8080/api/v1/auth/callback
+```
+
+8. backend / frontend を起動します。
+
+```bash
+make backend-dev
+make frontend-dev
+```
+
+`make db-up` や `make backend-dev` で `migrate` / `air` が見つからない場合は、`export PATH=$PATH:$(go env GOPATH)/bin` を実行してから再実行してください。詳細な手順は [TUTORIAL.md](TUTORIAL.md) を参照してください。
 
 ## バックエンド開発サーバー
 
