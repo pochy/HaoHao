@@ -55,13 +55,21 @@ INSERT INTO dataset_permission_group_members (
 )
 SELECT
     $1,
-    tm.user_id,
+    admins.user_id,
     $2
-FROM tenant_memberships tm
-JOIN roles r ON r.id = tm.role_id
-WHERE tm.tenant_id = $3
-  AND tm.active = true
-  AND r.code = 'tenant_admin'
+FROM (
+    SELECT tm.user_id
+    FROM tenant_memberships tm
+    JOIN roles r ON r.id = tm.role_id
+    WHERE tm.tenant_id = $3
+      AND tm.active = true
+      AND r.code = 'tenant_admin'
+    UNION
+    SELECT ur.user_id
+    FROM user_roles ur
+    JOIN roles r ON r.id = ur.role_id
+    WHERE r.code = 'tenant_admin'
+) admins
 ON CONFLICT (group_id, user_id) WHERE deleted_at IS NULL DO UPDATE
 SET deleted_at = NULL
 `
