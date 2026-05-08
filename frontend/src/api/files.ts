@@ -1,6 +1,7 @@
 import { readCookie } from './client'
 import { deleteFile, listFiles } from './generated/sdk.gen'
 import type { FileObjectBody } from './generated/types.gen'
+import { randomID } from '../utils/id'
 
 function csrfHeaders() {
   return {
@@ -24,7 +25,7 @@ export async function uploadFile(form: FormData): Promise<FileObjectBody> {
     credentials: 'include',
     headers: {
       'X-CSRF-Token': readCookie('XSRF-TOKEN') ?? '',
-      'Idempotency-Key': crypto.randomUUID(),
+      'Idempotency-Key': randomID(),
     },
     body: form,
   })

@@ -13,6 +13,7 @@ import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
 import type { DatasetLineageBody, DatasetLineageEdgeBody, DatasetLineageGraphSaveBodyWritable, DatasetLineageNodeBody } from '../api/generated/types.gen'
+import { randomID } from '../utils/id'
 
 const props = withDefaults(defineProps<{
   lineage: DatasetLineageBody | null
@@ -295,10 +296,6 @@ function edgeWriteBody(edge: FlowEdge) {
     description: String(edge.data?.description ?? ''),
     expression: String(edge.data?.expression ?? ''),
   }
-}
-
-function randomID() {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 function resourceLabel(resourceType?: string) {

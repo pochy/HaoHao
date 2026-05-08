@@ -44,7 +44,7 @@ async function copyMarkdownDocs(sourceDir: string, targetDir: string) {
 export default defineConfig({
   plugins: [vue(), copyMarkdownDocsPlugin()],
   server: {
-    host: '127.0.0.1',
+    host: '0.0.0.0',
     port: 5173,
     strictPort: true,
     proxy: {

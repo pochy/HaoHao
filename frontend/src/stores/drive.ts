@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { randomID } from '../utils/id'
 
 import {
   addDriveGroupMemberItem,
@@ -561,7 +562,7 @@ export const useDriveStore = defineStore('drive', {
       this.actionStatus = 'working'
       this.errorMessage = ''
       const queueItems: DriveUploadQueueItem[] = queue.map((file) => ({
-        id: crypto.randomUUID(),
+        id: randomID(),
         file,
         status: 'queued',
         progress: 0,

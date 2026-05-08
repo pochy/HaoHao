@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
+
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,6 +14,7 @@ BACKEND_STARTED=0
 BACKEND_REUSED=0
 FRONTEND_STARTED=0
 FRONTEND_REUSED=0
+SQLC_VERSION="1.31.0"
 
 usage() {
   cat <<'EOF'
@@ -83,6 +88,44 @@ export_go_bin_path() {
     *":$bin:"*) ;;
     *) export PATH="$PATH:$bin" ;;
   esac
+}
+
+install_sqlc() {
+  local version="$1"
+  local os
+  local arch
+  local archive
+  local url
+  local tmp_dir
+  local bin
+
+  os="$(go env GOOS)"
+  arch="$(go env GOARCH)"
+  case "$os" in
+    darwin|linux|windows) ;;
+    *) fail "sqlc ${version} の自動インストールは未対応 OS です: ${os}" ;;
+  esac
+  case "$arch" in
+    amd64|arm64) ;;
+    *) fail "sqlc ${version} の自動インストールは未対応 architecture です: ${arch}" ;;
+  esac
+
+  archive="sqlc_${version}_${os}_${arch}.tar.gz"
+  url="https://github.com/sqlc-dev/sqlc/releases/download/v${version}/${archive}"
+  tmp_dir="$(mktemp -d)"
+  bin="$(go_bin_dir)"
+  mkdir -p "$bin"
+
+  info "sqlc ${version} を公式リリースからインストールします"
+  curl -fsSL "$url" -o "$tmp_dir/$archive"
+  tar -xzf "$tmp_dir/$archive" -C "$tmp_dir"
+  install -m 0755 "$tmp_dir/sqlc" "$bin/sqlc"
+  rm -rf "$tmp_dir"
+}
+
+sqlc_version_matches() {
+  local version="$1"
+  command -v sqlc >/dev/null 2>&1 && sqlc version 2>/dev/null | grep -q "v${version}"
 }
 
 set_env_value() {
@@ -183,8 +226,8 @@ if [[ "$INSTALL_TOOLS" == "1" ]]; then
   if ! command -v migrate >/dev/null 2>&1; then
     go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
   fi
-  if ! command -v sqlc >/dev/null 2>&1; then
-    go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.0
+  if ! sqlc_version_matches "$SQLC_VERSION"; then
+    install_sqlc "$SQLC_VERSION"
   fi
   export_go_bin_path
 

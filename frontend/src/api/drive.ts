@@ -103,6 +103,7 @@ import type {
   UpdateDriveShareLinkBodyWritable,
 } from './generated/types.gen'
 import { apiErrorFromResponse, readCookie } from './client'
+import { randomID } from '../utils/id'
 
 export type DriveResourceType = 'file' | 'folder'
 
@@ -208,7 +209,7 @@ async function driveFetch(input: RequestInfo | URL, init: RequestInit = {}) {
       headers.set('X-CSRF-Token', token)
     }
     if (method === 'POST' && !headers.get('Idempotency-Key')) {
-      headers.set('Idempotency-Key', crypto.randomUUID())
+      headers.set('Idempotency-Key', randomID())
     }
   }
 

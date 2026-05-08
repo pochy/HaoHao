@@ -1,4 +1,5 @@
 import { apiErrorFromResponse, readCookie } from './client'
+import { randomID } from '../utils/id'
 
 export type DataPipelineStepType =
   | 'input'
@@ -468,7 +469,7 @@ export async function createDataPipeline(body: { name: string, description?: str
     method: 'POST',
     headers: {
       ...csrfHeaders(),
-      'Idempotency-Key': crypto.randomUUID(),
+      'Idempotency-Key': randomID(),
     },
     body: JSON.stringify(body),
   })
@@ -522,7 +523,7 @@ export async function createDataPipelineRun(versionPublicId: string): Promise<Da
     method: 'POST',
     headers: {
       ...csrfHeaders(),
-      'Idempotency-Key': crypto.randomUUID(),
+      'Idempotency-Key': randomID(),
     },
   })
 }

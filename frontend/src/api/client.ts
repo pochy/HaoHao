@@ -1,5 +1,6 @@
 import type { ErrorModel } from './generated/types.gen'
 import { client } from './generated/client.gen'
+import { randomID } from '../utils/id'
 
 type ProblemLike = Partial<Pick<ErrorModel, 'detail' | 'instance' | 'status' | 'title' | 'type'>> & {
   message?: string
@@ -192,7 +193,7 @@ client.setConfig({
       }
     }
     if (method === 'POST' && !headers.get('Idempotency-Key')) {
-      headers.set('Idempotency-Key', crypto.randomUUID())
+      headers.set('Idempotency-Key', randomID())
     }
 
     return fetch(input, {
