@@ -55,6 +55,32 @@ type driveRAGClaim struct {
 	CitationIDs []string `json:"citationIds"`
 }
 
+func (c *driveRAGClaim) UnmarshalJSON(data []byte) error {
+	type rawClaim struct {
+		Text             string   `json:"text"`
+		CitationIDs      []string `json:"citationIds"`
+		CitationIDsSnake []string `json:"citation_ids"`
+		Citations        []string `json:"citations"`
+		Sources          []string `json:"sources"`
+	}
+	var raw rawClaim
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	c.Text = raw.Text
+	c.CitationIDs = raw.CitationIDs
+	if len(c.CitationIDs) == 0 {
+		c.CitationIDs = raw.CitationIDsSnake
+	}
+	if len(c.CitationIDs) == 0 {
+		c.CitationIDs = raw.Citations
+	}
+	if len(c.CitationIDs) == 0 {
+		c.CitationIDs = raw.Sources
+	}
+	return nil
+}
+
 func (s *DriveService) QueryRAG(ctx context.Context, input DriveRAGQueryInput, auditCtx AuditContext) (DriveRAGResult, error) {
 	if err := s.ensureConfigured(false); err != nil {
 		return DriveRAGResult{}, err
@@ -125,7 +151,10 @@ func (s *DriveService) QueryRAG(ctx context.Context, input DriveRAGQueryInput, a
 	}
 	answer, citations := validateDriveRAGGenerated(generated.Text, contexts)
 	if strings.TrimSpace(answer) == "" || len(citations) == 0 {
-		return DriveRAGResult{Blocked: true, Matches: matches}, nil
+		answer, citations = fallbackDriveRAGAnswer(contexts)
+		if strings.TrimSpace(answer) == "" || len(citations) == 0 {
+			return DriveRAGResult{Blocked: true, Matches: matches}, nil
+		}
 	}
 	return DriveRAGResult{
 		Answer:    truncateRunes(answer, driveRAGMaxGenerationText),
@@ -188,9 +217,6 @@ func driveRAGContexts(results []DriveSearchResult, policy DriveRAGPolicy) []driv
 }
 
 func rankDriveRAGResults(query string, results []DriveSearchResult) []DriveSearchResult {
-	if len(results) < 2 {
-		return results
-	}
 	terms := driveRAGQueryTerms(query)
 	if len(terms) == 0 {
 		return results
@@ -210,7 +236,7 @@ func rankDriveRAGResults(query string, results []DriveSearchResult) []DriveSearc
 		ranked = append(ranked, rankedResult{result: result, score: score, index: i})
 	}
 	if !hasPositiveScore {
-		return results
+		return nil
 	}
 	sort.SliceStable(ranked, func(i, j int) bool {
 		if ranked[i].score == ranked[j].score {
@@ -220,6 +246,9 @@ func rankDriveRAGResults(query string, results []DriveSearchResult) []DriveSearc
 	})
 	out := make([]DriveSearchResult, 0, len(ranked))
 	for _, item := range ranked {
+		if item.score <= 0 {
+			continue
+		}
 		out = append(out, item.result)
 	}
 	return out
@@ -368,7 +397,7 @@ func hasLetterAndDigit(text string) bool {
 
 func validateDriveRAGGenerated(payload string, contexts []driveRAGContext) (string, []DriveRAGCitation) {
 	var generated driveRAGGenerated
-	if err := json.Unmarshal([]byte(strings.TrimSpace(payload)), &generated); err != nil {
+	if err := json.Unmarshal([]byte(extractDriveRAGJSONPayload(payload)), &generated); err != nil {
 		return "", nil
 	}
 	allowed := map[string]DriveRAGCitation{}
@@ -409,8 +438,50 @@ func validateDriveRAGGenerated(payload string, contexts []driveRAGContext) (stri
 	return answer, citations
 }
 
+func fallbackDriveRAGAnswer(contexts []driveRAGContext) (string, []DriveRAGCitation) {
+	if len(contexts) == 0 {
+		return "", nil
+	}
+	lines := make([]string, 0, min(len(contexts), 3))
+	citations := make([]DriveRAGCitation, 0, min(len(contexts), 3))
+	for i, item := range contexts {
+		if i >= 3 {
+			break
+		}
+		text := strings.TrimSpace(item.Text)
+		if text == "" {
+			continue
+		}
+		filename := strings.TrimSpace(item.Citation.Filename)
+		if filename == "" {
+			filename = "Drive document"
+		}
+		lines = append(lines, fmt.Sprintf("%s: %s", filename, truncateRunes(text, 260)))
+		citations = append(citations, item.Citation)
+	}
+	if len(lines) == 0 {
+		return "", nil
+	}
+	return "生成モデルが引用付き JSON を返せなかったため、取得した文書の抜粋を表示します。\n" + strings.Join(lines, "\n"), citations
+}
+
+func extractDriveRAGJSONPayload(raw string) string {
+	value := strings.TrimSpace(raw)
+	value = strings.TrimPrefix(value, "```json")
+	value = strings.TrimPrefix(value, "```")
+	value = strings.TrimSuffix(value, "```")
+	value = strings.TrimSpace(value)
+	if strings.HasPrefix(value, "{") {
+		return value
+	}
+	if start, end := strings.Index(value, "{"), strings.LastIndex(value, "}"); start >= 0 && end > start {
+		return value[start : end+1]
+	}
+	return value
+}
+
 func driveRAGSystemPrompt() string {
-	return "You answer questions using only the provided citation context. Return compact JSON only. Every claim must cite at least one citationId. Do not use outside knowledge."
+	return "You answer questions using only the provided citation context. Return compact JSON only, with no markdown fences. Every claim must cite at least one provided citationId exactly, such as c1. Do not use outside knowledge."
 }
 
 func driveRAGUserPrompt(query string, contexts []driveRAGContext) string {
@@ -425,7 +496,7 @@ func driveRAGUserPrompt(query string, contexts []driveRAGContext) string {
 		builder.WriteString(item.Text)
 		builder.WriteString("\n")
 	}
-	builder.WriteString("\nReturn JSON: {\"answer\":\"...\",\"claims\":[{\"text\":\"...\",\"citationIds\":[\"c1\"]}]}")
+	builder.WriteString("\nReturn JSON only. Use this exact shape: {\"answer\":\"...\",\"claims\":[{\"text\":\"...\",\"citationIds\":[\"c1\"]}]}. The citationIds values must exactly match the bracketed IDs above.")
 	return builder.String()
 }
 

@@ -151,6 +151,23 @@ func TestPaddleOCRLanguagePrefersJapanese(t *testing.T) {
 	}
 }
 
+func TestPaddleOCRDeviceDefaultsAndAllowsGPU(t *testing.T) {
+	t.Setenv(paddleOCRDeviceEnv, "")
+	if got := paddleOCRDevice(); got != "cpu" {
+		t.Fatalf("paddleOCRDevice() = %q, want cpu", got)
+	}
+
+	t.Setenv(paddleOCRDeviceEnv, "gpu:0")
+	if got := paddleOCRDevice(); got != "gpu:0" {
+		t.Fatalf("paddleOCRDevice() = %q, want gpu:0", got)
+	}
+
+	t.Setenv(paddleOCRDeviceEnv, "bad value")
+	if got := paddleOCRDevice(); got != "cpu" {
+		t.Fatalf("paddleOCRDevice() = %q, want cpu", got)
+	}
+}
+
 func TestParsePaddleOCROutput(t *testing.T) {
 	raw := "[[[1.0, 2.0]], ('Sサイズ 機内持込OK!', 0.98)]\n[[[3.0, 4.0]], ('115cm', 0.96)]"
 	got := parsePaddleOCROutput(raw)
@@ -163,6 +180,7 @@ func TestPaddleOCRImageRunsHelperAndParsesJSON(t *testing.T) {
 	commandPath, helperPath, capturePath := writeFakePaddleOCRCommand(t, 0, `{"text":"Sサイズ 機内持込OK!\n115cm","averageConfidence":0.97,"layout":{"engine":"paddleocr","lineCount":2},"boxes":[{"text":"Sサイズ 機内持込OK!","score":0.98},{"text":"115cm","score":0.96}]}`)
 	t.Setenv(paddleOCRPythonEnv, commandPath)
 	t.Setenv(paddleOCRHelperEnv, helperPath)
+	t.Setenv(paddleOCRDeviceEnv, "gpu:0")
 	imagePath := filepath.Join(t.TempDir(), "input.png")
 	if err := os.WriteFile(imagePath, []byte("fake image"), 0o600); err != nil {
 		t.Fatal(err)
@@ -189,7 +207,7 @@ func TestPaddleOCRImageRunsHelperAndParsesJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := string(requestBytes)
-	if !strings.Contains(request, `"lang":"japan"`) || !strings.Contains(request, `"device":"cpu"`) {
+	if !strings.Contains(request, `"lang":"japan"`) || !strings.Contains(request, `"device":"gpu:0"`) {
 		t.Fatalf("helper request = %s", request)
 	}
 }

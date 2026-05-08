@@ -18,6 +18,7 @@ import (
 const (
 	paddleOCRPythonEnv = "HAOHAO_DRIVE_PADDLEOCR_PYTHON"
 	paddleOCRHelperEnv = "HAOHAO_DRIVE_PADDLEOCR_HELPER"
+	paddleOCRDeviceEnv = "HAOHAO_DRIVE_PADDLEOCR_DEVICE"
 )
 
 type LocalDriveOCRProvider struct{}
@@ -359,7 +360,7 @@ func paddleOCRImage(ctx context.Context, path string, policy DriveOCRPolicy) (pa
 	requestBody, err := json.Marshal(paddleOCRHelperRequest{
 		ImagePath:                 path,
 		Lang:                      paddleOCRLanguage(policy),
-		Device:                    "cpu",
+		Device:                    paddleOCRDevice(),
 		UseDocOrientationClassify: false,
 		UseDocUnwarping:           false,
 		UseTextlineOrientation:    true,
@@ -417,6 +418,17 @@ func paddleOCRLanguage(policy DriveOCRPolicy) string {
 		}
 	}
 	return "en"
+}
+
+func paddleOCRDevice() string {
+	device := strings.ToLower(strings.TrimSpace(os.Getenv(paddleOCRDeviceEnv)))
+	if device == "" {
+		return "cpu"
+	}
+	if device == "cpu" || device == "gpu" || strings.HasPrefix(device, "gpu:") {
+		return device
+	}
+	return "cpu"
 }
 
 func parsePaddleOCROutput(value string) string {

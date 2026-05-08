@@ -208,6 +208,28 @@ make sql ARGS="-v ON_ERROR_STOP=1 -c \"select r.public_id, r.structured_extracto
 
 ## トラブルシューティング
 
+### LM Studio で `context deadline exceeded`
+
+`extract drive product items: call LM Studio: Post "http://127.0.0.1:1234/v1/chat/completions": context deadline exceeded` は、LM Studio の chat completion が HaoHao 側の product extraction timeout 内に返らなかった状態です。
+
+LM Studio / Ollama の商品情報抽出 timeout は、Tenant Admin の Drive Policy にある `OCR timeout seconds per page` を使います。内部的には 15 秒未満は 15 秒、300 秒超は 300 秒に丸められます。
+
+対応手順:
+
+1. `Tenant Admin > <tenant> > Drive Policy` を開く。
+2. `Structured extraction` が有効で、`Structured extractor` が `LM Studio` になっていることを確認する。
+3. `LM Studio base URL` と `LM Studio model` が正しいことを確認する。
+4. `OCR timeout seconds per page` を `180` から `300` に上げる。
+5. 保存してから product extraction job を再実行する。
+
+それでも timeout する場合:
+
+- LM Studio で対象モデルがロード済みか確認する。
+- 初回実行は model load で遅くなるため、LM Studio 側で一度短い chat completion を投げて warm up する。
+- OCR text が大きい場合は `OCR max pages` を下げるか、対象ファイルを小さくして再実行する。
+- 重い推論モデルではなく、JSON schema / tool output に従いやすい小さめの instruct model を使う。
+- ローカル LLM が不要なら `Structured extractor` を `Rules`、`Python helper`、`SudachiPy` に切り替える。
+
 ### Runtime Status が unavailable
 
 まず backend process の `PATH` を確認します。
