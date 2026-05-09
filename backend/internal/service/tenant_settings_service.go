@@ -129,12 +129,15 @@ type DriveLocalSearchPolicy struct {
 }
 
 type DriveRAGPolicy struct {
-	Enabled              bool
-	GenerationRuntime    string
-	GenerationRuntimeURL string
-	GenerationModel      string
-	MaxContextChunks     int
-	MaxContextRunes      int
+	Enabled                bool
+	GenerationRuntime      string
+	GenerationRuntimeURL   string
+	GenerationModel        string
+	MaxContextChunks       int
+	MaxContextRunes        int
+	QueryRewriteEnabled    bool
+	QueryRewriteMode       string
+	QueryRewriteMaxQueries int
 }
 
 type DriveOCRRulesPolicy struct {
@@ -717,12 +720,15 @@ func defaultDriveLocalSearchPolicy() DriveLocalSearchPolicy {
 
 func defaultDriveRAGPolicy() DriveRAGPolicy {
 	return DriveRAGPolicy{
-		Enabled:              false,
-		GenerationRuntime:    "none",
-		GenerationRuntimeURL: "",
-		GenerationModel:      "",
-		MaxContextChunks:     6,
-		MaxContextRunes:      6000,
+		Enabled:                false,
+		GenerationRuntime:      "none",
+		GenerationRuntimeURL:   "",
+		GenerationModel:        "",
+		MaxContextChunks:       6,
+		MaxContextRunes:        6000,
+		QueryRewriteEnabled:    true,
+		QueryRewriteMode:       "deterministic",
+		QueryRewriteMaxQueries: 4,
 	}
 }
 
@@ -961,6 +967,9 @@ func driveRAGPolicyFromFeatureMap(raw map[string]any, fallback DriveRAGPolicy) D
 	policy.GenerationModel = featureString(raw, "generationModel", policy.GenerationModel)
 	policy.MaxContextChunks = featureInt(raw, "maxContextChunks", policy.MaxContextChunks)
 	policy.MaxContextRunes = featureInt(raw, "maxContextRunes", policy.MaxContextRunes)
+	policy.QueryRewriteEnabled = featureBool(raw, "queryRewriteEnabled", policy.QueryRewriteEnabled)
+	policy.QueryRewriteMode = featureString(raw, "queryRewriteMode", policy.QueryRewriteMode)
+	policy.QueryRewriteMaxQueries = featureInt(raw, "queryRewriteMaxQueries", policy.QueryRewriteMaxQueries)
 	return normalizeDriveRAGPolicy(policy)
 }
 
@@ -977,6 +986,16 @@ func normalizeDriveRAGPolicy(policy DriveRAGPolicy) DriveRAGPolicy {
 	}
 	if policy.MaxContextRunes <= 0 {
 		policy.MaxContextRunes = defaults.MaxContextRunes
+	}
+	policy.QueryRewriteMode = strings.ToLower(strings.TrimSpace(policy.QueryRewriteMode))
+	if !policy.QueryRewriteEnabled {
+		policy.QueryRewriteMode = "none"
+	}
+	if policy.QueryRewriteMode == "" {
+		policy.QueryRewriteMode = defaults.QueryRewriteMode
+	}
+	if policy.QueryRewriteMaxQueries <= 0 {
+		policy.QueryRewriteMaxQueries = defaults.QueryRewriteMaxQueries
 	}
 	return policy
 }
@@ -995,6 +1014,14 @@ func validateDriveRAGPolicy(policy DriveRAGPolicy, localSearch DriveLocalSearchP
 	}
 	if policy.MaxContextRunes < 500 || policy.MaxContextRunes > 30000 {
 		return fmt.Errorf("%w: drive rag maxContextRunes must be between 500 and 30000", ErrInvalidTenantSettings)
+	}
+	switch policy.QueryRewriteMode {
+	case "none", "deterministic", "llm":
+	default:
+		return fmt.Errorf("%w: unsupported drive rag queryRewriteMode", ErrInvalidTenantSettings)
+	}
+	if policy.QueryRewriteMaxQueries < 1 || policy.QueryRewriteMaxQueries > 8 {
+		return fmt.Errorf("%w: drive rag queryRewriteMaxQueries must be between 1 and 8", ErrInvalidTenantSettings)
 	}
 	if !policy.Enabled {
 		return nil
@@ -1017,12 +1044,15 @@ func validateDriveRAGPolicy(policy DriveRAGPolicy, localSearch DriveLocalSearchP
 func driveRAGPolicyToFeatureMap(policy DriveRAGPolicy) map[string]any {
 	policy = normalizeDriveRAGPolicy(policy)
 	return map[string]any{
-		"enabled":              policy.Enabled,
-		"generationRuntime":    policy.GenerationRuntime,
-		"generationRuntimeURL": policy.GenerationRuntimeURL,
-		"generationModel":      policy.GenerationModel,
-		"maxContextChunks":     policy.MaxContextChunks,
-		"maxContextRunes":      policy.MaxContextRunes,
+		"enabled":                policy.Enabled,
+		"generationRuntime":      policy.GenerationRuntime,
+		"generationRuntimeURL":   policy.GenerationRuntimeURL,
+		"generationModel":        policy.GenerationModel,
+		"maxContextChunks":       policy.MaxContextChunks,
+		"maxContextRunes":        policy.MaxContextRunes,
+		"queryRewriteEnabled":    policy.QueryRewriteEnabled,
+		"queryRewriteMode":       policy.QueryRewriteMode,
+		"queryRewriteMaxQueries": policy.QueryRewriteMaxQueries,
 	}
 }
 

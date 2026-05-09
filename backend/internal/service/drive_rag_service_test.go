@@ -203,3 +203,88 @@ func TestDriveRAGQueryTermsKeepsHyphenatedIdentifiers(t *testing.T) {
 	}
 	t.Fatalf("terms = %#v, want tp-2026-0412", terms)
 }
+
+func TestDriveRAGDeterministicQueryPlanExpandsWhiteInteriorFurniture(t *testing.T) {
+	plan := driveRAGDeterministicQueryPlan("白いインテリアに合う家具は？", 6)
+	joinedKeywords := strings.Join(plan.Keywords, " ")
+	for _, want := range []string{"白い", "インテリア", "家具", "デスク", "椅子", "棚", "ソファ", "木製", "観葉植物", "ミニマル"} {
+		if !strings.Contains(joinedKeywords, want) {
+			t.Fatalf("keywords = %#v, want %q", plan.Keywords, want)
+		}
+	}
+	if len(plan.RetrievalQueries) < 3 {
+		t.Fatalf("retrievalQueries = %#v, want multiple expanded queries", plan.RetrievalQueries)
+	}
+	var hasFurnitureTypes bool
+	for _, query := range plan.RetrievalQueries {
+		if strings.Contains(query.Query, "白い デスク 椅子 棚") {
+			hasFurnitureTypes = true
+		}
+	}
+	if !hasFurnitureTypes {
+		t.Fatalf("retrievalQueries = %#v, want furniture type expansion", plan.RetrievalQueries)
+	}
+}
+
+func TestDriveRAGDeterministicQueryPlanKeepsSingleInteriorSearch(t *testing.T) {
+	plan := driveRAGDeterministicQueryPlan("インテリア", 4)
+	if len(plan.RetrievalQueries) == 0 || plan.RetrievalQueries[0].Query != "インテリア" {
+		t.Fatalf("retrievalQueries = %#v, want original query first", plan.RetrievalQueries)
+	}
+	if !containsAnyNormalized(plan.Keywords, "インテリア") {
+		t.Fatalf("keywords = %#v, want インテリア", plan.Keywords)
+	}
+}
+
+func TestDriveRAGQueryPlanFromRewriteParsesLLMJSON(t *testing.T) {
+	plan, err := driveRAGQueryPlanFromRewrite("白いインテリアに合う家具は？", `{"searchQueries":["白い インテリア 家具","白い デスク 椅子 棚"],"keywords":["白い","家具"],"mustHave":["白い"],"avoid":["屋外"]}`, 3)
+	if err != nil {
+		t.Fatalf("driveRAGQueryPlanFromRewrite() error = %v", err)
+	}
+	if plan.Source != "llm" {
+		t.Fatalf("source = %q, want llm", plan.Source)
+	}
+	if len(plan.RetrievalQueries) != 3 {
+		t.Fatalf("retrievalQueries = %#v, want original plus two rewrites", plan.RetrievalQueries)
+	}
+	if !containsAnyNormalized(plan.MustHave, "白い") || !containsAnyNormalized(plan.Avoid, "屋外") {
+		t.Fatalf("plan = %#v, want mustHave and avoid", plan)
+	}
+}
+
+func TestMergeDriveRAGSearchResultsDeduplicatesByFilePublicID(t *testing.T) {
+	coverage := map[string]int{}
+	first := []DriveSearchResult{
+		{
+			Item:    DriveItem{Type: DriveItemTypeFile, File: &DriveFile{PublicID: "file-1", OriginalFilename: "a.txt"}},
+			Snippet: "白い家具",
+			Matches: []LocalSearchMatch{
+				{ResourceKind: LocalSearchResourceOCRRun, ResourcePublicID: "ocr-1", Snippet: "白い家具", Score: 0.7},
+			},
+		},
+	}
+	second := []DriveSearchResult{
+		{
+			Item:    DriveItem{Type: DriveItemTypeFile, File: &DriveFile{PublicID: "file-1", OriginalFilename: "a.txt"}},
+			Snippet: "白い家具と椅子と棚",
+			Matches: []LocalSearchMatch{
+				{ResourceKind: LocalSearchResourceProductExtraction, ResourcePublicID: "product-1", Snippet: "椅子 棚", Score: 0.9},
+			},
+		},
+	}
+
+	merged := mergeDriveRAGSearchResults(nil, first, coverage)
+	merged = mergeDriveRAGSearchResults(merged, second, coverage)
+	if len(merged) != 1 {
+		t.Fatalf("merged = %#v, want one file", merged)
+	}
+	if merged[0].Snippet != "白い家具と椅子と棚" {
+		t.Fatalf("snippet = %q, want longer snippet", merged[0].Snippet)
+	}
+	if len(merged[0].Matches) != 2 {
+		t.Fatalf("matches = %#v, want merged matches", merged[0].Matches)
+	}
+	if coverage["file-1"] != 2 {
+		t.Fatalf("coverage = %#v, want two query hits", coverage)
+	}
+}

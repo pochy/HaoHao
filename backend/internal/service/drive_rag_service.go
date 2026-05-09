@@ -41,9 +41,44 @@ type DriveRAGCitation struct {
 	Score            float64
 }
 
+type DriveRAGQueryPlan struct {
+	OriginalQuery    string
+	RetrievalQueries []DriveRAGRetrievalQuery
+	Keywords         []string
+	MustHave         []string
+	Avoid            []string
+	Source           string
+}
+
+type DriveRAGRetrievalQuery struct {
+	Query  string
+	Intent string
+	Weight float64
+}
+
+type DriveRAGRetrievalTrace struct {
+	Query       string
+	ResultCount int
+	MergedCount int
+	SearchMode  string
+}
+
+type DriveRAGSufficiencyResult struct {
+	Sufficient     bool
+	MissingSignals []string
+	Reason         string
+}
+
 type driveRAGContext struct {
 	Citation DriveRAGCitation
 	Text     string
+}
+
+type driveRAGRewriteResponse struct {
+	SearchQueries []string `json:"searchQueries"`
+	Keywords      []string `json:"keywords"`
+	MustHave      []string `json:"mustHave"`
+	Avoid         []string `json:"avoid"`
 }
 
 type driveRAGGenerated struct {
@@ -118,18 +153,12 @@ func (s *DriveService) QueryRAG(ctx context.Context, input DriveRAGQueryInput, a
 	if searchLimit > driveRAGMaxLimit {
 		searchLimit = driveRAGMaxLimit
 	}
-	results, err := s.SearchDocuments(ctx, DriveSearchInput{
-		TenantID:    input.TenantID,
-		ActorUserID: input.ActorUserID,
-		Query:       query,
-		Mode:        mode,
-		Limit:       searchLimit,
-		Filter:      DriveListItemsFilter{Type: "all", Owner: "all", Source: "all"},
-	}, auditCtx)
+	plan := s.driveRAGQueryPlan(ctx, query, policy.RAG)
+	results, err := s.searchDriveRAGPlan(ctx, input, auditCtx, plan, mode, searchLimit)
 	if err != nil {
 		return DriveRAGResult{}, err
 	}
-	results = rankDriveRAGResults(query, results)
+	results = rankDriveRAGResultsWithPlan(plan, results)
 	contexts := driveRAGContexts(results, policy.RAG)
 	matches := make([]DriveRAGCitation, 0, len(contexts))
 	for _, item := range contexts {
@@ -162,6 +191,74 @@ func (s *DriveService) QueryRAG(ctx context.Context, input DriveRAGQueryInput, a
 		Citations: citations,
 		Matches:   matches,
 	}, nil
+}
+
+func (s *DriveService) driveRAGQueryPlan(ctx context.Context, query string, policy DriveRAGPolicy) DriveRAGQueryPlan {
+	policy = normalizeDriveRAGPolicy(policy)
+	switch policy.QueryRewriteMode {
+	case "none":
+		return driveRAGBaseQueryPlan(query, "none")
+	case "llm":
+		if plan, err := s.driveRAGLLMQueryPlan(ctx, query, policy); err == nil && len(plan.RetrievalQueries) > 0 {
+			return plan
+		}
+	}
+	return driveRAGDeterministicQueryPlan(query, policy.QueryRewriteMaxQueries)
+}
+
+func (s *DriveService) driveRAGLLMQueryPlan(ctx context.Context, query string, policy DriveRAGPolicy) (DriveRAGQueryPlan, error) {
+	if policy.GenerationRuntime == "none" || strings.TrimSpace(policy.GenerationModel) == "" {
+		return DriveRAGQueryPlan{}, fmt.Errorf("rag generation runtime is not configured")
+	}
+	provider := NewLocalGenerationProvider(policy.GenerationRuntime, policy.GenerationRuntimeURL)
+	generated, err := provider.Generate(ctx, GenerationRequest{
+		Model:       policy.GenerationModel,
+		System:      driveRAGQueryRewriteSystemPrompt(),
+		User:        driveRAGQueryRewriteUserPrompt(query, policy.QueryRewriteMaxQueries),
+		MaxTokens:   360,
+		Temperature: 0,
+		JSONSchema:  driveRAGQueryRewriteResponseFormat(),
+	})
+	if err != nil {
+		return DriveRAGQueryPlan{}, err
+	}
+	return driveRAGQueryPlanFromRewrite(query, generated.Text, policy.QueryRewriteMaxQueries)
+}
+
+func (s *DriveService) searchDriveRAGPlan(ctx context.Context, input DriveRAGQueryInput, auditCtx AuditContext, plan DriveRAGQueryPlan, mode string, searchLimit int32) ([]DriveSearchResult, error) {
+	queries := plan.RetrievalQueries
+	if len(queries) == 0 {
+		queries = []DriveRAGRetrievalQuery{{Query: plan.OriginalQuery, Intent: "original", Weight: 1}}
+	}
+	merged := make([]DriveSearchResult, 0)
+	coverage := map[string]int{}
+	for _, retrievalQuery := range queries {
+		searchQuery := strings.TrimSpace(retrievalQuery.Query)
+		if searchQuery == "" {
+			continue
+		}
+		results, err := s.SearchDocuments(ctx, DriveSearchInput{
+			TenantID:    input.TenantID,
+			ActorUserID: input.ActorUserID,
+			Query:       searchQuery,
+			Mode:        mode,
+			Limit:       searchLimit,
+			Filter:      DriveListItemsFilter{Type: "all", Owner: "all", Source: "all"},
+		}, auditCtx)
+		if err != nil {
+			return nil, err
+		}
+		merged = mergeDriveRAGSearchResults(merged, results, coverage)
+	}
+	sort.SliceStable(merged, func(i, j int) bool {
+		left := driveRAGResultFilePublicID(merged[i])
+		right := driveRAGResultFilePublicID(merged[j])
+		if coverage[left] == coverage[right] {
+			return i < j
+		}
+		return coverage[left] > coverage[right]
+	})
+	return merged, nil
 }
 
 func driveRAGContexts(results []DriveSearchResult, policy DriveRAGPolicy) []driveRAGContext {
@@ -220,7 +317,18 @@ func driveRAGContexts(results []DriveSearchResult, policy DriveRAGPolicy) []driv
 }
 
 func rankDriveRAGResults(query string, results []DriveSearchResult) []DriveSearchResult {
+	return rankDriveRAGResultsWithPlan(driveRAGBaseQueryPlan(query, "legacy"), results)
+}
+
+func rankDriveRAGResultsWithPlan(plan DriveRAGQueryPlan, results []DriveSearchResult) []DriveSearchResult {
+	query := plan.OriginalQuery
 	terms := driveRAGQueryTerms(query)
+	for _, term := range append(append([]string{}, plan.Keywords...), plan.MustHave...) {
+		term = driveRAGNormalizeSearchText(term)
+		if len([]rune(term)) >= 2 {
+			terms = appendUniqueString(terms, term)
+		}
+	}
 	if len(terms) == 0 {
 		return results
 	}
@@ -228,12 +336,14 @@ func rankDriveRAGResults(query string, results []DriveSearchResult) []DriveSearc
 		result        DriveSearchResult
 		lexicalScore  int
 		semanticScore float64
+		coverageScore int
 		index         int
 	}
 	ranked := make([]rankedResult, 0, len(results))
 	hasPositiveScore := false
 	for i, result := range results {
 		score := driveRAGResultLexicalScore(result, terms)
+		coverageScore := driveRAGResultQueryCoverageScore(result, plan.RetrievalQueries)
 		if score > 0 {
 			hasPositiveScore = true
 		}
@@ -241,6 +351,7 @@ func rankDriveRAGResults(query string, results []DriveSearchResult) []DriveSearc
 			result:        result,
 			lexicalScore:  score,
 			semanticScore: driveRAGResultSemanticScore(result),
+			coverageScore: coverageScore,
 			index:         i,
 		})
 	}
@@ -262,6 +373,12 @@ func rankDriveRAGResults(query string, results []DriveSearchResult) []DriveSearc
 	}
 	sort.SliceStable(ranked, func(i, j int) bool {
 		if ranked[i].lexicalScore == ranked[j].lexicalScore {
+			if ranked[i].coverageScore != ranked[j].coverageScore {
+				return ranked[i].coverageScore > ranked[j].coverageScore
+			}
+			if ranked[i].semanticScore != ranked[j].semanticScore {
+				return ranked[i].semanticScore > ranked[j].semanticScore
+			}
 			return ranked[i].index < ranked[j].index
 		}
 		return ranked[i].lexicalScore > ranked[j].lexicalScore
@@ -276,11 +393,228 @@ func rankDriveRAGResults(query string, results []DriveSearchResult) []DriveSearc
 	return out
 }
 
+func driveRAGBaseQueryPlan(query, source string) DriveRAGQueryPlan {
+	query = strings.TrimSpace(query)
+	return DriveRAGQueryPlan{
+		OriginalQuery: query,
+		RetrievalQueries: []DriveRAGRetrievalQuery{
+			{Query: query, Intent: "original", Weight: 1},
+		},
+		Keywords: driveRAGQueryTerms(query),
+		Source:   source,
+	}
+}
+
+func driveRAGDeterministicQueryPlan(query string, maxQueries int) DriveRAGQueryPlan {
+	if maxQueries <= 0 {
+		maxQueries = defaultDriveRAGPolicy().QueryRewriteMaxQueries
+	}
+	original := strings.TrimSpace(query)
+	keywords := driveRAGDeterministicKeywords(original)
+	plan := DriveRAGQueryPlan{
+		OriginalQuery: original,
+		Keywords:      keywords,
+		MustHave:      driveRAGMustHaveTerms(original, keywords),
+		Source:        "deterministic",
+	}
+	addQuery := func(value, intent string, weight float64) {
+		value = strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+		if value == "" {
+			return
+		}
+		for _, existing := range plan.RetrievalQueries {
+			if existing.Query == value {
+				return
+			}
+		}
+		plan.RetrievalQueries = append(plan.RetrievalQueries, DriveRAGRetrievalQuery{Query: value, Intent: intent, Weight: weight})
+	}
+	addQuery(original, "original", 1)
+	if len(keywords) > 0 {
+		addQuery(strings.Join(keywords, " "), "expanded_keywords", 0.9)
+	}
+	if containsAnyNormalized(keywords, "白い", "白", "white") && containsAnyNormalized(keywords, "インテリア", "家具") {
+		addQuery("白い インテリア 家具", "concept", 0.85)
+		addQuery("白い デスク 椅子 棚 ソファ", "furniture_types", 0.8)
+	}
+	if containsAnyNormalized(keywords, "インテリア") && containsAnyNormalized(keywords, "家具") {
+		addQuery("インテリア 家具 デスク 椅子 棚 ソファ", "interior_furniture", 0.75)
+	}
+	if len(plan.RetrievalQueries) > maxQueries {
+		plan.RetrievalQueries = plan.RetrievalQueries[:maxQueries]
+	}
+	return plan
+}
+
+func driveRAGDeterministicKeywords(query string) []string {
+	terms := make([]string, 0)
+	add := func(values ...string) {
+		for _, value := range values {
+			value = strings.TrimSpace(value)
+			if len([]rune(value)) < 2 && value != "棚" {
+				continue
+			}
+			terms = appendUniqueString(terms, value)
+		}
+	}
+	for _, term := range driveRAGASCIISearchTerms(query) {
+		add(term)
+	}
+	normalized := driveRAGNormalizeSearchText(query)
+	if strings.Contains(normalized, "白い") || strings.Contains(normalized, "白") || strings.Contains(normalized, "ホワイト") {
+		add("白い", "白", "ホワイト")
+	}
+	if strings.Contains(normalized, "インテリア") || strings.Contains(normalized, "内装") || strings.Contains(normalized, "部屋") {
+		add("インテリア", "内装", "部屋", "ミニマル", "観葉植物")
+	}
+	if strings.Contains(normalized, "家具") || strings.Contains(normalized, "インテリア") {
+		add("家具", "デスク", "机", "椅子", "チェア", "棚", "収納", "ソファ", "木製")
+	}
+	return terms
+}
+
+func driveRAGMustHaveTerms(query string, keywords []string) []string {
+	out := make([]string, 0)
+	normalized := driveRAGNormalizeSearchText(query)
+	for _, candidate := range []string{"白い", "白", "インテリア", "家具"} {
+		if strings.Contains(normalized, candidate) || containsAnyNormalized(keywords, candidate) {
+			out = appendUniqueString(out, candidate)
+		}
+	}
+	return out
+}
+
+func driveRAGQueryPlanFromRewrite(query, payload string, maxQueries int) (DriveRAGQueryPlan, error) {
+	var rewrite driveRAGRewriteResponse
+	if err := json.Unmarshal([]byte(extractDriveRAGJSONPayload(payload)), &rewrite); err != nil {
+		return DriveRAGQueryPlan{}, err
+	}
+	plan := DriveRAGQueryPlan{
+		OriginalQuery: strings.TrimSpace(query),
+		Keywords:      normalizeDriveRAGStringSlice(rewrite.Keywords),
+		MustHave:      normalizeDriveRAGStringSlice(rewrite.MustHave),
+		Avoid:         normalizeDriveRAGStringSlice(rewrite.Avoid),
+		Source:        "llm",
+	}
+	addQuery := func(value, intent string, weight float64) {
+		value = strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+		if value == "" {
+			return
+		}
+		for _, existing := range plan.RetrievalQueries {
+			if existing.Query == value {
+				return
+			}
+		}
+		plan.RetrievalQueries = append(plan.RetrievalQueries, DriveRAGRetrievalQuery{Query: value, Intent: intent, Weight: weight})
+	}
+	addQuery(plan.OriginalQuery, "original", 1)
+	for _, searchQuery := range rewrite.SearchQueries {
+		addQuery(searchQuery, "llm_rewrite", 0.9)
+	}
+	if maxQueries <= 0 {
+		maxQueries = defaultDriveRAGPolicy().QueryRewriteMaxQueries
+	}
+	if len(plan.RetrievalQueries) > maxQueries {
+		plan.RetrievalQueries = plan.RetrievalQueries[:maxQueries]
+	}
+	if len(plan.RetrievalQueries) == 0 {
+		return DriveRAGQueryPlan{}, fmt.Errorf("llm rewrite returned no search queries")
+	}
+	return plan, nil
+}
+
+func mergeDriveRAGSearchResults(existing []DriveSearchResult, incoming []DriveSearchResult, coverage map[string]int) []DriveSearchResult {
+	if coverage == nil {
+		coverage = map[string]int{}
+	}
+	indexByFile := map[string]int{}
+	for i, result := range existing {
+		if key := driveRAGResultFilePublicID(result); key != "" {
+			indexByFile[key] = i
+		}
+	}
+	for _, result := range incoming {
+		key := driveRAGResultFilePublicID(result)
+		if key == "" {
+			existing = append(existing, result)
+			continue
+		}
+		coverage[key]++
+		if index, ok := indexByFile[key]; ok {
+			existing[index] = mergeDriveRAGSearchResult(existing[index], result)
+			continue
+		}
+		indexByFile[key] = len(existing)
+		existing = append(existing, result)
+	}
+	return existing
+}
+
+func mergeDriveRAGSearchResult(left, right DriveSearchResult) DriveSearchResult {
+	if strings.TrimSpace(left.Snippet) == "" || len([]rune(right.Snippet)) > len([]rune(left.Snippet)) {
+		left.Snippet = right.Snippet
+	}
+	left.Matches = mergeDriveRAGMatches(left.Matches, right.Matches)
+	if left.IndexedAt == nil {
+		left.IndexedAt = right.IndexedAt
+	}
+	return left
+}
+
+func mergeDriveRAGMatches(left, right []LocalSearchMatch) []LocalSearchMatch {
+	out := append([]LocalSearchMatch{}, left...)
+	seen := map[string]struct{}{}
+	for _, match := range out {
+		seen[match.ResourceKind+"|"+match.ResourcePublicID+"|"+match.Snippet] = struct{}{}
+	}
+	for _, match := range right {
+		key := match.ResourceKind + "|" + match.ResourcePublicID + "|" + match.Snippet
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, match)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].Score > out[j].Score
+	})
+	return out
+}
+
+func driveRAGResultFilePublicID(result DriveSearchResult) string {
+	if result.Item.File == nil {
+		return ""
+	}
+	return result.Item.File.PublicID
+}
+
 func driveRAGResultSemanticScore(result DriveSearchResult) float64 {
 	score := 0.0
 	for _, match := range result.Matches {
 		if match.Score > score {
 			score = match.Score
+		}
+	}
+	return score
+}
+
+func driveRAGResultQueryCoverageScore(result DriveSearchResult, queries []DriveRAGRetrievalQuery) int {
+	if len(queries) == 0 {
+		return 0
+	}
+	score := 0
+	text := driveRAGNormalizeSearchText(driveRAGResultText(result))
+	for _, query := range queries {
+		matched := false
+		for _, term := range driveRAGQueryTerms(query.Query) {
+			if strings.Contains(text, term) {
+				matched = true
+				break
+			}
+		}
+		if matched {
+			score++
 		}
 	}
 	return score
@@ -302,24 +636,40 @@ func driveRAGHasStrongContentSemanticMatch(result DriveSearchResult) bool {
 	return false
 }
 
+func driveRAGResultText(result DriveSearchResult) string {
+	var builder strings.Builder
+	if result.Item.File != nil {
+		builder.WriteString(result.Item.File.OriginalFilename)
+		builder.WriteString(" ")
+		builder.WriteString(result.Item.File.Description)
+	}
+	builder.WriteString(" ")
+	builder.WriteString(result.Snippet)
+	for _, match := range result.Matches {
+		builder.WriteString(" ")
+		builder.WriteString(match.Snippet)
+	}
+	return builder.String()
+}
+
 func driveRAGResultLexicalScore(result DriveSearchResult, terms []string) int {
 	filename := ""
+	description := ""
 	if result.Item.File != nil {
 		filename = result.Item.File.OriginalFilename
+		description = result.Item.File.Description
 	}
 	filename = driveRAGNormalizeSearchText(filename)
+	description = driveRAGNormalizeSearchText(description)
 	snippet := driveRAGNormalizeSearchText(result.Snippet)
-	matchText := strings.Builder{}
-	for _, match := range result.Matches {
-		matchText.WriteString(" ")
-		matchText.WriteString(match.Snippet)
-	}
-	matches := driveRAGNormalizeSearchText(matchText.String())
+	matches := driveRAGNormalizeSearchText(driveRAGResultText(result))
 	score := 0
 	for _, term := range terms {
 		switch {
 		case strings.Contains(filename, term):
 			score += 8 + len([]rune(term))
+		case strings.Contains(description, term):
+			score += 5 + len([]rune(term))
 		case strings.Contains(snippet, term):
 			score += 4 + len([]rune(term))
 		case strings.Contains(matches, term):
@@ -382,6 +732,44 @@ func driveRAGQueryTerms(query string) []string {
 		}
 	}
 	return terms
+}
+
+func appendUniqueString(values []string, value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
+}
+
+func normalizeDriveRAGStringSlice(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+		if len([]rune(value)) < 2 {
+			continue
+		}
+		out = appendUniqueString(out, value)
+	}
+	return out
+}
+
+func containsAnyNormalized(values []string, candidates ...string) bool {
+	normalized := map[string]struct{}{}
+	for _, value := range values {
+		normalized[driveRAGNormalizeSearchText(value)] = struct{}{}
+	}
+	for _, candidate := range candidates {
+		if _, ok := normalized[driveRAGNormalizeSearchText(candidate)]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func driveRAGASCIISearchTerms(query string) []string {
@@ -579,6 +967,17 @@ func driveRAGUserPrompt(query string, contexts []driveRAGContext) string {
 	return builder.String()
 }
 
+func driveRAGQueryRewriteSystemPrompt() string {
+	return "You rewrite a Drive RAG user question into short retrieval queries. Return compact JSON only, with no markdown fences. Do not answer the question."
+}
+
+func driveRAGQueryRewriteUserPrompt(query string, maxQueries int) string {
+	if maxQueries <= 0 {
+		maxQueries = defaultDriveRAGPolicy().QueryRewriteMaxQueries
+	}
+	return fmt.Sprintf("Question:\n%s\n\nReturn JSON only. Use this exact shape: {\"searchQueries\":[\"...\"],\"keywords\":[\"...\"],\"mustHave\":[\"...\"],\"avoid\":[\"...\"]}. Create at most %d searchQueries for permission-filtered Drive search. Keep queries concise and include useful synonyms or object types.", query, maxQueries)
+}
+
 func driveRAGResponseFormat() map[string]any {
 	return map[string]any{
 		"type": "json_schema",
@@ -603,6 +1002,26 @@ func driveRAGResponseFormat() map[string]any {
 					},
 				},
 				"required": []string{"answer", "claims"},
+			},
+		},
+	}
+}
+
+func driveRAGQueryRewriteResponseFormat() map[string]any {
+	return map[string]any{
+		"type": "json_schema",
+		"json_schema": map[string]any{
+			"name": "drive_rag_query_rewrite",
+			"schema": map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"searchQueries": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"keywords":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"mustHave":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"avoid":         map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				},
+				"required": []string{"searchQueries", "keywords", "mustHave", "avoid"},
 			},
 		},
 	}

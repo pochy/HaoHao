@@ -374,6 +374,24 @@ func TestValidateDriveRAGPolicyRejectsRemoteRuntimeURL(t *testing.T) {
 	}
 }
 
+func TestDriveRAGPolicyQueryRewriteDefaultsAndValidation(t *testing.T) {
+	policy := normalizeDriveRAGPolicy(defaultDriveRAGPolicy())
+	if !policy.QueryRewriteEnabled {
+		t.Fatal("QueryRewriteEnabled = false, want default enabled")
+	}
+	if policy.QueryRewriteMode != "deterministic" {
+		t.Fatalf("QueryRewriteMode = %q, want deterministic", policy.QueryRewriteMode)
+	}
+	if policy.QueryRewriteMaxQueries != 4 {
+		t.Fatalf("QueryRewriteMaxQueries = %d, want 4", policy.QueryRewriteMaxQueries)
+	}
+
+	policy.QueryRewriteMode = "unsupported"
+	if err := validateDriveRAGPolicy(policy, defaultDriveLocalSearchPolicy()); err == nil {
+		t.Fatal("validateDriveRAGPolicy() error = nil, want queryRewriteMode validation error")
+	}
+}
+
 func TestValidateDriveOCRPolicyRejectsInvalidRulesSettings(t *testing.T) {
 	cases := []struct {
 		name   string
