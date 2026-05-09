@@ -921,9 +921,6 @@ func schemaMappingCandidateScore(keywordScore, vectorScore float64, hasVector bo
 	if hasVector {
 		score += vectorScore * 0.7
 	}
-	if schemaMappingStrictHint(sourceColumn, targetColumn) {
-		score += 1.0
-	}
 	score += float64(accepted) * 0.08
 	score -= float64(rejected) * 0.12
 	if score < 0 {
@@ -943,9 +940,6 @@ func schemaMappingMatchMethod(hasKeyword, hasVector bool) string {
 }
 
 func schemaMappingCandidateReason(sourceColumn, targetColumn string, hasVector bool, accepted, rejected int64) string {
-	if schemaMappingStrictHint(sourceColumn, targetColumn) {
-		return "source column matches a strict schema-mapping hint"
-	}
 	if hasVector && accepted > 0 {
 		return "hybrid match with accepted mapping history"
 	}
@@ -976,26 +970,6 @@ func schemaMappingCandidateSemanticText(column DataPipelineSchemaMappingSourceCo
 		return strings.TrimSpace(column.SourceColumn)
 	}
 	return text
-}
-
-func schemaMappingStrictHint(sourceColumn, targetColumn string) bool {
-	source := strings.ToLower(strings.TrimSpace(sourceColumn))
-	target := strings.ToLower(strings.TrimSpace(targetColumn))
-	invoiceHints := []string{"invoice", "請求", "請求no", "請求 no", "伝票"}
-	vendorHints := []string{"vendor", "supplier", "仕入", "取引先", "請求元"}
-	dueDateHints := []string{"due", "期限", "支払", "入金予定", "振込"}
-	return hasAnySchemaMappingHint(source, invoiceHints) && hasAnySchemaMappingHint(target, []string{"invoice", "請求"}) ||
-		hasAnySchemaMappingHint(source, vendorHints) && hasAnySchemaMappingHint(target, []string{"vendor", "supplier", "取引先", "仕入"}) ||
-		hasAnySchemaMappingHint(source, dueDateHints) && hasAnySchemaMappingHint(target, []string{"due", "期限", "支払"})
-}
-
-func hasAnySchemaMappingHint(value string, hints []string) bool {
-	for _, hint := range hints {
-		if strings.Contains(value, hint) {
-			return true
-		}
-	}
-	return false
 }
 
 func schemaColumnIndexText(targetColumn, description string, aliases, examples []byte, domain, schemaType string) string {
