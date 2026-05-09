@@ -215,15 +215,31 @@ func TestDriveRAGDeterministicQueryPlanExpandsWhiteInteriorFurniture(t *testing.
 	if len(plan.RetrievalQueries) < 3 {
 		t.Fatalf("retrievalQueries = %#v, want multiple expanded queries", plan.RetrievalQueries)
 	}
-	var hasFurnitureTypes bool
+	var hasFocusedFurniture bool
 	for _, query := range plan.RetrievalQueries {
-		if strings.Contains(query.Query, "白い デスク 椅子 棚") {
-			hasFurnitureTypes = true
+		if query.Query == "白い机" || query.Query == "白い椅子" || query.Query == "白いインテリア" {
+			hasFocusedFurniture = true
 		}
 	}
-	if !hasFurnitureTypes {
-		t.Fatalf("retrievalQueries = %#v, want furniture type expansion", plan.RetrievalQueries)
+	if !hasFocusedFurniture {
+		t.Fatalf("retrievalQueries = %#v, want focused furniture expansion", plan.RetrievalQueries)
 	}
+}
+
+func TestDriveRAGDeterministicQueryPlanExpandsInvoicePaymentTerms(t *testing.T) {
+	plan := driveRAGDeterministicQueryPlan("この請求書の支払期限と税込合計は？", 6)
+	joinedKeywords := strings.Join(plan.Keywords, " ")
+	for _, want := range []string{"請求書", "支払期限", "振込期限", "税込合計"} {
+		if !strings.Contains(joinedKeywords, want) {
+			t.Fatalf("keywords = %#v, want %q", plan.Keywords, want)
+		}
+	}
+	for _, query := range plan.RetrievalQueries {
+		if query.Query == "請求書 振込期限 税込合計" {
+			return
+		}
+	}
+	t.Fatalf("retrievalQueries = %#v, want invoice payment expansion", plan.RetrievalQueries)
 }
 
 func TestDriveRAGDeterministicQueryPlanKeepsSingleInteriorSearch(t *testing.T) {

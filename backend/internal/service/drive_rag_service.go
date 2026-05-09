@@ -509,9 +509,14 @@ func driveRAGDeterministicQueryPlan(query string, maxQueries int) DriveRAGQueryP
 	if len(keywords) > 0 {
 		addQuery(strings.Join(keywords, " "), "expanded_keywords", 0.9)
 	}
+	if containsAnyNormalized(keywords, "請求書") && containsAnyNormalized(keywords, "振込期限", "支払期限", "税込合計", "合計金額") {
+		addQuery("請求書 振込期限 税込合計", "invoice_payment_terms", 0.9)
+	}
 	if containsAnyNormalized(keywords, "白い", "白", "white") && containsAnyNormalized(keywords, "インテリア", "家具") {
-		addQuery("白い インテリア 家具", "concept", 0.85)
-		addQuery("白い デスク 椅子 棚 ソファ", "furniture_types", 0.8)
+		addQuery("白い机", "white_desk", 0.85)
+		addQuery("白い椅子", "white_chair", 0.85)
+		addQuery("白いインテリア", "white_interior", 0.8)
+		addQuery("白い インテリア 家具", "concept", 0.75)
 	}
 	if containsAnyNormalized(keywords, "インテリア") && containsAnyNormalized(keywords, "家具") {
 		addQuery("インテリア 家具 デスク 椅子 棚 ソファ", "interior_furniture", 0.75)
@@ -545,6 +550,15 @@ func driveRAGDeterministicKeywords(query string) []string {
 	}
 	if strings.Contains(normalized, "家具") || strings.Contains(normalized, "インテリア") {
 		add("家具", "デスク", "机", "椅子", "チェア", "棚", "収納", "ソファ", "木製")
+	}
+	if strings.Contains(normalized, "請求書") || strings.Contains(normalized, "invoice") {
+		add("請求書", "invoice")
+	}
+	if strings.Contains(normalized, "支払期限") || strings.Contains(normalized, "支払期日") || strings.Contains(normalized, "振込期限") {
+		add("支払期限", "振込期限", "支払期日", "入金期限")
+	}
+	if strings.Contains(normalized, "税込合計") || strings.Contains(normalized, "合計金額") || strings.Contains(normalized, "請求金額") {
+		add("税込合計", "合計金額", "請求金額", "支払金額")
 	}
 	return terms
 }

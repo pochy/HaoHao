@@ -164,6 +164,14 @@ async function requestLocalSearchRebuild() {
   return jsonRequest(`/api/v1/admin/tenants/${tenantSlug}/drive/search/local-index/rebuilds`, 'POST', {})
 }
 
+async function listLocalSearchIndexJobs(status = '') {
+  const params = new URLSearchParams({ limit: '200' })
+  if (status) {
+    params.set('status', status)
+  }
+  return request(`/api/v1/admin/tenants/${tenantSlug}/drive/search/local-index/jobs?${params.toString()}`)
+}
+
 async function searchDocuments(query, mode) {
   const params = new URLSearchParams({ q: query, mode, limit: '20' })
   return request(`/api/v1/drive/search/documents?${params.toString()}`)
@@ -219,6 +227,31 @@ async function waitForSemanticHit(expectedName, excludedName) {
     await new Promise((resolve) => setTimeout(resolve, pollDelayMs))
   }
   throw new Error(`semantic search did not reach expected result. last=${JSON.stringify(last)}`)
+}
+
+async function waitForLocalSearchEmbeddings(files) {
+  const pending = new Map(files.map((file) => [file.publicId, file.originalFilename ?? file.name ?? file.publicId]))
+  let last = []
+  for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
+    const jobs = await listLocalSearchIndexJobs()
+    last = jobs.items ?? []
+    for (const [publicId] of pending) {
+      const fileJobs = last.filter((job) => job.resourcePublicId === publicId)
+      const failed = fileJobs.find((job) => job.status === 'failed')
+      if (failed) {
+        throw new Error(`local search job failed for ${pending.get(publicId)}: ${failed.lastError || failed.publicId}`)
+      }
+      const hasCompletedEmbedding = fileJobs.some((job) => job.reason === 'embedding_requested' && job.status === 'completed')
+      if (hasCompletedEmbedding) {
+        pending.delete(publicId)
+      }
+    }
+    if (pending.size === 0) {
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollDelayMs))
+  }
+  throw new Error(`local search embeddings did not complete for ${[...pending.values()].join(', ')}. last=${JSON.stringify(last.slice(0, 20))}`)
 }
 
 async function waitForSearchHit(query, mode, expectedNames) {
@@ -463,7 +496,8 @@ async function runQueryRewriteSmoke(suffix) {
     'ロボットの武装と宇宙戦闘について。',
   ].join('\n'))
 
-  await waitForSearchHit('白い インテリア 家具', 'hybrid', [deskName])
+  await waitForLocalSearchEmbeddings([desk, chair, shelf])
+  await waitForSearchHit('白い', 'hybrid', [deskName])
 
   await updatePolicy(true, {
     queryRewriteEnabled: false,
@@ -581,7 +615,11 @@ async function main() {
     '来週はアクセシビリティ確認と表示速度の計測を行う。',
   ].join('\n'))
 
-  await waitForSemanticHit(invoiceName, noteName)
+  if (triggerBroadRebuild) {
+    await requestLocalSearchRebuild()
+  }
+  await waitForLocalSearchEmbeddings([invoice])
+  await waitForSearchHit('請求書 税込合計', 'hybrid', [invoiceName])
   const rag = await jsonRequest('/api/v1/drive/rag/query', 'POST', {
     query: 'この請求書の支払期限と税込合計は？',
     mode: 'hybrid',
