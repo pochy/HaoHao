@@ -158,6 +158,21 @@ WHERE id = sqlc.arg(id)
   AND deleted_at IS NULL
 RETURNING *;
 
+-- name: NormalizeDrivePendingScanStatusForContentScanDisabled :one
+UPDATE file_objects
+SET
+    scan_status = 'skipped',
+    scan_reason = 'content scan disabled',
+    scan_engine = NULL,
+    scanned_at = now(),
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+  AND tenant_id = sqlc.arg(tenant_id)
+  AND purpose = 'drive'
+  AND deleted_at IS NULL
+  AND scan_status = 'pending'
+RETURNING *;
+
 -- name: LockDriveFile :one
 UPDATE file_objects
 SET

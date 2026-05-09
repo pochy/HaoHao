@@ -994,6 +994,34 @@ func (s *DriveService) drivePolicy(ctx context.Context, tenantID int64) (DrivePo
 	return s.tenantSettings.GetDrivePolicy(ctx, tenantID)
 }
 
+func (s *DriveService) normalizePendingScanStatusForContentScanDisabled(ctx context.Context, file DriveFile) (DriveFile, error) {
+	if s == nil || s.queries == nil || file.ID <= 0 || file.TenantID <= 0 {
+		return file, nil
+	}
+	policy, err := s.drivePolicy(ctx, file.TenantID)
+	if err != nil {
+		return file, err
+	}
+	if !driveShouldNormalizePendingScanStatus(policy, file) {
+		return file, nil
+	}
+	row, err := s.queries.NormalizeDrivePendingScanStatusForContentScanDisabled(ctx, db.NormalizeDrivePendingScanStatusForContentScanDisabledParams{
+		ID:       file.ID,
+		TenantID: file.TenantID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		row, err = s.getDriveFileRow(ctx, file.TenantID, DriveResourceRef{Type: DriveResourceTypeFile, ID: file.ID})
+	}
+	if err != nil {
+		return file, fmt.Errorf("normalize drive scan status: %w", err)
+	}
+	return driveFileFromDB(row), nil
+}
+
+func driveShouldNormalizePendingScanStatus(policy DrivePolicy, file DriveFile) bool {
+	return !policy.ContentScanEnabled && file.ScanStatus == "pending" && file.DeletedAt == nil && !file.DLPBlocked
+}
+
 func (s *DriveService) enqueueDriveOCRBestEffort(ctx context.Context, actor DriveActor, file DriveFile, reason string) {
 	if s == nil || s.outbox == nil || file.ID <= 0 || file.TenantID <= 0 {
 		return

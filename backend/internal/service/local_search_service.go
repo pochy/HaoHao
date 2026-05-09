@@ -944,6 +944,13 @@ func (s *LocalSearchService) indexResource(ctx context.Context, tenantID int64, 
 }
 
 func (s *LocalSearchService) indexDriveFile(ctx context.Context, file DriveFile) localSearchIndexSummary {
+	if s.drive != nil {
+		normalized, err := s.drive.normalizePendingScanStatusForContentScanDisabled(ctx, file)
+		if err != nil {
+			return localSearchIndexSummary{Failed: 1}
+		}
+		file = normalized
+	}
 	if !localSearchFileIndexable(file) {
 		_ = s.queries.DeleteLocalSearchDocumentsForFile(ctx, db.DeleteLocalSearchDocumentsForFileParams{TenantID: file.TenantID, FileObjectID: pgInt8Value(file.ID)})
 		return localSearchIndexSummary{Skipped: 1}
@@ -1122,6 +1129,10 @@ func (s *LocalSearchService) fileForSearch(ctx context.Context, tenantID, fileOb
 		return DriveFile{}, false
 	}
 	file := driveFileFromDB(row)
+	file, err = s.drive.normalizePendingScanStatusForContentScanDisabled(ctx, file)
+	if err != nil {
+		return DriveFile{}, false
+	}
 	if !localSearchFileIndexable(file) {
 		_ = s.queries.DeleteLocalSearchDocumentsForFile(ctx, db.DeleteLocalSearchDocumentsForFileParams{TenantID: tenantID, FileObjectID: pgInt8Value(fileObjectID)})
 		return DriveFile{}, false

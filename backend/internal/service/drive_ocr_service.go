@@ -351,6 +351,10 @@ func (s *DriveOCRService) EnsureCompletedForPipeline(ctx context.Context, input 
 			return DriveOCRResult{}, err
 		}
 		run = driveOCRRunFromDB(completed, file.PublicID)
+		file, err = s.normalizeFileScanStatusForCompletedOCR(ctx, file)
+		if err != nil {
+			return DriveOCRResult{}, err
+		}
 	}
 	pages, err := s.queries.ListDriveOCRPages(ctx, db.ListDriveOCRPagesParams{TenantID: input.TenantID, OcrRunID: run.ID})
 	if err != nil {
@@ -441,6 +445,10 @@ func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObj
 		return err
 	}
 	if run.Status == "completed" {
+		file, err = s.normalizeFileScanStatusForCompletedOCR(ctx, file)
+		if err != nil {
+			return err
+		}
 		if err := s.indexOCRText(ctx, file, run.ExtractedText); err != nil {
 			return err
 		}
@@ -515,6 +523,10 @@ func (s *DriveOCRService) HandleRequested(ctx context.Context, tenantID, fileObj
 		return err
 	}
 	run = driveOCRRunFromDB(completed, file.PublicID)
+	file, err = s.normalizeFileScanStatusForCompletedOCR(ctx, file)
+	if err != nil {
+		return err
+	}
 	if err := s.indexOCRText(ctx, file, result.FullText); err != nil {
 		return err
 	}
@@ -988,6 +1000,13 @@ func (s *DriveOCRService) indexOCRText(ctx context.Context, file DriveFile, text
 		return fmt.Errorf("upsert drive search document with ocr: %w", err)
 	}
 	return nil
+}
+
+func (s *DriveOCRService) normalizeFileScanStatusForCompletedOCR(ctx context.Context, file DriveFile) (DriveFile, error) {
+	if s == nil || s.drive == nil {
+		return file, nil
+	}
+	return s.drive.normalizePendingScanStatusForContentScanDisabled(ctx, file)
 }
 
 func (s *DriveOCRService) recordMedallionOCRRun(ctx context.Context, file DriveFile, run DriveOCRRun, status, errorSummary string, retryable bool, productItems []db.DriveProductExtractionItem) {
