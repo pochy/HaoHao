@@ -57,6 +57,28 @@ func TestFallbackDriveRAGAnswerUsesRetrievedContext(t *testing.T) {
 	}
 }
 
+func TestFallbackDriveRAGAnswerCleansOCRAndProductMetadata(t *testing.T) {
+	answer, citations := fallbackDriveRAGAnswer([]driveRAGContext{
+		{
+			Citation: DriveRAGCitation{CitationID: "c1", FilePublicID: "file-1", Filename: "milk.jpg"},
+			Text:     `OCR: milk.jpg サントリ 烏龍茶 ミルクティー 甘み`,
+		},
+		{
+			Citation: DriveRAGCitation{CitationID: "c2", FilePublicID: "file-2", Filename: "product.jpg"},
+			Text:     `ミルクティー product ミルクティー OOLONG MILKTEA {} {} {} [{"text":"ミルクティー"}] {"extractor":"lmstudio"}`,
+		},
+	})
+	if strings.Contains(answer, "OCR:") || strings.Contains(answer, `{"extractor"`) || strings.Contains(answer, `[{"text"`) {
+		t.Fatalf("answer = %q, want cleaned fallback", answer)
+	}
+	if !strings.Contains(answer, "サントリ 烏龍茶 ミルクティー") || !strings.Contains(answer, "OOLONG MILKTEA") {
+		t.Fatalf("answer = %q, want cleaned content", answer)
+	}
+	if len(citations) != 2 {
+		t.Fatalf("citations = %#v, want 2", citations)
+	}
+}
+
 func TestDriveRAGContextsSkipsDLPBlockedFiles(t *testing.T) {
 	contexts := driveRAGContexts([]DriveSearchResult{
 		{Item: DriveItem{Type: DriveItemTypeFile, File: &DriveFile{PublicID: "blocked", OriginalFilename: "blocked.txt", DLPBlocked: true}}, Snippet: "blocked"},
@@ -111,12 +133,52 @@ func TestRankDriveRAGResultsDropsSingleUnrelatedSemanticHit(t *testing.T) {
 		{
 			Item:    DriveItem{Type: DriveItemTypeFile, File: &DriveFile{PublicID: "design", OriginalFilename: "高性能デザインツール技術設計.txt"}},
 			Snippet: "次世代Webグラフィックツールのためのハイパフォーマンス・アーキテクチャ設計報告書",
+			Matches: []LocalSearchMatch{
+				{ResourceKind: LocalSearchResourceDriveFile, ResourcePublicID: "design", Snippet: "次世代Webグラフィックツールのためのハイパフォーマンス・アーキテクチャ設計報告書", Score: 0.72},
+			},
 		},
 	}
 
 	ranked := rankDriveRAGResults("結婚相談所", results)
 	if len(ranked) != 0 {
 		t.Fatalf("ranked = %#v, want no unrelated candidates", ranked)
+	}
+}
+
+func TestRankDriveRAGResultsKeepsStrongSemanticHitWithoutLexicalSignal(t *testing.T) {
+	results := []DriveSearchResult{
+		{
+			Item:    DriveItem{Type: DriveItemTypeFile, File: &DriveFile{PublicID: "milk-tea", OriginalFilename: "drink.txt"}},
+			Snippet: "ミルクティー 茶葉 砂糖",
+			Matches: []LocalSearchMatch{
+				{ResourceKind: LocalSearchResourceOCRRun, ResourcePublicID: "ocr-1", Snippet: "ミルクティー 茶葉 砂糖", Score: 0.87},
+			},
+		},
+	}
+
+	ranked := rankDriveRAGResults("紅茶", results)
+	if len(ranked) != 1 {
+		t.Fatalf("ranked length = %d, want 1: %#v", len(ranked), ranked)
+	}
+	if ranked[0].Item.File == nil || ranked[0].Item.File.PublicID != "milk-tea" {
+		t.Fatalf("ranked[0] = %#v, want milk-tea", ranked[0])
+	}
+}
+
+func TestRankDriveRAGResultsDropsFilenameOnlySemanticHitWithoutLexicalSignal(t *testing.T) {
+	results := []DriveSearchResult{
+		{
+			Item:    DriveItem{Type: DriveItemTypeFile, File: &DriveFile{PublicID: "milk-tea-image", OriginalFilename: "alt111_4901777442184_i_20251111155311.jpg"}},
+			Snippet: "alt111_4901777442184_i_20251111155311.jpg",
+			Matches: []LocalSearchMatch{
+				{ResourceKind: LocalSearchResourceDriveFile, ResourcePublicID: "milk-tea-image", Snippet: "alt111_4901777442184_i_20251111155311.jpg", Score: 0.87},
+			},
+		},
+	}
+
+	ranked := rankDriveRAGResults("ガンダム", results)
+	if len(ranked) != 0 {
+		t.Fatalf("ranked = %#v, want no filename-only semantic candidates", ranked)
 	}
 }
 

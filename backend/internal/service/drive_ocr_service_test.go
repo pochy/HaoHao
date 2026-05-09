@@ -168,6 +168,28 @@ func TestPaddleOCRDeviceDefaultsAndAllowsGPU(t *testing.T) {
 	}
 }
 
+func TestPaddleOCRGPUFallbackDefaultsToEnabled(t *testing.T) {
+	t.Setenv(paddleOCRGPUFallbackEnv, "")
+	if !paddleOCRGPUFallbackEnabled() {
+		t.Fatal("paddleOCRGPUFallbackEnabled() = false, want true")
+	}
+
+	t.Setenv(paddleOCRGPUFallbackEnv, "false")
+	if paddleOCRGPUFallbackEnabled() {
+		t.Fatal("paddleOCRGPUFallbackEnabled() = true, want false")
+	}
+}
+
+func TestIsPaddleOCRGPUOOM(t *testing.T) {
+	err := errors.New("(External) CUDA error(2), out of memory. [Hint: 'cudaErrorMemoryAllocation']")
+	if !isPaddleOCRGPUOOM(err) {
+		t.Fatal("isPaddleOCRGPUOOM() = false, want true")
+	}
+	if isPaddleOCRGPUOOM(errors.New("paddleocr dependency unavailable")) {
+		t.Fatal("isPaddleOCRGPUOOM() = true for non-OOM error")
+	}
+}
+
 func TestParsePaddleOCROutput(t *testing.T) {
 	raw := "[[[1.0, 2.0]], ('Sサイズ 機内持込OK!', 0.98)]\n[[[3.0, 4.0]], ('115cm', 0.96)]"
 	got := parsePaddleOCROutput(raw)
@@ -212,6 +234,34 @@ func TestPaddleOCRImageRunsHelperAndParsesJSON(t *testing.T) {
 	}
 }
 
+func TestPaddleOCRImageFallsBackToCPUOnGPUOOM(t *testing.T) {
+	commandPath, helperPath, capturePath := writeFakePaddleOCRCommand(t, 0, `{"text":"CPU fallback OK","layout":{"engine":"paddleocr","device":"cpu"},"boxes":[]}`)
+	t.Setenv(paddleOCRPythonEnv, commandPath)
+	t.Setenv(paddleOCRHelperEnv, helperPath)
+	t.Setenv(paddleOCRDeviceEnv, "gpu:0")
+	t.Setenv("FAIL_GPU_OOM", "1")
+	imagePath := filepath.Join(t.TempDir(), "input.png")
+	if err := os.WriteFile(imagePath, []byte("fake image"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := paddleOCRImage(t.Context(), imagePath, DriveOCRPolicy{OCRLanguages: []string{"jpn", "eng"}, TimeoutSecondsPerPage: 5})
+	if err != nil {
+		t.Fatalf("paddleOCRImage() error = %v", err)
+	}
+	if got.Text != "CPU fallback OK" {
+		t.Fatalf("paddleOCRImage().Text = %q", got.Text)
+	}
+	requestBytes, err := os.ReadFile(capturePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := string(requestBytes)
+	if !strings.Contains(request, `"device":"cpu"`) {
+		t.Fatalf("helper request = %s", request)
+	}
+}
+
 func TestPaddleOCRDependencyStatusUsesHelperCheck(t *testing.T) {
 	commandPath, helperPath, _ := writeFakePaddleOCRCommand(t, 0, `{"text":"unused"}`)
 	t.Setenv(paddleOCRPythonEnv, commandPath)
@@ -241,6 +291,10 @@ if [ "$2" = "--check" ]; then
   exit 0
 fi
 cat > "$CAPTURE_PATH"
+if [ "$FAIL_GPU_OOM" = "1" ] && grep -q '"device":"gpu:0"' "$CAPTURE_PATH"; then
+  echo "(External) CUDA error(2), out of memory. [Hint: 'cudaErrorMemoryAllocation']" >&2
+  exit 1
+fi
 if [ "$EXTRACT_EXIT" != "0" ]; then
   echo "paddleocr dependency unavailable: missing package" >&2
   exit "$EXTRACT_EXIT"

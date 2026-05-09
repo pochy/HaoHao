@@ -805,7 +805,7 @@ func normalizeDriveOCRRulesPolicy(policy DriveOCRRulesPolicy) DriveOCRRulesPolic
 
 func validateDriveOCRPolicy(policy DriveOCRPolicy) error {
 	switch policy.OCREngine {
-	case "tesseract", "docling", "paddleocr":
+	case "tesseract", "docling", "paddleocr", "lmstudio":
 	default:
 		return fmt.Errorf("%w: unsupported drive ocr engine", ErrInvalidTenantSettings)
 	}
@@ -843,6 +843,9 @@ func validateDriveOCRPolicy(policy DriveOCRPolicy) error {
 	}
 	if policy.StructuredExtractionEnabled && policy.StructuredExtractor == "lmstudio" && strings.TrimSpace(policy.LMStudioModel) == "" {
 		return fmt.Errorf("%w: drive ocr lmStudioModel is required for LM Studio extraction", ErrInvalidTenantSettings)
+	}
+	if policy.OCREngine == "lmstudio" && strings.TrimSpace(policy.LMStudioModel) == "" {
+		return fmt.Errorf("%w: drive ocr lmStudioModel is required for LM Studio OCR", ErrInvalidTenantSettings)
 	}
 	return nil
 }
@@ -897,7 +900,7 @@ func normalizeDriveLocalSearchPolicy(policy DriveLocalSearchPolicy) DriveLocalSe
 		policy.Dimension = defaults.Dimension
 	}
 	if policy.VectorEnabled && policy.Dimension == 0 {
-		policy.Dimension = LocalSearchEmbeddingDimension
+		policy.Dimension = LocalSearchDefaultEmbeddingDimension
 	}
 	if !policy.VectorEnabled && policy.EmbeddingRuntime == "" {
 		policy.EmbeddingRuntime = defaults.EmbeddingRuntime
@@ -907,7 +910,7 @@ func normalizeDriveLocalSearchPolicy(policy DriveLocalSearchPolicy) DriveLocalSe
 
 func validateDriveLocalSearchPolicy(policy DriveLocalSearchPolicy) error {
 	switch policy.EmbeddingRuntime {
-	case "none", "ollama", "lmstudio":
+	case "none", "ollama", "lmstudio", "infinity":
 	default:
 		return fmt.Errorf("%w: unsupported drive local search embeddingRuntime", ErrInvalidTenantSettings)
 	}
@@ -915,8 +918,8 @@ func validateDriveLocalSearchPolicy(policy DriveLocalSearchPolicy) error {
 		return fmt.Errorf("%w: drive local search runtimeURL must be localhost or 127.0.0.1", ErrInvalidTenantSettings)
 	}
 	if !policy.VectorEnabled {
-		if policy.Dimension != 0 && policy.Dimension != LocalSearchEmbeddingDimension {
-			return fmt.Errorf("%w: drive local search dimension must be 0 or 1024 when vector search is disabled", ErrInvalidTenantSettings)
+		if policy.Dimension != 0 && !isValidLocalSearchEmbeddingDimension(policy.Dimension) {
+			return fmt.Errorf("%w: drive local search dimension must be 0 or between 1 and 2000 when vector search is disabled", ErrInvalidTenantSettings)
 		}
 		return nil
 	}
@@ -929,10 +932,14 @@ func validateDriveLocalSearchPolicy(policy DriveLocalSearchPolicy) error {
 	if strings.TrimSpace(policy.Model) == "" {
 		return fmt.Errorf("%w: drive local search model is required when vector search is enabled", ErrInvalidTenantSettings)
 	}
-	if policy.Dimension != LocalSearchEmbeddingDimension {
-		return fmt.Errorf("%w: drive local search dimension must be 1024", ErrInvalidTenantSettings)
+	if !isValidLocalSearchEmbeddingDimension(policy.Dimension) {
+		return fmt.Errorf("%w: drive local search dimension must be between 1 and 2000", ErrInvalidTenantSettings)
 	}
 	return nil
+}
+
+func isValidLocalSearchEmbeddingDimension(dimension int) bool {
+	return dimension > 0 && dimension <= LocalSearchMaxEmbeddingDimension
 }
 
 func driveLocalSearchPolicyToFeatureMap(policy DriveLocalSearchPolicy) map[string]any {

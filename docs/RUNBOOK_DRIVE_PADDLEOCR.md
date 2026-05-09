@@ -34,6 +34,12 @@ export HAOHAO_DRIVE_PADDLEOCR_DEVICE=gpu:0
 python -c "import paddle; print(paddle.__version__); print(paddle.device.is_compiled_with_cuda()); paddle.set_device('gpu:0'); print(paddle.get_device())"
 ```
 
+GPU 指定時に CUDA out of memory が出た場合、backend は既定で同じページを CPU へ 1 回だけフォールバックして再試行します。GPU 失敗をそのまま検知したい検証では次のように無効化できます。
+
+```bash
+export HAOHAO_DRIVE_PADDLEOCR_GPU_FALLBACK=false
+```
+
 helper path を標準配置から変える場合だけ次を設定します。
 
 ```bash
@@ -98,9 +104,10 @@ paddleocr 3.x.x / paddle 3.x.x
 HAOHAO_DRIVE_PADDLEOCR_PYTHON=/absolute/path/to/HaoHao/.venv-paddleocr/bin/python
 HAOHAO_DRIVE_PADDLEOCR_HELPER=/absolute/path/to/HaoHao/backend/internal/service/scripts/drive_ocr_paddleocr.py
 HAOHAO_DRIVE_PADDLEOCR_DEVICE=cpu
+HAOHAO_DRIVE_PADDLEOCR_GPU_FALLBACK=true
 ```
 
-`HAOHAO_DRIVE_PADDLEOCR_HELPER` は標準配置なら省略できます。`HAOHAO_DRIVE_PADDLEOCR_DEVICE` は未指定なら `cpu` です。GPU を使う場合は `gpu` または `gpu:0` を指定します。`make backend-dev` は `.env` を読み込むため、`.env` を更新した場合は backend process を再起動してください。
+`HAOHAO_DRIVE_PADDLEOCR_HELPER` は標準配置なら省略できます。`HAOHAO_DRIVE_PADDLEOCR_DEVICE` は未指定なら `cpu` です。GPU を使う場合は `gpu` または `gpu:0` を指定します。`HAOHAO_DRIVE_PADDLEOCR_GPU_FALLBACK` は未指定なら有効です。`make backend-dev` は `.env` を読み込むため、`.env` を更新した場合は backend process を再起動してください。
 
 よくある原因:
 
@@ -111,6 +118,7 @@ HAOHAO_DRIVE_PADDLEOCR_DEVICE=cpu
 - venv には入っているが、backend が system `python3` を使っている。
 - `.env` の `HAOHAO_DRIVE_PADDLEOCR_PYTHON` が相対 path、古い path、または存在しない Python を指している。
 - GPU 版 PaddlePaddle は入っているが、`.env` の `HAOHAO_DRIVE_PADDLEOCR_DEVICE` が未指定または `cpu` のままになっている。
+- `paddleocr: exit status 1` の末尾に `(External) CUDA error(2), out of memory` / `cudaErrorMemoryAllocation` が出る。GPU 版 PaddlePaddle は動いていますが、選択したモデルまたは画像サイズに対して VRAM が足りません。空き VRAM を確認して他プロセスを止める、Tenant Admin の `max pages` を小さくして同時処理量を減らす、画像/PDFを小さくして試す、または `.env` で `HAOHAO_DRIVE_PADDLEOCR_DEVICE=cpu` に戻してください。GPU 指定のままでも既定では CPU fallback が走りますが、GPU だけで失敗を再現したい場合は `HAOHAO_DRIVE_PADDLEOCR_GPU_FALLBACK=false` を設定します。
 - Python / PaddlePaddle wheel の対応 version が合っていない。
 - 初回 model download / load が重く、OCR timeout が短すぎる。Tenant Admin の OCR timeout を大きめにして再試行してください。
 

@@ -3022,7 +3022,7 @@ CREATE TABLE public.drive_ocr_runs (
     artifact_schema_version text DEFAULT 'drive_image_pdf_v1'::text NOT NULL,
     pipeline_config_hash text DEFAULT 'legacy'::text NOT NULL,
     CONSTRAINT drive_ocr_runs_artifact_schema_version_check CHECK ((btrim(artifact_schema_version) <> ''::text)),
-    CONSTRAINT drive_ocr_runs_engine_check CHECK ((engine = ANY (ARRAY['tesseract'::text, 'docling'::text, 'paddleocr'::text]))),
+    CONSTRAINT drive_ocr_runs_engine_check CHECK ((engine = ANY (ARRAY['tesseract'::text, 'docling'::text, 'paddleocr'::text, 'lmstudio'::text]))),
     CONSTRAINT drive_ocr_runs_page_count_check CHECK ((page_count >= 0)),
     CONSTRAINT drive_ocr_runs_pipeline_config_hash_check CHECK ((btrim(pipeline_config_hash) <> ''::text)),
     CONSTRAINT drive_ocr_runs_processed_page_count_check CHECK ((processed_page_count >= 0)),
@@ -4067,9 +4067,10 @@ CREATE TABLE public.local_search_embeddings (
     resource_public_id uuid NOT NULL,
     metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
     indexed_at timestamp with time zone,
-    embedding public.vector(1024),
+    embedding public.vector,
     CONSTRAINT local_search_embeddings_chunk_ordinal_check CHECK ((chunk_ordinal >= 0)),
     CONSTRAINT local_search_embeddings_dimension_check CHECK ((dimension >= 0)),
+    CONSTRAINT local_search_embeddings_embedding_dimension_match_check CHECK (((embedding IS NULL) OR (dimension = public.vector_dims(embedding)))),
     CONSTRAINT local_search_embeddings_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'skipped'::text])))
 );
 
@@ -8182,10 +8183,17 @@ CREATE INDEX local_search_embeddings_document_idx ON public.local_search_embeddi
 
 
 --
--- Name: local_search_embeddings_hnsw_cosine_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: local_search_embeddings_hnsw_cosine_1024_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX local_search_embeddings_hnsw_cosine_idx ON public.local_search_embeddings USING hnsw (embedding public.vector_cosine_ops) WHERE ((status = 'completed'::text) AND (embedding IS NOT NULL));
+CREATE INDEX local_search_embeddings_hnsw_cosine_1024_idx ON public.local_search_embeddings USING hnsw (((embedding)::public.vector(1024)) public.vector_cosine_ops) WHERE ((status = 'completed'::text) AND (embedding IS NOT NULL) AND (dimension = 1024));
+
+
+--
+-- Name: local_search_embeddings_hnsw_cosine_768_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX local_search_embeddings_hnsw_cosine_768_idx ON public.local_search_embeddings USING hnsw (((embedding)::public.vector(768)) public.vector_cosine_ops) WHERE ((status = 'completed'::text) AND (embedding IS NOT NULL) AND (dimension = 768));
 
 
 --

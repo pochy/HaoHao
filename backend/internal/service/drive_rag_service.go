@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	driveRAGDefaultLimit      = 8
-	driveRAGMaxLimit          = 20
-	driveRAGMaxGenerationText = 1200
+	driveRAGDefaultLimit         = 8
+	driveRAGMaxLimit             = 20
+	driveRAGMaxGenerationText    = 1200
+	driveRAGMinSemanticOnlyScore = 0.84
 )
 
 type DriveRAGQueryInput struct {
@@ -188,6 +189,7 @@ func driveRAGContexts(results []DriveSearchResult, policy DriveRAGPolicy) []driv
 			resourcePublicID = match.ResourcePublicID
 			text = strings.TrimSpace(firstNonEmpty(match.Snippet, text))
 		}
+		text = cleanDriveRAGContextText(text)
 		if text == "" {
 			continue
 		}
@@ -205,6 +207,7 @@ func driveRAGContexts(results []DriveSearchResult, policy DriveRAGPolicy) []driv
 				FilePublicID:     file.PublicID,
 				Filename:         file.OriginalFilename,
 				Snippet:          text,
+				Score:            driveRAGResultSemanticScore(result),
 			},
 			Text: text,
 		})
@@ -222,9 +225,10 @@ func rankDriveRAGResults(query string, results []DriveSearchResult) []DriveSearc
 		return results
 	}
 	type rankedResult struct {
-		result DriveSearchResult
-		score  int
-		index  int
+		result        DriveSearchResult
+		lexicalScore  int
+		semanticScore float64
+		index         int
 	}
 	ranked := make([]rankedResult, 0, len(results))
 	hasPositiveScore := false
@@ -233,25 +237,69 @@ func rankDriveRAGResults(query string, results []DriveSearchResult) []DriveSearc
 		if score > 0 {
 			hasPositiveScore = true
 		}
-		ranked = append(ranked, rankedResult{result: result, score: score, index: i})
+		ranked = append(ranked, rankedResult{
+			result:        result,
+			lexicalScore:  score,
+			semanticScore: driveRAGResultSemanticScore(result),
+			index:         i,
+		})
 	}
 	if !hasPositiveScore {
-		return nil
+		sort.SliceStable(ranked, func(i, j int) bool {
+			if ranked[i].semanticScore == ranked[j].semanticScore {
+				return ranked[i].index < ranked[j].index
+			}
+			return ranked[i].semanticScore > ranked[j].semanticScore
+		})
+		out := make([]DriveSearchResult, 0, len(ranked))
+		for _, item := range ranked {
+			if !driveRAGHasStrongContentSemanticMatch(item.result) {
+				continue
+			}
+			out = append(out, item.result)
+		}
+		return out
 	}
 	sort.SliceStable(ranked, func(i, j int) bool {
-		if ranked[i].score == ranked[j].score {
+		if ranked[i].lexicalScore == ranked[j].lexicalScore {
 			return ranked[i].index < ranked[j].index
 		}
-		return ranked[i].score > ranked[j].score
+		return ranked[i].lexicalScore > ranked[j].lexicalScore
 	})
 	out := make([]DriveSearchResult, 0, len(ranked))
 	for _, item := range ranked {
-		if item.score <= 0 {
+		if item.lexicalScore <= 0 {
 			continue
 		}
 		out = append(out, item.result)
 	}
 	return out
+}
+
+func driveRAGResultSemanticScore(result DriveSearchResult) float64 {
+	score := 0.0
+	for _, match := range result.Matches {
+		if match.Score > score {
+			score = match.Score
+		}
+	}
+	return score
+}
+
+func driveRAGHasStrongContentSemanticMatch(result DriveSearchResult) bool {
+	for _, match := range result.Matches {
+		if match.Score < driveRAGMinSemanticOnlyScore {
+			continue
+		}
+		if match.ResourceKind == LocalSearchResourceDriveFile {
+			continue
+		}
+		if strings.TrimSpace(match.Snippet) == "" {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func driveRAGResultLexicalScore(result DriveSearchResult, terms []string) int {
@@ -456,13 +504,44 @@ func fallbackDriveRAGAnswer(contexts []driveRAGContext) (string, []DriveRAGCitat
 		if filename == "" {
 			filename = "Drive document"
 		}
-		lines = append(lines, fmt.Sprintf("%s: %s", filename, truncateRunes(text, 260)))
+		lines = append(lines, fmt.Sprintf("- %s: %s", filename, truncateRunes(cleanDriveRAGContextText(text), 220)))
 		citations = append(citations, item.Citation)
 	}
 	if len(lines) == 0 {
 		return "", nil
 	}
-	return "生成モデルが引用付き JSON を返せなかったため、取得した文書の抜粋を表示します。\n" + strings.Join(lines, "\n"), citations
+	return "取得した文書には次の内容が含まれています。\n" + strings.Join(lines, "\n"), citations
+}
+
+func cleanDriveRAGContextText(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	if strings.HasPrefix(text, "OCR: ") {
+		rest := strings.TrimSpace(strings.TrimPrefix(text, "OCR: "))
+		fields := strings.Fields(rest)
+		if len(fields) > 1 && driveRAGLooksLikeImageFilename(fields[0]) {
+			text = strings.Join(fields[1:], " ")
+		}
+	}
+	if strings.Contains(text, `{"extractor"`) || strings.Contains(text, `[{"text"`) {
+		if index := strings.Index(text, " {}"); index >= 0 {
+			text = strings.TrimSpace(text[:index])
+		}
+	}
+	text = strings.Join(strings.Fields(text), " ")
+	return text
+}
+
+func driveRAGLooksLikeImageFilename(text string) bool {
+	lower := strings.ToLower(strings.TrimSpace(text))
+	for _, suffix := range []string{".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif", ".bmp", ".tif", ".tiff"} {
+		if strings.HasSuffix(lower, suffix) {
+			return true
+		}
+	}
+	return false
 }
 
 func extractDriveRAGJSONPayload(raw string) string {

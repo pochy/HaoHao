@@ -114,6 +114,60 @@ services:
     volumes:
       - seaweedfs-data:/data
 
+  open-webui:
+    image: ${OPEN_WEBUI_IMAGE:-ghcr.io/open-webui/open-webui:cuda}
+    container_name: haohao-open-webui
+    profiles:
+      - openwebui
+    restart: unless-stopped
+    ports:
+      - "${OPEN_WEBUI_HOST_BIND:-127.0.0.1}:${OPEN_WEBUI_HOST_PORT:-3000}:8080"
+    environment:
+      WEBUI_SECRET_KEY: ${OPEN_WEBUI_SECRET_KEY:-haohao-open-webui-dev-secret}
+      WEBUI_AUTH: ${WEBUI_AUTH:-True}
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-cl-nagoya/ruri-v3-310m}
+      RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE: ${RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE:-True}
+    volumes:
+      - open-webui-data:/app/backend/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  infinity:
+    build:
+      context: .
+      dockerfile: docker/infinity-ruri/Dockerfile
+    image: ${INFINITY_IMAGE:-haohao/infinity-ruri:latest}
+    container_name: haohao-infinity
+    profiles:
+      - openwebui
+    restart: always
+    ports:
+      - "${INFINITY_HOST_BIND:-127.0.0.1}:${INFINITY_HOST_PORT:-7997}:7997"
+    volumes:
+      - infinity-model-cache:/app/.cache
+    command:
+      - v2
+      - --model-id
+      - ${INFINITY_EMBEDDING_MODEL:-cl-nagoya/ruri-v3-310m}
+      - --model-id
+      - ${INFINITY_RERANKER_MODEL:-cl-nagoya/ruri-v3-reranker-310m}
+      - --device
+      - ${INFINITY_DEVICE:-cpu}
+      - --batch-size
+      - ${INFINITY_BATCH_SIZE:-8}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
 volumes:
   postgres-data:
   redis-data:
@@ -121,3 +175,5 @@ volumes:
   clickhouse-logs:
   openfga-postgres-data:
   seaweedfs-data:
+  open-webui-data:
+  infinity-model-cache:

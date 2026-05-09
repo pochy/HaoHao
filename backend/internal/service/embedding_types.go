@@ -2,7 +2,10 @@ package service
 
 import "context"
 
-const LocalSearchEmbeddingDimension = 1024
+const (
+	LocalSearchDefaultEmbeddingDimension = 1024
+	LocalSearchMaxEmbeddingDimension     = 2000
+)
 
 type EmbeddingProvider interface {
 	Embed(ctx context.Context, input EmbeddingRequest) (EmbeddingResult, error)

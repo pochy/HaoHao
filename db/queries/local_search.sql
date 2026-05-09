@@ -314,6 +314,7 @@ FROM local_search_embeddings e
 WHERE e.tenant_id = sqlc.arg(tenant_id)
   AND e.resource_kind = sqlc.arg(resource_kind)
   AND e.model = sqlc.arg(model)
+  AND e.dimension = sqlc.arg(dimension)
   AND e.status = 'completed'
   AND e.embedding IS NOT NULL
 ORDER BY e.embedding <=> sqlc.arg(query_embedding)::vector

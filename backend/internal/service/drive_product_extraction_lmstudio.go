@@ -137,7 +137,7 @@ type lmStudioChatCompletionRequest struct {
 
 type lmStudioChatMessage struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"`
 }
 
 type lmStudioChatCompletionResponse struct {

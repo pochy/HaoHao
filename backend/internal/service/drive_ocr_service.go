@@ -724,7 +724,7 @@ func (s *DriveOCRService) RuntimeStatus(ctx context.Context, tenantID int64) (Dr
 	if policy.StructuredExtractor == "ollama" || strings.TrimSpace(policy.OllamaModel) != "" {
 		status.Ollama = CheckDriveOCROllama(ctx, policy)
 	}
-	if policy.StructuredExtractor == "lmstudio" || strings.TrimSpace(policy.LMStudioModel) != "" {
+	if policy.OCREngine == "lmstudio" || policy.StructuredExtractor == "lmstudio" || strings.TrimSpace(policy.LMStudioModel) != "" {
 		status.LMStudio = CheckDriveOCRLMStudio(ctx, policy)
 	}
 	status.LocalCommands = CheckDriveOCRLocalCommands(ctx, policy)

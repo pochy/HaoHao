@@ -184,6 +184,7 @@ const {
           <option value="none">{{ t('common.disabled') }}</option>
           <option value="ollama">Ollama</option>
           <option value="lmstudio">LM Studio</option>
+          <option value="infinity">Infinity</option>
         </select>
       </label>
       <label class="field">
@@ -310,6 +311,7 @@ const {
           <option value="tesseract">Tesseract</option>
           <option value="docling">Docling</option>
           <option value="paddleocr">PaddleOCR</option>
+          <option value="lmstudio">LM Studio</option>
         </select>
       </label>
       <label class="field">

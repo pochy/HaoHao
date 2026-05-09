@@ -39,6 +39,33 @@ seaweedfs-down:
 seaweedfs-logs:
 	$(DOCKER_COMPOSE) --profile seaweedfs logs -f seaweedfs
 
+openwebui-up:
+	$(DOCKER_COMPOSE) --profile openwebui up -d open-webui
+
+openwebui-stack-up:
+	$(DOCKER_COMPOSE) --profile openwebui up -d open-webui infinity
+
+openwebui-config:
+	$(DOCKER_COMPOSE) --profile openwebui config
+
+openwebui-down:
+	$(DOCKER_COMPOSE) --profile openwebui stop open-webui infinity
+
+openwebui-logs:
+	$(DOCKER_COMPOSE) --profile openwebui logs -f open-webui infinity
+
+infinity-up:
+	$(DOCKER_COMPOSE) --profile infinity up -d infinity
+
+infinity-down:
+	$(DOCKER_COMPOSE) --profile infinity stop infinity
+
+infinity-build:
+	$(DOCKER_COMPOSE) --profile infinity build infinity
+
+infinity-logs:
+	$(DOCKER_COMPOSE) --profile infinity logs -f infinity
+
 zitadel-env:
 	@test -f $(ZITADEL_ENV_FILE) || cp $(ZITADEL_ENV_EXAMPLE) $(ZITADEL_ENV_FILE)
 

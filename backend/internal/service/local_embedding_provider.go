@@ -36,6 +36,8 @@ func (p *LocalEmbeddingProvider) Embed(ctx context.Context, input EmbeddingReque
 		return p.embedOllama(ctx, input)
 	case "lmstudio":
 		return p.embedOpenAICompatible(ctx, input)
+	case "infinity":
+		return p.embedInfinity(ctx, input)
 	default:
 		return EmbeddingResult{}, fmt.Errorf("%w: unsupported embedding runtime", ErrInvalidTenantSettings)
 	}
@@ -55,12 +57,20 @@ func (p *LocalEmbeddingProvider) embedOllama(ctx context.Context, input Embeddin
 }
 
 func (p *LocalEmbeddingProvider) embedOpenAICompatible(ctx context.Context, input EmbeddingRequest) (EmbeddingResult, error) {
+	return p.embedOpenAICompatiblePath(ctx, input, "/v1/embeddings")
+}
+
+func (p *LocalEmbeddingProvider) embedInfinity(ctx context.Context, input EmbeddingRequest) (EmbeddingResult, error) {
+	return p.embedOpenAICompatiblePath(ctx, input, "/embeddings")
+}
+
+func (p *LocalEmbeddingProvider) embedOpenAICompatiblePath(ctx context.Context, input EmbeddingRequest, path string) (EmbeddingResult, error) {
 	var response struct {
 		Data []struct {
 			Embedding []float32 `json:"embedding"`
 		} `json:"data"`
 	}
-	if err := p.postJSON(ctx, "/v1/embeddings", map[string]any{
+	if err := p.postJSON(ctx, path, map[string]any{
 		"model": input.Model,
 		"input": input.Texts,
 	}, &response); err != nil {

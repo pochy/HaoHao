@@ -40,6 +40,7 @@ type VectorSearchInput struct {
 	TenantID     int64
 	ResourceKind string
 	Model        string
+	Dimension    int32
 	Embedding    []float32
 	Limit        int32
 }
@@ -119,6 +120,7 @@ func (s *PgVectorStore) Search(ctx context.Context, input VectorSearchInput) ([]
 		TenantID:       input.TenantID,
 		ResourceKind:   input.ResourceKind,
 		Model:          input.Model,
+		Dimension:      input.Dimension,
 		LimitCount:     limit,
 	})
 	if err != nil {

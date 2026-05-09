@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pgvector/pgvector-go"
 )
 
 const (
@@ -37,7 +38,7 @@ const (
 	localSearchMaxChunks        = 32
 	localSearchMinSemanticScore = 0.05
 
-	localSearchDriveMinSemanticScore        = 0.51
+	localSearchDriveMinSemanticScore        = 0.84
 	localSearchSchemaColumnMinSemanticScore = 0.78
 )
 
@@ -47,6 +48,7 @@ type LocalSearchMatch struct {
 	MedallionAssetPublicID string
 	Layer                  string
 	Snippet                string
+	Score                  float64
 	IndexedAt              *time.Time
 }
 
@@ -86,6 +88,7 @@ type LocalSearchSemanticHit struct {
 	ResourceKind     string
 	ResourceID       int64
 	ResourcePublicID string
+	FileObjectID     int64
 	SourceText       string
 	Score            float64
 }
@@ -414,14 +417,14 @@ func (s *LocalSearchService) SearchDriveFiles(ctx context.Context, input DriveSe
 		}
 	}
 	if mode == DriveSearchModeSemantic || mode == DriveSearchModeHybrid {
-		hits, err := s.SearchSemantic(ctx, input.TenantID, LocalSearchResourceDriveFile, input.Query, limit)
+		hits, err := s.SearchDriveFileSemantic(ctx, input.TenantID, input.Query, limit)
 		if err != nil {
 			if mode == DriveSearchModeSemantic {
 				return nil, fmt.Errorf("semantic drive search: %w", err)
 			}
 		}
 		for _, hit := range hits {
-			row, err := s.drive.getDriveFileRow(ctx, input.TenantID, DriveResourceRef{Type: DriveResourceTypeFile, ID: hit.ResourceID})
+			row, err := s.drive.getDriveFileRow(ctx, input.TenantID, DriveResourceRef{Type: DriveResourceTypeFile, ID: hit.FileObjectID})
 			if errors.Is(err, ErrDriveNotFound) {
 				continue
 			}
@@ -439,7 +442,8 @@ func (s *LocalSearchService) SearchDriveFiles(ctx context.Context, input DriveSe
 			semanticMatches[file.ID] = LocalSearchMatch{
 				ResourceKind:     hit.ResourceKind,
 				ResourcePublicID: hit.ResourcePublicID,
-				Snippet:          searchSnippet(hit.SourceText, file.OriginalFilename),
+				Snippet:          cleanDriveRAGContextText(searchSnippet(hit.SourceText, file.OriginalFilename)),
+				Score:            hit.Score,
 			}
 		}
 	}
@@ -622,8 +626,8 @@ func (s *LocalSearchService) HandleEmbeddingRequested(ctx context.Context, tenan
 		}
 		return nil
 	}
-	if policy.LocalSearch.Dimension != LocalSearchEmbeddingDimension {
-		return s.failJob(ctx, tenantID, job.ID, "local search embedding dimension must be 1024")
+	if !isValidLocalSearchEmbeddingDimension(policy.LocalSearch.Dimension) {
+		return s.failJob(ctx, tenantID, job.ID, "local search embedding dimension must be between 1 and 2000")
 	}
 	if !job.ResourceKind.Valid || !job.ResourceID.Valid {
 		return s.failJob(ctx, tenantID, job.ID, "local search embedding job resource is required")
@@ -676,7 +680,7 @@ func (s *LocalSearchService) HandleEmbeddingRequested(ctx context.Context, tenan
 		_ = s.failJob(ctx, tenantID, job.ID, err.Error())
 		return err
 	}
-	if result.Dimension != LocalSearchEmbeddingDimension || len(result.Embeddings) != len(chunks) {
+	if result.Dimension != policy.LocalSearch.Dimension || len(result.Embeddings) != len(chunks) {
 		err := fmt.Errorf("embedding runtime returned invalid result shape")
 		_ = s.failJob(ctx, tenantID, job.ID, err.Error())
 		return err
@@ -696,7 +700,7 @@ func (s *LocalSearchService) HandleEmbeddingRequested(ctx context.Context, tenan
 			ChunkOrdinal:     chunk.Ordinal,
 			SourceText:       chunk.Text,
 			Model:            policy.LocalSearch.Model,
-			Dimension:        LocalSearchEmbeddingDimension,
+			Dimension:        int32(result.Dimension),
 			ContentHash:      chunk.ContentHash,
 			Embedding:        result.Embeddings[i],
 			Metadata: map[string]any{
@@ -751,7 +755,7 @@ func (s *LocalSearchService) SearchSemantic(ctx context.Context, tenantID int64,
 	if err != nil {
 		return nil, err
 	}
-	if result.Dimension != LocalSearchEmbeddingDimension || len(result.Embeddings) != 1 {
+	if result.Dimension != policy.LocalSearch.Dimension || len(result.Embeddings) != 1 {
 		return nil, fmt.Errorf("embedding runtime returned invalid result shape")
 	}
 	store := NewPgVectorStore(s.queries)
@@ -759,6 +763,7 @@ func (s *LocalSearchService) SearchSemantic(ctx context.Context, tenantID int64,
 		TenantID:     tenantID,
 		ResourceKind: resourceKind,
 		Model:        policy.LocalSearch.Model,
+		Dimension:    int32(result.Dimension),
 		Embedding:    result.Embeddings[0],
 		Limit:        limit,
 	})
@@ -780,6 +785,90 @@ func (s *LocalSearchService) SearchSemantic(ctx context.Context, tenantID int64,
 		})
 	}
 	return out, nil
+}
+
+func (s *LocalSearchService) SearchDriveFileSemantic(ctx context.Context, tenantID int64, query string, limit int32) ([]LocalSearchSemanticHit, error) {
+	if err := s.ensureConfigured(); err != nil {
+		return nil, err
+	}
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, nil
+	}
+	if s.tenantSettings == nil {
+		return nil, nil
+	}
+	policy, err := s.tenantSettings.GetDrivePolicy(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if !policy.LocalSearch.VectorEnabled || policy.LocalSearch.EmbeddingRuntime == "none" || strings.TrimSpace(policy.LocalSearch.Model) == "" {
+		return nil, nil
+	}
+	provider := NewLocalEmbeddingProvider(policy.LocalSearch.EmbeddingRuntime, policy.LocalSearch.RuntimeURL)
+	result, err := provider.Embed(ctx, EmbeddingRequest{
+		TenantID: tenantID,
+		Model:    policy.LocalSearch.Model,
+		Texts:    []string{localSearchSemanticQueryText(LocalSearchResourceDriveFile, query)},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result.Dimension != policy.LocalSearch.Dimension || len(result.Embeddings) != 1 {
+		return nil, fmt.Errorf("embedding runtime returned invalid result shape")
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	rows, err := s.pool.Query(ctx, `
+		WITH best_per_file AS (
+			SELECT DISTINCT ON (d.file_object_id)
+				d.resource_kind,
+				d.resource_id,
+				d.resource_public_id::text AS resource_public_id,
+				d.file_object_id,
+				e.source_text,
+				(1.0 - (e.embedding <=> $1::vector))::float8 AS score
+			FROM local_search_embeddings e
+			JOIN local_search_documents d ON d.id = e.document_id
+			WHERE e.tenant_id = $2
+			  AND d.tenant_id = $2
+			  AND d.file_object_id IS NOT NULL
+			  AND d.resource_kind IN ('drive_file', 'ocr_run', 'product_extraction', 'gold_table')
+			  AND NOT (d.resource_kind = 'drive_file' AND btrim(d.body_text) = '')
+			  AND e.model = $3
+			  AND e.dimension = $4
+			  AND e.status = 'completed'
+			  AND e.embedding IS NOT NULL
+			ORDER BY d.file_object_id, e.embedding <=> $1::vector, e.id
+		)
+		SELECT resource_kind, resource_id, resource_public_id, file_object_id, source_text, score
+		FROM best_per_file
+		ORDER BY score DESC, file_object_id DESC
+	`, pgvector.NewVector(result.Embeddings[0]), tenantID, policy.LocalSearch.Model, int32(result.Dimension))
+	if err != nil {
+		return nil, fmt.Errorf("search drive file semantic embeddings: %w", err)
+	}
+	defer rows.Close()
+	hits := make([]LocalSearchSemanticHit, 0, limit)
+	minScore := localSearchSemanticScoreThreshold(LocalSearchResourceDriveFile)
+	for rows.Next() {
+		var hit LocalSearchSemanticHit
+		if err := rows.Scan(&hit.ResourceKind, &hit.ResourceID, &hit.ResourcePublicID, &hit.FileObjectID, &hit.SourceText, &hit.Score); err != nil {
+			return nil, err
+		}
+		if hit.Score < minScore {
+			continue
+		}
+		hits = append(hits, hit)
+		if int32(len(hits)) >= limit {
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return hits, nil
 }
 
 func localSearchSemanticScoreThreshold(resourceKind string) float64 {

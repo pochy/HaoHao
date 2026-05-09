@@ -1093,10 +1093,11 @@ FROM local_search_embeddings e
 WHERE e.tenant_id = $2
   AND e.resource_kind = $3
   AND e.model = $4
+  AND e.dimension = $5
   AND e.status = 'completed'
   AND e.embedding IS NOT NULL
 ORDER BY e.embedding <=> $1::vector
-LIMIT $5
+LIMIT $6
 `
 
 type SearchLocalSearchEmbeddingsCosineParams struct {
@@ -1104,6 +1105,7 @@ type SearchLocalSearchEmbeddingsCosineParams struct {
 	TenantID       int64           `json:"tenant_id"`
 	ResourceKind   string          `json:"resource_kind"`
 	Model          string          `json:"model"`
+	Dimension      int32           `json:"dimension"`
 	LimitCount     int32           `json:"limit_count"`
 }
 
@@ -1126,6 +1128,7 @@ func (q *Queries) SearchLocalSearchEmbeddingsCosine(ctx context.Context, arg Sea
 		arg.TenantID,
 		arg.ResourceKind,
 		arg.Model,
+		arg.Dimension,
 		arg.LimitCount,
 	)
 	if err != nil {

@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	paddleOCRPythonEnv = "HAOHAO_DRIVE_PADDLEOCR_PYTHON"
-	paddleOCRHelperEnv = "HAOHAO_DRIVE_PADDLEOCR_HELPER"
-	paddleOCRDeviceEnv = "HAOHAO_DRIVE_PADDLEOCR_DEVICE"
+	paddleOCRPythonEnv      = "HAOHAO_DRIVE_PADDLEOCR_PYTHON"
+	paddleOCRHelperEnv      = "HAOHAO_DRIVE_PADDLEOCR_HELPER"
+	paddleOCRDeviceEnv      = "HAOHAO_DRIVE_PADDLEOCR_DEVICE"
+	paddleOCRGPUFallbackEnv = "HAOHAO_DRIVE_PADDLEOCR_GPU_FALLBACK"
 )
 
 type LocalDriveOCRProvider struct{}
@@ -38,6 +39,8 @@ func (LocalDriveOCRProvider) Check(ctx context.Context, policy DriveOCRPolicy) [
 		return []DriveOCRDependencyStatus{paddleOCRDependencyStatus(ctx)}
 	case "docling":
 		return []DriveOCRDependencyStatus{commandStatus(ctx, "docling", "--version")}
+	case "lmstudio":
+		return []DriveOCRDependencyStatus{commandStatus(ctx, "pdftoppm", "-v")}
 	}
 	items := []DriveOCRDependencyStatus{
 		commandStatus(ctx, "tesseract", "--version"),
@@ -75,6 +78,8 @@ func (p LocalDriveOCRProvider) Extract(ctx context.Context, input DriveOCRProvid
 		return p.extractTesseract(ctx, input, contentType, ext)
 	case "paddleocr":
 		return p.extractPaddleOCR(ctx, input, contentType, ext)
+	case "lmstudio":
+		return p.extractLMStudioOCR(ctx, input, contentType, ext)
 	case "docling":
 		return DriveOCRProviderResult{}, fmt.Errorf("%w: docling ocr engine is not available in this runtime", ErrDriveOCRDependencyUnavailable)
 	default:
@@ -349,6 +354,15 @@ func (r paddleOCRImageResult) page(pageNumber int) DriveOCRPageResult {
 }
 
 func paddleOCRImage(ctx context.Context, path string, policy DriveOCRPolicy) (paddleOCRImageResult, error) {
+	device := paddleOCRDevice()
+	result, err := paddleOCRImageWithDevice(ctx, path, policy, device)
+	if err == nil || !strings.HasPrefix(device, "gpu") || !paddleOCRGPUFallbackEnabled() || !isPaddleOCRGPUOOM(err) {
+		return result, err
+	}
+	return paddleOCRImageWithDevice(ctx, path, policy, "cpu")
+}
+
+func paddleOCRImageWithDevice(ctx context.Context, path string, policy DriveOCRPolicy, device string) (paddleOCRImageResult, error) {
 	command := paddleOCRPythonCommand()
 	if _, err := exec.LookPath(command); err != nil {
 		return paddleOCRImageResult{}, fmt.Errorf("%w: %s command is not available", ErrDriveOCRDependencyUnavailable, command)
@@ -360,7 +374,7 @@ func paddleOCRImage(ctx context.Context, path string, policy DriveOCRPolicy) (pa
 	requestBody, err := json.Marshal(paddleOCRHelperRequest{
 		ImagePath:                 path,
 		Lang:                      paddleOCRLanguage(policy),
-		Device:                    paddleOCRDevice(),
+		Device:                    device,
 		UseDocOrientationClassify: false,
 		UseDocUnwarping:           false,
 		UseTextlineOrientation:    true,
@@ -429,6 +443,22 @@ func paddleOCRDevice() string {
 		return device
 	}
 	return "cpu"
+}
+
+func paddleOCRGPUFallbackEnabled() bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv(paddleOCRGPUFallbackEnv)))
+	return value != "0" && value != "false" && value != "no" && value != "off"
+}
+
+func isPaddleOCRGPUOOM(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "cuda") &&
+		(strings.Contains(message, "out of memory") ||
+			strings.Contains(message, "cudaerrormemoryallocation") ||
+			strings.Contains(message, "memory allocation"))
 }
 
 func parsePaddleOCROutput(value string) string {
@@ -562,6 +592,14 @@ func driveOCREngineSkipReason(ctx context.Context, policy DriveOCRPolicy) (strin
 	case "docling":
 		if _, err := exec.LookPath("docling"); err != nil {
 			return "dependency_unavailable", "Docling OCR engine is selected, but the docling command is not available in this runtime"
+		}
+		return "", ""
+	case "lmstudio":
+		if strings.TrimSpace(policy.LMStudioModel) == "" {
+			return "dependency_unavailable", "LM Studio OCR engine is selected, but lmStudioModel is not configured"
+		}
+		if _, err := normalizedLMStudioBaseURL(policy.LMStudioBaseURL); err != nil {
+			return "dependency_unavailable", "LM Studio OCR engine is selected, but lmStudioBaseURL is invalid"
 		}
 		return "", ""
 	default:

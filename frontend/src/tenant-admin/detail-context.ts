@@ -197,7 +197,7 @@ export function createTenantAdminDetailContext() {
   })
   const driveRulesConfigVisible = computed(() => driveStructuredExtractor.value === 'rules')
   const driveOllamaConfigVisible = computed(() => driveStructuredExtractor.value === 'ollama')
-  const driveLMStudioConfigVisible = computed(() => driveStructuredExtractor.value === 'lmstudio')
+  const driveLMStudioConfigVisible = computed(() => driveOcrEngine.value === 'lmstudio' || driveStructuredExtractor.value === 'lmstudio')
   const driveRagRuntimeConfigVisible = computed(() => driveRagGenerationRuntime.value === 'ollama' || driveRagGenerationRuntime.value === 'lmstudio')
   const latestDriveLocalSearchJob = computed(() => store.driveLocalSearchJobs[0] ?? null)
   const latestDriveLocalSearchJobLabel = computed(() => {

@@ -310,13 +310,26 @@ func TestValidateDriveLocalSearchPolicyRequiresVectorRuntimeConfig(t *testing.T)
 	}
 }
 
-func TestValidateDriveLocalSearchPolicyRejectsNonStandardVectorDimension(t *testing.T) {
+func TestValidateDriveLocalSearchPolicyAcceptsRuriVectorDimension(t *testing.T) {
+	policy := defaultDriveLocalSearchPolicy()
+	policy.VectorEnabled = true
+	policy.EmbeddingRuntime = "infinity"
+	policy.RuntimeURL = "http://127.0.0.1:7997"
+	policy.Model = "cl-nagoya/ruri-v3-310m"
+	policy.Dimension = 768
+
+	if err := validateDriveLocalSearchPolicy(policy); err != nil {
+		t.Fatalf("validateDriveLocalSearchPolicy() error = %v", err)
+	}
+}
+
+func TestValidateDriveLocalSearchPolicyRejectsTooLargeVectorDimension(t *testing.T) {
 	policy := defaultDriveLocalSearchPolicy()
 	policy.VectorEnabled = true
 	policy.EmbeddingRuntime = "ollama"
 	policy.RuntimeURL = "http://127.0.0.1:11434"
-	policy.Model = "nomic-embed-text"
-	policy.Dimension = 768
+	policy.Model = "oversized"
+	policy.Dimension = LocalSearchMaxEmbeddingDimension + 1
 
 	if err := validateDriveLocalSearchPolicy(policy); err == nil {
 		t.Fatal("validateDriveLocalSearchPolicy() error = nil, want dimension validation error")
