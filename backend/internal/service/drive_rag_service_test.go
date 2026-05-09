@@ -288,3 +288,55 @@ func TestMergeDriveRAGSearchResultsDeduplicatesByFilePublicID(t *testing.T) {
 		t.Fatalf("coverage = %#v, want two query hits", coverage)
 	}
 }
+
+func TestDriveRAGSufficiencyDetectsMissingSignals(t *testing.T) {
+	plan := driveRAGDeterministicQueryPlan("白いインテリアに合う家具は？", 6)
+	results := []DriveSearchResult{
+		{
+			Item:    DriveItem{Type: DriveItemTypeFile, File: &DriveFile{PublicID: "white", OriginalFilename: "white.txt"}},
+			Snippet: "白い壁と明るい部屋",
+		},
+	}
+
+	sufficiency := driveRAGSufficiency(plan, results)
+	if sufficiency.Sufficient {
+		t.Fatalf("sufficiency = %#v, want missing signals", sufficiency)
+	}
+	if !containsAnyNormalized(sufficiency.MissingSignals, "インテリア") || !containsAnyNormalized(sufficiency.MissingSignals, "家具") {
+		t.Fatalf("missingSignals = %#v, want インテリア and 家具", sufficiency.MissingSignals)
+	}
+}
+
+func TestDriveRAGSufficiencyAcceptsFurnitureSynonyms(t *testing.T) {
+	plan := driveRAGDeterministicQueryPlan("白いインテリアに合う家具は？", 6)
+	results := []DriveSearchResult{
+		{
+			Item:    DriveItem{Type: DriveItemTypeFile, File: &DriveFile{PublicID: "desk", OriginalFilename: "desk.txt"}},
+			Snippet: "白いデスクはインテリアに合わせやすい",
+		},
+	}
+
+	sufficiency := driveRAGSufficiency(plan, results)
+	if !sufficiency.Sufficient {
+		t.Fatalf("sufficiency = %#v, want sufficient with furniture synonym", sufficiency)
+	}
+}
+
+func TestDriveRAGRetryQueryPlanUsesMissingSignals(t *testing.T) {
+	plan := driveRAGDeterministicQueryPlan("白いインテリアに合う家具は？", 6)
+	retry := driveRAGRetryQueryPlan(plan, DriveRAGSufficiencyResult{
+		MissingSignals: []string{"家具"},
+	})
+	if len(retry.RetrievalQueries) == 0 {
+		t.Fatal("retry.RetrievalQueries is empty")
+	}
+	var hasFurnitureRetry bool
+	for _, query := range retry.RetrievalQueries {
+		if strings.Contains(query.Query, "デスク") && strings.Contains(query.Query, "椅子") && strings.Contains(query.Query, "棚") {
+			hasFurnitureRetry = true
+		}
+	}
+	if !hasFurnitureRetry {
+		t.Fatalf("retrievalQueries = %#v, want furniture retry query", retry.RetrievalQueries)
+	}
+}

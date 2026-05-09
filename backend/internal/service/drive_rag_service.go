@@ -25,10 +25,11 @@ type DriveRAGQueryInput struct {
 }
 
 type DriveRAGResult struct {
-	Answer    string
-	Citations []DriveRAGCitation
-	Matches   []DriveRAGCitation
-	Blocked   bool
+	Answer         string
+	Citations      []DriveRAGCitation
+	Matches        []DriveRAGCitation
+	Blocked        bool
+	RetrievalTrace []DriveRAGRetrievalTrace
 }
 
 type DriveRAGCitation struct {
@@ -57,10 +58,14 @@ type DriveRAGRetrievalQuery struct {
 }
 
 type DriveRAGRetrievalTrace struct {
-	Query       string
-	ResultCount int
-	MergedCount int
-	SearchMode  string
+	Query          string
+	Intent         string
+	ResultCount    int
+	MergedCount    int
+	SearchMode     string
+	Retry          bool
+	RetryReason    string
+	MissingSignals []string
 }
 
 type DriveRAGSufficiencyResult struct {
@@ -154,18 +159,36 @@ func (s *DriveService) QueryRAG(ctx context.Context, input DriveRAGQueryInput, a
 		searchLimit = driveRAGMaxLimit
 	}
 	plan := s.driveRAGQueryPlan(ctx, query, policy.RAG)
-	results, err := s.searchDriveRAGPlan(ctx, input, auditCtx, plan, mode, searchLimit)
+	results, trace, err := s.searchDriveRAGPlan(ctx, input, auditCtx, plan, mode, searchLimit)
 	if err != nil {
 		return DriveRAGResult{}, err
 	}
 	results = rankDriveRAGResultsWithPlan(plan, results)
+	sufficiency := driveRAGSufficiency(plan, results)
+	if !sufficiency.Sufficient {
+		retryPlan := driveRAGRetryQueryPlan(plan, sufficiency)
+		if len(retryPlan.RetrievalQueries) > 0 {
+			retryResults, retryTrace, err := s.searchDriveRAGPlan(ctx, input, auditCtx, retryPlan, mode, searchLimit)
+			if err != nil {
+				return DriveRAGResult{}, err
+			}
+			for i := range retryTrace {
+				retryTrace[i].Retry = true
+				retryTrace[i].RetryReason = sufficiency.Reason
+				retryTrace[i].MissingSignals = append([]string{}, sufficiency.MissingSignals...)
+			}
+			results = mergeDriveRAGSearchResults(results, retryResults, map[string]int{})
+			results = rankDriveRAGResultsWithPlan(plan, results)
+			trace = append(trace, retryTrace...)
+		}
+	}
 	contexts := driveRAGContexts(results, policy.RAG)
 	matches := make([]DriveRAGCitation, 0, len(contexts))
 	for _, item := range contexts {
 		matches = append(matches, item.Citation)
 	}
 	if len(contexts) == 0 {
-		return DriveRAGResult{Blocked: true, Matches: matches}, nil
+		return DriveRAGResult{Blocked: true, Matches: matches, RetrievalTrace: trace}, nil
 	}
 	provider := NewLocalGenerationProvider(policy.RAG.GenerationRuntime, policy.RAG.GenerationRuntimeURL)
 	generated, err := provider.Generate(ctx, GenerationRequest{
@@ -183,13 +206,14 @@ func (s *DriveService) QueryRAG(ctx context.Context, input DriveRAGQueryInput, a
 	if strings.TrimSpace(answer) == "" || len(citations) == 0 {
 		answer, citations = fallbackDriveRAGAnswer(contexts)
 		if strings.TrimSpace(answer) == "" || len(citations) == 0 {
-			return DriveRAGResult{Blocked: true, Matches: matches}, nil
+			return DriveRAGResult{Blocked: true, Matches: matches, RetrievalTrace: trace}, nil
 		}
 	}
 	return DriveRAGResult{
-		Answer:    truncateRunes(answer, driveRAGMaxGenerationText),
-		Citations: citations,
-		Matches:   matches,
+		Answer:         truncateRunes(answer, driveRAGMaxGenerationText),
+		Citations:      citations,
+		Matches:        matches,
+		RetrievalTrace: trace,
 	}, nil
 }
 
@@ -225,13 +249,14 @@ func (s *DriveService) driveRAGLLMQueryPlan(ctx context.Context, query string, p
 	return driveRAGQueryPlanFromRewrite(query, generated.Text, policy.QueryRewriteMaxQueries)
 }
 
-func (s *DriveService) searchDriveRAGPlan(ctx context.Context, input DriveRAGQueryInput, auditCtx AuditContext, plan DriveRAGQueryPlan, mode string, searchLimit int32) ([]DriveSearchResult, error) {
+func (s *DriveService) searchDriveRAGPlan(ctx context.Context, input DriveRAGQueryInput, auditCtx AuditContext, plan DriveRAGQueryPlan, mode string, searchLimit int32) ([]DriveSearchResult, []DriveRAGRetrievalTrace, error) {
 	queries := plan.RetrievalQueries
 	if len(queries) == 0 {
 		queries = []DriveRAGRetrievalQuery{{Query: plan.OriginalQuery, Intent: "original", Weight: 1}}
 	}
 	merged := make([]DriveSearchResult, 0)
 	coverage := map[string]int{}
+	trace := make([]DriveRAGRetrievalTrace, 0, len(queries))
 	for _, retrievalQuery := range queries {
 		searchQuery := strings.TrimSpace(retrievalQuery.Query)
 		if searchQuery == "" {
@@ -246,9 +271,16 @@ func (s *DriveService) searchDriveRAGPlan(ctx context.Context, input DriveRAGQue
 			Filter:      DriveListItemsFilter{Type: "all", Owner: "all", Source: "all"},
 		}, auditCtx)
 		if err != nil {
-			return nil, err
+			return nil, trace, err
 		}
 		merged = mergeDriveRAGSearchResults(merged, results, coverage)
+		trace = append(trace, DriveRAGRetrievalTrace{
+			Query:       searchQuery,
+			Intent:      retrievalQuery.Intent,
+			ResultCount: len(results),
+			MergedCount: len(merged),
+			SearchMode:  mode,
+		})
 	}
 	sort.SliceStable(merged, func(i, j int) bool {
 		left := driveRAGResultFilePublicID(merged[i])
@@ -258,7 +290,7 @@ func (s *DriveService) searchDriveRAGPlan(ctx context.Context, input DriveRAGQue
 		}
 		return coverage[left] > coverage[right]
 	})
-	return merged, nil
+	return merged, trace, nil
 }
 
 func driveRAGContexts(results []DriveSearchResult, policy DriveRAGPolicy) []driveRAGContext {
@@ -524,6 +556,108 @@ func driveRAGQueryPlanFromRewrite(query, payload string, maxQueries int) (DriveR
 	return plan, nil
 }
 
+func driveRAGSufficiency(plan DriveRAGQueryPlan, results []DriveSearchResult) DriveRAGSufficiencyResult {
+	if len(results) == 0 {
+		return DriveRAGSufficiencyResult{
+			Sufficient:     false,
+			MissingSignals: driveRAGRetrySignals(plan),
+			Reason:         "no candidates",
+		}
+	}
+	required := driveRAGRequiredSignals(plan)
+	if len(required) == 0 {
+		return DriveRAGSufficiencyResult{Sufficient: true}
+	}
+	text := driveRAGNormalizeSearchText(driveRAGResultsText(results))
+	missing := make([]string, 0)
+	for _, signal := range required {
+		if !driveRAGTextContainsSignal(text, signal) {
+			missing = appendUniqueString(missing, signal)
+		}
+	}
+	if len(missing) == 0 {
+		return DriveRAGSufficiencyResult{Sufficient: true}
+	}
+	return DriveRAGSufficiencyResult{
+		Sufficient:     false,
+		MissingSignals: missing,
+		Reason:         "missing required retrieval signals",
+	}
+}
+
+func driveRAGRequiredSignals(plan DriveRAGQueryPlan) []string {
+	out := make([]string, 0, len(plan.MustHave))
+	for _, signal := range plan.MustHave {
+		signal = strings.TrimSpace(signal)
+		if signal == "" {
+			continue
+		}
+		if signal == "白" && containsAnyNormalized(plan.MustHave, "白い", "ホワイト") {
+			continue
+		}
+		out = appendUniqueString(out, signal)
+	}
+	return out
+}
+
+func driveRAGRetrySignals(plan DriveRAGQueryPlan) []string {
+	signals := driveRAGRequiredSignals(plan)
+	if len(signals) > 0 {
+		return signals
+	}
+	for _, signal := range plan.Keywords {
+		if containsAnyNormalized([]string{signal}, "白い", "ホワイト", "インテリア", "家具", "デスク", "机", "椅子", "棚", "収納", "ソファ") {
+			signals = appendUniqueString(signals, signal)
+		}
+	}
+	return signals
+}
+
+func driveRAGRetryQueryPlan(plan DriveRAGQueryPlan, sufficiency DriveRAGSufficiencyResult) DriveRAGQueryPlan {
+	signals := sufficiency.MissingSignals
+	if len(signals) == 0 {
+		signals = driveRAGRetrySignals(plan)
+	}
+	if len(signals) == 0 {
+		return DriveRAGQueryPlan{}
+	}
+	retry := DriveRAGQueryPlan{
+		OriginalQuery: plan.OriginalQuery,
+		Keywords:      append([]string{}, plan.Keywords...),
+		MustHave:      append([]string{}, plan.MustHave...),
+		Source:        "retry",
+	}
+	addQuery := func(value, intent string) {
+		value = strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+		if value == "" {
+			return
+		}
+		for _, existing := range retry.RetrievalQueries {
+			if existing.Query == value {
+				return
+			}
+		}
+		retry.RetrievalQueries = append(retry.RetrievalQueries, DriveRAGRetrievalQuery{Query: value, Intent: intent, Weight: 0.7})
+	}
+	addQuery(strings.Join(signals, " "), "sufficiency_retry")
+	if containsAnyNormalized(append(plan.Keywords, signals...), "家具", "インテリア") {
+		for _, signal := range signals {
+			switch driveRAGNormalizeSearchText(signal) {
+			case "白い", "白", "ホワイト":
+				addQuery(signal+" デスク 椅子 棚 収納 ソファ", "sufficiency_retry_furniture")
+			case "家具":
+				addQuery("デスク 椅子 棚 収納 ソファ 木製", "sufficiency_retry_furniture")
+			case "インテリア":
+				addQuery("インテリア 家具 観葉植物 ミニマル", "sufficiency_retry_interior")
+			}
+		}
+	}
+	if len(retry.RetrievalQueries) > 3 {
+		retry.RetrievalQueries = retry.RetrievalQueries[:3]
+	}
+	return retry
+}
+
 func mergeDriveRAGSearchResults(existing []DriveSearchResult, incoming []DriveSearchResult, coverage map[string]int) []DriveSearchResult {
 	if coverage == nil {
 		coverage = map[string]int{}
@@ -650,6 +784,47 @@ func driveRAGResultText(result DriveSearchResult) string {
 		builder.WriteString(match.Snippet)
 	}
 	return builder.String()
+}
+
+func driveRAGResultsText(results []DriveSearchResult) string {
+	var builder strings.Builder
+	for _, result := range results {
+		builder.WriteString(" ")
+		builder.WriteString(driveRAGResultText(result))
+	}
+	return builder.String()
+}
+
+func driveRAGTextContainsSignal(text, signal string) bool {
+	signal = driveRAGNormalizeSearchText(signal)
+	if signal == "" {
+		return true
+	}
+	if strings.Contains(text, signal) {
+		return true
+	}
+	switch signal {
+	case "白い", "白":
+		return strings.Contains(text, "ホワイト")
+	case "ホワイト":
+		return strings.Contains(text, "白い") || strings.Contains(text, "白")
+	case "家具":
+		return strings.Contains(text, "デスク") || strings.Contains(text, "机") || strings.Contains(text, "椅子") || strings.Contains(text, "チェア") || strings.Contains(text, "棚") || strings.Contains(text, "収納") || strings.Contains(text, "ソファ")
+	case "デスク":
+		return strings.Contains(text, "机")
+	case "机":
+		return strings.Contains(text, "デスク")
+	case "椅子":
+		return strings.Contains(text, "チェア")
+	case "チェア":
+		return strings.Contains(text, "椅子")
+	case "棚":
+		return strings.Contains(text, "収納")
+	case "収納":
+		return strings.Contains(text, "棚")
+	default:
+		return false
+	}
 }
 
 func driveRAGResultLexicalScore(result DriveSearchResult, terms []string) int {

@@ -27,6 +27,8 @@ const triggerBroadRebuild = process.env.HAOHAO_SMOKE_RAG_REBUILD === '1'
 const ragMaxContextChunks = Number(process.env.HAOHAO_SMOKE_RAG_MAX_CONTEXT_CHUNKS ?? '8')
 const ragMaxContextRunes = Number(process.env.HAOHAO_SMOKE_RAG_MAX_CONTEXT_RUNES ?? '8000')
 const broadMarkerPrefix = process.env.HAOHAO_SMOKE_RAG_MARKER_PREFIX ?? 'haohao-broad-rag'
+const queryRewriteMode = process.env.HAOHAO_SMOKE_RAG_QUERY_REWRITE_MODE ?? 'deterministic'
+const runQueryRewriteCase = process.env.HAOHAO_SMOKE_RAG_QUERY_REWRITE_CASE !== '0'
 
 const cookies = new Map()
 const uploadedFileIDs = []
@@ -88,7 +90,7 @@ async function login() {
   await jsonRequest('/api/v1/session/tenant', 'POST', { tenantSlug })
 }
 
-async function updatePolicy(enabled) {
+async function updatePolicy(enabled, ragOverrides = {}) {
   const settings = await request(`/api/v1/admin/tenants/${tenantSlug}/settings`)
   if (!originalSettings) {
     originalSettings = structuredClone(settings)
@@ -112,6 +114,10 @@ async function updatePolicy(enabled) {
       generationModel,
       maxContextChunks: ragMaxContextChunks,
       maxContextRunes: ragMaxContextRunes,
+      queryRewriteEnabled: queryRewriteMode !== 'none',
+      queryRewriteMode,
+      queryRewriteMaxQueries: 6,
+      ...ragOverrides,
     }
   } else {
     drive.localSearch = originalSettings.features?.drive?.localSearch ?? {
@@ -213,6 +219,19 @@ async function waitForSemanticHit(expectedName, excludedName) {
     await new Promise((resolve) => setTimeout(resolve, pollDelayMs))
   }
   throw new Error(`semantic search did not reach expected result. last=${JSON.stringify(last)}`)
+}
+
+async function waitForSearchHit(query, mode, expectedNames) {
+  let last
+  for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
+    last = await searchDocuments(query, mode)
+    const names = resultNames(last)
+    if (expectedNames.every((name) => names.includes(name))) {
+      return last
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollDelayMs))
+  }
+  throw new Error(`search did not reach expected result for ${query}. last=${JSON.stringify(last)}`)
 }
 
 async function loadDriveRagDataset() {
@@ -421,6 +440,100 @@ async function runBroadSmoke() {
   }
 }
 
+async function runQueryRewriteSmoke(suffix) {
+  const deskName = `haohao-rag-white-desk-${suffix}.txt`
+  const chairName = `haohao-rag-white-chair-${suffix}.txt`
+  const shelfName = `haohao-rag-interior-shelf-${suffix}.txt`
+  const unrelatedName = `haohao-rag-unrelated-${suffix}.txt`
+  const desk = await uploadTextFile(deskName, [
+    '白い机',
+    '木製デスクは明るいインテリアに合わせやすい。',
+    '天板はホワイトで、観葉植物とも相性がよい。',
+  ].join('\n'))
+  const chair = await uploadTextFile(chairName, [
+    '白い椅子',
+    'ダイニングチェアはミニマルな部屋と白い家具に合う。',
+  ].join('\n'))
+  const shelf = await uploadTextFile(shelfName, [
+    '収納棚',
+    '棚とソファは白いインテリアの余白を崩さず、観葉植物と合わせられる。',
+  ].join('\n'))
+  await uploadTextFile(unrelatedName, [
+    'ゲーム企画メモ',
+    'ロボットの武装と宇宙戦闘について。',
+  ].join('\n'))
+
+  await waitForSearchHit('白い インテリア 家具', 'hybrid', [deskName])
+
+  await updatePolicy(true, {
+    queryRewriteEnabled: false,
+    queryRewriteMode: 'none',
+  })
+  const disabledStarted = performance.now()
+  const disabled = await jsonRequest('/api/v1/drive/rag/query', 'POST', {
+    query: '白いインテリアに合う家具は？',
+    mode: 'hybrid',
+    limit: 8,
+  })
+  const disabledLatencyMs = Math.round(performance.now() - disabledStarted)
+
+  await updatePolicy(true, {
+    queryRewriteEnabled: true,
+    queryRewriteMode,
+    queryRewriteMaxQueries: 6,
+  })
+  const enabledStarted = performance.now()
+  const enabled = await jsonRequest('/api/v1/drive/rag/query', 'POST', {
+    query: '白いインテリアに合う家具は？',
+    mode: 'hybrid',
+    limit: 8,
+  })
+  const enabledLatencyMs = Math.round(performance.now() - enabledStarted)
+
+  const expectedPublicIDs = new Set([desk.publicId, chair.publicId, shelf.publicId])
+  const enabledCitedExpected = (enabled.citations ?? []).filter((citation) => expectedPublicIDs.has(citation.filePublicId))
+  const enabledMatchedExpected = (enabled.matches ?? []).filter((citation) => expectedPublicIDs.has(citation.filePublicId))
+  const disabledMatchedExpected = (disabled.matches ?? []).filter((citation) => expectedPublicIDs.has(citation.filePublicId))
+  const traceQueries = (enabled.retrievalTrace ?? []).map((item) => item.query)
+  const retryTrace = (enabled.retrievalTrace ?? []).filter((item) => item.retry)
+
+  return {
+    ok: !enabled.blocked && enabledMatchedExpected.length > 0 && traceQueries.length > 1,
+    query: '白いインテリアに合う家具は？',
+    queryRewriteMode,
+    expectedFiles: [deskName, chairName, shelfName],
+    enabled: {
+      latencyMs: enabledLatencyMs,
+      blocked: Boolean(enabled.blocked),
+      citationFilenames: (enabled.citations ?? []).map((citation) => citation.filename),
+      matchFilenames: (enabled.matches ?? []).map((citation) => citation.filename),
+      expectedCitationCount: enabledCitedExpected.length,
+      expectedMatchCount: enabledMatchedExpected.length,
+      retrievalTrace: enabled.retrievalTrace ?? [],
+      retryReasons: retryTrace.map((item) => ({
+        query: item.query,
+        reason: item.retryReason,
+        missingSignals: item.missingSignals ?? [],
+      })),
+    },
+    disabled: {
+      latencyMs: disabledLatencyMs,
+      blocked: Boolean(disabled.blocked),
+      citationFilenames: (disabled.citations ?? []).map((citation) => citation.filename),
+      matchFilenames: (disabled.matches ?? []).map((citation) => citation.filename),
+      expectedMatchCount: disabledMatchedExpected.length,
+      retrievalTrace: disabled.retrievalTrace ?? [],
+    },
+    checks: {
+      enabledNotBlocked: !enabled.blocked,
+      enabledHasExpectedMatch: enabledMatchedExpected.length > 0,
+      enabledUsesMultipleRetrievalQueries: traceQueries.length > 1,
+      enabledTraceContainsExpansion: traceQueries.some((query) => query.includes('デスク') || query.includes('椅子') || query.includes('棚')),
+      retryTraceHasReason: retryTrace.length === 0 || retryTrace.every((item) => item.retryReason && (item.missingSignals ?? []).length > 0),
+    },
+  }
+}
+
 async function cleanup() {
   for (const publicId of uploadedFileIDs.reverse()) {
     try {
@@ -475,6 +588,8 @@ async function main() {
     limit: 8,
   })
 
+  const queryRewrite = runQueryRewriteCase ? await runQueryRewriteSmoke(suffix) : null
+
   const answer = rag.answer ?? ''
   const output = {
     ok: true,
@@ -485,6 +600,8 @@ async function main() {
     answer,
     citations: rag.citations ?? [],
     matches: rag.matches ?? [],
+    retrievalTrace: rag.retrievalTrace ?? [],
+    queryRewrite,
     blocked: Boolean(rag.blocked),
     checks: {
       notBlocked: !rag.blocked,
@@ -492,6 +609,7 @@ async function main() {
       citesInvoice: (rag.citations ?? []).some((item) => item.filePublicId === invoice.publicId),
       answerMentionsDeadline: answer.includes('2026-06-30') || answer.includes('6月30日'),
       answerMentionsTotal: answer.includes('128000') || answer.includes('128,000') || answer.includes('128,000円'),
+      queryRewriteCase: !runQueryRewriteCase || Boolean(queryRewrite?.ok),
     },
   }
   output.ok = Object.values(output.checks).every(Boolean)

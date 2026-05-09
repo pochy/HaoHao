@@ -50,10 +50,22 @@ type DriveRAGCitationBody struct {
 }
 
 type DriveRAGAnswerBody struct {
-	Answer    string                 `json:"answer"`
-	Citations []DriveRAGCitationBody `json:"citations"`
-	Matches   []DriveRAGCitationBody `json:"matches"`
-	Blocked   bool                   `json:"blocked"`
+	Answer         string                       `json:"answer"`
+	Citations      []DriveRAGCitationBody       `json:"citations"`
+	Matches        []DriveRAGCitationBody       `json:"matches"`
+	Blocked        bool                         `json:"blocked"`
+	RetrievalTrace []DriveRAGRetrievalTraceBody `json:"retrievalTrace,omitempty"`
+}
+
+type DriveRAGRetrievalTraceBody struct {
+	Query          string   `json:"query"`
+	Intent         string   `json:"intent,omitempty"`
+	ResultCount    int      `json:"resultCount"`
+	MergedCount    int      `json:"mergedCount"`
+	SearchMode     string   `json:"searchMode" enum:"keyword,semantic,hybrid"`
+	Retry          bool     `json:"retry,omitempty"`
+	RetryReason    string   `json:"retryReason,omitempty"`
+	MissingSignals []string `json:"missingSignals,omitempty"`
 }
 
 type DriveRAGQueryInput struct {
@@ -472,11 +484,29 @@ func registerDriveSearchEditSyncRoutes(api huma.API, deps Dependencies) {
 
 func toDriveRAGAnswerBody(result service.DriveRAGResult) DriveRAGAnswerBody {
 	return DriveRAGAnswerBody{
-		Answer:    result.Answer,
-		Citations: toDriveRAGCitationBodies(result.Citations),
-		Matches:   toDriveRAGCitationBodies(result.Matches),
-		Blocked:   result.Blocked,
+		Answer:         result.Answer,
+		Citations:      toDriveRAGCitationBodies(result.Citations),
+		Matches:        toDriveRAGCitationBodies(result.Matches),
+		Blocked:        result.Blocked,
+		RetrievalTrace: toDriveRAGRetrievalTraceBodies(result.RetrievalTrace),
 	}
+}
+
+func toDriveRAGRetrievalTraceBodies(items []service.DriveRAGRetrievalTrace) []DriveRAGRetrievalTraceBody {
+	out := make([]DriveRAGRetrievalTraceBody, 0, len(items))
+	for _, item := range items {
+		out = append(out, DriveRAGRetrievalTraceBody{
+			Query:          item.Query,
+			Intent:         item.Intent,
+			ResultCount:    item.ResultCount,
+			MergedCount:    item.MergedCount,
+			SearchMode:     item.SearchMode,
+			Retry:          item.Retry,
+			RetryReason:    item.RetryReason,
+			MissingSignals: item.MissingSignals,
+		})
+	}
+	return out
 }
 
 func toDriveRAGCitationBodies(items []service.DriveRAGCitation) []DriveRAGCitationBody {

@@ -6916,6 +6916,14 @@ components:
           type:
             - array
             - "null"
+        retrievalTrace:
+          examples:
+            - - example
+          items:
+            $ref: "#/components/schemas/DriveRAGRetrievalTraceBody"
+          type:
+            - array
+            - "null"
       required:
         - answer
         - citations
@@ -7005,6 +7013,57 @@ components:
           type: string
       required:
         - query
+      type: object
+    DriveRAGRetrievalTraceBody:
+      additionalProperties: false
+      properties:
+        intent:
+          examples:
+            - example
+          type: string
+        mergedCount:
+          examples:
+            - 3
+          format: int64
+          type: integer
+        missingSignals:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        query:
+          examples:
+            - roadmap
+          type: string
+        resultCount:
+          examples:
+            - 3
+          format: int64
+          type: integer
+        retry:
+          examples:
+            - true
+          type: boolean
+        retryReason:
+          examples:
+            - example
+          type: string
+        searchMode:
+          enum:
+            - keyword
+            - semantic
+            - hybrid
+          examples:
+            - keyword
+          type: string
+      required:
+        - query
+        - resultCount
+        - mergedCount
+        - searchMode
       type: object
     DriveRegisterDeviceBody:
       additionalProperties: false
@@ -31838,6 +31897,16 @@ paths:
                         resourcePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                         score: 42.5
                         snippet: example
+                    retrievalTrace:
+                      - intent: example
+                        mergedCount: 3
+                        missingSignals:
+                          - example
+                        query: roadmap
+                        resultCount: 3
+                        retry: true
+                        retryReason: example
+                        searchMode: keyword
               schema:
                 $ref: "#/components/schemas/DriveRAGAnswerBody"
           description: 操作に成功し、response body に結果を返します。

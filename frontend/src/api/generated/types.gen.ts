@@ -2854,6 +2854,7 @@ export type DriveRagAnswerBody = {
     blocked: boolean;
     citations: Array<DriveRagCitationBody> | null;
     matches: Array<DriveRagCitationBody> | null;
+    retrievalTrace?: Array<DriveRagRetrievalTraceBody> | null;
 };
 
 export type DriveRagCitationBody = {
@@ -2883,6 +2884,17 @@ export type DriveRagQueryBody = {
     limit?: number;
     mode?: 'keyword' | 'semantic' | 'hybrid';
     query: string;
+};
+
+export type DriveRagRetrievalTraceBody = {
+    intent?: string;
+    mergedCount: number;
+    missingSignals?: Array<string> | null;
+    query: string;
+    resultCount: number;
+    retry?: boolean;
+    retryReason?: string;
+    searchMode: 'keyword' | 'semantic' | 'hybrid';
 };
 
 export type DriveRegisterDeviceBody = {
@@ -6565,6 +6577,7 @@ export type DriveRagAnswerBodyWritable = {
     blocked: boolean;
     citations: Array<DriveRagCitationBody> | null;
     matches: Array<DriveRagCitationBody> | null;
+    retrievalTrace?: Array<DriveRagRetrievalTraceBody> | null;
 };
 
 export type DriveRagQueryBodyWritable = {
