@@ -2890,6 +2890,7 @@ export type DriveRagRetrievalTraceBody = {
     intent?: string;
     mergedCount: number;
     missingSignals?: Array<string> | null;
+    planSource?: string;
     query: string;
     resultCount: number;
     retry?: boolean;

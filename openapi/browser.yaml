@@ -7034,6 +7034,10 @@ components:
           type:
             - array
             - "null"
+        planSource:
+          examples:
+            - support
+          type: string
         query:
           examples:
             - roadmap
@@ -31902,6 +31906,7 @@ paths:
                         mergedCount: 3
                         missingSignals:
                           - example
+                        planSource: support
                         query: roadmap
                         resultCount: 3
                         retry: true

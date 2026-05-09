@@ -60,6 +60,7 @@ type DriveRAGAnswerBody struct {
 type DriveRAGRetrievalTraceBody struct {
 	Query          string   `json:"query"`
 	Intent         string   `json:"intent,omitempty"`
+	PlanSource     string   `json:"planSource,omitempty"`
 	ResultCount    int      `json:"resultCount"`
 	MergedCount    int      `json:"mergedCount"`
 	SearchMode     string   `json:"searchMode" enum:"keyword,semantic,hybrid"`
@@ -498,6 +499,7 @@ func toDriveRAGRetrievalTraceBodies(items []service.DriveRAGRetrievalTrace) []Dr
 		out = append(out, DriveRAGRetrievalTraceBody{
 			Query:          item.Query,
 			Intent:         item.Intent,
+			PlanSource:     item.PlanSource,
 			ResultCount:    item.ResultCount,
 			MergedCount:    item.MergedCount,
 			SearchMode:     item.SearchMode,

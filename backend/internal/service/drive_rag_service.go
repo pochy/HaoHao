@@ -12,6 +12,7 @@ import (
 const (
 	driveRAGDefaultLimit         = 8
 	driveRAGMaxLimit             = 20
+	driveRAGMaxAgentLoops        = 2
 	driveRAGMaxGenerationText    = 1200
 	driveRAGMinSemanticOnlyScore = 0.84
 )
@@ -60,6 +61,7 @@ type DriveRAGRetrievalQuery struct {
 type DriveRAGRetrievalTrace struct {
 	Query          string
 	Intent         string
+	PlanSource     string
 	ResultCount    int
 	MergedCount    int
 	SearchMode     string
@@ -72,6 +74,16 @@ type DriveRAGSufficiencyResult struct {
 	Sufficient     bool
 	MissingSignals []string
 	Reason         string
+}
+
+type DriveRAGAgent struct {
+	service     *DriveService
+	input       DriveRAGQueryInput
+	auditCtx    AuditContext
+	policy      DriveRAGPolicy
+	query       string
+	mode        string
+	searchLimit int32
 }
 
 type driveRAGContext struct {
@@ -158,31 +170,46 @@ func (s *DriveService) QueryRAG(ctx context.Context, input DriveRAGQueryInput, a
 	if searchLimit > driveRAGMaxLimit {
 		searchLimit = driveRAGMaxLimit
 	}
-	plan := s.driveRAGQueryPlan(ctx, query, policy.RAG)
-	results, trace, err := s.searchDriveRAGPlan(ctx, input, auditCtx, plan, mode, searchLimit)
+	agent := DriveRAGAgent{
+		service:     s,
+		input:       input,
+		auditCtx:    auditCtx,
+		policy:      policy.RAG,
+		query:       query,
+		mode:        mode,
+		searchLimit: searchLimit,
+	}
+	return agent.Run(ctx)
+}
+
+func (a *DriveRAGAgent) Run(ctx context.Context) (DriveRAGResult, error) {
+	if a == nil || a.service == nil {
+		return DriveRAGResult{}, fmt.Errorf("drive rag agent is not configured")
+	}
+	plan := a.service.driveRAGQueryPlan(ctx, a.query, a.policy)
+	results, trace, err := a.retrieve(ctx, plan, nil)
 	if err != nil {
 		return DriveRAGResult{}, err
 	}
 	results = rankDriveRAGResultsWithPlan(plan, results)
-	sufficiency := driveRAGSufficiency(plan, results)
-	if !sufficiency.Sufficient {
-		retryPlan := driveRAGRetryQueryPlan(plan, sufficiency)
-		if len(retryPlan.RetrievalQueries) > 0 {
-			retryResults, retryTrace, err := s.searchDriveRAGPlan(ctx, input, auditCtx, retryPlan, mode, searchLimit)
-			if err != nil {
-				return DriveRAGResult{}, err
-			}
-			for i := range retryTrace {
-				retryTrace[i].Retry = true
-				retryTrace[i].RetryReason = sufficiency.Reason
-				retryTrace[i].MissingSignals = append([]string{}, sufficiency.MissingSignals...)
-			}
-			results = mergeDriveRAGSearchResults(results, retryResults, map[string]int{})
-			results = rankDriveRAGResultsWithPlan(plan, results)
-			trace = append(trace, retryTrace...)
+	for loop := 1; loop < driveRAGMaxAgentLoops; loop++ {
+		sufficiency := driveRAGSufficiency(plan, results)
+		if sufficiency.Sufficient {
+			break
 		}
+		retryPlan := driveRAGRetryQueryPlan(plan, sufficiency)
+		if len(retryPlan.RetrievalQueries) == 0 {
+			break
+		}
+		retryResults, retryTrace, err := a.retrieve(ctx, retryPlan, &sufficiency)
+		if err != nil {
+			return DriveRAGResult{}, err
+		}
+		results = mergeDriveRAGSearchResults(results, retryResults, map[string]int{})
+		results = rankDriveRAGResultsWithPlan(plan, results)
+		trace = append(trace, retryTrace...)
 	}
-	contexts := driveRAGContexts(results, policy.RAG)
+	contexts := driveRAGContexts(results, a.policy)
 	matches := make([]DriveRAGCitation, 0, len(contexts))
 	for _, item := range contexts {
 		matches = append(matches, item.Citation)
@@ -190,11 +217,11 @@ func (s *DriveService) QueryRAG(ctx context.Context, input DriveRAGQueryInput, a
 	if len(contexts) == 0 {
 		return DriveRAGResult{Blocked: true, Matches: matches, RetrievalTrace: trace}, nil
 	}
-	provider := NewLocalGenerationProvider(policy.RAG.GenerationRuntime, policy.RAG.GenerationRuntimeURL)
+	provider := NewLocalGenerationProvider(a.policy.GenerationRuntime, a.policy.GenerationRuntimeURL)
 	generated, err := provider.Generate(ctx, GenerationRequest{
-		Model:       policy.RAG.GenerationModel,
+		Model:       a.policy.GenerationModel,
 		System:      driveRAGSystemPrompt(),
-		User:        driveRAGUserPrompt(query, contexts),
+		User:        driveRAGUserPrompt(a.query, contexts),
 		MaxTokens:   900,
 		Temperature: 0,
 		JSONSchema:  driveRAGResponseFormat(),
@@ -215,6 +242,22 @@ func (s *DriveService) QueryRAG(ctx context.Context, input DriveRAGQueryInput, a
 		Matches:        matches,
 		RetrievalTrace: trace,
 	}, nil
+}
+
+func (a *DriveRAGAgent) retrieve(ctx context.Context, plan DriveRAGQueryPlan, retry *DriveRAGSufficiencyResult) ([]DriveSearchResult, []DriveRAGRetrievalTrace, error) {
+	results, trace, err := a.service.searchDriveRAGPlan(ctx, a.input, a.auditCtx, plan, a.mode, a.searchLimit)
+	if err != nil {
+		return nil, trace, err
+	}
+	if retry == nil {
+		return results, trace, nil
+	}
+	for i := range trace {
+		trace[i].Retry = true
+		trace[i].RetryReason = retry.Reason
+		trace[i].MissingSignals = append([]string{}, retry.MissingSignals...)
+	}
+	return results, trace, nil
 }
 
 func (s *DriveService) driveRAGQueryPlan(ctx context.Context, query string, policy DriveRAGPolicy) DriveRAGQueryPlan {
@@ -277,6 +320,7 @@ func (s *DriveService) searchDriveRAGPlan(ctx context.Context, input DriveRAGQue
 		trace = append(trace, DriveRAGRetrievalTrace{
 			Query:       searchQuery,
 			Intent:      retrievalQuery.Intent,
+			PlanSource:  plan.Source,
 			ResultCount: len(results),
 			MergedCount: len(merged),
 			SearchMode:  mode,
