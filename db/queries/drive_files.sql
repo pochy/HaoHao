@@ -86,7 +86,15 @@ WHERE tenant_id = sqlc.arg(tenant_id)
   )
   AND purpose = 'drive'
   AND deleted_at IS NULL
-ORDER BY original_filename ASC, id ASC
+ORDER BY
+    CASE WHEN sqlc.arg(sort_key)::text = 'name' AND sqlc.arg(direction)::text = 'asc' THEN lower(original_filename) END ASC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'name' AND sqlc.arg(direction)::text = 'desc' THEN lower(original_filename) END DESC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'size' AND sqlc.arg(direction)::text = 'asc' THEN byte_size END ASC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'size' AND sqlc.arg(direction)::text = 'desc' THEN byte_size END DESC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'updated_at' AND sqlc.arg(direction)::text = 'asc' THEN updated_at END ASC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'updated_at' AND sqlc.arg(direction)::text = 'desc' THEN updated_at END DESC,
+    updated_at DESC,
+    id DESC
 LIMIT sqlc.arg(limit_count);
 
 -- name: RenameDriveFile :one

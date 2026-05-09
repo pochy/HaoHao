@@ -73,11 +73,15 @@ func (s *DriveService) ListChildren(ctx context.Context, input DriveListChildren
 		}
 		workspaceID = pgtype.Int8{Int64: workspace.ID, Valid: true}
 	}
+	sortKey := normalizeDriveFilterValue(input.Filter.Sort, "updated_at")
+	direction := normalizeDriveFilterValue(input.Filter.Direction, "desc")
 
 	folderRows, err := s.queries.ListDriveChildFolders(ctx, db.ListDriveChildFoldersParams{
 		TenantID:       input.TenantID,
 		WorkspaceID:    workspaceID,
 		ParentFolderID: parentID,
+		SortKey:        sortKey,
+		Direction:      direction,
 		LimitCount:     limit,
 	})
 	if err != nil {
@@ -87,6 +91,8 @@ func (s *DriveService) ListChildren(ctx context.Context, input DriveListChildren
 		TenantID:      input.TenantID,
 		WorkspaceID:   workspaceID,
 		DriveFolderID: parentID,
+		SortKey:       sortKey,
+		Direction:     direction,
 		LimitCount:    limit,
 	})
 	if err != nil {
@@ -386,6 +392,8 @@ func (s *DriveService) DeleteFolder(ctx context.Context, tenantID, actorUserID i
 	childFolders, err := s.queries.ListDriveChildFolders(ctx, db.ListDriveChildFoldersParams{
 		TenantID:       tenantID,
 		ParentFolderID: pgtype.Int8{Int64: folder.ID, Valid: true},
+		SortKey:        "name",
+		Direction:      "asc",
 		LimitCount:     1,
 	})
 	if err != nil {
@@ -394,6 +402,8 @@ func (s *DriveService) DeleteFolder(ctx context.Context, tenantID, actorUserID i
 	childFiles, err := s.queries.ListDriveChildFiles(ctx, db.ListDriveChildFilesParams{
 		TenantID:      tenantID,
 		DriveFolderID: pgtype.Int8{Int64: folder.ID, Valid: true},
+		SortKey:       "name",
+		Direction:     "asc",
 		LimitCount:    1,
 	})
 	if err != nil {

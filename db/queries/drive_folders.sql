@@ -55,7 +55,13 @@ WHERE tenant_id = sqlc.arg(tenant_id)
       OR workspace_id = sqlc.narg(workspace_id)::bigint
   )
   AND deleted_at IS NULL
-ORDER BY name ASC, id ASC
+ORDER BY
+    CASE WHEN sqlc.arg(sort_key)::text = 'name' AND sqlc.arg(direction)::text = 'asc' THEN lower(name) END ASC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'name' AND sqlc.arg(direction)::text = 'desc' THEN lower(name) END DESC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'updated_at' AND sqlc.arg(direction)::text = 'asc' THEN updated_at END ASC,
+    CASE WHEN sqlc.arg(sort_key)::text = 'updated_at' AND sqlc.arg(direction)::text = 'desc' THEN updated_at END DESC,
+    updated_at DESC,
+    id DESC
 LIMIT sqlc.arg(limit_count);
 
 -- name: SearchDriveFolderCandidates :many

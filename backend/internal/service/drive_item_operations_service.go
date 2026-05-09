@@ -534,6 +534,8 @@ func (s *DriveService) PublicShareLinkFolderChildrenWithVerification(ctx context
 		TenantID:       link.TenantID,
 		WorkspaceID:    pgInt8(folder.WorkspaceID),
 		ParentFolderID: pgtype.Int8{Int64: folder.ID, Valid: true},
+		SortKey:        "name",
+		Direction:      "asc",
 		LimitCount:     limit,
 	})
 	if err != nil {
@@ -543,6 +545,8 @@ func (s *DriveService) PublicShareLinkFolderChildrenWithVerification(ctx context
 		TenantID:      link.TenantID,
 		WorkspaceID:   pgInt8(folder.WorkspaceID),
 		DriveFolderID: pgtype.Int8{Int64: folder.ID, Valid: true},
+		SortKey:       "name",
+		Direction:     "asc",
 		LimitCount:    limit,
 	})
 	if err != nil {
@@ -1168,6 +1172,8 @@ func (s *DriveService) copyDriveFolderChildren(ctx context.Context, actor DriveA
 		TenantID:      source.TenantID,
 		WorkspaceID:   pgInt8(source.WorkspaceID),
 		DriveFolderID: pgtype.Int8{Int64: source.ID, Valid: true},
+		SortKey:       "name",
+		Direction:     "asc",
 		LimitCount:    500,
 	})
 	if err != nil {
@@ -1189,6 +1195,8 @@ func (s *DriveService) copyDriveFolderChildren(ctx context.Context, actor DriveA
 		TenantID:       source.TenantID,
 		WorkspaceID:    pgInt8(source.WorkspaceID),
 		ParentFolderID: pgtype.Int8{Int64: source.ID, Valid: true},
+		SortKey:        "name",
+		Direction:      "asc",
 		LimitCount:     500,
 	})
 	if err != nil {
@@ -1226,6 +1234,8 @@ func (s *DriveService) addDriveFolderToArchive(ctx context.Context, zipWriter *z
 		TenantID:       folder.TenantID,
 		WorkspaceID:    pgInt8(folder.WorkspaceID),
 		ParentFolderID: pgtype.Int8{Int64: folder.ID, Valid: true},
+		SortKey:        "name",
+		Direction:      "asc",
 		LimitCount:     500,
 	})
 	if err != nil {
@@ -1241,6 +1251,8 @@ func (s *DriveService) addDriveFolderToArchive(ctx context.Context, zipWriter *z
 		TenantID:      folder.TenantID,
 		WorkspaceID:   pgInt8(folder.WorkspaceID),
 		DriveFolderID: pgtype.Int8{Int64: folder.ID, Valid: true},
+		SortKey:       "name",
+		Direction:     "asc",
 		LimitCount:    500,
 	})
 	if err != nil {

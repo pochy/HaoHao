@@ -475,14 +475,24 @@ WHERE tenant_id = $1
   )
   AND purpose = 'drive'
   AND deleted_at IS NULL
-ORDER BY original_filename ASC, id ASC
-LIMIT $4
+ORDER BY
+    CASE WHEN $4::text = 'name' AND $5::text = 'asc' THEN lower(original_filename) END ASC,
+    CASE WHEN $4::text = 'name' AND $5::text = 'desc' THEN lower(original_filename) END DESC,
+    CASE WHEN $4::text = 'size' AND $5::text = 'asc' THEN byte_size END ASC,
+    CASE WHEN $4::text = 'size' AND $5::text = 'desc' THEN byte_size END DESC,
+    CASE WHEN $4::text = 'updated_at' AND $5::text = 'asc' THEN updated_at END ASC,
+    CASE WHEN $4::text = 'updated_at' AND $5::text = 'desc' THEN updated_at END DESC,
+    updated_at DESC,
+    id DESC
+LIMIT $6
 `
 
 type ListDriveChildFilesParams struct {
 	TenantID      int64       `json:"tenant_id"`
 	DriveFolderID pgtype.Int8 `json:"drive_folder_id"`
 	WorkspaceID   pgtype.Int8 `json:"workspace_id"`
+	SortKey       string      `json:"sort_key"`
+	Direction     string      `json:"direction"`
 	LimitCount    int32       `json:"limit_count"`
 }
 
@@ -491,6 +501,8 @@ func (q *Queries) ListDriveChildFiles(ctx context.Context, arg ListDriveChildFil
 		arg.TenantID,
 		arg.DriveFolderID,
 		arg.WorkspaceID,
+		arg.SortKey,
+		arg.Direction,
 		arg.LimitCount,
 	)
 	if err != nil {

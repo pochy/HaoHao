@@ -295,14 +295,22 @@ WHERE tenant_id = $1
       OR workspace_id = $3::bigint
   )
   AND deleted_at IS NULL
-ORDER BY name ASC, id ASC
-LIMIT $4
+ORDER BY
+    CASE WHEN $4::text = 'name' AND $5::text = 'asc' THEN lower(name) END ASC,
+    CASE WHEN $4::text = 'name' AND $5::text = 'desc' THEN lower(name) END DESC,
+    CASE WHEN $4::text = 'updated_at' AND $5::text = 'asc' THEN updated_at END ASC,
+    CASE WHEN $4::text = 'updated_at' AND $5::text = 'desc' THEN updated_at END DESC,
+    updated_at DESC,
+    id DESC
+LIMIT $6
 `
 
 type ListDriveChildFoldersParams struct {
 	TenantID       int64       `json:"tenant_id"`
 	ParentFolderID pgtype.Int8 `json:"parent_folder_id"`
 	WorkspaceID    pgtype.Int8 `json:"workspace_id"`
+	SortKey        string      `json:"sort_key"`
+	Direction      string      `json:"direction"`
 	LimitCount     int32       `json:"limit_count"`
 }
 
@@ -311,6 +319,8 @@ func (q *Queries) ListDriveChildFolders(ctx context.Context, arg ListDriveChildF
 		arg.TenantID,
 		arg.ParentFolderID,
 		arg.WorkspaceID,
+		arg.SortKey,
+		arg.Direction,
 		arg.LimitCount,
 	)
 	if err != nil {
