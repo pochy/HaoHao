@@ -91,6 +91,30 @@ func assignFakeScanValue(dest any, value any) {
 	}
 }
 
+func TestDatasetClickHouseSettingsEnableExternalSpill(t *testing.T) {
+	service := &DatasetService{chConfig: DatasetClickHouseConfig{
+		QueryMaxSeconds:     60,
+		QueryMaxMemoryBytes: 1024 * 1024 * 1024,
+		QueryMaxRowsToRead:  100000000,
+		QueryMaxThreads:     4,
+	}}
+
+	for name, settings := range map[string]map[string]any{
+		"query":  service.querySettings(),
+		"export": service.exportQuerySettings(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			want := int64(512 * 1024 * 1024)
+			if got := settings["max_bytes_before_external_sort"]; got != want {
+				t.Fatalf("max_bytes_before_external_sort = %v, want %v", got, want)
+			}
+			if got := settings["max_bytes_before_external_group_by"]; got != want {
+				t.Fatalf("max_bytes_before_external_group_by = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
 func TestSanitizeDatasetColumns(t *testing.T) {
 	got := sanitizeDatasetColumns([]string{
 		"Customer ID",

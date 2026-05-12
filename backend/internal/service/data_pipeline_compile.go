@@ -53,6 +53,7 @@ type dataPipelineCompiler struct {
 	graph    DataPipelineGraph
 	nodes    map[string]DataPipelineNode
 	incoming map[string][]string
+	omitSort bool
 }
 
 func (s *DataPipelineService) compilePreviewSelect(ctx context.Context, tenantID int64, graph DataPipelineGraph, selectedNodeID string, limit int32) (dataPipelineCompiledSelect, error) {
@@ -68,7 +69,7 @@ func (s *DataPipelineService) compilePreviewSelect(ctx context.Context, tenantID
 }
 
 func (s *DataPipelineService) compileRunSelect(ctx context.Context, tenantID int64, graph DataPipelineGraph, outputNode DataPipelineNode) (dataPipelineCompiledSelect, error) {
-	compiled, err := s.compileSelect(ctx, tenantID, graph, outputNode.ID)
+	compiled, err := s.compileSelectWithOptions(ctx, tenantID, graph, outputNode.ID, true)
 	if err != nil {
 		return dataPipelineCompiledSelect{}, err
 	}
@@ -76,6 +77,10 @@ func (s *DataPipelineService) compileRunSelect(ctx context.Context, tenantID int
 }
 
 func (s *DataPipelineService) compileSelect(ctx context.Context, tenantID int64, graph DataPipelineGraph, selectedNodeID string) (dataPipelineCompiledSelect, error) {
+	return s.compileSelectWithOptions(ctx, tenantID, graph, selectedNodeID, false)
+}
+
+func (s *DataPipelineService) compileSelectWithOptions(ctx context.Context, tenantID int64, graph DataPipelineGraph, selectedNodeID string, omitSort bool) (dataPipelineCompiledSelect, error) {
 	selectedNodeID = strings.TrimSpace(selectedNodeID)
 	if selectedNodeID == "" {
 		for _, node := range graph.Nodes {
@@ -86,6 +91,7 @@ func (s *DataPipelineService) compileSelect(ctx context.Context, tenantID int64,
 		}
 	}
 	compiler := newDataPipelineCompiler(s, tenantID, graph)
+	compiler.omitSort = omitSort
 	relation, ctes, err := compiler.compileToNode(ctx, selectedNodeID)
 	if err != nil {
 		return dataPipelineCompiledSelect{}, err
@@ -619,6 +625,9 @@ func (c *dataPipelineCompiler) compileTransform(node DataPipelineNode, upstream 
 		sql := fmt.Sprintf("SELECT *\nFROM %s\nWHERE %s", quoteCHIdent(upstream.CTE), strings.Join(filters, " AND "))
 		return dataPipelineRelation{CTE: dataPipelineCTEName(node.ID), SQL: sql, Columns: upstream.Columns, Node: node, Source: upstream.Source}, nil
 	case "sort":
+		if c.omitSort {
+			return c.passThrough(node, upstream), nil
+		}
 		sorts := dataPipelineConfigObjects(node.Data.Config, "sorts")
 		orderParts := make([]string, 0, len(sorts))
 		for _, item := range sorts {

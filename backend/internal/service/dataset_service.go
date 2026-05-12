@@ -2860,22 +2860,33 @@ func (s *DatasetService) openTenantConn(ctx context.Context, tenantID int64) (dr
 
 func (s *DatasetService) querySettings() clickhouse.Settings {
 	return clickhouse.Settings{
-		"max_execution_time":   s.chConfig.QueryMaxSeconds,
-		"max_memory_usage":     s.chConfig.QueryMaxMemoryBytes,
-		"max_rows_to_read":     s.chConfig.QueryMaxRowsToRead,
-		"max_result_rows":      datasetPreviewRowLimit,
-		"result_overflow_mode": "break",
-		"max_threads":          s.chConfig.QueryMaxThreads,
+		"max_execution_time":                 s.chConfig.QueryMaxSeconds,
+		"max_memory_usage":                   s.chConfig.QueryMaxMemoryBytes,
+		"max_bytes_before_external_sort":     clickHouseExternalSpillThreshold(s.chConfig.QueryMaxMemoryBytes),
+		"max_bytes_before_external_group_by": clickHouseExternalSpillThreshold(s.chConfig.QueryMaxMemoryBytes),
+		"max_rows_to_read":                   s.chConfig.QueryMaxRowsToRead,
+		"max_result_rows":                    datasetPreviewRowLimit,
+		"result_overflow_mode":               "break",
+		"max_threads":                        s.chConfig.QueryMaxThreads,
 	}
 }
 
 func (s *DatasetService) exportQuerySettings() clickhouse.Settings {
 	return clickhouse.Settings{
-		"max_execution_time": s.chConfig.QueryMaxSeconds,
-		"max_memory_usage":   s.chConfig.QueryMaxMemoryBytes,
-		"max_rows_to_read":   s.chConfig.QueryMaxRowsToRead,
-		"max_threads":        s.chConfig.QueryMaxThreads,
+		"max_execution_time":                 s.chConfig.QueryMaxSeconds,
+		"max_memory_usage":                   s.chConfig.QueryMaxMemoryBytes,
+		"max_bytes_before_external_sort":     clickHouseExternalSpillThreshold(s.chConfig.QueryMaxMemoryBytes),
+		"max_bytes_before_external_group_by": clickHouseExternalSpillThreshold(s.chConfig.QueryMaxMemoryBytes),
+		"max_rows_to_read":                   s.chConfig.QueryMaxRowsToRead,
+		"max_threads":                        s.chConfig.QueryMaxThreads,
 	}
+}
+
+func clickHouseExternalSpillThreshold(maxMemoryBytes int64) int64 {
+	if maxMemoryBytes <= 1 {
+		return 1
+	}
+	return maxMemoryBytes / 2
 }
 
 func (s *DatasetService) tenantPassword(tenantID int64) string {

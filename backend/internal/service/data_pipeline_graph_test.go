@@ -334,6 +334,33 @@ func TestDataPipelineCompilerGeneratesStructuredFilterSQL(t *testing.T) {
 	}
 }
 
+func TestDataPipelineCompilerOmitsSortForRunMaterialization(t *testing.T) {
+	compiler := &dataPipelineCompiler{omitSort: true}
+	upstream := dataPipelineRelation{
+		CTE:     "step_input_1",
+		Columns: []string{"first_name", "last_name"},
+	}
+	relation, err := compiler.compileTransform(DataPipelineNode{
+		ID: "transform_1",
+		Data: DataPipelineNodeData{
+			StepType: DataPipelineStepTransform,
+			Config: map[string]any{
+				"operation": "sort",
+				"sorts": []any{
+					map[string]any{"column": "first_name", "direction": "ASC"},
+					map[string]any{"column": "last_name", "direction": "ASC"},
+				},
+			},
+		},
+	}, upstream)
+	if err != nil {
+		t.Fatalf("compile transform: %v", err)
+	}
+	if strings.Contains(relation.SQL, "ORDER BY") {
+		t.Fatalf("expected run materialization to omit intermediate sort, got SQL:\n%s", relation.SQL)
+	}
+}
+
 func TestDataPipelineCompilerRejectsUnsupportedOperatorAndUnknownColumn(t *testing.T) {
 	columns := []string{"name", "amount"}
 	if _, err := dataPipelineConditionExpr(columns, "amount", map[string]any{"operator": "contains_sql", "value": "x"}); !errors.Is(err, ErrInvalidDataPipelineGraph) {

@@ -49,6 +49,32 @@ func TestMarkdownDocsCatalog(t *testing.T) {
 	}
 }
 
+func TestSearchMarkdownDocsRanking(t *testing.T) {
+	docsFS := fstest.MapFS{
+		"body.md":        {Data: []byte("# Body Match\n\nThis document mentions needle in the body.")},
+		"heading.md":     {Data: []byte("# Heading Match\n\n## Needle Details\n\nBody")},
+		"path-needle.md": {Data: []byte("# Path Match\n\nBody")},
+		"title.md":       {Data: []byte("# Needle Title\n\nBody")},
+	}
+
+	docs, err := searchMarkdownDocs(docsFS, "needle")
+	if err != nil {
+		t.Fatalf("searchMarkdownDocs() error = %v", err)
+	}
+
+	gotIDs := make([]string, 0, len(docs))
+	for _, doc := range docs {
+		gotIDs = append(gotIDs, doc.ID)
+		if doc.Snippet == "" {
+			t.Fatalf("snippet for %s is empty", doc.ID)
+		}
+	}
+	wantIDs := []string{"title", "path-needle", "heading", "body"}
+	if !reflect.DeepEqual(gotIDs, wantIDs) {
+		t.Fatalf("ids = %#v, want %#v", gotIDs, wantIDs)
+	}
+}
+
 func TestMarkdownDocIDValidation(t *testing.T) {
 	tests := []struct {
 		filePath string
@@ -80,11 +106,16 @@ func TestRenderMarkdownDocContent(t *testing.T) {
 	}
 	content := []byte(`# Title
 
+- [x] Done
+- [ ] Todo
+
 | A | B |
 | --- | --- |
 | 1 | 2 |
 
 ` + "```go\nfmt.Println(\"hello\")\n```\n\n" + `<script>alert("x")</script>
+
+` + "```mermaid\nflowchart TD\n    A[Input] --> B[Output]\n```\n\n" + `
 
 [Concept](../CONCEPT.md)
 [External](https://example.com/README.md)
@@ -94,10 +125,13 @@ func TestRenderMarkdownDocContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("renderMarkdownDocContent() error = %v", err)
 	}
-	for _, want := range []string{"<h1", "<table>", "<pre><code", `href="/docs/CONCEPT"`} {
+	for _, want := range []string{"<h1", "<table>", "<pre><code", `href="/docs/CONCEPT"`, `<input checked="" disabled="" type="checkbox"`, `<div class="mermaid">flowchart TD`} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("rendered html is missing %q:\n%s", want, html)
 		}
+	}
+	if strings.Contains(html, `<code class="language-mermaid"`) {
+		t.Fatalf("mermaid code block was not promoted to a renderable div:\n%s", html)
 	}
 	if strings.Contains(html, "<script>") {
 		t.Fatalf("raw script tag was rendered:\n%s", html)
@@ -111,7 +145,8 @@ func TestMarkdownDocsMiddlewareRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	docsFS := fstest.MapFS{
 		"CONCEPT.md":                   {Data: []byte("# Concept\n\nBody")},
-		"runbooks/drive-openfga-dr.md": {Data: []byte("# Drive DR\n\nBody")},
+		"reference/clickhouse.md":      {Data: []byte("# Warehouse\n\nClickHouse powered analytics")},
+		"runbooks/drive-openfga-dr.md": {Data: []byte("# Drive DR\n\nOperational restore guide")},
 	}
 	router := gin.New()
 	router.Use(MarkdownDocs(MarkdownDocsConfig{FS: docsFS}))
@@ -126,6 +161,11 @@ func TestMarkdownDocsMiddlewareRoutes(t *testing.T) {
 		blockBody string
 	}{
 		{path: "/docs", wantCode: http.StatusOK, wantBody: "Concept"},
+		{path: "/docs?q=concept", wantCode: http.StatusOK, wantBody: "1 result for <strong>concept</strong>", blockBody: "Drive DR"},
+		{path: "/docs?q=runbooks", wantCode: http.StatusOK, wantBody: "runbooks/drive-openfga-dr.md", blockBody: "Concept"},
+		{path: "/docs?q=restore", wantCode: http.StatusOK, wantBody: "Operational restore guide", blockBody: "ClickHouse"},
+		{path: "/docs?q=missingterm", wantCode: http.StatusOK, wantBody: "No Markdown docs matched your search."},
+		{path: "/docs?q=%3Cunsafe%3E", wantCode: http.StatusOK, wantBody: `value="&lt;unsafe&gt;"`, blockBody: `value="<unsafe>"`},
 		{path: "/docs/CONCEPT", wantCode: http.StatusOK, wantBody: "<h1"},
 		{path: "/docs/runbooks/drive-openfga-dr", wantCode: http.StatusOK, wantBody: "Drive DR"},
 		{path: "/docs/openapi", wantCode: http.StatusOK, wantBody: "openapi", blockBody: "Markdown Docs"},
