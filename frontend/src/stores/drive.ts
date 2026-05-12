@@ -613,6 +613,13 @@ export const useDriveStore = defineStore('drive', {
           item.file,
           this.currentFolder.publicId === 'root' ? '' : this.currentFolder.publicId,
           this.currentFolder.publicId === 'root' ? this.currentWorkspace?.publicId ?? '' : '',
+          (progress) => {
+            this.uploadQueue = this.uploadQueue.map((candidate) => (
+              candidate.id === item.id && candidate.status === 'uploading'
+                ? { ...candidate, progress }
+                : candidate
+            ))
+          },
         )
         const driveItem = driveItemWithDefaults({ type: 'file', file: uploaded } as DriveItemBody)
         this.uploadQueue = this.uploadQueue.map((candidate) => (

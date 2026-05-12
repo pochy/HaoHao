@@ -102,7 +102,7 @@ import type {
   UpdateDriveShareBodyWritable,
   UpdateDriveShareLinkBodyWritable,
 } from './generated/types.gen'
-import { apiErrorFromResponse, readCookie } from './client'
+import { ApiError, apiErrorFromResponse, readCookie } from './client'
 import { randomID } from '../utils/id'
 
 export type DriveResourceType = 'file' | 'folder'
@@ -126,6 +126,8 @@ export type DriveDownloadedFile = {
   blob: Blob
   filename: string
 }
+
+export type DriveUploadProgressHandler = (progress: number) => void
 
 export type DriveDocumentSheetManifest = {
   name: string
@@ -224,6 +226,78 @@ async function driveFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   }
 
   return response
+}
+
+function xhrHeaders(xhr: XMLHttpRequest) {
+  const headers = new Headers()
+  xhr.getAllResponseHeaders()
+    .trim()
+    .split(/[\r\n]+/)
+    .filter(Boolean)
+    .forEach((line) => {
+      const separator = line.indexOf(':')
+      if (separator <= 0) {
+        return
+      }
+      headers.append(line.slice(0, separator).trim(), line.slice(separator + 1).trim())
+    })
+  return headers
+}
+
+async function apiErrorFromXHR(xhr: XMLHttpRequest, fallbackMessage: string) {
+  if (xhr.status === 0) {
+    return new ApiError({
+      status: 0,
+      fallbackMessage,
+    })
+  }
+
+  return await apiErrorFromResponse(new Response(xhr.responseText, {
+    status: xhr.status,
+    statusText: xhr.statusText,
+    headers: xhrHeaders(xhr),
+  }), fallbackMessage)
+}
+
+async function driveUploadForm<T>(url: string, form: FormData, onProgress?: DriveUploadProgressHandler): Promise<T> {
+  await ensureCSRFCookie()
+
+  return await new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.withCredentials = true
+    xhr.responseType = 'text'
+    xhr.setRequestHeader('Accept', 'application/json')
+    xhr.setRequestHeader('Idempotency-Key', randomID())
+    const token = readCookie('XSRF-TOKEN')
+    if (token) {
+      xhr.setRequestHeader('X-CSRF-Token', token)
+    }
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || event.total <= 0) {
+        return
+      }
+      onProgress?.(Math.min(99, Math.max(10, Math.round((event.loaded / event.total) * 95))))
+    }
+    xhr.onload = async () => {
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(await apiErrorFromXHR(xhr, `Drive request failed (${xhr.status})`))
+        return
+      }
+      try {
+        resolve(JSON.parse(xhr.responseText) as T)
+      } catch (error) {
+        reject(error)
+      }
+    }
+    xhr.onerror = async () => {
+      reject(await apiErrorFromXHR(xhr, 'Drive upload failed'))
+    }
+    xhr.onabort = async () => {
+      reject(await apiErrorFromXHR(xhr, 'Drive upload was canceled'))
+    }
+    xhr.send(form)
+  })
 }
 
 export async function fetchDriveFolder(folderPublicId: string): Promise<DriveFolderBody> {
@@ -442,7 +516,7 @@ export async function restoreDriveFolderItem(folderPublicId: string, parentFolde
   }) as unknown as Promise<DriveFolderBody>
 }
 
-export async function uploadDriveFileItem(file: File, parentFolderPublicId = '', workspacePublicId = ''): Promise<DriveFileBody> {
+export async function uploadDriveFileItem(file: File, parentFolderPublicId = '', workspacePublicId = '', onProgress?: DriveUploadProgressHandler): Promise<DriveFileBody> {
   const form = new FormData()
   if (workspacePublicId) {
     form.append('workspacePublicId', workspacePublicId)
@@ -451,11 +525,7 @@ export async function uploadDriveFileItem(file: File, parentFolderPublicId = '',
     form.append('parentFolderPublicId', parentFolderPublicId)
   }
   form.append('file', file)
-  const response = await driveFetch('/api/v1/drive/files', {
-    method: 'POST',
-    body: form,
-  })
-  return response.json() as Promise<DriveFileBody>
+  return await driveUploadForm<DriveFileBody>('/api/v1/drive/files', form, onProgress)
 }
 
 export async function fetchDriveFile(filePublicId: string): Promise<DriveFileBody> {
