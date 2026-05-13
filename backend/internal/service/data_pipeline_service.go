@@ -1627,14 +1627,29 @@ func (s *DataPipelineService) HandleRunRequested(ctx context.Context, tenantID, 
 		_, _ = s.queries.CompleteDataPipelineRunOutput(ctx, db.CompleteDataPipelineRunOutputParams{TenantID: tenantID, RunID: runID, NodeID: result.Node.ID, OutputWorkTableID: pgtype.Int8{Int64: result.WorkTable.ID, Valid: true}, RowCount: result.WorkTable.TotalRows, Metadata: meta})
 		s.recordMedallionRun(ctx, tenantID, run, version, result.Compiled, &result.WorkTable, MedallionPipelineStatusCompleted, "", result.Node.ID)
 	}
-	meta, _ := encodeDataPipelineJSON(map[string]any{})
+	nodeResults := make(map[string]dataPipelineRunNodeResult)
+	for _, result := range results {
+		for nodeID, nodeResult := range result.NodeResults {
+			nodeResults[nodeID] = nodeResult
+		}
+	}
 	for _, node := range graph.Nodes {
 		if len(failures) > 0 {
 			errorSample, _ := encodeDataPipelineJSON([]map[string]any{{"error": strings.Join(failures, "; ")}})
 			_, _ = s.queries.FailDataPipelineRunStep(ctx, db.FailDataPipelineRunStepParams{TenantID: tenantID, RunID: runID, NodeID: node.ID, ErrorSummary: strings.Join(failures, "; "), ErrorSample: errorSample})
 			continue
 		}
-		_, _ = s.queries.CompleteDataPipelineRunStep(ctx, db.CompleteDataPipelineRunStepParams{TenantID: tenantID, RunID: runID, NodeID: node.ID, RowCount: totalRows, Metadata: meta})
+		nodeResult, ok := nodeResults[node.ID]
+		if !ok {
+			nodeResult = dataPipelineRunNodeResult{
+				NodeID:   node.ID,
+				StepType: node.Data.StepType,
+				RowCount: totalRows,
+				Metadata: map[string]any{"outputRows": totalRows, "warnings": []string{}},
+			}
+		}
+		meta, _ := encodeDataPipelineJSON(nodeResult.Metadata)
+		_, _ = s.queries.CompleteDataPipelineRunStep(ctx, db.CompleteDataPipelineRunStepParams{TenantID: tenantID, RunID: runID, NodeID: node.ID, RowCount: nodeResult.RowCount, Metadata: meta})
 	}
 	status := "completed"
 	errorSummary := ""

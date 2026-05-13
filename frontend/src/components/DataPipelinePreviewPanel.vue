@@ -3,7 +3,7 @@ import { nextTick, onBeforeUnmount, ref } from 'vue'
 import { Search, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import type { DataPipelinePreviewBody, DataPipelineRunBody, DataPipelineScheduleBody } from '../api/data-pipelines'
+import type { DataPipelinePreviewBody, DataPipelineRunBody, DataPipelineRunStepBody, DataPipelineScheduleBody } from '../api/data-pipelines'
 
 const props = defineProps<{
   preview: DataPipelinePreviewBody | null
@@ -157,6 +157,69 @@ function runOutputs(run: DataPipelineRunBody) {
   return run.outputs?.length ? run.outputs : []
 }
 
+function runSteps(run: DataPipelineRunBody) {
+  return run.steps?.length ? run.steps : []
+}
+
+function stepLabel(stepType: string) {
+  const key = `dataPipelines.step.${stepType}`
+  const translated = t(key)
+  return translated === key ? stepType : translated
+}
+
+function metadataNumber(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key]
+  return typeof value === 'number' ? value : null
+}
+
+function metadataRecord(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key]
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
+}
+
+function stepMetadataSummary(step: DataPipelineRunStepBody) {
+  const metadata = step.metadata ?? {}
+  const parts: string[] = []
+  const warningCount = metadataNumber(metadata, 'warningCount')
+  const failedRows = metadataNumber(metadata, 'failedRows')
+  if (warningCount && warningCount > 0) {
+    parts.push(t('dataPipelines.warningCount', { count: warningCount }))
+  }
+  if (failedRows && failedRows > 0) {
+    parts.push(t('dataPipelines.failedRowsCount', { count: failedRows }))
+  }
+  const profile = metadataRecord(metadata, 'profile')
+  if (profile) {
+    parts.push(t('dataPipelines.profileSummary', {
+      rows: profile.rowCount ?? metadata.outputRows ?? step.rowCount,
+      columns: profile.columnCount ?? '-',
+    }))
+  }
+  const validation = metadataRecord(metadata, 'validation')
+  if (validation) {
+    parts.push(t('dataPipelines.validationSummary', {
+      failed: validation.failedRows ?? 0,
+      errors: validation.errorCount ?? 0,
+      warnings: validation.warningCount ?? 0,
+    }))
+  }
+  const confidenceGate = metadataRecord(metadata, 'confidenceGate')
+  if (confidenceGate) {
+    parts.push(t('dataPipelines.confidenceGateSummary', {
+      pass: confidenceGate.passRows ?? 0,
+      review: confidenceGate.needsReviewRows ?? 0,
+    }))
+  }
+  const quality = metadataRecord(metadata, 'quality')
+  if (quality) {
+    parts.push(t('dataPipelines.qualitySummary', {
+      rows: quality.rowCount ?? metadata.outputRows ?? step.rowCount,
+      columns: quality.columnCount ?? '-',
+    }))
+  }
+  return parts.length ? parts.join(' · ') : '-'
+}
+
 function scheduleFrequencyLabel(frequency: string) {
   switch (frequency) {
   case 'daily':
@@ -268,6 +331,7 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
           <thead>
             <tr>
               <th>{{ t('dataPipelines.status') }}</th>
+              <th>{{ t('dataPipelines.node') }}</th>
               <th>{{ t('dataPipelines.trigger') }}</th>
               <th>{{ t('dataPipelines.rows') }}</th>
               <th>{{ t('dataPipelines.created') }}</th>
@@ -278,20 +342,31 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
             <template v-for="run in runs" :key="run.publicId">
               <tr>
                 <td><span class="status-pill" :class="statusClass(run.status)">{{ statusLabel(run.status) }}</span></td>
+                <td>{{ t('dataPipelines.run') }}</td>
                 <td>{{ triggerLabel(run.triggerKind) }}</td>
                 <td>{{ run.rowCount }}</td>
                 <td>{{ formatDate(run.createdAt) }}</td>
                 <td>{{ run.errorSummary || '-' }}</td>
               </tr>
               <tr v-for="output in runOutputs(run)" :key="`${run.publicId}-${output.nodeId}`">
-                <td colspan="2">{{ output.nodeId }} <span class="status-pill" :class="statusClass(output.status)">{{ statusLabel(output.status) }}</span></td>
-                <td>{{ output.rowCount }}</td>
+                <td><span class="status-pill" :class="statusClass(output.status)">{{ statusLabel(output.status) }}</span></td>
+                <td>{{ t('dataPipelines.output') }}: {{ output.nodeId }}</td>
                 <td>{{ output.outputWorkTableId ?? '-' }}</td>
+                <td>{{ output.rowCount }}</td>
+                <td>-</td>
                 <td>{{ output.errorSummary || '-' }}</td>
+              </tr>
+              <tr v-for="step in runSteps(run)" :key="`${run.publicId}-step-${step.nodeId}`">
+                <td><span class="status-pill" :class="statusClass(step.status)">{{ statusLabel(step.status) }}</span></td>
+                <td>{{ stepLabel(step.stepType) }}: {{ step.nodeId }}</td>
+                <td class="cell-subtle">{{ stepMetadataSummary(step) }}</td>
+                <td>{{ step.rowCount }}</td>
+                <td>{{ formatDate(step.completedAt || step.updatedAt) }}</td>
+                <td>{{ step.errorSummary || '-' }}</td>
               </tr>
             </template>
             <tr v-if="runs.length === 0">
-              <td colspan="5">{{ t('dataPipelines.noRuns') }}</td>
+              <td colspan="6">{{ t('dataPipelines.noRuns') }}</td>
             </tr>
           </tbody>
         </table>

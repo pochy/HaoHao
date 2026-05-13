@@ -11,6 +11,7 @@ import (
 	"example.com/haohao/backend/internal/db"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 var dataPipelineIdentifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,127}$`)
@@ -33,10 +34,18 @@ type dataPipelineSource struct {
 }
 
 type dataPipelineRunOutputResult struct {
-	Node      DataPipelineNode
-	WorkTable DatasetWorkTable
-	Compiled  dataPipelineCompiledSelect
-	Err       error
+	Node        DataPipelineNode
+	WorkTable   DatasetWorkTable
+	Compiled    dataPipelineCompiledSelect
+	Err         error
+	NodeResults map[string]dataPipelineRunNodeResult
+}
+
+type dataPipelineRunNodeResult struct {
+	NodeID   string
+	StepType string
+	RowCount int64
+	Metadata map[string]any
 }
 
 type dataPipelineRelation struct {
@@ -764,6 +773,270 @@ func (c *dataPipelineCompiler) resolveSource(ctx context.Context, kind, datasetP
 	}
 }
 
+func (s *DataPipelineService) collectStructuredRunNodeResults(ctx context.Context, tenantID int64, graph DataPipelineGraph, conn driver.Conn) (map[string]dataPipelineRunNodeResult, error) {
+	results := make(map[string]dataPipelineRunNodeResult, len(graph.Nodes))
+	for _, node := range graph.Nodes {
+		compiled, err := s.compileSelectWithOptions(ctx, tenantID, graph, node.ID, true)
+		if err != nil {
+			return nil, fmt.Errorf("compile data pipeline step metadata for %s: %w", node.ID, err)
+		}
+		rowCount, err := queryDataPipelineCount(ctx, conn, compiled.SQL)
+		if err != nil {
+			return nil, fmt.Errorf("count data pipeline step %s: %w", node.ID, err)
+		}
+		metadata := map[string]any{
+			"outputRows": rowCount,
+			"warnings":   []string{},
+		}
+		switch node.Data.StepType {
+		case DataPipelineStepProfile:
+			profile, err := s.collectStructuredProfileMetadata(ctx, conn, compiled, node)
+			if err != nil {
+				return nil, fmt.Errorf("profile data pipeline step %s: %w", node.ID, err)
+			}
+			metadata["profile"] = profile
+		case DataPipelineStepValidate:
+			validation, err := s.collectStructuredValidationMetadata(ctx, conn, compiled, node)
+			if err != nil {
+				return nil, fmt.Errorf("validate data pipeline step %s: %w", node.ID, err)
+			}
+			metadata["validation"] = validation
+			if failedRows, ok := validation["failedRows"].(int64); ok {
+				metadata["failedRows"] = failedRows
+			}
+			if warningCount, ok := validation["warningCount"].(int64); ok {
+				metadata["warningCount"] = warningCount
+			}
+		}
+		results[node.ID] = dataPipelineRunNodeResult{
+			NodeID:   node.ID,
+			StepType: node.Data.StepType,
+			RowCount: rowCount,
+			Metadata: metadata,
+		}
+	}
+	return results, nil
+}
+
+func (s *DataPipelineService) collectStructuredProfileMetadata(ctx context.Context, conn driver.Conn, compiled dataPipelineCompiledSelect, node DataPipelineNode) (map[string]any, error) {
+	columns := dataPipelineStringSlice(node.Data.Config, "columns")
+	if len(columns) == 0 {
+		columns = append([]string{}, compiled.Columns...)
+	}
+	if len(columns) > 20 {
+		columns = columns[:20]
+	}
+	topLimit := int(dataPipelineFloat(node.Data.Config, "topValuesLimit", 10))
+	if topLimit <= 0 || topLimit > 20 {
+		topLimit = 10
+	}
+	rowCount, err := queryDataPipelineCount(ctx, conn, compiled.SQL)
+	if err != nil {
+		return nil, err
+	}
+	columnSummaries := make([]map[string]any, 0, len(columns))
+	for _, column := range columns {
+		if err := dataPipelineRequireColumn(compiled.Columns, column); err != nil {
+			return nil, err
+		}
+		nullCount, uniqueCount, minValue, maxValue, err := queryDataPipelineProfileColumn(ctx, conn, compiled.SQL, column)
+		if err != nil {
+			return nil, err
+		}
+		topValues, err := queryDataPipelineTopValues(ctx, conn, compiled.SQL, column, topLimit)
+		if err != nil {
+			return nil, err
+		}
+		nullRate := 0.0
+		if rowCount > 0 {
+			nullRate = float64(nullCount) / float64(rowCount)
+		}
+		columnSummaries = append(columnSummaries, map[string]any{
+			"name":        column,
+			"nullCount":   nullCount,
+			"nullRate":    nullRate,
+			"uniqueCount": uniqueCount,
+			"min":         minValue,
+			"max":         maxValue,
+			"topValues":   topValues,
+		})
+	}
+	return map[string]any{
+		"rowCount":    rowCount,
+		"columnCount": len(compiled.Columns),
+		"columns":     columnSummaries,
+	}, nil
+}
+
+func (s *DataPipelineService) collectStructuredValidationMetadata(ctx context.Context, conn driver.Conn, compiled dataPipelineCompiledSelect, node DataPipelineNode) (map[string]any, error) {
+	rules := dataPipelineConfigObjects(node.Data.Config, "rules")
+	ruleSummaries := make([]map[string]any, 0, len(rules))
+	var failedRows int64
+	var warningCount int64
+	var errorCount int64
+	for _, rule := range rules {
+		column := dataPipelineString(rule, "column")
+		operator := strings.ToLower(firstNonEmpty(dataPipelineString(rule, "operator"), dataPipelineString(rule, "op")))
+		if operator == "" {
+			operator = "required"
+		}
+		severity := strings.ToLower(dataPipelineString(rule, "severity"))
+		if severity == "" {
+			severity = "error"
+		}
+		failCount, err := queryDataPipelineValidationFailureCount(ctx, conn, compiled.SQL, compiled.Columns, rule)
+		if err != nil {
+			return nil, err
+		}
+		if failCount > 0 {
+			failedRows += failCount
+			if severity == "warning" {
+				warningCount += failCount
+			} else {
+				errorCount += failCount
+			}
+		}
+		ruleSummaries = append(ruleSummaries, map[string]any{
+			"column":     column,
+			"operator":   operator,
+			"severity":   severity,
+			"failedRows": failCount,
+		})
+	}
+	return map[string]any{
+		"ruleCount":    len(rules),
+		"failedRows":   failedRows,
+		"errorCount":   errorCount,
+		"warningCount": warningCount,
+		"rules":        ruleSummaries,
+	}, nil
+}
+
+func queryDataPipelineCount(ctx context.Context, conn driver.Conn, sql string) (int64, error) {
+	var count uint64
+	if err := queryDataPipelineSingle(ctx, conn, fmt.Sprintf("SELECT count() FROM (\n%s\n)", sql), &count); err != nil {
+		return 0, err
+	}
+	return int64(count), nil
+}
+
+func queryDataPipelineProfileColumn(ctx context.Context, conn driver.Conn, sql, column string) (int64, int64, string, string, error) {
+	col := quoteCHIdent(column)
+	query := fmt.Sprintf(
+		"SELECT countIf(isNull(%[1]s) OR empty(ifNull(toString(%[1]s), ''))), uniqExact(ifNull(toString(%[1]s), '')), ifNull(min(ifNull(toString(%[1]s), '')), ''), ifNull(max(ifNull(toString(%[1]s), '')), '') FROM (\n%[2]s\n)",
+		col,
+		sql,
+	)
+	var nullCount uint64
+	var uniqueCount uint64
+	var minValue string
+	var maxValue string
+	if err := queryDataPipelineSingle(ctx, conn, query, &nullCount, &uniqueCount, &minValue, &maxValue); err != nil {
+		return 0, 0, "", "", err
+	}
+	return int64(nullCount), int64(uniqueCount), minValue, maxValue, nil
+}
+
+func queryDataPipelineTopValues(ctx context.Context, conn driver.Conn, sql, column string, limit int) ([]map[string]any, error) {
+	col := quoteCHIdent(column)
+	query := fmt.Sprintf("SELECT ifNull(toString(%s), '') AS value, count() AS count FROM (\n%s\n) GROUP BY value ORDER BY count DESC, value ASC LIMIT %d", col, sql, limit)
+	rows, err := conn.Query(clickhouse.Context(ctx), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	values := make([]map[string]any, 0, limit)
+	for rows.Next() {
+		var value string
+		var count uint64
+		if err := rows.Scan(&value, &count); err != nil {
+			return nil, err
+		}
+		values = append(values, map[string]any{"value": value, "count": int64(count)})
+	}
+	return values, rows.Err()
+}
+
+func queryDataPipelineValidationFailureCount(ctx context.Context, conn driver.Conn, sql string, columns []string, rule map[string]any) (int64, error) {
+	operator := strings.ToLower(firstNonEmpty(dataPipelineString(rule, "operator"), dataPipelineString(rule, "op")))
+	if operator == "unique" {
+		column := dataPipelineString(rule, "column")
+		if err := dataPipelineRequireColumn(columns, column); err != nil {
+			return 0, err
+		}
+		col := quoteCHIdent(column)
+		query := fmt.Sprintf("SELECT ifNull(sum(rows), 0) FROM (SELECT count() AS rows FROM (\n%s\n) GROUP BY %s HAVING rows > 1)", sql, col)
+		var count uint64
+		if err := queryDataPipelineSingle(ctx, conn, query, &count); err != nil {
+			return 0, err
+		}
+		return int64(count), nil
+	}
+	expr, err := dataPipelineValidationPassExpr(columns, rule)
+	if err != nil {
+		return 0, err
+	}
+	query := fmt.Sprintf("SELECT countIf(NOT (%s)) FROM (\n%s\n)", expr, sql)
+	var count uint64
+	if err := queryDataPipelineSingle(ctx, conn, query, &count); err != nil {
+		return 0, err
+	}
+	return int64(count), nil
+}
+
+func dataPipelineValidationPassExpr(columns []string, rule map[string]any) (string, error) {
+	operator := strings.ToLower(firstNonEmpty(dataPipelineString(rule, "operator"), dataPipelineString(rule, "op")))
+	if operator == "range" {
+		column := dataPipelineString(rule, "column")
+		if err := dataPipelineRequireColumn(columns, column); err != nil {
+			return "", err
+		}
+		col := "toFloat64OrNull(toString(" + quoteCHIdent(column) + "))"
+		parts := []string{}
+		if _, ok := rule["min"]; ok {
+			parts = append(parts, col+" >= "+dataPipelineLiteral(rule["min"]))
+		}
+		if _, ok := rule["max"]; ok {
+			parts = append(parts, col+" <= "+dataPipelineLiteral(rule["max"]))
+		}
+		if len(parts) == 0 {
+			return "1 = 1", nil
+		}
+		return strings.Join(parts, " AND "), nil
+	}
+	if _, ok := rule["values"]; ok && rule["value"] == nil {
+		rule = cloneDataPipelineConfig(rule)
+		rule["value"] = rule["values"]
+	}
+	return dataPipelineConditionExpr(columns, dataPipelineString(rule, "column"), rule)
+}
+
+func queryDataPipelineSingle(ctx context.Context, conn driver.Conn, sql string, dest ...any) error {
+	rows, err := conn.Query(clickhouse.Context(ctx), sql)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return fmt.Errorf("query returned no rows")
+	}
+	if err := rows.Scan(dest...); err != nil {
+		return err
+	}
+	return rows.Err()
+}
+
+func cloneDataPipelineConfig(config map[string]any) map[string]any {
+	out := make(map[string]any, len(config))
+	for key, value := range config {
+		out[key] = value
+	}
+	return out
+}
+
 func (s *DataPipelineService) executeRun(ctx context.Context, tenantID int64, run db.DataPipelineRun, version db.DataPipelineVersion) ([]dataPipelineRunOutputResult, error) {
 	if s == nil || s.datasets == nil {
 		return nil, fmt.Errorf("data pipeline service is not configured")
@@ -790,11 +1063,15 @@ func (s *DataPipelineService) executeRun(ctx context.Context, tenantID int64, ru
 	if run.RequestedByUserID.Valid {
 		userID = run.RequestedByUserID.Int64
 	}
+	nodeResults, err := s.collectStructuredRunNodeResults(ctx, tenantID, graph, conn)
+	if err != nil {
+		return nil, err
+	}
 	outputs := dataPipelineOutputNodes(graph)
 	results := make([]dataPipelineRunOutputResult, 0, len(outputs))
 	for _, outputNode := range outputs {
 		compiled, err := s.compileRunSelect(ctx, tenantID, graph, outputNode)
-		result := dataPipelineRunOutputResult{Node: outputNode, Compiled: compiled, Err: err}
+		result := dataPipelineRunOutputResult{Node: outputNode, Compiled: compiled, Err: err, NodeResults: nodeResults}
 		if err == nil {
 			targetTable := dataPipelineOutputTableName(outputNode, run)
 			stageTable := "__dp_stage_" + strings.ReplaceAll(run.PublicID.String(), "-", "") + "_" + dataPipelineSafeSuffix(outputNode.ID)

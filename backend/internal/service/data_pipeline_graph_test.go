@@ -371,6 +371,25 @@ func TestDataPipelineCompilerRejectsUnsupportedOperatorAndUnknownColumn(t *testi
 	}
 }
 
+func TestDataPipelineValidationPassExprSupportsRangeAndValuesAlias(t *testing.T) {
+	columns := []string{"amount", "status"}
+	expr, err := dataPipelineValidationPassExpr(columns, map[string]any{"column": "amount", "operator": "range", "min": 1, "max": 10})
+	if err != nil {
+		t.Fatalf("dataPipelineValidationPassExpr(range) error = %v", err)
+	}
+	if !strings.Contains(expr, "toFloat64OrNull(toString(`amount`)) >= 1") || !strings.Contains(expr, "toFloat64OrNull(toString(`amount`)) <= 10") {
+		t.Fatalf("range expression did not include bounds: %s", expr)
+	}
+
+	expr, err = dataPipelineValidationPassExpr(columns, map[string]any{"column": "status", "operator": "in", "values": []any{"ready", "done"}})
+	if err != nil {
+		t.Fatalf("dataPipelineValidationPassExpr(values alias) error = %v", err)
+	}
+	if !strings.Contains(expr, "`status` IN ('ready', 'done')") {
+		t.Fatalf("values alias expression mismatch: %s", expr)
+	}
+}
+
 func dataPipelineTestGraph() DataPipelineGraph {
 	return DataPipelineGraph{
 		Nodes: []DataPipelineNode{

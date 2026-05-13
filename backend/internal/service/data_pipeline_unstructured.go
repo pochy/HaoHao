@@ -25,12 +25,14 @@ type dataPipelineMaterializedRelation struct {
 	Database string
 	Table    string
 	Columns  []string
+	Metadata map[string]any
 }
 
 type dataPipelineHybridResult struct {
 	Relation dataPipelineMaterializedRelation
 	Compiled dataPipelineCompiledSelect
 	Tables   []string
+	Nodes    map[string]dataPipelineRunNodeResult
 }
 
 func dataPipelineGraphNeedsHybrid(graph DataPipelineGraph) bool {
@@ -94,7 +96,7 @@ func (s *DataPipelineService) executeHybridRun(ctx context.Context, tenantID int
 	results := make([]dataPipelineRunOutputResult, 0, len(outputs))
 	for _, outputNode := range outputs {
 		hybrid, err := s.executeHybridGraph(ctx, tenantID, graph, run.PublicID.String()+":"+outputNode.ID, actorUserID, outputNode.ID, "data_pipeline")
-		result := dataPipelineRunOutputResult{Node: outputNode, Compiled: hybrid.Compiled, Err: err}
+		result := dataPipelineRunOutputResult{Node: outputNode, Compiled: hybrid.Compiled, Err: err, NodeResults: hybrid.Nodes}
 		if err == nil {
 			targetTable := dataPipelineOutputTableName(outputNode, run)
 			stageTable := "__dp_stage_" + strings.ReplaceAll(run.PublicID.String(), "-", "") + "_" + dataPipelineSafeSuffix(outputNode.ID)
@@ -211,6 +213,7 @@ func (s *DataPipelineService) executeHybridGraph(ctx context.Context, tenantID i
 	prefix := dataPipelineHybridTablePrefix(runKey)
 	relations := make(map[string]dataPipelineMaterializedRelation, len(order))
 	tables := make([]string, 0, len(order))
+	nodeResults := make(map[string]dataPipelineRunNodeResult, len(order))
 	compiler := newDataPipelineCompiler(s, tenantID, graph)
 	queryCtx := clickhouse.Context(ctx, clickhouse.WithSettings(s.datasets.exportQuerySettings()))
 	for _, node := range order {
@@ -222,6 +225,28 @@ func (s *DataPipelineService) executeHybridGraph(ctx context.Context, tenantID i
 				_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(cleanup)))
 			}
 			return dataPipelineHybridResult{}, err
+		}
+		rowCount, err := countHybridRelationRows(ctx, conn, relation)
+		if err != nil {
+			_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(table)))
+			for _, cleanup := range tables {
+				_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(cleanup)))
+			}
+			return dataPipelineHybridResult{}, err
+		}
+		metadata := relation.Metadata
+		if metadata == nil {
+			metadata = map[string]any{}
+		}
+		metadata["outputRows"] = rowCount
+		if _, ok := metadata["warnings"]; !ok {
+			metadata["warnings"] = []string{}
+		}
+		nodeResults[node.ID] = dataPipelineRunNodeResult{
+			NodeID:   node.ID,
+			StepType: node.Data.StepType,
+			RowCount: rowCount,
+			Metadata: metadata,
 		}
 		relations[node.ID] = relation
 		tables = append(tables, table)
@@ -235,6 +260,7 @@ func (s *DataPipelineService) executeHybridGraph(ctx context.Context, tenantID i
 					StepType: node.Data.StepType,
 				},
 				Tables: tables,
+				Nodes:  nodeResults,
 			}, nil
 		}
 	}
@@ -258,6 +284,7 @@ func (s *DataPipelineService) executeHybridGraph(ctx context.Context, tenantID i
 			StepType: output.Data.StepType,
 		},
 		Tables: tables,
+		Nodes:  nodeResults,
 	}, nil
 }
 
@@ -696,7 +723,11 @@ func (s *DataPipelineService) materializeConfidenceGate(ctx context.Context, con
 	if err := conn.Exec(queryCtx, sql); err != nil {
 		return dataPipelineMaterializedRelation{}, fmt.Errorf("materialize confidence_gate: %w", err)
 	}
-	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+	metadata, err := collectConfidenceGateMetadata(ctx, conn, database, table, statusCol, scoreCol, threshold, scoreColumns)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata}, nil
 }
 
 func (s *DataPipelineService) materializeDeduplicate(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
@@ -1105,7 +1136,63 @@ func (s *DataPipelineService) materializeQualityReport(ctx context.Context, conn
 	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
 		return dataPipelineMaterializedRelation{}, err
 	}
-	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+	rowCount := len(rows)
+	missingRate, _ := report["missing_rate"].(map[string]float64)
+	warningCount := int64(0)
+	for _, rate := range missingRate {
+		if rate > 0 {
+			warningCount++
+		}
+	}
+	metadata := map[string]any{
+		"quality": map[string]any{
+			"rowCount":    rowCount,
+			"columnCount": len(targetColumns),
+			"missingRate": report["missing_rate"],
+			"summary":     report["summary"],
+		},
+		"warningCount": warningCount,
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata}, nil
+}
+
+func countHybridRelationRows(ctx context.Context, conn driver.Conn, relation dataPipelineMaterializedRelation) (int64, error) {
+	var count uint64
+	query := fmt.Sprintf("SELECT count() FROM %s.%s", quoteCHIdent(relation.Database), quoteCHIdent(relation.Table))
+	if err := queryDataPipelineSingle(ctx, conn, query, &count); err != nil {
+		return 0, err
+	}
+	return int64(count), nil
+}
+
+func collectConfidenceGateMetadata(ctx context.Context, conn driver.Conn, database, table, statusColumn, scoreColumn string, threshold float64, scoreColumns []string) (map[string]any, error) {
+	query := fmt.Sprintf(
+		"SELECT countIf(%[1]s = 'pass'), countIf(%[1]s = 'needs_review'), ifNull(min(toFloat64OrZero(%[2]s)), 0), ifNull(avg(toFloat64OrZero(%[2]s)), 0) FROM %[3]s.%[4]s",
+		quoteCHIdent(statusColumn),
+		quoteCHIdent(scoreColumn),
+		quoteCHIdent(database),
+		quoteCHIdent(table),
+	)
+	var passRows uint64
+	var needsReviewRows uint64
+	var minScore float64
+	var avgScore float64
+	if err := queryDataPipelineSingle(ctx, conn, query, &passRows, &needsReviewRows, &minScore, &avgScore); err != nil {
+		return nil, err
+	}
+	failedRows := int64(needsReviewRows)
+	return map[string]any{
+		"failedRows": failedRows,
+		"confidenceGate": map[string]any{
+			"threshold":       threshold,
+			"scoreColumns":    scoreColumns,
+			"passRows":        int64(passRows),
+			"needsReviewRows": int64(needsReviewRows),
+			"failedRows":      failedRows,
+			"minScore":        minScore,
+			"avgScore":        avgScore,
+		},
+	}, nil
 }
 
 func createHybridStringTable(ctx context.Context, conn driver.Conn, database, table string, columns []string, rows []map[string]any) error {

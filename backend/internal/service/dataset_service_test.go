@@ -91,6 +91,32 @@ func assignFakeScanValue(dest any, value any) {
 	}
 }
 
+type fakeDatasetClickHouseConn struct {
+	rows  driver.Rows
+	query string
+}
+
+func (f *fakeDatasetClickHouseConn) Contributors() []string { return nil }
+func (f *fakeDatasetClickHouseConn) ServerVersion() (*driver.ServerVersion, error) {
+	return nil, nil
+}
+func (f *fakeDatasetClickHouseConn) Select(context.Context, any, string, ...any) error { return nil }
+func (f *fakeDatasetClickHouseConn) Query(_ context.Context, query string, _ ...any) (driver.Rows, error) {
+	f.query = query
+	return f.rows, nil
+}
+func (f *fakeDatasetClickHouseConn) QueryRow(context.Context, string, ...any) driver.Row { return nil }
+func (f *fakeDatasetClickHouseConn) PrepareBatch(context.Context, string, ...driver.PrepareBatchOption) (driver.Batch, error) {
+	return nil, nil
+}
+func (f *fakeDatasetClickHouseConn) Exec(context.Context, string, ...any) error { return nil }
+func (f *fakeDatasetClickHouseConn) AsyncInsert(context.Context, string, bool, ...any) error {
+	return nil
+}
+func (f *fakeDatasetClickHouseConn) Ping(context.Context) error { return nil }
+func (f *fakeDatasetClickHouseConn) Stats() driver.Stats        { return driver.Stats{} }
+func (f *fakeDatasetClickHouseConn) Close() error               { return nil }
+
 func TestDatasetClickHouseSettingsEnableExternalSpill(t *testing.T) {
 	service := &DatasetService{chConfig: DatasetClickHouseConfig{
 		QueryMaxSeconds:     60,
@@ -112,6 +138,40 @@ func TestDatasetClickHouseSettingsEnableExternalSpill(t *testing.T) {
 				t.Fatalf("max_bytes_before_external_group_by = %v, want %v", got, want)
 			}
 		})
+	}
+}
+
+func TestHydrateWorkTableColumns(t *testing.T) {
+	conn := &fakeDatasetClickHouseConn{
+		rows: &fakeDatasetRows{
+			index: -1,
+			values: [][]any{
+				{"hh_t_1_work", "first_table", uint64(1), "id", "String"},
+				{"hh_t_1_work", "first_table", uint64(2), "amount", "Float64"},
+				{"hh_t_1_work", "second_table", uint64(1), "status", "Nullable(String)"},
+			},
+		},
+	}
+	service := &DatasetService{clickhouse: conn}
+	items := []DatasetWorkTable{
+		{Database: "hh_t_1_work", Table: "first_table"},
+		{Database: "hh_t_1_work", Table: "second_table"},
+	}
+
+	if err := service.hydrateWorkTableColumns(context.Background(), items); err != nil {
+		t.Fatalf("hydrateWorkTableColumns() error = %v", err)
+	}
+	if !strings.Contains(conn.query, "system.columns") {
+		t.Fatalf("hydrateWorkTableColumns() query = %q, want system.columns", conn.query)
+	}
+	if got, want := len(items[0].Columns), 2; got != want {
+		t.Fatalf("first table column count = %d, want %d", got, want)
+	}
+	if got, want := items[0].Columns[1].ColumnName, "amount"; got != want {
+		t.Fatalf("first table second column = %q, want %q", got, want)
+	}
+	if got, want := items[1].Columns[0].ClickHouseType, "Nullable(String)"; got != want {
+		t.Fatalf("second table column type = %q, want %q", got, want)
 	}
 }
 

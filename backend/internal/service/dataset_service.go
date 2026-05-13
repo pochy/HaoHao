@@ -1013,6 +1013,9 @@ LIMIT %d`, limit),
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate dataset work tables: %w", err)
 	}
+	if err := s.hydrateWorkTableColumns(ctx, items); err != nil {
+		return nil, err
+	}
 	return items, nil
 }
 
@@ -2374,6 +2377,63 @@ ORDER BY position ASC`,
 		return nil, fmt.Errorf("iterate dataset work table columns: %w", err)
 	}
 	return columns, nil
+}
+
+func (s *DatasetService) hydrateWorkTableColumns(ctx context.Context, items []DatasetWorkTable) error {
+	refs := make([]datasetWorkTableRef, 0, len(items))
+	seen := make(map[string]bool, len(items))
+	for _, item := range items {
+		if item.Database == "" || item.Table == "" {
+			continue
+		}
+		key := workTableKey(item.Database, item.Table)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		refs = append(refs, datasetWorkTableRef{Database: item.Database, Table: item.Table})
+	}
+	if len(refs) == 0 {
+		return nil
+	}
+
+	tuples := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		tuples = append(tuples, "("+quoteCHString(ref.Database)+", "+quoteCHString(ref.Table)+")")
+	}
+	rows, err := s.clickhouse.Query(
+		clickhouse.Context(ctx, clickhouse.WithSettings(s.querySettings())),
+		fmt.Sprintf(`
+SELECT database, table, position, name, type
+FROM system.columns
+WHERE (database, table) IN (%s)
+ORDER BY database ASC, table ASC, position ASC`, strings.Join(tuples, ", ")),
+	)
+	if err != nil {
+		return fmt.Errorf("list dataset work table columns: %w", err)
+	}
+	defer rows.Close()
+
+	columnsByRef := make(map[string][]DatasetWorkTableColumn, len(refs))
+	for rows.Next() {
+		var database string
+		var table string
+		var position uint64
+		var column DatasetWorkTableColumn
+		if err := rows.Scan(&database, &table, &position, &column.ColumnName, &column.ClickHouseType); err != nil {
+			return fmt.Errorf("scan dataset work table column: %w", err)
+		}
+		column.Ordinal = int32(uint64ToDatasetInt64(position))
+		key := workTableKey(database, table)
+		columnsByRef[key] = append(columnsByRef[key], column)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate dataset work table columns: %w", err)
+	}
+	for i := range items {
+		items[i].Columns = columnsByRef[workTableKey(items[i].Database, items[i].Table)]
+	}
+	return nil
 }
 
 func (s *DatasetService) getManagedWorkTableRow(ctx context.Context, tenantID int64, publicID string) (db.DatasetWorkTable, error) {
@@ -4307,6 +4367,9 @@ func mergeWorkTableMetadata(item *DatasetWorkTable, metadata DatasetWorkTable) {
 	item.Engine = metadata.Engine
 	item.TotalRows = metadata.TotalRows
 	item.TotalBytes = metadata.TotalBytes
+	if len(metadata.Columns) > 0 {
+		item.Columns = metadata.Columns
+	}
 	if !metadata.CreatedAt.IsZero() {
 		item.CreatedAt = metadata.CreatedAt
 	}
