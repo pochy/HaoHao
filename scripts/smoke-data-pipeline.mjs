@@ -141,6 +141,13 @@ async function uploadTableReviewTextFile(workspacePublicId) {
   return uploadFile(workspacePublicId, `data-pipeline-table-review-smoke-${Date.now()}.txt`, 'text/plain', text)
 }
 
+async function uploadSchemaMappingReviewJSONFile(workspacePublicId) {
+  const rows = [
+    { invoice_number: 'INV-200', total: '345.67', state: 'ready' },
+  ]
+  return uploadFile(workspacePublicId, `data-pipeline-schema-mapping-review-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
+}
+
 async function uploadXLSXFile(workspacePublicId) {
   const rows = [
     ['id', 'name', 'amount', 'status'],
@@ -383,6 +390,53 @@ function tableReviewGraph(filePublicId, suffix) {
   }
 }
 
+function schemaMappingReviewGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive JSON', 60, 180, {
+        sourceKind: 'drive_file',
+        inputMode: 'json',
+        filePublicIds: [filePublicId],
+        recordPath: '$',
+        includeSourceMetadataColumns: true,
+        includeRawRecord: true,
+        fields: [],
+      }),
+      node('json_extract', 'json_extract', 'Extract source columns', 300, 180, {
+        sourceColumn: 'raw_record_json',
+        recordPath: '$',
+        includeSourceColumns: true,
+        fields: [
+          { column: 'invoice_number', path: 'invoice_number' },
+          { column: 'total', path: 'total' },
+          { column: 'state', path: 'state' },
+        ],
+      }),
+      node('schema_mapping', 'schema_mapping', 'Map schema', 540, 180, {
+        includeSourceColumns: true,
+        confidenceThreshold: 0.9,
+        mappings: [
+          { sourceColumn: 'invoice_number', targetColumn: 'invoice_id', required: true, confidence: 0.96 },
+          { sourceColumn: 'total', targetColumn: 'amount', required: true, confidence: 0.55 },
+          { sourceColumn: 'state', targetColumn: 'status', required: true, confidence: 0.95 },
+        ],
+      }),
+      node('confidence_gate', 'confidence_gate', 'Confidence gate', 780, 180, {
+        scoreColumns: ['schema_mapping_confidence'],
+        threshold: 0.9,
+      }),
+      node('human_review', 'human_review', 'Human review', 1020, 180, {
+        reasonColumns: ['gate_status', 'gate_reason', 'schema_mapping_reason'],
+        queue: 'schema-mapping-review-smoke',
+        createReviewItems: true,
+        mode: 'filter_review',
+      }),
+      outputNode(suffix, ['file_public_id'], 'output', 1260, 180),
+    ],
+    edges: linearEdges(['input', 'json_extract', 'schema_mapping', 'confidence_gate', 'human_review', 'output']),
+  }
+}
+
 function profileNode() {
   return node('profile', 'profile', 'Profile smoke rows', 620, 120, {})
 }
@@ -414,6 +468,7 @@ async function createPipeline(scenario, filePublicId) {
     review: reviewGraph,
     field_review: fieldReviewGraph,
     table_review: tableReviewGraph,
+    schema_mapping_review: schemaMappingReviewGraph,
   }
   const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
     name: `Smoke: ${scenario} metadata ${new Date().toISOString()}`,
@@ -573,6 +628,25 @@ function assertTableReviewRun(run) {
   }
 }
 
+function assertSchemaMappingReviewRun(run) {
+  assertCommonRun(run, 1)
+  const mappingStep = findStep(run, 'schema_mapping')
+  if (!mappingStep?.metadata?.schemaMapping) {
+    throw new Error(`schemaMapping metadata missing: ${JSON.stringify(mappingStep)}`)
+  }
+  if (mappingStep.metadata.schemaMapping.lowConfidenceRows !== 1 || mappingStep.metadata.schemaMapping.mappingCount !== 3) {
+    throw new Error(`unexpected schemaMapping metadata: ${JSON.stringify(mappingStep.metadata.schemaMapping)}`)
+  }
+  const gateStep = findStep(run, 'confidence_gate')
+  if (gateStep?.metadata?.confidenceGate?.needsReviewRows !== 1) {
+    throw new Error(`unexpected confidence gate metadata: ${JSON.stringify(gateStep?.metadata?.confidenceGate)}`)
+  }
+  const reviewStep = findStep(run, 'human_review')
+  if (reviewStep?.metadata?.reviewItemCount !== 1) {
+    throw new Error(`unexpected human review metadata: ${JSON.stringify(reviewStep?.metadata)}`)
+  }
+}
+
 async function assertReviewItems(pipelinePublicId) {
   const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
   const items = listed.items ?? []
@@ -644,6 +718,23 @@ async function assertTableReviewItems(pipelinePublicId, filePublicId) {
   return { item, driveLink }
 }
 
+async function assertSchemaMappingReviewItems(pipelinePublicId, filePublicId) {
+  const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
+  const items = listed.items ?? []
+  if (items.length !== 1) {
+    throw new Error(`schema mapping review item count = ${items.length}, want 1: ${JSON.stringify(listed)}`)
+  }
+  const item = items[0]
+  if (item.queue !== 'schema-mapping-review-smoke' || item.nodeId !== 'human_review') {
+    throw new Error(`unexpected schema mapping review item: ${JSON.stringify(item)}`)
+  }
+  if (String(item.sourceSnapshot?.schema_mapping_confidence) !== '0.8200' || item.sourceSnapshot?.amount !== '345.67') {
+    throw new Error(`schema mapping review snapshot missing confidence or mapped columns: ${JSON.stringify(item.sourceSnapshot)}`)
+  }
+  const driveLink = await assertDriveFileReviewItemLink(filePublicId, item, pipelinePublicId)
+  return { item, driveLink }
+}
+
 async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
   let last
   for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
@@ -667,6 +758,7 @@ async function runScenario(workspacePublicId, scenario) {
     review: uploadTextFile,
     field_review: uploadFieldReviewTextFile,
     table_review: uploadTableReviewTextFile,
+    schema_mapping_review: uploadSchemaMappingReviewJSONFile,
   }
   const assertions = {
     json: (run) => assertProfileValidateRun(run, 3),
@@ -676,6 +768,7 @@ async function runScenario(workspacePublicId, scenario) {
     review: assertReviewRun,
     field_review: assertFieldReviewRun,
     table_review: assertTableReviewRun,
+    schema_mapping_review: assertSchemaMappingReviewRun,
   }
   const file = await uploaders[scenario](workspacePublicId)
   const { pipeline, version } = await createPipeline(scenario, file.publicId)
@@ -685,8 +778,10 @@ async function runScenario(workspacePublicId, scenario) {
     ? await assertReviewItems(pipeline.publicId)
     : scenario === 'field_review'
       ? await assertFieldReviewItems(pipeline.publicId, file.publicId)
-      : scenario === 'table_review'
-        ? await assertTableReviewItems(pipeline.publicId, file.publicId)
+    : scenario === 'table_review'
+      ? await assertTableReviewItems(pipeline.publicId, file.publicId)
+      : scenario === 'schema_mapping_review'
+        ? await assertSchemaMappingReviewItems(pipeline.publicId, file.publicId)
       : undefined
   return {
     scenario,
@@ -724,9 +819,9 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review'] : [requestedScenario]
+  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review'] : [requestedScenario]
   for (const scenario of scenarios) {
-    if (!['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review'].includes(scenario)) {
+    if (!['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review'].includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
     }
   }

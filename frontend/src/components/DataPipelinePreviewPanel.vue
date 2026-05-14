@@ -212,6 +212,12 @@ function metadataFacts(step: DataPipelineRunStepBody) {
     facts.push({ label: 'tableExtraction.avgConfidence', value: metadataValue(tableExtraction.avgConfidence) })
     facts.push({ label: 'tableExtraction.lowConfidenceRows', value: metadataValue(tableExtraction.lowConfidenceRows) })
   }
+  const schemaMapping = metadataRecord(metadata, 'schemaMapping')
+  if (schemaMapping) {
+    facts.push({ label: 'schemaMapping.mappings', value: metadataValue(schemaMapping.mappingCount) })
+    facts.push({ label: 'schemaMapping.threshold', value: metadataValue(schemaMapping.threshold) })
+    facts.push({ label: 'schemaMapping.lowConfidenceRows', value: metadataValue(schemaMapping.lowConfidenceRows) })
+  }
   if (metadata.quarantinedRows !== undefined || metadata.passedRows !== undefined) {
     facts.push({ label: 'quarantine.quarantinedRows', value: metadataValue(metadata.quarantinedRows) })
     facts.push({ label: 'quarantine.passedRows', value: metadataValue(metadata.passedRows) })

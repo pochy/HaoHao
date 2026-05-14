@@ -377,6 +377,12 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 			return dataPipelineMaterializedRelation{}, err
 		}
 		return s.materializeExtractTable(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepSchemaMapping:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeSchemaMapping(ctx, conn, database, table, node, upstream)
 	case DataPipelineStepConfidenceGate:
 		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
 		if err != nil {
@@ -830,6 +836,136 @@ func (s *DataPipelineService) materializeExtractTable(ctx context.Context, conn 
 			"expectedColumnCount":  expectedColumnCount,
 			"avgConfidence":        avgConfidence,
 			"lowConfidenceRows":    lowConfidenceRows,
+			"lowConfidenceSamples": lowConfidenceSamples,
+		},
+	}
+	if lowConfidenceRows > 0 {
+		metadata["warningCount"] = lowConfidenceRows
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata}, nil
+}
+
+func (s *DataPipelineService) materializeSchemaMapping(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	mappings := dataPipelineConfigObjects(node.Data.Config, "mappings")
+	if len(mappings) == 0 {
+		return materializePassThrough(ctx, conn, database, table, upstream)
+	}
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	threshold := dataPipelineFloat(node.Data.Config, "confidenceThreshold", 0.8)
+	scoreCol := firstNonEmpty(dataPipelineString(node.Data.Config, "scoreColumn"), "schema_mapping_confidence")
+	statusCol := firstNonEmpty(dataPipelineString(node.Data.Config, "statusColumn"), "schema_mapping_status")
+	reasonCol := firstNonEmpty(dataPipelineString(node.Data.Config, "reasonColumn"), "schema_mapping_reason")
+	mappingJSONCol := firstNonEmpty(dataPipelineString(node.Data.Config, "mappingJSONColumn"), "schema_mapping_json")
+	includeSourceColumns := dataPipelineBool(node.Data.Config, "includeSourceColumns", false)
+	columns := make([]string, 0, len(mappings)+4)
+	if includeSourceColumns {
+		columns = append(columns, upstream.Columns...)
+	}
+	for _, mapping := range mappings {
+		target := dataPipelineString(mapping, "targetColumn")
+		if err := dataPipelineValidateIdentifier(target); err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		if source := dataPipelineString(mapping, "sourceColumn"); source != "" {
+			if err := dataPipelineRequireColumn(upstream.Columns, source); err != nil {
+				return dataPipelineMaterializedRelation{}, err
+			}
+		}
+		columns = append(columns, target)
+	}
+	columns = uniqueStringList(append(columns, scoreCol, statusCol, reasonCol, mappingJSONCol))
+
+	out := make([]map[string]any, 0, len(rows))
+	lowConfidenceRows := 0
+	missingRequiredRows := 0
+	lowConfidenceSamples := make([]map[string]any, 0, 5)
+	for _, row := range rows {
+		next := make(map[string]any, len(columns))
+		if includeSourceColumns {
+			next = cloneRow(row)
+		}
+		mappingDetails := make([]map[string]any, 0, len(mappings))
+		confidenceTotal := 0.0
+		requiredMissing := false
+		for _, mapping := range mappings {
+			target := dataPipelineString(mapping, "targetColumn")
+			source := dataPipelineString(mapping, "sourceColumn")
+			value := any("")
+			sourceFound := false
+			if source != "" {
+				value = row[source]
+				sourceFound = true
+			} else if defaultValue, ok := mapping["defaultValue"]; ok {
+				value = defaultValue
+			}
+			required := dataPipelineBool(mapping, "required", false)
+			valueText := strings.TrimSpace(fmt.Sprint(value))
+			missing := required && valueText == ""
+			confidence := dataPipelineFloat(mapping, "confidence", dataPipelineFloat(mapping, "mappingConfidence", 1.0))
+			reason := "mapped"
+			if !sourceFound && source == "" {
+				reason = "default_value"
+			}
+			if missing {
+				confidence = 0
+				reason = "required_value_missing"
+				requiredMissing = true
+			}
+			confidence = clampConfidence(confidence)
+			next[target] = value
+			confidenceTotal += confidence
+			mappingDetails = append(mappingDetails, map[string]any{
+				"targetColumn": target,
+				"sourceColumn": source,
+				"confidence":   fmt.Sprintf("%.4f", confidence),
+				"reason":       reason,
+				"required":     required,
+			})
+		}
+		avgConfidence := 1.0
+		if len(mappings) > 0 {
+			avgConfidence = confidenceTotal / float64(len(mappings))
+		}
+		status := "pass"
+		reason := "passed"
+		if requiredMissing {
+			status = "needs_review"
+			reason = "required_mapping_missing"
+			missingRequiredRows++
+		} else if avgConfidence < threshold {
+			status = "needs_review"
+			reason = "below_threshold"
+		}
+		if status == "needs_review" {
+			lowConfidenceRows++
+			if len(lowConfidenceSamples) < 5 {
+				lowConfidenceSamples = append(lowConfidenceSamples, map[string]any{
+					scoreCol:   fmt.Sprintf("%.4f", avgConfidence),
+					statusCol:  status,
+					reasonCol:  reason,
+					"mappings": mappingDetails,
+				})
+			}
+		}
+		next[scoreCol] = fmt.Sprintf("%.4f", avgConfidence)
+		next[statusCol] = status
+		next[reasonCol] = reason
+		next[mappingJSONCol] = jsonString(mappingDetails)
+		out = append(out, next)
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	metadata := map[string]any{
+		"schemaMapping": map[string]any{
+			"rowCount":             len(out),
+			"mappingCount":         len(mappings),
+			"threshold":            threshold,
+			"lowConfidenceRows":    lowConfidenceRows,
+			"missingRequiredRows":  missingRequiredRows,
 			"lowConfidenceSamples": lowConfidenceSamples,
 		},
 	}
@@ -1519,6 +1655,17 @@ func createHybridStringTable(ctx context.Context, conn driver.Conn, database, ta
 		return fmt.Errorf("send hybrid data pipeline rows: %w", err)
 	}
 	return nil
+}
+
+func materializePassThrough(ctx context.Context, conn driver.Conn, database, table string, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, upstream.Columns, rows); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: upstream.Columns}, nil
 }
 
 func readHybridRows(ctx context.Context, conn driver.Conn, relation dataPipelineMaterializedRelation, limit int32) ([]map[string]any, error) {
