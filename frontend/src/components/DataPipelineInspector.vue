@@ -978,12 +978,20 @@ function columnsForNodeOutput(nodeId?: string, visited = new Set<string>()): str
   switch (node.data.stepType) {
   case 'input':
     return sourceColumnsFromConfig(config, 'sourceKind', 'datasetPublicId', 'workTablePublicId')
+  case 'extract_text':
+    return inferExtractTextColumns()
   case 'json_extract':
     return inferJSONExtractColumns(config, upstreamColumns())
   case 'excel_extract':
     return inferExcelExtractColumns(config, upstreamColumns())
+  case 'quality_report':
+    return inferQualityReportColumns(upstreamColumns())
+  case 'confidence_gate':
+    return inferConfidenceGateColumns(config, upstreamColumns())
   case 'schema_mapping':
     return inferSchemaMappingColumns(config, upstreamColumns())
+  case 'human_review':
+    return inferHumanReviewColumns(config, upstreamColumns())
   case 'schema_completion':
     return inferSchemaCompletionColumns(config, upstreamColumns())
   case 'transform':
@@ -1132,11 +1140,46 @@ function firstAvailableUpstreamColumns(upstreamIds: string[], visited: Set<strin
   return []
 }
 
+function inferExtractTextColumns() {
+  return ['file_public_id', 'ocr_run_public_id', 'page_number', 'text', 'confidence', 'layout_json', 'boxes_json']
+}
+
+function inferQualityReportColumns(upstreamColumns: string[]) {
+  return uniqueStrings([
+    ...upstreamColumns,
+    'quality_report_json',
+    'missing_rate_json',
+    'validation_summary_json',
+  ])
+}
+
+function inferConfidenceGateColumns(config: ConfigRecord, upstreamColumns: string[]) {
+  return uniqueStrings([
+    ...upstreamColumns,
+    'gate_score',
+    stringValue(config.statusColumn).trim() || 'gate_status',
+    'gate_reason',
+  ])
+}
+
 function inferSchemaMappingColumns(config: ConfigRecord, upstreamColumns: string[]) {
   const columns = arrayFromConfig(config, 'mappings')
     .map((mapping) => stringField(mapping, 'targetColumn').trim())
     .filter(Boolean)
-  return columns.length > 0 ? uniqueStrings(columns) : upstreamColumns
+  if (columns.length === 0) {
+    return upstreamColumns
+  }
+  const baseColumns = config.includeSourceColumns === true ? upstreamColumns : []
+  return uniqueStrings([...baseColumns, ...columns])
+}
+
+function inferHumanReviewColumns(config: ConfigRecord, upstreamColumns: string[]) {
+  return uniqueStrings([
+    ...upstreamColumns,
+    stringValue(config.statusColumn).trim() || 'review_status',
+    stringValue(config.queueColumn).trim() || 'review_queue',
+    'review_reason_json',
+  ])
 }
 
 function inferJSONExtractColumns(config: ConfigRecord, upstreamColumns: string[]) {
