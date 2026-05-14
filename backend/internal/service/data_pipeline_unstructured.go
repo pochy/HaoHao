@@ -242,6 +242,40 @@ func (s *DataPipelineService) executeHybridGraph(ctx context.Context, tenantID i
 		if _, ok := metadata["warnings"]; !ok {
 			metadata["warnings"] = []string{}
 		}
+		compiled := dataPipelineCompiledSelect{
+			SQL:      fmt.Sprintf("SELECT * FROM %s.%s", quoteCHIdent(relation.Database), quoteCHIdent(relation.Table)),
+			Columns:  relation.Columns,
+			NodeID:   node.ID,
+			StepType: node.Data.StepType,
+		}
+		switch node.Data.StepType {
+		case DataPipelineStepProfile:
+			profile, err := s.collectStructuredProfileMetadata(ctx, conn, compiled, node)
+			if err != nil {
+				_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(table)))
+				for _, cleanup := range tables {
+					_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(cleanup)))
+				}
+				return dataPipelineHybridResult{}, fmt.Errorf("profile data pipeline step %s: %w", node.ID, err)
+			}
+			metadata["profile"] = profile
+		case DataPipelineStepValidate:
+			validation, err := s.collectStructuredValidationMetadata(ctx, conn, compiled, node)
+			if err != nil {
+				_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(table)))
+				for _, cleanup := range tables {
+					_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(cleanup)))
+				}
+				return dataPipelineHybridResult{}, fmt.Errorf("validate data pipeline step %s: %w", node.ID, err)
+			}
+			metadata["validation"] = validation
+			if failedRows, ok := validation["failedRows"].(int64); ok {
+				metadata["failedRows"] = failedRows
+			}
+			if warningCount, ok := validation["warningCount"].(int64); ok {
+				metadata["warningCount"] = warningCount
+			}
+		}
 		nodeResults[node.ID] = dataPipelineRunNodeResult{
 			NodeID:   node.ID,
 			StepType: node.Data.StepType,

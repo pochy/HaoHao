@@ -20,6 +20,27 @@
 4. `quality_report` と `confidence_gate` の行データ結果を run step metadata に集約する。
 5. Data Pipeline detail の Runs tab で step metadata を読めるようにする。
 
+## 2026-05-14 更新
+
+上記の最初の実装単位は `b9d5c03 Enhance data pipeline run metadata` で実装済みです。
+
+完了した内容:
+
+- structured / hybrid executor が node ごとの row count と metadata を保存する。
+- `profile` が row count、column count、null count / rate、unique count、min / max、top values を run step metadata に保存する。
+- `validate` が rule count、failed rows、error count、warning count、rule 別 failed rows を run step metadata に保存する。
+- `quality_report` と `confidence_gate` の summary を hybrid run step metadata に集約する。
+- Data Pipeline detail の Runs tab で run output と run step metadata summary を表示する。
+- Work table 一覧 API が columns を返すようになり、Inspector の上流列警告の誤検知を解消した。
+
+次の実装単位は、Drive file input を含む pipeline の smoke 自動化です。
+
+```bash
+make smoke-data-pipeline
+```
+
+この smoke は demo login、tenant 選択、Drive workspace 自動選択、inline JSON upload、`drive_file` input、`json_extract`、`profile`、`validate`、`output`、run 完了、metadata 検証までを一括で確認します。
+
 ## 調査結果
 
 ### NEXT_IMPLEMENTATION_PLAN.md から確認した方針
@@ -522,12 +543,10 @@ DB schema は変更しません。
 
 ## 次の最小実装タスク
 
-最初の PR は次に絞るのが安全です。
+次の PR は次に絞るのが安全です。
 
-1. `dataPipelineRunNodeResult` 相当の内部型を追加する。
-2. structured / hybrid run が最低限 `outputRows` を node ごとに返す。
-3. `HandleRunRequested` が各 step に node 固有 metadata を保存する。
-4. Runs tab に step row を表示する。
-5. `go test ./backend/...` と `npm --prefix frontend run build` を通す。
-
-この PR では `profile` / `validate` の詳細 summary までは入れなくてもよいですが、metadata の流路を先に作ります。次の PR で `profile` / `validate` の実測 summary を追加します。
+1. Drive file input を含む Data Pipeline smoke を CI / local run に載せやすい形へ整える。
+2. `json_extract` / `excel_extract` / `extract_text` の代表 path を smoke で分ける。
+3. `quarantine` node を追加し、validate / confidence_gate の失敗行を通常 output と分離できるようにする。
+4. Runs tab で profile / validation の詳細を展開表示できるようにする。
+5. `go test ./backend/...`、`npm --prefix frontend run build`、`make smoke-data-pipeline` を通す。
