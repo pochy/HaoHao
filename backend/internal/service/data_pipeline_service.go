@@ -1498,12 +1498,18 @@ func (s *DataPipelineService) ListReviewItemsByDriveFile(ctx context.Context, te
 	return items, nil
 }
 
-func (s *DataPipelineService) GetReviewItem(ctx context.Context, tenantID int64, publicID string) (DataPipelineReviewItem, error) {
+func (s *DataPipelineService) GetReviewItem(ctx context.Context, tenantID, actorUserID int64, publicID string) (DataPipelineReviewItem, error) {
 	row, err := s.getReviewItemRow(ctx, tenantID, publicID)
 	if err != nil {
 		return DataPipelineReviewItem{}, err
 	}
+	pipeline, err := s.checkReviewItemPipelineAction(ctx, tenantID, actorUserID, row.PipelineID, DataActionView)
+	if err != nil {
+		return DataPipelineReviewItem{}, err
+	}
 	item := dataPipelineReviewItemFromDB(row)
+	item.PipelinePublicID = pipeline.PublicID.String()
+	item.PipelineName = pipeline.Name
 	comments, err := s.listReviewItemComments(ctx, tenantID, row.ID)
 	if err != nil {
 		return DataPipelineReviewItem{}, err
@@ -1521,6 +1527,14 @@ func (s *DataPipelineService) TransitionReviewItem(ctx context.Context, tenantID
 	rowID, err := uuid.Parse(publicID)
 	if err != nil {
 		return DataPipelineReviewItem{}, ErrDataPipelineReviewItemNotFound
+	}
+	existing, err := s.getReviewItemRow(ctx, tenantID, publicID)
+	if err != nil {
+		return DataPipelineReviewItem{}, err
+	}
+	pipeline, err := s.checkReviewItemPipelineAction(ctx, tenantID, actorUserID, existing.PipelineID, DataActionUpdate)
+	if err != nil {
+		return DataPipelineReviewItem{}, err
 	}
 	row, err := s.queries.TransitionDataPipelineReviewItem(ctx, db.TransitionDataPipelineReviewItemParams{
 		TenantID:        tenantID,
@@ -1546,6 +1560,8 @@ func (s *DataPipelineService) TransitionReviewItem(ctx context.Context, tenantID
 		}
 	}
 	item := dataPipelineReviewItemFromDB(row)
+	item.PipelinePublicID = pipeline.PublicID.String()
+	item.PipelineName = pipeline.Name
 	item.Comments, _ = s.listReviewItemComments(ctx, tenantID, row.ID)
 	s.recordAudit(ctx, auditCtx, "data_pipeline.review_item.transition", "data_pipeline_review_item", item.PublicID, map[string]any{"status": status})
 	return item, nil
@@ -1558,6 +1574,9 @@ func (s *DataPipelineService) CreateReviewItemComment(ctx context.Context, tenan
 	}
 	item, err := s.getReviewItemRow(ctx, tenantID, publicID)
 	if err != nil {
+		return DataPipelineReviewItemComment{}, err
+	}
+	if _, err := s.checkReviewItemPipelineAction(ctx, tenantID, actorUserID, item.PipelineID, DataActionUpdate); err != nil {
 		return DataPipelineReviewItemComment{}, err
 	}
 	row, err := s.queries.CreateDataPipelineReviewItemComment(ctx, db.CreateDataPipelineReviewItemCommentParams{
@@ -1716,6 +1735,23 @@ func (s *DataPipelineService) checkPipelineByID(ctx context.Context, tenantID, a
 		return fmt.Errorf("get data pipeline for authorization: %w", err)
 	}
 	return s.authz.CheckResourceAction(ctx, tenantID, actorUserID, DataResourceDataPipeline, pipeline.PublicID.String(), action)
+}
+
+func (s *DataPipelineService) checkReviewItemPipelineAction(ctx context.Context, tenantID, actorUserID, pipelineID int64, action string) (db.DataPipeline, error) {
+	pipeline, err := s.queries.GetDataPipelineByIDForTenant(ctx, db.GetDataPipelineByIDForTenantParams{TenantID: tenantID, ID: pipelineID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.DataPipeline{}, ErrDataPipelineNotFound
+	}
+	if err != nil {
+		return db.DataPipeline{}, fmt.Errorf("get data pipeline for review item authorization: %w", err)
+	}
+	if s == nil || s.authz == nil {
+		return pipeline, nil
+	}
+	if err := s.authz.CheckResourceAction(ctx, tenantID, actorUserID, DataResourceDataPipeline, pipeline.PublicID.String(), action); err != nil {
+		return db.DataPipeline{}, err
+	}
+	return pipeline, nil
 }
 
 func (s *DataPipelineService) checkGraphInputPermissions(ctx context.Context, tenantID, actorUserID int64, graph DataPipelineGraph) error {

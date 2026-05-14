@@ -181,6 +181,7 @@ UI 方針:
 - source fingerprint は `node_id + source snapshot` の SHA-1 を使い、`tenant_id + run_id + node_id + source_fingerprint` で同一 run 内の重複を防ぐ。
 - review item は既定 1000 件まで作成し、`reviewItemLimit` config で最大 10000 件まで調整できる。超過時は step metadata に `review_item_limit_exceeded` warning を残す。
 - API は `GET /api/v1/data-pipelines/{pipelinePublicId}/review-items`、`GET /api/v1/data-pipeline-review-items/{reviewItemPublicId}`、`POST /api/v1/data-pipeline-review-items/{reviewItemPublicId}/transition`、`POST /api/v1/data-pipeline-review-items/{reviewItemPublicId}/comments` を追加した。
+- review item detail は対象 pipeline の `can_view`、transition / comment は対象 pipeline の `can_update` を service 層で確認する。
 - Frontend は API client / store / Data Pipeline detail 下部 panel の Reviews tab を追加した。detail 画面ロード時と run refresh 時に open review items を取得する。
 
 ### Phase 4: Drive / OCR / extraction 連携
@@ -307,7 +308,7 @@ Phase 3:
 最小完了条件:
 
 1. product extraction / schema mapping の低信頼 review smoke を suite で維持する。
-2. review item の pipeline view / Drive file view 権限 test を追加する。
+2. review item の pipeline view / update / Drive file view 権限 test を追加する。
 3. Drive 由来の run / review item を source file から追跡できる smoke を維持する。
 4. review item detail から source run / step / Drive file を追跡できる UI 情報をさらに増やす。
 5. tenant boundary、CSRF、audit、review item transition の自動 test を追加する。

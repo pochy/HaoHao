@@ -675,11 +675,11 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 	})
 
 	huma.Register(api, huma.Operation{OperationID: "getDataPipelineReviewItem", Method: http.MethodGet, Path: "/api/v1/data-pipeline-review-items/{reviewItemPublicId}", Summary: "data pipeline review item detail を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineReviewItemInput) (*DataPipelineReviewItemOutput, error) {
-		_, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
 		if err != nil {
 			return nil, err
 		}
-		item, err := deps.DataPipelineService.GetReviewItem(ctx, tenant.ID, input.ReviewItemPublicID)
+		item, err := deps.DataPipelineService.GetReviewItem(ctx, tenant.ID, current.User.ID, input.ReviewItemPublicID)
 		if err != nil {
 			return nil, toDataPipelineHTTPError(ctx, deps, "getDataPipelineReviewItem", err)
 		}

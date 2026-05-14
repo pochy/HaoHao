@@ -353,6 +353,7 @@ AI coding / agent 改善を触る場合:
 - `quality_report` と `confidence_gate` の metadata 保存を強化する。
 - `quarantine` node を追加し、失敗行・低信頼行を通常 output と分離する。
 - `human_review` は review item / queue の入口まで完了済み。Drive text / `extract_fields` / `extract_table`、Drive JSON / `schema_mapping`、Drive product extraction の低信頼結果と Drive file detail からの review 導線も接続済み。
+- review item detail は対象 pipeline の `can_view`、transition / comment は対象 pipeline の `can_update` を service 層で確認します。
 - 低信頼 OCR / 抽出 / schema mapping の確認フローを Drive と Pipeline UI に接続する。
 
 次にやること:
