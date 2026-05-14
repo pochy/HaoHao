@@ -1525,6 +1525,32 @@ func dataPipelineBool(config map[string]any, key string, fallback bool) bool {
 	return fallback
 }
 
+func dataPipelineInt(config map[string]any, key string, fallback int) int {
+	if config == nil {
+		return fallback
+	}
+	value, ok := config[key]
+	if !ok || value == nil {
+		return fallback
+	}
+	switch v := value.(type) {
+	case int:
+		return v
+	case int32:
+		return int(v)
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	case string:
+		parsed, err := strconv.Atoi(strings.TrimSpace(v))
+		if err == nil {
+			return parsed
+		}
+	}
+	return fallback
+}
+
 func dataPipelineFloat(config map[string]any, key string, fallback float64) float64 {
 	if config == nil {
 		return fallback

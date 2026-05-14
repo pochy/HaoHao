@@ -2270,6 +2270,10 @@ function labelForStep(type: DataPipelineStepType | string) {
               <span>{{ t('dataPipelines.delimiter') }}</span>
               <input :value="stringConfig('delimiter') || ','" @input="updateConfigField('delimiter', targetValue($event))">
             </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.expectedColumnCount') }}</span>
+              <input :value="stringConfig('expectedColumnCount')" inputmode="numeric" placeholder="4" @input="updateConfigOptionalNumber('expectedColumnCount', targetValue($event))">
+            </label>
           </div>
         </template>
 

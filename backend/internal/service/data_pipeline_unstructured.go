@@ -749,9 +749,13 @@ func (s *DataPipelineService) materializeExtractTable(ctx context.Context, conn 
 	if delimiter == "" {
 		delimiter = ","
 	}
-	tableColumns := []string{"table_id", "row_number", "row_json", "source_text"}
+	expectedColumnCount := dataPipelineInt(node.Data.Config, "expectedColumnCount", 0)
+	tableColumns := []string{"table_id", "row_number", "row_json", "source_text", "table_column_count", "table_missing_cell_count", "table_confidence"}
 	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), tableColumns...))
 	out := make([]map[string]any, 0)
+	lowConfidenceRows := int64(0)
+	confidenceTotal := 0.0
+	lowConfidenceSamples := make([]map[string]any, 0)
 	for _, row := range rows {
 		lines := strings.Split(fmt.Sprint(row["text"]), "\n")
 		rowNumber := 0
@@ -764,22 +768,75 @@ func (s *DataPipelineService) materializeExtractTable(ctx context.Context, conn 
 				continue
 			}
 			rowNumber++
+			columnCount := len(parts)
+			effectiveColumnCount := expectedColumnCount
+			if effectiveColumnCount <= 0 {
+				effectiveColumnCount = columnCount
+			}
 			values := map[string]any{}
+			nonEmptyCells := 0
 			for i, part := range parts {
-				values[fmt.Sprintf("column_%d", i+1)] = strings.TrimSpace(part)
+				value := strings.TrimSpace(part)
+				values[fmt.Sprintf("column_%d", i+1)] = value
+				if value != "" {
+					nonEmptyCells++
+				}
+			}
+			missingCells := effectiveColumnCount - nonEmptyCells
+			if missingCells < 0 {
+				missingCells = 0
+			}
+			confidence := 1.0
+			if effectiveColumnCount > 0 {
+				confidence = float64(nonEmptyCells) / float64(effectiveColumnCount)
+				if confidence > 1 {
+					confidence = 1
+				}
+			}
+			confidenceTotal += confidence
+			if confidence < 1 {
+				lowConfidenceRows++
+				if len(lowConfidenceSamples) < 5 {
+					lowConfidenceSamples = append(lowConfidenceSamples, map[string]any{
+						"row_number":               rowNumber,
+						"table_confidence":         fmt.Sprintf("%.4f", confidence),
+						"table_column_count":       columnCount,
+						"table_missing_cell_count": missingCells,
+						"source_text":              line,
+					})
+				}
 			}
 			next := cloneRow(row)
 			next["table_id"] = fmt.Sprintf("%s:%v", row["file_public_id"], row["page_number"])
 			next["row_number"] = strconv.Itoa(rowNumber)
 			next["row_json"] = jsonString(values)
 			next["source_text"] = line
+			next["table_column_count"] = strconv.Itoa(columnCount)
+			next["table_missing_cell_count"] = strconv.Itoa(missingCells)
+			next["table_confidence"] = fmt.Sprintf("%.4f", confidence)
 			out = append(out, next)
 		}
 	}
 	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
 		return dataPipelineMaterializedRelation{}, err
 	}
-	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+	avgConfidence := 1.0
+	if len(out) > 0 {
+		avgConfidence = confidenceTotal / float64(len(out))
+	}
+	metadata := map[string]any{
+		"tableExtraction": map[string]any{
+			"rowCount":             len(out),
+			"expectedColumnCount":  expectedColumnCount,
+			"avgConfidence":        avgConfidence,
+			"lowConfidenceRows":    lowConfidenceRows,
+			"lowConfidenceSamples": lowConfidenceSamples,
+		},
+	}
+	if lowConfidenceRows > 0 {
+		metadata["warningCount"] = lowConfidenceRows
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata}, nil
 }
 
 func (s *DataPipelineService) materializeConfidenceGate(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {

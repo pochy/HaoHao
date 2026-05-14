@@ -96,7 +96,7 @@ db-down:
 # Prefer Homebrew postgresql@18's psql-18 when on PATH; override with make psql PSQL=psql
 PSQL ?= $(shell command -v psql-18 2>/dev/null || command -v psql 2>/dev/null || echo psql)
 
-.PHONY: psql sql seed-schema-mapping-columns validate-vector-rag-eval eval-vector-rag-retrieval smoke-data-pipeline smoke-data-pipeline-json smoke-data-pipeline-excel smoke-data-pipeline-text smoke-data-pipeline-quarantine smoke-data-pipeline-review smoke-data-pipeline-field-review smoke-data-pipeline-suite smoke-lmstudio-vector-api smoke-lmstudio-drive-rag air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check clickhouse-wait
+.PHONY: psql sql seed-schema-mapping-columns validate-vector-rag-eval eval-vector-rag-retrieval smoke-data-pipeline smoke-data-pipeline-json smoke-data-pipeline-excel smoke-data-pipeline-text smoke-data-pipeline-quarantine smoke-data-pipeline-review smoke-data-pipeline-field-review smoke-data-pipeline-table-review smoke-data-pipeline-suite smoke-lmstudio-vector-api smoke-lmstudio-drive-rag air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check clickhouse-wait
 psql:
 	$(export-env) && $(PSQL) "$$DATABASE_URL" $(ARGS)
 
@@ -143,6 +143,9 @@ smoke-data-pipeline-review:
 
 smoke-data-pipeline-field-review:
 	node scripts/smoke-data-pipeline.mjs field_review
+
+smoke-data-pipeline-table-review:
+	node scripts/smoke-data-pipeline.mjs table_review
 
 smoke-data-pipeline-suite:
 	node scripts/smoke-data-pipeline.mjs suite

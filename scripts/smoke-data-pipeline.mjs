@@ -132,6 +132,15 @@ async function uploadFieldReviewTextFile(workspacePublicId) {
   return uploadFile(workspacePublicId, `data-pipeline-field-review-smoke-${Date.now()}.txt`, 'text/plain', text)
 }
 
+async function uploadTableReviewTextFile(workspacePublicId) {
+  const text = [
+    'invoice_id,customer,amount,status',
+    'INV-1,Alpha,120,ready',
+    'INV-2,Beta,,needs_review',
+  ].join('\n')
+  return uploadFile(workspacePublicId, `data-pipeline-table-review-smoke-${Date.now()}.txt`, 'text/plain', text)
+}
+
 async function uploadXLSXFile(workspacePublicId) {
   const rows = [
     ['id', 'name', 'amount', 'status'],
@@ -344,6 +353,36 @@ function fieldReviewGraph(filePublicId, suffix) {
   }
 }
 
+function tableReviewGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive table text', 60, 180, {
+        sourceKind: 'drive_file',
+        filePublicIds: [filePublicId],
+      }),
+      node('extract_text', 'extract_text', 'Extract text', 300, 180, {
+        chunkMode: 'full_text',
+      }),
+      node('extract_table', 'extract_table', 'Extract table', 540, 180, {
+        delimiter: ',',
+        expectedColumnCount: 4,
+      }),
+      node('confidence_gate', 'confidence_gate', 'Confidence gate', 780, 180, {
+        scoreColumns: ['table_confidence'],
+        threshold: 0.9,
+      }),
+      node('human_review', 'human_review', 'Human review', 1020, 180, {
+        reasonColumns: ['gate_status', 'gate_reason'],
+        queue: 'table-review-smoke',
+        createReviewItems: true,
+        mode: 'filter_review',
+      }),
+      outputNode(suffix, ['file_public_id'], 'output', 1260, 180),
+    ],
+    edges: linearEdges(['input', 'extract_text', 'extract_table', 'confidence_gate', 'human_review', 'output']),
+  }
+}
+
 function profileNode() {
   return node('profile', 'profile', 'Profile smoke rows', 620, 120, {})
 }
@@ -374,6 +413,7 @@ async function createPipeline(scenario, filePublicId) {
     quarantine: quarantineGraph,
     review: reviewGraph,
     field_review: fieldReviewGraph,
+    table_review: tableReviewGraph,
   }
   const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
     name: `Smoke: ${scenario} metadata ${new Date().toISOString()}`,
@@ -514,6 +554,25 @@ function assertFieldReviewRun(run) {
   }
 }
 
+function assertTableReviewRun(run) {
+  assertCommonRun(run, 1)
+  const extractStep = findStep(run, 'extract_table')
+  if (!extractStep?.metadata?.tableExtraction) {
+    throw new Error(`tableExtraction metadata missing: ${JSON.stringify(extractStep)}`)
+  }
+  if (extractStep.metadata.tableExtraction.lowConfidenceRows !== 1 || extractStep.metadata.tableExtraction.rowCount !== 3) {
+    throw new Error(`unexpected tableExtraction metadata: ${JSON.stringify(extractStep.metadata.tableExtraction)}`)
+  }
+  const gateStep = findStep(run, 'confidence_gate')
+  if (gateStep?.metadata?.confidenceGate?.needsReviewRows !== 1) {
+    throw new Error(`unexpected confidence gate metadata: ${JSON.stringify(gateStep?.metadata?.confidenceGate)}`)
+  }
+  const reviewStep = findStep(run, 'human_review')
+  if (reviewStep?.metadata?.reviewItemCount !== 1) {
+    throw new Error(`unexpected human review metadata: ${JSON.stringify(reviewStep?.metadata)}`)
+  }
+}
+
 async function assertReviewItems(pipelinePublicId) {
   const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
   const items = listed.items ?? []
@@ -554,6 +613,22 @@ async function assertFieldReviewItems(pipelinePublicId) {
   return { item }
 }
 
+async function assertTableReviewItems(pipelinePublicId) {
+  const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
+  const items = listed.items ?? []
+  if (items.length !== 1) {
+    throw new Error(`table review item count = ${items.length}, want 1: ${JSON.stringify(listed)}`)
+  }
+  const item = items[0]
+  if (item.queue !== 'table-review-smoke' || item.nodeId !== 'human_review') {
+    throw new Error(`unexpected table review item: ${JSON.stringify(item)}`)
+  }
+  if (String(item.sourceSnapshot?.table_confidence) !== '0.7500' || String(item.sourceSnapshot?.table_missing_cell_count) !== '1') {
+    throw new Error(`table review snapshot missing table confidence: ${JSON.stringify(item.sourceSnapshot)}`)
+  }
+  return { item }
+}
+
 async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
   let last
   for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
@@ -576,6 +651,7 @@ async function runScenario(workspacePublicId, scenario) {
     quarantine: uploadTextFile,
     review: uploadTextFile,
     field_review: uploadFieldReviewTextFile,
+    table_review: uploadTableReviewTextFile,
   }
   const assertions = {
     json: (run) => assertProfileValidateRun(run, 3),
@@ -584,6 +660,7 @@ async function runScenario(workspacePublicId, scenario) {
     quarantine: assertQuarantineRun,
     review: assertReviewRun,
     field_review: assertFieldReviewRun,
+    table_review: assertTableReviewRun,
   }
   const file = await uploaders[scenario](workspacePublicId)
   const { pipeline, version } = await createPipeline(scenario, file.publicId)
@@ -593,6 +670,8 @@ async function runScenario(workspacePublicId, scenario) {
     ? await assertReviewItems(pipeline.publicId)
     : scenario === 'field_review'
       ? await assertFieldReviewItems(pipeline.publicId)
+      : scenario === 'table_review'
+        ? await assertTableReviewItems(pipeline.publicId)
       : undefined
   return {
     scenario,
@@ -630,9 +709,9 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review', 'field_review'] : [requestedScenario]
+  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review'] : [requestedScenario]
   for (const scenario of scenarios) {
-    if (!['json', 'excel', 'text', 'quarantine', 'review', 'field_review'].includes(scenario)) {
+    if (!['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review'].includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
     }
   }
