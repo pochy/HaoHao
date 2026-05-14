@@ -200,6 +200,12 @@ function metadataFacts(step: DataPipelineRunStepBody) {
     facts.push({ label: 'confidenceGate.passRows', value: metadataValue(confidenceGate.passRows) })
     facts.push({ label: 'confidenceGate.needsReviewRows', value: metadataValue(confidenceGate.needsReviewRows) })
   }
+  const fieldExtraction = metadataRecord(metadata, 'fieldExtraction')
+  if (fieldExtraction) {
+    facts.push({ label: 'fieldExtraction.fields', value: metadataValue(fieldExtraction.fieldCount) })
+    facts.push({ label: 'fieldExtraction.avgConfidence', value: metadataValue(fieldExtraction.avgConfidence) })
+    facts.push({ label: 'fieldExtraction.lowConfidenceRows', value: metadataValue(fieldExtraction.lowConfidenceRows) })
+  }
   if (metadata.quarantinedRows !== undefined || metadata.passedRows !== undefined) {
     facts.push({ label: 'quarantine.quarantinedRows', value: metadataValue(metadata.quarantinedRows) })
     facts.push({ label: 'quarantine.passedRows', value: metadataValue(metadata.passedRows) })
@@ -278,6 +284,16 @@ function reviewReasonLabel(item: DataPipelineReviewItemBody) {
   const column = previewCellText(reason.column)
   const value = previewCellText(reason.value)
   return value && value !== '-' ? `${column}: ${value}` : column
+}
+
+function reviewSourceLabel(item: DataPipelineReviewItemBody) {
+  const snapshot = item.sourceSnapshot ?? {}
+  const file = previewCellText(snapshot.file_public_id)
+  const ocr = previewCellText(snapshot.ocr_run_public_id)
+  if (file !== '-' && ocr !== '-') return `${file} / ${ocr}`
+  if (file !== '-') return file
+  if (ocr !== '-') return ocr
+  return item.sourceFingerprint
 }
 
 function stepLabel(stepType: string) {
@@ -529,6 +545,7 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
               <th>{{ t('dataPipelines.status') }}</th>
               <th>{{ t('dataPipelines.node') }}</th>
               <th>{{ t('dataPipelines.queue') }}</th>
+              <th>{{ t('dataPipelines.source') }}</th>
               <th>{{ t('dataPipelines.reason') }}</th>
               <th>{{ t('dataPipelines.created') }}</th>
             </tr>
@@ -538,11 +555,12 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
               <td><span class="status-pill" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span></td>
               <td>{{ item.nodeId }}</td>
               <td>{{ item.queue }}</td>
+              <td class="cell-subtle">{{ reviewSourceLabel(item) }}</td>
               <td>{{ reviewReasonLabel(item) }}</td>
               <td>{{ formatDate(item.createdAt) }}</td>
             </tr>
             <tr v-if="reviewItems.length === 0">
-              <td colspan="5">{{ t('dataPipelines.noReviewItems') }}</td>
+              <td colspan="6">{{ t('dataPipelines.noReviewItems') }}</td>
             </tr>
           </tbody>
         </table>

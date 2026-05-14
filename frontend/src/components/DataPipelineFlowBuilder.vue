@@ -683,7 +683,7 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
   case 'relationship_extraction':
     return { textColumn: 'text', patterns: [{ relationType: 'related_to', pattern: '' }] }
   case 'human_review':
-    return { reasonColumns: ['gate_status'], statusColumn: 'review_status', queueColumn: 'review_queue', mode: 'annotate' }
+    return { reasonColumns: ['gate_status'], statusColumn: 'review_status', queueColumn: 'review_queue', queue: 'default', createReviewItems: false, reviewItemLimit: 1000, mode: 'annotate' }
   case 'sample_compare':
     return { pairs: [{ field: '', beforeColumn: '', afterColumn: '' }] }
   case 'quality_report':

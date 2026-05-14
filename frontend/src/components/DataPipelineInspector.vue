@@ -2509,6 +2509,18 @@ function labelForStep(type: DataPipelineStepType | string) {
                 <option value="filter_review">{{ t('dataPipelines.filterReview') }}</option>
               </select>
             </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.queue') }}</span>
+              <input :value="stringConfig('queue') || 'default'" @input="updateConfigField('queue', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.reviewItemLimit') }}</span>
+              <input :value="stringConfig('reviewItemLimit') || '1000'" inputmode="numeric" @input="updateConfigOptionalNumber('reviewItemLimit', targetValue($event))">
+            </label>
+            <label class="data-pipeline-toggle">
+              <input :checked="Boolean(configDraft.createReviewItems)" type="checkbox" @change="updateConfigField('createReviewItems', targetChecked($event))">
+              <span>{{ t('dataPipelines.createReviewItems') }}</span>
+            </label>
           </div>
         </template>
 

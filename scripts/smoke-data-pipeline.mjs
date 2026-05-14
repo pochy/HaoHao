@@ -123,6 +123,15 @@ async function uploadTextFile(workspacePublicId) {
   return uploadFile(workspacePublicId, `data-pipeline-smoke-${Date.now()}.txt`, 'text/plain', text)
 }
 
+async function uploadFieldReviewTextFile(workspacePublicId) {
+  const text = [
+    'Invoice ID: INV-100',
+    'Customer: Alpha Trading',
+    'Amount:',
+  ].join('\n')
+  return uploadFile(workspacePublicId, `data-pipeline-field-review-smoke-${Date.now()}.txt`, 'text/plain', text)
+}
+
 async function uploadXLSXFile(workspacePublicId) {
   const rows = [
     ['id', 'name', 'amount', 'status'],
@@ -302,6 +311,39 @@ function reviewGraph(filePublicId, suffix) {
   }
 }
 
+function fieldReviewGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive text', 60, 180, {
+        sourceKind: 'drive_file',
+        filePublicIds: [filePublicId],
+      }),
+      node('extract_text', 'extract_text', 'Extract text', 300, 180, {
+        chunkMode: 'full_text',
+      }),
+      node('extract_fields', 'extract_fields', 'Extract fields', 540, 180, {
+        fields: [
+          { name: 'invoice_id', type: 'string', required: true, patterns: ['Invoice ID:\\s*([A-Z0-9-]+)'] },
+          { name: 'customer', type: 'string', required: true, patterns: ['Customer:\\s*([^\\n]+)'] },
+          { name: 'amount', type: 'number', required: true, patterns: ['Amount:\\s*([0-9.]+)'] },
+        ],
+      }),
+      node('confidence_gate', 'confidence_gate', 'Confidence gate', 780, 180, {
+        scoreColumns: ['field_confidence'],
+        threshold: 0.9,
+      }),
+      node('human_review', 'human_review', 'Human review', 1020, 180, {
+        reasonColumns: ['gate_status', 'gate_reason'],
+        queue: 'field-review-smoke',
+        createReviewItems: true,
+        mode: 'filter_review',
+      }),
+      outputNode(suffix, ['file_public_id'], 'output', 1260, 180),
+    ],
+    edges: linearEdges(['input', 'extract_text', 'extract_fields', 'confidence_gate', 'human_review', 'output']),
+  }
+}
+
 function profileNode() {
   return node('profile', 'profile', 'Profile smoke rows', 620, 120, {})
 }
@@ -331,6 +373,7 @@ async function createPipeline(scenario, filePublicId) {
     text: textGraph,
     quarantine: quarantineGraph,
     review: reviewGraph,
+    field_review: fieldReviewGraph,
   }
   const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
     name: `Smoke: ${scenario} metadata ${new Date().toISOString()}`,
@@ -452,6 +495,25 @@ function assertReviewRun(run) {
   }
 }
 
+function assertFieldReviewRun(run) {
+  assertCommonRun(run, 1)
+  const extractStep = findStep(run, 'extract_fields')
+  if (!extractStep?.metadata?.fieldExtraction) {
+    throw new Error(`fieldExtraction metadata missing: ${JSON.stringify(extractStep)}`)
+  }
+  if (extractStep.metadata.fieldExtraction.lowConfidenceRows !== 1 || extractStep.metadata.fieldExtraction.missingRequiredRows !== 1) {
+    throw new Error(`unexpected fieldExtraction metadata: ${JSON.stringify(extractStep.metadata.fieldExtraction)}`)
+  }
+  const gateStep = findStep(run, 'confidence_gate')
+  if (gateStep?.metadata?.confidenceGate?.needsReviewRows !== 1) {
+    throw new Error(`unexpected confidence gate metadata: ${JSON.stringify(gateStep?.metadata?.confidenceGate)}`)
+  }
+  const reviewStep = findStep(run, 'human_review')
+  if (reviewStep?.metadata?.reviewItemCount !== 1) {
+    throw new Error(`unexpected human review metadata: ${JSON.stringify(reviewStep?.metadata)}`)
+  }
+}
+
 async function assertReviewItems(pipelinePublicId) {
   const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
   const items = listed.items ?? []
@@ -476,6 +538,22 @@ async function assertReviewItems(pipelinePublicId) {
   return { item, transitioned }
 }
 
+async function assertFieldReviewItems(pipelinePublicId) {
+  const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
+  const items = listed.items ?? []
+  if (items.length !== 1) {
+    throw new Error(`field review item count = ${items.length}, want 1: ${JSON.stringify(listed)}`)
+  }
+  const item = items[0]
+  if (item.queue !== 'field-review-smoke' || item.nodeId !== 'human_review') {
+    throw new Error(`unexpected field review item: ${JSON.stringify(item)}`)
+  }
+  if (String(item.sourceSnapshot?.field_confidence) !== '0.6667' || item.sourceSnapshot?.amount !== '') {
+    throw new Error(`field review snapshot missing extraction confidence: ${JSON.stringify(item.sourceSnapshot)}`)
+  }
+  return { item }
+}
+
 async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
   let last
   for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
@@ -497,6 +575,7 @@ async function runScenario(workspacePublicId, scenario) {
     text: uploadTextFile,
     quarantine: uploadTextFile,
     review: uploadTextFile,
+    field_review: uploadFieldReviewTextFile,
   }
   const assertions = {
     json: (run) => assertProfileValidateRun(run, 3),
@@ -504,12 +583,17 @@ async function runScenario(workspacePublicId, scenario) {
     text: assertTextRun,
     quarantine: assertQuarantineRun,
     review: assertReviewRun,
+    field_review: assertFieldReviewRun,
   }
   const file = await uploaders[scenario](workspacePublicId)
   const { pipeline, version } = await createPipeline(scenario, file.publicId)
   const run = await requestRun(version.publicId)
   const completed = await waitForRun(pipeline.publicId, run.publicId, assertions[scenario])
-  const reviewItems = scenario === 'review' ? await assertReviewItems(pipeline.publicId) : undefined
+  const reviewItems = scenario === 'review'
+    ? await assertReviewItems(pipeline.publicId)
+    : scenario === 'field_review'
+      ? await assertFieldReviewItems(pipeline.publicId)
+      : undefined
   return {
     scenario,
     workspacePublicId,
@@ -546,9 +630,9 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review'] : [requestedScenario]
+  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review', 'field_review'] : [requestedScenario]
   for (const scenario of scenarios) {
-    if (!['json', 'excel', 'text', 'quarantine', 'review'].includes(scenario)) {
+    if (!['json', 'excel', 'text', 'quarantine', 'review', 'field_review'].includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
     }
   }

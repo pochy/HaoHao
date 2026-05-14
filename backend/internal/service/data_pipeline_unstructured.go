@@ -653,6 +653,14 @@ func (s *DataPipelineService) materializeExtractFields(ctx context.Context, conn
 	}
 	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), append(fieldNames, "fields_json", "evidence_json", "field_confidence")...))
 	out := make([]map[string]any, 0, len(rows))
+	fieldStats := make(map[string]map[string]any, len(fieldNames))
+	for _, name := range fieldNames {
+		fieldStats[name] = map[string]any{"extractedRows": int64(0), "missingRows": int64(0)}
+	}
+	lowConfidenceSamples := make([]map[string]any, 0)
+	lowConfidenceRows := int64(0)
+	missingRequiredRows := int64(0)
+	confidenceTotal := 0.0
 	for _, row := range rows {
 		next := cloneRow(row)
 		text := fmt.Sprint(row["text"])
@@ -660,6 +668,7 @@ func (s *DataPipelineService) materializeExtractFields(ctx context.Context, conn
 		evidence := []map[string]any{}
 		scoreTotal := 0.0
 		scoreCount := 0.0
+		missingRequired := []string{}
 		for _, field := range fields {
 			name := dataPipelineString(field, "name")
 			value, ok, source := extractFieldValue(text, field)
@@ -667,29 +676,68 @@ func (s *DataPipelineService) materializeExtractFields(ctx context.Context, conn
 				next[name] = value
 				fieldsJSON[name] = value
 				evidence = append(evidence, map[string]any{"field": name, "sourceText": source})
+				if stats, ok := fieldStats[name]; ok {
+					stats["extractedRows"] = stats["extractedRows"].(int64) + 1
+				}
 				scoreTotal += 1
 			} else {
 				next[name] = ""
 				fieldsJSON[name] = nil
+				if stats, ok := fieldStats[name]; ok {
+					stats["missingRows"] = stats["missingRows"].(int64) + 1
+				}
 				if dataPipelineBool(field, "required", false) {
 					evidence = append(evidence, map[string]any{"field": name, "missing": true})
+					missingRequired = append(missingRequired, name)
 				}
 			}
 			scoreCount++
 		}
 		next["fields_json"] = jsonString(fieldsJSON)
 		next["evidence_json"] = jsonString(evidence)
+		confidence := 1.0
 		if scoreCount > 0 {
-			next["field_confidence"] = fmt.Sprintf("%.4f", scoreTotal/scoreCount)
-		} else {
-			next["field_confidence"] = "1.0000"
+			confidence = scoreTotal / scoreCount
+		}
+		next["field_confidence"] = fmt.Sprintf("%.4f", confidence)
+		confidenceTotal += confidence
+		if confidence < 1 {
+			lowConfidenceRows++
+			if len(lowConfidenceSamples) < 5 {
+				lowConfidenceSamples = append(lowConfidenceSamples, map[string]any{
+					"field_confidence": fmt.Sprintf("%.4f", confidence),
+					"missingRequired":  missingRequired,
+					"evidence":         evidence,
+				})
+			}
+		}
+		if len(missingRequired) > 0 {
+			missingRequiredRows++
 		}
 		out = append(out, next)
 	}
 	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
 		return dataPipelineMaterializedRelation{}, err
 	}
-	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+	avgConfidence := 1.0
+	if len(rows) > 0 {
+		avgConfidence = confidenceTotal / float64(len(rows))
+	}
+	metadata := map[string]any{
+		"fieldExtraction": map[string]any{
+			"fieldCount":           len(fieldNames),
+			"rowCount":             len(rows),
+			"avgConfidence":        avgConfidence,
+			"lowConfidenceRows":    lowConfidenceRows,
+			"missingRequiredRows":  missingRequiredRows,
+			"fields":               fieldStats,
+			"lowConfidenceSamples": lowConfidenceSamples,
+		},
+	}
+	if lowConfidenceRows > 0 {
+		metadata["warningCount"] = lowConfidenceRows
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata}, nil
 }
 
 func (s *DataPipelineService) materializeExtractTable(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {

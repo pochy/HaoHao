@@ -187,6 +187,8 @@ UI 方針:
 
 Drive から入った低信頼データが、Pipeline 上で隔離と review に届く導線を作ります。
 
+Status: 実装中。2026-05-14 に `extract_fields` の信頼度 metadata と、Drive text -> `extract_fields` -> `confidence_gate` -> `human_review(createReviewItems=true)` の smoke を追加した。Reviews tab では source snapshot から Drive file / OCR run の trace を表示する。
+
 対象:
 
 - OCR confidence が低い page / file。
@@ -216,6 +218,14 @@ UI 方針:
 - Drive file detail / OCR result 側から該当 pipeline run または review item へ遷移できるようにする。
 - 低信頼理由は `gate_reason`、`review_reason_json`、run step metadata の順に表示する。
 
+実装結果:
+
+- `extract_fields` の run step metadata に `fieldExtraction` を追加した。
+- `fieldExtraction` には field count、row count、average confidence、low confidence rows、missing required rows、field 別 extracted / missing rows、low confidence sample を保存する。
+- `field_confidence` を `confidence_gate.scoreColumns` に渡す smoke `field_review` を追加した。
+- `field_review` smoke は required field 欠落を `field_confidence = 0.6667` として検出し、review item の source snapshot に抽出列、`field_confidence`、`gate_status`、`gate_reason` が残ることを検証する。
+- `human_review` Inspector に `createReviewItems`、`queue`、`reviewItemLimit` を追加した。
+
 ## Public Interfaces
 
 Phase 1 で追加する public contract:
@@ -240,6 +250,7 @@ Phase 1:
 - `npm --prefix frontend run build`
 - `node --check scripts/smoke-data-pipeline.mjs`
 - `make smoke-data-pipeline-review`
+- `make smoke-data-pipeline-field-review`
 - `make smoke-data-pipeline-suite`
 - `git diff --check`
 
