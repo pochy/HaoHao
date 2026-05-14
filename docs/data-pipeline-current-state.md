@@ -154,6 +154,55 @@ Backend validation の主な制約:
 
 ここで注意が必要なのは、catalog に step type が存在することと、その step がすべての実行経路で同じ深さまで対応済みであることは別、という点です。構造化 path では `input`、`clean`、`normalize`、`schema_mapping`、`schema_completion`、`join`、`enrich_join`、`transform`、`output` などを ClickHouse SQL に compile します。Drive file input や extract 系 step が含まれると hybrid path に入り、node ごとに中間テーブルを作って後続 node が読む形になります。UI に新しい step を出す場合は、catalog だけでなく compile / materialize / test の対応範囲も確認する必要があります。
 
+### Runtime 出力列と Inspector の静的列推論
+
+Data Pipeline detail の Inspector は、選択 node の config が上流 step の列を参照しているかを run 前に確認します。たとえば `output.orderBy`、`quality_report.columns`、`confidence_gate.scoreColumns`、`human_review.reasonColumns`、`schema_mapping.sourceColumn` が上流に存在しない場合、Inspector は「設定済みの列が上流ステップの出力にありません」と表示します。
+
+この warning は設定ミスを早く見つけるために重要ですが、frontend は実際の ClickHouse 中間 table を読まず、graph config だけから列を静的推論しています。その入口は `frontend/src/components/DataPipelineInspector.vue` の `columnsForNodeOutput()` です。つまり backend runtime が実際に出す列と Inspector の推論がずれると、run は成功するのに UI だけが誤警告を出します。
+
+2026-05-14 に実際に発生した false positive:
+
+- `extract_text -> quality_report`
+  - backend の `extract_text` は `text` と `confidence` を出力する。
+  - Inspector が `extract_text` の出力列を知らず、`quality_report.columns=["text","confidence"]` を不足列として表示した。
+- `schema_mapping(includeSourceColumns=true) -> human_review -> output`
+  - backend の `schema_mapping` は `includeSourceColumns=true` の場合に `file_public_id` などの上流列を保持する。
+  - backend の `human_review` も上流列を保持し、`review_status`、`review_queue`、`review_reason_json` を追加する。
+  - Inspector が `schema_mapping` を target columns のみと推論していたため、`output.orderBy=["file_public_id"]` を不足列として表示した。
+
+短期対応として、`DataPipelineInspector.vue` には次の node の出力列推論が追加されています。
+
+- `extract_text`
+- `classify_document`
+- `extract_fields`
+- `extract_table`
+- `product_extraction`
+- `quality_report`
+- `confidence_gate`
+- `schema_mapping`
+- `human_review`
+- `deduplicate`
+- `canonicalize`
+- `redact_pii`
+- `detect_language_encoding`
+- `schema_inference`
+- `entity_resolution`
+- `unit_conversion`
+- `relationship_extraction`
+- `sample_compare`
+
+この修正により代表的な false positive は解消済みです。ただし、これはまだ frontend 側の hardcode です。中期的には backend の step catalog、または validation / preview API が node ごとの inferred output schema を返し、frontend はそれを warning 判定に使う方が安全です。
+
+今後 Data Pipeline node を追加または変更するときは、次を同じ PR で確認します。
+
+1. backend compiler / materializer が返す runtime 出力列。
+2. Inspector の `columnsForNodeOutput()` が推論する列。
+3. `configuredPrimaryColumnRefs()` が参照する config key。
+4. downstream の `orderBy`、`columns`、`scoreColumns`、`reasonColumns`、`statusColumn` が false positive にならないこと。
+5. representative smoke または browser check で warning 文言が想定通りであること。
+
+詳細な調査記録、原因、対応済みコミット、検証結果、恒久対策は `docs/DATA_PIPELINE_UI_COLUMN_INFERENCE.md` にまとめています。
+
 ## Node Details
 
 この節では、各 node の目的、現時点でできること、使いどころを説明します。ここに書く内容は「設計上こうしたい」ではなく、主に現在の backend compiler / hybrid materializer で確認できる挙動です。

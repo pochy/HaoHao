@@ -25,6 +25,7 @@ frontend build では Monaco / Data Pipeline detail 周辺を中心に大きい 
 - 今後の中心は、Drive、Dataset、Data Pipeline、Medallion、Gold、Local Search、RAG です。
 - Data Pipeline は多くの node が catalog / UI に存在しますが、すべてが同じ深さで実行・監視できるわけではありません。Month 1 の品質・可観測性の土台は `b9d5c03`、`0160678`、`c54de44` で完了済みです。
 - `DataPipelineRunStepBody.metadata` は API contract として使われ、`profile`、`validate`、`quality_report`、`confidence_gate`、`inputRows`、`samples`、`queryStats`、Runs tab 詳細、Data Pipeline smoke suite まで実装済みです。
+- Data Pipeline Inspector の上流列警告は、runtime 出力列と frontend 静的推論がずれると false positive になります。`4757732` と `bfcbb4a` で代表 node の推論は修正済みですが、根本対策は step output schema contract の単一正本化です。詳細は `docs/DATA_PIPELINE_UI_COLUMN_INFERENCE.md` を参照してください。
 - Drive OCR、商品抽出、Local Search、pgvector、Drive RAG は主要な足場が動いています。次は broad な機能追加ではなく、評価、追跡、失敗理由、運用導線を強くします。
 - frontend は機能がかなり増え、Data Pipeline detail と Monaco editor の chunk が大きくなっています。運用前に code splitting を改善する余地があります。
 - AI coding 改善は未実装の提案段階です。`docs/HARNESS_ENGINEERING_ADOPTION_ANALYSIS.md` に方針はありますが、`docs/AGENT_KNOWLEDGE_INDEX.md` や RAG/OpenFGA/OpenAPI/frontend 用 skill はまだありません。
@@ -167,12 +168,14 @@ Local Search / RAG:
 - join / enrich_join は行数爆発、未マッチ、key null、列衝突などの warning を UI で十分説明できていません。
 - `human_review` は `createReviewItems=true` の場合に永続 review item を作成できます。Drive text / `extract_fields` / `extract_table`、Drive JSON / `schema_mapping`、Drive product extraction の低信頼 reason は review queue へ接続済みです。Drive file detail から source file に紐づく review item / pipeline run へ戻る導線も追加済みです。
 - `quarantine` v1 は実装済みです。`union`、`route_by_condition`、`partition_filter`、`watermark_filter`、`snapshot_scd2` はまだ実装されていません。
+- `DataPipelineInspector.vue` は graph config だけから上流列を静的推論し、`orderBy`、`columns`、`scoreColumns`、`reasonColumns` などの設定ミスを warning 表示します。これは run 前の UX として有用ですが、backend materializer が追加する列と同期していないと、実行は成功するのに UI だけが「列がない」と表示します。直近では `extract_text`、`schema_mapping(includeSourceColumns=true)`、`human_review`、`product_extraction` などの推論を修正済みです。今後は backend の step output schema を frontend と共有する必要があります。
 
 次に着手すべき理由:
 
 - 既存 UI / DB / API は metadata を受ける余地があります。
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
+- 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。次の小さな設計改善として、step catalog に output schema metadata を持たせるか、backend validation / preview API から node ごとの inferred columns を返す形へ寄せます。
 
 ### Drive / RAG の課題
 
@@ -215,7 +218,7 @@ Data Pipeline:
 - `frontend/src/views/DataPipelinesView.vue`: pipeline list。
 - `frontend/src/views/DataPipelineDetailView.vue`: pipeline detail。
 - `frontend/src/components/DataPipelineFlowBuilder.vue`: graph builder。
-- `frontend/src/components/DataPipelineInspector.vue`: node inspector。
+- `frontend/src/components/DataPipelineInspector.vue`: node inspector。現状は `columnsForNodeOutput()` で上流列を静的推論し、設定済み列の warning 判定に使う。runtime 出力列と同期すべき重要箇所。
 - `frontend/src/components/DataPipelinePreviewPanel.vue`: preview panel。
 - `frontend/src/stores/data-pipelines.ts`: frontend state。
 

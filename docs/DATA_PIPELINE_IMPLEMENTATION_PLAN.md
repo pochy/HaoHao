@@ -33,6 +33,8 @@
 - Data Pipeline detail の Runs tab で run output と run step metadata summary を表示する。
 - Work table 一覧 API が columns を返すようになり、Inspector の上流列警告の誤検知を解消した。
 
+補足: Work table / Dataset の columns 取得と、hybrid node の runtime 出力列推論は別問題です。Work table 一覧 API により structured input の列候補は改善しましたが、`extract_text`、`schema_mapping`、`human_review`、`product_extraction` などが ClickHouse 中間 table に追加する列は、frontend Inspector 側でも別途推論する必要があります。2026-05-14 に `4757732 Fix data pipeline inspector column inference` と `bfcbb4a Align data pipeline inspector column inference` で代表 node の推論を backend materializer に合わせました。詳細な問題分析、原因、検証結果、今後の単一正本化方針は `docs/DATA_PIPELINE_UI_COLUMN_INFERENCE.md` にまとめています。
+
 Drive file input を含む pipeline の smoke 自動化は `0160678 Add data pipeline drive smoke` で実装済みです。
 
 ```bash
@@ -61,6 +63,8 @@ make smoke-data-pipeline-suite
 ```
 
 Month 2 の `quarantine` node v1、`confidence_gate` / `quality_report` の失敗理由 metadata 強化、`human_review` の review item / queue 化は 2026-05-14 に実装済みです。`human_review(createReviewItems=true)` により、低信頼行を永続 review item として作成し、Data Pipeline detail の Reviews tab から確認できる入口ができました。Drive text と `extract_fields` / `extract_table`、Drive JSON と `schema_mapping`、Drive product extraction の低信頼結果を review queue へ接続する smoke、Drive file detail から該当 review item / pipeline run へ戻る導線も追加済みです。
+
+同日に、Inspector の列推論 false positive も追加修正しました。発生した代表例は、`extract_text -> quality_report` で `text, confidence` が UI 上だけ不足扱いになる問題と、`schema_mapping(includeSourceColumns=true) -> human_review -> output` で `file_public_id` が UI 上だけ不足扱いになる問題です。実行時の run は成功していたため、これは backend failure ではなく frontend の静的列推論の問題でした。短期対応として `DataPipelineInspector.vue` に node 別 output column 推論を追加済みです。中期対応として、backend step catalog または validation / preview API から output schema を frontend に渡す設計へ進めます。
 
 ## 調査結果
 
