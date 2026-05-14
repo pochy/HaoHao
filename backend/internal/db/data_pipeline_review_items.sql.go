@@ -195,6 +195,82 @@ func (q *Queries) ListDataPipelineReviewItems(ctx context.Context, arg ListDataP
 	return items, nil
 }
 
+const listDataPipelineReviewItemsByDriveFile = `-- name: ListDataPipelineReviewItemsByDriveFile :many
+SELECT
+    ri.id, ri.public_id, ri.tenant_id, ri.pipeline_id, ri.version_id, ri.run_id, ri.node_id, ri.queue, ri.status, ri.reason, ri.source_snapshot, ri.source_fingerprint, ri.created_by_user_id, ri.updated_by_user_id, ri.assigned_to_user_id, ri.decision_comment, ri.decided_at, ri.created_at, ri.updated_at,
+    p.public_id AS pipeline_public_id,
+    p.name AS pipeline_name,
+    r.public_id AS run_public_id
+FROM data_pipeline_review_items ri
+JOIN data_pipelines p ON p.id = ri.pipeline_id
+JOIN data_pipeline_runs r ON r.id = ri.run_id
+WHERE ri.tenant_id = $1
+  AND ri.source_snapshot->>'file_public_id' = $2
+  AND (
+      $3::text IS NULL
+      OR ri.status = $3::text
+  )
+ORDER BY ri.created_at DESC, ri.id DESC
+LIMIT $4
+`
+
+type ListDataPipelineReviewItemsByDriveFileParams struct {
+	TenantID     int64       `json:"tenant_id"`
+	FilePublicID string      `json:"file_public_id"`
+	Status       pgtype.Text `json:"status"`
+	ResultLimit  int32       `json:"result_limit"`
+}
+
+type ListDataPipelineReviewItemsByDriveFileRow struct {
+	DataPipelineReviewItem
+	PipelinePublicID uuid.UUID `json:"pipeline_public_id"`
+	PipelineName     string    `json:"pipeline_name"`
+	RunPublicID      uuid.UUID `json:"run_public_id"`
+}
+
+func (q *Queries) ListDataPipelineReviewItemsByDriveFile(ctx context.Context, arg ListDataPipelineReviewItemsByDriveFileParams) ([]ListDataPipelineReviewItemsByDriveFileRow, error) {
+	rows, err := q.db.Query(ctx, listDataPipelineReviewItemsByDriveFile, arg.TenantID, arg.FilePublicID, arg.Status, arg.ResultLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDataPipelineReviewItemsByDriveFileRow{}
+	for rows.Next() {
+		var i ListDataPipelineReviewItemsByDriveFileRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.TenantID,
+			&i.PipelineID,
+			&i.VersionID,
+			&i.RunID,
+			&i.NodeID,
+			&i.Queue,
+			&i.Status,
+			&i.Reason,
+			&i.SourceSnapshot,
+			&i.SourceFingerprint,
+			&i.CreatedByUserID,
+			&i.UpdatedByUserID,
+			&i.AssignedToUserID,
+			&i.DecisionComment,
+			&i.DecidedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PipelinePublicID,
+			&i.PipelineName,
+			&i.RunPublicID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDataPipelineReviewItemForTenant = `-- name: GetDataPipelineReviewItemForTenant :one
 SELECT id, public_id, tenant_id, pipeline_id, version_id, run_id, node_id, queue, status, reason, source_snapshot, source_fingerprint, created_by_user_id, updated_by_user_id, assigned_to_user_id, decision_comment, decided_at, created_at, updated_at
 FROM data_pipeline_review_items

@@ -186,8 +186,11 @@ export type DataPipelineReviewCommentBody = {
 
 export type DataPipelineReviewItemBody = {
   publicId: string
+  pipelinePublicId?: string
+  pipelineName?: string
   versionId: number
   runId: number
+  runPublicId?: string
   nodeId: string
   queue: string
   status: 'open' | 'approved' | 'rejected' | 'needs_changes' | 'closed' | string
@@ -577,6 +580,15 @@ export async function fetchDataPipelineReviewItems(publicId: string, params: Dat
   if (params.limit) search.set('limit', String(params.limit))
   const query = search.toString()
   const data = await request<{ items?: DataPipelineReviewItemBody[] }>(`/api/v1/data-pipelines/${encodeURIComponent(publicId)}/review-items${query ? `?${query}` : ''}`)
+  return data.items ?? []
+}
+
+export async function fetchDriveFileDataPipelineReviewItems(filePublicId: string, params: DataPipelineReviewItemListParams = {}): Promise<DataPipelineReviewItemBody[]> {
+  const search = new URLSearchParams()
+  if (params.status) search.set('status', params.status)
+  if (params.limit) search.set('limit', String(params.limit))
+  const query = search.toString()
+  const data = await request<{ items?: DataPipelineReviewItemBody[] }>(`/api/v1/drive/files/${encodeURIComponent(filePublicId)}/data-pipeline-review-items${query ? `?${query}` : ''}`)
   return data.items ?? []
 }
 

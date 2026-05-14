@@ -194,8 +194,11 @@ type DataPipelineReviewItem struct {
 	PublicID          string
 	TenantID          int64
 	PipelineID        int64
+	PipelinePublicID  string
+	PipelineName      string
 	VersionID         int64
 	RunID             int64
+	RunPublicID       string
 	NodeID            string
 	Queue             string
 	Status            string
@@ -1458,6 +1461,39 @@ func (s *DataPipelineService) ListReviewItems(ctx context.Context, tenantID int6
 	items := make([]DataPipelineReviewItem, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, dataPipelineReviewItemFromDB(row))
+	}
+	return items, nil
+}
+
+func (s *DataPipelineService) ListReviewItemsByDriveFile(ctx context.Context, tenantID int64, filePublicID string, input DataPipelineReviewItemListInput) ([]DataPipelineReviewItem, error) {
+	filePublicID = strings.TrimSpace(filePublicID)
+	if filePublicID == "" {
+		return nil, fmt.Errorf("%w: drive file public id is required", ErrInvalidDataPipelineInput)
+	}
+	limit := input.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 25
+	}
+	var status pgtype.Text
+	if input.Status != "" {
+		status = pgtype.Text{String: input.Status, Valid: true}
+	}
+	rows, err := s.queries.ListDataPipelineReviewItemsByDriveFile(ctx, db.ListDataPipelineReviewItemsByDriveFileParams{
+		TenantID:     tenantID,
+		FilePublicID: filePublicID,
+		Status:       status,
+		ResultLimit:  limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list data pipeline review items by drive file: %w", err)
+	}
+	items := make([]DataPipelineReviewItem, 0, len(rows))
+	for _, row := range rows {
+		item := dataPipelineReviewItemFromDB(row.DataPipelineReviewItem)
+		item.PipelinePublicID = row.PipelinePublicID.String()
+		item.PipelineName = row.PipelineName
+		item.RunPublicID = row.RunPublicID.String()
+		items = append(items, item)
 	}
 	return items, nil
 }

@@ -60,7 +60,7 @@ node --check scripts/smoke-data-pipeline.mjs
 make smoke-data-pipeline-suite
 ```
 
-Month 2 の `quarantine` node v1、`confidence_gate` / `quality_report` の失敗理由 metadata 強化、`human_review` の review item / queue 化は 2026-05-14 に実装済みです。`human_review(createReviewItems=true)` により、低信頼行を永続 review item として作成し、Data Pipeline detail の Reviews tab から確認できる入口ができました。Drive text と `extract_fields` / `extract_table` の低信頼結果を review queue へ接続する smoke も追加済みです。次は schema mapping、Drive file detail 側の導線を広げます。
+Month 2 の `quarantine` node v1、`confidence_gate` / `quality_report` の失敗理由 metadata 強化、`human_review` の review item / queue 化は 2026-05-14 に実装済みです。`human_review(createReviewItems=true)` により、低信頼行を永続 review item として作成し、Data Pipeline detail の Reviews tab から確認できる入口ができました。Drive text と `extract_fields` / `extract_table` の低信頼結果を review queue へ接続する smoke、Drive file detail から該当 review item / pipeline run へ戻る導線も追加済みです。次は schema mapping と product extraction の低信頼結果を review queue へ広げます。
 
 ## 調査結果
 
@@ -448,7 +448,7 @@ UI v1:
 詳細計画: `docs/DATA_PIPELINE_MONTH2_RELIABLE_FAILURE_HANDLING_PLAN.md`
 
 - `quality_report` と `confidence_gate` の metadata 保存を強化する。
-- Drive text / `extract_fields` / `extract_table` の低信頼結果は `confidence_gate` / `human_review` / review item queue へ接続済み。次は schema mapping、Drive file detail 側へ広げる。
+- Drive text / `extract_fields` / `extract_table` の低信頼結果は `confidence_gate` / `human_review` / review item queue へ接続済み。Drive file detail から該当 review item / pipeline run へ戻る導線も追加済み。次は schema mapping、product extraction 側へ広げる。
 - `quarantine` node を追加し、低品質行や低信頼行を通常 output と分離する。
 
 完了条件:

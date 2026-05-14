@@ -34,6 +34,13 @@ type GetDriveOCRInput struct {
 	FilePublicID  string      `path:"filePublicId" format:"uuid"`
 }
 
+type ListDriveFileDataPipelineReviewItemsInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
+	FilePublicID  string      `path:"filePublicId" format:"uuid"`
+	Status        string      `query:"status" enum:"open,approved,rejected,needs_changes,closed"`
+	Limit         int32       `query:"limit" minimum:"1" maximum:"100"`
+}
+
 type DriveOCRRunBody struct {
 	PublicID            string     `json:"publicId"`
 	FilePublicID        string     `json:"filePublicId"`
@@ -184,6 +191,41 @@ func registerDriveOCRRoutes(api huma.API, deps Dependencies) {
 		out := &DriveProductExtractionsOutput{}
 		for _, item := range items {
 			out.Body.Items = append(out.Body.Items, toDriveProductExtractionItemBody(item))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listDriveFileDataPipelineReviewItems",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/drive/files/{filePublicId}/data-pipeline-review-items",
+		Tags:        []string{DocTagDriveAIOCR},
+		Summary:     "Drive file に紐づく data pipeline review item 一覧を返す",
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *ListDriveFileDataPipelineReviewItemsInput) (*DataPipelineReviewItemListOutput, error) {
+		if deps.DataPipelineService == nil {
+			return nil, huma.Error503ServiceUnavailable("data pipeline service is not configured")
+		}
+		current, tenant, err := requireDriveTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		if deps.DriveService != nil {
+			if _, err := deps.DriveService.GetFile(ctx, tenant.ID, current.User.ID, input.FilePublicID, sessionAuditContext(ctx, current, &tenant.ID)); err != nil {
+				return nil, toDriveHTTPErrorWithLog(ctx, deps, "", err)
+			}
+		}
+		items, err := deps.DataPipelineService.ListReviewItemsByDriveFile(ctx, tenant.ID, input.FilePublicID, service.DataPipelineReviewItemListInput{Status: input.Status, Limit: input.Limit})
+		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "listDriveFileDataPipelineReviewItems", err)
+		}
+		items, err = filterDataPipelineReviewItemsForPipelineView(ctx, deps, current.User.ID, items)
+		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "listDriveFileDataPipelineReviewItems", err)
+		}
+		out := &DataPipelineReviewItemListOutput{}
+		for _, item := range items {
+			out.Body.Items = append(out.Body.Items, toDataPipelineReviewItemBody(item))
 		}
 		return out, nil
 	})

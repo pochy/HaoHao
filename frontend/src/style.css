@@ -6052,6 +6052,7 @@ code {
 
 .drive-file-detail-product-list,
 .drive-file-detail-activity-list,
+.drive-file-detail-review-list,
 .drive-file-detail-permission-list {
   display: grid;
   gap: 8px;
@@ -6073,6 +6074,7 @@ code {
 
 .drive-file-detail-product-list div,
 .drive-file-detail-activity-list article,
+.drive-file-detail-review-list article,
 .drive-file-detail-permission-list article {
   display: grid;
   gap: 3px;
@@ -6083,11 +6085,19 @@ code {
   background: #fff;
 }
 
+.drive-file-detail-review-list article {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
 .drive-file-detail-product-list strong,
 .drive-file-detail-product-list span,
 .drive-file-detail-activity-list strong,
 .drive-file-detail-activity-list span,
 .drive-file-detail-activity-list time,
+.drive-file-detail-review-list strong,
+.drive-file-detail-review-list span,
 .drive-file-detail-permission-list strong,
 .drive-file-detail-permission-list span {
   min-width: 0;
@@ -6097,6 +6107,7 @@ code {
 .drive-file-detail-product-list span,
 .drive-file-detail-activity-list span,
 .drive-file-detail-activity-list time,
+.drive-file-detail-review-list span,
 .drive-file-detail-permission-list span {
   color: var(--muted);
   font-size: 0.86rem;

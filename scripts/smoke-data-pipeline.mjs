@@ -597,7 +597,20 @@ async function assertReviewItems(pipelinePublicId) {
   return { item, transitioned }
 }
 
-async function assertFieldReviewItems(pipelinePublicId) {
+async function assertDriveFileReviewItemLink(filePublicId, expectedItem, expectedPipelinePublicId) {
+  const listed = await request(`/api/v1/drive/files/${encodeURIComponent(filePublicId)}/data-pipeline-review-items?status=open&limit=10`)
+  const items = listed.items ?? []
+  const item = items.find((candidate) => candidate.publicId === expectedItem.publicId)
+  if (!item) {
+    throw new Error(`drive file review link missing ${expectedItem.publicId}: ${JSON.stringify(listed)}`)
+  }
+  if (item.pipelinePublicId !== expectedPipelinePublicId || !item.runPublicId) {
+    throw new Error(`drive file review link missing pipeline/run public IDs: ${JSON.stringify(item)}`)
+  }
+  return item
+}
+
+async function assertFieldReviewItems(pipelinePublicId, filePublicId) {
   const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
   const items = listed.items ?? []
   if (items.length !== 1) {
@@ -610,10 +623,11 @@ async function assertFieldReviewItems(pipelinePublicId) {
   if (String(item.sourceSnapshot?.field_confidence) !== '0.6667' || item.sourceSnapshot?.amount !== '') {
     throw new Error(`field review snapshot missing extraction confidence: ${JSON.stringify(item.sourceSnapshot)}`)
   }
-  return { item }
+  const driveLink = await assertDriveFileReviewItemLink(filePublicId, item, pipelinePublicId)
+  return { item, driveLink }
 }
 
-async function assertTableReviewItems(pipelinePublicId) {
+async function assertTableReviewItems(pipelinePublicId, filePublicId) {
   const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
   const items = listed.items ?? []
   if (items.length !== 1) {
@@ -626,7 +640,8 @@ async function assertTableReviewItems(pipelinePublicId) {
   if (String(item.sourceSnapshot?.table_confidence) !== '0.7500' || String(item.sourceSnapshot?.table_missing_cell_count) !== '1') {
     throw new Error(`table review snapshot missing table confidence: ${JSON.stringify(item.sourceSnapshot)}`)
   }
-  return { item }
+  const driveLink = await assertDriveFileReviewItemLink(filePublicId, item, pipelinePublicId)
+  return { item, driveLink }
 }
 
 async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
@@ -669,9 +684,9 @@ async function runScenario(workspacePublicId, scenario) {
   const reviewItems = scenario === 'review'
     ? await assertReviewItems(pipeline.publicId)
     : scenario === 'field_review'
-      ? await assertFieldReviewItems(pipeline.publicId)
+      ? await assertFieldReviewItems(pipeline.publicId, file.publicId)
       : scenario === 'table_review'
-        ? await assertTableReviewItems(pipeline.publicId)
+        ? await assertTableReviewItems(pipeline.publicId, file.publicId)
       : undefined
   return {
     scenario,

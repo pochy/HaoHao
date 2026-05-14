@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import {
+  ClipboardCheck,
   Download,
   Edit3,
   Eye,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
+import { fetchDriveFileDataPipelineReviewItems, type DataPipelineReviewItemBody } from '../api/data-pipelines'
 import { refreshDriveFileManifest } from '../api/drive'
 import { toApiErrorMessage } from '../api/client'
 import type {
@@ -79,6 +81,9 @@ const activeTab = ref<'details' | 'activity' | 'permissions' | 'ocr'>('details')
 const manifestRefreshing = ref(false)
 const manifestMessage = ref('')
 const manifestError = ref('')
+const pipelineReviewItems = ref<DataPipelineReviewItemBody[]>([])
+const pipelineReviewLoading = ref(false)
+const pipelineReviewError = ref('')
 
 const file = computed(() => props.selectedItem?.file ?? null)
 const title = computed(() => (props.selectedItem ? driveItemName(props.selectedItem) : t('routes.driveFile')))
@@ -174,7 +179,34 @@ const productFacts = computed(() => {
 watch(() => file.value?.publicId ?? '', () => {
   manifestMessage.value = ''
   manifestError.value = ''
-})
+  loadPipelineReviewItems()
+}, { immediate: true })
+
+function reviewReasonLabel(item: DataPipelineReviewItemBody) {
+  const first = item.reason?.[0]
+  if (!first) {
+    return item.sourceFingerprint || item.queue
+  }
+  return String(first.message || first.reason || first.code || item.sourceFingerprint || item.queue)
+}
+
+async function loadPipelineReviewItems() {
+  if (!file.value) {
+    pipelineReviewItems.value = []
+    pipelineReviewError.value = ''
+    return
+  }
+  pipelineReviewLoading.value = true
+  pipelineReviewError.value = ''
+  try {
+    pipelineReviewItems.value = await fetchDriveFileDataPipelineReviewItems(file.value.publicId, { limit: 5 })
+  } catch (error) {
+    pipelineReviewItems.value = []
+    pipelineReviewError.value = toApiErrorMessage(error)
+  } finally {
+    pipelineReviewLoading.value = false
+  }
+}
 
 async function refreshManifest() {
   if (!file.value || manifestRefreshing.value) {
@@ -341,6 +373,37 @@ async function refreshManifest() {
               <span v-for="tag in selectedTags" :key="tag" class="status-pill">{{ tag }}</span>
             </div>
             <p v-else class="cell-subtle">{{ t('drive.noTags') }}</p>
+          </section>
+
+          <section class="drive-file-detail-section">
+            <div class="drive-file-detail-section-heading">
+              <h2>{{ t('drive.pipelineReviews') }}</h2>
+              <button class="secondary-button compact-button" type="button" :disabled="pipelineReviewLoading" @click="loadPipelineReviewItems">
+                <RefreshCw :size="15" stroke-width="1.9" aria-hidden="true" />
+                {{ t('common.refresh') }}
+              </button>
+            </div>
+            <p v-if="pipelineReviewLoading" class="cell-subtle">{{ t('common.loading') }}</p>
+            <p v-else-if="pipelineReviewError" class="drive-file-detail-notice error">{{ pipelineReviewError }}</p>
+            <p v-else-if="pipelineReviewItems.length === 0" class="cell-subtle">{{ t('drive.noPipelineReviews') }}</p>
+            <div v-else class="drive-file-detail-review-list">
+              <article v-for="item in pipelineReviewItems" :key="item.publicId">
+                <div>
+                  <strong>{{ item.pipelineName || t('routes.dataPipelineDetail') }}</strong>
+                  <span>{{ item.nodeId }} / {{ item.queue }}</span>
+                  <span>{{ reviewReasonLabel(item) }}</span>
+                </div>
+                <span class="status-pill" :class="item.status === 'open' ? 'warning' : 'success'">{{ item.status }}</span>
+                <RouterLink
+                  v-if="item.pipelinePublicId"
+                  class="secondary-button compact-button link-button"
+                  :to="`/data-pipelines/${item.pipelinePublicId}`"
+                >
+                  <ClipboardCheck :size="15" stroke-width="1.9" aria-hidden="true" />
+                  {{ t('drive.openPipelineReview') }}
+                </RouterLink>
+              </article>
+            </div>
           </section>
         </div>
 

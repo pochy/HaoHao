@@ -132,8 +132,11 @@ type DataPipelinePreviewBody struct {
 
 type DataPipelineReviewItemBody struct {
 	PublicID          string                          `json:"publicId" format:"uuid"`
+	PipelinePublicID  string                          `json:"pipelinePublicId,omitempty" format:"uuid"`
+	PipelineName      string                          `json:"pipelineName,omitempty"`
 	VersionID         int64                           `json:"versionId"`
 	RunID             int64                           `json:"runId"`
+	RunPublicID       string                          `json:"runPublicId,omitempty" format:"uuid"`
 	NodeID            string                          `json:"nodeId"`
 	Queue             string                          `json:"queue"`
 	Status            string                          `json:"status" enum:"open,approved,rejected,needs_changes,closed"`
@@ -917,6 +920,32 @@ func filterDataPipelinesForAction(ctx context.Context, deps Dependencies, actorU
 	return filtered, nil
 }
 
+func filterDataPipelineReviewItemsForPipelineView(ctx context.Context, deps Dependencies, actorUserID int64, items []service.DataPipelineReviewItem) ([]service.DataPipelineReviewItem, error) {
+	if deps.DatasetAuthorizationService == nil {
+		return nil, service.ErrDataAuthzUnavailable
+	}
+	publicIDs := make([]string, 0, len(items))
+	seen := make(map[string]bool, len(items))
+	for _, item := range items {
+		if item.PipelinePublicID == "" || seen[item.PipelinePublicID] {
+			continue
+		}
+		seen[item.PipelinePublicID] = true
+		publicIDs = append(publicIDs, item.PipelinePublicID)
+	}
+	allowed, err := deps.DatasetAuthorizationService.FilterResourcePublicIDs(ctx, actorUserID, service.DataResourceDataPipeline, service.DataActionView, publicIDs)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]service.DataPipelineReviewItem, 0, len(items))
+	for _, item := range items {
+		if allowed[item.PipelinePublicID] {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered, nil
+}
+
 func toDataPipelineDetailBody(detail service.DataPipelineDetail) DataPipelineDetailBody {
 	body := DataPipelineDetailBody{
 		Pipeline:  toDataPipelineBody(detail.Pipeline),
@@ -978,8 +1007,11 @@ func toDataPipelineRunBody(item service.DataPipelineRun) DataPipelineRunBody {
 func toDataPipelineReviewItemBody(item service.DataPipelineReviewItem) DataPipelineReviewItemBody {
 	body := DataPipelineReviewItemBody{
 		PublicID:          item.PublicID,
+		PipelinePublicID:  item.PipelinePublicID,
+		PipelineName:      item.PipelineName,
 		VersionID:         item.VersionID,
 		RunID:             item.RunID,
+		RunPublicID:       item.RunPublicID,
 		NodeID:            item.NodeID,
 		Queue:             item.Queue,
 		Status:            item.Status,

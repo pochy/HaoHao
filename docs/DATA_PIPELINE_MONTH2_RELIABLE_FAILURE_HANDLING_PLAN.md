@@ -187,7 +187,7 @@ UI 方針:
 
 Drive から入った低信頼データが、Pipeline 上で隔離と review に届く導線を作ります。
 
-Status: 実装中。2026-05-14 に `extract_fields` / `extract_table` の信頼度 metadata と、Drive text -> extraction -> `confidence_gate` -> `human_review(createReviewItems=true)` の smoke を追加した。Reviews tab では source snapshot から Drive file / OCR run の trace を表示する。
+Status: 実装中。2026-05-14 に `extract_fields` / `extract_table` の信頼度 metadata と、Drive text -> extraction -> `confidence_gate` -> `human_review(createReviewItems=true)` の smoke を追加した。Reviews tab では source snapshot から Drive file / OCR run の trace を表示し、Drive file detail から `source_snapshot.file_public_id` に紐づく review item / pipeline run へ戻る導線も追加済み。
 
 対象:
 
@@ -215,17 +215,19 @@ confidence_gate
 UI 方針:
 
 - Pipeline Runs tab から normal output と quarantine output を区別して表示する。
-- Drive file detail / OCR result 側から該当 pipeline run または review item へ遷移できるようにする。
+- Drive file detail / OCR result 側から該当 pipeline run または review item へ遷移できるようにする。Drive file detail 側は `GET /api/v1/drive/files/{filePublicId}/data-pipeline-review-items` と UI section を実装済み。
 - 低信頼理由は `gate_reason`、`review_reason_json`、run step metadata の順に表示する。
 
 実装結果:
 
 - `extract_fields` の run step metadata に `fieldExtraction` を追加した。
 - `fieldExtraction` には field count、row count、average confidence、low confidence rows、missing required rows、field 別 extracted / missing rows、low confidence sample を保存する。
+- Drive file detail は related pipeline reviews section を表示し、review item の status、pipeline name、node / queue、reason、Data Pipeline detail へのリンクを表示する。
+- `field_review` / `table_review` smoke は Drive file scoped review item API が pipeline / run public ID を返すことまで検証する。
 - `field_confidence` を `confidence_gate.scoreColumns` に渡す smoke `field_review` を追加した。
 - `field_review` smoke は required field 欠落を `field_confidence = 0.6667` として検出し、review item の source snapshot に抽出列、`field_confidence`、`gate_status`、`gate_reason` が残ることを検証する。
 - `extract_table` の run step metadata に `tableExtraction` を追加した。
-- `tableExtraction` には row count、expected column count、average confidence、low confidence rows、low confidence sample を保存する。
+- `tableExtraction` には table count、row count、expected column count、average confidence、low confidence rows、missing cell rows、low confidence sample を保存する。
 - `table_confidence` を `confidence_gate.scoreColumns` に渡す smoke `table_review` を追加した。
 - `table_review` smoke は欠損 cell を `table_confidence = 0.7500` として検出し、review item の source snapshot に `row_json`、`table_confidence`、`table_missing_cell_count`、`gate_status`、`gate_reason` が残ることを検証する。
 - `human_review` Inspector に `createReviewItems`、`queue`、`reviewItemLimit` を追加した。
@@ -296,12 +298,12 @@ Phase 3:
 
 ## Next Implementation Task
 
-次に実装するのは Phase 4 の Drive / OCR / extraction 連携です。
+次に実装するのは Phase 4 の schema mapping / product extraction 連携と、review item 権限 test の補強です。
 
 最小完了条件:
 
-1. Drive / OCR / extraction の低信頼 metadata を `confidence_gate` / `human_review` に自然に渡す sample graph を作る。
-2. `extract_fields` / `extract_table` の confidence metadata を `human_review` の reason column として使えるようにする。
-3. Drive 由来の run で review item が作成される smoke を追加する。
-4. review item detail から source run / step / Drive file を追跡できる UI 情報を追加する。
+1. schema mapping candidate の低信頼 decision を `confidence_gate` / `human_review` に渡す sample graph を作る。
+2. product extraction の低信頼 result を `confidence_gate` / `human_review` に渡す sample graph を作る。
+3. Drive 由来の run / review item を source file から追跡できる smoke を維持する。
+4. review item detail から source run / step / Drive file を追跡できる UI 情報をさらに増やす。
 5. tenant boundary、CSRF、audit、review item transition の自動 test を追加する。

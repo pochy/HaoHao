@@ -47,6 +47,24 @@ WHERE ri.tenant_id = sqlc.arg(tenant_id)
 ORDER BY ri.created_at DESC, ri.id DESC
 LIMIT sqlc.arg(result_limit);
 
+-- name: ListDataPipelineReviewItemsByDriveFile :many
+SELECT
+    ri.*,
+    p.public_id AS pipeline_public_id,
+    p.name AS pipeline_name,
+    r.public_id AS run_public_id
+FROM data_pipeline_review_items ri
+JOIN data_pipelines p ON p.id = ri.pipeline_id
+JOIN data_pipeline_runs r ON r.id = ri.run_id
+WHERE ri.tenant_id = sqlc.arg(tenant_id)
+  AND ri.source_snapshot->>'file_public_id' = sqlc.arg(file_public_id)
+  AND (
+      sqlc.narg(status)::text IS NULL
+      OR ri.status = sqlc.narg(status)::text
+  )
+ORDER BY ri.created_at DESC, ri.id DESC
+LIMIT sqlc.arg(result_limit);
+
 -- name: GetDataPipelineReviewItemForTenant :one
 SELECT *
 FROM data_pipeline_review_items
