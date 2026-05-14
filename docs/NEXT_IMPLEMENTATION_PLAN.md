@@ -23,8 +23,8 @@ frontend build では Monaco / Data Pipeline detail 周辺を中心に大きい 
 
 - 既存の foundation は作り直さない。OpenAPI 3.1、Monorepo、Go/Huma/Gin、Vue/Vite、PostgreSQL/sqlc、Redis、OpenFGA、ClickHouse、SeaweedFS、単一バイナリ配信はすでに実装済みの前提で進める。
 - 今後の中心は、Drive、Dataset、Data Pipeline、Medallion、Gold、Local Search、RAG です。
-- Data Pipeline は多くの node が catalog / UI に存在しますが、すべてが同じ深さで実行・監視できるわけではありません。特に `profile` と `validate` は structured path で passthrough です。
-- `DataPipelineRunStepBody.metadata` は API contract としてすでに存在しますが、run executor から十分な node-level 実測 metadata が入っていません。ここが最初に直すべき実装上の中心です。
+- Data Pipeline は多くの node が catalog / UI に存在しますが、すべてが同じ深さで実行・監視できるわけではありません。`profile` と `validate` は行データ上は passthrough のまま、run step metadata に実測 summary を保存する実装まで進んでいます。
+- `DataPipelineRunStepBody.metadata` は API contract としてすでに存在し、node-level 実測 metadata の保存も始まっています。Month 1 の残りは `inputRows`、`samples`、`queryStats`、詳細 UI、smoke 分割です。
 - Drive OCR、商品抽出、Local Search、pgvector、Drive RAG は主要な足場が動いています。次は broad な機能追加ではなく、評価、追跡、失敗理由、運用導線を強くします。
 - frontend は機能がかなり増え、Data Pipeline detail と Monaco editor の chunk が大きくなっています。運用前に code splitting を改善する余地があります。
 - AI coding 改善は未実装の提案段階です。`docs/HARNESS_ENGINEERING_ADOPTION_ANALYSIS.md` に方針はありますが、`docs/AGENT_KNOWLEDGE_INDEX.md` や RAG/OpenFGA/OpenAPI/frontend 用 skill はまだありません。
@@ -161,9 +161,9 @@ Local Search / RAG:
 
 最重要課題は、処理結果の信頼性と説明可能性です。
 
-- structured compiler では `profile`、`validate`、`output` が passthrough です。
-- `quality_report` や `confidence_gate` は hybrid path で行データ列を追加できますが、run step metadata への集約が弱いです。
-- `HandleRunRequested` は step completion に metadata を渡せる構造を持つ一方で、node ごとの実測 metadata を executor が十分返していません。
+- structured compiler では `profile`、`validate`、`output` は行データ上 passthrough です。run executor は `profile` / `validate` の実測 summary を metadata に保存します。
+- `quality_report` や `confidence_gate` は hybrid path で行データ列を追加し、run step metadata summary も保存します。
+- `HandleRunRequested` は node ごとの実測 metadata を step completion に渡す実装へ進んでいます。
 - join / enrich_join は行数爆発、未マッチ、key null、列衝突などの warning を UI で十分説明できていません。
 - `human_review` は注釈列の段階で、本格的な review queue ではありません。
 - `quarantine`、`union`、`route_by_condition`、`partition_filter`、`watermark_filter`、`snapshot_scd2` はまだ実装されていません。
@@ -322,6 +322,13 @@ AI coding / agent 改善を触る場合:
 - `data_pipeline_run_steps.metadata` に row count、欠損率、失敗件数、warning、sample を保存する。
 - ClickHouse `system.query_log` と pipeline run / step を query id で紐付ける。
 - Run detail UI に step metadata、品質 summary、重い step、warning を表示する。
+
+2026-05-14 時点の残タスク:
+
+- `inputRows`、validation `samples`、`queryStats` を metadata に追加する。
+- Runs tab で profile / validation / quality / confidenceGate / queryStats の詳細を展開表示する。
+- `json` / `excel` / `text` の Data Pipeline smoke を分割する。
+- これらが完了するまで Month 2 の `quarantine` node には進まない。
 
 完了条件:
 

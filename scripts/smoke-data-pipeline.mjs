@@ -7,13 +7,14 @@ const configuredWorkspacePublicID = process.env.HAOHAO_DRIVE_WORKSPACE_PUBLIC_ID
 const pollAttempts = Number(process.env.HAOHAO_SMOKE_POLL_ATTEMPTS ?? '60')
 const pollDelayMs = Number(process.env.HAOHAO_SMOKE_POLL_DELAY_MS ?? '1500')
 const cleanupDriveFile = process.env.HAOHAO_SMOKE_CLEANUP_DRIVE_FILE === '1'
+const requestedScenario = (process.argv[2] ?? process.env.HAOHAO_SMOKE_SCENARIO ?? 'json').toLowerCase()
 
 const cookies = new Map()
 const created = {
-  driveFilePublicId: '',
-  pipelinePublicId: '',
-  versionPublicId: '',
-  runPublicId: '',
+  driveFilePublicIds: [],
+  pipelinePublicIds: [],
+  versionPublicIds: [],
+  runPublicIds: [],
 }
 
 function cookieHeader() {
@@ -90,22 +91,51 @@ async function resolveWorkspacePublicID() {
   return workspace.publicId
 }
 
+async function uploadFile(workspacePublicId, filename, contentType, body) {
+  const form = new FormData()
+  form.set('workspacePublicId', workspacePublicId)
+  form.set('file', new Blob([body], { type: contentType }), filename)
+  const file = await request('/api/v1/drive/files', {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': csrfToken() },
+    body: form,
+  })
+  created.driveFilePublicIds.push(file.publicId)
+  return file
+}
+
 async function uploadJSONFile(workspacePublicId) {
   const rows = [
     { id: '1', name: 'Alpha', amount: 10, status: 'ready' },
     { id: '2', name: 'Beta', amount: 20, status: 'ready' },
     { id: '3', name: '', amount: -5, status: 'hold' },
   ]
-  const form = new FormData()
-  form.set('workspacePublicId', workspacePublicId)
-  form.set('file', new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' }), `data-pipeline-smoke-${Date.now()}.json`)
-  const file = await request('/api/v1/drive/files', {
-    method: 'POST',
-    headers: { 'X-CSRF-Token': csrfToken() },
-    body: form,
-  })
-  created.driveFilePublicId = file.publicId
-  return file
+  return uploadFile(workspacePublicId, `data-pipeline-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
+}
+
+async function uploadTextFile(workspacePublicId) {
+  const text = [
+    'invoice_id,customer,amount,confidence',
+    'INV-1,Alpha,120,0.95',
+    'INV-2,Beta,240,0.55',
+    'INV-3,Gamma,360,0.72',
+  ].join('\n')
+  return uploadFile(workspacePublicId, `data-pipeline-smoke-${Date.now()}.txt`, 'text/plain', text)
+}
+
+async function uploadXLSXFile(workspacePublicId) {
+  const rows = [
+    ['id', 'name', 'amount', 'status'],
+    ['1', 'Alpha', '10', 'ready'],
+    ['2', 'Beta', '20', 'ready'],
+    ['3', '', '-5', 'hold'],
+  ]
+  return uploadFile(
+    workspacePublicId,
+    `data-pipeline-smoke-${Date.now()}.xlsx`,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    createMinimalXLSX(rows),
+  )
 }
 
 function node(id, stepType, label, x, y, config = {}) {
@@ -117,7 +147,16 @@ function node(id, stepType, label, x, y, config = {}) {
   }
 }
 
-function graph(filePublicId, suffix) {
+function outputNode(suffix, orderBy = ['id']) {
+  return node('output', 'output', 'Smoke output', 1180, 120, {
+    displayName: `data pipeline smoke output ${suffix}`,
+    tableName: `data_pipeline_smoke_output_${suffix}`,
+    writeMode: 'replace',
+    orderBy,
+  })
+}
+
+function jsonGraph(filePublicId, suffix) {
   return {
     nodes: [
       node('input', 'input', 'Smoke Drive JSON', 60, 120, {
@@ -140,43 +179,99 @@ function graph(filePublicId, suffix) {
           { column: 'status', path: 'status' },
         ],
       }),
-      node('profile', 'profile', 'Profile smoke rows', 620, 120, {}),
-      node('validate', 'validate', 'Validate smoke rows', 900, 120, {
-        rules: [
-          { column: 'name', operator: 'required', severity: 'error' },
-          { column: 'amount', operator: 'range', min: 0, max: 100, severity: 'warning' },
-          { column: 'status', operator: 'in', values: ['ready'], severity: 'warning' },
-        ],
-      }),
-      node('output', 'output', 'Smoke output', 1180, 120, {
-        displayName: `data pipeline smoke output ${suffix}`,
-        tableName: `data_pipeline_smoke_output_${suffix}`,
-        writeMode: 'replace',
-        orderBy: ['id'],
-      }),
+      profileNode(),
+      validateNode(),
+      outputNode(suffix),
     ],
-    edges: [
-      { id: 'input-json_extract', source: 'input', target: 'json_extract' },
-      { id: 'json_extract-profile', source: 'json_extract', target: 'profile' },
-      { id: 'profile-validate', source: 'profile', target: 'validate' },
-      { id: 'validate-output', source: 'validate', target: 'output' },
-    ],
+    edges: linearEdges(['input', 'json_extract', 'profile', 'validate', 'output']),
   }
 }
 
-async function createPipeline(filePublicId) {
-  const suffix = String(Date.now())
+function excelGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive Excel', 60, 120, {
+        sourceKind: 'drive_file',
+        filePublicIds: [filePublicId],
+      }),
+      node('excel_extract', 'excel_extract', 'Extract smoke sheet', 340, 120, {
+        sourceFileColumn: 'file_public_id',
+        sheetIndex: 0,
+        headerRow: 1,
+        columns: ['id', 'name', 'amount', 'status'],
+        includeSourceColumns: false,
+        includeSourceMetadataColumns: true,
+      }),
+      profileNode(),
+      validateNode(),
+      outputNode(suffix),
+    ],
+    edges: linearEdges(['input', 'excel_extract', 'profile', 'validate', 'output']),
+  }
+}
+
+function textGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive text', 60, 120, {
+        sourceKind: 'drive_file',
+        filePublicIds: [filePublicId],
+      }),
+      node('extract_text', 'extract_text', 'Extract text', 340, 120, {
+        chunkMode: 'full_text',
+      }),
+      node('quality_report', 'quality_report', 'Quality report', 620, 120, {
+        columns: ['text', 'confidence'],
+      }),
+      node('confidence_gate', 'confidence_gate', 'Confidence gate', 900, 120, {
+        scoreColumns: ['confidence'],
+        threshold: 0.8,
+      }),
+      outputNode(suffix, ['file_public_id']),
+    ],
+    edges: linearEdges(['input', 'extract_text', 'quality_report', 'confidence_gate', 'output']),
+  }
+}
+
+function profileNode() {
+  return node('profile', 'profile', 'Profile smoke rows', 620, 120, {})
+}
+
+function validateNode() {
+  return node('validate', 'validate', 'Validate smoke rows', 900, 120, {
+    rules: [
+      { column: 'name', operator: 'required', severity: 'error' },
+      { column: 'amount', operator: 'range', min: 0, max: 100, severity: 'warning' },
+      { column: 'status', operator: 'in', values: ['ready'], severity: 'warning' },
+    ],
+  })
+}
+
+function linearEdges(ids) {
+  return ids.slice(0, -1).map((source, index) => {
+    const target = ids[index + 1]
+    return { id: `${source}-${target}`, source, target }
+  })
+}
+
+async function createPipeline(scenario, filePublicId) {
+  const suffix = `${scenario}_${Date.now()}`
+  const graphs = {
+    json: jsonGraph,
+    excel: excelGraph,
+    text: textGraph,
+  }
   const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
-    name: `Smoke: Drive JSON metadata ${new Date().toISOString()}`,
-    description: 'Smoke test for Drive file input, JSON extract, profile metadata, validation metadata, and output registration.',
+    name: `Smoke: ${scenario} metadata ${new Date().toISOString()}`,
+    description: `Smoke test for Data Pipeline ${scenario} metadata and output registration.`,
   }, { 'Idempotency-Key': crypto.randomUUID() })
-  created.pipelinePublicId = pipeline.publicId
+  created.pipelinePublicIds.push(pipeline.publicId)
 
   const version = await jsonRequest(`/api/v1/data-pipelines/${encodeURIComponent(pipeline.publicId)}/versions`, 'POST', {
-    graph: graph(filePublicId, suffix),
+    graph: graphs[scenario](filePublicId, suffix),
   })
   const published = await jsonRequest(`/api/v1/data-pipeline-versions/${encodeURIComponent(version.publicId)}/publish`, 'POST', {})
-  created.versionPublicId = published.publicId
+  created.versionPublicIds.push(published.publicId)
   return { pipeline, version: published }
 }
 
@@ -184,7 +279,7 @@ async function requestRun(versionPublicId) {
   const run = await jsonRequest(`/api/v1/data-pipeline-versions/${encodeURIComponent(versionPublicId)}/runs`, 'POST', {}, {
     'Idempotency-Key': crypto.randomUUID(),
   })
-  created.runPublicId = run.publicId
+  created.runPublicIds.push(run.publicId)
   return run
 }
 
@@ -192,35 +287,59 @@ function findStep(run, nodeId) {
   return (run.steps ?? []).find((step) => step.nodeId === nodeId)
 }
 
-function assertRun(run) {
+function assertCommonRun(run, expectedRows) {
   if (run.status !== 'completed') {
     throw new Error(`run did not complete: ${run.status} ${run.errorSummary ?? ''}`)
   }
-  if (run.rowCount !== 3) {
-    throw new Error(`run rowCount = ${run.rowCount}, want 3`)
+  if (run.rowCount !== expectedRows) {
+    throw new Error(`run rowCount = ${run.rowCount}, want ${expectedRows}`)
   }
+  const output = (run.outputs ?? []).find((item) => item.nodeId === 'output')
+  if (!output || output.status !== 'completed' || output.rowCount !== expectedRows) {
+    throw new Error(`unexpected output: ${JSON.stringify(output)}`)
+  }
+  for (const step of run.steps ?? []) {
+    if (!step.metadata?.queryStats?.queryId) {
+      throw new Error(`queryStats missing for step ${step.nodeId}: ${JSON.stringify(step.metadata)}`)
+    }
+    if (typeof step.metadata.outputRows !== 'number') {
+      throw new Error(`outputRows missing for step ${step.nodeId}: ${JSON.stringify(step.metadata)}`)
+    }
+  }
+}
+
+function assertProfileValidateRun(run, expectedRows) {
+  assertCommonRun(run, expectedRows)
   const profileStep = findStep(run, 'profile')
   const validateStep = findStep(run, 'validate')
-  const output = (run.outputs ?? []).find((item) => item.nodeId === 'output')
   if (!profileStep?.metadata?.profile) {
     throw new Error(`profile metadata missing: ${JSON.stringify(profileStep)}`)
   }
-  if (profileStep.metadata.profile.rowCount !== 3 || profileStep.metadata.profile.columnCount < 4) {
+  if (profileStep.metadata.profile.rowCount !== expectedRows || profileStep.metadata.profile.columnCount < 4) {
     throw new Error(`unexpected profile metadata: ${JSON.stringify(profileStep.metadata.profile)}`)
   }
   if (!validateStep?.metadata?.validation) {
     throw new Error(`validation metadata missing: ${JSON.stringify(validateStep)}`)
   }
   const validation = validateStep.metadata.validation
-  if (validation.warningCount < 2 || validation.failedRows < 2) {
+  if (validation.warningCount < 2 || validation.failedRows < 3 || !Array.isArray(validation.samples) || validation.samples.length === 0) {
     throw new Error(`unexpected validation metadata: ${JSON.stringify(validation)}`)
-  }
-  if (!output || output.status !== 'completed' || output.rowCount !== 3) {
-    throw new Error(`unexpected output: ${JSON.stringify(output)}`)
   }
 }
 
-async function waitForRun(pipelinePublicId, runPublicId) {
+function assertTextRun(run) {
+  assertCommonRun(run, 1)
+  const qualityStep = findStep(run, 'quality_report')
+  const gateStep = findStep(run, 'confidence_gate')
+  if (!qualityStep?.metadata?.quality) {
+    throw new Error(`quality metadata missing: ${JSON.stringify(qualityStep)}`)
+  }
+  if (!gateStep?.metadata?.confidenceGate) {
+    throw new Error(`confidenceGate metadata missing: ${JSON.stringify(gateStep)}`)
+  }
+}
+
+async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
   let last
   for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
     const runs = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/runs?limit=10`)
@@ -234,28 +353,23 @@ async function waitForRun(pipelinePublicId, runPublicId) {
   throw new Error(`run did not finish after ${pollAttempts} attempts: ${JSON.stringify(last)}`)
 }
 
-async function cleanup() {
-  if (!cleanupDriveFile || !created.driveFilePublicId) {
-    return
+async function runScenario(workspacePublicId, scenario) {
+  const uploaders = {
+    json: uploadJSONFile,
+    excel: uploadXLSXFile,
+    text: uploadTextFile,
   }
-  try {
-    await request(`/api/v1/drive/files/${encodeURIComponent(created.driveFilePublicId)}`, {
-      method: 'DELETE',
-      headers: { 'X-CSRF-Token': csrfToken() },
-    })
-  } catch (error) {
-    console.error(`cleanup Drive file failed: ${error.message}`)
+  const assertions = {
+    json: (run) => assertProfileValidateRun(run, 3),
+    excel: (run) => assertProfileValidateRun(run, 3),
+    text: assertTextRun,
   }
-}
-
-async function main() {
-  await login()
-  const workspacePublicId = await resolveWorkspacePublicID()
-  const file = await uploadJSONFile(workspacePublicId)
-  const { pipeline, version } = await createPipeline(file.publicId)
+  const file = await uploaders[scenario](workspacePublicId)
+  const { pipeline, version } = await createPipeline(scenario, file.publicId)
   const run = await requestRun(version.publicId)
-  const completed = await waitForRun(pipeline.publicId, run.publicId)
-  console.log(JSON.stringify({
+  const completed = await waitForRun(pipeline.publicId, run.publicId, assertions[scenario])
+  return {
+    scenario,
     workspacePublicId,
     driveFilePublicId: file.publicId,
     pipelinePublicId: pipeline.publicId,
@@ -266,8 +380,170 @@ async function main() {
     detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
     profile: findStep(completed, 'profile')?.metadata?.profile,
     validation: findStep(completed, 'validate')?.metadata?.validation,
+    quality: findStep(completed, 'quality_report')?.metadata?.quality,
+    confidenceGate: findStep(completed, 'confidence_gate')?.metadata?.confidenceGate,
     outputs: completed.outputs,
-  }, null, 2))
+  }
+}
+
+async function cleanup() {
+  if (!cleanupDriveFile) {
+    return
+  }
+  for (const publicId of created.driveFilePublicIds) {
+    try {
+      await request(`/api/v1/drive/files/${encodeURIComponent(publicId)}`, {
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': csrfToken() },
+      })
+    } catch (error) {
+      console.error(`cleanup Drive file failed: ${error.message}`)
+    }
+  }
+}
+
+async function main() {
+  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text'] : [requestedScenario]
+  for (const scenario of scenarios) {
+    if (!['json', 'excel', 'text'].includes(scenario)) {
+      throw new Error(`unknown smoke scenario: ${scenario}`)
+    }
+  }
+  await login()
+  const workspacePublicId = await resolveWorkspacePublicID()
+  const results = []
+  for (const scenario of scenarios) {
+    results.push(await runScenario(workspacePublicId, scenario))
+  }
+  console.log(JSON.stringify(requestedScenario === 'suite' ? { scenarios: results } : results[0], null, 2))
+}
+
+const crcTable = new Uint32Array(256)
+for (let i = 0; i < 256; i += 1) {
+  let c = i
+  for (let k = 0; k < 8; k += 1) {
+    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+  }
+  crcTable[i] = c >>> 0
+}
+
+function crc32(buffer) {
+  let crc = 0xffffffff
+  for (const byte of buffer) {
+    crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8)
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+function xmlEscape(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;')
+}
+
+function columnName(index) {
+  let name = ''
+  let value = index + 1
+  while (value > 0) {
+    const mod = (value - 1) % 26
+    name = String.fromCharCode(65 + mod) + name
+    value = Math.floor((value - mod) / 26)
+  }
+  return name
+}
+
+function createMinimalXLSX(rows) {
+  const sheetRows = rows.map((row, rowIndex) => {
+    const cells = row.map((value, colIndex) => {
+      const ref = `${columnName(colIndex)}${rowIndex + 1}`
+      return `<c r="${ref}" t="inlineStr"><is><t>${xmlEscape(value)}</t></is></c>`
+    }).join('')
+    return `<row r="${rowIndex + 1}">${cells}</row>`
+  }).join('')
+  const files = {
+    '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+    '_rels/.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    'xl/workbook.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    'xl/_rels/workbook.xml.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+    'xl/worksheets/sheet1.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheetRows}</sheetData></worksheet>`,
+  }
+  return zipStore(files)
+}
+
+function writeUInt16LE(value) {
+  const buffer = Buffer.alloc(2)
+  buffer.writeUInt16LE(value)
+  return buffer
+}
+
+function writeUInt32LE(value) {
+  const buffer = Buffer.alloc(4)
+  buffer.writeUInt32LE(value >>> 0)
+  return buffer
+}
+
+function zipStore(files) {
+  const localParts = []
+  const centralParts = []
+  let offset = 0
+  for (const [name, content] of Object.entries(files)) {
+    const nameBuffer = Buffer.from(name)
+    const data = Buffer.from(content)
+    const crc = crc32(data)
+    const local = Buffer.concat([
+      writeUInt32LE(0x04034b50),
+      writeUInt16LE(20),
+      writeUInt16LE(0),
+      writeUInt16LE(0),
+      writeUInt16LE(0),
+      writeUInt16LE(0),
+      writeUInt32LE(crc),
+      writeUInt32LE(data.length),
+      writeUInt32LE(data.length),
+      writeUInt16LE(nameBuffer.length),
+      writeUInt16LE(0),
+      nameBuffer,
+      data,
+    ])
+    const central = Buffer.concat([
+      writeUInt32LE(0x02014b50),
+      writeUInt16LE(20),
+      writeUInt16LE(20),
+      writeUInt16LE(0),
+      writeUInt16LE(0),
+      writeUInt16LE(0),
+      writeUInt16LE(0),
+      writeUInt32LE(crc),
+      writeUInt32LE(data.length),
+      writeUInt32LE(data.length),
+      writeUInt16LE(nameBuffer.length),
+      writeUInt16LE(0),
+      writeUInt16LE(0),
+      writeUInt16LE(0),
+      writeUInt16LE(0),
+      writeUInt32LE(0),
+      writeUInt32LE(offset),
+      nameBuffer,
+    ])
+    localParts.push(local)
+    centralParts.push(central)
+    offset += local.length
+  }
+  const centralDirectory = Buffer.concat(centralParts)
+  const end = Buffer.concat([
+    writeUInt32LE(0x06054b50),
+    writeUInt16LE(0),
+    writeUInt16LE(0),
+    writeUInt16LE(centralParts.length),
+    writeUInt16LE(centralParts.length),
+    writeUInt32LE(centralDirectory.length),
+    writeUInt32LE(offset),
+    writeUInt16LE(0),
+  ])
+  return Buffer.concat([...localParts, centralDirectory, end])
 }
 
 main()

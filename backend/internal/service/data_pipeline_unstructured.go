@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"example.com/haohao/backend/internal/db"
@@ -214,6 +215,7 @@ func (s *DataPipelineService) executeHybridGraph(ctx context.Context, tenantID i
 	relations := make(map[string]dataPipelineMaterializedRelation, len(order))
 	tables := make([]string, 0, len(order))
 	nodeResults := make(map[string]dataPipelineRunNodeResult, len(order))
+	incoming := dataPipelineIncomingNodeIDs(graph)
 	compiler := newDataPipelineCompiler(s, tenantID, graph)
 	queryCtx := clickhouse.Context(ctx, clickhouse.WithSettings(s.datasets.exportQuerySettings()))
 	for _, node := range order {
@@ -226,7 +228,7 @@ func (s *DataPipelineService) executeHybridGraph(ctx context.Context, tenantID i
 			}
 			return dataPipelineHybridResult{}, err
 		}
-		rowCount, err := countHybridRelationRows(ctx, conn, relation)
+		rowCount, queryStats, err := countHybridRelationRowsWithStats(ctx, conn, relation, dataPipelineQueryID(runKey, node.ID, "count"))
 		if err != nil {
 			_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(table)))
 			for _, cleanup := range tables {
@@ -238,7 +240,9 @@ func (s *DataPipelineService) executeHybridGraph(ctx context.Context, tenantID i
 		if metadata == nil {
 			metadata = map[string]any{}
 		}
+		metadata["inputRows"] = dataPipelineInputRows(node.ID, incoming, nodeResults, rowCount)
 		metadata["outputRows"] = rowCount
+		metadata["queryStats"] = queryStats
 		if _, ok := metadata["warnings"]; !ok {
 			metadata["warnings"] = []string{}
 		}
@@ -1191,17 +1195,23 @@ func (s *DataPipelineService) materializeQualityReport(ctx context.Context, conn
 }
 
 func countHybridRelationRows(ctx context.Context, conn driver.Conn, relation dataPipelineMaterializedRelation) (int64, error) {
+	count, _, err := countHybridRelationRowsWithStats(ctx, conn, relation, "")
+	return count, err
+}
+
+func countHybridRelationRowsWithStats(ctx context.Context, conn driver.Conn, relation dataPipelineMaterializedRelation, queryID string) (int64, map[string]any, error) {
 	var count uint64
 	query := fmt.Sprintf("SELECT count() FROM %s.%s", quoteCHIdent(relation.Database), quoteCHIdent(relation.Table))
-	if err := queryDataPipelineSingle(ctx, conn, query, &count); err != nil {
-		return 0, err
+	start := time.Now()
+	if err := queryDataPipelineSingleWithQueryID(ctx, conn, query, queryID, &count); err != nil {
+		return 0, nil, err
 	}
-	return int64(count), nil
+	return int64(count), collectDataPipelineQueryStats(ctx, conn, queryID, "count", time.Since(start)), nil
 }
 
 func collectConfidenceGateMetadata(ctx context.Context, conn driver.Conn, database, table, statusColumn, scoreColumn string, threshold float64, scoreColumns []string) (map[string]any, error) {
 	query := fmt.Sprintf(
-		"SELECT countIf(%[1]s = 'pass'), countIf(%[1]s = 'needs_review'), ifNull(min(toFloat64OrZero(%[2]s)), 0), ifNull(avg(toFloat64OrZero(%[2]s)), 0) FROM %[3]s.%[4]s",
+		"SELECT countIf(%[1]s = 'pass'), countIf(%[1]s = 'needs_review'), ifNull(min(toFloat64OrZero(toString(%[2]s))), 0), ifNull(avg(toFloat64OrZero(toString(%[2]s))), 0) FROM %[3]s.%[4]s",
 		quoteCHIdent(statusColumn),
 		quoteCHIdent(scoreColumn),
 		quoteCHIdent(database),

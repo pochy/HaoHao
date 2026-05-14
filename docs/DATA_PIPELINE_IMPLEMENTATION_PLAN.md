@@ -33,13 +33,21 @@
 - Data Pipeline detail の Runs tab で run output と run step metadata summary を表示する。
 - Work table 一覧 API が columns を返すようになり、Inspector の上流列警告の誤検知を解消した。
 
-次の実装単位は、Drive file input を含む pipeline の smoke 自動化です。
+Drive file input を含む pipeline の smoke 自動化は `0160678 Add data pipeline drive smoke` で実装済みです。
 
 ```bash
 make smoke-data-pipeline
 ```
 
 この smoke は demo login、tenant 選択、Drive workspace 自動選択、inline JSON upload、`drive_file` input、`json_extract`、`profile`、`validate`、`output`、run 完了、metadata 検証までを一括で確認します。
+
+この後の Month 1 残タスクは、Month 2 の `quarantine` / `human_review` に進む前に閉じます。
+
+- `inputRows`、`samples`、`queryStats` を run step metadata に追加する。
+- `validate.required` で空文字と空白のみの値を失敗扱いにする。
+- Runs tab で profile / validation / quality / confidenceGate / queryStats の詳細を確認できるようにする。
+- smoke を `json`、`excel`、`text` scenario に分ける。
+- CI では live smoke ではなく、まず smoke script の syntax check を行う。
 
 ## 調査結果
 
@@ -77,7 +85,7 @@ metadata の保存先の分担は次の設計が正です。
 - `data_pipeline_runs`: run 全体の lifecycle と代表 output。
 - ClickHouse の行データ列: 後続 node が行単位で使う判定や注釈。
 
-現在 backend catalog に存在する step type は多いですが、catalog にあることと、すべての実行経路で同じ深さまで実装されていることは別です。特に `profile` と `validate` は structured compiler で passthrough です。
+現在 backend catalog に存在する step type は多いですが、catalog にあることと、すべての実行経路で同じ深さまで実装されていることは別です。`profile` と `validate` は行や列を変更しない passthrough node のまま、run step metadata に実測 summary を保存する実装へ更新済みです。
 
 推奨実装順は次です。
 
@@ -139,10 +147,10 @@ LLM node の共通 metadata は次を想定します。
 確認した事実:
 
 - `dataPipelineStepCatalog` には `profile`、`validate`、`quality_report`、`confidence_gate` が存在します。
-- `data_pipeline_compile.go` の `compileNode` では `DataPipelineStepProfile`、`DataPipelineStepValidate`、`DataPipelineStepOutput` が `passThrough` です。
+- `data_pipeline_compile.go` の `compileNode` では `DataPipelineStepProfile`、`DataPipelineStepValidate`、`DataPipelineStepOutput` は行データ上は `passThrough` です。run executor 側で `profile` / `validate` metadata を収集します。
 - `CompleteDataPipelineRunStep` は `row_count` と `metadata` を更新できます。
-- `HandleRunRequested` は現状、run 成功時に全 step へ同じ `totalRows` と空 metadata を渡しています。
-- `executeRun` は structured path、`executeHybridRun` は hybrid path を担当しますが、現状の `dataPipelineRunOutputResult` は output 結果中心で、node id ごとの metadata を返しません。
+- `HandleRunRequested` は node id ごとの row count / metadata を `CompleteDataPipelineRunStep` に渡します。
+- `executeRun` は structured path、`executeHybridRun` は hybrid path を担当し、node id ごとの metadata を返します。
 - `materializeQualityReport` は `quality_report_json`、`missing_rate_json`、`validation_summary_json` を ClickHouse 行データへ追加します。
 - `materializeConfidenceGate` は `gate_score` と `gate_status` を ClickHouse 行データへ追加します。
 
@@ -161,7 +169,7 @@ LLM node の共通 metadata は次を想定します。
 
 - `DataPipelineRunStepBody` には `metadata: Record<string, unknown>` がすでにあります。
 - `DataPipelineRunBody` には `steps` と `outputs` が含まれます。
-- `DataPipelinePreviewPanel` の Runs tab は run と output を表示していますが、run steps と metadata は表示していません。
+- `DataPipelinePreviewPanel` の Runs tab は run、output、run steps、metadata summary を表示します。詳細 metadata 表示は Month 1 残タスクです。
 - `DataPipelineInspector` には `validate`、`confidence_gate`、`quality_report` の設定 UI が存在します。
 - `DataPipelineFlowBuilder` の palette にも `profile`、`validate`、`confidence_gate`、`quality_report` が存在します。
 
@@ -545,8 +553,10 @@ DB schema は変更しません。
 
 次の PR は次に絞るのが安全です。
 
-1. Drive file input を含む Data Pipeline smoke を CI / local run に載せやすい形へ整える。
-2. `json_extract` / `excel_extract` / `extract_text` の代表 path を smoke で分ける。
-3. `quarantine` node を追加し、validate / confidence_gate の失敗行を通常 output と分離できるようにする。
-4. Runs tab で profile / validation の詳細を展開表示できるようにする。
-5. `go test ./backend/...`、`npm --prefix frontend run build`、`make smoke-data-pipeline` を通す。
+1. run step metadata に `inputRows`、`samples`、`queryStats` を追加する。
+2. `validate.required` の空文字判定を修正する。
+3. Runs tab で profile / validation / quality / confidenceGate / queryStats の詳細を展開表示できるようにする。
+4. `json_extract` / `excel_extract` / `extract_text` の代表 path を smoke で分ける。
+5. `go test ./backend/...`、`npm --prefix frontend run build`、`make smoke-data-pipeline-suite` を通す。
+
+この 5 点が完了してから Month 2 の `quarantine` node に進みます。

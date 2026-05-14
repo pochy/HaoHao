@@ -371,9 +371,17 @@ func TestDataPipelineCompilerRejectsUnsupportedOperatorAndUnknownColumn(t *testi
 	}
 }
 
-func TestDataPipelineValidationPassExprSupportsRangeAndValuesAlias(t *testing.T) {
+func TestDataPipelineValidationPassExprSupportsRequiredRangeAndValuesAlias(t *testing.T) {
 	columns := []string{"amount", "status"}
-	expr, err := dataPipelineValidationPassExpr(columns, map[string]any{"column": "amount", "operator": "range", "min": 1, "max": 10})
+	expr, err := dataPipelineValidationPassExpr(columns, map[string]any{"column": "status", "operator": "required"})
+	if err != nil {
+		t.Fatalf("dataPipelineValidationPassExpr(required) error = %v", err)
+	}
+	if !strings.Contains(expr, "isNotNull(`status`)") || !strings.Contains(expr, "notEmpty(trim(toString(`status`)))") {
+		t.Fatalf("required expression should reject null and blank strings: %s", expr)
+	}
+
+	expr, err = dataPipelineValidationPassExpr(columns, map[string]any{"column": "amount", "operator": "range", "min": 1, "max": 10})
 	if err != nil {
 		t.Fatalf("dataPipelineValidationPassExpr(range) error = %v", err)
 	}

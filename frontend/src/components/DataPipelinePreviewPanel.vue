@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref } from 'vue'
-import { Search, Trash2 } from 'lucide-vue-next'
+import { Info, Search, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import type { DataPipelinePreviewBody, DataPipelineRunBody, DataPipelineRunStepBody, DataPipelineScheduleBody } from '../api/data-pipelines'
@@ -26,16 +26,27 @@ type PreviewCellDialog = {
   column: string
   value: string
 }
+type StepMetadataDialog = {
+  title: string
+  subtitle: string
+  facts: Array<{ label: string, value: string }>
+  value: string
+}
 
 const PREVIEW_CELL_TRUNCATE_LENGTH = 100
 const activeTab = ref<DataPipelinePanelTab>('preview')
 const previewCellDialog = ref<PreviewCellDialog | null>(null)
 const previewCellDialogRef = ref<HTMLDialogElement | null>(null)
+const stepMetadataDialog = ref<StepMetadataDialog | null>(null)
+const stepMetadataDialogRef = ref<HTMLDialogElement | null>(null)
 const { d, t } = useI18n()
 
 onBeforeUnmount(() => {
   if (previewCellDialogRef.value?.open) {
     previewCellDialogRef.value.close()
+  }
+  if (stepMetadataDialogRef.value?.open) {
+    stepMetadataDialogRef.value.close()
   }
 })
 
@@ -133,6 +144,101 @@ function closePreviewCellDialog() {
 
 function handlePreviewCellDialogClose() {
   previewCellDialog.value = null
+}
+
+function stringifyMetadata(value: unknown) {
+  try {
+    return JSON.stringify(value, null, 2) ?? previewCellText(value)
+  } catch {
+    return previewCellText(value)
+  }
+}
+
+function metadataValue(value: unknown) {
+  if (value === null || value === undefined || value === '') {
+    return '-'
+  }
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? String(value) : value.toFixed(4)
+  }
+  return previewCellText(value)
+}
+
+function metadataArray(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key]
+  return Array.isArray(value) ? value : []
+}
+
+function metadataFacts(step: DataPipelineRunStepBody) {
+  const metadata = step.metadata ?? {}
+  const facts: Array<{ label: string, value: string }> = [
+    { label: 'inputRows', value: metadataValue(metadata.inputRows) },
+    { label: 'outputRows', value: metadataValue(metadata.outputRows ?? step.rowCount) },
+    { label: 'warningCount', value: metadataValue(metadata.warningCount) },
+    { label: 'failedRows', value: metadataValue(metadata.failedRows) },
+  ]
+  const profile = metadataRecord(metadata, 'profile')
+  if (profile) {
+    facts.push({ label: 'profile.rows', value: metadataValue(profile.rowCount) })
+    facts.push({ label: 'profile.columns', value: metadataValue(profile.columnCount) })
+  }
+  const validation = metadataRecord(metadata, 'validation')
+  if (validation) {
+    facts.push({ label: 'validation.rules', value: metadataValue(validation.ruleCount) })
+    facts.push({ label: 'validation.errors', value: metadataValue(validation.errorCount) })
+    facts.push({ label: 'validation.warnings', value: metadataValue(validation.warningCount) })
+  }
+  const quality = metadataRecord(metadata, 'quality')
+  if (quality) {
+    facts.push({ label: 'quality.rows', value: metadataValue(quality.rowCount) })
+    facts.push({ label: 'quality.columns', value: metadataValue(quality.columnCount) })
+  }
+  const confidenceGate = metadataRecord(metadata, 'confidenceGate')
+  if (confidenceGate) {
+    facts.push({ label: 'confidenceGate.threshold', value: metadataValue(confidenceGate.threshold) })
+    facts.push({ label: 'confidenceGate.passRows', value: metadataValue(confidenceGate.passRows) })
+    facts.push({ label: 'confidenceGate.needsReviewRows', value: metadataValue(confidenceGate.needsReviewRows) })
+  }
+  const queryStats = metadataRecord(metadata, 'queryStats')
+  if (queryStats) {
+    facts.push({ label: 'queryStats.queryId', value: metadataValue(queryStats.queryId) })
+    facts.push({ label: 'queryStats.elapsedMs', value: metadataValue(queryStats.elapsedMs) })
+    facts.push({ label: 'queryStats.readRows', value: metadataValue(queryStats.readRows) })
+  }
+  return facts
+}
+
+function hasStepMetadata(step: DataPipelineRunStepBody) {
+  return Object.keys(step.metadata ?? {}).length > 0
+}
+
+async function openStepMetadataDialog(step: DataPipelineRunStepBody) {
+  const metadata = step.metadata ?? {}
+  stepMetadataDialog.value = {
+    title: `${stepLabel(step.stepType)}: ${step.nodeId}`,
+    subtitle: stepMetadataSummary(step),
+    facts: metadataFacts(step),
+    value: stringifyMetadata({
+      ...metadata,
+      warnings: metadataArray(metadata, 'warnings'),
+    }),
+  }
+  await nextTick()
+  if (!stepMetadataDialogRef.value?.open) {
+    stepMetadataDialogRef.value?.showModal()
+  }
+}
+
+function closeStepMetadataDialog() {
+  if (stepMetadataDialogRef.value?.open) {
+    stepMetadataDialogRef.value.close()
+    return
+  }
+  stepMetadataDialog.value = null
+}
+
+function handleStepMetadataDialogClose() {
+  stepMetadataDialog.value = null
 }
 
 function formatDate(value?: string | null) {
@@ -362,7 +468,18 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
                 <td class="cell-subtle">{{ stepMetadataSummary(step) }}</td>
                 <td>{{ step.rowCount }}</td>
                 <td>{{ formatDate(step.completedAt || step.updatedAt) }}</td>
-                <td>{{ step.errorSummary || '-' }}</td>
+                <td>
+                  <span>{{ step.errorSummary || '-' }}</span>
+                  <button
+                    v-if="hasStepMetadata(step)"
+                    class="icon-button"
+                    type="button"
+                    :aria-label="t('dataPipelines.stepMetadataDetails')"
+                    @click="openStepMetadataDialog(step)"
+                  >
+                    <Info :size="15" stroke-width="1.9" aria-hidden="true" />
+                  </button>
+                </td>
               </tr>
             </template>
             <tr v-if="runs.length === 0">
@@ -420,6 +537,36 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
 
         <div class="action-row">
           <button class="secondary-button" type="button" autofocus @click="closePreviewCellDialog">
+            {{ t('common.close') }}
+          </button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog
+      ref="stepMetadataDialogRef"
+      class="confirm-dialog data-pipeline-cell-dialog"
+      @close="handleStepMetadataDialogClose"
+      @cancel.prevent="closeStepMetadataDialog"
+    >
+      <div class="confirm-dialog-panel data-pipeline-cell-dialog-panel">
+        <div class="stack">
+          <span class="status-pill">{{ t('dataPipelines.stepMetadata') }}</span>
+          <h2>{{ stepMetadataDialog?.title }}</h2>
+          <p class="cell-subtle">{{ stepMetadataDialog?.subtitle }}</p>
+        </div>
+
+        <dl class="metadata-grid compact">
+          <div v-for="fact in stepMetadataDialog?.facts ?? []" :key="fact.label">
+            <dt>{{ fact.label }}</dt>
+            <dd>{{ fact.value }}</dd>
+          </div>
+        </dl>
+
+        <pre class="data-pipeline-cell-dialog-value">{{ stepMetadataDialog?.value }}</pre>
+
+        <div class="action-row">
+          <button class="secondary-button" type="button" autofocus @click="closeStepMetadataDialog">
             {{ t('common.close') }}
           </button>
         </div>

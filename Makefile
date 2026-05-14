@@ -96,7 +96,7 @@ db-down:
 # Prefer Homebrew postgresql@18's psql-18 when on PATH; override with make psql PSQL=psql
 PSQL ?= $(shell command -v psql-18 2>/dev/null || command -v psql 2>/dev/null || echo psql)
 
-.PHONY: psql sql seed-schema-mapping-columns validate-vector-rag-eval eval-vector-rag-retrieval smoke-data-pipeline smoke-lmstudio-vector-api smoke-lmstudio-drive-rag air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check clickhouse-wait
+.PHONY: psql sql seed-schema-mapping-columns validate-vector-rag-eval eval-vector-rag-retrieval smoke-data-pipeline smoke-data-pipeline-json smoke-data-pipeline-excel smoke-data-pipeline-text smoke-data-pipeline-suite smoke-lmstudio-vector-api smoke-lmstudio-drive-rag air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check clickhouse-wait
 psql:
 	$(export-env) && $(PSQL) "$$DATABASE_URL" $(ARGS)
 
@@ -125,6 +125,18 @@ smoke-lmstudio-drive-rag:
 
 smoke-data-pipeline:
 	node scripts/smoke-data-pipeline.mjs
+
+smoke-data-pipeline-json:
+	node scripts/smoke-data-pipeline.mjs json
+
+smoke-data-pipeline-excel:
+	node scripts/smoke-data-pipeline.mjs excel
+
+smoke-data-pipeline-text:
+	node scripts/smoke-data-pipeline.mjs text
+
+smoke-data-pipeline-suite:
+	node scripts/smoke-data-pipeline.mjs suite
 
 sqlc:
 	cd backend && sqlc generate

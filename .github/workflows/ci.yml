@@ -68,6 +68,7 @@ jobs:
         run: |
           bash -n scripts/smoke-operability.sh
           bash -n scripts/e2e-single-binary.sh
+          node --check scripts/smoke-data-pipeline.mjs
 
       - name: Frontend build
         run: npm --prefix frontend run build
