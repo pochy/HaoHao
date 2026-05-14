@@ -3,11 +3,12 @@ import { nextTick, onBeforeUnmount, ref } from 'vue'
 import { Info, Search, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import type { DataPipelinePreviewBody, DataPipelineRunBody, DataPipelineRunStepBody, DataPipelineScheduleBody } from '../api/data-pipelines'
+import type { DataPipelinePreviewBody, DataPipelineReviewItemBody, DataPipelineRunBody, DataPipelineRunStepBody, DataPipelineScheduleBody } from '../api/data-pipelines'
 
 const props = defineProps<{
   preview: DataPipelinePreviewBody | null
   runs: DataPipelineRunBody[]
+  reviewItems: DataPipelineReviewItemBody[]
   schedules: DataPipelineScheduleBody[]
   loading?: boolean
   actionLoading?: boolean
@@ -21,7 +22,7 @@ const emit = defineEmits<{
   disableSchedule: [publicId: string]
 }>()
 
-type DataPipelinePanelTab = 'preview' | 'runs' | 'schedules'
+type DataPipelinePanelTab = 'preview' | 'runs' | 'reviews' | 'schedules'
 type PreviewCellDialog = {
   column: string
   value: string
@@ -271,6 +272,14 @@ function runSteps(run: DataPipelineRunBody) {
   return run.steps?.length ? run.steps : []
 }
 
+function reviewReasonLabel(item: DataPipelineReviewItemBody) {
+  const reason = item.reason?.[0]
+  if (!reason) return '-'
+  const column = previewCellText(reason.column)
+  const value = previewCellText(reason.value)
+  return value && value !== '-' ? `${column}: ${value}` : column
+}
+
 function stepLabel(stepType: string) {
   const key = `dataPipelines.step.${stepType}`
   const translated = t(key)
@@ -351,7 +360,7 @@ function scheduleFrequencyLabel(frequency: string) {
   }
 }
 
-const knownStatusValues = new Set(['pending', 'processing', 'completed', 'failed', 'ready', 'created', 'active', 'disabled', 'published', 'archived'])
+const knownStatusValues = new Set(['pending', 'processing', 'completed', 'failed', 'ready', 'created', 'active', 'disabled', 'published', 'archived', 'open', 'approved', 'rejected', 'needs_changes', 'closed'])
 const knownTriggerKinds = new Set(['manual', 'scheduled'])
 </script>
 
@@ -377,6 +386,16 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
         >
           {{ t('dataPipelines.runs') }}
           <span>{{ runs.length }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'reviews'"
+          :class="{ active: activeTab === 'reviews' }"
+          @click="activeTab = 'reviews'"
+        >
+          {{ t('dataPipelines.reviewItems') }}
+          <span>{{ reviewItems.length }}</span>
         </button>
         <button
           type="button"
@@ -496,6 +515,34 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
             </template>
             <tr v-if="runs.length === 0">
               <td colspan="6">{{ t('dataPipelines.noRuns') }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div v-else-if="activeTab === 'reviews'" class="data-pipeline-panel-section" role="tabpanel">
+      <div class="compact-table">
+        <table>
+          <thead>
+            <tr>
+              <th>{{ t('dataPipelines.status') }}</th>
+              <th>{{ t('dataPipelines.node') }}</th>
+              <th>{{ t('dataPipelines.queue') }}</th>
+              <th>{{ t('dataPipelines.reason') }}</th>
+              <th>{{ t('dataPipelines.created') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in reviewItems" :key="item.publicId">
+              <td><span class="status-pill" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span></td>
+              <td>{{ item.nodeId }}</td>
+              <td>{{ item.queue }}</td>
+              <td>{{ reviewReasonLabel(item) }}</td>
+              <td>{{ formatDate(item.createdAt) }}</td>
+            </tr>
+            <tr v-if="reviewItems.length === 0">
+              <td colspan="5">{{ t('dataPipelines.noReviewItems') }}</td>
             </tr>
           </tbody>
         </table>

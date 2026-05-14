@@ -7,6 +7,7 @@ import {
   createDataPipelineSchedule,
   disableDataPipelineSchedule,
   fetchDataPipeline,
+  fetchDataPipelineReviewItems,
   fetchDataPipelineRuns,
   fetchDataPipelines,
   isDataPipelineAutoPreviewEnabled,
@@ -22,6 +23,7 @@ import {
   type DataPipelineGraph,
   type DataPipelineListParams,
   type DataPipelinePreviewBody,
+  type DataPipelineReviewItemBody,
   type DataPipelineRunBody,
   type DataPipelineScheduleBody,
   type DataPipelineScheduleWriteBody,
@@ -51,6 +53,7 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
     previewByNodeId: {} as Record<string, DataPipelinePreviewCacheEntry>,
     pendingPreviewKeys: {} as Record<string, true>,
     runs: [] as DataPipelineRunBody[],
+    reviewItems: [] as DataPipelineReviewItemBody[],
     schedules: [] as DataPipelineScheduleBody[],
     actionLoading: false,
     previewLoading: false,
@@ -101,6 +104,7 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
       this.previewByNodeId = {}
       this.pendingPreviewKeys = {}
       this.runs = []
+      this.reviewItems = []
       this.schedules = []
       this.errorMessage = ''
       this.actionMessage = ''
@@ -147,6 +151,7 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
       try {
         this.detail = await fetchDataPipeline(publicId)
         this.runs = this.detail.runs ?? []
+        this.reviewItems = await fetchDataPipelineReviewItems(publicId, { status: 'open', limit: 25 })
         this.schedules = this.detail.schedules ?? []
         this.draftGraph = cloneGraph(this.detail.versions?.[0]?.graph ?? defaultDataPipelineGraph())
         this.selectedNodeId = this.draftGraph.nodes.some((node) => node.id === selectedNodeId)
@@ -353,6 +358,7 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
       this.errorMessage = ''
       try {
         this.runs = await fetchDataPipelineRuns(this.selectedPublicId)
+        this.reviewItems = await fetchDataPipelineReviewItems(this.selectedPublicId, { status: 'open', limit: 25 })
         this.actionMessage = dataPipelineText('messages.runsRefreshed')
       } catch (error) {
         this.errorMessage = toApiErrorMessage(error)

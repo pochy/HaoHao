@@ -23,10 +23,11 @@ import (
 const dataPipelineDriveFileSource = "drive_file"
 
 type dataPipelineMaterializedRelation struct {
-	Database string
-	Table    string
-	Columns  []string
-	Metadata map[string]any
+	Database    string
+	Table       string
+	Columns     []string
+	Metadata    map[string]any
+	ReviewItems []dataPipelineReviewItemDraft
 }
 
 type dataPipelineHybridResult struct {
@@ -282,10 +283,11 @@ func (s *DataPipelineService) executeHybridGraph(ctx context.Context, tenantID i
 			}
 		}
 		nodeResults[node.ID] = dataPipelineRunNodeResult{
-			NodeID:   node.ID,
-			StepType: node.Data.StepType,
-			RowCount: rowCount,
-			Metadata: metadata,
+			NodeID:      node.ID,
+			StepType:    node.Data.StepType,
+			RowCount:    rowCount,
+			Metadata:    metadata,
+			ReviewItems: relation.ReviewItems,
 		}
 		relations[node.ID] = relation
 		tables = append(tables, table)
@@ -1147,8 +1149,13 @@ func (s *DataPipelineService) materializeHumanReview(ctx context.Context, conn d
 	}
 	statusCol := firstNonEmpty(dataPipelineString(node.Data.Config, "statusColumn"), "review_status")
 	queueCol := firstNonEmpty(dataPipelineString(node.Data.Config, "queueColumn"), "review_queue")
+	queue := firstNonEmpty(dataPipelineString(node.Data.Config, "queue"), "default")
+	createReviewItems := dataPipelineBool(node.Data.Config, "createReviewItems", false)
+	reviewItemLimit := dataPipelineReviewItemLimit(node.Data.Config)
 	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), statusCol, queueCol, "review_reason_json"))
 	out := make([]map[string]any, 0, len(rows))
+	reviewItems := make([]dataPipelineReviewItemDraft, 0)
+	reviewItemOverflow := 0
 	for _, row := range rows {
 		next := cloneRow(row)
 		reasons := reviewReasons(row, reasonColumns)
@@ -1157,8 +1164,21 @@ func (s *DataPipelineService) materializeHumanReview(ctx context.Context, conn d
 			status = "needs_review"
 		}
 		next[statusCol] = status
-		next[queueCol] = firstNonEmpty(dataPipelineString(node.Data.Config, "queue"), "default")
+		next[queueCol] = queue
 		next["review_reason_json"] = jsonString(reasons)
+		if createReviewItems && status == "needs_review" {
+			if len(reviewItems) < reviewItemLimit {
+				reviewItems = append(reviewItems, dataPipelineReviewItemDraft{
+					NodeID:            node.ID,
+					Queue:             queue,
+					Reason:            reasons,
+					SourceSnapshot:    cloneRow(row),
+					SourceFingerprint: dataPipelineReviewSourceFingerprint(node.ID, row),
+				})
+			} else {
+				reviewItemOverflow++
+			}
+		}
 		if dataPipelineString(node.Data.Config, "mode") != "filter_review" || status == "needs_review" {
 			out = append(out, next)
 		}
@@ -1166,7 +1186,15 @@ func (s *DataPipelineService) materializeHumanReview(ctx context.Context, conn d
 	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
 		return dataPipelineMaterializedRelation{}, err
 	}
-	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns}, nil
+	metadata := map[string]any{}
+	if createReviewItems {
+		metadata["reviewItemCount"] = len(reviewItems)
+		if reviewItemOverflow > 0 {
+			metadata["reviewItemOverflowCount"] = reviewItemOverflow
+			metadata["warnings"] = []string{"review_item_limit_exceeded"}
+		}
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata, ReviewItems: reviewItems}, nil
 }
 
 func (s *DataPipelineService) materializeSampleCompare(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
@@ -1556,6 +1584,32 @@ func dataPipelineCompositeKey(row map[string]any, columns []string) string {
 func shortHash(value string) string {
 	sum := sha1.Sum([]byte(value))
 	return hex.EncodeToString(sum[:])[:12]
+}
+
+func dataPipelineReviewItemLimit(config map[string]any) int {
+	limit := 1000
+	raw := dataPipelineString(config, "reviewItemLimit")
+	if raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = parsed
+		}
+	}
+	if limit <= 0 {
+		return 0
+	}
+	if limit > 10000 {
+		return 10000
+	}
+	return limit
+}
+
+func dataPipelineReviewSourceFingerprint(nodeID string, row map[string]any) string {
+	payload, err := json.Marshal(row)
+	if err != nil {
+		return shortHash(nodeID + ":" + fmt.Sprint(row))
+	}
+	sum := sha1.Sum(append([]byte(nodeID+":"), payload...))
+	return hex.EncodeToString(sum[:])
 }
 
 func canonicalizeValue(value string, operations []string, mappings map[string]string) string {

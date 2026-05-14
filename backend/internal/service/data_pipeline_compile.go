@@ -43,10 +43,11 @@ type dataPipelineRunOutputResult struct {
 }
 
 type dataPipelineRunNodeResult struct {
-	NodeID   string
-	StepType string
-	RowCount int64
-	Metadata map[string]any
+	NodeID      string
+	StepType    string
+	RowCount    int64
+	Metadata    map[string]any
+	ReviewItems []dataPipelineReviewItemDraft
 }
 
 type dataPipelineRelation struct {

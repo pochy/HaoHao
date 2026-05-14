@@ -24,6 +24,7 @@ var (
 	ErrDataPipelineVersionNotFound    = errors.New("data pipeline version not found")
 	ErrDataPipelineRunNotFound        = errors.New("data pipeline run not found")
 	ErrDataPipelineScheduleNotFound   = errors.New("data pipeline schedule not found")
+	ErrDataPipelineReviewItemNotFound = errors.New("data pipeline review item not found")
 	ErrInvalidDataPipelineInput       = errors.New("invalid data pipeline input")
 	ErrInvalidDataPipelineGraph       = errors.New("invalid data pipeline graph")
 	ErrDataPipelineVersionUnpublished = errors.New("data pipeline version is not published")
@@ -186,6 +187,57 @@ type DataPipelinePreview struct {
 	StepType    string
 	Columns     []string
 	PreviewRows []map[string]any
+}
+
+type DataPipelineReviewItem struct {
+	ID                int64
+	PublicID          string
+	TenantID          int64
+	PipelineID        int64
+	VersionID         int64
+	RunID             int64
+	NodeID            string
+	Queue             string
+	Status            string
+	Reason            []map[string]any
+	SourceSnapshot    map[string]any
+	SourceFingerprint string
+	CreatedByUserID   *int64
+	UpdatedByUserID   *int64
+	AssignedToUserID  *int64
+	DecisionComment   string
+	DecidedAt         *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	Comments          []DataPipelineReviewItemComment
+}
+
+type DataPipelineReviewItemComment struct {
+	ID           int64
+	PublicID     string
+	TenantID     int64
+	ReviewItemID int64
+	AuthorUserID *int64
+	Body         string
+	CreatedAt    time.Time
+}
+
+type DataPipelineReviewItemListInput struct {
+	Status string
+	Limit  int32
+}
+
+type DataPipelineReviewItemTransitionInput struct {
+	Status  string
+	Comment string
+}
+
+type dataPipelineReviewItemDraft struct {
+	NodeID            string
+	Queue             string
+	Reason            []map[string]any
+	SourceSnapshot    map[string]any
+	SourceFingerprint string
 }
 
 type DataPipelineSchemaMappingCandidateInput struct {
@@ -1381,6 +1433,111 @@ func (s *DataPipelineService) ListRuns(ctx context.Context, tenantID int64, pipe
 	return items, nil
 }
 
+func (s *DataPipelineService) ListReviewItems(ctx context.Context, tenantID int64, pipelinePublicID string, input DataPipelineReviewItemListInput) ([]DataPipelineReviewItem, error) {
+	pipeline, err := s.getPipelineRow(ctx, tenantID, pipelinePublicID)
+	if err != nil {
+		return nil, err
+	}
+	limit := input.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 25
+	}
+	var status pgtype.Text
+	if input.Status != "" {
+		status = pgtype.Text{String: input.Status, Valid: true}
+	}
+	rows, err := s.queries.ListDataPipelineReviewItems(ctx, db.ListDataPipelineReviewItemsParams{
+		TenantID:         tenantID,
+		PipelinePublicID: pipeline.PublicID,
+		Status:           status,
+		ResultLimit:      limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list data pipeline review items: %w", err)
+	}
+	items := make([]DataPipelineReviewItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, dataPipelineReviewItemFromDB(row))
+	}
+	return items, nil
+}
+
+func (s *DataPipelineService) GetReviewItem(ctx context.Context, tenantID int64, publicID string) (DataPipelineReviewItem, error) {
+	row, err := s.getReviewItemRow(ctx, tenantID, publicID)
+	if err != nil {
+		return DataPipelineReviewItem{}, err
+	}
+	item := dataPipelineReviewItemFromDB(row)
+	comments, err := s.listReviewItemComments(ctx, tenantID, row.ID)
+	if err != nil {
+		return DataPipelineReviewItem{}, err
+	}
+	item.Comments = comments
+	return item, nil
+}
+
+func (s *DataPipelineService) TransitionReviewItem(ctx context.Context, tenantID, actorUserID int64, publicID string, input DataPipelineReviewItemTransitionInput, auditCtx AuditContext) (DataPipelineReviewItem, error) {
+	status := strings.TrimSpace(input.Status)
+	if !dataPipelineReviewItemStatusAllowed(status) {
+		return DataPipelineReviewItem{}, fmt.Errorf("%w: unsupported review item status", ErrInvalidDataPipelineInput)
+	}
+	comment := strings.TrimSpace(input.Comment)
+	rowID, err := uuid.Parse(publicID)
+	if err != nil {
+		return DataPipelineReviewItem{}, ErrDataPipelineReviewItemNotFound
+	}
+	row, err := s.queries.TransitionDataPipelineReviewItem(ctx, db.TransitionDataPipelineReviewItemParams{
+		TenantID:        tenantID,
+		PublicID:        rowID,
+		Status:          status,
+		DecisionComment: comment,
+		UpdatedByUserID: pgtype.Int8{Int64: actorUserID, Valid: actorUserID > 0},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DataPipelineReviewItem{}, ErrDataPipelineReviewItemNotFound
+	}
+	if err != nil {
+		return DataPipelineReviewItem{}, fmt.Errorf("transition data pipeline review item: %w", err)
+	}
+	if comment != "" {
+		if _, err := s.queries.CreateDataPipelineReviewItemComment(ctx, db.CreateDataPipelineReviewItemCommentParams{
+			TenantID:     tenantID,
+			ReviewItemID: row.ID,
+			AuthorUserID: pgtype.Int8{Int64: actorUserID, Valid: actorUserID > 0},
+			Body:         comment,
+		}); err != nil {
+			return DataPipelineReviewItem{}, fmt.Errorf("comment data pipeline review item: %w", err)
+		}
+	}
+	item := dataPipelineReviewItemFromDB(row)
+	item.Comments, _ = s.listReviewItemComments(ctx, tenantID, row.ID)
+	s.recordAudit(ctx, auditCtx, "data_pipeline.review_item.transition", "data_pipeline_review_item", item.PublicID, map[string]any{"status": status})
+	return item, nil
+}
+
+func (s *DataPipelineService) CreateReviewItemComment(ctx context.Context, tenantID, actorUserID int64, publicID, body string, auditCtx AuditContext) (DataPipelineReviewItemComment, error) {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return DataPipelineReviewItemComment{}, fmt.Errorf("%w: review item comment is required", ErrInvalidDataPipelineInput)
+	}
+	item, err := s.getReviewItemRow(ctx, tenantID, publicID)
+	if err != nil {
+		return DataPipelineReviewItemComment{}, err
+	}
+	row, err := s.queries.CreateDataPipelineReviewItemComment(ctx, db.CreateDataPipelineReviewItemCommentParams{
+		TenantID:     tenantID,
+		ReviewItemID: item.ID,
+		AuthorUserID: pgtype.Int8{Int64: actorUserID, Valid: actorUserID > 0},
+		Body:         body,
+	})
+	if err != nil {
+		return DataPipelineReviewItemComment{}, fmt.Errorf("create data pipeline review item comment: %w", err)
+	}
+	comment := dataPipelineReviewItemCommentFromDB(row)
+	s.recordAudit(ctx, auditCtx, "data_pipeline.review_item.comment", "data_pipeline_review_item", publicID, map[string]any{"commentPublicID": comment.PublicID})
+	return comment, nil
+}
+
 func (s *DataPipelineService) CreateSchedule(ctx context.Context, tenantID, userID int64, pipelinePublicID string, input DataPipelineScheduleInput, auditCtx AuditContext) (DataPipelineSchedule, error) {
 	pipeline, err := s.getPipelineRow(ctx, tenantID, pipelinePublicID)
 	if err != nil {
@@ -1633,6 +1790,12 @@ func (s *DataPipelineService) HandleRunRequested(ctx context.Context, tenantID, 
 			nodeResults[nodeID] = nodeResult
 		}
 	}
+	if len(failures) == 0 {
+		if err := s.persistDataPipelineReviewItems(ctx, tenantID, run, version, nodeResults); err != nil {
+			s.failRunBestEffort(ctx, tenantID, runID, err.Error())
+			return fmt.Errorf("persist data pipeline review items: %w", err)
+		}
+	}
 	for _, node := range graph.Nodes {
 		if len(failures) > 0 {
 			errorSample, _ := encodeDataPipelineJSON([]map[string]any{{"error": strings.Join(failures, "; ")}})
@@ -1881,6 +2044,70 @@ func (s *DataPipelineService) getScheduleRow(ctx context.Context, tenantID int64
 		return db.DataPipelineSchedule{}, fmt.Errorf("get data pipeline schedule: %w", err)
 	}
 	return row, nil
+}
+
+func (s *DataPipelineService) getReviewItemRow(ctx context.Context, tenantID int64, publicID string) (db.DataPipelineReviewItem, error) {
+	parsed, err := uuid.Parse(strings.TrimSpace(publicID))
+	if err != nil {
+		return db.DataPipelineReviewItem{}, ErrDataPipelineReviewItemNotFound
+	}
+	row, err := s.queries.GetDataPipelineReviewItemForTenant(ctx, db.GetDataPipelineReviewItemForTenantParams{TenantID: tenantID, PublicID: parsed})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.DataPipelineReviewItem{}, ErrDataPipelineReviewItemNotFound
+	}
+	if err != nil {
+		return db.DataPipelineReviewItem{}, fmt.Errorf("get data pipeline review item: %w", err)
+	}
+	return row, nil
+}
+
+func (s *DataPipelineService) listReviewItemComments(ctx context.Context, tenantID, reviewItemID int64) ([]DataPipelineReviewItemComment, error) {
+	rows, err := s.queries.ListDataPipelineReviewItemComments(ctx, db.ListDataPipelineReviewItemCommentsParams{TenantID: tenantID, ReviewItemID: reviewItemID})
+	if err != nil {
+		return nil, fmt.Errorf("list data pipeline review item comments: %w", err)
+	}
+	items := make([]DataPipelineReviewItemComment, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, dataPipelineReviewItemCommentFromDB(row))
+	}
+	return items, nil
+}
+
+func (s *DataPipelineService) persistDataPipelineReviewItems(ctx context.Context, tenantID int64, run db.DataPipelineRun, version db.DataPipelineVersion, nodeResults map[string]dataPipelineRunNodeResult) error {
+	for _, nodeResult := range nodeResults {
+		for _, draft := range nodeResult.ReviewItems {
+			reason, err := encodeDataPipelineJSON(draft.Reason)
+			if err != nil {
+				return err
+			}
+			snapshot, err := encodeDataPipelineJSON(draft.SourceSnapshot)
+			if err != nil {
+				return err
+			}
+			nodeID := firstNonEmpty(draft.NodeID, nodeResult.NodeID)
+			fingerprint := strings.TrimSpace(draft.SourceFingerprint)
+			if fingerprint == "" {
+				fingerprint = shortHash(nodeID + ":" + string(snapshot))
+			}
+			_, err = s.queries.UpsertDataPipelineReviewItem(ctx, db.UpsertDataPipelineReviewItemParams{
+				TenantID:          tenantID,
+				PipelineID:        version.PipelineID,
+				VersionID:         version.ID,
+				RunID:             run.ID,
+				NodeID:            nodeID,
+				Queue:             firstNonEmpty(draft.Queue, "default"),
+				Reason:            reason,
+				SourceSnapshot:    snapshot,
+				SourceFingerprint: fingerprint,
+				CreatedByUserID:   run.RequestedByUserID,
+				UpdatedByUserID:   run.RequestedByUserID,
+			})
+			if err != nil {
+				return fmt.Errorf("upsert data pipeline review item %s: %w", nodeID, err)
+			}
+		}
+	}
+	return nil
 }
 
 func (s *DataPipelineService) failRunBestEffort(ctx context.Context, tenantID, runID int64, message string) {
@@ -2286,6 +2513,56 @@ func dataPipelineRunStepFromDB(row db.DataPipelineRunStep) DataPipelineRunStep {
 		CompletedAt:  optionalPgTime(row.CompletedAt),
 		CreatedAt:    row.CreatedAt.Time,
 		UpdatedAt:    row.UpdatedAt.Time,
+	}
+}
+
+func dataPipelineReviewItemFromDB(row db.DataPipelineReviewItem) DataPipelineReviewItem {
+	var reason []map[string]any
+	_ = json.Unmarshal(row.Reason, &reason)
+	if reason == nil {
+		reason = []map[string]any{}
+	}
+	return DataPipelineReviewItem{
+		ID:                row.ID,
+		PublicID:          row.PublicID.String(),
+		TenantID:          row.TenantID,
+		PipelineID:        row.PipelineID,
+		VersionID:         row.VersionID,
+		RunID:             row.RunID,
+		NodeID:            row.NodeID,
+		Queue:             row.Queue,
+		Status:            row.Status,
+		Reason:            reason,
+		SourceSnapshot:    decodeDataPipelineJSONMap(row.SourceSnapshot),
+		SourceFingerprint: row.SourceFingerprint,
+		CreatedByUserID:   optionalPgInt8(row.CreatedByUserID),
+		UpdatedByUserID:   optionalPgInt8(row.UpdatedByUserID),
+		AssignedToUserID:  optionalPgInt8(row.AssignedToUserID),
+		DecisionComment:   row.DecisionComment,
+		DecidedAt:         optionalPgTime(row.DecidedAt),
+		CreatedAt:         row.CreatedAt.Time,
+		UpdatedAt:         row.UpdatedAt.Time,
+	}
+}
+
+func dataPipelineReviewItemCommentFromDB(row db.DataPipelineReviewItemComment) DataPipelineReviewItemComment {
+	return DataPipelineReviewItemComment{
+		ID:           row.ID,
+		PublicID:     row.PublicID.String(),
+		TenantID:     row.TenantID,
+		ReviewItemID: row.ReviewItemID,
+		AuthorUserID: optionalPgInt8(row.AuthorUserID),
+		Body:         row.Body,
+		CreatedAt:    row.CreatedAt.Time,
+	}
+}
+
+func dataPipelineReviewItemStatusAllowed(status string) bool {
+	switch status {
+	case "open", "approved", "rejected", "needs_changes", "closed":
+		return true
+	default:
+		return false
 	}
 }
 

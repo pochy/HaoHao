@@ -177,6 +177,43 @@ export type DataPipelinePreviewBody = {
   previewRows: Array<Record<string, unknown>>
 }
 
+export type DataPipelineReviewCommentBody = {
+  publicId: string
+  authorUserId?: number | null
+  body: string
+  createdAt: string
+}
+
+export type DataPipelineReviewItemBody = {
+  publicId: string
+  versionId: number
+  runId: number
+  nodeId: string
+  queue: string
+  status: 'open' | 'approved' | 'rejected' | 'needs_changes' | 'closed' | string
+  reason: Array<Record<string, unknown>>
+  sourceSnapshot: Record<string, unknown>
+  sourceFingerprint: string
+  createdByUserId?: number | null
+  updatedByUserId?: number | null
+  assignedToUserId?: number | null
+  decisionComment?: string
+  decidedAt?: string | null
+  createdAt: string
+  updatedAt: string
+  comments?: DataPipelineReviewCommentBody[]
+}
+
+export type DataPipelineReviewItemListParams = {
+  status?: string
+  limit?: number
+}
+
+export type DataPipelineReviewItemTransitionBody = {
+  status: 'open' | 'approved' | 'rejected' | 'needs_changes' | 'closed'
+  comment?: string
+}
+
 export type DataPipelineScheduleWriteBody = {
   frequency?: 'daily' | 'weekly' | 'monthly'
   timezone?: string
@@ -532,6 +569,35 @@ export async function createDataPipelineRun(versionPublicId: string): Promise<Da
 export async function fetchDataPipelineRuns(publicId: string): Promise<DataPipelineRunBody[]> {
   const data = await request<{ items?: DataPipelineRunBody[] }>(`/api/v1/data-pipelines/${encodeURIComponent(publicId)}/runs?limit=25`)
   return data.items ?? []
+}
+
+export async function fetchDataPipelineReviewItems(publicId: string, params: DataPipelineReviewItemListParams = {}): Promise<DataPipelineReviewItemBody[]> {
+  const search = new URLSearchParams()
+  if (params.status) search.set('status', params.status)
+  if (params.limit) search.set('limit', String(params.limit))
+  const query = search.toString()
+  const data = await request<{ items?: DataPipelineReviewItemBody[] }>(`/api/v1/data-pipelines/${encodeURIComponent(publicId)}/review-items${query ? `?${query}` : ''}`)
+  return data.items ?? []
+}
+
+export async function fetchDataPipelineReviewItem(publicId: string): Promise<DataPipelineReviewItemBody> {
+  return request<DataPipelineReviewItemBody>(`/api/v1/data-pipeline-review-items/${encodeURIComponent(publicId)}`)
+}
+
+export async function transitionDataPipelineReviewItem(publicId: string, body: DataPipelineReviewItemTransitionBody): Promise<DataPipelineReviewItemBody> {
+  return request<DataPipelineReviewItemBody>(`/api/v1/data-pipeline-review-items/${encodeURIComponent(publicId)}/transition`, {
+    method: 'POST',
+    headers: csrfHeaders(),
+    body: JSON.stringify(body),
+  })
+}
+
+export async function commentDataPipelineReviewItem(publicId: string, body: string): Promise<DataPipelineReviewCommentBody> {
+  return request<DataPipelineReviewCommentBody>(`/api/v1/data-pipeline-review-items/${encodeURIComponent(publicId)}/comments`, {
+    method: 'POST',
+    headers: csrfHeaders(),
+    body: JSON.stringify({ body }),
+  })
 }
 
 export async function createDataPipelineSchedule(publicId: string, body: DataPipelineScheduleWriteBody): Promise<DataPipelineScheduleBody> {

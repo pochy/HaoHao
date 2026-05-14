@@ -668,6 +668,7 @@ async function applySettings() {
             <DataPipelinePreviewPanel
               :preview="store.selectedPreview"
               :runs="store.runs"
+              :review-items="store.reviewItems"
               :schedules="store.schedules"
               :loading="store.selectedPreviewLoading"
               :action-loading="store.actionLoading"
@@ -710,6 +711,7 @@ async function applySettings() {
           <DataPipelinePreviewPanel
             :preview="store.selectedPreview"
             :runs="store.runs"
+            :review-items="store.reviewItems"
             :schedules="store.schedules"
             :loading="store.selectedPreviewLoading"
             :action-loading="store.actionLoading"

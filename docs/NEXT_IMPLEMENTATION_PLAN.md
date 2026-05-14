@@ -165,7 +165,7 @@ Local Search / RAG:
 - `quality_report` や `confidence_gate` は hybrid path で行データ列を追加し、run step metadata summary も保存します。
 - `HandleRunRequested` は node ごとの実測 metadata を step completion に渡す実装へ進んでいます。
 - join / enrich_join は行数爆発、未マッチ、key null、列衝突などの warning を UI で十分説明できていません。
-- `human_review` は注釈列の段階で、本格的な review queue ではありません。
+- `human_review` は `createReviewItems=true` の場合に永続 review item を作成できるようになりました。ただし、Drive / OCR / extraction から低信頼 reason を自動接続する導線はまだ限定的です。
 - `quarantine` v1 は実装済みです。`union`、`route_by_condition`、`partition_filter`、`watermark_filter`、`snapshot_scd2` はまだ実装されていません。
 
 次に着手すべき理由:
@@ -352,14 +352,14 @@ AI coding / agent 改善を触る場合:
 
 - `quality_report` と `confidence_gate` の metadata 保存を強化する。
 - `quarantine` node を追加し、失敗行・低信頼行を通常 output と分離する。
-- `human_review` を注釈列だけでなく review item / queue の入口にする。
+- `human_review` は review item / queue の入口まで完了済み。次は Drive / OCR / extraction の低信頼結果を review queue へ接続する。
 - 低信頼 OCR / 抽出 / schema mapping の確認フローを Drive と Pipeline UI に接続する。
 
 次にやること:
 
 - `quarantine` node v1 は完了済み。
 - `confidence_gate` / `quality_report` の失敗理由 metadata 強化も完了済み。
-- 次は `human_review` を review item / queue の入口へ拡張する。
+- 次は Drive / OCR / extraction の低信頼結果を `confidence_gate` / `human_review` / review item queue へ接続する。
 
 完了条件:
 

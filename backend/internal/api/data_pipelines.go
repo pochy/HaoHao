@@ -130,6 +130,46 @@ type DataPipelinePreviewBody struct {
 	PreviewRows []map[string]any `json:"previewRows"`
 }
 
+type DataPipelineReviewItemBody struct {
+	PublicID          string                          `json:"publicId" format:"uuid"`
+	VersionID         int64                           `json:"versionId"`
+	RunID             int64                           `json:"runId"`
+	NodeID            string                          `json:"nodeId"`
+	Queue             string                          `json:"queue"`
+	Status            string                          `json:"status" enum:"open,approved,rejected,needs_changes,closed"`
+	Reason            []map[string]any                `json:"reason"`
+	SourceSnapshot    map[string]any                  `json:"sourceSnapshot"`
+	SourceFingerprint string                          `json:"sourceFingerprint"`
+	CreatedByUserID   *int64                          `json:"createdByUserId,omitempty"`
+	UpdatedByUserID   *int64                          `json:"updatedByUserId,omitempty"`
+	AssignedToUserID  *int64                          `json:"assignedToUserId,omitempty"`
+	DecisionComment   string                          `json:"decisionComment,omitempty"`
+	DecidedAt         *time.Time                      `json:"decidedAt,omitempty" format:"date-time"`
+	CreatedAt         time.Time                       `json:"createdAt" format:"date-time"`
+	UpdatedAt         time.Time                       `json:"updatedAt" format:"date-time"`
+	Comments          []DataPipelineReviewCommentBody `json:"comments,omitempty"`
+}
+
+type DataPipelineReviewCommentBody struct {
+	PublicID     string    `json:"publicId" format:"uuid"`
+	AuthorUserID *int64    `json:"authorUserId,omitempty"`
+	Body         string    `json:"body"`
+	CreatedAt    time.Time `json:"createdAt" format:"date-time"`
+}
+
+type DataPipelineReviewItemListBody struct {
+	Items []DataPipelineReviewItemBody `json:"items"`
+}
+
+type DataPipelineReviewItemTransitionBody struct {
+	Status  string `json:"status" enum:"open,approved,rejected,needs_changes,closed"`
+	Comment string `json:"comment,omitempty" maxLength:"4000"`
+}
+
+type DataPipelineReviewItemCommentWriteBody struct {
+	Body string `json:"body" maxLength:"4000"`
+}
+
 type SchemaMappingCandidateRequestBody struct {
 	PipelinePublicID string                             `json:"pipelinePublicId,omitempty" format:"uuid"`
 	VersionPublicID  string                             `json:"versionPublicId,omitempty" format:"uuid"`
@@ -252,6 +292,18 @@ type DataPipelineScheduleOutput struct {
 	Body DataPipelineScheduleBody
 }
 
+type DataPipelineReviewItemOutput struct {
+	Body DataPipelineReviewItemBody
+}
+
+type DataPipelineReviewItemListOutput struct {
+	Body DataPipelineReviewItemListBody
+}
+
+type DataPipelineReviewCommentOutput struct {
+	Body DataPipelineReviewCommentBody
+}
+
 type SchemaMappingCandidateOutput struct {
 	Body SchemaMappingCandidateListBody
 }
@@ -358,6 +410,32 @@ type DataPipelineScheduleDeleteInput struct {
 	SessionCookie    http.Cookie `cookie:"SESSION_ID"`
 	CSRFToken        string      `header:"X-CSRF-Token" required:"true"`
 	SchedulePublicID string      `path:"schedulePublicId" format:"uuid"`
+}
+
+type DataPipelineReviewItemListInput struct {
+	SessionCookie    http.Cookie `cookie:"SESSION_ID"`
+	PipelinePublicID string      `path:"pipelinePublicId" format:"uuid"`
+	Status           string      `query:"status" enum:"open,approved,rejected,needs_changes,closed"`
+	Limit            int32       `query:"limit" minimum:"1" maximum:"100" default:"25"`
+}
+
+type DataPipelineReviewItemInput struct {
+	SessionCookie      http.Cookie `cookie:"SESSION_ID"`
+	ReviewItemPublicID string      `path:"reviewItemPublicId" format:"uuid"`
+}
+
+type DataPipelineReviewItemTransitionInput struct {
+	SessionCookie      http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken          string      `header:"X-CSRF-Token" required:"true"`
+	ReviewItemPublicID string      `path:"reviewItemPublicId" format:"uuid"`
+	Body               DataPipelineReviewItemTransitionBody
+}
+
+type DataPipelineReviewItemCommentInput struct {
+	SessionCookie      http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken          string      `header:"X-CSRF-Token" required:"true"`
+	ReviewItemPublicID string      `path:"reviewItemPublicId" format:"uuid"`
+	Body               DataPipelineReviewItemCommentWriteBody
 }
 
 type SchemaMappingCandidateInput struct {
@@ -574,6 +652,61 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		return out, nil
 	})
 
+	huma.Register(api, huma.Operation{OperationID: "listDataPipelineReviewItems", Method: http.MethodGet, Path: "/api/v1/data-pipelines/{pipelinePublicId}/review-items", Summary: "data pipeline review item 一覧を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineReviewItemListInput) (*DataPipelineReviewItemListOutput, error) {
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataPipeline, input.PipelinePublicID, service.DataActionView); err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "listDataPipelineReviewItems", err)
+		}
+		items, err := deps.DataPipelineService.ListReviewItems(ctx, tenant.ID, input.PipelinePublicID, service.DataPipelineReviewItemListInput{Status: input.Status, Limit: input.Limit})
+		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "listDataPipelineReviewItems", err)
+		}
+		out := &DataPipelineReviewItemListOutput{}
+		for _, item := range items {
+			out.Body.Items = append(out.Body.Items, toDataPipelineReviewItemBody(item))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{OperationID: "getDataPipelineReviewItem", Method: http.MethodGet, Path: "/api/v1/data-pipeline-review-items/{reviewItemPublicId}", Summary: "data pipeline review item detail を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineReviewItemInput) (*DataPipelineReviewItemOutput, error) {
+		_, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		item, err := deps.DataPipelineService.GetReviewItem(ctx, tenant.ID, input.ReviewItemPublicID)
+		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "getDataPipelineReviewItem", err)
+		}
+		return &DataPipelineReviewItemOutput{Body: toDataPipelineReviewItemBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{OperationID: "transitionDataPipelineReviewItem", Method: http.MethodPost, Path: "/api/v1/data-pipeline-review-items/{reviewItemPublicId}/transition", Summary: "data pipeline review item の status を更新する", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineReviewItemTransitionInput) (*DataPipelineReviewItemOutput, error) {
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		item, err := deps.DataPipelineService.TransitionReviewItem(ctx, tenant.ID, current.User.ID, input.ReviewItemPublicID, service.DataPipelineReviewItemTransitionInput{Status: input.Body.Status, Comment: input.Body.Comment}, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "transitionDataPipelineReviewItem", err)
+		}
+		return &DataPipelineReviewItemOutput{Body: toDataPipelineReviewItemBody(item)}, nil
+	})
+
+	huma.Register(api, huma.Operation{OperationID: "commentDataPipelineReviewItem", Method: http.MethodPost, Path: "/api/v1/data-pipeline-review-items/{reviewItemPublicId}/comments", Summary: "data pipeline review item に comment を追加する", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineReviewItemCommentInput) (*DataPipelineReviewCommentOutput, error) {
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		comment, err := deps.DataPipelineService.CreateReviewItemComment(ctx, tenant.ID, current.User.ID, input.ReviewItemPublicID, input.Body.Body, sessionAuditContext(ctx, current, &tenant.ID))
+		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "commentDataPipelineReviewItem", err)
+		}
+		return &DataPipelineReviewCommentOutput{Body: toDataPipelineReviewCommentBody(comment)}, nil
+	})
+
 	huma.Register(api, huma.Operation{OperationID: "createDataPipelineRun", Method: http.MethodPost, Path: "/api/v1/data-pipeline-versions/{versionPublicId}/runs", Summary: "data pipeline manual run を request する", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineRunCreateInput) (*DataPipelineRunOutput, error) {
 		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
 		if err != nil {
@@ -746,7 +879,7 @@ func toSchemaMappingExampleBody(result service.DataPipelineSchemaMappingExample)
 
 func toDataPipelineHTTPError(ctx context.Context, deps Dependencies, operation string, err error) error {
 	switch {
-	case errors.Is(err, service.ErrDataPipelineNotFound), errors.Is(err, service.ErrDataPipelineVersionNotFound), errors.Is(err, service.ErrDataPipelineRunNotFound), errors.Is(err, service.ErrDataPipelineScheduleNotFound):
+	case errors.Is(err, service.ErrDataPipelineNotFound), errors.Is(err, service.ErrDataPipelineVersionNotFound), errors.Is(err, service.ErrDataPipelineRunNotFound), errors.Is(err, service.ErrDataPipelineScheduleNotFound), errors.Is(err, service.ErrDataPipelineReviewItemNotFound):
 		return huma.Error404NotFound(err.Error())
 	case errors.Is(err, service.ErrInvalidDataPipelineInput), errors.Is(err, service.ErrInvalidDataPipelineGraph), errors.Is(err, service.ErrInvalidCursor):
 		return huma.Error400BadRequest(err.Error())
@@ -840,6 +973,36 @@ func toDataPipelineRunBody(item service.DataPipelineRun) DataPipelineRunBody {
 		body.Outputs = append(body.Outputs, DataPipelineRunOutputBody{NodeID: output.NodeID, Status: output.Status, OutputWorkTableID: output.OutputWorkTableID, RowCount: output.RowCount, ErrorSummary: output.ErrorSummary, Metadata: output.Metadata, StartedAt: output.StartedAt, CompletedAt: output.CompletedAt, CreatedAt: output.CreatedAt, UpdatedAt: output.UpdatedAt})
 	}
 	return body
+}
+
+func toDataPipelineReviewItemBody(item service.DataPipelineReviewItem) DataPipelineReviewItemBody {
+	body := DataPipelineReviewItemBody{
+		PublicID:          item.PublicID,
+		VersionID:         item.VersionID,
+		RunID:             item.RunID,
+		NodeID:            item.NodeID,
+		Queue:             item.Queue,
+		Status:            item.Status,
+		Reason:            item.Reason,
+		SourceSnapshot:    item.SourceSnapshot,
+		SourceFingerprint: item.SourceFingerprint,
+		CreatedByUserID:   item.CreatedByUserID,
+		UpdatedByUserID:   item.UpdatedByUserID,
+		AssignedToUserID:  item.AssignedToUserID,
+		DecisionComment:   item.DecisionComment,
+		DecidedAt:         item.DecidedAt,
+		CreatedAt:         item.CreatedAt,
+		UpdatedAt:         item.UpdatedAt,
+		Comments:          make([]DataPipelineReviewCommentBody, 0, len(item.Comments)),
+	}
+	for _, comment := range item.Comments {
+		body.Comments = append(body.Comments, toDataPipelineReviewCommentBody(comment))
+	}
+	return body
+}
+
+func toDataPipelineReviewCommentBody(item service.DataPipelineReviewItemComment) DataPipelineReviewCommentBody {
+	return DataPipelineReviewCommentBody{PublicID: item.PublicID, AuthorUserID: item.AuthorUserID, Body: item.Body, CreatedAt: item.CreatedAt}
 }
 
 func toDataPipelineScheduleBody(item service.DataPipelineSchedule) DataPipelineScheduleBody {

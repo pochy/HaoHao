@@ -60,7 +60,7 @@ node --check scripts/smoke-data-pipeline.mjs
 make smoke-data-pipeline-suite
 ```
 
-Month 2 の最初の実装である `quarantine` node v1 は 2026-05-14 に実装済みです。`validate` / `confidence_gate` の失敗行や低信頼行を通常 output から分離し、別 Work table として確認できる入口ができました。`confidence_gate` / `quality_report` の失敗理由 metadata 強化も完了済みです。次は `human_review` の review item / queue 化に進みます。
+Month 2 の `quarantine` node v1、`confidence_gate` / `quality_report` の失敗理由 metadata 強化、`human_review` の review item / queue 化は 2026-05-14 に実装済みです。`human_review(createReviewItems=true)` により、低信頼行を永続 review item として作成し、Data Pipeline detail の Reviews tab から確認できる入口ができました。次は Drive / OCR / extraction の低信頼結果をこの review queue へ接続します。
 
 ## 調査結果
 
@@ -284,7 +284,7 @@ node 固有 summary:
 
 - `quality_report`: `quality_report` 関数の結果を `metadata.quality` に入れる。
 - `confidence_gate`: threshold、scoreColumns、pass / needs_review 件数、最低 score、平均 scoreを `metadata.confidenceGate` に入れる。
-- `human_review`: review 対象件数、queue 名、理由 column を入れる。
+- `human_review`: review 対象件数、queue 名、理由 column、永続 review item を入れる。
 - `schema_inference`: field count、confidence、推定 column summary を入れる。
 
 v1 では ClickHouse 行データ列の互換性を維持します。既存の `quality_report_json`、`missing_rate_json`、`validation_summary_json`、`gate_score`、`gate_status` は削除しません。
@@ -448,7 +448,7 @@ UI v1:
 詳細計画: `docs/DATA_PIPELINE_MONTH2_RELIABLE_FAILURE_HANDLING_PLAN.md`
 
 - `quality_report` と `confidence_gate` の metadata 保存を強化する。
-- `human_review` を review item / queue の入口へ拡張する。
+- Drive / OCR / extraction の低信頼結果を `confidence_gate` / `human_review` / review item queue へ接続する。
 - `quarantine` node を追加し、低品質行や低信頼行を通常 output と分離する。
 
 完了条件:

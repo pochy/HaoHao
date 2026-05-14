@@ -273,6 +273,35 @@ function quarantineGraph(filePublicId, suffix) {
   }
 }
 
+function reviewGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive text', 60, 180, {
+        sourceKind: 'drive_file',
+        filePublicIds: [filePublicId],
+      }),
+      node('extract_text', 'extract_text', 'Extract text', 320, 180, {
+        chunkMode: 'full_text',
+      }),
+      node('quality_report', 'quality_report', 'Quality report', 580, 180, {
+        columns: ['text', 'confidence'],
+      }),
+      node('confidence_gate', 'confidence_gate', 'Confidence gate', 840, 180, {
+        scoreColumns: ['confidence'],
+        threshold: 0.8,
+      }),
+      node('human_review', 'human_review', 'Human review', 1100, 180, {
+        reasonColumns: ['gate_status'],
+        queue: 'smoke-review',
+        createReviewItems: true,
+        mode: 'filter_review',
+      }),
+      outputNode(suffix, ['file_public_id'], 'output', 1360, 180),
+    ],
+    edges: linearEdges(['input', 'extract_text', 'quality_report', 'confidence_gate', 'human_review', 'output']),
+  }
+}
+
 function profileNode() {
   return node('profile', 'profile', 'Profile smoke rows', 620, 120, {})
 }
@@ -301,6 +330,7 @@ async function createPipeline(scenario, filePublicId) {
     excel: excelGraph,
     text: textGraph,
     quarantine: quarantineGraph,
+    review: reviewGraph,
   }
   const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
     name: `Smoke: ${scenario} metadata ${new Date().toISOString()}`,
@@ -411,6 +441,41 @@ function assertQuarantineRun(run) {
   }
 }
 
+function assertReviewRun(run) {
+  assertCommonRun(run, 1)
+  const reviewStep = findStep(run, 'human_review')
+  if (!reviewStep?.metadata?.queryStats?.queryId) {
+    throw new Error(`queryStats missing for human_review step: ${JSON.stringify(reviewStep)}`)
+  }
+  if (reviewStep.metadata.reviewItemCount !== 1) {
+    throw new Error(`unexpected review item metadata: ${JSON.stringify(reviewStep.metadata)}`)
+  }
+}
+
+async function assertReviewItems(pipelinePublicId) {
+  const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
+  const items = listed.items ?? []
+  if (items.length !== 1) {
+    throw new Error(`review item count = ${items.length}, want 1: ${JSON.stringify(listed)}`)
+  }
+  const item = items[0]
+  if (item.status !== 'open' || item.queue !== 'smoke-review' || item.nodeId !== 'human_review') {
+    throw new Error(`unexpected review item: ${JSON.stringify(item)}`)
+  }
+  const detail = await request(`/api/v1/data-pipeline-review-items/${encodeURIComponent(item.publicId)}`)
+  if (!detail.sourceSnapshot || !Array.isArray(detail.reason) || detail.reason.length === 0) {
+    throw new Error(`review item detail missing source snapshot or reason: ${JSON.stringify(detail)}`)
+  }
+  const transitioned = await jsonRequest(`/api/v1/data-pipeline-review-items/${encodeURIComponent(item.publicId)}/transition`, 'POST', {
+    status: 'approved',
+    comment: 'smoke approved',
+  })
+  if (transitioned.status !== 'approved' || transitioned.decisionComment !== 'smoke approved') {
+    throw new Error(`review item transition failed: ${JSON.stringify(transitioned)}`)
+  }
+  return { item, transitioned }
+}
+
 async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
   let last
   for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
@@ -431,17 +496,20 @@ async function runScenario(workspacePublicId, scenario) {
     excel: uploadXLSXFile,
     text: uploadTextFile,
     quarantine: uploadTextFile,
+    review: uploadTextFile,
   }
   const assertions = {
     json: (run) => assertProfileValidateRun(run, 3),
     excel: (run) => assertProfileValidateRun(run, 3),
     text: assertTextRun,
     quarantine: assertQuarantineRun,
+    review: assertReviewRun,
   }
   const file = await uploaders[scenario](workspacePublicId)
   const { pipeline, version } = await createPipeline(scenario, file.publicId)
   const run = await requestRun(version.publicId)
   const completed = await waitForRun(pipeline.publicId, run.publicId, assertions[scenario])
+  const reviewItems = scenario === 'review' ? await assertReviewItems(pipeline.publicId) : undefined
   return {
     scenario,
     workspacePublicId,
@@ -456,6 +524,7 @@ async function runScenario(workspacePublicId, scenario) {
     validation: findStep(completed, 'validate')?.metadata?.validation,
     quality: findStep(completed, 'quality_report')?.metadata?.quality,
     confidenceGate: findStep(completed, 'confidence_gate')?.metadata?.confidenceGate,
+    reviewItems,
     outputs: completed.outputs,
   }
 }
@@ -477,9 +546,9 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine'] : [requestedScenario]
+  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review'] : [requestedScenario]
   for (const scenario of scenarios) {
-    if (!['json', 'excel', 'text', 'quarantine'].includes(scenario)) {
+    if (!['json', 'excel', 'text', 'quarantine', 'review'].includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
     }
   }

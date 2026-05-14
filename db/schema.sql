@@ -259,6 +259,81 @@ ALTER TABLE public.data_pipeline_mapping_examples ALTER COLUMN id ADD GENERATED 
 
 
 --
+-- Name: data_pipeline_review_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_pipeline_review_items (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    pipeline_id bigint NOT NULL,
+    version_id bigint NOT NULL,
+    run_id bigint NOT NULL,
+    node_id text NOT NULL,
+    queue text DEFAULT 'default'::text NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    reason jsonb DEFAULT '[]'::jsonb NOT NULL,
+    source_snapshot jsonb DEFAULT '{}'::jsonb NOT NULL,
+    source_fingerprint text NOT NULL,
+    created_by_user_id bigint,
+    updated_by_user_id bigint,
+    assigned_to_user_id bigint,
+    decision_comment text DEFAULT ''::text NOT NULL,
+    decided_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_review_items_node_id_check CHECK ((btrim(node_id) <> ''::text)),
+    CONSTRAINT data_pipeline_review_items_queue_check CHECK ((btrim(queue) <> ''::text)),
+    CONSTRAINT data_pipeline_review_items_source_fingerprint_check CHECK ((btrim(source_fingerprint) <> ''::text)),
+    CONSTRAINT data_pipeline_review_items_status_check CHECK ((status = ANY (ARRAY['open'::text, 'approved'::text, 'rejected'::text, 'needs_changes'::text, 'closed'::text])))
+);
+
+
+--
+-- Name: data_pipeline_review_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_pipeline_review_items ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.data_pipeline_review_items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: data_pipeline_review_item_comments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_pipeline_review_item_comments (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT uuidv7() NOT NULL,
+    tenant_id bigint NOT NULL,
+    review_item_id bigint NOT NULL,
+    author_user_id bigint,
+    body text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT data_pipeline_review_item_comments_body_check CHECK ((btrim(body) <> ''::text))
+);
+
+
+--
+-- Name: data_pipeline_review_item_comments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_pipeline_review_item_comments ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.data_pipeline_review_item_comments_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: data_pipeline_run_outputs; Type: TABLE; Schema: public; Owner: -
 --
 
