@@ -23,8 +23,8 @@ frontend build では Monaco / Data Pipeline detail 周辺を中心に大きい 
 
 - 既存の foundation は作り直さない。OpenAPI 3.1、Monorepo、Go/Huma/Gin、Vue/Vite、PostgreSQL/sqlc、Redis、OpenFGA、ClickHouse、SeaweedFS、単一バイナリ配信はすでに実装済みの前提で進める。
 - 今後の中心は、Drive、Dataset、Data Pipeline、Medallion、Gold、Local Search、RAG です。
-- Data Pipeline は多くの node が catalog / UI に存在しますが、すべてが同じ深さで実行・監視できるわけではありません。`profile` と `validate` は行データ上は passthrough のまま、run step metadata に実測 summary を保存する実装まで進んでいます。
-- `DataPipelineRunStepBody.metadata` は API contract としてすでに存在し、node-level 実測 metadata の保存も始まっています。Month 1 の残りは `inputRows`、`samples`、`queryStats`、詳細 UI、smoke 分割です。
+- Data Pipeline は多くの node が catalog / UI に存在しますが、すべてが同じ深さで実行・監視できるわけではありません。Month 1 の品質・可観測性の土台は `b9d5c03`、`0160678`、`c54de44` で完了済みです。
+- `DataPipelineRunStepBody.metadata` は API contract として使われ、`profile`、`validate`、`quality_report`、`confidence_gate`、`inputRows`、`samples`、`queryStats`、Runs tab 詳細、Data Pipeline smoke suite まで実装済みです。
 - Drive OCR、商品抽出、Local Search、pgvector、Drive RAG は主要な足場が動いています。次は broad な機能追加ではなく、評価、追跡、失敗理由、運用導線を強くします。
 - frontend は機能がかなり増え、Data Pipeline detail と Monaco editor の chunk が大きくなっています。運用前に code splitting を改善する余地があります。
 - AI coding 改善は未実装の提案段階です。`docs/HARNESS_ENGINEERING_ADOPTION_ANALYSIS.md` に方針はありますが、`docs/AGENT_KNOWLEDGE_INDEX.md` や RAG/OpenFGA/OpenAPI/frontend 用 skill はまだありません。
@@ -323,12 +323,21 @@ AI coding / agent 改善を触る場合:
 - ClickHouse `system.query_log` と pipeline run / step を query id で紐付ける。
 - Run detail UI に step metadata、品質 summary、重い step、warning を表示する。
 
-2026-05-14 時点の残タスク:
+状態: 完了済み。
 
-- `inputRows`、validation `samples`、`queryStats` を metadata に追加する。
-- Runs tab で profile / validation / quality / confidenceGate / queryStats の詳細を展開表示する。
-- `json` / `excel` / `text` の Data Pipeline smoke を分割する。
-- これらが完了するまで Month 2 の `quarantine` node には進まない。
+完了コミット:
+
+- `b9d5c03 Enhance data pipeline run metadata`
+- `0160678 Add data pipeline drive smoke`
+- `c54de44 Complete data pipeline metadata smoke`
+
+実装済み:
+
+- structured / hybrid の node-level run step metadata。
+- `profile` / `validate` / `quality_report` / `confidence_gate` summary。
+- `inputRows`、validation `samples`、`queryStats`。
+- Runs tab の metadata summary / detail。
+- `json` / `excel` / `text` の Data Pipeline smoke suite。
 
 完了条件:
 
@@ -343,6 +352,12 @@ AI coding / agent 改善を触る場合:
 - `quarantine` node を追加し、失敗行・低信頼行を通常 output と分離する。
 - `human_review` を注釈列だけでなく review item / queue の入口にする。
 - 低信頼 OCR / 抽出 / schema mapping の確認フローを Drive と Pipeline UI に接続する。
+
+次にやること:
+
+- 最初の PR は `quarantine` node に絞る。
+- v1 では `confidence_gate.gate_status = needs_review` を quarantine Work table に分離する。
+- review item / queue は次の PR に回す。
 
 完了条件:
 

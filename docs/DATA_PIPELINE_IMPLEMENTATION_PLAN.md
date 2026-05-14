@@ -10,7 +10,7 @@
 - `docs/data-pipeline-llm-node.md`
 - `docs/data-pipeline-current-state.md`
 
-結論は、LLM node を先に増やすのではなく、まず **Data Pipeline の品質、可観測性、説明可能性**を実装することです。既存の API / DB には `data_pipeline_run_steps.metadata` と `DataPipelineRunStepBody.metadata` がすでにありますが、現状の run executor は node ごとの実測 metadata を十分に保存していません。
+結論は、LLM node を先に増やすのではなく、まず **Data Pipeline の品質、可観測性、説明可能性**を実装することです。`data_pipeline_run_steps.metadata` と `DataPipelineRunStepBody.metadata` を使う Month 1 の metadata 基盤は完了済みです。次は Month 2 の `quarantine` node で、失敗行・低信頼行を通常 output から分離します。
 
 最初の実装単位は次です。
 
@@ -41,13 +41,26 @@ make smoke-data-pipeline
 
 この smoke は demo login、tenant 選択、Drive workspace 自動選択、inline JSON upload、`drive_file` input、`json_extract`、`profile`、`validate`、`output`、run 完了、metadata 検証までを一括で確認します。
 
-この後の Month 1 残タスクは、Month 2 の `quarantine` / `human_review` に進む前に閉じます。
+Month 1 の残タスクは `c54de44 Complete data pipeline metadata smoke` で完了済みです。
+
+追加で完了した内容:
 
 - `inputRows`、`samples`、`queryStats` を run step metadata に追加する。
 - `validate.required` で空文字と空白のみの値を失敗扱いにする。
 - Runs tab で profile / validation / quality / confidenceGate / queryStats の詳細を確認できるようにする。
 - smoke を `json`、`excel`、`text` scenario に分ける。
 - CI では live smoke ではなく、まず smoke script の syntax check を行う。
+
+現在の確認コマンド:
+
+```bash
+go test ./backend/...
+npm --prefix frontend run build
+node --check scripts/smoke-data-pipeline.mjs
+make smoke-data-pipeline-suite
+```
+
+次にやることは Month 2 の `quarantine` node です。目的は、`validate` / `confidence_gate` の失敗行や低信頼行を通常 output から分離し、別 Work table として確認できるようにすることです。
 
 ## 調査結果
 
@@ -169,7 +182,7 @@ LLM node の共通 metadata は次を想定します。
 
 - `DataPipelineRunStepBody` には `metadata: Record<string, unknown>` がすでにあります。
 - `DataPipelineRunBody` には `steps` と `outputs` が含まれます。
-- `DataPipelinePreviewPanel` の Runs tab は run、output、run steps、metadata summary を表示します。詳細 metadata 表示は Month 1 残タスクです。
+- `DataPipelinePreviewPanel` の Runs tab は run、output、run steps、metadata summary、metadata detail dialog を表示します。
 - `DataPipelineInspector` には `validate`、`confidence_gate`、`quality_report` の設定 UI が存在します。
 - `DataPipelineFlowBuilder` の palette にも `profile`、`validate`、`confidence_gate`、`quality_report` が存在します。
 
@@ -421,6 +434,8 @@ UI v1:
 - `profile` と `validate` を metadata-producing node にする。
 - Runs tab に step metadata summary を表示する。
 
+状態: 完了済み。
+
 完了条件:
 
 - structured / hybrid の両方で `data_pipeline_run_steps.metadata` が空ではなくなる。
@@ -551,12 +566,24 @@ DB schema は変更しません。
 
 ## 次の最小実装タスク
 
-次の PR は次に絞るのが安全です。
+次の PR は Month 2 の最初の実装として、`quarantine` node に絞ります。
 
-1. run step metadata に `inputRows`、`samples`、`queryStats` を追加する。
-2. `validate.required` の空文字判定を修正する。
-3. Runs tab で profile / validation / quality / confidenceGate / queryStats の詳細を展開表示できるようにする。
-4. `json_extract` / `excel_extract` / `extract_text` の代表 path を smoke で分ける。
-5. `go test ./backend/...`、`npm --prefix frontend run build`、`make smoke-data-pipeline-suite` を通す。
+目的:
 
-この 5 点が完了してから Month 2 の `quarantine` node に進みます。
+- `validate` の failed row と `confidence_gate` の `needs_review` row を通常 output から分離する。
+- quarantine 側も Work table として登録し、run outputs / Runs tab から確認できるようにする。
+- まずは hybrid path の `confidence_gate.gate_status = needs_review` を対象にする。
+
+最小実装範囲:
+
+1. backend catalog に `quarantine` step type を追加する。
+2. hybrid executor に `quarantine` materializer を追加する。
+3. config は v1 では `mode`, `statusColumn`, `matchValues`, `outputMode` に絞る。
+4. `outputMode = quarantine_only` は一致行だけを出力する。
+5. `outputMode = pass_only` は非一致行だけを出力する。
+6. run step metadata に `quarantinedRows`, `passedRows`, `statusColumn`, `matchValues` を保存する。
+7. Inspector / palette に最小 UI を追加する。
+8. smoke に `confidence_gate -> quarantine -> output` scenario を追加する。
+9. `go test ./backend/...`、`npm --prefix frontend run build`、`make smoke-data-pipeline-suite` を通す。
+
+この PR では review item / queue は作りません。`quarantine` output を Work table として確認できるところまでを完了条件にします。
