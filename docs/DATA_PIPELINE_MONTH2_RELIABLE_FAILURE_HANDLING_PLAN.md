@@ -1,0 +1,262 @@
+# Data Pipeline Month 2: Reliable Failure Handling Plan
+
+作成日: 2026-05-14
+
+## Summary
+
+Month 2 の目的は、Data Pipeline の失敗行、低信頼行、レビュー待ち行を通常 output から分離し、理由と履歴を追える状態にすることです。Month 1 で run step metadata、`profile`、`validate`、`quality_report`、`confidence_gate` の土台は完了済みです。次は `quarantine` node を入口に、通常処理、隔離、review の流れを作ります。
+
+この文書は Month 2 の実装を別セッションで開始するための詳細計画です。最初の PR は `quarantine` node v1 に限定し、その後に失敗理由の強化、`human_review` の queue 化、Drive / OCR / extraction 連携へ進みます。
+
+## Current State
+
+完了済み:
+
+- structured / hybrid executor が node ごとの `rowCount` と `metadata` を保存する。
+- `DataPipelineRunStepBody.metadata` は browser API で `Record<string, unknown>` として公開済み。
+- `profile` は row count、column count、null count / rate、unique count、min / max、top values を保存する。
+- `validate` は required、regex、range、in、unique の失敗件数、warning、samples を保存する。
+- `quality_report` は `quality_report_json`、`missing_rate_json`、`validation_summary_json` を行データへ追加し、run step metadata に `quality` summary を保存する。
+- `confidence_gate` は `gate_score` と `gate_status` を行データへ追加し、metadata に threshold、score columns、pass / needs review 件数を保存する。
+- `human_review` は `review_status`、`review_queue`、`review_reason_json` を行データへ追加できる。ただし永続的な review item / queue ではない。
+- Data Pipeline smoke suite は JSON、Excel、text scenario で run step metadata を検証する。
+
+未実装:
+
+- `quarantine` step type は backend catalog、hybrid executor、frontend type、palette、inspector に存在しない。
+- `validate` の失敗行は metadata に集計されるが、後続 node が行単位で読める validation status 列はまだない。
+- `human_review` は注釈列のみで、担当者、承認、差し戻し、コメント、修正履歴、再投入 run を持つ queue ではない。
+- Drive OCR / product extraction / schema mapping の低信頼結果から review queue へ到達する画面導線は未完成。
+
+重要ファイル:
+
+- `backend/internal/service/data_pipeline_graph.go`
+- `backend/internal/service/data_pipeline_unstructured.go`
+- `backend/internal/service/data_pipeline_compile.go`
+- `frontend/src/api/data-pipelines.ts`
+- `frontend/src/components/DataPipelineFlowBuilder.vue`
+- `frontend/src/components/DataPipelineInspector.vue`
+- `frontend/src/components/DataPipelinePreviewPanel.vue`
+- `frontend/src/i18n/messages.ts`
+- `scripts/smoke-data-pipeline.mjs`
+
+## Completion Criteria
+
+Month 2 は次を満たしたら完了です。
+
+- low confidence / validation error の理由を run detail で説明できる。
+- `quarantine` output が通常 output と別 Work table として作成され、Runs tab から確認できる。
+- `human_review` が永続 review item / queue の入口になる。
+- review item は tenant boundary、CSRF、audit を満たす。
+- Drive OCR / extraction / schema mapping の低信頼結果から review flow へ到達できる。
+- smoke で `confidence_gate -> quarantine -> output` の分離を検証できる。
+
+## Implementation Phases
+
+### Phase 1: `quarantine` node v1
+
+最初の PR は `quarantine` node v1 に限定します。review item / queue は作りません。
+
+Backend:
+
+- `DataPipelineStepQuarantine = "quarantine"` を追加し、step catalog に登録する。
+- `dataPipelineUnstructuredStep` に `quarantine` を追加し、hybrid path で実行する。
+- `materializeQuarantine` を追加する。
+- upstream column `statusColumn` を読み、`matchValues` に一致する行を quarantine 対象にする。
+- `outputMode = quarantine_only` は一致行だけを出力する。
+- `outputMode = pass_only` は非一致行だけを出力する。
+- `mode` は v1 では `filter` 扱いにする。将来の `annotate` / `split` の予約名として残す。
+- metadata に `quarantinedRows`、`passedRows`、`statusColumn`、`matchValues`、`outputMode` を保存する。
+
+Config v1:
+
+| key | default | 内容 |
+| --- | --- | --- |
+| `statusColumn` | `gate_status` | 判定に使う列 |
+| `matchValues` | `["needs_review"]` | quarantine 対象とする値 |
+| `outputMode` | `quarantine_only` | `quarantine_only` または `pass_only` |
+| `mode` | `filter` | v1 では filter のみ |
+
+Frontend:
+
+- `DataPipelineStepType` に `quarantine` を追加する。
+- palette の quality category に `quarantine` を追加する。
+- default config は `statusColumn: "gate_status"`, `matchValues: ["needs_review"]`, `outputMode: "quarantine_only"`, `mode: "filter"` にする。
+- Inspector に `statusColumn`、`matchValues`、`outputMode` を編集する最小 UI を追加する。
+- Runs tab の metadata summary で `quarantinedRows` と `passedRows` を読めるようにする。
+- i18n に英語 / 日本語の label、description、option label を追加する。
+
+Graph design:
+
+- v1 では node 自体に 2 つの出力 port は作らない。
+- 通常 output と quarantine output を両方作る場合は、`confidence_gate` から 2 本の branch を伸ばし、片方に `quarantine(outputMode=pass_only)`、もう片方に `quarantine(outputMode=quarantine_only)` を置く。
+- 既存の `data_pipeline_run_outputs` により、2 つの output node を別 Work table として保存する。
+
+Smoke scenario:
+
+- `drive_file -> extract_text -> quality_report -> confidence_gate` まで既存 text scenario と同じ流れにする。
+- `confidence_gate -> quarantine_pass(outputMode=pass_only) -> output_pass`
+- `confidence_gate -> quarantine_review(outputMode=quarantine_only) -> output_quarantine`
+- `gate_status = needs_review` の行が quarantine output に入り、pass output から除外されることを検証する。
+
+### Phase 2: 失敗理由の強化
+
+Phase 1 の後に、run detail と後続 node が失敗理由をより明確に読めるようにします。
+
+`confidence_gate`:
+
+- `gate_reason` 列を追加する。
+- score column 欠損、数値変換不能、threshold 未満を reason として区別する。
+- metadata に `lowConfidenceSamples` を最大 5 件保存する。sample は既存方針どおり mask 済み、件数上限つきにする。
+- metadata に `minScore`、`avgScore`、`scoreColumns`、`threshold`、`passRows`、`needsReviewRows` を維持する。
+
+`quality_report`:
+
+- metadata に missing rate threshold 超過列を `warnings` として保存する。
+- `warningCount` は threshold 超過または欠損率ありの列数として UI に出せる形にする。
+- 将来の前回 run 比較に備え、metadata key は `quality.rowCount`、`quality.columnCount`、`quality.missingRate`、`quality.summary` を維持する。
+
+`validate`:
+
+- v1 の行データは passthrough のまま維持する。
+- 将来の quarantine 連携用に、行単位の `validation_status` と `validation_errors_json` を追加する案を設計に残す。
+- 実装する場合は structured / hybrid の両方で同じ列 contract にする。
+
+### Phase 3: `human_review` queue 化
+
+`human_review` を注釈列から永続 review queue の入口へ拡張します。この phase では DB migration、API、UI が必要です。
+
+DB model 方針:
+
+- `data_pipeline_review_items` を追加する。
+- tenant、pipeline、version、run、step、source output / source row、reason、status、assignee、created by、updated by を持つ。
+- status は `open`、`approved`、`rejected`、`needs_changes`、`closed` を想定する。
+- raw row 全体を無制限に保存しない。v1 は masked snapshot と source reference を保存する。
+
+API 方針:
+
+- browser session + CSRF 必須にする。
+- tenant 外 review item は 404 として扱う。
+- list / detail / transition / comment を最小 endpoint とする。
+- status transition は audit log を残す。
+
+Pipeline 連携:
+
+- `human_review` node に `createReviewItems: boolean` を追加する。
+- 既定は false とし、注釈列だけの既存挙動を維持する。
+- true の場合、`review_status = needs_review` の行から review item を作る。
+- duplicate run で同じ item が重複しすぎないよう、pipeline run id + step id + row fingerprint を idempotency key として扱う。
+
+UI 方針:
+
+- Data Pipeline detail に review items の入口を追加する。
+- review item detail では reason、source row snapshot、run / step、承認状態を表示する。
+- v1 では修正値の再投入は行わない。承認 / 差し戻し / comment までに留める。
+
+### Phase 4: Drive / OCR / extraction 連携
+
+Drive から入った低信頼データが、Pipeline 上で隔離と review に届く導線を作ります。
+
+対象:
+
+- OCR confidence が低い page / file。
+- `extract_fields` の field confidence が低い行。
+- schema mapping candidate の confidence が低い列または mapping。
+- product extraction の低信頼 result。
+
+代表 workflow:
+
+```text
+drive_file
+  -> extract_text
+  -> quality_report
+  -> confidence_gate
+  -> quarantine(outputMode=pass_only)
+  -> output(normal)
+
+confidence_gate
+  -> quarantine(outputMode=quarantine_only)
+  -> human_review(createReviewItems=true)
+  -> output(review_candidates)
+```
+
+UI 方針:
+
+- Pipeline Runs tab から normal output と quarantine output を区別して表示する。
+- Drive file detail / OCR result 側から該当 pipeline run または review item へ遷移できるようにする。
+- 低信頼理由は `gate_reason`、`review_reason_json`、run step metadata の順に表示する。
+
+## Public Interfaces
+
+Phase 1 で追加する public contract:
+
+- step type: `quarantine`
+- config keys: `statusColumn`, `matchValues`, `outputMode`, `mode`
+- metadata keys: `quarantinedRows`, `passedRows`, `statusColumn`, `matchValues`, `outputMode`
+
+既存 API の `DataPipelineRunStepBody.metadata` は `Record<string, unknown>` のまま使うため、OpenAPI schema の大きな変更は不要です。frontend の手書き `DataPipelineStepType` は更新します。
+
+Phase 3 で追加する public contract:
+
+- review item list / detail / transition / comment API。
+- review item body は tenant 境界、audit、CSRF を前提に設計する。
+- generated API client を更新する場合は `make gen` 経由で行う。
+
+## Test Plan
+
+Phase 1:
+
+- `/Users/knakajima/.asdf/installs/golang/1.23.0/go/bin/go test ./backend/...`
+- `npm --prefix frontend run build`
+- `node --check scripts/smoke-data-pipeline.mjs`
+- `make smoke-data-pipeline-suite`
+- `git diff --check`
+
+Backend test 観点:
+
+- `quarantine` が graph validation で有効な step type として扱われる。
+- `statusColumn` が upstream にない場合は分かりやすい error になる。
+- `quarantine_only` は match rows だけを出力する。
+- `pass_only` は non-match rows だけを出力する。
+- metadata の `quarantinedRows` と `passedRows` が upstream 全体に対する件数になる。
+
+Frontend test 観点:
+
+- palette から `quarantine` を追加できる。
+- Inspector で config を編集できる。
+- `matchValues` は comma separated input で配列として保存される。
+- Runs tab は metadata key が欠けても壊れない。
+
+Smoke test 観点:
+
+- text scenario に quarantine branch を追加する。
+- pass output と quarantine output が別 Work table として登録される。
+- quarantine output の row count が `confidenceGate.needsReviewRows` と一致する。
+
+Phase 3:
+
+- review item API は tenant 外 item を 404 にする。
+- transition API は CSRF と audit を必須にする。
+- duplicate run / retry で review item が重複作成されすぎない。
+
+## Implementation Constraints
+
+- `backend/internal/db/*`、`frontend/src/api/generated/*`、`openapi/*.yaml` は generator 経由で更新する。
+- review item の DB migration を追加するまでは、Phase 1 で DB schema を変更しない。
+- quarantine table には機密情報が残りやすいため、`redact_pii` と組み合わせる設計を UI / docs で明示する。
+- audit / logs / metrics に tenant id、user id、email、public id、storage key、raw row、raw token を入れない。
+- LLM node は Month 4 の範囲。Month 2 では LLM の低信頼結果を受け止める failure handling の土台だけを作る。
+
+## Next Implementation Task
+
+次に実装するのは Phase 1 の `quarantine` node v1 です。
+
+最小完了条件:
+
+1. backend catalog に `quarantine` を追加する。
+2. hybrid executor で `quarantine_only` / `pass_only` を materialize する。
+3. frontend type、palette、default config、Inspector、i18n を追加する。
+4. Runs tab metadata summary に quarantine 件数を表示する。
+5. smoke suite に quarantine branch scenario を追加する。
+6. backend test、frontend build、smoke suite を通す。
+

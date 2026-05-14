@@ -445,6 +445,8 @@ UI v1:
 
 ### Month 2: 失敗処理と人手確認
 
+詳細計画: `docs/DATA_PIPELINE_MONTH2_RELIABLE_FAILURE_HANDLING_PLAN.md`
+
 - `quality_report` と `confidence_gate` の metadata 保存を強化する。
 - `human_review` を review item / queue の入口へ拡張する。
 - `quarantine` node を追加し、低品質行や低信頼行を通常 output と分離する。

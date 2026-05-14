@@ -348,6 +348,8 @@ AI coding / agent 改善を触る場合:
 
 ### Month 2: 信頼できる失敗処理
 
+詳細計画: `docs/DATA_PIPELINE_MONTH2_RELIABLE_FAILURE_HANDLING_PLAN.md`
+
 - `quality_report` と `confidence_gate` の metadata 保存を強化する。
 - `quarantine` node を追加し、失敗行・低信頼行を通常 output と分離する。
 - `human_review` を注釈列だけでなく review item / queue の入口にする。
