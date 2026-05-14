@@ -124,10 +124,18 @@ type DataPipelineScheduleListBody struct {
 }
 
 type DataPipelinePreviewBody struct {
-	NodeID      string           `json:"nodeId"`
-	StepType    string           `json:"stepType"`
-	Columns     []string         `json:"columns"`
-	PreviewRows []map[string]any `json:"previewRows"`
+	NodeID        string                         `json:"nodeId"`
+	StepType      string                         `json:"stepType"`
+	Columns       []string                       `json:"columns"`
+	PreviewRows   []map[string]any               `json:"previewRows"`
+	OutputSchemas []DataPipelineOutputSchemaBody `json:"outputSchemas,omitempty"`
+}
+
+type DataPipelineOutputSchemaBody struct {
+	NodeID   string   `json:"nodeId"`
+	StepType string   `json:"stepType"`
+	Columns  []string `json:"columns"`
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type DataPipelineReviewItemBody struct {
@@ -594,7 +602,7 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, toDataPipelineHTTPError(ctx, deps, "previewDataPipelineVersion", err)
 		}
-		return &DataPipelinePreviewOutput{Body: DataPipelinePreviewBody{NodeID: preview.NodeID, StepType: preview.StepType, Columns: preview.Columns, PreviewRows: preview.PreviewRows}}, nil
+		return &DataPipelinePreviewOutput{Body: toDataPipelinePreviewBody(preview)}, nil
 	})
 
 	huma.Register(api, huma.Operation{OperationID: "previewDataPipelineDraft", Method: http.MethodPost, Path: "/api/v1/data-pipelines/{pipelinePublicId}/preview", Summary: "未保存 draft graph の selected node まで preview する", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineDraftPreviewInput) (*DataPipelinePreviewOutput, error) {
@@ -609,7 +617,7 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 		if err != nil {
 			return nil, toDataPipelineHTTPError(ctx, deps, "previewDataPipelineDraft", err)
 		}
-		return &DataPipelinePreviewOutput{Body: DataPipelinePreviewBody{NodeID: preview.NodeID, StepType: preview.StepType, Columns: preview.Columns, PreviewRows: preview.PreviewRows}}, nil
+		return &DataPipelinePreviewOutput{Body: toDataPipelinePreviewBody(preview)}, nil
 	})
 
 	huma.Register(api, huma.Operation{OperationID: "schemaMappingCandidates", Method: http.MethodPost, Path: "/api/v1/data-pipelines/schema-mapping/candidates", Summary: "schema mapping 候補を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *SchemaMappingCandidateInput) (*SchemaMappingCandidateOutput, error) {
@@ -991,6 +999,25 @@ func toDataPipelineBody(item service.DataPipeline) DataPipelineBody {
 
 func toDataPipelineVersionBody(item service.DataPipelineVersion) DataPipelineVersionBody {
 	return DataPipelineVersionBody{PublicID: item.PublicID, PipelineID: item.PipelineID, VersionNumber: item.VersionNumber, Status: item.Status, Graph: item.Graph, ValidationSummary: item.ValidationSummary, CreatedAt: item.CreatedAt, PublishedAt: item.PublishedAt}
+}
+
+func toDataPipelinePreviewBody(item service.DataPipelinePreview) DataPipelinePreviewBody {
+	body := DataPipelinePreviewBody{
+		NodeID:        item.NodeID,
+		StepType:      item.StepType,
+		Columns:       item.Columns,
+		PreviewRows:   item.PreviewRows,
+		OutputSchemas: make([]DataPipelineOutputSchemaBody, 0, len(item.OutputSchemas)),
+	}
+	for _, schema := range item.OutputSchemas {
+		body.OutputSchemas = append(body.OutputSchemas, DataPipelineOutputSchemaBody{
+			NodeID:   schema.NodeID,
+			StepType: schema.StepType,
+			Columns:  schema.Columns,
+			Warnings: schema.Warnings,
+		})
+	}
+	return body
 }
 
 func toDataPipelineRunBody(item service.DataPipelineRun) DataPipelineRunBody {

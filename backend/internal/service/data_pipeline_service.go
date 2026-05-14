@@ -183,10 +183,11 @@ type DataPipelineScheduleInput struct {
 }
 
 type DataPipelinePreview struct {
-	NodeID      string
-	StepType    string
-	Columns     []string
-	PreviewRows []map[string]any
+	NodeID        string
+	StepType      string
+	Columns       []string
+	PreviewRows   []map[string]any
+	OutputSchemas []DataPipelineNodeOutputSchema
 }
 
 type DataPipelineReviewItem struct {
@@ -1307,8 +1308,17 @@ func (s *DataPipelineService) previewGraph(ctx context.Context, tenantID, actorU
 	if err := s.checkGraphInputPermissions(ctx, tenantID, actorUserID, previewGraph); err != nil {
 		return DataPipelinePreview{}, err
 	}
+	outputSchemas, err := s.inferOutputSchemas(ctx, tenantID, previewGraph)
+	if err != nil {
+		return DataPipelinePreview{}, err
+	}
 	if dataPipelineGraphNeedsHybrid(previewGraph) {
-		return s.previewHybridGraph(ctx, tenantID, actorUserID, previewGraph, selectedNodeID, limit)
+		preview, err := s.previewHybridGraph(ctx, tenantID, actorUserID, previewGraph, selectedNodeID, limit)
+		if err != nil {
+			return DataPipelinePreview{}, err
+		}
+		preview.OutputSchemas = outputSchemas
+		return preview, nil
 	}
 	compiled, err := s.compilePreviewSelect(ctx, tenantID, previewGraph, selectedNodeID, limit)
 	if err != nil {
@@ -1332,10 +1342,11 @@ func (s *DataPipelineService) previewGraph(ctx context.Context, tenantID, actorU
 		return DataPipelinePreview{}, err
 	}
 	return DataPipelinePreview{
-		NodeID:      compiled.NodeID,
-		StepType:    compiled.StepType,
-		Columns:     columns,
-		PreviewRows: previewRows,
+		NodeID:        compiled.NodeID,
+		StepType:      compiled.StepType,
+		Columns:       columns,
+		PreviewRows:   previewRows,
+		OutputSchemas: outputSchemas,
 	}, nil
 }
 

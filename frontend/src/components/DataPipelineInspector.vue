@@ -973,6 +973,10 @@ function columnsForNodeOutput(nodeId?: string, visited = new Set<string>()): str
   if (!node) {
     return []
   }
+  const backendSchemaColumns = props.preview?.outputSchemas?.find((schema) => schema.nodeId === nodeId)?.columns
+  if (backendSchemaColumns && backendSchemaColumns.length > 0) {
+    return backendSchemaColumns
+  }
   const config = node.id === props.selectedNodeId ? configDraft.value : asRecord(node.data.config)
   const upstreamIds = incomingNodeIds(node.id)
   const upstreamColumns = () => firstAvailableUpstreamColumns(upstreamIds, visited)

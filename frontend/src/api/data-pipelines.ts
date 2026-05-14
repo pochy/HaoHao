@@ -176,6 +176,14 @@ export type DataPipelinePreviewBody = {
   stepType: string
   columns: string[]
   previewRows: Array<Record<string, unknown>>
+  outputSchemas?: DataPipelineOutputSchemaBody[]
+}
+
+export type DataPipelineOutputSchemaBody = {
+  nodeId: string
+  stepType: string
+  columns: string[]
+  warnings?: string[]
 }
 
 export type DataPipelineReviewCommentBody = {

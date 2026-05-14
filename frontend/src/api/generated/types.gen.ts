@@ -476,6 +476,13 @@ export type DataPipelineNodeData = {
     stepType: string;
 };
 
+export type DataPipelineOutputSchemaBody = {
+    columns: Array<string> | null;
+    nodeId: string;
+    stepType: string;
+    warnings?: Array<string> | null;
+};
+
 export type DataPipelinePreviewBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -483,6 +490,7 @@ export type DataPipelinePreviewBody = {
     readonly $schema?: string;
     columns: Array<string> | null;
     nodeId: string;
+    outputSchemas?: Array<DataPipelineOutputSchemaBody> | null;
     previewRows: Array<{
         [key: string]: unknown;
     }> | null;
@@ -499,6 +507,94 @@ export type DataPipelinePreviewRequestBody = {
      */
     limit?: number;
     nodeId?: string;
+};
+
+export type DataPipelineReviewCommentBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    authorUserId?: number;
+    body: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+};
+
+export type DataPipelineReviewItemBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    assignedToUserId?: number;
+    comments?: Array<DataPipelineReviewCommentBody> | null;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    createdByUserId?: number;
+    decidedAt?: string;
+    decisionComment?: string;
+    nodeId: string;
+    pipelineName?: string;
+    pipelinePublicId?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    queue: string;
+    reason: Array<{
+        [key: string]: unknown;
+    }> | null;
+    runId: number;
+    runPublicId?: string;
+    sourceFingerprint: string;
+    sourceSnapshot: {
+        [key: string]: unknown;
+    };
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'open' | 'approved' | 'rejected' | 'needs_changes' | 'closed';
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+    updatedByUserId?: number;
+    versionId: number;
+};
+
+export type DataPipelineReviewItemCommentWriteBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    body: string;
+};
+
+export type DataPipelineReviewItemListBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<DataPipelineReviewItemBody> | null;
+};
+
+export type DataPipelineReviewItemTransitionBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    comment?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'open' | 'approved' | 'rejected' | 'needs_changes' | 'closed';
 };
 
 export type DataPipelineRunBody = {
@@ -5166,6 +5262,7 @@ export type DataPipelineListBodyWritable = {
 export type DataPipelinePreviewBodyWritable = {
     columns: Array<string> | null;
     nodeId: string;
+    outputSchemas?: Array<DataPipelineOutputSchemaBody> | null;
     previewRows: Array<{
         [key: string]: unknown;
     }> | null;
@@ -5178,6 +5275,74 @@ export type DataPipelinePreviewRequestBodyWritable = {
      */
     limit?: number;
     nodeId?: string;
+};
+
+export type DataPipelineReviewCommentBodyWritable = {
+    authorUserId?: number;
+    body: string;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+};
+
+export type DataPipelineReviewItemBodyWritable = {
+    assignedToUserId?: number;
+    comments?: Array<DataPipelineReviewCommentBodyWritable> | null;
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    createdAt: string;
+    createdByUserId?: number;
+    decidedAt?: string;
+    decisionComment?: string;
+    nodeId: string;
+    pipelineName?: string;
+    pipelinePublicId?: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    queue: string;
+    reason: Array<{
+        [key: string]: unknown;
+    }> | null;
+    runId: number;
+    runPublicId?: string;
+    sourceFingerprint: string;
+    sourceSnapshot: {
+        [key: string]: unknown;
+    };
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'open' | 'approved' | 'rejected' | 'needs_changes' | 'closed';
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    updatedAt: string;
+    updatedByUserId?: number;
+    versionId: number;
+};
+
+export type DataPipelineReviewItemCommentWriteBodyWritable = {
+    body: string;
+};
+
+export type DataPipelineReviewItemListBodyWritable = {
+    items: Array<DataPipelineReviewItemBodyWritable> | null;
+};
+
+export type DataPipelineReviewItemTransitionBodyWritable = {
+    comment?: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'open' | 'approved' | 'rejected' | 'needs_changes' | 'closed';
 };
 
 export type DataPipelineRunBodyWritable = {
@@ -11522,6 +11687,114 @@ export type UpdateCustomerSignalResponses = {
 
 export type UpdateCustomerSignalResponse = UpdateCustomerSignalResponses[keyof UpdateCustomerSignalResponses];
 
+export type GetDataPipelineReviewItemData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `reviewItemPublicId` を指定します。
+         */
+        reviewItemPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipeline-review-items/{reviewItemPublicId}';
+};
+
+export type GetDataPipelineReviewItemErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetDataPipelineReviewItemError = GetDataPipelineReviewItemErrors[keyof GetDataPipelineReviewItemErrors];
+
+export type GetDataPipelineReviewItemResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineReviewItemBody;
+};
+
+export type GetDataPipelineReviewItemResponse = GetDataPipelineReviewItemResponses[keyof GetDataPipelineReviewItemResponses];
+
+export type CommentDataPipelineReviewItemData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DataPipelineReviewItemCommentWriteBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `reviewItemPublicId` を指定します。
+         */
+        reviewItemPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipeline-review-items/{reviewItemPublicId}/comments';
+};
+
+export type CommentDataPipelineReviewItemErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type CommentDataPipelineReviewItemError = CommentDataPipelineReviewItemErrors[keyof CommentDataPipelineReviewItemErrors];
+
+export type CommentDataPipelineReviewItemResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineReviewCommentBody;
+};
+
+export type CommentDataPipelineReviewItemResponse = CommentDataPipelineReviewItemResponses[keyof CommentDataPipelineReviewItemResponses];
+
+export type TransitionDataPipelineReviewItemData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DataPipelineReviewItemTransitionBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `reviewItemPublicId` を指定します。
+         */
+        reviewItemPublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipeline-review-items/{reviewItemPublicId}/transition';
+};
+
+export type TransitionDataPipelineReviewItemErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type TransitionDataPipelineReviewItemError = TransitionDataPipelineReviewItemErrors[keyof TransitionDataPipelineReviewItemErrors];
+
+export type TransitionDataPipelineReviewItemResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineReviewItemBody;
+};
+
+export type TransitionDataPipelineReviewItemResponse = TransitionDataPipelineReviewItemResponses[keyof TransitionDataPipelineReviewItemResponses];
+
 export type DisableDataPipelineScheduleData = {
     body?: never;
     headers: {
@@ -11983,6 +12256,45 @@ export type PreviewDataPipelineDraftResponses = {
 };
 
 export type PreviewDataPipelineDraftResponse = PreviewDataPipelineDraftResponses[keyof PreviewDataPipelineDraftResponses];
+
+export type ListDataPipelineReviewItemsData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `pipelinePublicId` を指定します。
+         */
+        pipelinePublicId: string;
+    };
+    query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `status` です。
+         */
+        status?: 'open' | 'approved' | 'rejected' | 'needs_changes' | 'closed';
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/data-pipelines/{pipelinePublicId}/review-items';
+};
+
+export type ListDataPipelineReviewItemsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDataPipelineReviewItemsError = ListDataPipelineReviewItemsErrors[keyof ListDataPipelineReviewItemsErrors];
+
+export type ListDataPipelineReviewItemsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineReviewItemListBody;
+};
+
+export type ListDataPipelineReviewItemsResponse = ListDataPipelineReviewItemsResponses[keyof ListDataPipelineReviewItemsResponses];
 
 export type ListDataPipelineRunsData = {
     body?: never;
@@ -14063,6 +14375,45 @@ export type CopyDriveFileResponses = {
 };
 
 export type CopyDriveFileResponse = CopyDriveFileResponses[keyof CopyDriveFileResponses];
+
+export type ListDriveFileDataPipelineReviewItemsData = {
+    body?: never;
+    path: {
+        /**
+         * Drive file の public UUID です。
+         */
+        filePublicId: string;
+    };
+    query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `status` です。
+         */
+        status?: 'open' | 'approved' | 'rejected' | 'needs_changes' | 'closed';
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/drive/files/{filePublicId}/data-pipeline-review-items';
+};
+
+export type ListDriveFileDataPipelineReviewItemsErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ListDriveFileDataPipelineReviewItemsError = ListDriveFileDataPipelineReviewItemsErrors[keyof ListDriveFileDataPipelineReviewItemsErrors];
+
+export type ListDriveFileDataPipelineReviewItemsResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineReviewItemListBody;
+};
+
+export type ListDriveFileDataPipelineReviewItemsResponse = ListDriveFileDataPipelineReviewItemsResponses[keyof ListDriveFileDataPipelineReviewItemsResponses];
 
 export type GetDriveE2EeEnvelopeData = {
     body?: never;

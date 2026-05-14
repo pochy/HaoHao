@@ -132,12 +132,59 @@ Inspector に残している step:
 
 この module はまだ backend 由来の generated schema ではない。そのため「単一正本」の最終形ではなく、frontend 内の重複を減らすための v1 contract である。最終的には backend が node ごとの `inferredOutputColumns` を返し、frontend はそれを優先して表示する形にする。
 
+### Backend Preview Output Schemas
+
+次の段階として、preview API が selected subgraph の node 別 output schema を返すようにした。
+
+追加した backend contract:
+
+- `service.DataPipelineNodeOutputSchema`
+  - `nodeId`
+  - `stepType`
+  - `columns`
+  - `warnings`
+- `service.DataPipelinePreview.OutputSchemas`
+- API response `DataPipelinePreviewBody.outputSchemas`
+
+対象 endpoint:
+
+- `POST /api/v1/data-pipeline-versions/{versionPublicId}/preview`
+- `POST /api/v1/data-pipelines/{pipelinePublicId}/preview`
+
+挙動:
+
+- preview 対象 node までの subgraph を作る。
+- backend が topological order で各 node の output columns を推論する。
+- preview 実行結果の `columns` / `previewRows` と同じ response に `outputSchemas` を同梱する。
+- frontend `DataPipelineInspector.vue` は、`props.preview.outputSchemas` に対象 node の schema があればそれを優先し、なければ `data-pipeline-step-output-schema.ts` の local fallback を使う。
+
+現時点の役割分担:
+
+- backend `outputSchemas`
+  - preview 済み subgraph についての優先 contract。
+  - dataset / work table input は backend service で実際の source columns を解決できる。
+  - Drive input、extract 系、quality / review 系、transform / join 系の代表的な列推論を持つ。
+- frontend local fallback
+  - preview 前の即時 UI feedback を維持する。
+  - backend preview が未実行、または選択 graph が変わって preview cache が無効になった場合に使う。
+
+この段階で完全に frontend hardcode を消してはいない。理由は、Inspector の warning は preview 実行前にも必要であり、preview API を毎 keystroke で呼ぶ設計にはしていないため。今後は軽量な validation-only endpoint を追加し、preview 実行なしで backend schema / warning を取得できるようにする。
+
+実装上の注意:
+
+- `outputSchemas` は selected subgraph のみを返す。graph 全体ではない。
+- `input`, `enrich_join` の dataset / work table source columns は backend の DatasetService で解決する。
+- `drive_file` input は UI と同じく file metadata columns、spreadsheet mode、json mode を静的に推論する。
+- `schema_mapping` は frontend fallback と同じく、structured / hybrid の差異で false positive を増やさないため、v1 では target columns と `includeSourceColumns` を中心に扱う。
+- OpenAPI (`openapi/openapi.yaml`, `openapi/browser.yaml`) と generated frontend SDK (`frontend/src/api/generated/*`) も更新対象。
+
 ## Verification
 
 実施済みの確認:
 
 ```bash
 npm --prefix frontend run build
+go test ./backend/internal/service ./backend/internal/api
 make smoke-data-pipeline-quarantine
 make smoke-data-pipeline-field-review
 make smoke-data-pipeline-product-review
@@ -155,11 +202,16 @@ git diff --check
 - `019e2564-2509-7295-8cec-94641b452dc9`
   - product review smoke で作成された pipeline。
   - `Product extraction` と `Confidence gate` の Inspector / Preview で `product_confidence` と gate 追加列が上流列として扱われ、上流列警告が出ないことを確認した。
+- `019e25dd-d395-73f6-a0fb-89093478bd3e`
+  - product review smoke で作成された pipeline。
+  - version preview API を `nodeId=output` で呼び、`outputSchemas` が 5 node 分返ることを確認した。
+  - output schema に `file_public_id`, `product_confidence`, `gate_score`, `gate_status`, `review_status`, `review_queue` が含まれることを確認した。
 
 補足:
 
 - `quality_report` の `confidence missing rate 1.0000 exceeded 0.0000` は別問題である。これは列が存在しないという意味ではなく、列は存在するが値が空または欠損しているという品質 warning であり、想定される runtime metadata である。
 - agent-browser では `Smoke output` node のクリックが選択切り替えに至らなかったため、今回のブラウザ確認は product extraction / confidence gate まで。Output は pass-through contract として module 側に定義されており、前回修正済みの `file_public_id` propagation を保持する。
+- `make gen` は local `sqlc` binary が PATH に無く失敗したため、今回の API 変更では `GOCACHE=/private/tmp/haohao-go-build go run ./backend/cmd/openapi ...` と `npm --prefix frontend run openapi-ts` を個別に実行した。
 
 ## Operational Guidance
 
@@ -189,6 +241,7 @@ git diff --check
 
 - backend の `dataPipelineStepCatalog` または近い場所に output schema metadata を持たせる。
 - frontend は `data-pipeline-step-output-schema.ts` の手書き contract を廃止し、generated contract または API から取得した step schema を使う。
+- preview 実行なしで `outputSchemas` と missing-column warnings を返す軽量 validation endpoint を追加する。
 - static output schema だけでは表現できない config-dependent columns は、次のような resolver として定義する。
   - passthrough upstream columns を保持するか。
   - config のどの field が output column name になるか。
