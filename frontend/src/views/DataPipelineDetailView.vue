@@ -142,6 +142,8 @@ const canUndoGraph = computed(() => graphHistory.value.past.length > 0)
 const canRedoGraph = computed(() => graphHistory.value.future.length > 0)
 const autoPreviewDelayMs = 350
 let autoPreviewTimer: number | undefined
+const autoValidationDelayMs = 250
+let autoValidationTimer: number | undefined
 
 onMounted(async () => {
   setupCompactLayoutListener()
@@ -162,6 +164,9 @@ onBeforeUnmount(() => {
   }
   if (autoPreviewTimer !== undefined) {
     window.clearTimeout(autoPreviewTimer)
+  }
+  if (autoValidationTimer !== undefined) {
+    window.clearTimeout(autoValidationTimer)
   }
   if (settingsDialogRef.value?.open) {
     settingsDialogRef.value.close()
@@ -202,6 +207,26 @@ watch(
         void store.autoPreviewSelected().catch(() => undefined)
       }
     }, autoPreviewDelayMs)
+  },
+  { flush: 'post' },
+)
+
+watch(
+  () => store.selectedValidationKey,
+  (validationKey) => {
+    if (autoValidationTimer !== undefined) {
+      window.clearTimeout(autoValidationTimer)
+      autoValidationTimer = undefined
+    }
+    if (!validationKey || store.status !== 'ready') {
+      return
+    }
+    autoValidationTimer = window.setTimeout(() => {
+      autoValidationTimer = undefined
+      if (store.selectedValidationKey === validationKey) {
+        void store.autoValidateDraft().catch(() => undefined)
+      }
+    }, autoValidationDelayMs)
   },
   { flush: 'post' },
 )
@@ -649,6 +674,7 @@ async function applySettings() {
                       :datasets="datasetStore.items"
                       :work-tables="datasetStore.workTables"
                       :preview="store.selectedPreview"
+                      :validation="store.selectedValidation"
                       :pipeline-public-id="selectedPipeline.publicId"
                       @update:graph="updateGraph"
                     />
@@ -698,6 +724,7 @@ async function applySettings() {
                 :datasets="datasetStore.items"
                 :work-tables="datasetStore.workTables"
                 :preview="store.selectedPreview"
+                :validation="store.selectedValidation"
                 :pipeline-public-id="selectedPipeline.publicId"
                 @update:graph="updateGraph"
               />

@@ -186,6 +186,22 @@ export type DataPipelineOutputSchemaBody = {
   warnings?: string[]
 }
 
+export type DataPipelineGraphValidationBody = {
+  validationSummary: { valid: boolean, errors: string[] }
+  outputSchemas: DataPipelineOutputSchemaBody[]
+  nodeWarnings: DataPipelineNodeWarningBody[]
+}
+
+export type DataPipelineNodeWarningBody = {
+  nodeId: string
+  stepType: string
+  code: 'missing_upstream_columns' | 'missing_right_upstream_columns' | string
+  severity: 'warning' | 'error' | string
+  message: string
+  columns: string[]
+  configKeys?: string[]
+}
+
 export type DataPipelineReviewCommentBody = {
   publicId: string
   authorUserId?: number | null
@@ -565,6 +581,14 @@ export async function previewDataPipelineDraft(publicId: string, graph: DataPipe
     method: 'POST',
     headers: csrfHeaders(),
     body: JSON.stringify({ graph: sanitizeDataPipelineGraph(graph), nodeId, limit }),
+  })
+}
+
+export async function validateDataPipelineDraft(publicId: string, graph: DataPipelineGraph): Promise<DataPipelineGraphValidationBody> {
+  return request<DataPipelineGraphValidationBody>(`/api/v1/data-pipelines/${encodeURIComponent(publicId)}/validate`, {
+    method: 'POST',
+    headers: csrfHeaders(),
+    body: JSON.stringify({ graph: sanitizeDataPipelineGraph(graph) }),
   })
 }
 

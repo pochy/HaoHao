@@ -239,9 +239,9 @@ git diff --check
 
 中期:
 
+- 2026-05-14 に、preview 実行なしで `outputSchemas` と missing-column warnings を返す軽量 validation endpoint を追加した。詳細は `docs/DATA_PIPELINE_VALIDATION_ENDPOINT_PLAN.md` を参照する。
 - backend の `dataPipelineStepCatalog` または近い場所に output schema metadata を持たせる。
-- frontend は `data-pipeline-step-output-schema.ts` の手書き contract を廃止し、generated contract または API から取得した step schema を使う。
-- preview 実行なしで `outputSchemas` と missing-column warnings を返す軽量 validation endpoint を追加する。
+- frontend は `data-pipeline-step-output-schema.ts` の手書き contract を endpoint 未取得時の fallback に寄せ、最終的には generated contract または API から取得した step schema を使う。
 - static output schema だけでは表現できない config-dependent columns は、次のような resolver として定義する。
   - passthrough upstream columns を保持するか。
   - config のどの field が output column name になるか。

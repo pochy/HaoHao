@@ -430,6 +430,14 @@ export type DataPipelineDraftPreviewRequestBody = {
     nodeId?: string;
 };
 
+export type DataPipelineDraftValidationRequestBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    graph: DataPipelineGraph;
+};
+
 export type DataPipelineEdge = {
     /**
      * 内部 ID または protocol 上の識別子です。
@@ -445,6 +453,16 @@ export type DataPipelineEdge = {
 export type DataPipelineGraph = {
     edges: Array<DataPipelineEdge> | null;
     nodes: Array<DataPipelineNode> | null;
+};
+
+export type DataPipelineGraphValidationBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    nodeWarnings: Array<DataPipelineNodeWarningBody> | null;
+    outputSchemas: Array<DataPipelineOutputSchemaBody> | null;
+    validationSummary: DataPipelineValidationSummary;
 };
 
 export type DataPipelineListBody = {
@@ -473,6 +491,16 @@ export type DataPipelineNodeData = {
         [key: string]: unknown;
     };
     label?: string;
+    stepType: string;
+};
+
+export type DataPipelineNodeWarningBody = {
+    code: string;
+    columns: Array<string> | null;
+    configKeys?: Array<string> | null;
+    message: string;
+    nodeId: string;
+    severity: string;
     stepType: string;
 };
 
@@ -5252,6 +5280,16 @@ export type DataPipelineDraftPreviewRequestBodyWritable = {
      */
     limit?: number;
     nodeId?: string;
+};
+
+export type DataPipelineDraftValidationRequestBodyWritable = {
+    graph: DataPipelineGraph;
+};
+
+export type DataPipelineGraphValidationBodyWritable = {
+    nodeWarnings: Array<DataPipelineNodeWarningBody> | null;
+    outputSchemas: Array<DataPipelineOutputSchemaBody> | null;
+    validationSummary: DataPipelineValidationSummary;
 };
 
 export type DataPipelineListBodyWritable = {
@@ -12399,6 +12437,45 @@ export type CreateDataPipelineScheduleResponses = {
 };
 
 export type CreateDataPipelineScheduleResponse = CreateDataPipelineScheduleResponses[keyof CreateDataPipelineScheduleResponses];
+
+export type ValidateDataPipelineDraftData = {
+    /**
+     * request body には操作に必要な field を JSON で指定します。必須 field、enum、文字数制限は schema を参照してください。
+     */
+    body: DataPipelineDraftValidationRequestBodyWritable;
+    headers: {
+        /**
+         * Cookie session を使う state-changing request に必要な CSRF token です。
+         */
+        'X-CSRF-Token': string;
+    };
+    path: {
+        /**
+         * path 内の `pipelinePublicId` を指定します。
+         */
+        pipelinePublicId: string;
+    };
+    query?: never;
+    url: '/api/v1/data-pipelines/{pipelinePublicId}/validate';
+};
+
+export type ValidateDataPipelineDraftErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type ValidateDataPipelineDraftError = ValidateDataPipelineDraftErrors[keyof ValidateDataPipelineDraftErrors];
+
+export type ValidateDataPipelineDraftResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DataPipelineGraphValidationBody;
+};
+
+export type ValidateDataPipelineDraftResponse = ValidateDataPipelineDraftResponses[keyof ValidateDataPipelineDraftResponses];
 
 export type SaveDataPipelineVersionData = {
     /**

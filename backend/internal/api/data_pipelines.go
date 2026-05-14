@@ -138,6 +138,22 @@ type DataPipelineOutputSchemaBody struct {
 	Warnings []string `json:"warnings,omitempty"`
 }
 
+type DataPipelineGraphValidationBody struct {
+	ValidationSummary service.DataPipelineValidationSummary `json:"validationSummary"`
+	OutputSchemas     []DataPipelineOutputSchemaBody        `json:"outputSchemas"`
+	NodeWarnings      []DataPipelineNodeWarningBody         `json:"nodeWarnings"`
+}
+
+type DataPipelineNodeWarningBody struct {
+	NodeID     string   `json:"nodeId"`
+	StepType   string   `json:"stepType"`
+	Code       string   `json:"code"`
+	Severity   string   `json:"severity"`
+	Message    string   `json:"message"`
+	Columns    []string `json:"columns"`
+	ConfigKeys []string `json:"configKeys,omitempty"`
+}
+
 type DataPipelineReviewItemBody struct {
 	PublicID          string                          `json:"publicId" format:"uuid"`
 	PipelinePublicID  string                          `json:"pipelinePublicId,omitempty" format:"uuid"`
@@ -262,6 +278,10 @@ type DataPipelineDraftPreviewRequestBody struct {
 	Limit  int32                     `json:"limit,omitempty" minimum:"1" maximum:"1000"`
 }
 
+type DataPipelineDraftValidationRequestBody struct {
+	Graph service.DataPipelineGraph `json:"graph"`
+}
+
 type DataPipelineScheduleWriteBody struct {
 	Frequency string `json:"frequency,omitempty" enum:"daily,weekly,monthly"`
 	Timezone  string `json:"timezone,omitempty"`
@@ -289,6 +309,10 @@ type DataPipelineVersionOutput struct {
 
 type DataPipelinePreviewOutput struct {
 	Body DataPipelinePreviewBody
+}
+
+type DataPipelineGraphValidationOutput struct {
+	Body DataPipelineGraphValidationBody
 }
 
 type DataPipelineRunOutput struct {
@@ -383,6 +407,13 @@ type DataPipelineDraftPreviewInput struct {
 	CSRFToken        string      `header:"X-CSRF-Token" required:"true"`
 	PipelinePublicID string      `path:"pipelinePublicId" format:"uuid"`
 	Body             DataPipelineDraftPreviewRequestBody
+}
+
+type DataPipelineDraftValidationInput struct {
+	SessionCookie    http.Cookie `cookie:"SESSION_ID"`
+	CSRFToken        string      `header:"X-CSRF-Token" required:"true"`
+	PipelinePublicID string      `path:"pipelinePublicId" format:"uuid"`
+	Body             DataPipelineDraftValidationRequestBody
 }
 
 type DataPipelineRunCreateInput struct {
@@ -618,6 +649,21 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 			return nil, toDataPipelineHTTPError(ctx, deps, "previewDataPipelineDraft", err)
 		}
 		return &DataPipelinePreviewOutput{Body: toDataPipelinePreviewBody(preview)}, nil
+	})
+
+	huma.Register(api, huma.Operation{OperationID: "validateDataPipelineDraft", Method: http.MethodPost, Path: "/api/v1/data-pipelines/{pipelinePublicId}/validate", Summary: "未保存 draft graph の schema と column warning を検証する", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineDraftValidationInput) (*DataPipelineGraphValidationOutput, error) {
+		current, tenant, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, input.CSRFToken)
+		if err != nil {
+			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceDataPipeline, input.PipelinePublicID, service.DataActionPreview); err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "validateDataPipelineDraft", err)
+		}
+		result, err := deps.DataPipelineService.ValidateDraft(ctx, tenant.ID, current.User.ID, input.PipelinePublicID, input.Body.Graph)
+		if err != nil {
+			return nil, toDataPipelineHTTPError(ctx, deps, "validateDataPipelineDraft", err)
+		}
+		return &DataPipelineGraphValidationOutput{Body: toDataPipelineGraphValidationBody(result)}, nil
 	})
 
 	huma.Register(api, huma.Operation{OperationID: "schemaMappingCandidates", Method: http.MethodPost, Path: "/api/v1/data-pipelines/schema-mapping/candidates", Summary: "schema mapping 候補を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *SchemaMappingCandidateInput) (*SchemaMappingCandidateOutput, error) {
@@ -1015,6 +1061,34 @@ func toDataPipelinePreviewBody(item service.DataPipelinePreview) DataPipelinePre
 			StepType: schema.StepType,
 			Columns:  schema.Columns,
 			Warnings: schema.Warnings,
+		})
+	}
+	return body
+}
+
+func toDataPipelineGraphValidationBody(item service.DataPipelineGraphValidation) DataPipelineGraphValidationBody {
+	body := DataPipelineGraphValidationBody{
+		ValidationSummary: item.ValidationSummary,
+		OutputSchemas:     make([]DataPipelineOutputSchemaBody, 0, len(item.OutputSchemas)),
+		NodeWarnings:      make([]DataPipelineNodeWarningBody, 0, len(item.NodeWarnings)),
+	}
+	for _, schema := range item.OutputSchemas {
+		body.OutputSchemas = append(body.OutputSchemas, DataPipelineOutputSchemaBody{
+			NodeID:   schema.NodeID,
+			StepType: schema.StepType,
+			Columns:  schema.Columns,
+			Warnings: schema.Warnings,
+		})
+	}
+	for _, warning := range item.NodeWarnings {
+		body.NodeWarnings = append(body.NodeWarnings, DataPipelineNodeWarningBody{
+			NodeID:     warning.NodeID,
+			StepType:   warning.StepType,
+			Code:       warning.Code,
+			Severity:   warning.Severity,
+			Message:    warning.Message,
+			Columns:    warning.Columns,
+			ConfigKeys: warning.ConfigKeys,
 		})
 	}
 	return body

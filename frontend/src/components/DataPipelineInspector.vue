@@ -4,7 +4,7 @@ import { AlertCircle, Check, MousePointerClick, Plus, RefreshCw, Sparkles, Trash
 import { useI18n } from 'vue-i18n'
 
 import { fetchDriveFile, fetchDriveFileManifest, refreshDriveFileManifest, type DriveDocumentManifestBody, type DriveDocumentSheetManifest } from '../api/drive'
-import { fetchSchemaMappingCandidates, isDataPipelineAutoPreviewEnabled, recordSchemaMappingExample, type DataPipelineGraph, type DataPipelinePreviewBody, type DataPipelineStepType, type SchemaMappingCandidateBody, type SchemaMappingCandidateItem } from '../api/data-pipelines'
+import { fetchSchemaMappingCandidates, isDataPipelineAutoPreviewEnabled, recordSchemaMappingExample, type DataPipelineGraph, type DataPipelineGraphValidationBody, type DataPipelineNodeWarningBody, type DataPipelinePreviewBody, type DataPipelineStepType, type SchemaMappingCandidateBody, type SchemaMappingCandidateItem } from '../api/data-pipelines'
 import { toApiErrorMessage } from '../api/client'
 import type { DatasetBody, DatasetWorkTableBody, DriveFileBody } from '../api/generated/types.gen'
 import { inferDataPipelineStepOutputColumns } from '../utils/data-pipeline-step-output-schema'
@@ -22,6 +22,7 @@ const props = defineProps<{
   datasets?: DatasetBody[]
   workTables?: DatasetWorkTableBody[]
   preview?: DataPipelinePreviewBody | null
+  validation?: DataPipelineGraphValidationBody | null
   pipelinePublicId?: string
   versionPublicId?: string
 }>()
@@ -973,6 +974,10 @@ function columnsForNodeOutput(nodeId?: string, visited = new Set<string>()): str
   if (!node) {
     return []
   }
+  const validationSchemaColumns = props.validation?.outputSchemas?.find((schema) => schema.nodeId === nodeId)?.columns
+  if (validationSchemaColumns && validationSchemaColumns.length > 0) {
+    return validationSchemaColumns
+  }
   const backendSchemaColumns = props.preview?.outputSchemas?.find((schema) => schema.nodeId === nodeId)?.columns
   if (backendSchemaColumns && backendSchemaColumns.length > 0) {
     return backendSchemaColumns
@@ -1006,6 +1011,11 @@ function selectedMissingColumnWarnings() {
   if (!selectedNode.value || stepType.value === 'input') {
     return []
   }
+  if (props.validation) {
+    return props.validation.nodeWarnings
+      .filter((warning) => warning.nodeId === selectedNode.value?.id)
+      .map(validationWarningMessage)
+  }
   const warnings: string[] = []
   const primaryMissing = missingColumns(configuredPrimaryColumnRefs(stepType.value, configDraft.value), primaryColumns.value)
   if (primaryMissing.length > 0) {
@@ -1018,6 +1028,16 @@ function selectedMissingColumnWarnings() {
     }
   }
   return warnings
+}
+
+function validationWarningMessage(warning: DataPipelineNodeWarningBody) {
+  if (warning.code === 'missing_right_upstream_columns') {
+    return t('dataPipelines.missingRightUpstreamColumns', { columns: warning.columns.join(', ') })
+  }
+  if (warning.code === 'missing_upstream_columns') {
+    return t('dataPipelines.missingUpstreamColumns', { columns: warning.columns.join(', ') })
+  }
+  return warning.message
 }
 
 function configuredPrimaryColumnRefs(type: string, config: ConfigRecord) {

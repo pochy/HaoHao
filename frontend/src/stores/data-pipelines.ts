@@ -18,9 +18,11 @@ import {
   saveDataPipelineVersion,
   updateDataPipeline,
   updateDataPipelineSchedule,
+  validateDataPipelineDraft,
   type DataPipelineBody,
   type DataPipelineDetailBody,
   type DataPipelineGraph,
+  type DataPipelineGraphValidationBody,
   type DataPipelineListParams,
   type DataPipelinePreviewBody,
   type DataPipelineReviewItemBody,
@@ -35,6 +37,10 @@ type DataPipelineStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'forbidden' |
 type DataPipelinePreviewCacheEntry = {
   graphSignature: string
   result: DataPipelinePreviewBody
+}
+type DataPipelineValidationCacheEntry = {
+  graphSignature: string
+  result: DataPipelineGraphValidationBody
 }
 type PreviewSelectedOptions = {
   automatic?: boolean
@@ -51,7 +57,9 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
     draftGraph: defaultDataPipelineGraph(),
     selectedNodeId: '',
     previewByNodeId: {} as Record<string, DataPipelinePreviewCacheEntry>,
+    validationBySignature: {} as Record<string, DataPipelineValidationCacheEntry>,
     pendingPreviewKeys: {} as Record<string, true>,
+    pendingValidationKeys: {} as Record<string, true>,
     runs: [] as DataPipelineRunBody[],
     reviewItems: [] as DataPipelineReviewItemBody[],
     schedules: [] as DataPipelineScheduleBody[],
@@ -79,7 +87,21 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
       }
       return entry.result
     },
+    selectedValidation: (state): DataPipelineGraphValidationBody | null => {
+      const graphSignature = graphPreviewSignature(state.draftGraph)
+      const entry = state.validationBySignature[graphSignature]
+      if (!entry || entry.graphSignature !== graphSignature) {
+        return null
+      }
+      return entry.result
+    },
     selectedPreviewLoading: (state): boolean => state.previewLoading && state.previewLoadingNodeId === state.selectedNodeId,
+    selectedValidationKey: (state): string => {
+      if (!state.selectedPublicId || state.status !== 'ready') {
+        return ''
+      }
+      return `${state.selectedPublicId}:${graphPreviewSignature(state.draftGraph)}`
+    },
     selectedAutoPreviewKey: (state): string => {
       const node = state.draftGraph.nodes.find((item) => item.id === state.selectedNodeId)
       if (!state.selectedPublicId || !node) {
@@ -102,7 +124,9 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
       this.draftGraph = defaultDataPipelineGraph()
       this.selectedNodeId = ''
       this.previewByNodeId = {}
+      this.validationBySignature = {}
       this.pendingPreviewKeys = {}
+      this.pendingValidationKeys = {}
       this.runs = []
       this.reviewItems = []
       this.schedules = []
@@ -158,7 +182,9 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
           ? selectedNodeId
           : this.draftGraph.nodes[0]?.id ?? ''
         this.previewByNodeId = {}
+        this.validationBySignature = {}
         this.pendingPreviewKeys = {}
+        this.pendingValidationKeys = {}
         this.status = 'ready'
       } catch (error) {
         this.detail = null
@@ -319,6 +345,53 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
 
     async autoPreviewSelected() {
       return await this.previewSelected({ automatic: true, silent: true })
+    },
+
+    async validateDraft(options: { silent?: boolean } = {}) {
+      if (!this.selectedPublicId) {
+        this.selectedPublicId = this.detail?.pipeline.publicId ?? this.items[0]?.publicId ?? ''
+      }
+      if (!this.selectedPublicId) {
+        return null
+      }
+      const graphSignature = graphPreviewSignature(this.draftGraph)
+      const cached = this.validationBySignature[graphSignature]
+      if (cached?.graphSignature === graphSignature) {
+        return cached.result
+      }
+      const pendingKey = `${this.selectedPublicId}:${graphSignature}`
+      if (this.pendingValidationKeys[pendingKey]) {
+        return null
+      }
+      this.pendingValidationKeys = {
+        ...this.pendingValidationKeys,
+        [pendingKey]: true,
+      }
+      if (!options.silent) {
+        this.errorMessage = ''
+      }
+      try {
+        const result = await validateDataPipelineDraft(this.selectedPublicId, this.draftGraph)
+        this.validationBySignature = {
+          ...this.validationBySignature,
+          [graphSignature]: {
+            graphSignature,
+            result,
+          },
+        }
+        return result
+      } catch (error) {
+        if (!options.silent) {
+          this.errorMessage = toApiErrorMessage(error)
+        }
+        throw error
+      } finally {
+        this.pendingValidationKeys = omitPendingPreview(this.pendingValidationKeys, pendingKey)
+      }
+    },
+
+    async autoValidateDraft() {
+      return await this.validateDraft({ silent: true })
     },
 
     async runPublished() {

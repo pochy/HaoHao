@@ -190,6 +190,22 @@ type DataPipelinePreview struct {
 	OutputSchemas []DataPipelineNodeOutputSchema
 }
 
+type DataPipelineGraphValidation struct {
+	ValidationSummary DataPipelineValidationSummary
+	OutputSchemas     []DataPipelineNodeOutputSchema
+	NodeWarnings      []DataPipelineNodeWarning
+}
+
+type DataPipelineNodeWarning struct {
+	NodeID     string
+	StepType   string
+	Code       string
+	Severity   string
+	Message    string
+	Columns    []string
+	ConfigKeys []string
+}
+
 type DataPipelineReviewItem struct {
 	ID                int64
 	PublicID          string
