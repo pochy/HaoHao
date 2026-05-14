@@ -20,6 +20,7 @@ export type DataPipelineStepType =
   | 'extract_fields'
   | 'extract_table'
   | 'confidence_gate'
+  | 'quarantine'
   | 'deduplicate'
   | 'canonicalize'
   | 'redact_pii'

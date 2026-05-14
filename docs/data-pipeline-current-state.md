@@ -148,7 +148,7 @@ Backend validation の主な制約:
 現在 backend catalog に存在する step type は次の通りです。
 
 - 構造化系: `input`, `profile`, `clean`, `normalize`, `validate`, `schema_mapping`, `schema_completion`, `join`, `enrich_join`, `transform`, `output`
-- 非構造化 / Drive 系: `extract_text`, `json_extract`, `excel_extract`, `classify_document`, `extract_fields`, `extract_table`, `confidence_gate`, `deduplicate`, `canonicalize`, `redact_pii`, `detect_language_encoding`, `schema_inference`, `entity_resolution`, `unit_conversion`, `relationship_extraction`, `human_review`, `sample_compare`, `quality_report`
+- 非構造化 / Drive 系: `extract_text`, `json_extract`, `excel_extract`, `classify_document`, `extract_fields`, `extract_table`, `confidence_gate`, `quarantine`, `deduplicate`, `canonicalize`, `redact_pii`, `detect_language_encoding`, `schema_inference`, `entity_resolution`, `unit_conversion`, `relationship_extraction`, `human_review`, `sample_compare`, `quality_report`
 
 `data_pipeline_compile.go` の SQL compiler は主に構造化系 node を扱います。`data_pipeline_unstructured.go` の hybrid executor は Drive file input または非構造化 step を検出した場合に使われます。
 
@@ -313,6 +313,14 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 現在の実装では、`keyColumns`、または単一の `keyColumn` を使って duplicate group を作ります。未指定の場合は `file_public_id` を使います。`duplicate_group_id`、`duplicate_status`、`survivor_flag`、`match_reason` を追加します。`mode=keep_first` の場合は最初の行だけを残します。
 
 使う場面は、同じ Drive file や同じ伝票番号が複数回入っている可能性があるとき、重複を可視化または除外したいときです。
+
+#### `quarantine`
+
+目的は、不正行、低信頼行、レビュー待ち行を通常 output から分離することです。
+
+現在の実装では、`statusColumn`、既定では `gate_status` を読み、`matchValues`、既定では `needs_review` に一致する行を quarantine 対象にします。`outputMode=quarantine_only` では一致行だけを残し、`outputMode=pass_only` では非一致行だけを残します。run step metadata には `quarantinedRows`、`passedRows`、`statusColumn`、`matchValues`、`outputMode` を保存します。
+
+使う場面は、`confidence_gate` の `needs_review` 行を通常 output から外し、別の Work table に保存して後で確認したいときです。通常 output と quarantine output を両方作る場合は、`confidence_gate` から 2 本の branch を伸ばし、片方に `quarantine(outputMode=pass_only)`、もう片方に `quarantine(outputMode=quarantine_only)` を置きます。
 
 #### `canonicalize`
 
@@ -521,12 +529,18 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 
 目的は、不正行、低信頼行、レビュー待ち行を通常 output から隔離することです。これは実運用で重要です。失敗行を捨てず、原因と一緒に別 table に残せると再処理や調査ができます。
 
-できることの候補:
+現在できること:
 
-- `validate`、`confidence_gate`、`human_review` の結果を見て quarantine 対象を選ぶ。
+- `statusColumn` と `matchValues` で quarantine 対象を選ぶ。
+- `outputMode=quarantine_only` で一致行だけを出力する。
+- `outputMode=pass_only` で非一致行だけを出力する。
+- run step metadata に quarantine / pass 件数を残す。
+
+今後の候補:
+
 - quarantine output に `quarantine_reason`、`source_node_id`、`failed_rule`、`original_row_json` を追加する。
 - `mode=annotate` では隔離せず状態列を付ける。
-- `mode=split` では pass 行と quarantine 行を別 output にする。
+- `validate` の行単位 status と接続する。
 
 使う場面:
 

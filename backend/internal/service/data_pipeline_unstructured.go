@@ -57,6 +57,7 @@ func dataPipelineUnstructuredStep(stepType string) bool {
 		DataPipelineStepExtractFields,
 		DataPipelineStepExtractTable,
 		DataPipelineStepConfidenceGate,
+		DataPipelineStepQuarantine,
 		DataPipelineStepDeduplicate,
 		DataPipelineStepCanonicalize,
 		DataPipelineStepRedactPII,
@@ -380,6 +381,12 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 			return dataPipelineMaterializedRelation{}, err
 		}
 		return s.materializeConfidenceGate(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepQuarantine:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeQuarantine(ctx, conn, database, table, node, upstream)
 	case DataPipelineStepDeduplicate:
 		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
 		if err != nil {
@@ -766,6 +773,57 @@ func (s *DataPipelineService) materializeConfidenceGate(ctx context.Context, con
 		return dataPipelineMaterializedRelation{}, err
 	}
 	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata}, nil
+}
+
+func (s *DataPipelineService) materializeQuarantine(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	statusCol := firstNonEmpty(dataPipelineString(node.Data.Config, "statusColumn"), "gate_status")
+	if err := dataPipelineRequireColumn(upstream.Columns, statusCol); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	matchValues := dataPipelineStringSlice(node.Data.Config, "matchValues")
+	if len(matchValues) == 0 {
+		matchValues = []string{"needs_review"}
+	}
+	matchSet := make(map[string]struct{}, len(matchValues))
+	for _, value := range matchValues {
+		matchSet[value] = struct{}{}
+	}
+	outputMode := firstNonEmpty(dataPipelineString(node.Data.Config, "outputMode"), "quarantine_only")
+	if outputMode != "quarantine_only" && outputMode != "pass_only" {
+		return dataPipelineMaterializedRelation{}, fmt.Errorf("%w: quarantine outputMode must be quarantine_only or pass_only", ErrInvalidDataPipelineGraph)
+	}
+	out := make([]map[string]any, 0, len(rows))
+	quarantinedRows := int64(0)
+	passedRows := int64(0)
+	for _, row := range rows {
+		_, quarantined := matchSet[fmt.Sprint(row[statusCol])]
+		if quarantined {
+			quarantinedRows++
+		} else {
+			passedRows++
+		}
+		if (outputMode == "quarantine_only" && quarantined) || (outputMode == "pass_only" && !quarantined) {
+			out = append(out, cloneRow(row))
+		}
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, upstream.Columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	metadata := map[string]any{
+		"quarantinedRows": quarantinedRows,
+		"passedRows":      passedRows,
+		"statusColumn":    statusCol,
+		"matchValues":     matchValues,
+		"outputMode":      outputMode,
+	}
+	if quarantinedRows > 0 {
+		metadata["failedRows"] = quarantinedRows
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: upstream.Columns, Metadata: metadata}, nil
 }
 
 func (s *DataPipelineService) materializeDeduplicate(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {

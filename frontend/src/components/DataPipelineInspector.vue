@@ -1051,6 +1051,8 @@ function configuredPrimaryColumnRefs(type: string, config: ConfigRecord) {
   case 'deduplicate':
   case 'redact_pii':
     return stringList(config.columns)
+  case 'quarantine':
+    return [stringValue(config.statusColumn)]
   case 'canonicalize':
     return arrayFromConfig(config, 'rules').map((rule) => stringField(rule, 'column'))
   case 'classify_document':
@@ -2288,6 +2290,26 @@ function labelForStep(type: DataPipelineStepType | string) {
           <label class="field">
             <span>{{ t('dataPipelines.scoreColumns') }}</span>
             <input :value="listToInput(configDraft.scoreColumns)" placeholder="confidence, field_confidence, document_confidence" @input="updateConfigList('scoreColumns', targetValue($event))">
+          </label>
+        </template>
+
+        <template v-else-if="stepType === 'quarantine'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.statusColumn') }}</span>
+              <input :value="stringConfig('statusColumn') || 'gate_status'" list="data-pipeline-column-options" @input="updateConfigField('statusColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.outputMode') }}</span>
+              <select :value="stringConfig('outputMode') || 'quarantine_only'" @change="updateConfigField('outputMode', targetValue($event))">
+                <option value="quarantine_only">{{ t('dataPipelines.quarantineOnly') }}</option>
+                <option value="pass_only">{{ t('dataPipelines.passOnly') }}</option>
+              </select>
+            </label>
+          </div>
+          <label class="field">
+            <span>{{ t('dataPipelines.matchValues') }}</span>
+            <input :value="listToInput(configDraft.matchValues)" placeholder="needs_review" @input="updateConfigList('matchValues', targetValue($event))">
           </label>
         </template>
 

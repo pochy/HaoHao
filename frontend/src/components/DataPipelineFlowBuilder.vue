@@ -87,6 +87,7 @@ const stepOrder: Record<DataPipelineStepType, number> = {
   sample_compare: 94,
   quality_report: 96,
   confidence_gate: 90,
+  quarantine: 91,
   output: 1000,
 }
 const paletteCategories = [
@@ -107,6 +108,7 @@ const stepCategory: Record<DataPipelineStepType, PaletteCategory> = {
   extract_fields: 'extraction',
   extract_table: 'extraction',
   confidence_gate: 'quality',
+  quarantine: 'quality',
   deduplicate: 'quality',
   canonicalize: 'quality',
   redact_pii: 'quality',
@@ -662,6 +664,8 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
     return { source: 'text_delimited', delimiter: ',', headerRow: false }
   case 'confidence_gate':
     return { threshold: 0.8, mode: 'annotate', statusColumn: 'gate_status' }
+  case 'quarantine':
+    return { mode: 'filter', statusColumn: 'gate_status', matchValues: ['needs_review'], outputMode: 'quarantine_only' }
   case 'deduplicate':
     return { keyColumns: [], mode: 'annotate', statusColumn: 'duplicate_status', groupColumn: 'duplicate_group_id' }
   case 'canonicalize':

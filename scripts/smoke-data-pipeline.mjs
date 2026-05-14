@@ -147,10 +147,10 @@ function node(id, stepType, label, x, y, config = {}) {
   }
 }
 
-function outputNode(suffix, orderBy = ['id']) {
-  return node('output', 'output', 'Smoke output', 1180, 120, {
+function outputNode(suffix, orderBy = ['id'], id = 'output', x = 1180, y = 120) {
+  return node(id, 'output', 'Smoke output', x, y, {
     displayName: `data pipeline smoke output ${suffix}`,
-    tableName: `data_pipeline_smoke_output_${suffix}`,
+    tableName: `data_pipeline_smoke_output_${suffix}_${id}`,
     writeMode: 'replace',
     orderBy,
   })
@@ -233,6 +233,46 @@ function textGraph(filePublicId, suffix) {
   }
 }
 
+function quarantineGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive text', 60, 180, {
+        sourceKind: 'drive_file',
+        filePublicIds: [filePublicId],
+      }),
+      node('extract_text', 'extract_text', 'Extract text', 320, 180, {
+        chunkMode: 'full_text',
+      }),
+      node('quality_report', 'quality_report', 'Quality report', 580, 180, {
+        columns: ['text', 'confidence'],
+      }),
+      node('confidence_gate', 'confidence_gate', 'Confidence gate', 840, 180, {
+        scoreColumns: ['confidence'],
+        threshold: 0.8,
+      }),
+      node('quarantine_pass', 'quarantine', 'Pass rows', 1100, 80, {
+        statusColumn: 'gate_status',
+        matchValues: ['needs_review'],
+        outputMode: 'pass_only',
+        mode: 'filter',
+      }),
+      outputNode(suffix, ['file_public_id'], 'output_pass', 1360, 80),
+      node('quarantine_review', 'quarantine', 'Quarantine rows', 1100, 280, {
+        statusColumn: 'gate_status',
+        matchValues: ['needs_review'],
+        outputMode: 'quarantine_only',
+        mode: 'filter',
+      }),
+      outputNode(suffix, ['file_public_id'], 'output_quarantine', 1360, 280),
+    ],
+    edges: [
+      ...linearEdges(['input', 'extract_text', 'quality_report', 'confidence_gate', 'quarantine_pass', 'output_pass']),
+      { id: 'confidence_gate-quarantine_review', source: 'confidence_gate', target: 'quarantine_review' },
+      { id: 'quarantine_review-output_quarantine', source: 'quarantine_review', target: 'output_quarantine' },
+    ],
+  }
+}
+
 function profileNode() {
   return node('profile', 'profile', 'Profile smoke rows', 620, 120, {})
 }
@@ -260,6 +300,7 @@ async function createPipeline(scenario, filePublicId) {
     json: jsonGraph,
     excel: excelGraph,
     text: textGraph,
+    quarantine: quarantineGraph,
   }
   const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
     name: `Smoke: ${scenario} metadata ${new Date().toISOString()}`,
@@ -339,6 +380,30 @@ function assertTextRun(run) {
   }
 }
 
+function assertQuarantineRun(run) {
+  if (run.status !== 'completed') {
+    throw new Error(`run did not complete: ${run.status} ${run.errorSummary ?? ''}`)
+  }
+  const passOutput = (run.outputs ?? []).find((item) => item.nodeId === 'output_pass')
+  const quarantineOutput = (run.outputs ?? []).find((item) => item.nodeId === 'output_quarantine')
+  if (!passOutput || passOutput.status !== 'completed' || passOutput.rowCount !== 0) {
+    throw new Error(`unexpected pass output: ${JSON.stringify(passOutput)}`)
+  }
+  if (!quarantineOutput || quarantineOutput.status !== 'completed' || quarantineOutput.rowCount !== 1) {
+    throw new Error(`unexpected quarantine output: ${JSON.stringify(quarantineOutput)}`)
+  }
+  const passStep = findStep(run, 'quarantine_pass')
+  const reviewStep = findStep(run, 'quarantine_review')
+  for (const step of [passStep, reviewStep]) {
+    if (!step?.metadata?.queryStats?.queryId) {
+      throw new Error(`queryStats missing for quarantine step: ${JSON.stringify(step)}`)
+    }
+    if (step.metadata.quarantinedRows !== 1 || step.metadata.passedRows !== 0) {
+      throw new Error(`unexpected quarantine metadata: ${JSON.stringify(step.metadata)}`)
+    }
+  }
+}
+
 async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
   let last
   for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
@@ -358,11 +423,13 @@ async function runScenario(workspacePublicId, scenario) {
     json: uploadJSONFile,
     excel: uploadXLSXFile,
     text: uploadTextFile,
+    quarantine: uploadTextFile,
   }
   const assertions = {
     json: (run) => assertProfileValidateRun(run, 3),
     excel: (run) => assertProfileValidateRun(run, 3),
     text: assertTextRun,
+    quarantine: assertQuarantineRun,
   }
   const file = await uploaders[scenario](workspacePublicId)
   const { pipeline, version } = await createPipeline(scenario, file.publicId)
@@ -403,9 +470,9 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text'] : [requestedScenario]
+  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine'] : [requestedScenario]
   for (const scenario of scenarios) {
-    if (!['json', 'excel', 'text'].includes(scenario)) {
+    if (!['json', 'excel', 'text', 'quarantine'].includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
     }
   }

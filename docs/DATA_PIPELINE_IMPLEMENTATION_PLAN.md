@@ -60,7 +60,7 @@ node --check scripts/smoke-data-pipeline.mjs
 make smoke-data-pipeline-suite
 ```
 
-次にやることは Month 2 の `quarantine` node です。目的は、`validate` / `confidence_gate` の失敗行や低信頼行を通常 output から分離し、別 Work table として確認できるようにすることです。
+Month 2 の最初の実装である `quarantine` node v1 は 2026-05-14 に実装済みです。`validate` / `confidence_gate` の失敗行や低信頼行を通常 output から分離し、別 Work table として確認できる入口ができました。次は `confidence_gate` / `quality_report` の失敗理由 metadata 強化に進みます。
 
 ## 調査結果
 
@@ -570,6 +570,8 @@ DB schema は変更しません。
 
 次の PR は Month 2 の最初の実装として、`quarantine` node に絞ります。
 
+状態: 完了済み。
+
 目的:
 
 - `validate` の failed row と `confidence_gate` の `needs_review` row を通常 output から分離する。
@@ -589,3 +591,13 @@ DB schema は変更しません。
 9. `go test ./backend/...`、`npm --prefix frontend run build`、`make smoke-data-pipeline-suite` を通す。
 
 この PR では review item / queue は作りません。`quarantine` output を Work table として確認できるところまでを完了条件にします。
+
+実装済み:
+
+- backend catalog に `quarantine` step type を追加した。
+- hybrid executor に `quarantine` materializer を追加した。
+- config v1 は `mode`, `statusColumn`, `matchValues`, `outputMode` に絞った。
+- `outputMode=quarantine_only` / `pass_only` に対応した。
+- run step metadata に `quarantinedRows`, `passedRows`, `statusColumn`, `matchValues`, `outputMode` を保存する。
+- Inspector / palette に最小 UI を追加した。
+- smoke suite に quarantine scenario を追加した。

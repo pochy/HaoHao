@@ -166,7 +166,7 @@ Local Search / RAG:
 - `HandleRunRequested` は node ごとの実測 metadata を step completion に渡す実装へ進んでいます。
 - join / enrich_join は行数爆発、未マッチ、key null、列衝突などの warning を UI で十分説明できていません。
 - `human_review` は注釈列の段階で、本格的な review queue ではありません。
-- `quarantine`、`union`、`route_by_condition`、`partition_filter`、`watermark_filter`、`snapshot_scd2` はまだ実装されていません。
+- `quarantine` v1 は実装済みです。`union`、`route_by_condition`、`partition_filter`、`watermark_filter`、`snapshot_scd2` はまだ実装されていません。
 
 次に着手すべき理由:
 
@@ -357,9 +357,9 @@ AI coding / agent 改善を触る場合:
 
 次にやること:
 
-- 最初の PR は `quarantine` node に絞る。
-- v1 では `confidence_gate.gate_status = needs_review` を quarantine Work table に分離する。
-- review item / queue は次の PR に回す。
+- `quarantine` node v1 は完了済み。
+- 次は `confidence_gate` / `quality_report` の失敗理由 metadata を強化する。
+- review item / queue はその次の PR に回す。
 
 完了条件:
 

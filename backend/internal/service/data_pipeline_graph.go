@@ -27,6 +27,7 @@ const (
 	DataPipelineStepExtractFields    = "extract_fields"
 	DataPipelineStepExtractTable     = "extract_table"
 	DataPipelineStepConfidenceGate   = "confidence_gate"
+	DataPipelineStepQuarantine       = "quarantine"
 	DataPipelineStepDeduplicate      = "deduplicate"
 	DataPipelineStepCanonicalize     = "canonicalize"
 	DataPipelineStepRedactPII        = "redact_pii"
@@ -62,6 +63,7 @@ var dataPipelineStepCatalog = map[string]struct{}{
 	DataPipelineStepExtractFields:    {},
 	DataPipelineStepExtractTable:     {},
 	DataPipelineStepConfidenceGate:   {},
+	DataPipelineStepQuarantine:       {},
 	DataPipelineStepDeduplicate:      {},
 	DataPipelineStepCanonicalize:     {},
 	DataPipelineStepRedactPII:        {},
