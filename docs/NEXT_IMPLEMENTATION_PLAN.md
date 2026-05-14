@@ -358,8 +358,8 @@ AI coding / agent 改善を触る場合:
 次にやること:
 
 - `quarantine` node v1 は完了済み。
-- 次は `confidence_gate` / `quality_report` の失敗理由 metadata を強化する。
-- review item / queue はその次の PR に回す。
+- `confidence_gate` / `quality_report` の失敗理由 metadata 強化も完了済み。
+- 次は `human_review` を review item / queue の入口へ拡張する。
 
 完了条件:
 

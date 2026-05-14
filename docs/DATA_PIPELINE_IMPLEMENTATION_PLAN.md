@@ -60,7 +60,7 @@ node --check scripts/smoke-data-pipeline.mjs
 make smoke-data-pipeline-suite
 ```
 
-Month 2 の最初の実装である `quarantine` node v1 は 2026-05-14 に実装済みです。`validate` / `confidence_gate` の失敗行や低信頼行を通常 output から分離し、別 Work table として確認できる入口ができました。次は `confidence_gate` / `quality_report` の失敗理由 metadata 強化に進みます。
+Month 2 の最初の実装である `quarantine` node v1 は 2026-05-14 に実装済みです。`validate` / `confidence_gate` の失敗行や低信頼行を通常 output から分離し、別 Work table として確認できる入口ができました。`confidence_gate` / `quality_report` の失敗理由 metadata 強化も完了済みです。次は `human_review` の review item / queue 化に進みます。
 
 ## 調査結果
 
@@ -601,3 +601,5 @@ DB schema は変更しません。
 - run step metadata に `quarantinedRows`, `passedRows`, `statusColumn`, `matchValues`, `outputMode` を保存する。
 - Inspector / palette に最小 UI を追加した。
 - smoke suite に quarantine scenario を追加した。
+- `confidence_gate` に `gate_reason` 列と `lowConfidenceSamples` metadata を追加した。
+- `quality_report` に missing rate warning metadata を追加した。

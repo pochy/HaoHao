@@ -736,6 +736,7 @@ func (s *DataPipelineService) materializeConfidenceGate(ctx context.Context, con
 	threshold := dataPipelineFloat(node.Data.Config, "threshold", 0.8)
 	statusCol := firstNonEmpty(dataPipelineString(node.Data.Config, "statusColumn"), "gate_status")
 	scoreCol := "gate_score"
+	reasonCol := "gate_reason"
 	scoreColumns := dataPipelineStringSlice(node.Data.Config, "scoreColumns")
 	if len(scoreColumns) == 0 {
 		for _, candidate := range []string{"confidence", "field_confidence", "document_type_confidence"} {
@@ -746,19 +747,30 @@ func (s *DataPipelineService) materializeConfidenceGate(ctx context.Context, con
 	}
 	exprs := dataPipelineColumnExpressions(upstream.Columns)
 	scoreExpr := "1.0"
+	missingScoreExpr := "0"
+	invalidScoreExpr := "0"
 	if len(scoreColumns) > 0 {
 		parts := make([]string, 0, len(scoreColumns))
+		missingParts := make([]string, 0, len(scoreColumns))
+		invalidParts := make([]string, 0, len(scoreColumns))
 		for _, column := range scoreColumns {
 			if err := dataPipelineRequireColumn(upstream.Columns, column); err != nil {
 				return dataPipelineMaterializedRelation{}, err
 			}
-			parts = append(parts, "toFloat64OrZero("+quoteCHIdent(column)+")")
+			valueExpr := "toString(" + quoteCHIdent(column) + ")"
+			trimmedExpr := "trim(" + valueExpr + ")"
+			parts = append(parts, "toFloat64OrZero("+valueExpr+")")
+			missingParts = append(missingParts, trimmedExpr+" = ''")
+			invalidParts = append(invalidParts, trimmedExpr+" != '' AND isNull(toFloat64OrNull("+valueExpr+"))")
 		}
 		scoreExpr = "(" + strings.Join(parts, " + ") + ") / " + strconv.Itoa(len(parts))
+		missingScoreExpr = strings.Join(missingParts, " AND ")
+		invalidScoreExpr = strings.Join(invalidParts, " OR ")
 	}
-	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), scoreCol, statusCol))
+	columns := uniqueStringList(append(append([]string{}, upstream.Columns...), scoreCol, statusCol, reasonCol))
 	exprs[scoreCol] = scoreExpr
 	exprs[statusCol] = fmt.Sprintf("if(%s >= %s, 'pass', 'needs_review')", scoreExpr, dataPipelineLiteral(threshold))
+	exprs[reasonCol] = fmt.Sprintf("multiIf(%s, 'score_missing', %s, 'score_invalid', %s >= %s, 'passed', 'below_threshold')", missingScoreExpr, invalidScoreExpr, scoreExpr, dataPipelineLiteral(threshold))
 	selectSQL := fmt.Sprintf("SELECT\n%s\nFROM %s.%s", dataPipelineSelectList(columns, exprs), quoteCHIdent(upstream.Database), quoteCHIdent(upstream.Table))
 	if dataPipelineString(node.Data.Config, "mode") == "filter_pass" {
 		selectSQL += fmt.Sprintf("\nWHERE %s >= %s", scoreExpr, dataPipelineLiteral(threshold))
@@ -768,7 +780,7 @@ func (s *DataPipelineService) materializeConfidenceGate(ctx context.Context, con
 	if err := conn.Exec(queryCtx, sql); err != nil {
 		return dataPipelineMaterializedRelation{}, fmt.Errorf("materialize confidence_gate: %w", err)
 	}
-	metadata, err := collectConfidenceGateMetadata(ctx, conn, database, table, statusCol, scoreCol, threshold, scoreColumns)
+	metadata, err := collectConfidenceGateMetadata(ctx, conn, database, table, statusCol, scoreCol, reasonCol, threshold, scoreColumns)
 	if err != nil {
 		return dataPipelineMaterializedRelation{}, err
 	}
@@ -1234,10 +1246,18 @@ func (s *DataPipelineService) materializeQualityReport(ctx context.Context, conn
 	}
 	rowCount := len(rows)
 	missingRate, _ := report["missing_rate"].(map[string]float64)
+	warningThreshold := dataPipelineFloat(node.Data.Config, "missingRateWarningThreshold", 0)
 	warningCount := int64(0)
-	for _, rate := range missingRate {
-		if rate > 0 {
+	warnings := make([]map[string]any, 0)
+	for column, rate := range missingRate {
+		if rate > warningThreshold {
 			warningCount++
+			warnings = append(warnings, map[string]any{
+				"column":    column,
+				"rate":      rate,
+				"threshold": warningThreshold,
+				"reason":    "missing_rate_threshold",
+			})
 		}
 	}
 	metadata := map[string]any{
@@ -1246,8 +1266,10 @@ func (s *DataPipelineService) materializeQualityReport(ctx context.Context, conn
 			"columnCount": len(targetColumns),
 			"missingRate": report["missing_rate"],
 			"summary":     report["summary"],
+			"warnings":    warnings,
 		},
 		"warningCount": warningCount,
+		"warnings":     qualityWarningMessages(warnings),
 	}
 	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata}, nil
 }
@@ -1267,7 +1289,7 @@ func countHybridRelationRowsWithStats(ctx context.Context, conn driver.Conn, rel
 	return int64(count), collectDataPipelineQueryStats(ctx, conn, queryID, "count", time.Since(start)), nil
 }
 
-func collectConfidenceGateMetadata(ctx context.Context, conn driver.Conn, database, table, statusColumn, scoreColumn string, threshold float64, scoreColumns []string) (map[string]any, error) {
+func collectConfidenceGateMetadata(ctx context.Context, conn driver.Conn, database, table, statusColumn, scoreColumn, reasonColumn string, threshold float64, scoreColumns []string) (map[string]any, error) {
 	query := fmt.Sprintf(
 		"SELECT countIf(%[1]s = 'pass'), countIf(%[1]s = 'needs_review'), ifNull(min(toFloat64OrZero(toString(%[2]s))), 0), ifNull(avg(toFloat64OrZero(toString(%[2]s))), 0) FROM %[3]s.%[4]s",
 		quoteCHIdent(statusColumn),
@@ -1282,19 +1304,47 @@ func collectConfidenceGateMetadata(ctx context.Context, conn driver.Conn, databa
 	if err := queryDataPipelineSingle(ctx, conn, query, &passRows, &needsReviewRows, &minScore, &avgScore); err != nil {
 		return nil, err
 	}
+	samples, err := collectConfidenceGateLowConfidenceSamples(ctx, conn, database, table, statusColumn, scoreColumn, reasonColumn, scoreColumns)
+	if err != nil {
+		return nil, err
+	}
 	failedRows := int64(needsReviewRows)
 	return map[string]any{
 		"failedRows": failedRows,
 		"confidenceGate": map[string]any{
-			"threshold":       threshold,
-			"scoreColumns":    scoreColumns,
-			"passRows":        int64(passRows),
-			"needsReviewRows": int64(needsReviewRows),
-			"failedRows":      failedRows,
-			"minScore":        minScore,
-			"avgScore":        avgScore,
+			"threshold":            threshold,
+			"scoreColumns":         scoreColumns,
+			"passRows":             int64(passRows),
+			"needsReviewRows":      int64(needsReviewRows),
+			"failedRows":           failedRows,
+			"minScore":             minScore,
+			"avgScore":             avgScore,
+			"lowConfidenceSamples": samples,
 		},
 	}, nil
+}
+
+func collectConfidenceGateLowConfidenceSamples(ctx context.Context, conn driver.Conn, database, table, statusColumn, scoreColumn, reasonColumn string, scoreColumns []string) ([]map[string]any, error) {
+	columns := uniqueStringList(append([]string{statusColumn, scoreColumn, reasonColumn}, scoreColumns...))
+	query := fmt.Sprintf("SELECT %s FROM %s.%s WHERE %s = 'needs_review' ORDER BY %s ASC LIMIT 5", quoteCHIdentList(columns), quoteCHIdent(database), quoteCHIdent(table), quoteCHIdent(statusColumn), quoteCHIdent(scoreColumn))
+	rows, err := conn.Query(clickhouse.Context(ctx), query)
+	if err != nil {
+		return nil, fmt.Errorf("collect confidence gate samples: %w", err)
+	}
+	defer rows.Close()
+	_, samples, err := scanHybridRows(rows, 5)
+	if err != nil {
+		return nil, err
+	}
+	return samples, nil
+}
+
+func qualityWarningMessages(warnings []map[string]any) []string {
+	messages := make([]string, 0, len(warnings))
+	for _, warning := range warnings {
+		messages = append(messages, fmt.Sprintf("%s missing rate %.4f exceeded %.4f", warning["column"], warning["rate"], warning["threshold"]))
+	}
+	return messages
 }
 
 func createHybridStringTable(ctx context.Context, conn driver.Conn, database, table string, columns []string, rows []map[string]any) error {

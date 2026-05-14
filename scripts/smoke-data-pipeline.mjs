@@ -375,8 +375,15 @@ function assertTextRun(run) {
   if (!qualityStep?.metadata?.quality) {
     throw new Error(`quality metadata missing: ${JSON.stringify(qualityStep)}`)
   }
+  if (!Array.isArray(qualityStep.metadata.quality.warnings) || qualityStep.metadata.quality.warnings.length === 0) {
+    throw new Error(`quality warnings missing: ${JSON.stringify(qualityStep.metadata.quality)}`)
+  }
   if (!gateStep?.metadata?.confidenceGate) {
     throw new Error(`confidenceGate metadata missing: ${JSON.stringify(gateStep)}`)
+  }
+  const samples = gateStep.metadata.confidenceGate.lowConfidenceSamples
+  if (!Array.isArray(samples) || samples.length === 0 || !samples[0].gate_reason) {
+    throw new Error(`confidenceGate low confidence samples missing: ${JSON.stringify(gateStep.metadata.confidenceGate)}`)
   }
 }
 

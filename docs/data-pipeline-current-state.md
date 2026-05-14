@@ -302,7 +302,7 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 
 目的は、抽出や OCR の confidence を見て、後続へ流す行や review 対象を分けることです。
 
-現在の実装では、`scoreColumns` を平均して `gate_score` を作り、`threshold` 以上なら `pass`、未満なら `needs_review` を `gate_status` に入れます。`scoreColumns` 未指定の場合は `confidence`、`field_confidence`、`document_type_confidence` から存在する列を使います。`mode=filter_pass` の場合は pass した行だけを残します。
+現在の実装では、`scoreColumns` を平均して `gate_score` を作り、`threshold` 以上なら `pass`、未満なら `needs_review` を `gate_status` に入れます。`gate_reason` には `passed`、`below_threshold`、`score_missing`、`score_invalid` のような理由を入れます。`scoreColumns` 未指定の場合は `confidence`、`field_confidence`、`document_type_confidence` から存在する列を使います。`mode=filter_pass` の場合は pass した行だけを残します。
 
 使う場面は、OCR / 抽出結果の信頼度が低い行を人手確認へ回す、低 confidence 行を output から除外する、などです。
 
@@ -398,7 +398,7 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 
 目的は、データ品質の summary を JSON として付与することです。
 
-現在の実装では、`columns`、未指定なら全列を対象に、row count、column count、列ごとの missing rate を計算します。通常は各行に `quality_report_json`、`missing_rate_json`、`validation_summary_json` を付けます。`outputMode=dataset_summary` の場合は summary だけの 1 行を出します。
+現在の実装では、`columns`、未指定なら全列を対象に、row count、column count、列ごとの missing rate を計算します。通常は各行に `quality_report_json`、`missing_rate_json`、`validation_summary_json` を付けます。`outputMode=dataset_summary` の場合は summary だけの 1 行を出します。run step metadata には missing rate threshold 超過を `quality.warnings` と top-level `warnings` に保存します。
 
 使う場面は、output 前に欠損率や件数を確認したいとき、pipeline version 間や抽出 rule 変更前後の品質比較材料を作りたいときです。
 
