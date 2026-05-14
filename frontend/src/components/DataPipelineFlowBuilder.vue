@@ -75,6 +75,7 @@ const stepOrder: Record<DataPipelineStepType, number> = {
   classify_document: 15,
   extract_fields: 16,
   extract_table: 18,
+  product_extraction: 19,
   detect_language_encoding: 19,
   canonicalize: 22,
   redact_pii: 24,
@@ -107,6 +108,7 @@ const stepCategory: Record<DataPipelineStepType, PaletteCategory> = {
   classify_document: 'extraction',
   extract_fields: 'extraction',
   extract_table: 'extraction',
+  product_extraction: 'extraction',
   confidence_gate: 'quality',
   quarantine: 'quality',
   deduplicate: 'quality',
@@ -662,6 +664,8 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
     return { provider: 'rules', outputMode: 'columns_and_json', fields: [{ name: 'document_date', type: 'date', required: false, patterns: ['(\\\\d{4}[-/]\\\\d{1,2}[-/]\\\\d{1,2})'] }] }
   case 'extract_table':
     return { source: 'text_delimited', delimiter: ',', headerRow: false }
+  case 'product_extraction':
+    return { sourceFileColumn: 'file_public_id', includeSourceColumns: true, confidenceThreshold: 0.8, maxItems: 1000 }
   case 'confidence_gate':
     return { threshold: 0.8, mode: 'annotate', statusColumn: 'gate_status' }
   case 'quarantine':

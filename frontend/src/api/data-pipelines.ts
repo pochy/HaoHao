@@ -19,6 +19,7 @@ export type DataPipelineStepType =
   | 'classify_document'
   | 'extract_fields'
   | 'extract_table'
+  | 'product_extraction'
   | 'confidence_gate'
   | 'quarantine'
   | 'deduplicate'

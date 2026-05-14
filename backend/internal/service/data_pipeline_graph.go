@@ -9,72 +9,74 @@ import (
 )
 
 const (
-	DataPipelineStepInput            = "input"
-	DataPipelineStepProfile          = "profile"
-	DataPipelineStepClean            = "clean"
-	DataPipelineStepNormalize        = "normalize"
-	DataPipelineStepValidate         = "validate"
-	DataPipelineStepSchemaMapping    = "schema_mapping"
-	DataPipelineStepSchemaCompletion = "schema_completion"
-	DataPipelineStepJoin             = "join"
-	DataPipelineStepEnrichJoin       = "enrich_join"
-	DataPipelineStepTransform        = "transform"
-	DataPipelineStepOutput           = "output"
-	DataPipelineStepExtractText      = "extract_text"
-	DataPipelineStepJSONExtract      = "json_extract"
-	DataPipelineStepExcelExtract     = "excel_extract"
-	DataPipelineStepClassifyDocument = "classify_document"
-	DataPipelineStepExtractFields    = "extract_fields"
-	DataPipelineStepExtractTable     = "extract_table"
-	DataPipelineStepConfidenceGate   = "confidence_gate"
-	DataPipelineStepQuarantine       = "quarantine"
-	DataPipelineStepDeduplicate      = "deduplicate"
-	DataPipelineStepCanonicalize     = "canonicalize"
-	DataPipelineStepRedactPII        = "redact_pii"
-	DataPipelineStepDetectLanguage   = "detect_language_encoding"
-	DataPipelineStepSchemaInference  = "schema_inference"
-	DataPipelineStepEntityResolution = "entity_resolution"
-	DataPipelineStepUnitConversion   = "unit_conversion"
-	DataPipelineStepRelationship     = "relationship_extraction"
-	DataPipelineStepHumanReview      = "human_review"
-	DataPipelineStepSampleCompare    = "sample_compare"
-	DataPipelineStepQualityReport    = "quality_report"
+	DataPipelineStepInput             = "input"
+	DataPipelineStepProfile           = "profile"
+	DataPipelineStepClean             = "clean"
+	DataPipelineStepNormalize         = "normalize"
+	DataPipelineStepValidate          = "validate"
+	DataPipelineStepSchemaMapping     = "schema_mapping"
+	DataPipelineStepSchemaCompletion  = "schema_completion"
+	DataPipelineStepJoin              = "join"
+	DataPipelineStepEnrichJoin        = "enrich_join"
+	DataPipelineStepTransform         = "transform"
+	DataPipelineStepOutput            = "output"
+	DataPipelineStepExtractText       = "extract_text"
+	DataPipelineStepJSONExtract       = "json_extract"
+	DataPipelineStepExcelExtract      = "excel_extract"
+	DataPipelineStepClassifyDocument  = "classify_document"
+	DataPipelineStepExtractFields     = "extract_fields"
+	DataPipelineStepExtractTable      = "extract_table"
+	DataPipelineStepProductExtraction = "product_extraction"
+	DataPipelineStepConfidenceGate    = "confidence_gate"
+	DataPipelineStepQuarantine        = "quarantine"
+	DataPipelineStepDeduplicate       = "deduplicate"
+	DataPipelineStepCanonicalize      = "canonicalize"
+	DataPipelineStepRedactPII         = "redact_pii"
+	DataPipelineStepDetectLanguage    = "detect_language_encoding"
+	DataPipelineStepSchemaInference   = "schema_inference"
+	DataPipelineStepEntityResolution  = "entity_resolution"
+	DataPipelineStepUnitConversion    = "unit_conversion"
+	DataPipelineStepRelationship      = "relationship_extraction"
+	DataPipelineStepHumanReview       = "human_review"
+	DataPipelineStepSampleCompare     = "sample_compare"
+	DataPipelineStepQualityReport     = "quality_report"
 
 	dataPipelineMaxNodes = 50
 	dataPipelineMaxEdges = 80
 )
 
 var dataPipelineStepCatalog = map[string]struct{}{
-	DataPipelineStepInput:            {},
-	DataPipelineStepProfile:          {},
-	DataPipelineStepClean:            {},
-	DataPipelineStepNormalize:        {},
-	DataPipelineStepValidate:         {},
-	DataPipelineStepSchemaMapping:    {},
-	DataPipelineStepSchemaCompletion: {},
-	DataPipelineStepJoin:             {},
-	DataPipelineStepEnrichJoin:       {},
-	DataPipelineStepTransform:        {},
-	DataPipelineStepOutput:           {},
-	DataPipelineStepExtractText:      {},
-	DataPipelineStepJSONExtract:      {},
-	DataPipelineStepExcelExtract:     {},
-	DataPipelineStepClassifyDocument: {},
-	DataPipelineStepExtractFields:    {},
-	DataPipelineStepExtractTable:     {},
-	DataPipelineStepConfidenceGate:   {},
-	DataPipelineStepQuarantine:       {},
-	DataPipelineStepDeduplicate:      {},
-	DataPipelineStepCanonicalize:     {},
-	DataPipelineStepRedactPII:        {},
-	DataPipelineStepDetectLanguage:   {},
-	DataPipelineStepSchemaInference:  {},
-	DataPipelineStepEntityResolution: {},
-	DataPipelineStepUnitConversion:   {},
-	DataPipelineStepRelationship:     {},
-	DataPipelineStepHumanReview:      {},
-	DataPipelineStepSampleCompare:    {},
-	DataPipelineStepQualityReport:    {},
+	DataPipelineStepInput:             {},
+	DataPipelineStepProfile:           {},
+	DataPipelineStepClean:             {},
+	DataPipelineStepNormalize:         {},
+	DataPipelineStepValidate:          {},
+	DataPipelineStepSchemaMapping:     {},
+	DataPipelineStepSchemaCompletion:  {},
+	DataPipelineStepJoin:              {},
+	DataPipelineStepEnrichJoin:        {},
+	DataPipelineStepTransform:         {},
+	DataPipelineStepOutput:            {},
+	DataPipelineStepExtractText:       {},
+	DataPipelineStepJSONExtract:       {},
+	DataPipelineStepExcelExtract:      {},
+	DataPipelineStepClassifyDocument:  {},
+	DataPipelineStepExtractFields:     {},
+	DataPipelineStepExtractTable:      {},
+	DataPipelineStepProductExtraction: {},
+	DataPipelineStepConfidenceGate:    {},
+	DataPipelineStepQuarantine:        {},
+	DataPipelineStepDeduplicate:       {},
+	DataPipelineStepCanonicalize:      {},
+	DataPipelineStepRedactPII:         {},
+	DataPipelineStepDetectLanguage:    {},
+	DataPipelineStepSchemaInference:   {},
+	DataPipelineStepEntityResolution:  {},
+	DataPipelineStepUnitConversion:    {},
+	DataPipelineStepRelationship:      {},
+	DataPipelineStepHumanReview:       {},
+	DataPipelineStepSampleCompare:     {},
+	DataPipelineStepQualityReport:     {},
 }
 
 type DataPipelineGraph struct {

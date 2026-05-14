@@ -57,6 +57,7 @@ func dataPipelineUnstructuredStep(stepType string) bool {
 		DataPipelineStepClassifyDocument,
 		DataPipelineStepExtractFields,
 		DataPipelineStepExtractTable,
+		DataPipelineStepProductExtraction,
 		DataPipelineStepConfidenceGate,
 		DataPipelineStepQuarantine,
 		DataPipelineStepDeduplicate,
@@ -377,6 +378,12 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 			return dataPipelineMaterializedRelation{}, err
 		}
 		return s.materializeExtractTable(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepProductExtraction:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeProductExtraction(ctx, conn, database, table, node, upstream, tenantID, actorUserID)
 	case DataPipelineStepSchemaMapping:
 		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
 		if err != nil {
@@ -841,6 +848,158 @@ func (s *DataPipelineService) materializeExtractTable(ctx context.Context, conn 
 	}
 	if lowConfidenceRows > 0 {
 		metadata["warningCount"] = lowConfidenceRows
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata}, nil
+}
+
+func (s *DataPipelineService) materializeProductExtraction(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation, tenantID, actorUserID int64) (dataPipelineMaterializedRelation, error) {
+	if s.driveOCR == nil {
+		return dataPipelineMaterializedRelation{}, fmt.Errorf("drive product extraction service is not configured")
+	}
+	rows, err := readHybridRows(ctx, conn, upstream, 100000)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	sourceFileColumn := firstNonEmpty(dataPipelineString(node.Data.Config, "sourceFileColumn"), "file_public_id")
+	if err := dataPipelineRequireColumn(upstream.Columns, sourceFileColumn); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	includeSourceColumns := dataPipelineBool(node.Data.Config, "includeSourceColumns", true)
+	maxItems := dataPipelineInt(node.Data.Config, "maxItems", 1000)
+	if maxItems <= 0 || maxItems > 10000 {
+		maxItems = 1000
+	}
+	threshold := dataPipelineFloat(node.Data.Config, "confidenceThreshold", 0.8)
+	productColumns := []string{
+		"product_extraction_item_public_id",
+		"product_item_type",
+		"product_name",
+		"product_brand",
+		"product_manufacturer",
+		"product_model",
+		"product_sku",
+		"product_jan_code",
+		"product_category",
+		"product_description",
+		"product_price_json",
+		"product_promotion_json",
+		"product_availability_json",
+		"product_source_text",
+		"product_evidence_json",
+		"product_attributes_json",
+		"product_confidence",
+		"product_extraction_status",
+		"product_extraction_reason",
+	}
+	columns := append([]string{}, productColumns...)
+	if includeSourceColumns {
+		columns = uniqueStringList(append(append([]string{}, upstream.Columns...), productColumns...))
+	}
+	out := make([]map[string]any, 0)
+	itemCount := 0
+	fileCount := 0
+	lowConfidenceItems := 0
+	missingConfidenceItems := 0
+	confidenceTotal := 0.0
+	confidenceCount := 0
+	lowConfidenceSamples := make([]map[string]any, 0, 5)
+	cache := map[string][]DriveProductExtractionItem{}
+	for _, row := range rows {
+		filePublicID := strings.TrimSpace(fmt.Sprint(row[sourceFileColumn]))
+		if filePublicID == "" {
+			continue
+		}
+		items, ok := cache[filePublicID]
+		if !ok {
+			items, err = s.driveOCR.ListProductExtractions(ctx, tenantID, actorUserID, filePublicID)
+			if err != nil {
+				return dataPipelineMaterializedRelation{}, err
+			}
+			cache[filePublicID] = items
+			fileCount++
+		}
+		for _, item := range items {
+			if itemCount >= maxItems {
+				break
+			}
+			next := make(map[string]any, len(columns))
+			if includeSourceColumns {
+				next = cloneRow(row)
+			}
+			confidence := ""
+			status := "needs_review"
+			reason := "confidence_missing"
+			if item.Confidence != nil {
+				confidence = fmt.Sprintf("%.4f", clampConfidence(*item.Confidence))
+				confidenceTotal += clampConfidence(*item.Confidence)
+				confidenceCount++
+				if clampConfidence(*item.Confidence) >= threshold {
+					status = "pass"
+					reason = "passed"
+				} else {
+					reason = "below_threshold"
+				}
+			} else {
+				missingConfidenceItems++
+			}
+			next["product_extraction_item_public_id"] = item.PublicID
+			next["product_item_type"] = item.ItemType
+			next["product_name"] = item.Name
+			next["product_brand"] = item.Brand
+			next["product_manufacturer"] = item.Manufacturer
+			next["product_model"] = item.Model
+			next["product_sku"] = item.SKU
+			next["product_jan_code"] = item.JANCode
+			next["product_category"] = item.Category
+			next["product_description"] = item.Description
+			next["product_price_json"] = jsonString(item.Price)
+			next["product_promotion_json"] = jsonString(item.Promotion)
+			next["product_availability_json"] = jsonString(item.Availability)
+			next["product_source_text"] = item.SourceText
+			next["product_evidence_json"] = jsonString(item.Evidence)
+			next["product_attributes_json"] = jsonString(item.Attributes)
+			next["product_confidence"] = confidence
+			next["product_extraction_status"] = status
+			next["product_extraction_reason"] = reason
+			if status == "needs_review" {
+				lowConfidenceItems++
+				if len(lowConfidenceSamples) < 5 {
+					lowConfidenceSamples = append(lowConfidenceSamples, map[string]any{
+						"file_public_id":                    filePublicID,
+						"product_extraction_item_public_id": item.PublicID,
+						"product_name":                      item.Name,
+						"product_confidence":                confidence,
+						"product_extraction_reason":         reason,
+					})
+				}
+			}
+			out = append(out, next)
+			itemCount++
+		}
+	}
+	if err := createHybridStringTable(ctx, conn, database, table, columns, out); err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	avgConfidence := 0.0
+	if confidenceCount > 0 {
+		avgConfidence = confidenceTotal / float64(confidenceCount)
+	}
+	metadata := map[string]any{
+		"productExtraction": map[string]any{
+			"fileCount":              fileCount,
+			"itemCount":              itemCount,
+			"threshold":              threshold,
+			"avgConfidence":          avgConfidence,
+			"lowConfidenceItems":     lowConfidenceItems,
+			"missingConfidenceItems": missingConfidenceItems,
+			"lowConfidenceSamples":   lowConfidenceSamples,
+			"sourceFileColumn":       sourceFileColumn,
+			"includeSourceColumns":   includeSourceColumns,
+			"maxItems":               maxItems,
+		},
+	}
+	if lowConfidenceItems > 0 {
+		metadata["warningCount"] = lowConfidenceItems
 	}
 	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata}, nil
 }

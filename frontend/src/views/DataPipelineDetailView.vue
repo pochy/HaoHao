@@ -68,6 +68,7 @@ const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
   { type: 'classify_document', labelKey: 'dataPipelines.step.classify_document' },
   { type: 'extract_fields', labelKey: 'dataPipelines.step.extract_fields' },
   { type: 'extract_table', labelKey: 'dataPipelines.step.extract_table' },
+  { type: 'product_extraction', labelKey: 'dataPipelines.step.product_extraction' },
   { type: 'deduplicate', labelKey: 'dataPipelines.step.deduplicate' },
   { type: 'canonicalize', labelKey: 'dataPipelines.step.canonicalize' },
   { type: 'redact_pii', labelKey: 'dataPipelines.step.redact_pii' },

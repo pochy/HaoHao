@@ -148,6 +148,18 @@ async function uploadSchemaMappingReviewJSONFile(workspacePublicId) {
   return uploadFile(workspacePublicId, `data-pipeline-schema-mapping-review-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
 }
 
+async function uploadProductReviewTextFile(workspacePublicId) {
+  const text = [
+    '商品名: Smoke Low Confidence Product',
+    'ブランド: SmokeBrand',
+    '型番: SMK-100',
+    'JANコード: 4901234567894',
+    '価格: 1200円',
+    'カテゴリ: Smoke Test',
+  ].join('\n')
+  return uploadFile(workspacePublicId, `data-pipeline-product-review-smoke-${Date.now()}.txt`, 'text/plain', text)
+}
+
 async function uploadXLSXFile(workspacePublicId) {
   const rows = [
     ['id', 'name', 'amount', 'status'],
@@ -437,6 +449,34 @@ function schemaMappingReviewGraph(filePublicId, suffix) {
   }
 }
 
+function productReviewGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive product file', 60, 180, {
+        sourceKind: 'drive_file',
+        filePublicIds: [filePublicId],
+      }),
+      node('product_extraction', 'product_extraction', 'Product extraction', 300, 180, {
+        sourceFileColumn: 'file_public_id',
+        includeSourceColumns: true,
+        confidenceThreshold: 0.99,
+      }),
+      node('confidence_gate', 'confidence_gate', 'Confidence gate', 540, 180, {
+        scoreColumns: ['product_confidence'],
+        threshold: 0.99,
+      }),
+      node('human_review', 'human_review', 'Human review', 780, 180, {
+        reasonColumns: ['gate_status', 'gate_reason', 'product_extraction_reason'],
+        queue: 'product-review-smoke',
+        createReviewItems: true,
+        mode: 'filter_review',
+      }),
+      outputNode(suffix, ['file_public_id'], 'output', 1020, 180),
+    ],
+    edges: linearEdges(['input', 'product_extraction', 'confidence_gate', 'human_review', 'output']),
+  }
+}
+
 function profileNode() {
   return node('profile', 'profile', 'Profile smoke rows', 620, 120, {})
 }
@@ -469,6 +509,7 @@ async function createPipeline(scenario, filePublicId) {
     field_review: fieldReviewGraph,
     table_review: tableReviewGraph,
     schema_mapping_review: schemaMappingReviewGraph,
+    product_review: productReviewGraph,
   }
   const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
     name: `Smoke: ${scenario} metadata ${new Date().toISOString()}`,
@@ -490,6 +531,34 @@ async function requestRun(versionPublicId) {
   })
   created.runPublicIds.push(run.publicId)
   return run
+}
+
+async function ensureProductExtractionReady(filePublicId) {
+  await jsonRequest(`/api/v1/drive/files/${encodeURIComponent(filePublicId)}/ocr/jobs`, 'POST', {})
+  let ocr
+  for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
+    ocr = await request(`/api/v1/drive/files/${encodeURIComponent(filePublicId)}/ocr`)
+    if (ocr.run?.status === 'completed') {
+      break
+    }
+    if (ocr.run && !['pending', 'processing'].includes(ocr.run.status)) {
+      throw new Error(`OCR did not complete: ${JSON.stringify(ocr.run)}`)
+    }
+    await sleep(pollDelayMs)
+  }
+  if (ocr?.run?.status !== 'completed') {
+    throw new Error(`OCR did not complete after ${pollAttempts} attempts: ${JSON.stringify(ocr?.run)}`)
+  }
+  await jsonRequest(`/api/v1/drive/files/${encodeURIComponent(filePublicId)}/product-extractions/jobs`, 'POST', {})
+  let productExtractions
+  for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
+    productExtractions = await request(`/api/v1/drive/files/${encodeURIComponent(filePublicId)}/product-extractions`)
+    if ((productExtractions.items ?? []).length > 0) {
+      return productExtractions.items
+    }
+    await sleep(pollDelayMs)
+  }
+  throw new Error(`product extraction items did not appear after ${pollAttempts} attempts: ${JSON.stringify(productExtractions)}`)
 }
 
 function findStep(run, nodeId) {
@@ -647,6 +716,25 @@ function assertSchemaMappingReviewRun(run) {
   }
 }
 
+function assertProductReviewRun(run) {
+  assertCommonRun(run, 1)
+  const productStep = findStep(run, 'product_extraction')
+  if (!productStep?.metadata?.productExtraction) {
+    throw new Error(`productExtraction metadata missing: ${JSON.stringify(productStep)}`)
+  }
+  if (productStep.metadata.productExtraction.itemCount < 1 || productStep.metadata.productExtraction.lowConfidenceItems < 1) {
+    throw new Error(`unexpected productExtraction metadata: ${JSON.stringify(productStep.metadata.productExtraction)}`)
+  }
+  const gateStep = findStep(run, 'confidence_gate')
+  if (gateStep?.metadata?.confidenceGate?.needsReviewRows !== 1) {
+    throw new Error(`unexpected confidence gate metadata: ${JSON.stringify(gateStep?.metadata?.confidenceGate)}`)
+  }
+  const reviewStep = findStep(run, 'human_review')
+  if (reviewStep?.metadata?.reviewItemCount !== 1) {
+    throw new Error(`unexpected human review metadata: ${JSON.stringify(reviewStep?.metadata)}`)
+  }
+}
+
 async function assertReviewItems(pipelinePublicId) {
   const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
   const items = listed.items ?? []
@@ -735,6 +823,23 @@ async function assertSchemaMappingReviewItems(pipelinePublicId, filePublicId) {
   return { item, driveLink }
 }
 
+async function assertProductReviewItems(pipelinePublicId, filePublicId) {
+  const listed = await request(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/review-items?status=open&limit=10`)
+  const items = listed.items ?? []
+  if (items.length !== 1) {
+    throw new Error(`product review item count = ${items.length}, want 1: ${JSON.stringify(listed)}`)
+  }
+  const item = items[0]
+  if (item.queue !== 'product-review-smoke' || item.nodeId !== 'human_review') {
+    throw new Error(`unexpected product review item: ${JSON.stringify(item)}`)
+  }
+  if (!item.sourceSnapshot?.product_extraction_item_public_id || item.sourceSnapshot?.product_confidence === undefined || !item.sourceSnapshot?.product_name) {
+    throw new Error(`product review snapshot missing product extraction context: ${JSON.stringify(item.sourceSnapshot)}`)
+  }
+  const driveLink = await assertDriveFileReviewItemLink(filePublicId, item, pipelinePublicId)
+  return { item, driveLink }
+}
+
 async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
   let last
   for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
@@ -759,6 +864,7 @@ async function runScenario(workspacePublicId, scenario) {
     field_review: uploadFieldReviewTextFile,
     table_review: uploadTableReviewTextFile,
     schema_mapping_review: uploadSchemaMappingReviewJSONFile,
+    product_review: uploadProductReviewTextFile,
   }
   const assertions = {
     json: (run) => assertProfileValidateRun(run, 3),
@@ -769,8 +875,12 @@ async function runScenario(workspacePublicId, scenario) {
     field_review: assertFieldReviewRun,
     table_review: assertTableReviewRun,
     schema_mapping_review: assertSchemaMappingReviewRun,
+    product_review: assertProductReviewRun,
   }
   const file = await uploaders[scenario](workspacePublicId)
+  if (scenario === 'product_review') {
+    await ensureProductExtractionReady(file.publicId)
+  }
   const { pipeline, version } = await createPipeline(scenario, file.publicId)
   const run = await requestRun(version.publicId)
   const completed = await waitForRun(pipeline.publicId, run.publicId, assertions[scenario])
@@ -782,7 +892,9 @@ async function runScenario(workspacePublicId, scenario) {
       ? await assertTableReviewItems(pipeline.publicId, file.publicId)
       : scenario === 'schema_mapping_review'
         ? await assertSchemaMappingReviewItems(pipeline.publicId, file.publicId)
-      : undefined
+        : scenario === 'product_review'
+          ? await assertProductReviewItems(pipeline.publicId, file.publicId)
+          : undefined
   return {
     scenario,
     workspacePublicId,
@@ -819,9 +931,9 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review'] : [requestedScenario]
+  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
-    if (!['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review'].includes(scenario)) {
+    if (!['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'].includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
     }
   }
