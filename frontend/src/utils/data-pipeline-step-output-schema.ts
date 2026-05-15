@@ -226,7 +226,14 @@ function inferSchemaMappingColumns(config: ConfigRecord, upstreamColumns: string
     return upstreamColumns
   }
   const baseColumns = config.includeSourceColumns === true ? upstreamColumns : []
-  return uniqueStrings([...baseColumns, ...columns])
+  return uniqueStrings([
+    ...baseColumns,
+    ...columns,
+    stringValue(config.scoreColumn).trim() || 'schema_mapping_confidence',
+    stringValue(config.statusColumn).trim() || 'schema_mapping_status',
+    stringValue(config.reasonColumn).trim() || 'schema_mapping_reason',
+    stringValue(config.mappingJSONColumn).trim() || 'schema_mapping_json',
+  ])
 }
 
 function inferHumanReviewColumns(config: ConfigRecord, upstreamColumns: string[]) {

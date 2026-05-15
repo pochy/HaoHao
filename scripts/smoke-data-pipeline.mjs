@@ -525,6 +525,19 @@ async function createPipeline(scenario, filePublicId) {
   return { pipeline, version: published }
 }
 
+async function createDraftPipeline(name) {
+  const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
+    name,
+    description: 'Smoke test for Data Pipeline draft validation endpoint.',
+  }, { 'Idempotency-Key': crypto.randomUUID() })
+  created.pipelinePublicIds.push(pipeline.publicId)
+  return pipeline
+}
+
+async function validateDraftGraph(pipelinePublicId, graph) {
+  return jsonRequest(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/validate`, 'POST', { graph })
+}
+
 async function requestRun(versionPublicId) {
   const run = await jsonRequest(`/api/v1/data-pipeline-versions/${encodeURIComponent(versionPublicId)}/runs`, 'POST', {}, {
     'Idempotency-Key': crypto.randomUUID(),
@@ -914,6 +927,76 @@ async function runScenario(workspacePublicId, scenario) {
   }
 }
 
+function schemaForNode(validation, nodeId) {
+  return (validation.outputSchemas ?? []).find((schema) => schema.nodeId === nodeId)
+}
+
+function assertValidationHasColumns(validation, nodeId, columns) {
+  const schema = schemaForNode(validation, nodeId)
+  if (!schema) {
+    throw new Error(`validation schema missing for node ${nodeId}: ${JSON.stringify(validation)}`)
+  }
+  for (const column of columns) {
+    if (!(schema.columns ?? []).includes(column)) {
+      throw new Error(`validation schema for ${nodeId} missing ${column}: ${JSON.stringify(schema)}`)
+    }
+  }
+}
+
+function assertNoValidationWarnings(label, validation) {
+  if (!validation.validationSummary?.valid) {
+    throw new Error(`${label} validation summary is invalid: ${JSON.stringify(validation.validationSummary)}`)
+  }
+  if ((validation.nodeWarnings ?? []).length > 0) {
+    throw new Error(`${label} unexpected validation warnings: ${JSON.stringify(validation.nodeWarnings)}`)
+  }
+}
+
+async function runValidationScenario(workspacePublicId) {
+  const suffix = `validation_${Date.now()}`
+  const textFile = await uploadTextFile(workspacePublicId)
+  const jsonFile = await uploadSchemaMappingReviewJSONFile(workspacePublicId)
+  const productFile = await uploadProductReviewTextFile(workspacePublicId)
+  const pipeline = await createDraftPipeline(`Smoke: validation endpoint ${new Date().toISOString()}`)
+
+  const textValidation = await validateDraftGraph(pipeline.publicId, textGraph(textFile.publicId, `${suffix}_text`))
+  assertNoValidationWarnings('text', textValidation)
+  assertValidationHasColumns(textValidation, 'extract_text', ['file_public_id', 'text', 'confidence'])
+  assertValidationHasColumns(textValidation, 'quality_report', ['text', 'confidence', 'quality_report_json'])
+  assertValidationHasColumns(textValidation, 'output', ['file_public_id'])
+
+  const schemaMappingValidation = await validateDraftGraph(pipeline.publicId, schemaMappingReviewGraph(jsonFile.publicId, `${suffix}_schema_mapping`))
+  assertNoValidationWarnings('schema_mapping_review', schemaMappingValidation)
+  assertValidationHasColumns(schemaMappingValidation, 'schema_mapping', ['file_public_id', 'invoice_id', 'amount', 'status', 'schema_mapping_confidence'])
+  assertValidationHasColumns(schemaMappingValidation, 'output', ['file_public_id'])
+
+  const productValidation = await validateDraftGraph(pipeline.publicId, productReviewGraph(productFile.publicId, `${suffix}_product`))
+  assertNoValidationWarnings('product_review', productValidation)
+  assertValidationHasColumns(productValidation, 'product_extraction', ['file_public_id', 'product_name', 'product_confidence', 'product_extraction_reason'])
+  assertValidationHasColumns(productValidation, 'output', ['file_public_id'])
+
+  const brokenGraph = textGraph(textFile.publicId, `${suffix}_broken`)
+  const qualityNode = brokenGraph.nodes.find((item) => item.id === 'quality_report')
+  qualityNode.data.config.columns = ['missing_validation_column']
+  const brokenValidation = await validateDraftGraph(pipeline.publicId, brokenGraph)
+  const missingWarning = (brokenValidation.nodeWarnings ?? []).find((warning) => warning.nodeId === 'quality_report' && warning.code === 'missing_upstream_columns')
+  if (!missingWarning || !(missingWarning.columns ?? []).includes('missing_validation_column')) {
+    throw new Error(`missing-column warning was not returned for broken graph: ${JSON.stringify(brokenValidation.nodeWarnings)}`)
+  }
+
+  return {
+    scenario: 'validation',
+    pipelinePublicId: pipeline.publicId,
+    detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
+    checked: [
+      { label: 'text', schemas: textValidation.outputSchemas.length, warnings: textValidation.nodeWarnings.length },
+      { label: 'schema_mapping_review', schemas: schemaMappingValidation.outputSchemas.length, warnings: schemaMappingValidation.nodeWarnings.length },
+      { label: 'product_review', schemas: productValidation.outputSchemas.length, warnings: productValidation.nodeWarnings.length },
+      { label: 'broken_quality_report', warning: missingWarning },
+    ],
+  }
+}
+
 async function cleanup() {
   if (!cleanupDriveFile) {
     return
@@ -931,9 +1014,10 @@ async function cleanup() {
 }
 
 async function main() {
+  const scenarioNames = ['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
   const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
-    if (!['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'].includes(scenario)) {
+    if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
     }
   }
@@ -941,7 +1025,9 @@ async function main() {
   const workspacePublicId = await resolveWorkspacePublicID()
   const results = []
   for (const scenario of scenarios) {
-    results.push(await runScenario(workspacePublicId, scenario))
+    results.push(scenario === 'validation'
+      ? await runValidationScenario(workspacePublicId)
+      : await runScenario(workspacePublicId, scenario))
   }
   console.log(JSON.stringify(requestedScenario === 'suite' ? { scenarios: results } : results[0], null, 2))
 }

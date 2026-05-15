@@ -116,6 +116,59 @@ func TestInferOutputSchemasForProductReviewPipeline(t *testing.T) {
 	}
 }
 
+func TestInferOutputSchemasForSchemaMappingReviewPipeline(t *testing.T) {
+	graph := DataPipelineGraph{
+		Nodes: []DataPipelineNode{
+			{
+				ID: "input",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepInput,
+					Config: map[string]any{
+						"sourceKind": dataPipelineDriveFileSource,
+						"inputMode":  "json",
+						"fields": []any{
+							map[string]any{"column": "invoice_number"},
+							map[string]any{"column": "total"},
+							map[string]any{"column": "state"},
+						},
+						"includeRawRecord": true,
+					},
+				},
+			},
+			{
+				ID: "schema_mapping",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepSchemaMapping,
+					Config: map[string]any{
+						"includeSourceColumns": true,
+						"mappings": []any{
+							map[string]any{"sourceColumn": "invoice_number", "targetColumn": "invoice_id"},
+							map[string]any{"sourceColumn": "total", "targetColumn": "amount"},
+							map[string]any{"sourceColumn": "state", "targetColumn": "status"},
+						},
+					},
+				},
+			},
+			{ID: "output", Data: DataPipelineNodeData{StepType: DataPipelineStepOutput}},
+		},
+		Edges: []DataPipelineEdge{
+			{Source: "input", Target: "schema_mapping"},
+			{Source: "schema_mapping", Target: "output"},
+		},
+	}
+
+	schemas, err := (&DataPipelineService{}).inferOutputSchemas(context.Background(), 1, graph)
+	if err != nil {
+		t.Fatalf("inferOutputSchemas() error = %v", err)
+	}
+	output := schemaColumnsByNode(schemas)["output"]
+	for _, column := range []string{"file_public_id", "invoice_id", "amount", "status", "schema_mapping_confidence", "schema_mapping_status", "schema_mapping_reason", "schema_mapping_json"} {
+		if !dataPipelineContainsString(output, column) {
+			t.Fatalf("output schema missing %q: %#v", column, output)
+		}
+	}
+}
+
 func schemaColumnsByNode(schemas []DataPipelineNodeOutputSchema) map[string][]string {
 	out := make(map[string][]string, len(schemas))
 	for _, schema := range schemas {

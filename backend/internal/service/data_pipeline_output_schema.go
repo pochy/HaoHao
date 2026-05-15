@@ -246,7 +246,12 @@ func inferStepOutputColumns(stepType string, config map[string]any, upstreamColu
 		if dataPipelineBool(config, "includeSourceColumns", false) {
 			columns = append(append([]string{}, upstreamColumns...), columns...)
 		}
-		return dataPipelineUniqueStrings(columns)
+		return dataPipelineUniqueStrings(append(columns,
+			firstNonEmpty(dataPipelineString(config, "scoreColumn"), "schema_mapping_confidence"),
+			firstNonEmpty(dataPipelineString(config, "statusColumn"), "schema_mapping_status"),
+			firstNonEmpty(dataPipelineString(config, "reasonColumn"), "schema_mapping_reason"),
+			firstNonEmpty(dataPipelineString(config, "mappingJSONColumn"), "schema_mapping_json"),
+		))
 	case DataPipelineStepSchemaCompletion:
 		columns := append([]string{}, upstreamColumns...)
 		for _, rule := range dataPipelineConfigArray(config, "rules") {
