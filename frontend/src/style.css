@@ -2881,8 +2881,17 @@ code {
   border-color: #f59e0b;
 }
 
+.data-pipeline-node.validation-warning {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.08), var(--shadow);
+}
+
 .data-pipeline-node.manual-preview {
   border-color: #d97706;
+}
+
+.data-pipeline-node.manual-preview.validation-warning {
+  border-color: #dc2626;
 }
 
 .data-pipeline-node-icon {

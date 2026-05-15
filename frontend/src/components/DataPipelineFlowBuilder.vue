@@ -15,6 +15,8 @@ import {
   sanitizeDataPipelineGraph,
   type DataPipelineEdge,
   type DataPipelineGraph,
+  type DataPipelineGraphValidationBody,
+  type DataPipelineNodeWarningBody,
   type DataPipelineNode as PipelineNode,
   type DataPipelineStepType,
 } from '../api/data-pipelines'
@@ -24,6 +26,7 @@ const props = defineProps<{
   graph: DataPipelineGraph
   selectedNodeId: string
   nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }>
+  validation?: DataPipelineGraphValidationBody | null
 }>()
 
 const emit = defineEmits<{
@@ -162,6 +165,13 @@ const paletteGroups = computed(() => {
       nodes: catalog.filter((node) => node.category === category.id),
     }))
     .filter((category) => category.nodes.length > 0)
+})
+const validationWarningsByNode = computed(() => {
+  const warnings = new Map<string, DataPipelineNodeWarningBody[]>()
+  for (const warning of props.validation?.nodeWarnings ?? []) {
+    warnings.set(warning.nodeId, [...(warnings.get(warning.nodeId) ?? []), warning])
+  }
+  return warnings
 })
 
 watch(
@@ -752,6 +762,7 @@ defineExpose({ addNode })
           v-bind="nodeProps"
           :selected="nodeProps.id === selectedNodeId"
           :auto-preview-enabled="isDataPipelineAutoPreviewEnabled(nodeProps.data)"
+          :validation-warnings="validationWarningsByNode.get(nodeProps.id) ?? []"
         />
       </template>
       <Controls>

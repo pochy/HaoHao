@@ -662,6 +662,7 @@ async function applySettings() {
                       :graph="store.draftGraph"
                       :node-catalog="nodeCatalog"
                       :selected-node-id="store.selectedNodeId"
+                      :validation="store.selectedValidation"
                       @update:graph="updateGraph"
                       @select-node="selectNode"
                     />
@@ -715,6 +716,7 @@ async function applySettings() {
                 :graph="store.draftGraph"
                 :node-catalog="nodeCatalog"
                 :selected-node-id="store.selectedNodeId"
+                :validation="store.selectedValidation"
                 @update:graph="updateGraph"
                 @select-node="selectNode"
               />

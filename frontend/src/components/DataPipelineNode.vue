@@ -4,7 +4,7 @@ import { Handle, Position } from '@vue-flow/core'
 import { CheckCircle2, CircleAlert, Database, FileOutput, GitBranch, MousePointerClick, SlidersHorizontal, Zap } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import { isDataPipelineAutoPreviewEnabled, type DataPipelineStepType } from '../api/data-pipelines'
+import { isDataPipelineAutoPreviewEnabled, type DataPipelineNodeWarningBody, type DataPipelineStepType } from '../api/data-pipelines'
 
 const props = defineProps<{
   data?: {
@@ -14,6 +14,7 @@ const props = defineProps<{
   }
   selected?: boolean
   autoPreviewEnabled?: boolean
+  validationWarnings?: DataPipelineNodeWarningBody[]
 }>()
 
 const { t } = useI18n()
@@ -22,7 +23,12 @@ const label = computed(() => displayNodeLabel(props.data?.label, stepType.value)
 const autoPreviewEnabled = computed(() => props.autoPreviewEnabled ?? isDataPipelineAutoPreviewEnabled(props.data))
 const previewModeTitle = computed(() => autoPreviewEnabled.value ? t('dataPipelines.autoPreview') : t('dataPipelines.manualPreviewReason'))
 const previewModeIcon = computed(() => autoPreviewEnabled.value ? Zap : MousePointerClick)
+const validationWarnings = computed(() => props.validationWarnings ?? [])
+const validationWarningTitle = computed(() => validationWarnings.value.map(validationWarningMessage).join('\n'))
 const status = computed(() => {
+  if (validationWarnings.value.length > 0) {
+    return 'warning'
+  }
   if (stepType.value === 'input' && !props.data?.config?.datasetPublicId && !props.data?.config?.workTablePublicId) {
     return 'warning'
   }
@@ -53,10 +59,23 @@ function englishLabelForStep(type: DataPipelineStepType) {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
 }
+
+function validationWarningMessage(warning: DataPipelineNodeWarningBody) {
+  if (warning.code === 'missing_right_upstream_columns') {
+    return t('dataPipelines.missingRightUpstreamColumns', { columns: warning.columns.join(', ') })
+  }
+  if (warning.code === 'missing_upstream_columns') {
+    return t('dataPipelines.missingUpstreamColumns', { columns: warning.columns.join(', ') })
+  }
+  return warning.message
+}
 </script>
 
 <template>
-  <div class="data-pipeline-node" :class="{ selected, warning: status === 'warning', 'manual-preview': !autoPreviewEnabled }">
+  <div
+    class="data-pipeline-node"
+    :class="{ selected, warning: status === 'warning', 'manual-preview': !autoPreviewEnabled, 'validation-warning': validationWarnings.length > 0 }"
+  >
     <Handle type="target" :position="Position.Left" />
     <div class="data-pipeline-node-icon">
       <component :is="icon" :size="16" stroke-width="1.9" aria-hidden="true" />
@@ -76,7 +95,14 @@ function englishLabelForStep(type: DataPipelineStepType) {
         </span>
       </div>
     </div>
-    <CircleAlert v-if="status === 'warning'" class="data-pipeline-node-status" :size="15" stroke-width="1.9" aria-hidden="true" />
+    <CircleAlert
+      v-if="status === 'warning'"
+      class="data-pipeline-node-status"
+      :size="15"
+      stroke-width="1.9"
+      :title="validationWarningTitle || undefined"
+      :aria-label="validationWarningTitle || t('dataPipelines.validationInvalid')"
+    />
     <CheckCircle2 v-else class="data-pipeline-node-status ready" :size="15" stroke-width="1.9" aria-hidden="true" />
     <Handle type="source" :position="Position.Right" />
   </div>
