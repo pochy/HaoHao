@@ -169,6 +169,8 @@ func inferStepOutputColumns(stepType string, config map[string]any, upstreamColu
 		return upstreamColumns
 	case DataPipelineStepOutput:
 		return inferOutputStepColumns(config, upstreamColumns)
+	case DataPipelineStepSnapshotSCD2:
+		return inferSnapshotSCD2Columns(config, upstreamColumns)
 	case DataPipelineStepRouteByCondition:
 		return dataPipelineUniqueStrings(append(append([]string{}, upstreamColumns...), firstNonEmpty(dataPipelineString(config, "routeColumn"), "route_key")))
 	case DataPipelineStepExtractText:
@@ -280,6 +282,15 @@ func inferStepOutputColumns(stepType string, config map[string]any, upstreamColu
 	default:
 		return nil
 	}
+}
+
+func inferSnapshotSCD2Columns(config map[string]any, upstreamColumns []string) []string {
+	return dataPipelineUniqueStrings(append(append([]string{}, upstreamColumns...),
+		firstNonEmpty(dataPipelineString(config, "validFromColumn"), "valid_from"),
+		firstNonEmpty(dataPipelineString(config, "validToColumn"), "valid_to"),
+		firstNonEmpty(dataPipelineString(config, "isCurrentColumn"), "is_current"),
+		firstNonEmpty(dataPipelineString(config, "changeHashColumn"), "change_hash"),
+	))
 }
 
 func inferOutputStepColumns(config map[string]any, upstreamColumns []string) []string {

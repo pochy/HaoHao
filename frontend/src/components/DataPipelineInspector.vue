@@ -1080,6 +1080,12 @@ function configuredPrimaryColumnRefs(type: string, config: ConfigRecord) {
     ]
   case 'watermark_filter':
     return [stringValue(config.watermarkColumn || config.column)]
+  case 'snapshot_scd2':
+    return [
+      ...stringList(config.uniqueKeys || config.uniqueKey),
+      stringValue(config.updatedAtColumn || config.validFromSourceColumn),
+      ...stringList(config.watchedColumns),
+    ]
   case 'canonicalize':
     return arrayFromConfig(config, 'rules').map((rule) => stringField(rule, 'column'))
   case 'classify_document':
@@ -2647,6 +2653,39 @@ function labelForStep(type: DataPipelineStepType | string) {
             <label class="data-pipeline-toggle">
               <input :checked="Boolean(configDraft.inclusive)" type="checkbox" @change="updateConfigField('inclusive', targetChecked($event))">
               <span>{{ t('dataPipelines.inclusive') }}</span>
+            </label>
+          </div>
+        </template>
+
+        <template v-else-if="stepType === 'snapshot_scd2'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.uniqueKeys') }}</span>
+              <input :value="stringList(configDraft.uniqueKeys).join(', ')" list="data-pipeline-column-options" @input="updateConfigList('uniqueKeys', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.updatedAtColumn') }}</span>
+              <input :value="stringConfig('updatedAtColumn') || 'updated_at'" list="data-pipeline-column-options" @input="updateConfigField('updatedAtColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.watchedColumns') }}</span>
+              <input :value="stringList(configDraft.watchedColumns).join(', ')" list="data-pipeline-column-options" @input="updateConfigList('watchedColumns', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.validFromColumn') }}</span>
+              <input :value="stringConfig('validFromColumn') || 'valid_from'" @input="updateConfigField('validFromColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.validToColumn') }}</span>
+              <input :value="stringConfig('validToColumn') || 'valid_to'" @input="updateConfigField('validToColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.isCurrentColumn') }}</span>
+              <input :value="stringConfig('isCurrentColumn') || 'is_current'" @input="updateConfigField('isCurrentColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.changeHashColumn') }}</span>
+              <input :value="stringConfig('changeHashColumn') || 'change_hash'" @input="updateConfigField('changeHashColumn', targetValue($event))">
             </label>
           </div>
         </template>

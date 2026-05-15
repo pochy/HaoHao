@@ -26,6 +26,7 @@ export type DataPipelineStepType =
   | 'route_by_condition'
   | 'partition_filter'
   | 'watermark_filter'
+  | 'snapshot_scd2'
   | 'deduplicate'
   | 'canonicalize'
   | 'redact_pii'

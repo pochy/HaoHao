@@ -14,6 +14,8 @@ export function inferDataPipelineStepOutputColumns(
   case 'partition_filter':
   case 'watermark_filter':
     return uniqueStrings(upstreamColumns)
+  case 'snapshot_scd2':
+    return inferSnapshotSCD2Columns(config, upstreamColumns)
   case 'output':
     return inferOutputColumns(config, upstreamColumns)
   case 'route_by_condition':
@@ -65,6 +67,16 @@ export function inferDataPipelineStepOutputColumns(
   default:
     return null
   }
+}
+
+function inferSnapshotSCD2Columns(config: ConfigRecord, upstreamColumns: string[]) {
+  return uniqueStrings([
+    ...upstreamColumns,
+    stringValue(config.validFromColumn).trim() || 'valid_from',
+    stringValue(config.validToColumn).trim() || 'valid_to',
+    stringValue(config.isCurrentColumn).trim() || 'is_current',
+    stringValue(config.changeHashColumn).trim() || 'change_hash',
+  ])
 }
 
 function inferOutputColumns(config: ConfigRecord, upstreamColumns: string[]) {

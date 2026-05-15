@@ -33,6 +33,7 @@ const (
 	DataPipelineStepRouteByCondition  = "route_by_condition"
 	DataPipelineStepPartitionFilter   = "partition_filter"
 	DataPipelineStepWatermarkFilter   = "watermark_filter"
+	DataPipelineStepSnapshotSCD2      = "snapshot_scd2"
 	DataPipelineStepDeduplicate       = "deduplicate"
 	DataPipelineStepCanonicalize      = "canonicalize"
 	DataPipelineStepRedactPII         = "redact_pii"
@@ -74,6 +75,7 @@ var dataPipelineStepCatalog = map[string]struct{}{
 	DataPipelineStepRouteByCondition:  {},
 	DataPipelineStepPartitionFilter:   {},
 	DataPipelineStepWatermarkFilter:   {},
+	DataPipelineStepSnapshotSCD2:      {},
 	DataPipelineStepDeduplicate:       {},
 	DataPipelineStepCanonicalize:      {},
 	DataPipelineStepRedactPII:         {},

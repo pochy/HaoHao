@@ -524,6 +524,12 @@ func dataPipelineHybridCompiledNodeMetadata(ctx context.Context, conn driver.Con
 		}
 		metadata["nextWatermarkValue"] = nextWatermark
 		return map[string]any{"watermarkFilter": metadata}, nil
+	case DataPipelineStepSnapshotSCD2:
+		spec, err := dataPipelineSnapshotSCD2Spec(node.Data.Config, dataPipelineSnapshotSCD2SourceColumns(node.Data.Config, columns))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"snapshotSCD2": spec.Metadata()}, nil
 	default:
 		return nil, nil
 	}

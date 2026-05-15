@@ -663,6 +663,10 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 - 重複 key や時刻逆転に弱いので、`validate` と組み合わせます。
 - backfill 時に履歴を再構築するのか、現在以降だけ追うのかを明確にします。
 
+v1 は 2026-05-16 に実装済みです。現時点の `snapshot_scd2` は「入力内に含まれる履歴行を SCD Type 2 形式に整える」node です。`uniqueKeys` で entity を識別し、`updatedAtColumn` を `valid_from` として昇順に並べ、次の version の `updatedAtColumn` を `valid_to` に入れます。次 version がない行は `valid_to=NULL`、`is_current=1` になります。`watchedColumns` が指定されていればその列群から、未指定なら `updatedAtColumn` 以外の上流列から `change_hash` を作ります。
+
+v1 がまだ行わないことは、既存 snapshot table との比較、過去 snapshot row の close、append write mode、late arriving data の再計算です。これらは output write mode と Gold publish の責務に関わるため、次の段階で扱います。
+
 ### 入力形式拡張の追加候補
 
 #### `xml_extract`

@@ -315,6 +315,52 @@ func TestInferOutputSchemasForTypedOutputPipeline(t *testing.T) {
 	}
 }
 
+func TestInferOutputSchemasForSnapshotSCD2Pipeline(t *testing.T) {
+	graph := DataPipelineGraph{
+		Nodes: []DataPipelineNode{
+			{
+				ID: "input",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepInput,
+					Config: map[string]any{
+						"sourceKind": dataPipelineDriveFileSource,
+						"inputMode":  "json",
+						"fields": []any{
+							map[string]any{"column": "id"},
+							map[string]any{"column": "status"},
+							map[string]any{"column": "updated_at"},
+						},
+					},
+				},
+			},
+			{
+				ID: "snapshot",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepSnapshotSCD2,
+					Config: map[string]any{
+						"uniqueKeys":      []any{"id"},
+						"updatedAtColumn": "updated_at",
+						"watchedColumns":  []any{"status"},
+					},
+				},
+			},
+			{ID: "output", Data: DataPipelineNodeData{StepType: DataPipelineStepOutput}},
+		},
+		Edges: []DataPipelineEdge{{Source: "input", Target: "snapshot"}, {Source: "snapshot", Target: "output"}},
+	}
+
+	schemas, err := (&DataPipelineService{}).inferOutputSchemas(context.Background(), 1, graph)
+	if err != nil {
+		t.Fatalf("inferOutputSchemas() error = %v", err)
+	}
+	output := schemaColumnsByNode(schemas)["output"]
+	for _, column := range []string{"id", "status", "updated_at", "valid_from", "valid_to", "is_current", "change_hash"} {
+		if !dataPipelineContainsString(output, column) {
+			t.Fatalf("output schema missing %q: %#v", column, output)
+		}
+	}
+}
+
 func schemaColumnsByNode(schemas []DataPipelineNodeOutputSchema) map[string][]string {
 	out := make(map[string][]string, len(schemas))
 	for _, schema := range schemas {

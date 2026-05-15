@@ -203,6 +203,8 @@ func (c *dataPipelineCompiler) compileNode(ctx context.Context, node DataPipelin
 		return c.compilePartitionFilter(node, upstream)
 	case DataPipelineStepWatermarkFilter:
 		return c.compileWatermarkFilter(node, upstream)
+	case DataPipelineStepSnapshotSCD2:
+		return c.compileSnapshotSCD2(node, upstream)
 	default:
 		return dataPipelineRelation{}, fmt.Errorf("%w: unsupported step type %q", ErrInvalidDataPipelineGraph, node.Data.StepType)
 	}
@@ -930,6 +932,12 @@ func (s *DataPipelineService) collectStructuredRunNodeResults(ctx context.Contex
 			}
 			watermarkMetadata["nextWatermarkValue"] = nextWatermark
 			metadata["watermarkFilter"] = watermarkMetadata
+		case DataPipelineStepSnapshotSCD2:
+			spec, err := dataPipelineSnapshotSCD2Spec(node.Data.Config, dataPipelineSnapshotSCD2SourceColumns(node.Data.Config, compiled.Columns))
+			if err != nil {
+				return nil, fmt.Errorf("snapshot_scd2 data pipeline step %s: %w", node.ID, err)
+			}
+			metadata["snapshotSCD2"] = spec.Metadata()
 		}
 		results[node.ID] = dataPipelineRunNodeResult{
 			NodeID:   node.ID,
@@ -1439,6 +1447,9 @@ func dataPipelineOutputOrderBy(node DataPipelineNode, availableColumns ...[]stri
 	if len(parts) == 0 {
 		return "tuple()"
 	}
+	if len(parts) > 1 {
+		return "(" + strings.Join(parts, ", ") + ")"
+	}
 	return strings.Join(parts, ", ")
 }
 
@@ -1568,6 +1579,41 @@ func (c *dataPipelineCompiler) compileWatermarkFilter(node DataPipelineNode, ups
 		return dataPipelineRelation{}, fmt.Errorf("compile watermark_filter node %s: %w", node.ID, err)
 	}
 	return c.compileFilterRelation(node, upstream, []string{spec.Condition}), nil
+}
+
+func (c *dataPipelineCompiler) compileSnapshotSCD2(node DataPipelineNode, upstream dataPipelineRelation) (dataPipelineRelation, error) {
+	spec, err := dataPipelineSnapshotSCD2Spec(node.Data.Config, upstream.Columns)
+	if err != nil {
+		return dataPipelineRelation{}, fmt.Errorf("compile snapshot_scd2 node %s: %w", node.ID, err)
+	}
+	partitionBy := make([]string, 0, len(spec.UniqueKeys))
+	for _, key := range spec.UniqueKeys {
+		partitionBy = append(partitionBy, quoteCHIdent(key))
+	}
+	watchedExprs := make([]string, 0, len(spec.WatchedColumns))
+	for _, column := range spec.WatchedColumns {
+		watchedExprs = append(watchedExprs, "ifNull(toString("+quoteCHIdent(column)+"), '')")
+	}
+	changeHashExpr := "toString(cityHash64(concat(" + strings.Join(watchedExprs, ", "+dataPipelineLiteral("\x1f")+", ") + ")))"
+	updatedAtExpr := "parseDateTimeBestEffort(toString(" + quoteCHIdent(spec.UpdatedAtColumn) + "))"
+	innerColumns := append([]string(nil), upstream.Columns...)
+	innerExpressions := dataPipelineColumnExpressions(upstream.Columns)
+	innerColumns = append(innerColumns, spec.ValidFromColumn, spec.ValidToColumn, spec.IsCurrentColumn, spec.ChangeHashColumn)
+	innerExpressions[spec.ValidFromColumn] = updatedAtExpr
+	nextUpdatedAtExpr := fmt.Sprintf("lead(%s) OVER (PARTITION BY %s ORDER BY %s ASC)", updatedAtExpr, strings.Join(partitionBy, ", "), updatedAtExpr)
+	innerExpressions[spec.ValidToColumn] = "nullIf(" + nextUpdatedAtExpr + ", toDateTime(0))"
+	innerExpressions[spec.IsCurrentColumn] = "if(" + nextUpdatedAtExpr + " = toDateTime(0), 1, 0)"
+	innerExpressions[spec.ChangeHashColumn] = changeHashExpr
+	sql := fmt.Sprintf("SELECT\n%s\nFROM %s", dataPipelineSelectList(innerColumns, innerExpressions), quoteCHIdent(upstream.CTE))
+	columns := append([]string(nil), upstream.Columns...)
+	columns = append(columns, spec.ValidFromColumn, spec.ValidToColumn, spec.IsCurrentColumn, spec.ChangeHashColumn)
+	return dataPipelineRelation{
+		CTE:     dataPipelineCTEName(node.ID),
+		SQL:     sql,
+		Columns: columns,
+		Node:    node,
+		Source:  upstream.Source,
+	}, nil
 }
 
 func (c *dataPipelineCompiler) compileFilterRelation(node DataPipelineNode, upstream dataPipelineRelation, conditions []string) dataPipelineRelation {
@@ -1801,6 +1847,102 @@ func dataPipelineWatermarkFilterSpec(config map[string]any, columns []string) (d
 		PreviousRunPublicID: previousRunPublicID,
 		Condition:           columnExpr + " " + operator + " " + valueExpr,
 	}, nil
+}
+
+type dataPipelineSnapshotSCD2Config struct {
+	UniqueKeys       []string
+	UpdatedAtColumn  string
+	WatchedColumns   []string
+	ValidFromColumn  string
+	ValidToColumn    string
+	IsCurrentColumn  string
+	ChangeHashColumn string
+}
+
+func (c dataPipelineSnapshotSCD2Config) Metadata() map[string]any {
+	return map[string]any{
+		"uniqueKeys":       c.UniqueKeys,
+		"updatedAtColumn":  c.UpdatedAtColumn,
+		"watchedColumns":   c.WatchedColumns,
+		"validFromColumn":  c.ValidFromColumn,
+		"validToColumn":    c.ValidToColumn,
+		"isCurrentColumn":  c.IsCurrentColumn,
+		"changeHashColumn": c.ChangeHashColumn,
+	}
+}
+
+func dataPipelineSnapshotSCD2Spec(config map[string]any, columns []string) (dataPipelineSnapshotSCD2Config, error) {
+	uniqueKeys := dataPipelineStringSlice(config, "uniqueKeys")
+	if len(uniqueKeys) == 0 {
+		uniqueKeys = dataPipelineStringSlice(config, "uniqueKey")
+	}
+	if len(uniqueKeys) == 0 {
+		return dataPipelineSnapshotSCD2Config{}, fmt.Errorf("%w: snapshot_scd2 requires uniqueKeys", ErrInvalidDataPipelineGraph)
+	}
+	for _, key := range uniqueKeys {
+		if err := dataPipelineRequireColumn(columns, key); err != nil {
+			return dataPipelineSnapshotSCD2Config{}, err
+		}
+	}
+	updatedAtColumn := firstNonEmpty(dataPipelineString(config, "updatedAtColumn"), dataPipelineString(config, "validFromSourceColumn"), "updated_at")
+	if err := dataPipelineRequireColumn(columns, updatedAtColumn); err != nil {
+		return dataPipelineSnapshotSCD2Config{}, err
+	}
+	watchedColumns := dataPipelineStringSlice(config, "watchedColumns")
+	if len(watchedColumns) == 0 {
+		for _, column := range columns {
+			if column != updatedAtColumn {
+				watchedColumns = append(watchedColumns, column)
+			}
+		}
+	}
+	for _, column := range watchedColumns {
+		if err := dataPipelineRequireColumn(columns, column); err != nil {
+			return dataPipelineSnapshotSCD2Config{}, err
+		}
+	}
+	spec := dataPipelineSnapshotSCD2Config{
+		UniqueKeys:       dataPipelineUniqueStrings(uniqueKeys),
+		UpdatedAtColumn:  updatedAtColumn,
+		WatchedColumns:   dataPipelineUniqueStrings(watchedColumns),
+		ValidFromColumn:  firstNonEmpty(dataPipelineString(config, "validFromColumn"), "valid_from"),
+		ValidToColumn:    firstNonEmpty(dataPipelineString(config, "validToColumn"), "valid_to"),
+		IsCurrentColumn:  firstNonEmpty(dataPipelineString(config, "isCurrentColumn"), "is_current"),
+		ChangeHashColumn: firstNonEmpty(dataPipelineString(config, "changeHashColumn"), "change_hash"),
+	}
+	extraColumns := []string{spec.ValidFromColumn, spec.ValidToColumn, spec.IsCurrentColumn, spec.ChangeHashColumn}
+	seen := make(map[string]struct{}, len(extraColumns))
+	for _, column := range extraColumns {
+		if err := dataPipelineValidateIdentifier(column); err != nil {
+			return dataPipelineSnapshotSCD2Config{}, err
+		}
+		key := strings.ToLower(column)
+		if _, ok := seen[key]; ok {
+			return dataPipelineSnapshotSCD2Config{}, fmt.Errorf("%w: duplicate snapshot_scd2 output column %s", ErrInvalidDataPipelineGraph, column)
+		}
+		seen[key] = struct{}{}
+		if dataPipelineHasColumn(columns, column) {
+			return dataPipelineSnapshotSCD2Config{}, fmt.Errorf("%w: snapshot_scd2 output column already exists: %s", ErrInvalidDataPipelineGraph, column)
+		}
+	}
+	return spec, nil
+}
+
+func dataPipelineSnapshotSCD2SourceColumns(config map[string]any, columns []string) []string {
+	extra := map[string]struct{}{
+		strings.ToLower(firstNonEmpty(dataPipelineString(config, "validFromColumn"), "valid_from")):   {},
+		strings.ToLower(firstNonEmpty(dataPipelineString(config, "validToColumn"), "valid_to")):       {},
+		strings.ToLower(firstNonEmpty(dataPipelineString(config, "isCurrentColumn"), "is_current")):   {},
+		strings.ToLower(firstNonEmpty(dataPipelineString(config, "changeHashColumn"), "change_hash")): {},
+	}
+	out := make([]string, 0, len(columns))
+	for _, column := range columns {
+		if _, ok := extra[strings.ToLower(column)]; ok {
+			continue
+		}
+		out = append(out, column)
+	}
+	return out
 }
 
 func dataPipelineComparableColumnExpr(columns []string, column, valueType string) (string, error) {

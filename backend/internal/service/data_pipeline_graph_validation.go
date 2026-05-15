@@ -127,6 +127,11 @@ func dataPipelineConfiguredPrimaryColumnRefs(stepType string, config map[string]
 			refs = append(refs, dataPipelineString(pair, "beforeColumn"), dataPipelineString(pair, "afterColumn"))
 		}
 		return dataPipelineColumnRefs{Columns: refs, ConfigKeys: []string{"pairs[].beforeColumn", "pairs[].afterColumn"}}
+	case DataPipelineStepSnapshotSCD2:
+		refs := append([]string{}, dataPipelineStringList(firstNonNil(config["uniqueKeys"], config["uniqueKey"]))...)
+		refs = append(refs, firstNonEmpty(dataPipelineString(config, "updatedAtColumn"), dataPipelineString(config, "validFromSourceColumn")))
+		refs = append(refs, dataPipelineStringList(config["watchedColumns"])...)
+		return dataPipelineColumnRefs{Columns: refs, ConfigKeys: []string{"uniqueKeys", "updatedAtColumn", "watchedColumns"}}
 	case DataPipelineStepOutput:
 		refs := make([]string, 0)
 		for _, column := range dataPipelineConfigArray(config, "columns") {

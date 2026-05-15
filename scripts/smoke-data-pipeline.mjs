@@ -113,6 +113,15 @@ async function uploadJSONFile(workspacePublicId) {
   return uploadFile(workspacePublicId, `data-pipeline-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
 }
 
+async function uploadSnapshotJSONFile(workspacePublicId) {
+  const rows = [
+    { id: '1', name: 'Alpha', status: 'draft', updated_at: '2026-05-01T00:00:00Z' },
+    { id: '1', name: 'Alpha', status: 'ready', updated_at: '2026-05-03T00:00:00Z' },
+    { id: '2', name: 'Beta', status: 'ready', updated_at: '2026-05-02T00:00:00Z' },
+  ]
+  return uploadFile(workspacePublicId, `data-pipeline-snapshot-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
+}
+
 async function uploadTextFile(workspacePublicId) {
   const text = [
     'invoice_id,customer,amount,confidence',
@@ -314,6 +323,40 @@ function watermarkPreviousGraph(filePublicId, suffix) {
       outputNode(suffix, ['id'], 'output', 900, 120),
     ],
     edges: linearEdges(['input', 'json_extract', 'watermark_filter', 'output']),
+  }
+}
+
+function snapshotSCD2Graph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive JSON', 60, 120, {
+        sourceKind: 'drive_file',
+        inputMode: 'json',
+        filePublicIds: [filePublicId],
+        recordPath: '$',
+        includeSourceMetadataColumns: true,
+        includeRawRecord: true,
+        fields: [],
+      }),
+      node('json_extract', 'json_extract', 'Extract snapshot fields', 340, 120, {
+        sourceColumn: 'raw_record_json',
+        recordPath: '$',
+        includeSourceColumns: true,
+        fields: [
+          { column: 'id', path: 'id' },
+          { column: 'name', path: 'name' },
+          { column: 'status', path: 'status' },
+          { column: 'updated_at', path: 'updated_at' },
+        ],
+      }),
+      node('snapshot_scd2', 'snapshot_scd2', 'SCD2 snapshot', 620, 120, {
+        uniqueKeys: ['id'],
+        updatedAtColumn: 'updated_at',
+        watchedColumns: ['name', 'status'],
+      }),
+      outputNode(suffix, ['id', 'valid_from'], 'output', 900, 120),
+    ],
+    edges: linearEdges(['input', 'json_extract', 'snapshot_scd2', 'output']),
   }
 }
 
@@ -674,6 +717,7 @@ async function createPipeline(scenario, filePublicId) {
     typed_output: typedOutputGraph,
     partition: partitionGraph,
     watermark_previous: watermarkPreviousGraph,
+    snapshot_scd2: snapshotSCD2Graph,
     union: unionGraph,
     excel: excelGraph,
     text: textGraph,
@@ -809,6 +853,23 @@ function assertPartitionRun(run) {
   }
   if (watermarkStep?.rowCount !== 2 || watermarkStep?.metadata?.watermarkFilter?.column !== 'updated_at') {
     throw new Error(`unexpected watermark filter metadata: ${JSON.stringify(watermarkStep)}`)
+  }
+}
+
+function assertSnapshotSCD2Run(run) {
+  assertCommonRun(run, 3)
+  const snapshotStep = findStep(run, 'snapshot_scd2')
+  const metadata = snapshotStep?.metadata?.snapshotSCD2
+  if (!metadata || !Array.isArray(metadata.uniqueKeys) || !metadata.uniqueKeys.includes('id')) {
+    throw new Error(`snapshot metadata missing: ${JSON.stringify(snapshotStep)}`)
+  }
+  for (const column of ['valid_from', 'valid_to', 'is_current', 'change_hash']) {
+    if (!metadata[`${column.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())}Column`] && column !== 'valid_from' && column !== 'valid_to') {
+      throw new Error(`snapshot metadata missing ${column}: ${JSON.stringify(metadata)}`)
+    }
+  }
+  if (metadata.updatedAtColumn !== 'updated_at' || !metadata.watchedColumns?.includes('status')) {
+    throw new Error(`unexpected snapshot metadata: ${JSON.stringify(metadata)}`)
   }
 }
 
@@ -1079,6 +1140,7 @@ async function runScenario(workspacePublicId, scenario) {
     typed_output: uploadJSONFile,
     partition: uploadJSONFile,
     watermark_previous: uploadJSONFile,
+    snapshot_scd2: uploadSnapshotJSONFile,
     union: uploadJSONFile,
     excel: uploadXLSXFile,
     text: uploadTextFile,
@@ -1095,6 +1157,7 @@ async function runScenario(workspacePublicId, scenario) {
     typed_output: (run) => assertProfileValidateRun(run, 3),
     partition: assertPartitionRun,
     watermark_previous: (run) => assertCommonRun(run, 2),
+    snapshot_scd2: assertSnapshotSCD2Run,
     union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
     text: assertTextRun,
@@ -1266,8 +1329,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
