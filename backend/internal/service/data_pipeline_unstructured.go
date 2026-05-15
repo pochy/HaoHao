@@ -116,22 +116,18 @@ func (s *DataPipelineService) executeHybridRun(ctx context.Context, tenantID int
 			)
 			if err := conn.Exec(queryCtx, createSQL); err != nil {
 				result.Err = fmt.Errorf("create data pipeline hybrid stage table for %s: %w", outputNode.ID, err)
+			} else if err := promoteDataPipelineOutputTable(queryCtx, conn, targetDatabase, targetTable, stageTable, dataPipelineOutputWriteMode(outputNode)); err != nil {
+				result.Err = fmt.Errorf("promote data pipeline hybrid stage table for %s: %w", outputNode.ID, err)
 			} else {
-				_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(targetTable)))
-				if err := conn.Exec(queryCtx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable), quoteCHIdent(targetDatabase), quoteCHIdent(targetTable))); err != nil {
-					_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable)))
-					result.Err = fmt.Errorf("promote data pipeline hybrid stage table for %s: %w", outputNode.ID, err)
+				displayName := dataPipelineString(outputNode.Data.Config, "displayName")
+				if displayName == "" {
+					displayName = targetTable
+				}
+				workTable, err := s.datasets.registerDatasetWorkTableForRef(ctx, tenantID, actorUserID, nil, nil, targetDatabase, targetTable, displayName)
+				if err != nil {
+					result.Err = err
 				} else {
-					displayName := dataPipelineString(outputNode.Data.Config, "displayName")
-					if displayName == "" {
-						displayName = targetTable
-					}
-					workTable, err := s.datasets.registerDatasetWorkTableForRef(ctx, tenantID, actorUserID, nil, nil, targetDatabase, targetTable, displayName)
-					if err != nil {
-						result.Err = err
-					} else {
-						result.WorkTable = workTable
-					}
+					result.WorkTable = workTable
 				}
 			}
 		}

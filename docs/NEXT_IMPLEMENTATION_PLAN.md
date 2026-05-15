@@ -382,7 +382,8 @@ AI coding / agent 改善を触る場合:
 - `partition_filter` / `watermark_filter` v1 は完了済み。固定範囲、固定 watermark、前回成功 run からの watermark 引き継ぎで schedule / backfill 前提の絞り込みを表現できる。
 - output node の `orderBy` と型付き output は完了済み。UI から出力列、型、最終 table の `ORDER BY` を設定できる。
 - `snapshot_scd2` v1 は 2026-05-16 に実装済み。入力内の履歴行を `uniqueKeys` と `updatedAtColumn` で並べ、`valid_from`、`valid_to`、`is_current`、`change_hash` を付与できる。
-- 次は既存 snapshot table との差分 merge / append write mode、または Gold publish 連携へ進む。
+- output `writeMode=append` も 2026-05-16 に実装済み。既存 table があれば stage table から追記し、なければ初回 table として作成する。
+- 次は既存 snapshot table との差分 merge / current row close、または Gold publish 連携へ進む。
 
 完了条件:
 

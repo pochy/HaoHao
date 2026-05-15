@@ -2752,6 +2752,7 @@ function labelForStep(type: DataPipelineStepType | string) {
               <span>{{ t('dataPipelines.writeMode') }}</span>
               <select :value="stringConfig('writeMode') || 'replace'" @change="updateConfigField('writeMode', targetValue($event))">
                 <option value="replace">{{ optionLabel('dataPipelines.writeModeValue.replace', 'replace') }}</option>
+                <option value="append">{{ optionLabel('dataPipelines.writeModeValue.append', 'append') }}</option>
               </select>
             </label>
             <label class="field">

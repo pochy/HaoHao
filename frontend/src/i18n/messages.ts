@@ -1880,6 +1880,7 @@ const en = {
     },
     writeModeValue: {
       replace: 'Replace',
+      append: 'Append',
     },
     aggregateFunction: {
       count: 'Count',
@@ -3882,6 +3883,7 @@ const ja: MessageSchema = {
     },
     writeModeValue: {
       replace: '置換',
+      append: '追記',
     },
     aggregateFunction: {
       count: '件数',

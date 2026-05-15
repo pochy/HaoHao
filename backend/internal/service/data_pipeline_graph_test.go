@@ -81,7 +81,7 @@ func TestValidateDataPipelineGraphAllowsMultipleOutputs(t *testing.T) {
 
 func TestValidateDataPipelineGraphRejectsOutputConfigConflicts(t *testing.T) {
 	graph := dataPipelineTestGraph()
-	graph.Nodes[2].Data.Config = map[string]any{"tableName": "same_table", "writeMode": "append"}
+	graph.Nodes[2].Data.Config = map[string]any{"tableName": "same_table", "writeMode": "merge"}
 	graph.Nodes = append(graph.Nodes, DataPipelineNode{
 		ID:   "output_2",
 		Type: "pipelineStep",
@@ -93,7 +93,7 @@ func TestValidateDataPipelineGraphRejectsOutputConfigConflicts(t *testing.T) {
 	if summary.Valid {
 		t.Fatalf("expected output config conflicts to be invalid")
 	}
-	if !containsDataPipelineValidationError(summary.Errors, "only supports replace writeMode") {
+	if !containsDataPipelineValidationError(summary.Errors, "only supports replace or append writeMode") {
 		t.Fatalf("expected writeMode error, got %v", summary.Errors)
 	}
 	if !containsDataPipelineValidationError(summary.Errors, "output tableName must be unique") {

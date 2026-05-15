@@ -1382,29 +1382,25 @@ func (s *DataPipelineService) executeRun(ctx context.Context, tenantID int64, ru
 			)
 			if err := conn.Exec(queryCtx, createSQL); err != nil {
 				result.Err = fmt.Errorf("create data pipeline stage table for %s: %w", outputNode.ID, err)
+			} else if err := promoteDataPipelineOutputTable(queryCtx, conn, targetDatabase, targetTable, stageTable, dataPipelineOutputWriteMode(outputNode)); err != nil {
+				result.Err = fmt.Errorf("promote data pipeline stage table for %s: %w", outputNode.ID, err)
 			} else {
-				_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(targetTable)))
-				if err := conn.Exec(queryCtx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable), quoteCHIdent(targetDatabase), quoteCHIdent(targetTable))); err != nil {
-					_ = conn.Exec(queryCtx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(targetDatabase), quoteCHIdent(stageTable)))
+				displayName := dataPipelineString(outputNode.Data.Config, "displayName")
+				if displayName == "" {
+					displayName = targetTable
+				}
+				workTable, err := s.datasets.registerDatasetWorkTableForRef(ctx, tenantID, userID, nil, nil, targetDatabase, targetTable, displayName)
+				if err != nil {
 					result.Err = fmt.Errorf("promote data pipeline stage table for %s: %w", outputNode.ID, err)
 				} else {
-					displayName := dataPipelineString(outputNode.Data.Config, "displayName")
-					if displayName == "" {
-						displayName = targetTable
-					}
-					workTable, err := s.datasets.registerDatasetWorkTableForRef(ctx, tenantID, userID, nil, nil, targetDatabase, targetTable, displayName)
-					if err != nil {
-						result.Err = err
-					} else {
-						if s.authz != nil {
-							if err := s.authz.EnsureResourceOwnerTuples(ctx, tenantID, userID, DataResourceWorkTable, workTable.PublicID); err != nil {
-								result.Err = err
-								results = append(results, result)
-								continue
-							}
+					if s.authz != nil {
+						if err := s.authz.EnsureResourceOwnerTuples(ctx, tenantID, userID, DataResourceWorkTable, workTable.PublicID); err != nil {
+							result.Err = err
+							results = append(results, result)
+							continue
 						}
-						result.WorkTable = workTable
 					}
+					result.WorkTable = workTable
 				}
 			}
 		}
@@ -1423,6 +1419,47 @@ func dataPipelineOutputTableName(node DataPipelineNode, run db.DataPipelineRun) 
 		raw = raw[:20]
 	}
 	return "dp_" + raw + "_" + dataPipelineSafeSuffix(node.ID)
+}
+
+func dataPipelineOutputWriteMode(node DataPipelineNode) string {
+	writeMode := strings.ToLower(strings.TrimSpace(dataPipelineString(node.Data.Config, "writeMode")))
+	if writeMode == "" {
+		return "replace"
+	}
+	return writeMode
+}
+
+func promoteDataPipelineOutputTable(ctx context.Context, conn driver.Conn, database, targetTable, stageTable, writeMode string) error {
+	switch writeMode {
+	case "", "replace":
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(targetTable)))
+		if err := conn.Exec(ctx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable), quoteCHIdent(database), quoteCHIdent(targetTable))); err != nil {
+			_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+			return err
+		}
+		return nil
+	case "append":
+		var exists uint8
+		if err := queryDataPipelineSingle(ctx, conn, fmt.Sprintf("EXISTS TABLE %s.%s", quoteCHIdent(database), quoteCHIdent(targetTable)), &exists); err != nil {
+			_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+			return err
+		}
+		if exists == 0 {
+			if err := conn.Exec(ctx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable), quoteCHIdent(database), quoteCHIdent(targetTable))); err != nil {
+				_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+				return err
+			}
+			return nil
+		}
+		if err := conn.Exec(ctx, fmt.Sprintf("INSERT INTO %s.%s SELECT * FROM %s.%s", quoteCHIdent(database), quoteCHIdent(targetTable), quoteCHIdent(database), quoteCHIdent(stageTable))); err != nil {
+			_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+			return err
+		}
+		return conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+	default:
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+		return fmt.Errorf("%w: unsupported output writeMode %q", ErrInvalidDataPipelineGraph, writeMode)
+	}
 }
 
 func dataPipelineOutputOrderBy(node DataPipelineNode, availableColumns ...[]string) string {

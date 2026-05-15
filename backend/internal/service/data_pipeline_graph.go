@@ -272,9 +272,9 @@ func validateDataPipelineOutputConfigs(graph DataPipelineGraph) []string {
 		if node.Data.StepType != DataPipelineStepOutput {
 			continue
 		}
-		writeMode := strings.TrimSpace(dataPipelineString(node.Data.Config, "writeMode"))
-		if writeMode != "" && writeMode != "replace" {
-			errors = append(errors, "output node only supports replace writeMode: "+node.ID)
+		writeMode := dataPipelineOutputWriteMode(node)
+		if writeMode != "replace" && writeMode != "append" {
+			errors = append(errors, "output node only supports replace or append writeMode: "+node.ID)
 		}
 		tableName := strings.TrimSpace(dataPipelineString(node.Data.Config, "tableName"))
 		if tableName != "" {

@@ -293,7 +293,7 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 
 目的は、run の最終成果物を定義することです。Output node は上流の行データをそのまま書き出すだけでなく、最終 Work table に残す列、列名、基本型、ClickHouse の `ORDER BY` を決める境界でもあります。
 
-現在の実装では、`displayName`、`tableName`、`writeMode`、`orderBy`、`columns` を使います。`writeMode` は `replace` のみ対応です。`tableName` が有効な ClickHouse identifier ならその名前を使い、未指定または不正な場合は run public ID と node ID から安全な table name を生成します。Run ではまず `__dp_stage_...` table を作り、成功後に最終 table へ rename します。
+現在の実装では、`displayName`、`tableName`、`writeMode`、`orderBy`、`columns` を使います。`writeMode` は `replace` と `append` に対応します。`replace` は stage table を作った後に既存 table を置き換えます。`append` は既存 table がない場合は初回 table として作成し、既存 table がある場合は stage table から `INSERT INTO target SELECT * FROM stage` で追記します。`tableName` が有効な ClickHouse identifier ならその名前を使い、未指定または不正な場合は run public ID と node ID から安全な table name を生成します。Run ではまず `__dp_stage_...` table を作り、成功後に最終 table へ promote します。
 
 `columns` が未設定または空配列の場合は、従来通り上流の全列を出力します。`columns` を設定した場合は、各要素の `sourceColumn` から値を読み、`name` を最終列名にして、`type` に応じて ClickHouse expression で変換します。対応型は `string`、`int64`、`float64`、`bool`、`date`、`datetime` です。`orderBy` は最終出力列に対する設定で、存在しない列は table 作成時に採用しません。これは表示順ではなく、ClickHouse table の物理ソートと primary index の設計です。
 
@@ -665,7 +665,7 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 
 v1 は 2026-05-16 に実装済みです。現時点の `snapshot_scd2` は「入力内に含まれる履歴行を SCD Type 2 形式に整える」node です。`uniqueKeys` で entity を識別し、`updatedAtColumn` を `valid_from` として昇順に並べ、次の version の `updatedAtColumn` を `valid_to` に入れます。次 version がない行は `valid_to=NULL`、`is_current=1` になります。`watchedColumns` が指定されていればその列群から、未指定なら `updatedAtColumn` 以外の上流列から `change_hash` を作ります。
 
-v1 がまだ行わないことは、既存 snapshot table との比較、過去 snapshot row の close、append write mode、late arriving data の再計算です。これらは output write mode と Gold publish の責務に関わるため、次の段階で扱います。
+v1 がまだ行わないことは、既存 snapshot table との比較、過去 snapshot row の close、late arriving data の再計算です。Output の `writeMode=append` は実装済みなので、同じ table へ追記する土台はあります。ただし SCD2 として過去の current row を閉じる merge 処理はまだありません。
 
 ### 入力形式拡張の追加候補
 

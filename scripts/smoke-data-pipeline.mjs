@@ -360,6 +360,17 @@ function snapshotSCD2Graph(filePublicId, suffix) {
   }
 }
 
+function snapshotAppendGraph(filePublicId, suffix) {
+  const graph = snapshotSCD2Graph(filePublicId, suffix)
+  graph.nodes = graph.nodes.map((item) => {
+    if (item.id !== 'output') {
+      return item
+    }
+    return outputNode(suffix, ['id', 'valid_from'], 'output', 900, 120, { writeMode: 'append' })
+  })
+  return graph
+}
+
 function unionGraph(filePublicId, suffix) {
   const inputConfig = {
     sourceKind: 'drive_file',
@@ -718,6 +729,7 @@ async function createPipeline(scenario, filePublicId) {
     partition: partitionGraph,
     watermark_previous: watermarkPreviousGraph,
     snapshot_scd2: snapshotSCD2Graph,
+    snapshot_append: snapshotAppendGraph,
     union: unionGraph,
     excel: excelGraph,
     text: textGraph,
@@ -1141,6 +1153,7 @@ async function runScenario(workspacePublicId, scenario) {
     partition: uploadJSONFile,
     watermark_previous: uploadJSONFile,
     snapshot_scd2: uploadSnapshotJSONFile,
+    snapshot_append: uploadSnapshotJSONFile,
     union: uploadJSONFile,
     excel: uploadXLSXFile,
     text: uploadTextFile,
@@ -1158,6 +1171,7 @@ async function runScenario(workspacePublicId, scenario) {
     partition: assertPartitionRun,
     watermark_previous: (run) => assertCommonRun(run, 2),
     snapshot_scd2: assertSnapshotSCD2Run,
+    snapshot_append: assertSnapshotSCD2Run,
     union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
     text: assertTextRun,
@@ -1238,6 +1252,26 @@ async function runWatermarkPreviousScenario(workspacePublicId) {
     detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
     firstWatermark,
     secondWatermark,
+    outputs: secondCompleted.outputs,
+  }
+}
+
+async function runSnapshotAppendScenario(workspacePublicId) {
+  const file = await uploadSnapshotJSONFile(workspacePublicId)
+  const { pipeline, version } = await createPipeline('snapshot_append', file.publicId)
+  const firstRun = await requestRun(version.publicId)
+  const firstCompleted = await waitForRun(pipeline.publicId, firstRun.publicId, assertSnapshotSCD2Run)
+  const secondRun = await requestRun(version.publicId)
+  const secondCompleted = await waitForRun(pipeline.publicId, secondRun.publicId, (run) => assertCommonRun(run, 6))
+  return {
+    scenario: 'snapshot_append',
+    workspacePublicId,
+    driveFilePublicId: file.publicId,
+    pipelinePublicId: pipeline.publicId,
+    versionPublicId: version.publicId,
+    firstRunPublicId: firstCompleted.publicId,
+    secondRunPublicId: secondCompleted.publicId,
+    detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
     outputs: secondCompleted.outputs,
   }
 }
@@ -1329,8 +1363,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
@@ -1344,6 +1378,8 @@ async function main() {
       ? await runValidationScenario(workspacePublicId)
       : scenario === 'watermark_previous'
         ? await runWatermarkPreviousScenario(workspacePublicId)
+        : scenario === 'snapshot_append'
+          ? await runSnapshotAppendScenario(workspacePublicId)
       : await runScenario(workspacePublicId, scenario))
   }
   console.log(JSON.stringify(requestedScenario === 'suite' ? { scenarios: results } : results[0], null, 2))
