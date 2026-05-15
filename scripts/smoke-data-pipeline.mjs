@@ -224,6 +224,49 @@ function jsonGraph(filePublicId, suffix) {
   }
 }
 
+function unionGraph(filePublicId, suffix) {
+  const inputConfig = {
+    sourceKind: 'drive_file',
+    inputMode: 'json',
+    filePublicIds: [filePublicId],
+    recordPath: '$',
+    includeSourceMetadataColumns: true,
+    includeRawRecord: true,
+    fields: [],
+  }
+  const extractConfig = {
+    sourceColumn: 'raw_record_json',
+    recordPath: '$',
+    includeSourceColumns: true,
+    fields: [
+      { column: 'id', path: 'id' },
+      { column: 'name', path: 'name' },
+      { column: 'amount', path: 'amount' },
+      { column: 'status', path: 'status' },
+    ],
+  }
+  return {
+    nodes: [
+      node('input_a', 'input', 'Smoke Drive JSON A', 60, 80, inputConfig),
+      node('extract_a', 'json_extract', 'Extract A', 320, 80, extractConfig),
+      node('input_b', 'input', 'Smoke Drive JSON B', 60, 260, inputConfig),
+      node('extract_b', 'json_extract', 'Extract B', 320, 260, extractConfig),
+      node('union', 'union', 'Union rows', 620, 170, {
+        columns: ['file_public_id', 'id', 'name', 'amount', 'status'],
+        sourceLabelColumn: 'source_node_id',
+      }),
+      outputNode(suffix, ['id'], 'output', 900, 170),
+    ],
+    edges: [
+      { id: 'input_a-extract_a', source: 'input_a', target: 'extract_a' },
+      { id: 'extract_a-union', source: 'extract_a', target: 'union' },
+      { id: 'input_b-extract_b', source: 'input_b', target: 'extract_b' },
+      { id: 'extract_b-union', source: 'extract_b', target: 'union' },
+      { id: 'union-output', source: 'union', target: 'output' },
+    ],
+  }
+}
+
 function excelGraph(filePublicId, suffix) {
   return {
     nodes: [
@@ -534,6 +577,7 @@ async function createPipeline(scenario, filePublicId) {
   const suffix = `${scenario}_${Date.now()}`
   const graphs = {
     json: jsonGraph,
+    union: unionGraph,
     excel: excelGraph,
     text: textGraph,
     quarantine: quarantineGraph,
@@ -648,6 +692,14 @@ function assertProfileValidateRun(run, expectedRows) {
   const validation = validateStep.metadata.validation
   if (validation.warningCount < 2 || validation.failedRows < 3 || !Array.isArray(validation.samples) || validation.samples.length === 0) {
     throw new Error(`unexpected validation metadata: ${JSON.stringify(validation)}`)
+  }
+}
+
+function assertUnionRun(run) {
+  assertCommonRun(run, 6)
+  const unionStep = findStep(run, 'union')
+  if (!unionStep || unionStep.rowCount !== 6) {
+    throw new Error(`unexpected union step: ${JSON.stringify(unionStep)}`)
   }
 }
 
@@ -915,6 +967,7 @@ async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
 async function runScenario(workspacePublicId, scenario) {
   const uploaders = {
     json: uploadJSONFile,
+    union: uploadJSONFile,
     excel: uploadXLSXFile,
     text: uploadTextFile,
     quarantine: uploadTextFile,
@@ -927,6 +980,7 @@ async function runScenario(workspacePublicId, scenario) {
   }
   const assertions = {
     json: (run) => assertProfileValidateRun(run, 3),
+    union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
     text: assertTextRun,
     quarantine: assertQuarantineRun,
@@ -1061,8 +1115,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)

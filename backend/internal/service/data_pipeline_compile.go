@@ -173,7 +173,7 @@ func (c *dataPipelineCompiler) compileNode(ctx context.Context, node DataPipelin
 	}
 
 	upstream, err := c.singleUpstream(node, relations)
-	if err != nil && node.Data.StepType != DataPipelineStepJoin {
+	if err != nil && node.Data.StepType != DataPipelineStepJoin && node.Data.StepType != DataPipelineStepUnion {
 		return dataPipelineRelation{}, err
 	}
 	switch node.Data.StepType {
@@ -187,6 +187,8 @@ func (c *dataPipelineCompiler) compileNode(ctx context.Context, node DataPipelin
 		return c.compileSchemaMapping(node, upstream)
 	case DataPipelineStepSchemaCompletion:
 		return c.compileSchemaCompletion(node, upstream)
+	case DataPipelineStepUnion:
+		return c.compileUnion(node, relations)
 	case DataPipelineStepJoin:
 		return c.compileJoin(node, relations)
 	case DataPipelineStepEnrichJoin:
@@ -226,6 +228,22 @@ func (c *dataPipelineCompiler) joinUpstreams(node DataPipelineNode, relations ma
 	sources := c.incoming[node.ID]
 	if len(sources) != 2 {
 		return nil, fmt.Errorf("%w: node %s must have exactly two upstream edges", ErrInvalidDataPipelineGraph, node.ID)
+	}
+	upstreams := make([]dataPipelineRelation, 0, len(sources))
+	for _, source := range sources {
+		upstream, ok := relations[source]
+		if !ok {
+			return nil, fmt.Errorf("%w: upstream node is not compiled: %s", ErrInvalidDataPipelineGraph, source)
+		}
+		upstreams = append(upstreams, upstream)
+	}
+	return upstreams, nil
+}
+
+func (c *dataPipelineCompiler) manyUpstreams(node DataPipelineNode, relations map[string]dataPipelineRelation) ([]dataPipelineRelation, error) {
+	sources := c.incoming[node.ID]
+	if len(sources) < 2 {
+		return nil, fmt.Errorf("%w: node %s must have at least two upstream edges", ErrInvalidDataPipelineGraph, node.ID)
 	}
 	upstreams := make([]dataPipelineRelation, 0, len(sources))
 	for _, source := range sources {
@@ -452,6 +470,43 @@ func (c *dataPipelineCompiler) compileSchemaCompletion(node DataPipelineNode, up
 	}
 	sql := fmt.Sprintf("SELECT\n%s\nFROM %s", dataPipelineSelectList(columns, expressions), quoteCHIdent(upstream.CTE))
 	return dataPipelineRelation{CTE: dataPipelineCTEName(node.ID), SQL: sql, Columns: columns, Node: node, Source: upstream.Source}, nil
+}
+
+func (c *dataPipelineCompiler) compileUnion(node DataPipelineNode, relations map[string]dataPipelineRelation) (dataPipelineRelation, error) {
+	upstreams, err := c.manyUpstreams(node, relations)
+	if err != nil {
+		return dataPipelineRelation{}, err
+	}
+	columns := dataPipelineUnionColumns(node.Data.Config, relationColumns(upstreams))
+	sourceLabelColumn := dataPipelineString(node.Data.Config, "sourceLabelColumn")
+	if sourceLabelColumn != "" {
+		if err := dataPipelineValidateIdentifier(sourceLabelColumn); err != nil {
+			return dataPipelineRelation{}, fmt.Errorf("%w: invalid sourceLabelColumn: %s", ErrInvalidDataPipelineGraph, err.Error())
+		}
+		columns = dataPipelineUniqueStrings(append(columns, sourceLabelColumn))
+	}
+	selects := make([]string, 0, len(upstreams))
+	for _, upstream := range upstreams {
+		expressions := make(map[string]string, len(columns))
+		for _, column := range columns {
+			switch {
+			case sourceLabelColumn != "" && column == sourceLabelColumn:
+				expressions[column] = dataPipelineLiteral(upstream.Node.ID)
+			case dataPipelineHasColumn(upstream.Columns, column):
+				expressions[column] = "toString(" + quoteCHIdent(column) + ")"
+			default:
+				expressions[column] = "''"
+			}
+		}
+		selects = append(selects, fmt.Sprintf("SELECT\n%s\nFROM %s", dataPipelineSelectList(columns, expressions), quoteCHIdent(upstream.CTE)))
+	}
+	return dataPipelineRelation{
+		CTE:     dataPipelineCTEName(node.ID),
+		SQL:     strings.Join(selects, "\nUNION ALL\n"),
+		Columns: columns,
+		Node:    node,
+		Source:  upstreams[0].Source,
+	}, nil
 }
 
 func (c *dataPipelineCompiler) compileJoin(node DataPipelineNode, relations map[string]dataPipelineRelation) (dataPipelineRelation, error) {
@@ -1423,6 +1478,34 @@ func dataPipelineRouteByConditionSpec(config map[string]any, columns []string) (
 		RouteExpr:     routeExpr,
 		Routes:        routes,
 	}, nil
+}
+
+func relationColumns(relations []dataPipelineRelation) [][]string {
+	out := make([][]string, 0, len(relations))
+	for _, relation := range relations {
+		out = append(out, relation.Columns)
+	}
+	return out
+}
+
+func materializedRelationColumns(relations []dataPipelineMaterializedRelation) [][]string {
+	out := make([][]string, 0, len(relations))
+	for _, relation := range relations {
+		out = append(out, relation.Columns)
+	}
+	return out
+}
+
+func dataPipelineUnionColumns(config map[string]any, inputs [][]string) []string {
+	configured := dataPipelineStringSlice(config, "columns")
+	if len(configured) > 0 {
+		return dataPipelineUniqueStrings(configured)
+	}
+	columns := make([]string, 0)
+	for _, input := range inputs {
+		columns = append(columns, input...)
+	}
+	return dataPipelineUniqueStrings(columns)
 }
 
 func dataPipelineColumnExpressions(columns []string) map[string]string {

@@ -1067,6 +1067,7 @@ function configuredPrimaryColumnRefs(type: string, config: ConfigRecord) {
   case 'quality_report':
   case 'deduplicate':
   case 'redact_pii':
+  case 'union':
     return stringList(config.columns)
   case 'quarantine':
     return [stringValue(config.statusColumn)]
@@ -2559,6 +2560,19 @@ function labelForStep(type: DataPipelineStepType | string) {
             <Plus :size="15" stroke-width="1.9" aria-hidden="true" />
             {{ t('dataPipelines.addRule') }}
           </button>
+        </template>
+
+        <template v-else-if="stepType === 'union'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.columns') }}</span>
+              <input :value="listToInput(configDraft.columns)" list="data-pipeline-column-options" @input="updateConfigList('columns', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.sourceLabelColumn') }}</span>
+              <input :value="stringConfig('sourceLabelColumn')" @input="updateConfigOptionalString('sourceLabelColumn', targetValue($event))">
+            </label>
+          </div>
         </template>
 
         <template v-else-if="stepType === 'sample_compare'">

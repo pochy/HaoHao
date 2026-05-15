@@ -551,6 +551,9 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 - Graph validation は `union` に複数 upstream を許可する必要があります。
 - `join` と同じく、通常 node の upstream 1 本制約の例外にします。
 - column type は ClickHouse 側で安全に揃える必要があります。最初は String / Nullable 寄せでもよいです。
+- v1 は 2026-05-15 に実装済みです。2 本以上の upstream を列名ベースで `UNION ALL` し、不足列は空文字で補います。
+- `columns` を設定すると出力列を明示できます。未指定の場合は upstream の列 union を使います。
+- `sourceLabelColumn` を設定すると、入力元 upstream node id を列として保持します。
 
 #### `route_by_condition`
 

@@ -213,6 +213,59 @@ func TestInferOutputSchemasForRouteByConditionPipeline(t *testing.T) {
 	}
 }
 
+func TestInferOutputSchemasForUnionPipeline(t *testing.T) {
+	graph := DataPipelineGraph{
+		Nodes: []DataPipelineNode{
+			{
+				ID: "input_a",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepInput,
+					Config: map[string]any{
+						"sourceKind": dataPipelineDriveFileSource,
+						"inputMode":  "json",
+						"fields":     []any{map[string]any{"column": "name"}, map[string]any{"column": "amount"}},
+					},
+				},
+			},
+			{
+				ID: "input_b",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepInput,
+					Config: map[string]any{
+						"sourceKind": dataPipelineDriveFileSource,
+						"inputMode":  "json",
+						"fields":     []any{map[string]any{"column": "name"}, map[string]any{"column": "status"}},
+					},
+				},
+			},
+			{
+				ID: "union",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepUnion,
+					Config:   map[string]any{"sourceLabelColumn": "source_node_id"},
+				},
+			},
+			{ID: "output", Data: DataPipelineNodeData{StepType: DataPipelineStepOutput}},
+		},
+		Edges: []DataPipelineEdge{
+			{Source: "input_a", Target: "union"},
+			{Source: "input_b", Target: "union"},
+			{Source: "union", Target: "output"},
+		},
+	}
+
+	schemas, err := (&DataPipelineService{}).inferOutputSchemas(context.Background(), 1, graph)
+	if err != nil {
+		t.Fatalf("inferOutputSchemas() error = %v", err)
+	}
+	output := schemaColumnsByNode(schemas)["output"]
+	for _, column := range []string{"file_public_id", "name", "amount", "status", "source_node_id"} {
+		if !dataPipelineContainsString(output, column) {
+			t.Fatalf("output schema missing %q: %#v", column, output)
+		}
+	}
+}
+
 func schemaColumnsByNode(schemas []DataPipelineNodeOutputSchema) map[string][]string {
 	out := make(map[string][]string, len(schemas))
 	for _, schema := range schemas {

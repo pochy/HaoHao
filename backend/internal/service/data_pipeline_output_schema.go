@@ -73,6 +73,16 @@ func (s *DataPipelineService) inferNodeOutputColumns(
 		leftColumns := columnsByNode[firstString(upstreamIDs)]
 		rightColumns := columnsByNode[nthString(upstreamIDs, 1)]
 		return inferJoinOutputColumns(config, leftColumns, rightColumns), nil, nil
+	case DataPipelineStepUnion:
+		upstreamColumnSets := make([][]string, 0, len(upstreamIDs))
+		for _, upstreamID := range upstreamIDs {
+			upstreamColumnSets = append(upstreamColumnSets, columnsByNode[upstreamID])
+		}
+		columns := dataPipelineUnionColumns(config, upstreamColumnSets)
+		if sourceLabelColumn := dataPipelineString(config, "sourceLabelColumn"); sourceLabelColumn != "" {
+			columns = append(columns, sourceLabelColumn)
+		}
+		return dataPipelineUniqueStrings(columns), nil, nil
 	case DataPipelineStepEnrichJoin:
 		rightColumns, err := s.inferInputOutputColumns(ctx, tenantID, config, "rightSourceKind", "rightDatasetPublicId", "rightWorkTablePublicId")
 		if err != nil {

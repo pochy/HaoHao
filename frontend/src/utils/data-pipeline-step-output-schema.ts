@@ -53,6 +53,8 @@ export function inferDataPipelineStepOutputColumns(
     return inferSchemaMappingColumns(config, upstreamColumns)
   case 'schema_completion':
     return inferSchemaCompletionColumns(config, upstreamColumns)
+  case 'union':
+    return inferUnionColumns(config, upstreamColumns)
   case 'human_review':
     return inferHumanReviewColumns(config, upstreamColumns)
   case 'sample_compare':
@@ -60,6 +62,14 @@ export function inferDataPipelineStepOutputColumns(
   default:
     return null
   }
+}
+
+function inferUnionColumns(config: ConfigRecord, upstreamColumns: string[]) {
+  const columns = stringList(config.columns)
+  return uniqueStrings([
+    ...(columns.length > 0 ? columns : upstreamColumns),
+    stringValue(config.sourceLabelColumn).trim(),
+  ])
 }
 
 function inferClassifyDocumentColumns(config: ConfigRecord, upstreamColumns: string[]) {

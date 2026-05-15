@@ -9,6 +9,7 @@ export type DataPipelineStepType =
   | 'validate'
   | 'schema_mapping'
   | 'schema_completion'
+  | 'union'
   | 'join'
   | 'enrich_join'
   | 'transform'

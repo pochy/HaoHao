@@ -69,6 +69,7 @@ const stepOrder: Record<DataPipelineStepType, number> = {
   validate: 40,
   schema_mapping: 50,
   schema_completion: 60,
+  union: 66,
   join: 68,
   enrich_join: 70,
   transform: 80,
@@ -131,6 +132,7 @@ const stepCategory: Record<DataPipelineStepType, PaletteCategory> = {
   normalize: 'quality',
   validate: 'quality',
   profile: 'transform',
+  union: 'transform',
   join: 'transform',
   enrich_join: 'transform',
   transform: 'transform',
@@ -716,6 +718,8 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
     return { mappings: [] }
   case 'schema_completion':
     return { rules: [] }
+  case 'union':
+    return { columns: [], sourceLabelColumn: 'source_node_id' }
   case 'join':
     return { joinType: 'left', joinStrictness: 'all', leftKeys: [], rightKeys: [], selectColumns: [] }
   case 'enrich_join':

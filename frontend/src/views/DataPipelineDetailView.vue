@@ -83,6 +83,7 @@ const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
   { type: 'validate', labelKey: 'dataPipelines.step.validate' },
   { type: 'schema_mapping', labelKey: 'dataPipelines.step.schema_mapping' },
   { type: 'schema_completion', labelKey: 'dataPipelines.step.schema_completion' },
+  { type: 'union', labelKey: 'dataPipelines.step.union' },
   { type: 'join', labelKey: 'dataPipelines.step.join' },
   { type: 'enrich_join', labelKey: 'dataPipelines.step.enrich_join' },
   { type: 'transform', labelKey: 'dataPipelines.step.transform' },

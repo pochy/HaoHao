@@ -16,6 +16,7 @@ const (
 	DataPipelineStepValidate          = "validate"
 	DataPipelineStepSchemaMapping     = "schema_mapping"
 	DataPipelineStepSchemaCompletion  = "schema_completion"
+	DataPipelineStepUnion             = "union"
 	DataPipelineStepJoin              = "join"
 	DataPipelineStepEnrichJoin        = "enrich_join"
 	DataPipelineStepTransform         = "transform"
@@ -54,6 +55,7 @@ var dataPipelineStepCatalog = map[string]struct{}{
 	DataPipelineStepValidate:          {},
 	DataPipelineStepSchemaMapping:     {},
 	DataPipelineStepSchemaCompletion:  {},
+	DataPipelineStepUnion:             {},
 	DataPipelineStepJoin:              {},
 	DataPipelineStepEnrichJoin:        {},
 	DataPipelineStepTransform:         {},
@@ -227,6 +229,10 @@ func validateDataPipelineGraphForUse(graph DataPipelineGraph, requireOutput bool
 			case DataPipelineStepInput:
 				if upstreamCount != 0 {
 					errors = append(errors, "input node cannot have upstream edges: "+node.ID)
+				}
+			case DataPipelineStepUnion:
+				if upstreamCount < 2 {
+					errors = append(errors, "union node must have at least two upstream edges: "+node.ID)
 				}
 			case DataPipelineStepJoin:
 				if upstreamCount != 2 {
