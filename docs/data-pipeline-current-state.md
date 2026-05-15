@@ -636,8 +636,9 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 - tenant timezone と schedule timezone の扱いを明確にします。
 - v1 は 2026-05-15 に実装済みです。`partition_filter` は固定の `dateColumn` / `start` / `end` と任意の `partitionKey` / `partitionValue` で行を絞り込みます。
 - `watermark_filter` v1 は固定の `column` / `watermarkValue` で行を絞り込みます。`valueType` は `datetime`、`number`、`string` を選べます。
-- v1 では前回成功 run から watermark を自動取得しません。固定値を graph config に保存し、run step metadata に filter config を残します。
-- 次の拡張では、schedule run の成功履歴から last watermark を計算し、lookback window と timezone を含む runtime parameter として扱います。
+- `watermarkSource="previous_success"` の場合は、同じ pipeline の前回成功 run に保存された `watermarkFilter.nextWatermarkValue` を今回の `watermarkValue` として使います。履歴がない初回は graph config の `watermarkValue` を initial value として使います。
+- run step metadata には `watermarkFilter.column`、`watermarkValue`、`valueType`、`inclusive`、`source`、`resolvedSource`、`previousRunPublicId`、`nextWatermarkValue` を保存します。`nextWatermarkValue` は filter 後の行から対象列の最大値を取り、対象行が 0 件なら今回使った watermark を維持します。
+- 次の拡張では、lookback window、timezone、late arrival 許容、手動 backfill 時の override を runtime parameter として扱います。
 
 #### `snapshot_scd2`
 

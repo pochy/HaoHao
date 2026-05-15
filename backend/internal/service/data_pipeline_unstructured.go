@@ -494,14 +494,14 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 	if err := conn.Exec(queryCtx, sql); err != nil {
 		return dataPipelineMaterializedRelation{}, fmt.Errorf("materialize data pipeline node %s: %w", node.ID, err)
 	}
-	metadata, err := dataPipelineHybridCompiledNodeMetadata(node, relation.Columns)
+	metadata, err := dataPipelineHybridCompiledNodeMetadata(ctx, conn, node, relation.Columns, database, table)
 	if err != nil {
 		return dataPipelineMaterializedRelation{}, err
 	}
 	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: relation.Columns, Metadata: metadata}, nil
 }
 
-func dataPipelineHybridCompiledNodeMetadata(node DataPipelineNode, columns []string) (map[string]any, error) {
+func dataPipelineHybridCompiledNodeMetadata(ctx context.Context, conn driver.Conn, node DataPipelineNode, columns []string, database, table string) (map[string]any, error) {
 	switch node.Data.StepType {
 	case DataPipelineStepPartitionFilter:
 		spec, err := dataPipelinePartitionFilterSpec(node.Data.Config, columns)
@@ -514,7 +514,16 @@ func dataPipelineHybridCompiledNodeMetadata(node DataPipelineNode, columns []str
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"watermarkFilter": spec.Metadata()}, nil
+		metadata := spec.Metadata()
+		nextWatermark, err := queryDataPipelineMaxValue(ctx, conn, fmt.Sprintf("SELECT * FROM %s.%s", quoteCHIdent(database), quoteCHIdent(table)), spec.Column, spec.ValueType)
+		if err != nil {
+			return nil, err
+		}
+		if nextWatermark == "" {
+			nextWatermark = spec.WatermarkValue
+		}
+		metadata["nextWatermarkValue"] = nextWatermark
+		return map[string]any{"watermarkFilter": metadata}, nil
 	default:
 		return nil, nil
 	}

@@ -693,7 +693,7 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
   case 'partition_filter':
     return { dateColumn: 'updated_at', start: '', end: '', valueType: 'datetime', includeEnd: false }
   case 'watermark_filter':
-    return { column: 'updated_at', watermarkValue: '', valueType: 'datetime', inclusive: false }
+    return { column: 'updated_at', watermarkSource: 'fixed', watermarkValue: '', valueType: 'datetime', inclusive: false }
   case 'deduplicate':
     return { keyColumns: [], mode: 'annotate', statusColumn: 'duplicate_status', groupColumn: 'duplicate_group_id' }
   case 'canonicalize':

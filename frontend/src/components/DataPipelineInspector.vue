@@ -2626,6 +2626,13 @@ function labelForStep(type: DataPipelineStepType | string) {
               <input :value="stringConfig('column') || 'updated_at'" list="data-pipeline-column-options" @input="updateConfigField('column', targetValue($event))">
             </label>
             <label class="field">
+              <span>{{ t('dataPipelines.watermarkSource') }}</span>
+              <select :value="stringConfig('watermarkSource') || 'fixed'" @change="updateConfigField('watermarkSource', targetValue($event))">
+                <option value="fixed">{{ t('dataPipelines.fixedWatermark') }}</option>
+                <option value="previous_success">{{ t('dataPipelines.previousSuccessWatermark') }}</option>
+              </select>
+            </label>
+            <label class="field">
               <span>{{ t('dataPipelines.watermarkValue') }}</span>
               <input :value="stringConfig('watermarkValue')" @input="updateConfigOptionalString('watermarkValue', targetValue($event))">
             </label>

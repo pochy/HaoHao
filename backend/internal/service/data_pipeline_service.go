@@ -1821,6 +1821,61 @@ func dataPipelineGraphHasOutput(graph DataPipelineGraph) bool {
 	return false
 }
 
+func (s *DataPipelineService) resolveDataPipelineRuntimeWatermarks(ctx context.Context, tenantID int64, run db.DataPipelineRun, graph DataPipelineGraph) (DataPipelineGraph, error) {
+	if s == nil || s.pool == nil {
+		return graph, nil
+	}
+	for i := range graph.Nodes {
+		node := graph.Nodes[i]
+		if node.Data.StepType != DataPipelineStepWatermarkFilter {
+			continue
+		}
+		source := firstNonEmpty(dataPipelineString(node.Data.Config, "watermarkSource"), "fixed")
+		if source != "previous_success" {
+			continue
+		}
+		config := cloneDataPipelineConfig(node.Data.Config)
+		initialValue := firstNonEmpty(dataPipelineString(config, "initialWatermarkValue"), dataPipelineString(config, "watermarkValue"), dataPipelineString(config, "value"))
+		value, previousRunPublicID, err := s.previousDataPipelineWatermarkValue(ctx, tenantID, run, node.ID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return graph, fmt.Errorf("resolve previous watermark for node %s: %w", node.ID, err)
+		}
+		if value != "" {
+			config["watermarkValue"] = value
+			config["resolvedWatermarkSource"] = "previous_success"
+			config["previousRunPublicId"] = previousRunPublicID
+		} else {
+			config["watermarkValue"] = initialValue
+			config["resolvedWatermarkSource"] = "initial"
+			config["previousRunPublicId"] = ""
+		}
+		graph.Nodes[i].Data.Config = config
+	}
+	return graph, nil
+}
+
+func (s *DataPipelineService) previousDataPipelineWatermarkValue(ctx context.Context, tenantID int64, run db.DataPipelineRun, nodeID string) (string, string, error) {
+	const query = `
+SELECT r.public_id::text, rs.metadata #>> '{watermarkFilter,nextWatermarkValue}'
+FROM data_pipeline_runs r
+JOIN data_pipeline_run_steps rs ON rs.run_id = r.id AND rs.tenant_id = r.tenant_id
+WHERE r.tenant_id = $1
+  AND r.pipeline_id = $2
+  AND r.id <> $3
+  AND r.status = 'completed'
+  AND rs.node_id = $4
+  AND rs.status = 'completed'
+  AND COALESCE(rs.metadata #>> '{watermarkFilter,nextWatermarkValue}', '') <> ''
+ORDER BY r.completed_at DESC NULLS LAST, r.id DESC
+LIMIT 1`
+	var previousRunPublicID string
+	var value string
+	if err := s.pool.QueryRow(ctx, query, tenantID, run.PipelineID, run.ID, nodeID).Scan(&previousRunPublicID, &value); err != nil {
+		return "", "", err
+	}
+	return value, previousRunPublicID, nil
+}
+
 func (s *DataPipelineService) HandleRunRequested(ctx context.Context, tenantID, runID, outboxEventID int64) error {
 	run, err := s.queries.MarkDataPipelineRunProcessing(ctx, db.MarkDataPipelineRunProcessingParams{TenantID: tenantID, ID: runID})
 	if errors.Is(err, pgx.ErrNoRows) {

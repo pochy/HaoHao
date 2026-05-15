@@ -920,7 +920,16 @@ func (s *DataPipelineService) collectStructuredRunNodeResults(ctx context.Contex
 			if err != nil {
 				return nil, fmt.Errorf("watermark_filter data pipeline step %s: %w", node.ID, err)
 			}
-			metadata["watermarkFilter"] = spec.Metadata()
+			watermarkMetadata := spec.Metadata()
+			nextWatermark, err := queryDataPipelineMaxValue(ctx, conn, compiled.SQL, spec.Column, spec.ValueType)
+			if err != nil {
+				return nil, fmt.Errorf("watermark_filter data pipeline step %s: %w", node.ID, err)
+			}
+			if nextWatermark == "" {
+				nextWatermark = spec.WatermarkValue
+			}
+			watermarkMetadata["nextWatermarkValue"] = nextWatermark
+			metadata["watermarkFilter"] = watermarkMetadata
 		}
 		results[node.ID] = dataPipelineRunNodeResult{
 			NodeID:   node.ID,
@@ -1116,6 +1125,19 @@ func queryDataPipelineRouteCounts(ctx context.Context, conn driver.Conn, sql, ro
 	return out, rows.Err()
 }
 
+func queryDataPipelineMaxValue(ctx context.Context, conn driver.Conn, sql, column, valueType string) (string, error) {
+	col, err := dataPipelineComparableColumnExpr([]string{column}, column, valueType)
+	if err != nil {
+		return "", err
+	}
+	query := fmt.Sprintf("SELECT ifNull(toString(max(%s)), '') FROM (\n%s\n)", col, sql)
+	var value string
+	if err := queryDataPipelineSingle(ctx, conn, query, &value); err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
 func queryDataPipelineValidationFailureCount(ctx context.Context, conn driver.Conn, sql string, columns []string, rule map[string]any) (int64, error) {
 	operator := strings.ToLower(firstNonEmpty(dataPipelineString(rule, "operator"), dataPipelineString(rule, "op")))
 	if operator == "unique" {
@@ -1305,6 +1327,10 @@ func (s *DataPipelineService) executeRun(ctx context.Context, tenantID int64, ru
 		return nil, fmt.Errorf("data pipeline service is not configured")
 	}
 	graph, err := decodeDataPipelineGraph(version.Graph)
+	if err != nil {
+		return nil, err
+	}
+	graph, err = s.resolveDataPipelineRuntimeWatermarks(ctx, tenantID, run, graph)
 	if err != nil {
 		return nil, err
 	}
@@ -1717,19 +1743,25 @@ func dataPipelinePartitionFilterSpec(config map[string]any, columns []string) (d
 }
 
 type dataPipelineWatermarkFilterConfig struct {
-	Column         string
-	WatermarkValue string
-	ValueType      string
-	Inclusive      bool
-	Condition      string
+	Column              string
+	WatermarkValue      string
+	ValueType           string
+	Inclusive           bool
+	Source              string
+	ResolvedSource      string
+	PreviousRunPublicID string
+	Condition           string
 }
 
 func (c dataPipelineWatermarkFilterConfig) Metadata() map[string]any {
 	return map[string]any{
-		"column":         c.Column,
-		"watermarkValue": c.WatermarkValue,
-		"valueType":      c.ValueType,
-		"inclusive":      c.Inclusive,
+		"column":              c.Column,
+		"watermarkValue":      c.WatermarkValue,
+		"valueType":           c.ValueType,
+		"inclusive":           c.Inclusive,
+		"source":              c.Source,
+		"resolvedSource":      c.ResolvedSource,
+		"previousRunPublicId": c.PreviousRunPublicID,
 	}
 }
 
@@ -1742,6 +1774,9 @@ func dataPipelineWatermarkFilterSpec(config map[string]any, columns []string) (d
 	if watermarkValue == "" {
 		return dataPipelineWatermarkFilterConfig{}, fmt.Errorf("%w: watermark_filter requires watermarkValue", ErrInvalidDataPipelineGraph)
 	}
+	source := firstNonEmpty(dataPipelineString(config, "watermarkSource"), "fixed")
+	resolvedSource := firstNonEmpty(dataPipelineString(config, "resolvedWatermarkSource"), source)
+	previousRunPublicID := dataPipelineString(config, "previousRunPublicId")
 	valueType := firstNonEmpty(dataPipelineString(config, "valueType"), "datetime")
 	columnExpr, err := dataPipelineComparableColumnExpr(columns, column, valueType)
 	if err != nil {
@@ -1757,11 +1792,14 @@ func dataPipelineWatermarkFilterSpec(config map[string]any, columns []string) (d
 		operator = ">="
 	}
 	return dataPipelineWatermarkFilterConfig{
-		Column:         column,
-		WatermarkValue: watermarkValue,
-		ValueType:      valueType,
-		Inclusive:      inclusive,
-		Condition:      columnExpr + " " + operator + " " + valueExpr,
+		Column:              column,
+		WatermarkValue:      watermarkValue,
+		ValueType:           valueType,
+		Inclusive:           inclusive,
+		Source:              source,
+		ResolvedSource:      resolvedSource,
+		PreviousRunPublicID: previousRunPublicID,
+		Condition:           columnExpr + " " + operator + " " + valueExpr,
 	}, nil
 }
 

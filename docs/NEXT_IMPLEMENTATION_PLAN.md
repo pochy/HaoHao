@@ -365,9 +365,9 @@ AI coding / agent 改善を触る場合:
 - `confidence_gate` / `quality_report` の失敗理由 metadata 強化も完了済み。
 - `route_by_condition` v1 は 2026-05-15 に実装済み。`mode=annotate` で `route_key` を付与し、`mode=filter_route` で指定 route の行だけを後続 branch に渡せる。structured / hybrid の両方で実行でき、run step metadata に `routeCounts` を保存する。
 - `union` v1 も 2026-05-15 に実装済み。2 本以上の upstream を列名ベースで `UNION ALL` し、足りない列は空値で補う。任意の `sourceLabelColumn` で branch 由来も保持できる。
-- `partition_filter` / `watermark_filter` v1 も 2026-05-15 に実装済み。固定の `start` / `end` / `watermarkValue` で対象行を絞り込み、run step metadata に filter config を残せる。
+- `partition_filter` / `watermark_filter` v1 も 2026-05-15 に実装済み。固定の `start` / `end` / `watermarkValue` で対象行を絞り込み、run step metadata に filter config を残せる。`watermark_filter` は前回成功 run の `nextWatermarkValue` を次回 run の watermark として解決する mode も実装済み。
 - output node の型付き output / ordering 強化も 2026-05-15 に実装済み。`columns` で上流列の選択、リネーム、`string` / `int64` / `float64` / `bool` / `date` / `datetime` への変換を指定でき、`orderBy` は最終出力列に対して ClickHouse table の primary sort key として使う。
-- 次は watermark の前回成功 run 連携、または `snapshot_scd2` v1 へ進む。
+- 次は `snapshot_scd2` v1 へ進む。
 
 完了条件:
 
@@ -379,7 +379,7 @@ AI coding / agent 改善を触る場合:
 
 - `route_by_condition` v1 は完了済み。条件に応じた route 付与と単一 route filtering ができる。
 - `union` v1 は完了済み。複数入力の縦結合を扱える。
-- `partition_filter` / `watermark_filter` v1 は完了済み。固定範囲と固定 watermark で schedule / backfill 前提の絞り込みを表現できる。
+- `partition_filter` / `watermark_filter` v1 は完了済み。固定範囲、固定 watermark、前回成功 run からの watermark 引き継ぎで schedule / backfill 前提の絞り込みを表現できる。
 - output node の `orderBy` と型付き output は完了済み。UI から出力列、型、最終 table の `ORDER BY` を設定できる。
 - `snapshot_scd2` を master data 用 v1 として追加する。
 

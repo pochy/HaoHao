@@ -284,6 +284,39 @@ function partitionGraph(filePublicId, suffix) {
   }
 }
 
+function watermarkPreviousGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive JSON', 60, 120, {
+        sourceKind: 'drive_file',
+        inputMode: 'json',
+        filePublicIds: [filePublicId],
+        recordPath: '$',
+        includeSourceMetadataColumns: true,
+        includeRawRecord: true,
+        fields: [],
+      }),
+      node('json_extract', 'json_extract', 'Extract smoke fields', 340, 120, {
+        sourceColumn: 'raw_record_json',
+        recordPath: '$',
+        includeSourceColumns: true,
+        fields: [
+          { column: 'id', path: 'id' },
+          { column: 'updated_at', path: 'updated_at' },
+        ],
+      }),
+      node('watermark_filter', 'watermark_filter', 'Previous watermark filter', 620, 120, {
+        column: 'updated_at',
+        watermarkSource: 'previous_success',
+        watermarkValue: '2026-05-01T00:00:00Z',
+        valueType: 'datetime',
+      }),
+      outputNode(suffix, ['id'], 'output', 900, 120),
+    ],
+    edges: linearEdges(['input', 'json_extract', 'watermark_filter', 'output']),
+  }
+}
+
 function unionGraph(filePublicId, suffix) {
   const inputConfig = {
     sourceKind: 'drive_file',
@@ -640,6 +673,7 @@ async function createPipeline(scenario, filePublicId) {
     json: jsonGraph,
     typed_output: typedOutputGraph,
     partition: partitionGraph,
+    watermark_previous: watermarkPreviousGraph,
     union: unionGraph,
     excel: excelGraph,
     text: textGraph,
@@ -1044,6 +1078,7 @@ async function runScenario(workspacePublicId, scenario) {
     json: uploadJSONFile,
     typed_output: uploadJSONFile,
     partition: uploadJSONFile,
+    watermark_previous: uploadJSONFile,
     union: uploadJSONFile,
     excel: uploadXLSXFile,
     text: uploadTextFile,
@@ -1059,6 +1094,7 @@ async function runScenario(workspacePublicId, scenario) {
     json: (run) => assertProfileValidateRun(run, 3),
     typed_output: (run) => assertProfileValidateRun(run, 3),
     partition: assertPartitionRun,
+    watermark_previous: (run) => assertCommonRun(run, 2),
     union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
     text: assertTextRun,
@@ -1104,6 +1140,42 @@ async function runScenario(workspacePublicId, scenario) {
     confidenceGate: findStep(completed, 'confidence_gate')?.metadata?.confidenceGate,
     reviewItems,
     outputs: completed.outputs,
+  }
+}
+
+async function runWatermarkPreviousScenario(workspacePublicId) {
+  const file = await uploadJSONFile(workspacePublicId)
+  const { pipeline, version } = await createPipeline('watermark_previous', file.publicId)
+
+  const firstRun = await requestRun(version.publicId)
+  const firstCompleted = await waitForRun(pipeline.publicId, firstRun.publicId, (run) => assertCommonRun(run, 2))
+  const firstWatermark = findStep(firstCompleted, 'watermark_filter')?.metadata?.watermarkFilter
+  if (!firstWatermark || firstWatermark.resolvedSource !== 'initial' || !firstWatermark.nextWatermarkValue) {
+    throw new Error(`unexpected first watermark metadata: ${JSON.stringify(firstWatermark)}`)
+  }
+
+  const secondRun = await requestRun(version.publicId)
+  const secondCompleted = await waitForRun(pipeline.publicId, secondRun.publicId, (run) => assertCommonRun(run, 0))
+  const secondWatermark = findStep(secondCompleted, 'watermark_filter')?.metadata?.watermarkFilter
+  if (!secondWatermark || secondWatermark.resolvedSource !== 'previous_success' || secondWatermark.previousRunPublicId !== firstCompleted.publicId) {
+    throw new Error(`unexpected second watermark metadata: ${JSON.stringify(secondWatermark)}`)
+  }
+  if (secondWatermark.watermarkValue !== firstWatermark.nextWatermarkValue || secondWatermark.nextWatermarkValue !== firstWatermark.nextWatermarkValue) {
+    throw new Error(`watermark did not carry forward: first=${JSON.stringify(firstWatermark)} second=${JSON.stringify(secondWatermark)}`)
+  }
+
+  return {
+    scenario: 'watermark_previous',
+    workspacePublicId,
+    driveFilePublicId: file.publicId,
+    pipelinePublicId: pipeline.publicId,
+    versionPublicId: version.publicId,
+    firstRunPublicId: firstCompleted.publicId,
+    secondRunPublicId: secondCompleted.publicId,
+    detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
+    firstWatermark,
+    secondWatermark,
+    outputs: secondCompleted.outputs,
   }
 }
 
@@ -1194,8 +1266,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'typed_output', 'partition', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
@@ -1207,6 +1279,8 @@ async function main() {
   for (const scenario of scenarios) {
     results.push(scenario === 'validation'
       ? await runValidationScenario(workspacePublicId)
+      : scenario === 'watermark_previous'
+        ? await runWatermarkPreviousScenario(workspacePublicId)
       : await runScenario(workspacePublicId, scenario))
   }
   console.log(JSON.stringify(requestedScenario === 'suite' ? { scenarios: results } : results[0], null, 2))
