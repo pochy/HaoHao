@@ -177,8 +177,10 @@ func (c *dataPipelineCompiler) compileNode(ctx context.Context, node DataPipelin
 		return dataPipelineRelation{}, err
 	}
 	switch node.Data.StepType {
-	case DataPipelineStepProfile, DataPipelineStepValidate, DataPipelineStepOutput:
+	case DataPipelineStepProfile, DataPipelineStepValidate:
 		return c.passThrough(node, upstream), nil
+	case DataPipelineStepOutput:
+		return c.compileOutput(node, upstream)
 	case DataPipelineStepClean:
 		return c.compileClean(node, upstream)
 	case DataPipelineStepNormalize:
@@ -214,6 +216,21 @@ func (c *dataPipelineCompiler) passThrough(node DataPipelineNode, upstream dataP
 		Node:    node,
 		Source:  upstream.Source,
 	}
+}
+
+func (c *dataPipelineCompiler) compileOutput(node DataPipelineNode, upstream dataPipelineRelation) (dataPipelineRelation, error) {
+	columns, expressions, err := dataPipelineOutputColumns(node.Data.Config, upstream.Columns)
+	if err != nil {
+		return dataPipelineRelation{}, err
+	}
+	sql := fmt.Sprintf("SELECT\n%s\nFROM %s", dataPipelineSelectList(columns, expressions), quoteCHIdent(upstream.CTE))
+	return dataPipelineRelation{
+		CTE:     dataPipelineCTEName(node.ID),
+		SQL:     sql,
+		Columns: columns,
+		Node:    node,
+		Source:  upstream.Source,
+	}, nil
 }
 
 func (c *dataPipelineCompiler) singleUpstream(node DataPipelineNode, relations map[string]dataPipelineRelation) (dataPipelineRelation, error) {
@@ -1326,7 +1343,7 @@ func (s *DataPipelineService) executeRun(ctx context.Context, tenantID int64, ru
 				"CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY %s AS\n%s",
 				quoteCHIdent(targetDatabase),
 				quoteCHIdent(stageTable),
-				dataPipelineOutputOrderBy(outputNode),
+				dataPipelineOutputOrderBy(outputNode, compiled.Columns),
 				compiled.SQL,
 			)
 			if err := conn.Exec(queryCtx, createSQL); err != nil {
@@ -1374,14 +1391,21 @@ func dataPipelineOutputTableName(node DataPipelineNode, run db.DataPipelineRun) 
 	return "dp_" + raw + "_" + dataPipelineSafeSuffix(node.ID)
 }
 
-func dataPipelineOutputOrderBy(node DataPipelineNode) string {
+func dataPipelineOutputOrderBy(node DataPipelineNode, availableColumns ...[]string) string {
 	columns := dataPipelineStringSlice(node.Data.Config, "orderBy")
 	if len(columns) == 0 {
 		return "tuple()"
 	}
+	var allowed []string
+	if len(availableColumns) > 0 {
+		allowed = availableColumns[0]
+	}
 	parts := make([]string, 0, len(columns))
 	for _, column := range columns {
 		if err := dataPipelineValidateIdentifier(column); err != nil {
+			continue
+		}
+		if len(allowed) > 0 && !dataPipelineHasColumn(allowed, column) {
 			continue
 		}
 		parts = append(parts, quoteCHIdent(column))
@@ -1390,6 +1414,68 @@ func dataPipelineOutputOrderBy(node DataPipelineNode) string {
 		return "tuple()"
 	}
 	return strings.Join(parts, ", ")
+}
+
+func dataPipelineOutputColumns(config map[string]any, upstreamColumns []string) ([]string, map[string]string, error) {
+	specs := dataPipelineConfigObjects(config, "columns")
+	if len(specs) == 0 {
+		columns := append([]string(nil), upstreamColumns...)
+		return columns, dataPipelineColumnExpressions(columns), nil
+	}
+	columns := make([]string, 0, len(specs))
+	expressions := make(map[string]string, len(specs))
+	seen := make(map[string]struct{}, len(specs))
+	for _, spec := range specs {
+		source := strings.TrimSpace(dataPipelineString(spec, "sourceColumn"))
+		if source == "" {
+			source = strings.TrimSpace(dataPipelineString(spec, "column"))
+		}
+		if err := dataPipelineRequireColumn(upstreamColumns, source); err != nil {
+			return nil, nil, err
+		}
+		name := strings.TrimSpace(dataPipelineString(spec, "name"))
+		if name == "" {
+			name = strings.TrimSpace(dataPipelineString(spec, "outputColumn"))
+		}
+		if name == "" {
+			name = source
+		}
+		if err := dataPipelineValidateIdentifier(name); err != nil {
+			return nil, nil, err
+		}
+		key := strings.ToLower(name)
+		if _, ok := seen[key]; ok {
+			return nil, nil, fmt.Errorf("%w: duplicate output column %s", ErrInvalidDataPipelineGraph, name)
+		}
+		seen[key] = struct{}{}
+		expr, err := dataPipelineOutputCastExpr(quoteCHIdent(source), dataPipelineString(spec, "type"))
+		if err != nil {
+			return nil, nil, err
+		}
+		columns = append(columns, name)
+		expressions[name] = expr
+	}
+	return columns, expressions, nil
+}
+
+func dataPipelineOutputCastExpr(expr, typ string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(typ)) {
+	case "", "string":
+		return "toString(" + expr + ")", nil
+	case "int", "int64":
+		return "toInt64OrNull(toString(" + expr + "))", nil
+	case "float", "float64", "number":
+		return "toFloat64OrNull(toString(" + expr + "))", nil
+	case "bool", "boolean":
+		value := "lowerUTF8(toString(" + expr + "))"
+		return fmt.Sprintf("multiIf(%s IN ('true', '1', 'yes', 'y'), 1, %s IN ('false', '0', 'no', 'n'), 0, NULL)", value, value), nil
+	case "date":
+		return "toDate(parseDateTimeBestEffortOrNull(toString(" + expr + ")))", nil
+	case "datetime", "datetime64":
+		return "parseDateTimeBestEffortOrNull(toString(" + expr + "))", nil
+	default:
+		return "", fmt.Errorf("%w: unsupported output column type %q", ErrInvalidDataPipelineGraph, typ)
+	}
 }
 
 func dataPipelineSafeSuffix(value string) string {

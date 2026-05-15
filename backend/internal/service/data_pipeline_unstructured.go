@@ -110,7 +110,7 @@ func (s *DataPipelineService) executeHybridRun(ctx context.Context, tenantID int
 				"CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY %s AS\nSELECT * FROM %s.%s",
 				quoteCHIdent(targetDatabase),
 				quoteCHIdent(stageTable),
-				dataPipelineOutputOrderBy(outputNode),
+				dataPipelineOutputOrderBy(outputNode, hybrid.Relation.Columns),
 				quoteCHIdent(hybrid.Relation.Database),
 				quoteCHIdent(hybrid.Relation.Table),
 			)

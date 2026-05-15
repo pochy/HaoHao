@@ -46,7 +46,10 @@ func TestDataPipelineMissingColumnWarningsReportsMissingColumns(t *testing.T) {
 				ID: "output",
 				Data: DataPipelineNodeData{
 					StepType: DataPipelineStepOutput,
-					Config:   map[string]any{"orderBy": []any{"missing_id", "name"}},
+					Config: map[string]any{"columns": []any{
+						map[string]any{"sourceColumn": "missing_id", "name": "id"},
+						map[string]any{"sourceColumn": "name", "name": "name"},
+					}},
 				},
 			},
 		},

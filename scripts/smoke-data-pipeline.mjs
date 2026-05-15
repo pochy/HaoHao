@@ -184,12 +184,13 @@ function node(id, stepType, label, x, y, config = {}) {
   }
 }
 
-function outputNode(suffix, orderBy = ['id'], id = 'output', x = 1180, y = 120) {
+function outputNode(suffix, orderBy = ['id'], id = 'output', x = 1180, y = 120, config = {}) {
   return node(id, 'output', 'Smoke output', x, y, {
     displayName: `data pipeline smoke output ${suffix}`,
     tableName: `data_pipeline_smoke_output_${suffix}_${id}`,
     writeMode: 'replace',
     orderBy,
+    ...config,
   })
 }
 
@@ -223,6 +224,23 @@ function jsonGraph(filePublicId, suffix) {
     ],
     edges: linearEdges(['input', 'json_extract', 'profile', 'validate', 'output']),
   }
+}
+
+function typedOutputGraph(filePublicId, suffix) {
+  const graph = jsonGraph(filePublicId, suffix)
+  graph.nodes = graph.nodes.map((item) => {
+    if (item.id !== 'output') {
+      return item
+    }
+    return outputNode(suffix, ['id'], 'output', 1180, 120, {
+      columns: [
+        { sourceColumn: 'id', name: 'id', type: 'string' },
+        { sourceColumn: 'amount', name: 'amount_value', type: 'float64' },
+        { sourceColumn: 'updated_at', name: 'updated_at', type: 'datetime' },
+      ],
+    })
+  })
+  return graph
 }
 
 function partitionGraph(filePublicId, suffix) {
@@ -620,6 +638,7 @@ async function createPipeline(scenario, filePublicId) {
   const suffix = `${scenario}_${Date.now()}`
   const graphs = {
     json: jsonGraph,
+    typed_output: typedOutputGraph,
     partition: partitionGraph,
     union: unionGraph,
     excel: excelGraph,
@@ -1023,6 +1042,7 @@ async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
 async function runScenario(workspacePublicId, scenario) {
   const uploaders = {
     json: uploadJSONFile,
+    typed_output: uploadJSONFile,
     partition: uploadJSONFile,
     union: uploadJSONFile,
     excel: uploadXLSXFile,
@@ -1037,6 +1057,7 @@ async function runScenario(workspacePublicId, scenario) {
   }
   const assertions = {
     json: (run) => assertProfileValidateRun(run, 3),
+    typed_output: (run) => assertProfileValidateRun(run, 3),
     partition: assertPartitionRun,
     union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
@@ -1173,8 +1194,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'partition', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'partition', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'typed_output', 'partition', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)

@@ -292,6 +292,35 @@ func validateDataPipelineOutputConfigs(graph DataPipelineGraph) []string {
 				errors = append(errors, "invalid output orderBy for node "+node.ID+": "+err.Error())
 			}
 		}
+		seenColumns := make(map[string]struct{})
+		for _, column := range dataPipelineConfigObjects(node.Data.Config, "columns") {
+			name := strings.TrimSpace(dataPipelineString(column, "name"))
+			if name == "" {
+				name = strings.TrimSpace(dataPipelineString(column, "outputColumn"))
+			}
+			if name == "" {
+				name = strings.TrimSpace(dataPipelineString(column, "sourceColumn"))
+			}
+			if name == "" {
+				name = strings.TrimSpace(dataPipelineString(column, "column"))
+			}
+			if name == "" {
+				errors = append(errors, "output column name is required for node "+node.ID)
+				continue
+			}
+			if err := dataPipelineValidateIdentifier(name); err != nil {
+				errors = append(errors, "invalid output column for node "+node.ID+": "+err.Error())
+				continue
+			}
+			key := strings.ToLower(name)
+			if _, ok := seenColumns[key]; ok {
+				errors = append(errors, "duplicate output column for node "+node.ID+": "+name)
+			}
+			seenColumns[key] = struct{}{}
+			if _, err := dataPipelineOutputCastExpr("dummy", dataPipelineString(column, "type")); err != nil {
+				errors = append(errors, "invalid output column type for node "+node.ID+": "+err.Error())
+			}
+		}
 	}
 	return errors
 }

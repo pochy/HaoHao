@@ -163,11 +163,12 @@ func inferStepOutputColumns(stepType string, config map[string]any, upstreamColu
 		DataPipelineStepClean,
 		DataPipelineStepNormalize,
 		DataPipelineStepValidate,
-		DataPipelineStepOutput,
 		DataPipelineStepQuarantine,
 		DataPipelineStepPartitionFilter,
 		DataPipelineStepWatermarkFilter:
 		return upstreamColumns
+	case DataPipelineStepOutput:
+		return inferOutputStepColumns(config, upstreamColumns)
 	case DataPipelineStepRouteByCondition:
 		return dataPipelineUniqueStrings(append(append([]string{}, upstreamColumns...), firstNonEmpty(dataPipelineString(config, "routeColumn"), "route_key")))
 	case DataPipelineStepExtractText:
@@ -279,6 +280,30 @@ func inferStepOutputColumns(stepType string, config map[string]any, upstreamColu
 	default:
 		return nil
 	}
+}
+
+func inferOutputStepColumns(config map[string]any, upstreamColumns []string) []string {
+	specs := dataPipelineConfigArray(config, "columns")
+	if len(specs) == 0 {
+		return upstreamColumns
+	}
+	columns := make([]string, 0, len(specs))
+	for _, spec := range specs {
+		name := strings.TrimSpace(dataPipelineString(spec, "name"))
+		if name == "" {
+			name = strings.TrimSpace(dataPipelineString(spec, "outputColumn"))
+		}
+		if name == "" {
+			name = strings.TrimSpace(dataPipelineString(spec, "sourceColumn"))
+		}
+		if name == "" {
+			name = strings.TrimSpace(dataPipelineString(spec, "column"))
+		}
+		if name != "" {
+			columns = append(columns, name)
+		}
+	}
+	return dataPipelineUniqueStrings(columns)
 }
 
 func inferJSONExtractOutputColumns(config map[string]any, upstreamColumns []string) []string {

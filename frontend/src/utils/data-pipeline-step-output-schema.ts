@@ -10,11 +10,12 @@ export function inferDataPipelineStepOutputColumns(
   case 'clean':
   case 'normalize':
   case 'validate':
-  case 'output':
   case 'quarantine':
   case 'partition_filter':
   case 'watermark_filter':
     return uniqueStrings(upstreamColumns)
+  case 'output':
+    return inferOutputColumns(config, upstreamColumns)
   case 'route_by_condition':
     return uniqueStrings([...upstreamColumns, stringValue(config.routeColumn).trim() || 'route_key'])
   case 'extract_text':
@@ -64,6 +65,16 @@ export function inferDataPipelineStepOutputColumns(
   default:
     return null
   }
+}
+
+function inferOutputColumns(config: ConfigRecord, upstreamColumns: string[]) {
+  const columns = arrayFromConfig(config, 'columns')
+    .map((column) => stringField(column, 'name').trim()
+      || stringField(column, 'outputColumn').trim()
+      || stringField(column, 'sourceColumn').trim()
+      || stringField(column, 'column').trim())
+    .filter(Boolean)
+  return uniqueStrings(columns.length > 0 ? columns : upstreamColumns)
 }
 
 function inferUnionColumns(config: ConfigRecord, upstreamColumns: string[]) {

@@ -266,6 +266,55 @@ func TestInferOutputSchemasForUnionPipeline(t *testing.T) {
 	}
 }
 
+func TestInferOutputSchemasForTypedOutputPipeline(t *testing.T) {
+	graph := DataPipelineGraph{
+		Nodes: []DataPipelineNode{
+			{
+				ID: "input",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepInput,
+					Config: map[string]any{
+						"sourceKind": dataPipelineDriveFileSource,
+						"inputMode":  "json",
+						"fields": []any{
+							map[string]any{"column": "id"},
+							map[string]any{"column": "amount"},
+							map[string]any{"column": "updated_at"},
+						},
+					},
+				},
+			},
+			{
+				ID: "output",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepOutput,
+					Config: map[string]any{"columns": []any{
+						map[string]any{"sourceColumn": "id", "name": "id", "type": "string"},
+						map[string]any{"sourceColumn": "amount", "name": "amount_value", "type": "float64"},
+						map[string]any{"sourceColumn": "updated_at", "name": "updated_at", "type": "datetime"},
+					}},
+				},
+			},
+		},
+		Edges: []DataPipelineEdge{{Source: "input", Target: "output"}},
+	}
+
+	schemas, err := (&DataPipelineService{}).inferOutputSchemas(context.Background(), 1, graph)
+	if err != nil {
+		t.Fatalf("inferOutputSchemas() error = %v", err)
+	}
+	output := schemaColumnsByNode(schemas)["output"]
+	want := []string{"id", "amount_value", "updated_at"}
+	if len(output) != len(want) {
+		t.Fatalf("output schema = %#v, want %#v", output, want)
+	}
+	for i, column := range want {
+		if output[i] != column {
+			t.Fatalf("output schema = %#v, want %#v", output, want)
+		}
+	}
+}
+
 func schemaColumnsByNode(schemas []DataPipelineNodeOutputSchema) map[string][]string {
 	out := make(map[string][]string, len(schemas))
 	for _, schema := range schemas {

@@ -128,7 +128,11 @@ func dataPipelineConfiguredPrimaryColumnRefs(stepType string, config map[string]
 		}
 		return dataPipelineColumnRefs{Columns: refs, ConfigKeys: []string{"pairs[].beforeColumn", "pairs[].afterColumn"}}
 	case DataPipelineStepOutput:
-		return dataPipelineColumnRefs{Columns: dataPipelineStringList(config["orderBy"]), ConfigKeys: []string{"orderBy"}}
+		refs := make([]string, 0)
+		for _, column := range dataPipelineConfigArray(config, "columns") {
+			refs = append(refs, firstNonEmpty(dataPipelineString(column, "sourceColumn"), dataPipelineString(column, "column")))
+		}
+		return dataPipelineColumnRefs{Columns: refs, ConfigKeys: []string{"columns[].sourceColumn", "columns[].column"}}
 	default:
 		return dataPipelineColumnRefs{}
 	}

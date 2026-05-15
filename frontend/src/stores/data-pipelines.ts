@@ -543,7 +543,7 @@ export function defaultDataPipelineGraph(): DataPipelineGraph {
         data: {
           label: 'Output',
           stepType: 'output',
-          config: { displayName: dataPipelineText('defaultOutputDisplayName'), writeMode: 'replace', engine: 'MergeTree' },
+          config: { displayName: dataPipelineText('defaultOutputDisplayName'), writeMode: 'replace', engine: 'MergeTree', orderBy: [], columns: [] },
         },
       },
     ],

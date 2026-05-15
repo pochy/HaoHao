@@ -735,7 +735,7 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
   case 'transform':
     return { operation: 'select_columns', columns: [] }
   case 'output':
-    return { displayName: t('dataPipelines.defaultOutputDisplayName'), writeMode: 'replace', engine: 'MergeTree' }
+    return { displayName: t('dataPipelines.defaultOutputDisplayName'), writeMode: 'replace', engine: 'MergeTree', orderBy: [], columns: [] }
   default:
     return {}
   }

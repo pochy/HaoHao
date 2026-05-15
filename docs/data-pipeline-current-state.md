@@ -156,7 +156,7 @@ Backend validation の主な制約:
 
 ### Runtime 出力列と Inspector の静的列推論
 
-Data Pipeline detail の Inspector は、選択 node の config が上流 step の列を参照しているかを run 前に確認します。たとえば `output.orderBy`、`quality_report.columns`、`confidence_gate.scoreColumns`、`human_review.reasonColumns`、`schema_mapping.sourceColumn` が上流に存在しない場合、Inspector は「設定済みの列が上流ステップの出力にありません」と表示します。
+Data Pipeline detail の Inspector は、選択 node の config が上流 step の列を参照しているかを run 前に確認します。たとえば `output.columns[].sourceColumn`、`quality_report.columns`、`confidence_gate.scoreColumns`、`human_review.reasonColumns`、`schema_mapping.sourceColumn` が上流に存在しない場合、Inspector は「設定済みの列が上流ステップの出力にありません」と表示します。`output.orderBy` は最終出力列に対する設定なので、上流列不足 warning の対象にはしません。
 
 この warning は設定ミスを早く見つけるために重要ですが、frontend は実際の ClickHouse 中間 table を読まず、graph config だけから列を静的推論しています。その入口は `frontend/src/components/DataPipelineInspector.vue` の `columnsForNodeOutput()` です。つまり backend runtime が実際に出す列と Inspector の推論がずれると、run は成功するのに UI だけが誤警告を出します。
 
@@ -291,9 +291,11 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 
 #### `output`
 
-目的は、run の最終成果物を定義することです。Preview / compile 上は passthrough ですが、Run 時には output node ごとに ClickHouse table を作り、managed Work table として登録します。
+目的は、run の最終成果物を定義することです。Output node は上流の行データをそのまま書き出すだけでなく、最終 Work table に残す列、列名、基本型、ClickHouse の `ORDER BY` を決める境界でもあります。
 
-現在の実装では、`displayName`、`tableName`、`writeMode`、`orderBy` を使います。`writeMode` は `replace` のみ対応です。`tableName` が有効な ClickHouse identifier ならその名前を使い、未指定または不正な場合は run public ID と node ID から安全な table name を生成します。Run ではまず `__dp_stage_...` table を作り、成功後に最終 table へ rename します。
+現在の実装では、`displayName`、`tableName`、`writeMode`、`orderBy`、`columns` を使います。`writeMode` は `replace` のみ対応です。`tableName` が有効な ClickHouse identifier ならその名前を使い、未指定または不正な場合は run public ID と node ID から安全な table name を生成します。Run ではまず `__dp_stage_...` table を作り、成功後に最終 table へ rename します。
+
+`columns` が未設定または空配列の場合は、従来通り上流の全列を出力します。`columns` を設定した場合は、各要素の `sourceColumn` から値を読み、`name` を最終列名にして、`type` に応じて ClickHouse expression で変換します。対応型は `string`、`int64`、`float64`、`bool`、`date`、`datetime` です。`orderBy` は最終出力列に対する設定で、存在しない列は table 作成時に採用しません。これは表示順ではなく、ClickHouse table の物理ソートと primary index の設計です。
 
 使う場面は、pipeline の結果を Work table として残したいときです。複数 output node を置けば、1 回の run から複数の Work table を作れます。
 
@@ -924,7 +926,7 @@ HaoHao は ClickHouse を、tenant ごとの分析用実行基盤としてすで
 短期で効果が高い改善:
 
 - `system.query_log` を HaoHao の query job / pipeline run / run step と紐づける。ClickHouse は query ごとに duration、read rows、read bytes、memory usage、normalized query hash、利用 projection などを記録できます。`clickhouse-go` の query id を run public id / node id と対応させると、「どの pipeline node が重いか」「どの SQL pattern が繰り返し遅いか」を実測できます。
-- output node の `orderBy` を使いやすくする。ClickHouse の `ORDER BY` は単なる表示順ではなく、table の物理ソートと primary index の設計です。取引日、更新日、顧客 ID、商品コードなど、filter / join / sort でよく使う列を output 設定で選ばせると、Work table の後続 query が速くなりやすいです。
+- output node の `orderBy` と型付き output は UI / runtime ともに v1 実装済みです。ClickHouse の `ORDER BY` は単なる表示順ではなく、table の物理ソートと primary index の設計です。取引日、更新日、顧客 ID、商品コードなど、filter / join / sort でよく使う列を output 設定で選ばせると、Work table の後続 query が速くなりやすいです。次は推奨候補、型変換失敗率、`ORDER BY` の効果確認を追加すると運用しやすくなります。
 - `profile` / `quality_report` を ClickHouse 集計で実装する。`count()`、`countIf()`、`uniq()`、`min()`、`max()`、`topK()` などで品質 summary を作り、結果だけを `data_pipeline_run_steps.metadata` に保存すると、行データを増やさずに run detail へ表示できます。
 - structured output だけでも型を育てる。raw import は安全性のため `Nullable(String)` のままでよいですが、`schema_mapping` / `schema_completion` 後の output や gold table では `Date`、`DateTime`、`Decimal`、`Int64`、`Float64`、`LowCardinality(String)` を使うと、storage と query の両方で効きます。
 - ClickHouse query の実行計画 / 実行統計を debug 用に見られるようにする。開発者向けに `EXPLAIN` や `system.query_log` の read rows / read bytes を確認できる導線があると、`ORDER BY` や index が効いているか判断しやすくなります。

@@ -1098,7 +1098,7 @@ function configuredPrimaryColumnRefs(type: string, config: ConfigRecord) {
       stringField(pair, 'afterColumn'),
     ])
   case 'output':
-    return stringList(config.orderBy)
+    return arrayFromConfig(config, 'columns').map((column) => stringField(column, 'sourceColumn') || stringField(column, 'column'))
   default:
     return []
   }
@@ -2714,6 +2714,47 @@ function labelForStep(type: DataPipelineStepType | string) {
                 <option value="MergeTree">MergeTree</option>
               </select>
             </label>
+          </div>
+          <label class="field">
+            <span>{{ t('dataPipelines.orderBy') }}</span>
+            <input :value="stringList(configDraft.orderBy).join(', ')" list="data-pipeline-column-options" @input="updateConfigList('orderBy', targetValue($event))">
+          </label>
+          <div class="config-section-header">
+            <h3>{{ t('dataPipelines.outputColumns') }}</h3>
+            <button class="secondary-button compact-button" type="button" @click="addArrayItem('columns', { sourceColumn: '', name: '', type: 'string' })">
+              <Plus :size="15" stroke-width="1.9" aria-hidden="true" />
+              {{ t('dataPipelines.addOutputColumn') }}
+            </button>
+          </div>
+          <p v-if="arrayConfig('columns').length === 0" class="cell-subtle">{{ t('dataPipelines.outputColumnsPassThrough') }}</p>
+          <div v-for="(column, index) in arrayConfig('columns')" :key="index" class="config-rule">
+            <div class="config-rule-header">
+              <strong>{{ stringField(column, 'name') || stringField(column, 'sourceColumn') || `${t('dataPipelines.outputColumn')} ${index + 1}` }}</strong>
+              <button class="icon-button danger" type="button" :aria-label="t('dataPipelines.removeOutputColumn', { index: index + 1 })" @click="removeArrayItem('columns', index)">
+                <Trash2 :size="14" stroke-width="1.9" aria-hidden="true" />
+              </button>
+            </div>
+            <div class="config-grid two-column">
+              <label class="field">
+                <span>{{ t('dataPipelines.sourceColumn') }}</span>
+                <input :value="stringField(column, 'sourceColumn')" list="data-pipeline-column-options" @input="updateArrayItem('columns', index, { sourceColumn: targetValue($event) })">
+              </label>
+              <label class="field">
+                <span>{{ t('dataPipelines.outputColumn') }}</span>
+                <input :value="stringField(column, 'name')" @input="updateArrayItem('columns', index, { name: targetValue($event) })">
+              </label>
+              <label class="field">
+                <span>{{ t('dataPipelines.type') }}</span>
+                <select :value="stringField(column, 'type') || 'string'" @change="updateArrayItem('columns', index, { type: targetValue($event) })">
+                  <option value="string">{{ t('dataPipelines.string') }}</option>
+                  <option value="int64">Int64</option>
+                  <option value="float64">Float64</option>
+                  <option value="bool">Bool</option>
+                  <option value="date">Date</option>
+                  <option value="datetime">{{ t('dataPipelines.datetime') }}</option>
+                </select>
+              </label>
+            </div>
           </div>
         </template>
 
