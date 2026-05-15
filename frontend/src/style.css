@@ -2783,12 +2783,76 @@ code {
 }
 
 .data-pipeline-feedback {
+  display: grid;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
+  padding: 0 0 8px;
 }
 
 .data-pipeline-feedback p {
   margin: 0;
+}
+
+.data-pipeline-graph-issues {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-top: 1px solid rgba(220, 38, 38, 0.18);
+  background: #fef2f2;
+}
+
+.data-pipeline-graph-issues-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  color: #991b1b;
+  font-size: 0.78rem;
+}
+
+.data-pipeline-graph-issues-header span {
+  color: #b91c1c;
+  font-size: 0.72rem;
+}
+
+.data-pipeline-graph-issue {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.28fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(220, 38, 38, 0.16);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: #7f1d1d;
+  text-align: left;
+}
+
+.data-pipeline-graph-issue:hover,
+.data-pipeline-graph-issue:focus-visible {
+  border-color: #dc2626;
+  outline: none;
+}
+
+.data-pipeline-graph-issue span,
+.data-pipeline-graph-issue small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-pipeline-graph-issue span {
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.data-pipeline-graph-issue small {
+  color: #991b1b;
+  font-size: 0.72rem;
 }
 
 .data-pipeline-action-strip {

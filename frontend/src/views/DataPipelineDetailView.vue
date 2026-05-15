@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { ArrowLeft, History, MoreHorizontal, Play, RefreshCw, RotateCcw, RotateCw, Save, Send, Settings2, Workflow, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import { isDataPipelineDraftRunPreviewGraph, sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineScheduleWriteBody, type DataPipelineStepType, type DataPipelineVersionBody } from '../api/data-pipelines'
+import { isDataPipelineDraftRunPreviewGraph, sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineNodeWarningBody, type DataPipelineScheduleWriteBody, type DataPipelineStepType, type DataPipelineVersionBody } from '../api/data-pipelines'
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
 import DataPipelineFlowBuilder from '../components/DataPipelineFlowBuilder.vue'
 import DataPipelineInspector from '../components/DataPipelineInspector.vue'
@@ -140,6 +140,11 @@ const previewDisabledReason = computed(() => {
 const runDisabledReason = computed(() => (selectedPipeline.value ? '' : t('dataPipelines.createOrSelectFirst')))
 const canUndoGraph = computed(() => graphHistory.value.past.length > 0)
 const canRedoGraph = computed(() => graphHistory.value.future.length > 0)
+const graphIssueItems = computed(() => (store.selectedValidation?.nodeWarnings ?? []).map((warning) => ({
+  warning,
+  nodeLabel: labelForGraphWarningNode(warning.nodeId),
+  message: graphWarningMessage(warning),
+})))
 const autoPreviewDelayMs = 350
 let autoPreviewTimer: number | undefined
 const autoValidationDelayMs = 250
@@ -267,6 +272,41 @@ function updateGraph(graph: DataPipelineGraph, options: GraphUpdateOptions = {})
 
 function selectNode(nodeId: string) {
   store.selectedNodeId = nodeId
+}
+
+function selectIssueNode(nodeId: string) {
+  if (store.draftGraph.nodes.some((node) => node.id === nodeId)) {
+    store.selectedNodeId = nodeId
+  }
+}
+
+function labelForGraphWarningNode(nodeId: string) {
+  const node = store.draftGraph.nodes.find((item) => item.id === nodeId)
+  if (!node) {
+    return nodeId
+  }
+  const text = node.data.label?.trim()
+  if (text && text !== englishLabelForStep(node.data.stepType)) {
+    return text
+  }
+  return t(`dataPipelines.step.${node.data.stepType}`)
+}
+
+function englishLabelForStep(type: DataPipelineStepType) {
+  return type
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function graphWarningMessage(warning: DataPipelineNodeWarningBody) {
+  if (warning.code === 'missing_right_upstream_columns') {
+    return t('dataPipelines.missingRightUpstreamColumns', { columns: warning.columns.join(', ') })
+  }
+  if (warning.code === 'missing_upstream_columns') {
+    return t('dataPipelines.missingUpstreamColumns', { columns: warning.columns.join(', ') })
+  }
+  return warning.message
 }
 
 function resetGraphHistory(graph: DataPipelineGraph) {
@@ -684,6 +724,22 @@ async function applySettings() {
               </div>
 
               <div class="data-pipeline-feedback" aria-live="polite">
+                <section v-if="graphIssueItems.length > 0" class="data-pipeline-graph-issues" :aria-label="t('dataPipelines.graphIssues')">
+                  <div class="data-pipeline-graph-issues-header">
+                    <strong>{{ t('dataPipelines.graphIssues') }}</strong>
+                    <span>{{ t('dataPipelines.graphIssuesCount', { count: graphIssueItems.length }) }}</span>
+                  </div>
+                  <button
+                    v-for="issue in graphIssueItems"
+                    :key="`${issue.warning.nodeId}:${issue.warning.code}:${issue.warning.columns.join(',')}`"
+                    class="data-pipeline-graph-issue"
+                    type="button"
+                    @click="selectIssueNode(issue.warning.nodeId)"
+                  >
+                    <span>{{ issue.nodeLabel }}</span>
+                    <small>{{ issue.message }}</small>
+                  </button>
+                </section>
                 <p v-if="store.errorMessage" class="form-error">{{ store.errorMessage }}</p>
                 <p v-else-if="store.actionMessage" class="form-success">{{ store.actionMessage }}</p>
               </div>
@@ -734,6 +790,22 @@ async function applySettings() {
           </div>
 
           <div class="data-pipeline-feedback" aria-live="polite">
+            <section v-if="graphIssueItems.length > 0" class="data-pipeline-graph-issues" :aria-label="t('dataPipelines.graphIssues')">
+              <div class="data-pipeline-graph-issues-header">
+                <strong>{{ t('dataPipelines.graphIssues') }}</strong>
+                <span>{{ t('dataPipelines.graphIssuesCount', { count: graphIssueItems.length }) }}</span>
+              </div>
+              <button
+                v-for="issue in graphIssueItems"
+                :key="`${issue.warning.nodeId}:${issue.warning.code}:${issue.warning.columns.join(',')}`"
+                class="data-pipeline-graph-issue"
+                type="button"
+                @click="selectIssueNode(issue.warning.nodeId)"
+              >
+                <span>{{ issue.nodeLabel }}</span>
+                <small>{{ issue.message }}</small>
+              </button>
+            </section>
             <p v-if="store.errorMessage" class="form-error">{{ store.errorMessage }}</p>
             <p v-else-if="store.actionMessage" class="form-success">{{ store.actionMessage }}</p>
           </div>
