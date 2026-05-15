@@ -363,7 +363,8 @@ AI coding / agent 改善を触る場合:
 
 - `quarantine` node v1 は完了済み。
 - `confidence_gate` / `quality_report` の失敗理由 metadata 強化も完了済み。
-- 次は review item 権限 test と Month 3 の graph runtime 強化へ進む。
+- `route_by_condition` v1 は 2026-05-15 に実装済み。`mode=annotate` で `route_key` を付与し、`mode=filter_route` で指定 route の行だけを後続 branch に渡せる。structured / hybrid の両方で実行でき、run step metadata に `routeCounts` を保存する。
+- 次は `union` v1 へ進み、複数 source の縦結合を graph 上で扱えるようにする。
 
 完了条件:
 
@@ -373,7 +374,8 @@ AI coding / agent 改善を触る場合:
 
 ### Month 3: 実運用向け Pipeline 拡張
 
-- `union` と `route_by_condition` を追加し、複数入力統合と条件分岐を扱う。
+- `route_by_condition` v1 は完了済み。条件に応じた route 付与と単一 route filtering ができる。
+- `union` を追加し、複数入力統合を扱う。
 - `partition_filter` / `watermark_filter` を追加し、schedule run と backfill を全量処理から切り離す。
 - output node の `orderBy` と型付き output を UI で明示し、ClickHouse の性能設計に使えるようにする。
 - `snapshot_scd2` を master data 用 v1 として追加する。

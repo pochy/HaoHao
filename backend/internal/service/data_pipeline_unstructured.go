@@ -60,6 +60,7 @@ func dataPipelineUnstructuredStep(stepType string) bool {
 		DataPipelineStepProductExtraction,
 		DataPipelineStepConfidenceGate,
 		DataPipelineStepQuarantine,
+		DataPipelineStepRouteByCondition,
 		DataPipelineStepDeduplicate,
 		DataPipelineStepCanonicalize,
 		DataPipelineStepRedactPII,
@@ -402,6 +403,12 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 			return dataPipelineMaterializedRelation{}, err
 		}
 		return s.materializeQuarantine(ctx, conn, database, table, node, upstream)
+	case DataPipelineStepRouteByCondition:
+		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
+		if err != nil {
+			return dataPipelineMaterializedRelation{}, err
+		}
+		return s.materializeRouteByCondition(ctx, conn, database, table, node, upstream)
 	case DataPipelineStepDeduplicate:
 		upstream, err := materializedSingleUpstream(node, compiler.incoming, relations)
 		if err != nil {
@@ -1238,6 +1245,38 @@ func (s *DataPipelineService) materializeQuarantine(ctx context.Context, conn dr
 		metadata["failedRows"] = quarantinedRows
 	}
 	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: upstream.Columns, Metadata: metadata}, nil
+}
+
+func (s *DataPipelineService) materializeRouteByCondition(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {
+	spec, err := dataPipelineRouteByConditionSpec(node.Data.Config, upstream.Columns)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	exprs := dataPipelineColumnExpressions(upstream.Columns)
+	columns := dataPipelineUniqueStrings(append(append([]string{}, upstream.Columns...), spec.RouteColumn))
+	exprs[spec.RouteColumn] = spec.RouteExpr
+	selectSQL := fmt.Sprintf("SELECT\n%s\nFROM %s.%s", dataPipelineSelectList(columns, exprs), quoteCHIdent(upstream.Database), quoteCHIdent(upstream.Table))
+	if spec.Mode == "filter_route" {
+		selectSQL += "\nWHERE " + spec.RouteExpr + " = " + dataPipelineLiteral(spec.SelectedRoute)
+	}
+	queryCtx := clickhouse.Context(ctx, clickhouse.WithSettings(s.datasets.exportQuerySettings()))
+	sql := fmt.Sprintf("CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY tuple() AS\n%s", quoteCHIdent(database), quoteCHIdent(table), selectSQL)
+	if err := conn.Exec(queryCtx, sql); err != nil {
+		return dataPipelineMaterializedRelation{}, fmt.Errorf("materialize route_by_condition: %w", err)
+	}
+	routeCounts, err := queryDataPipelineRouteCounts(ctx, conn, fmt.Sprintf("SELECT * FROM %s.%s", quoteCHIdent(database), quoteCHIdent(table)), spec.RouteColumn)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	metadata := map[string]any{
+		"routeColumn":   spec.RouteColumn,
+		"defaultRoute":  spec.DefaultRoute,
+		"mode":          spec.Mode,
+		"selectedRoute": spec.SelectedRoute,
+		"routes":        spec.Routes,
+		"routeCounts":   routeCounts,
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: columns, Metadata: metadata}, nil
 }
 
 func (s *DataPipelineService) materializeDeduplicate(ctx context.Context, conn driver.Conn, database, table string, node DataPipelineNode, upstream dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {

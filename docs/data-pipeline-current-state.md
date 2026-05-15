@@ -572,7 +572,11 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 実装時の注意:
 
 - DAG の edge だけでは「どの条件でどの edge に流れるか」が表現できないため、edge metadata または route filter node との組み合わせが必要になります。
-- v1 は `route_key` を付ける annotate 型にすると、実行エンジンへの影響を小さくできます。
+- v1 は 2026-05-15 に実装済みです。`rules` の条件を順番に評価し、`routeColumn`、既定 `route_key` に route 名を付けます。
+- `mode=annotate` では全行を保持して route 列だけを追加します。
+- `mode=filter_route` では `route` / `selectedRoute` に一致する行だけを後続 branch に渡します。
+- structured compiler と hybrid executor の両方で動き、run step metadata には `routeCounts` が保存されます。
+- DAG edge 自体に条件を持たせる設計はまだ未実装です。v1 では branch ごとに `route_by_condition(mode=filter_route)` を置いて明示的に絞り込みます。
 
 #### `quarantine`
 

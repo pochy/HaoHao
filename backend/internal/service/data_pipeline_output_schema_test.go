@@ -169,6 +169,50 @@ func TestInferOutputSchemasForSchemaMappingReviewPipeline(t *testing.T) {
 	}
 }
 
+func TestInferOutputSchemasForRouteByConditionPipeline(t *testing.T) {
+	graph := DataPipelineGraph{
+		Nodes: []DataPipelineNode{
+			{
+				ID: "input",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepInput,
+					Config: map[string]any{
+						"sourceKind": dataPipelineDriveFileSource,
+					},
+				},
+			},
+			{
+				ID: "route",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepRouteByCondition,
+					Config: map[string]any{
+						"routeColumn": "review_route",
+						"rules": []any{
+							map[string]any{"column": "file_name", "operator": "regex", "value": "invoice", "route": "invoice"},
+						},
+					},
+				},
+			},
+			{ID: "output", Data: DataPipelineNodeData{StepType: DataPipelineStepOutput}},
+		},
+		Edges: []DataPipelineEdge{
+			{Source: "input", Target: "route"},
+			{Source: "route", Target: "output"},
+		},
+	}
+
+	schemas, err := (&DataPipelineService{}).inferOutputSchemas(context.Background(), 1, graph)
+	if err != nil {
+		t.Fatalf("inferOutputSchemas() error = %v", err)
+	}
+	output := schemaColumnsByNode(schemas)["output"]
+	for _, column := range []string{"file_public_id", "file_name", "review_route"} {
+		if !dataPipelineContainsString(output, column) {
+			t.Fatalf("output schema missing %q: %#v", column, output)
+		}
+	}
+}
+
 func schemaColumnsByNode(schemas []DataPipelineNodeOutputSchema) map[string][]string {
 	out := make(map[string][]string, len(schemas))
 	for _, schema := range schemas {

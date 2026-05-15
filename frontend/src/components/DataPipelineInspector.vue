@@ -1070,6 +1070,8 @@ function configuredPrimaryColumnRefs(type: string, config: ConfigRecord) {
     return stringList(config.columns)
   case 'quarantine':
     return [stringValue(config.statusColumn)]
+  case 'route_by_condition':
+    return arrayFromConfig(config, 'rules').map((rule) => stringField(rule, 'column'))
   case 'canonicalize':
     return arrayFromConfig(config, 'rules').map((rule) => stringField(rule, 'column'))
   case 'classify_document':
@@ -2502,6 +2504,61 @@ function labelForStep(type: DataPipelineStepType | string) {
               <span>{{ t('dataPipelines.createReviewItems') }}</span>
             </label>
           </div>
+        </template>
+
+        <template v-else-if="stepType === 'route_by_condition'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.routeColumn') }}</span>
+              <input :value="stringConfig('routeColumn') || 'route_key'" @input="updateConfigField('routeColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.defaultRoute') }}</span>
+              <input :value="stringConfig('defaultRoute') || 'default'" @input="updateConfigField('defaultRoute', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.mode') }}</span>
+              <select :value="stringConfig('mode') || 'annotate'" @change="updateConfigField('mode', targetValue($event))">
+                <option value="annotate">{{ t('dataPipelines.annotate') }}</option>
+                <option value="filter_route">{{ t('dataPipelines.filterRoute') }}</option>
+              </select>
+            </label>
+            <label v-if="stringConfig('mode') === 'filter_route'" class="field">
+              <span>{{ t('dataPipelines.selectedRoute') }}</span>
+              <input :value="stringConfig('route')" @input="updateConfigField('route', targetValue($event))">
+            </label>
+          </div>
+          <div v-for="(rule, index) in arrayConfig('rules')" :key="index" class="config-rule">
+            <div class="config-rule-header">
+              <label class="field">
+                <span>{{ t('dataPipelines.route') }}</span>
+                <input :value="stringField(rule, 'route')" @input="updateArrayItem('rules', index, { route: targetValue($event) })">
+              </label>
+              <button class="icon-button danger" type="button" :aria-label="t('dataPipelines.removeRule', { index: index + 1 })" @click="removeArrayItem('rules', index)">
+                <Trash2 :size="15" stroke-width="1.9" aria-hidden="true" />
+              </button>
+            </div>
+            <div class="config-grid">
+              <label class="field">
+                <span>{{ t('dataPipelines.column') }}</span>
+                <input :value="stringField(rule, 'column')" list="data-pipeline-column-options" @input="updateArrayItem('rules', index, { column: targetValue($event) })">
+              </label>
+              <label class="field">
+                <span>{{ t('dataPipelines.operator') }}</span>
+                <select :value="stringField(rule, 'operator') || '='" @change="updateArrayItem('rules', index, { operator: targetValue($event) })">
+                  <option v-for="operator in conditionOperators" :key="operator" :value="operator">{{ conditionOperatorLabel(operator) }}</option>
+                </select>
+              </label>
+            </div>
+            <label v-if="stringField(rule, 'operator') !== 'required'" class="field">
+              <span>{{ t('dataPipelines.value') }}</span>
+              <input :value="listToInput(rule.value)" @input="updateConditionValue('rules', index, targetValue($event))">
+            </label>
+          </div>
+          <button class="secondary-button compact-button" type="button" @click="addArrayItem('rules', { column: '', operator: '=', value: '', route: '' })">
+            <Plus :size="15" stroke-width="1.9" aria-hidden="true" />
+            {{ t('dataPipelines.addRule') }}
+          </button>
         </template>
 
         <template v-else-if="stepType === 'sample_compare'">

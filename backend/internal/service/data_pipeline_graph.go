@@ -29,6 +29,7 @@ const (
 	DataPipelineStepProductExtraction = "product_extraction"
 	DataPipelineStepConfidenceGate    = "confidence_gate"
 	DataPipelineStepQuarantine        = "quarantine"
+	DataPipelineStepRouteByCondition  = "route_by_condition"
 	DataPipelineStepDeduplicate       = "deduplicate"
 	DataPipelineStepCanonicalize      = "canonicalize"
 	DataPipelineStepRedactPII         = "redact_pii"
@@ -66,6 +67,7 @@ var dataPipelineStepCatalog = map[string]struct{}{
 	DataPipelineStepProductExtraction: {},
 	DataPipelineStepConfidenceGate:    {},
 	DataPipelineStepQuarantine:        {},
+	DataPipelineStepRouteByCondition:  {},
 	DataPipelineStepDeduplicate:       {},
 	DataPipelineStepCanonicalize:      {},
 	DataPipelineStepRedactPII:         {},

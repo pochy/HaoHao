@@ -310,6 +310,38 @@ function quarantineGraph(filePublicId, suffix) {
   }
 }
 
+function routeGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive text', 60, 180, {
+        sourceKind: 'drive_file',
+        filePublicIds: [filePublicId],
+      }),
+      node('extract_text', 'extract_text', 'Extract text', 320, 180, {
+        chunkMode: 'full_text',
+      }),
+      node('quality_report', 'quality_report', 'Quality report', 580, 180, {
+        columns: ['text', 'confidence'],
+      }),
+      node('confidence_gate', 'confidence_gate', 'Confidence gate', 840, 180, {
+        scoreColumns: ['confidence'],
+        threshold: 0.8,
+      }),
+      node('route', 'route_by_condition', 'Route by condition', 1100, 180, {
+        routeColumn: 'route_key',
+        defaultRoute: 'auto',
+        mode: 'filter_route',
+        route: 'review',
+        rules: [
+          { column: 'gate_status', operator: '=', value: 'needs_review', route: 'review' },
+        ],
+      }),
+      outputNode(suffix, ['file_public_id'], 'output', 1360, 180),
+    ],
+    edges: linearEdges(['input', 'extract_text', 'quality_report', 'confidence_gate', 'route', 'output']),
+  }
+}
+
 function reviewGraph(filePublicId, suffix) {
   return {
     nodes: [
@@ -505,6 +537,7 @@ async function createPipeline(scenario, filePublicId) {
     excel: excelGraph,
     text: textGraph,
     quarantine: quarantineGraph,
+    route: routeGraph,
     review: reviewGraph,
     field_review: fieldReviewGraph,
     table_review: tableReviewGraph,
@@ -658,6 +691,18 @@ function assertQuarantineRun(run) {
     if (step.metadata.quarantinedRows !== 1 || step.metadata.passedRows !== 0) {
       throw new Error(`unexpected quarantine metadata: ${JSON.stringify(step.metadata)}`)
     }
+  }
+}
+
+function assertRouteRun(run) {
+  assertCommonRun(run, 1)
+  const routeStep = findStep(run, 'route')
+  if (!Array.isArray(routeStep?.metadata?.routeCounts) || routeStep.metadata.routeCounts.length !== 1) {
+    throw new Error(`route counts missing: ${JSON.stringify(routeStep)}`)
+  }
+  const reviewRoute = routeStep.metadata.routeCounts.find((item) => item.route === 'review')
+  if (!reviewRoute || reviewRoute.count !== 1 || routeStep.metadata.routeColumn !== 'route_key') {
+    throw new Error(`unexpected route metadata: ${JSON.stringify(routeStep.metadata)}`)
   }
 }
 
@@ -873,6 +918,7 @@ async function runScenario(workspacePublicId, scenario) {
     excel: uploadXLSXFile,
     text: uploadTextFile,
     quarantine: uploadTextFile,
+    route: uploadTextFile,
     review: uploadTextFile,
     field_review: uploadFieldReviewTextFile,
     table_review: uploadTableReviewTextFile,
@@ -884,6 +930,7 @@ async function runScenario(workspacePublicId, scenario) {
     excel: (run) => assertProfileValidateRun(run, 3),
     text: assertTextRun,
     quarantine: assertQuarantineRun,
+    route: assertRouteRun,
     review: assertReviewRun,
     field_review: assertFieldReviewRun,
     table_review: assertTableReviewRun,
@@ -1014,8 +1061,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)

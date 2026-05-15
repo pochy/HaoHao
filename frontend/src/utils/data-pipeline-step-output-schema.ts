@@ -13,6 +13,8 @@ export function inferDataPipelineStepOutputColumns(
   case 'output':
   case 'quarantine':
     return uniqueStrings(upstreamColumns)
+  case 'route_by_condition':
+    return uniqueStrings([...upstreamColumns, stringValue(config.routeColumn).trim() || 'route_key'])
   case 'extract_text':
     return ['file_public_id', 'ocr_run_public_id', 'page_number', 'text', 'confidence', 'layout_json', 'boxes_json']
   case 'json_extract':

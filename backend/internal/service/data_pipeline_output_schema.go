@@ -156,6 +156,8 @@ func inferStepOutputColumns(stepType string, config map[string]any, upstreamColu
 		DataPipelineStepOutput,
 		DataPipelineStepQuarantine:
 		return upstreamColumns
+	case DataPipelineStepRouteByCondition:
+		return dataPipelineUniqueStrings(append(append([]string{}, upstreamColumns...), firstNonEmpty(dataPipelineString(config, "routeColumn"), "route_key")))
 	case DataPipelineStepExtractText:
 		return []string{"file_public_id", "ocr_run_public_id", "page_number", "text", "confidence", "layout_json", "boxes_json"}
 	case DataPipelineStepJSONExtract:

@@ -22,6 +22,7 @@ export type DataPipelineStepType =
   | 'product_extraction'
   | 'confidence_gate'
   | 'quarantine'
+  | 'route_by_condition'
   | 'deduplicate'
   | 'canonicalize'
   | 'redact_pii'

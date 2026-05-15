@@ -193,6 +193,8 @@ func (c *dataPipelineCompiler) compileNode(ctx context.Context, node DataPipelin
 		return c.compileEnrichJoin(ctx, node, upstream)
 	case DataPipelineStepTransform:
 		return c.compileTransform(node, upstream)
+	case DataPipelineStepRouteByCondition:
+		return c.compileRouteByCondition(node, upstream)
 	default:
 		return dataPipelineRelation{}, fmt.Errorf("%w: unsupported step type %q", ErrInvalidDataPipelineGraph, node.Data.StepType)
 	}
@@ -816,6 +818,21 @@ func (s *DataPipelineService) collectStructuredRunNodeResults(ctx context.Contex
 			if warningCount, ok := validation["warningCount"].(int64); ok {
 				metadata["warningCount"] = warningCount
 			}
+		case DataPipelineStepRouteByCondition:
+			spec, err := dataPipelineRouteByConditionSpec(node.Data.Config, compiled.Columns)
+			if err != nil {
+				return nil, fmt.Errorf("route_by_condition data pipeline step %s: %w", node.ID, err)
+			}
+			routeCounts, err := queryDataPipelineRouteCounts(ctx, conn, compiled.SQL, spec.RouteColumn)
+			if err != nil {
+				return nil, fmt.Errorf("route_by_condition data pipeline step %s: %w", node.ID, err)
+			}
+			metadata["routeColumn"] = spec.RouteColumn
+			metadata["defaultRoute"] = spec.DefaultRoute
+			metadata["mode"] = spec.Mode
+			metadata["selectedRoute"] = spec.SelectedRoute
+			metadata["routes"] = spec.Routes
+			metadata["routeCounts"] = routeCounts
 		}
 		results[node.ID] = dataPipelineRunNodeResult{
 			NodeID:   node.ID,
@@ -986,6 +1003,29 @@ func queryDataPipelineTopValues(ctx context.Context, conn driver.Conn, sql, colu
 		values = append(values, map[string]any{"value": value, "count": int64(count)})
 	}
 	return values, rows.Err()
+}
+
+func queryDataPipelineRouteCounts(ctx context.Context, conn driver.Conn, sql, routeColumn string) ([]map[string]any, error) {
+	if err := dataPipelineValidateIdentifier(routeColumn); err != nil {
+		return nil, err
+	}
+	col := quoteCHIdent(routeColumn)
+	query := fmt.Sprintf("SELECT ifNull(toString(%[1]s), '') AS route, count() AS count FROM (\n%[2]s\n) GROUP BY route ORDER BY route ASC", col, sql)
+	rows, err := conn.Query(clickhouse.Context(ctx), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]map[string]any, 0)
+	for rows.Next() {
+		var route string
+		var count uint64
+		if err := rows.Scan(&route, &count); err != nil {
+			return nil, err
+		}
+		out = append(out, map[string]any{"route": route, "count": int64(count)})
+	}
+	return out, rows.Err()
 }
 
 func queryDataPipelineValidationFailureCount(ctx context.Context, conn driver.Conn, sql string, columns []string, rule map[string]any) (int64, error) {
@@ -1309,6 +1349,82 @@ func dataPipelineCTEName(nodeID string) string {
 	return b.String()
 }
 
+func (c *dataPipelineCompiler) compileRouteByCondition(node DataPipelineNode, upstream dataPipelineRelation) (dataPipelineRelation, error) {
+	spec, err := dataPipelineRouteByConditionSpec(node.Data.Config, upstream.Columns)
+	if err != nil {
+		return dataPipelineRelation{}, fmt.Errorf("compile route_by_condition node %s: %w", node.ID, err)
+	}
+
+	expressions := dataPipelineColumnExpressions(upstream.Columns)
+	columns := dataPipelineUniqueStrings(append(append([]string{}, upstream.Columns...), spec.RouteColumn))
+	expressions[spec.RouteColumn] = spec.RouteExpr
+	sql := fmt.Sprintf("SELECT\n%s\nFROM %s", dataPipelineSelectList(columns, expressions), quoteCHIdent(upstream.CTE))
+	if spec.Mode == "filter_route" {
+		sql += "\nWHERE " + spec.RouteExpr + " = " + dataPipelineLiteral(spec.SelectedRoute)
+	}
+	return dataPipelineRelation{
+		CTE:     dataPipelineCTEName(node.ID),
+		SQL:     sql,
+		Columns: columns,
+		Node:    node,
+		Source:  upstream.Source,
+	}, nil
+}
+
+type dataPipelineRouteByConditionConfig struct {
+	RouteColumn   string
+	DefaultRoute  string
+	Mode          string
+	SelectedRoute string
+	RouteExpr     string
+	Routes        []string
+}
+
+func dataPipelineRouteByConditionSpec(config map[string]any, columns []string) (dataPipelineRouteByConditionConfig, error) {
+	routeColumn := firstNonEmpty(dataPipelineString(config, "routeColumn"), "route_key")
+	if err := dataPipelineValidateIdentifier(routeColumn); err != nil {
+		return dataPipelineRouteByConditionConfig{}, fmt.Errorf("%w: invalid routeColumn: %s", ErrInvalidDataPipelineGraph, err.Error())
+	}
+	defaultRoute := firstNonEmpty(dataPipelineString(config, "defaultRoute"), "default")
+	rules := dataPipelineConfigObjects(config, "rules")
+	routeExprParts := make([]string, 0, len(rules)*2+1)
+	routes := make([]string, 0, len(rules)+1)
+	for _, rule := range rules {
+		route := strings.TrimSpace(firstNonEmpty(dataPipelineString(rule, "route"), dataPipelineString(rule, "routeKey")))
+		if route == "" {
+			continue
+		}
+		condition, err := dataPipelineConditionExpr(columns, "", rule)
+		if err != nil {
+			return dataPipelineRouteByConditionConfig{}, err
+		}
+		routeExprParts = append(routeExprParts, condition, dataPipelineLiteral(route))
+		routes = append(routes, route)
+	}
+	routeExprParts = append(routeExprParts, dataPipelineLiteral(defaultRoute))
+	routeExpr := dataPipelineLiteral(defaultRoute)
+	if len(routeExprParts) > 1 {
+		routeExpr = "multiIf(" + strings.Join(routeExprParts, ", ") + ")"
+	}
+	mode := firstNonEmpty(dataPipelineString(config, "mode"), "annotate")
+	selectedRoute := strings.TrimSpace(firstNonEmpty(dataPipelineString(config, "route"), dataPipelineString(config, "selectedRoute")))
+	if mode == "filter_route" && selectedRoute == "" {
+		return dataPipelineRouteByConditionConfig{}, fmt.Errorf("%w: route_by_condition filter_route requires route", ErrInvalidDataPipelineGraph)
+	}
+	if mode != "annotate" && mode != "filter_route" {
+		return dataPipelineRouteByConditionConfig{}, fmt.Errorf("%w: route_by_condition mode must be annotate or filter_route", ErrInvalidDataPipelineGraph)
+	}
+	routes = dataPipelineUniqueStrings(append(routes, defaultRoute))
+	return dataPipelineRouteByConditionConfig{
+		RouteColumn:   routeColumn,
+		DefaultRoute:  defaultRoute,
+		Mode:          mode,
+		SelectedRoute: selectedRoute,
+		RouteExpr:     routeExpr,
+		Routes:        routes,
+	}, nil
+}
+
 func dataPipelineColumnExpressions(columns []string) map[string]string {
 	expressions := make(map[string]string, len(columns))
 	for _, column := range columns {
@@ -1450,21 +1566,36 @@ func dataPipelineConditionExpr(columns []string, defaultColumn string, raw any) 
 	case "=", "!=", ">", ">=", "<", "<=":
 		return fmt.Sprintf("%s %s %s", col, operator, dataPipelineLiteral(value)), nil
 	case "in":
-		values, ok := value.([]any)
-		if !ok {
+		values := dataPipelineLiteralList(value)
+		if len(values) == 0 {
 			return "", fmt.Errorf("%w: in operator requires values array", ErrInvalidDataPipelineGraph)
 		}
-		parts := make([]string, 0, len(values))
-		for _, item := range values {
-			parts = append(parts, dataPipelineLiteral(item))
-		}
-		return fmt.Sprintf("%s IN (%s)", col, strings.Join(parts, ", ")), nil
+		return fmt.Sprintf("%s IN (%s)", col, strings.Join(values, ", ")), nil
 	case "regex":
 		return fmt.Sprintf("match(toString(%s), %s)", col, dataPipelineLiteral(value)), nil
 	case "":
 		return "1 = 1", nil
 	default:
 		return "", fmt.Errorf("%w: unsupported operator %q", ErrInvalidDataPipelineGraph, operator)
+	}
+}
+
+func dataPipelineLiteralList(value any) []string {
+	switch raw := value.(type) {
+	case []any:
+		out := make([]string, 0, len(raw))
+		for _, item := range raw {
+			out = append(out, dataPipelineLiteral(item))
+		}
+		return out
+	case []string:
+		out := make([]string, 0, len(raw))
+		for _, item := range raw {
+			out = append(out, dataPipelineLiteral(item))
+		}
+		return out
+	default:
+		return nil
 	}
 }
 

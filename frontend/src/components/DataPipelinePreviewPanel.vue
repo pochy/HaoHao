@@ -228,6 +228,10 @@ function metadataFacts(step: DataPipelineRunStepBody) {
     facts.push({ label: 'quarantine.quarantinedRows', value: metadataValue(metadata.quarantinedRows) })
     facts.push({ label: 'quarantine.passedRows', value: metadataValue(metadata.passedRows) })
   }
+  if (Array.isArray(metadata.routeCounts)) {
+    facts.push({ label: 'route.routeColumn', value: metadataValue(metadata.routeColumn) })
+    facts.push({ label: 'route.routeCounts', value: metadataValue(metadata.routeCounts) })
+  }
   const queryStats = metadataRecord(metadata, 'queryStats')
   if (queryStats) {
     facts.push({ label: 'queryStats.queryId', value: metadataValue(queryStats.queryId) })
@@ -377,6 +381,9 @@ function stepMetadataSummary(step: DataPipelineRunStepBody) {
       quarantined: quarantinedRows ?? 0,
       passed: passedRows ?? 0,
     }))
+  }
+  if (Array.isArray(metadata.routeCounts)) {
+    parts.push(t('dataPipelines.routeSummary', { routes: metadata.routeCounts.length }))
   }
   return parts.length ? parts.join(' · ') : '-'
 }
