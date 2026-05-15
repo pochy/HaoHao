@@ -494,7 +494,30 @@ func (s *DataPipelineService) materializeHybridNode(ctx context.Context, conn dr
 	if err := conn.Exec(queryCtx, sql); err != nil {
 		return dataPipelineMaterializedRelation{}, fmt.Errorf("materialize data pipeline node %s: %w", node.ID, err)
 	}
-	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: relation.Columns}, nil
+	metadata, err := dataPipelineHybridCompiledNodeMetadata(node, relation.Columns)
+	if err != nil {
+		return dataPipelineMaterializedRelation{}, err
+	}
+	return dataPipelineMaterializedRelation{Database: database, Table: table, Columns: relation.Columns, Metadata: metadata}, nil
+}
+
+func dataPipelineHybridCompiledNodeMetadata(node DataPipelineNode, columns []string) (map[string]any, error) {
+	switch node.Data.StepType {
+	case DataPipelineStepPartitionFilter:
+		spec, err := dataPipelinePartitionFilterSpec(node.Data.Config, columns)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"partitionFilter": spec.Metadata()}, nil
+	case DataPipelineStepWatermarkFilter:
+		spec, err := dataPipelineWatermarkFilterSpec(node.Data.Config, columns)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"watermarkFilter": spec.Metadata()}, nil
+	default:
+		return nil, nil
+	}
 }
 
 func materializedSingleUpstream(node DataPipelineNode, incoming map[string][]string, relations map[string]dataPipelineMaterializedRelation) (dataPipelineMaterializedRelation, error) {

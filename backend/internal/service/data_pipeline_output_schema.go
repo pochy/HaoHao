@@ -164,7 +164,9 @@ func inferStepOutputColumns(stepType string, config map[string]any, upstreamColu
 		DataPipelineStepNormalize,
 		DataPipelineStepValidate,
 		DataPipelineStepOutput,
-		DataPipelineStepQuarantine:
+		DataPipelineStepQuarantine,
+		DataPipelineStepPartitionFilter,
+		DataPipelineStepWatermarkFilter:
 		return upstreamColumns
 	case DataPipelineStepRouteByCondition:
 		return dataPipelineUniqueStrings(append(append([]string{}, upstreamColumns...), firstNonEmpty(dataPipelineString(config, "routeColumn"), "route_key")))

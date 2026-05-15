@@ -31,6 +31,8 @@ const (
 	DataPipelineStepConfidenceGate    = "confidence_gate"
 	DataPipelineStepQuarantine        = "quarantine"
 	DataPipelineStepRouteByCondition  = "route_by_condition"
+	DataPipelineStepPartitionFilter   = "partition_filter"
+	DataPipelineStepWatermarkFilter   = "watermark_filter"
 	DataPipelineStepDeduplicate       = "deduplicate"
 	DataPipelineStepCanonicalize      = "canonicalize"
 	DataPipelineStepRedactPII         = "redact_pii"
@@ -70,6 +72,8 @@ var dataPipelineStepCatalog = map[string]struct{}{
 	DataPipelineStepConfidenceGate:    {},
 	DataPipelineStepQuarantine:        {},
 	DataPipelineStepRouteByCondition:  {},
+	DataPipelineStepPartitionFilter:   {},
+	DataPipelineStepWatermarkFilter:   {},
 	DataPipelineStepDeduplicate:       {},
 	DataPipelineStepCanonicalize:      {},
 	DataPipelineStepRedactPII:         {},

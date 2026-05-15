@@ -24,6 +24,8 @@ export type DataPipelineStepType =
   | 'confidence_gate'
   | 'quarantine'
   | 'route_by_condition'
+  | 'partition_filter'
+  | 'watermark_filter'
   | 'deduplicate'
   | 'canonicalize'
   | 'redact_pii'

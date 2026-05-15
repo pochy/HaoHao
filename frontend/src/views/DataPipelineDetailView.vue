@@ -90,6 +90,8 @@ const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
   { type: 'confidence_gate', labelKey: 'dataPipelines.step.confidence_gate' },
   { type: 'quarantine', labelKey: 'dataPipelines.step.quarantine' },
   { type: 'route_by_condition', labelKey: 'dataPipelines.step.route_by_condition' },
+  { type: 'partition_filter', labelKey: 'dataPipelines.step.partition_filter' },
+  { type: 'watermark_filter', labelKey: 'dataPipelines.step.watermark_filter' },
   { type: 'human_review', labelKey: 'dataPipelines.step.human_review' },
   { type: 'sample_compare', labelKey: 'dataPipelines.step.sample_compare' },
   { type: 'quality_report', labelKey: 'dataPipelines.step.quality_report' },

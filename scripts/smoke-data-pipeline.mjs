@@ -106,9 +106,9 @@ async function uploadFile(workspacePublicId, filename, contentType, body) {
 
 async function uploadJSONFile(workspacePublicId) {
   const rows = [
-    { id: '1', name: 'Alpha', amount: 10, status: 'ready' },
-    { id: '2', name: 'Beta', amount: 20, status: 'ready' },
-    { id: '3', name: '', amount: -5, status: 'hold' },
+    { id: '1', name: 'Alpha', amount: 10, status: 'ready', updated_at: '2026-05-01T00:00:00Z' },
+    { id: '2', name: 'Beta', amount: 20, status: 'ready', updated_at: '2026-05-02T12:00:00Z' },
+    { id: '3', name: '', amount: -5, status: 'hold', updated_at: '2026-05-03T00:00:00Z' },
   ]
   return uploadFile(workspacePublicId, `data-pipeline-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
 }
@@ -214,6 +214,7 @@ function jsonGraph(filePublicId, suffix) {
           { column: 'name', path: 'name' },
           { column: 'amount', path: 'amount' },
           { column: 'status', path: 'status' },
+          { column: 'updated_at', path: 'updated_at' },
         ],
       }),
       profileNode(),
@@ -221,6 +222,47 @@ function jsonGraph(filePublicId, suffix) {
       outputNode(suffix),
     ],
     edges: linearEdges(['input', 'json_extract', 'profile', 'validate', 'output']),
+  }
+}
+
+function partitionGraph(filePublicId, suffix) {
+  return {
+    nodes: [
+      node('input', 'input', 'Smoke Drive JSON', 60, 120, {
+        sourceKind: 'drive_file',
+        inputMode: 'json',
+        filePublicIds: [filePublicId],
+        recordPath: '$',
+        includeSourceMetadataColumns: true,
+        includeRawRecord: true,
+        fields: [],
+      }),
+      node('json_extract', 'json_extract', 'Extract smoke fields', 320, 120, {
+        sourceColumn: 'raw_record_json',
+        recordPath: '$',
+        includeSourceColumns: true,
+        fields: [
+          { column: 'id', path: 'id' },
+          { column: 'name', path: 'name' },
+          { column: 'amount', path: 'amount' },
+          { column: 'status', path: 'status' },
+          { column: 'updated_at', path: 'updated_at' },
+        ],
+      }),
+      node('partition_filter', 'partition_filter', 'Partition filter', 580, 120, {
+        dateColumn: 'updated_at',
+        start: '2026-05-02T00:00:00Z',
+        end: '2026-05-04T00:00:00Z',
+        valueType: 'datetime',
+      }),
+      node('watermark_filter', 'watermark_filter', 'Watermark filter', 840, 120, {
+        column: 'updated_at',
+        watermarkValue: '2026-05-02T00:00:00Z',
+        valueType: 'datetime',
+      }),
+      outputNode(suffix, ['id'], 'output', 1100, 120),
+    ],
+    edges: linearEdges(['input', 'json_extract', 'partition_filter', 'watermark_filter', 'output']),
   }
 }
 
@@ -243,6 +285,7 @@ function unionGraph(filePublicId, suffix) {
       { column: 'name', path: 'name' },
       { column: 'amount', path: 'amount' },
       { column: 'status', path: 'status' },
+      { column: 'updated_at', path: 'updated_at' },
     ],
   }
   return {
@@ -577,6 +620,7 @@ async function createPipeline(scenario, filePublicId) {
   const suffix = `${scenario}_${Date.now()}`
   const graphs = {
     json: jsonGraph,
+    partition: partitionGraph,
     union: unionGraph,
     excel: excelGraph,
     text: textGraph,
@@ -700,6 +744,18 @@ function assertUnionRun(run) {
   const unionStep = findStep(run, 'union')
   if (!unionStep || unionStep.rowCount !== 6) {
     throw new Error(`unexpected union step: ${JSON.stringify(unionStep)}`)
+  }
+}
+
+function assertPartitionRun(run) {
+  assertCommonRun(run, 2)
+  const partitionStep = findStep(run, 'partition_filter')
+  const watermarkStep = findStep(run, 'watermark_filter')
+  if (partitionStep?.rowCount !== 2 || partitionStep?.metadata?.partitionFilter?.dateColumn !== 'updated_at') {
+    throw new Error(`unexpected partition filter metadata: ${JSON.stringify(partitionStep)}`)
+  }
+  if (watermarkStep?.rowCount !== 2 || watermarkStep?.metadata?.watermarkFilter?.column !== 'updated_at') {
+    throw new Error(`unexpected watermark filter metadata: ${JSON.stringify(watermarkStep)}`)
   }
 }
 
@@ -967,6 +1023,7 @@ async function waitForRun(pipelinePublicId, runPublicId, assertRun) {
 async function runScenario(workspacePublicId, scenario) {
   const uploaders = {
     json: uploadJSONFile,
+    partition: uploadJSONFile,
     union: uploadJSONFile,
     excel: uploadXLSXFile,
     text: uploadTextFile,
@@ -980,6 +1037,7 @@ async function runScenario(workspacePublicId, scenario) {
   }
   const assertions = {
     json: (run) => assertProfileValidateRun(run, 3),
+    partition: assertPartitionRun,
     union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
     text: assertTextRun,
@@ -1115,8 +1173,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'partition', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'partition', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)

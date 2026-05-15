@@ -197,6 +197,10 @@ func (c *dataPipelineCompiler) compileNode(ctx context.Context, node DataPipelin
 		return c.compileTransform(node, upstream)
 	case DataPipelineStepRouteByCondition:
 		return c.compileRouteByCondition(node, upstream)
+	case DataPipelineStepPartitionFilter:
+		return c.compilePartitionFilter(node, upstream)
+	case DataPipelineStepWatermarkFilter:
+		return c.compileWatermarkFilter(node, upstream)
 	default:
 		return dataPipelineRelation{}, fmt.Errorf("%w: unsupported step type %q", ErrInvalidDataPipelineGraph, node.Data.StepType)
 	}
@@ -888,6 +892,18 @@ func (s *DataPipelineService) collectStructuredRunNodeResults(ctx context.Contex
 			metadata["selectedRoute"] = spec.SelectedRoute
 			metadata["routes"] = spec.Routes
 			metadata["routeCounts"] = routeCounts
+		case DataPipelineStepPartitionFilter:
+			spec, err := dataPipelinePartitionFilterSpec(node.Data.Config, compiled.Columns)
+			if err != nil {
+				return nil, fmt.Errorf("partition_filter data pipeline step %s: %w", node.ID, err)
+			}
+			metadata["partitionFilter"] = spec.Metadata()
+		case DataPipelineStepWatermarkFilter:
+			spec, err := dataPipelineWatermarkFilterSpec(node.Data.Config, compiled.Columns)
+			if err != nil {
+				return nil, fmt.Errorf("watermark_filter data pipeline step %s: %w", node.ID, err)
+			}
+			metadata["watermarkFilter"] = spec.Metadata()
 		}
 		results[node.ID] = dataPipelineRunNodeResult{
 			NodeID:   node.ID,
@@ -1426,6 +1442,36 @@ func (c *dataPipelineCompiler) compileRouteByCondition(node DataPipelineNode, up
 	}, nil
 }
 
+func (c *dataPipelineCompiler) compilePartitionFilter(node DataPipelineNode, upstream dataPipelineRelation) (dataPipelineRelation, error) {
+	spec, err := dataPipelinePartitionFilterSpec(node.Data.Config, upstream.Columns)
+	if err != nil {
+		return dataPipelineRelation{}, fmt.Errorf("compile partition_filter node %s: %w", node.ID, err)
+	}
+	return c.compileFilterRelation(node, upstream, spec.Conditions), nil
+}
+
+func (c *dataPipelineCompiler) compileWatermarkFilter(node DataPipelineNode, upstream dataPipelineRelation) (dataPipelineRelation, error) {
+	spec, err := dataPipelineWatermarkFilterSpec(node.Data.Config, upstream.Columns)
+	if err != nil {
+		return dataPipelineRelation{}, fmt.Errorf("compile watermark_filter node %s: %w", node.ID, err)
+	}
+	return c.compileFilterRelation(node, upstream, []string{spec.Condition}), nil
+}
+
+func (c *dataPipelineCompiler) compileFilterRelation(node DataPipelineNode, upstream dataPipelineRelation, conditions []string) dataPipelineRelation {
+	sql := fmt.Sprintf("SELECT\n%s\nFROM %s", dataPipelineSelectList(upstream.Columns, dataPipelineColumnExpressions(upstream.Columns)), quoteCHIdent(upstream.CTE))
+	if len(conditions) > 0 {
+		sql += "\nWHERE " + strings.Join(conditions, " AND ")
+	}
+	return dataPipelineRelation{
+		CTE:     dataPipelineCTEName(node.ID),
+		SQL:     sql,
+		Columns: append([]string(nil), upstream.Columns...),
+		Node:    node,
+		Source:  upstream.Source,
+	}
+}
+
 type dataPipelineRouteByConditionConfig struct {
 	RouteColumn   string
 	DefaultRoute  string
@@ -1506,6 +1552,164 @@ func dataPipelineUnionColumns(config map[string]any, inputs [][]string) []string
 		columns = append(columns, input...)
 	}
 	return dataPipelineUniqueStrings(columns)
+}
+
+type dataPipelinePartitionFilterConfig struct {
+	DateColumn     string
+	Start          string
+	End            string
+	ValueType      string
+	PartitionKey   string
+	PartitionValue string
+	Conditions     []string
+}
+
+func (c dataPipelinePartitionFilterConfig) Metadata() map[string]any {
+	return map[string]any{
+		"dateColumn":     c.DateColumn,
+		"start":          c.Start,
+		"end":            c.End,
+		"valueType":      c.ValueType,
+		"partitionKey":   c.PartitionKey,
+		"partitionValue": c.PartitionValue,
+	}
+}
+
+func dataPipelinePartitionFilterSpec(config map[string]any, columns []string) (dataPipelinePartitionFilterConfig, error) {
+	dateColumn := firstNonEmpty(dataPipelineString(config, "dateColumn"), dataPipelineString(config, "column"))
+	if err := dataPipelineRequireColumn(columns, dateColumn); err != nil {
+		return dataPipelinePartitionFilterConfig{}, err
+	}
+	valueType := firstNonEmpty(dataPipelineString(config, "valueType"), "datetime")
+	columnExpr, err := dataPipelineComparableColumnExpr(columns, dateColumn, valueType)
+	if err != nil {
+		return dataPipelinePartitionFilterConfig{}, err
+	}
+	start := dataPipelineString(config, "start")
+	end := dataPipelineString(config, "end")
+	conditions := make([]string, 0, 3)
+	if start != "" {
+		valueExpr, err := dataPipelineComparableLiteral(start, valueType)
+		if err != nil {
+			return dataPipelinePartitionFilterConfig{}, err
+		}
+		conditions = append(conditions, columnExpr+" >= "+valueExpr)
+	}
+	if end != "" {
+		valueExpr, err := dataPipelineComparableLiteral(end, valueType)
+		if err != nil {
+			return dataPipelinePartitionFilterConfig{}, err
+		}
+		operator := "<"
+		if dataPipelineBool(config, "includeEnd", false) {
+			operator = "<="
+		}
+		conditions = append(conditions, columnExpr+" "+operator+" "+valueExpr)
+	}
+	partitionKey := dataPipelineString(config, "partitionKey")
+	partitionValue := dataPipelineString(config, "partitionValue")
+	if partitionKey != "" {
+		if err := dataPipelineRequireColumn(columns, partitionKey); err != nil {
+			return dataPipelinePartitionFilterConfig{}, err
+		}
+		if partitionValue != "" {
+			conditions = append(conditions, "toString("+quoteCHIdent(partitionKey)+") = "+dataPipelineLiteral(partitionValue))
+		}
+	}
+	if len(conditions) == 0 {
+		return dataPipelinePartitionFilterConfig{}, fmt.Errorf("%w: partition_filter requires start, end, or partitionValue", ErrInvalidDataPipelineGraph)
+	}
+	return dataPipelinePartitionFilterConfig{
+		DateColumn:     dateColumn,
+		Start:          start,
+		End:            end,
+		ValueType:      valueType,
+		PartitionKey:   partitionKey,
+		PartitionValue: partitionValue,
+		Conditions:     conditions,
+	}, nil
+}
+
+type dataPipelineWatermarkFilterConfig struct {
+	Column         string
+	WatermarkValue string
+	ValueType      string
+	Inclusive      bool
+	Condition      string
+}
+
+func (c dataPipelineWatermarkFilterConfig) Metadata() map[string]any {
+	return map[string]any{
+		"column":         c.Column,
+		"watermarkValue": c.WatermarkValue,
+		"valueType":      c.ValueType,
+		"inclusive":      c.Inclusive,
+	}
+}
+
+func dataPipelineWatermarkFilterSpec(config map[string]any, columns []string) (dataPipelineWatermarkFilterConfig, error) {
+	column := firstNonEmpty(dataPipelineString(config, "watermarkColumn"), dataPipelineString(config, "column"))
+	if err := dataPipelineRequireColumn(columns, column); err != nil {
+		return dataPipelineWatermarkFilterConfig{}, err
+	}
+	watermarkValue := firstNonEmpty(dataPipelineString(config, "watermarkValue"), dataPipelineString(config, "value"))
+	if watermarkValue == "" {
+		return dataPipelineWatermarkFilterConfig{}, fmt.Errorf("%w: watermark_filter requires watermarkValue", ErrInvalidDataPipelineGraph)
+	}
+	valueType := firstNonEmpty(dataPipelineString(config, "valueType"), "datetime")
+	columnExpr, err := dataPipelineComparableColumnExpr(columns, column, valueType)
+	if err != nil {
+		return dataPipelineWatermarkFilterConfig{}, err
+	}
+	valueExpr, err := dataPipelineComparableLiteral(watermarkValue, valueType)
+	if err != nil {
+		return dataPipelineWatermarkFilterConfig{}, err
+	}
+	inclusive := dataPipelineBool(config, "inclusive", false)
+	operator := ">"
+	if inclusive {
+		operator = ">="
+	}
+	return dataPipelineWatermarkFilterConfig{
+		Column:         column,
+		WatermarkValue: watermarkValue,
+		ValueType:      valueType,
+		Inclusive:      inclusive,
+		Condition:      columnExpr + " " + operator + " " + valueExpr,
+	}, nil
+}
+
+func dataPipelineComparableColumnExpr(columns []string, column, valueType string) (string, error) {
+	if err := dataPipelineRequireColumn(columns, column); err != nil {
+		return "", err
+	}
+	col := "toString(" + quoteCHIdent(column) + ")"
+	switch strings.ToLower(valueType) {
+	case "", "datetime", "date":
+		return "parseDateTimeBestEffortOrNull(" + col + ")", nil
+	case "number", "numeric":
+		return "toFloat64OrNull(" + col + ")", nil
+	case "string":
+		return col, nil
+	default:
+		return "", fmt.Errorf("%w: unsupported filter valueType %q", ErrInvalidDataPipelineGraph, valueType)
+	}
+}
+
+func dataPipelineComparableLiteral(value, valueType string) (string, error) {
+	switch strings.ToLower(valueType) {
+	case "", "datetime", "date":
+		return "parseDateTimeBestEffort(" + dataPipelineLiteral(value) + ")", nil
+	case "number", "numeric":
+		if _, err := strconv.ParseFloat(value, 64); err != nil {
+			return "", fmt.Errorf("%w: invalid numeric filter value %q", ErrInvalidDataPipelineGraph, value)
+		}
+		return value, nil
+	case "string":
+		return dataPipelineLiteral(value), nil
+	default:
+		return "", fmt.Errorf("%w: unsupported filter valueType %q", ErrInvalidDataPipelineGraph, valueType)
+	}
 }
 
 func dataPipelineColumnExpressions(columns []string) map[string]string {

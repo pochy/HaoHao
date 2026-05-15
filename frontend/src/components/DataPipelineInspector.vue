@@ -1073,6 +1073,13 @@ function configuredPrimaryColumnRefs(type: string, config: ConfigRecord) {
     return [stringValue(config.statusColumn)]
   case 'route_by_condition':
     return arrayFromConfig(config, 'rules').map((rule) => stringField(rule, 'column'))
+  case 'partition_filter':
+    return [
+      stringValue(config.dateColumn || config.column),
+      stringValue(config.partitionKey),
+    ]
+  case 'watermark_filter':
+    return [stringValue(config.watermarkColumn || config.column)]
   case 'canonicalize':
     return arrayFromConfig(config, 'rules').map((rule) => stringField(rule, 'column'))
   case 'classify_document':
@@ -2571,6 +2578,68 @@ function labelForStep(type: DataPipelineStepType | string) {
             <label class="field">
               <span>{{ t('dataPipelines.sourceLabelColumn') }}</span>
               <input :value="stringConfig('sourceLabelColumn')" @input="updateConfigOptionalString('sourceLabelColumn', targetValue($event))">
+            </label>
+          </div>
+        </template>
+
+        <template v-else-if="stepType === 'partition_filter'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.dateColumn') }}</span>
+              <input :value="stringConfig('dateColumn') || 'updated_at'" list="data-pipeline-column-options" @input="updateConfigField('dateColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.valueType') }}</span>
+              <select :value="stringConfig('valueType') || 'datetime'" @change="updateConfigField('valueType', targetValue($event))">
+                <option value="datetime">{{ t('dataPipelines.datetime') }}</option>
+                <option value="number">{{ t('dataPipelines.number') }}</option>
+                <option value="string">{{ t('dataPipelines.string') }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.start') }}</span>
+              <input :value="stringConfig('start')" @input="updateConfigOptionalString('start', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.end') }}</span>
+              <input :value="stringConfig('end')" @input="updateConfigOptionalString('end', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.partitionKey') }}</span>
+              <input :value="stringConfig('partitionKey')" list="data-pipeline-column-options" @input="updateConfigOptionalString('partitionKey', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.partitionValue') }}</span>
+              <input :value="stringConfig('partitionValue')" @input="updateConfigOptionalString('partitionValue', targetValue($event))">
+            </label>
+            <label class="data-pipeline-toggle">
+              <input :checked="Boolean(configDraft.includeEnd)" type="checkbox" @change="updateConfigField('includeEnd', targetChecked($event))">
+              <span>{{ t('dataPipelines.includeEnd') }}</span>
+            </label>
+          </div>
+        </template>
+
+        <template v-else-if="stepType === 'watermark_filter'">
+          <div class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.watermarkColumn') }}</span>
+              <input :value="stringConfig('column') || 'updated_at'" list="data-pipeline-column-options" @input="updateConfigField('column', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.watermarkValue') }}</span>
+              <input :value="stringConfig('watermarkValue')" @input="updateConfigOptionalString('watermarkValue', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.valueType') }}</span>
+              <select :value="stringConfig('valueType') || 'datetime'" @change="updateConfigField('valueType', targetValue($event))">
+                <option value="datetime">{{ t('dataPipelines.datetime') }}</option>
+                <option value="number">{{ t('dataPipelines.number') }}</option>
+                <option value="string">{{ t('dataPipelines.string') }}</option>
+              </select>
+            </label>
+            <label class="data-pipeline-toggle">
+              <input :checked="Boolean(configDraft.inclusive)" type="checkbox" @change="updateConfigField('inclusive', targetChecked($event))">
+              <span>{{ t('dataPipelines.inclusive') }}</span>
             </label>
           </div>
         </template>

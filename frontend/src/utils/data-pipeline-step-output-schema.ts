@@ -12,6 +12,8 @@ export function inferDataPipelineStepOutputColumns(
   case 'validate':
   case 'output':
   case 'quarantine':
+  case 'partition_filter':
+  case 'watermark_filter':
     return uniqueStrings(upstreamColumns)
   case 'route_by_condition':
     return uniqueStrings([...upstreamColumns, stringValue(config.routeColumn).trim() || 'route_key'])

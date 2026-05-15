@@ -632,6 +632,10 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 - Dagster の partitions / backfills は、partition 単位で未処理や再処理を管理する考え方として参考になります。
 - HaoHao では schedule、run metadata、output table の関係を使い、last successful watermark をどこに保存するか決める必要があります。
 - tenant timezone と schedule timezone の扱いを明確にします。
+- v1 は 2026-05-15 に実装済みです。`partition_filter` は固定の `dateColumn` / `start` / `end` と任意の `partitionKey` / `partitionValue` で行を絞り込みます。
+- `watermark_filter` v1 は固定の `column` / `watermarkValue` で行を絞り込みます。`valueType` は `datetime`、`number`、`string` を選べます。
+- v1 では前回成功 run から watermark を自動取得しません。固定値を graph config に保存し、run step metadata に filter config を残します。
+- 次の拡張では、schedule run の成功履歴から last watermark を計算し、lookback window と timezone を含む runtime parameter として扱います。
 
 #### `snapshot_scd2`
 
