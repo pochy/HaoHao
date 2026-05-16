@@ -137,6 +137,9 @@ func dataPipelineConfiguredPrimaryColumnRefs(stepType string, config map[string]
 		for _, column := range dataPipelineConfigArray(config, "columns") {
 			refs = append(refs, firstNonEmpty(dataPipelineString(column, "sourceColumn"), dataPipelineString(column, "column")))
 		}
+		if strings.TrimSpace(dataPipelineString(config, "writeMode")) == "scd2_merge" {
+			refs = append(refs, dataPipelineStringList(config["uniqueKeys"])...)
+		}
 		return dataPipelineColumnRefs{Columns: refs, ConfigKeys: []string{"columns[].sourceColumn", "columns[].column"}}
 	default:
 		return dataPipelineColumnRefs{}

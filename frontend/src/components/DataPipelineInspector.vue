@@ -1104,7 +1104,10 @@ function configuredPrimaryColumnRefs(type: string, config: ConfigRecord) {
       stringField(pair, 'afterColumn'),
     ])
   case 'output':
-    return arrayFromConfig(config, 'columns').map((column) => stringField(column, 'sourceColumn') || stringField(column, 'column'))
+    return [
+      ...arrayFromConfig(config, 'columns').map((column) => stringField(column, 'sourceColumn') || stringField(column, 'column')),
+      ...stringList(config.uniqueKeys),
+    ]
   default:
     return []
   }
@@ -2753,6 +2756,7 @@ function labelForStep(type: DataPipelineStepType | string) {
               <select :value="stringConfig('writeMode') || 'replace'" @change="updateConfigField('writeMode', targetValue($event))">
                 <option value="replace">{{ optionLabel('dataPipelines.writeModeValue.replace', 'replace') }}</option>
                 <option value="append">{{ optionLabel('dataPipelines.writeModeValue.append', 'append') }}</option>
+                <option value="scd2_merge">{{ optionLabel('dataPipelines.writeModeValue.scd2Merge', 'scd2_merge') }}</option>
               </select>
             </label>
             <label class="field">
@@ -2766,6 +2770,28 @@ function labelForStep(type: DataPipelineStepType | string) {
             <span>{{ t('dataPipelines.orderBy') }}</span>
             <input :value="stringList(configDraft.orderBy).join(', ')" list="data-pipeline-column-options" @input="updateConfigList('orderBy', targetValue($event))">
           </label>
+          <div v-if="stringConfig('writeMode') === 'scd2_merge'" class="config-grid">
+            <label class="field">
+              <span>{{ t('dataPipelines.uniqueKeys') }}</span>
+              <input :value="stringList(configDraft.uniqueKeys).join(', ')" list="data-pipeline-column-options" @input="updateConfigList('uniqueKeys', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.validFromColumn') }}</span>
+              <input :value="stringConfig('validFromColumn') || 'valid_from'" @input="updateConfigField('validFromColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.validToColumn') }}</span>
+              <input :value="stringConfig('validToColumn') || 'valid_to'" @input="updateConfigField('validToColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.isCurrentColumn') }}</span>
+              <input :value="stringConfig('isCurrentColumn') || 'is_current'" @input="updateConfigField('isCurrentColumn', targetValue($event))">
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.changeHashColumn') }}</span>
+              <input :value="stringConfig('changeHashColumn') || 'change_hash'" @input="updateConfigField('changeHashColumn', targetValue($event))">
+            </label>
+          </div>
           <div class="config-section-header">
             <h3>{{ t('dataPipelines.outputColumns') }}</h3>
             <button class="secondary-button compact-button" type="button" @click="addArrayItem('columns', { sourceColumn: '', name: '', type: 'string' })">

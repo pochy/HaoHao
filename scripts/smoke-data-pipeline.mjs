@@ -122,6 +122,14 @@ async function uploadSnapshotJSONFile(workspacePublicId) {
   return uploadFile(workspacePublicId, `data-pipeline-snapshot-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
 }
 
+async function uploadSnapshotChangedJSONFile(workspacePublicId) {
+  const rows = [
+    { id: '1', name: 'Alpha', status: 'shipped', updated_at: '2026-05-04T00:00:00Z' },
+    { id: '2', name: 'Beta', status: 'ready', updated_at: '2026-05-02T00:00:00Z' },
+  ]
+  return uploadFile(workspacePublicId, `data-pipeline-snapshot-changed-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
+}
+
 async function uploadTextFile(workspacePublicId) {
   const text = [
     'invoice_id,customer,amount,confidence',
@@ -367,6 +375,24 @@ function snapshotAppendGraph(filePublicId, suffix) {
       return item
     }
     return outputNode(suffix, ['id', 'valid_from'], 'output', 900, 120, { writeMode: 'append' })
+  })
+  return graph
+}
+
+function snapshotMergeGraph(filePublicId, suffix) {
+  const graph = snapshotSCD2Graph(filePublicId, suffix)
+  graph.nodes = graph.nodes.map((item) => {
+    if (item.id !== 'output') {
+      return item
+    }
+    return outputNode(suffix, ['id', 'valid_from'], 'output', 900, 120, {
+      writeMode: 'scd2_merge',
+      uniqueKeys: ['id'],
+      validFromColumn: 'valid_from',
+      validToColumn: 'valid_to',
+      isCurrentColumn: 'is_current',
+      changeHashColumn: 'change_hash',
+    })
   })
   return graph
 }
@@ -730,6 +756,7 @@ async function createPipeline(scenario, filePublicId) {
     watermark_previous: watermarkPreviousGraph,
     snapshot_scd2: snapshotSCD2Graph,
     snapshot_append: snapshotAppendGraph,
+    snapshot_merge: snapshotMergeGraph,
     union: unionGraph,
     excel: excelGraph,
     text: textGraph,
@@ -1154,6 +1181,7 @@ async function runScenario(workspacePublicId, scenario) {
     watermark_previous: uploadJSONFile,
     snapshot_scd2: uploadSnapshotJSONFile,
     snapshot_append: uploadSnapshotJSONFile,
+    snapshot_merge: uploadSnapshotJSONFile,
     union: uploadJSONFile,
     excel: uploadXLSXFile,
     text: uploadTextFile,
@@ -1172,6 +1200,7 @@ async function runScenario(workspacePublicId, scenario) {
     watermark_previous: (run) => assertCommonRun(run, 2),
     snapshot_scd2: assertSnapshotSCD2Run,
     snapshot_append: assertSnapshotSCD2Run,
+    snapshot_merge: assertSnapshotSCD2Run,
     union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
     text: assertTextRun,
@@ -1276,6 +1305,49 @@ async function runSnapshotAppendScenario(workspacePublicId) {
   }
 }
 
+async function createPublishedVersion(pipelinePublicId, graph) {
+  const version = await jsonRequest(`/api/v1/data-pipelines/${encodeURIComponent(pipelinePublicId)}/versions`, 'POST', { graph })
+  const published = await jsonRequest(`/api/v1/data-pipeline-versions/${encodeURIComponent(version.publicId)}/publish`, 'POST', {})
+  created.versionPublicIds.push(published.publicId)
+  return published
+}
+
+async function runSnapshotMergeScenario(workspacePublicId) {
+  const suffix = `snapshot_merge_${Date.now()}`
+  const file = await uploadSnapshotJSONFile(workspacePublicId)
+  const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
+    name: `Smoke: snapshot_merge metadata ${new Date().toISOString()}`,
+    description: 'Smoke test for Data Pipeline SCD2 merge output registration.',
+  }, { 'Idempotency-Key': crypto.randomUUID() })
+  created.pipelinePublicIds.push(pipeline.publicId)
+  const version = await createPublishedVersion(pipeline.publicId, snapshotMergeGraph(file.publicId, suffix))
+
+  const firstRun = await requestRun(version.publicId)
+  const firstCompleted = await waitForRun(pipeline.publicId, firstRun.publicId, assertSnapshotSCD2Run)
+  const secondRun = await requestRun(version.publicId)
+  const secondCompleted = await waitForRun(pipeline.publicId, secondRun.publicId, (run) => assertCommonRun(run, 3))
+
+  const changedFile = await uploadSnapshotChangedJSONFile(workspacePublicId)
+  const changedVersion = await createPublishedVersion(pipeline.publicId, snapshotMergeGraph(changedFile.publicId, suffix))
+  const changedRun = await requestRun(changedVersion.publicId)
+  const changedCompleted = await waitForRun(pipeline.publicId, changedRun.publicId, (run) => assertCommonRun(run, 4))
+
+  return {
+    scenario: 'snapshot_merge',
+    workspacePublicId,
+    driveFilePublicId: file.publicId,
+    changedDriveFilePublicId: changedFile.publicId,
+    pipelinePublicId: pipeline.publicId,
+    versionPublicId: version.publicId,
+    changedVersionPublicId: changedVersion.publicId,
+    firstRunPublicId: firstCompleted.publicId,
+    secondRunPublicId: secondCompleted.publicId,
+    changedRunPublicId: changedCompleted.publicId,
+    detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
+    outputs: changedCompleted.outputs,
+  }
+}
+
 function schemaForNode(validation, nodeId) {
   return (validation.outputSchemas ?? []).find((schema) => schema.nodeId === nodeId)
 }
@@ -1363,8 +1435,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
@@ -1380,6 +1452,8 @@ async function main() {
         ? await runWatermarkPreviousScenario(workspacePublicId)
         : scenario === 'snapshot_append'
           ? await runSnapshotAppendScenario(workspacePublicId)
+          : scenario === 'snapshot_merge'
+            ? await runSnapshotMergeScenario(workspacePublicId)
       : await runScenario(workspacePublicId, scenario))
   }
   console.log(JSON.stringify(requestedScenario === 'suite' ? { scenarios: results } : results[0], null, 2))

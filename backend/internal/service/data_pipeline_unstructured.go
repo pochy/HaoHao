@@ -116,7 +116,7 @@ func (s *DataPipelineService) executeHybridRun(ctx context.Context, tenantID int
 			)
 			if err := conn.Exec(queryCtx, createSQL); err != nil {
 				result.Err = fmt.Errorf("create data pipeline hybrid stage table for %s: %w", outputNode.ID, err)
-			} else if err := promoteDataPipelineOutputTable(queryCtx, conn, targetDatabase, targetTable, stageTable, dataPipelineOutputWriteMode(outputNode)); err != nil {
+			} else if err := promoteDataPipelineOutputTable(queryCtx, conn, targetDatabase, targetTable, stageTable, outputNode, hybrid.Relation.Columns); err != nil {
 				result.Err = fmt.Errorf("promote data pipeline hybrid stage table for %s: %w", outputNode.ID, err)
 			} else {
 				displayName := dataPipelineString(outputNode.Data.Config, "displayName")

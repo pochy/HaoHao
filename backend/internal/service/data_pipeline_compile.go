@@ -1382,7 +1382,7 @@ func (s *DataPipelineService) executeRun(ctx context.Context, tenantID int64, ru
 			)
 			if err := conn.Exec(queryCtx, createSQL); err != nil {
 				result.Err = fmt.Errorf("create data pipeline stage table for %s: %w", outputNode.ID, err)
-			} else if err := promoteDataPipelineOutputTable(queryCtx, conn, targetDatabase, targetTable, stageTable, dataPipelineOutputWriteMode(outputNode)); err != nil {
+			} else if err := promoteDataPipelineOutputTable(queryCtx, conn, targetDatabase, targetTable, stageTable, outputNode, compiled.Columns); err != nil {
 				result.Err = fmt.Errorf("promote data pipeline stage table for %s: %w", outputNode.ID, err)
 			} else {
 				displayName := dataPipelineString(outputNode.Data.Config, "displayName")
@@ -1429,7 +1429,8 @@ func dataPipelineOutputWriteMode(node DataPipelineNode) string {
 	return writeMode
 }
 
-func promoteDataPipelineOutputTable(ctx context.Context, conn driver.Conn, database, targetTable, stageTable, writeMode string) error {
+func promoteDataPipelineOutputTable(ctx context.Context, conn driver.Conn, database, targetTable, stageTable string, node DataPipelineNode, stageColumns []string) error {
+	writeMode := dataPipelineOutputWriteMode(node)
 	switch writeMode {
 	case "", "replace":
 		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(targetTable)))
@@ -1456,10 +1457,133 @@ func promoteDataPipelineOutputTable(ctx context.Context, conn driver.Conn, datab
 			return err
 		}
 		return conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+	case "scd2_merge":
+		return promoteDataPipelineSCD2MergeOutput(ctx, conn, database, targetTable, stageTable, node, stageColumns)
 	default:
 		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
 		return fmt.Errorf("%w: unsupported output writeMode %q", ErrInvalidDataPipelineGraph, writeMode)
 	}
+}
+
+func promoteDataPipelineSCD2MergeOutput(ctx context.Context, conn driver.Conn, database, targetTable, stageTable string, node DataPipelineNode, stageColumns []string) error {
+	spec, err := dataPipelineOutputSCD2MergeSpec(node.Data.Config, stageColumns)
+	if err != nil {
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+		return err
+	}
+	var exists uint8
+	if err := queryDataPipelineSingle(ctx, conn, fmt.Sprintf("EXISTS TABLE %s.%s", quoteCHIdent(database), quoteCHIdent(targetTable)), &exists); err != nil {
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+		return err
+	}
+	if exists == 0 {
+		if err := conn.Exec(ctx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable), quoteCHIdent(database), quoteCHIdent(targetTable))); err != nil {
+			_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+			return err
+		}
+		return nil
+	}
+	mergeTable := "__dp_merge_" + dataPipelineSafeSuffix(stageTable)
+	_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(mergeTable)))
+	joinConditions := dataPipelineSCD2JoinConditions("s", "t", spec.UniqueKeys)
+	targetJoinConditions := dataPipelineSCD2JoinConditions("t", "c", spec.UniqueKeys)
+	changedSQL := fmt.Sprintf(
+		"SELECT s.*, toUInt8(1) AS %s\nFROM %s.%s AS s\nLEFT JOIN %s.%s AS t ON %s AND t.%s = 1\nWHERE t.%s = '' OR t.%s != s.%s",
+		quoteCHIdent("__dp_changed"),
+		quoteCHIdent(database),
+		quoteCHIdent(stageTable),
+		quoteCHIdent(database),
+		quoteCHIdent(targetTable),
+		joinConditions,
+		quoteCHIdent(spec.IsCurrentColumn),
+		quoteCHIdent(spec.ChangeHashColumn),
+		quoteCHIdent(spec.ChangeHashColumn),
+		quoteCHIdent(spec.ChangeHashColumn),
+	)
+	changedSQL = fmt.Sprintf("SELECT * FROM (\n%s\n) WHERE %s = 1", changedSQL, quoteCHIdent(spec.IsCurrentColumn))
+	targetSelects := make([]string, 0, len(stageColumns))
+	changedSelects := make([]string, 0, len(stageColumns))
+	for _, column := range stageColumns {
+		switch column {
+		case spec.ValidToColumn:
+			targetSelects = append(targetSelects, fmt.Sprintf("  if(t.%s = 1 AND c.%s = 1, c.%s, t.%s) AS %s", quoteCHIdent(spec.IsCurrentColumn), quoteCHIdent("__dp_changed"), quoteCHIdent(spec.ValidFromColumn), quoteCHIdent(column), quoteCHIdent(column)))
+		case spec.IsCurrentColumn:
+			targetSelects = append(targetSelects, fmt.Sprintf("  if(t.%s = 1 AND c.%s = 1, 0, t.%s) AS %s", quoteCHIdent(spec.IsCurrentColumn), quoteCHIdent("__dp_changed"), quoteCHIdent(column), quoteCHIdent(column)))
+		default:
+			targetSelects = append(targetSelects, fmt.Sprintf("  t.%s AS %s", quoteCHIdent(column), quoteCHIdent(column)))
+		}
+		changedSelects = append(changedSelects, fmt.Sprintf("  %s", quoteCHIdent(column)))
+	}
+	createSQL := fmt.Sprintf(
+		"CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY %s AS\nSELECT\n%s\nFROM %s.%s AS t\nLEFT JOIN (\n%s\n) AS c ON %s AND t.%s = 1\nUNION ALL\nSELECT\n%s\nFROM (\n%s\n)",
+		quoteCHIdent(database),
+		quoteCHIdent(mergeTable),
+		dataPipelineOutputOrderBy(node, stageColumns),
+		strings.Join(targetSelects, ",\n"),
+		quoteCHIdent(database),
+		quoteCHIdent(targetTable),
+		changedSQL,
+		targetJoinConditions,
+		quoteCHIdent(spec.IsCurrentColumn),
+		strings.Join(changedSelects, ",\n"),
+		changedSQL,
+	)
+	if err := conn.Exec(ctx, createSQL); err != nil {
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(mergeTable)))
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+		return err
+	}
+	_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(targetTable)))
+	if err := conn.Exec(ctx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(database), quoteCHIdent(mergeTable), quoteCHIdent(database), quoteCHIdent(targetTable))); err != nil {
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(mergeTable)))
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+		return err
+	}
+	return conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+}
+
+func dataPipelineSCD2JoinConditions(leftAlias, rightAlias string, keys []string) string {
+	conditions := make([]string, 0, len(keys))
+	for _, key := range keys {
+		conditions = append(conditions, fmt.Sprintf("%s.%s = %s.%s", leftAlias, quoteCHIdent(key), rightAlias, quoteCHIdent(key)))
+	}
+	return strings.Join(conditions, " AND ")
+}
+
+type dataPipelineOutputSCD2MergeConfig struct {
+	UniqueKeys       []string
+	ValidFromColumn  string
+	ValidToColumn    string
+	IsCurrentColumn  string
+	ChangeHashColumn string
+}
+
+func dataPipelineOutputSCD2MergeSpec(config map[string]any, columns []string) (dataPipelineOutputSCD2MergeConfig, error) {
+	uniqueKeys := dataPipelineStringSlice(config, "uniqueKeys")
+	if len(uniqueKeys) == 0 {
+		uniqueKeys = dataPipelineStringSlice(config, "scd2UniqueKeys")
+	}
+	if len(uniqueKeys) == 0 {
+		return dataPipelineOutputSCD2MergeConfig{}, fmt.Errorf("%w: scd2_merge output requires uniqueKeys", ErrInvalidDataPipelineGraph)
+	}
+	for _, key := range uniqueKeys {
+		if err := dataPipelineRequireColumn(columns, key); err != nil {
+			return dataPipelineOutputSCD2MergeConfig{}, err
+		}
+	}
+	spec := dataPipelineOutputSCD2MergeConfig{
+		UniqueKeys:       dataPipelineUniqueStrings(uniqueKeys),
+		ValidFromColumn:  firstNonEmpty(dataPipelineString(config, "validFromColumn"), "valid_from"),
+		ValidToColumn:    firstNonEmpty(dataPipelineString(config, "validToColumn"), "valid_to"),
+		IsCurrentColumn:  firstNonEmpty(dataPipelineString(config, "isCurrentColumn"), "is_current"),
+		ChangeHashColumn: firstNonEmpty(dataPipelineString(config, "changeHashColumn"), "change_hash"),
+	}
+	for _, column := range []string{spec.ValidFromColumn, spec.ValidToColumn, spec.IsCurrentColumn, spec.ChangeHashColumn} {
+		if err := dataPipelineRequireColumn(columns, column); err != nil {
+			return dataPipelineOutputSCD2MergeConfig{}, err
+		}
+	}
+	return spec, nil
 }
 
 func dataPipelineOutputOrderBy(node DataPipelineNode, availableColumns ...[]string) string {

@@ -93,7 +93,7 @@ func TestValidateDataPipelineGraphRejectsOutputConfigConflicts(t *testing.T) {
 	if summary.Valid {
 		t.Fatalf("expected output config conflicts to be invalid")
 	}
-	if !containsDataPipelineValidationError(summary.Errors, "only supports replace or append writeMode") {
+	if !containsDataPipelineValidationError(summary.Errors, "only supports replace, append, or scd2_merge writeMode") {
 		t.Fatalf("expected writeMode error, got %v", summary.Errors)
 	}
 	if !containsDataPipelineValidationError(summary.Errors, "output tableName must be unique") {

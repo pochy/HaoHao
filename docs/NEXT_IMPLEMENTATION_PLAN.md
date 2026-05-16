@@ -367,7 +367,8 @@ AI coding / agent 改善を触る場合:
 - `union` v1 も 2026-05-15 に実装済み。2 本以上の upstream を列名ベースで `UNION ALL` し、足りない列は空値で補う。任意の `sourceLabelColumn` で branch 由来も保持できる。
 - `partition_filter` / `watermark_filter` v1 も 2026-05-15 に実装済み。固定の `start` / `end` / `watermarkValue` で対象行を絞り込み、run step metadata に filter config を残せる。`watermark_filter` は前回成功 run の `nextWatermarkValue` を次回 run の watermark として解決する mode も実装済み。
 - output node の型付き output / ordering 強化も 2026-05-15 に実装済み。`columns` で上流列の選択、リネーム、`string` / `int64` / `float64` / `bool` / `date` / `datetime` への変換を指定でき、`orderBy` は最終出力列に対して ClickHouse table の primary sort key として使う。
-- 次は `snapshot_scd2` v1 へ進む。
+- `snapshot_scd2` v1、output `writeMode=append`、output `writeMode=scd2_merge` は 2026-05-16 に実装済み。`scd2_merge` は既存 snapshot table の current row と今回 run の current row を比較し、変更 key だけ previous current を close して新 current row を追加する。
+- 次は Gold publish 連携、late arriving data / backfill policy、または snapshot table の運用 UI へ進む。
 
 完了条件:
 
@@ -383,7 +384,8 @@ AI coding / agent 改善を触る場合:
 - output node の `orderBy` と型付き output は完了済み。UI から出力列、型、最終 table の `ORDER BY` を設定できる。
 - `snapshot_scd2` v1 は 2026-05-16 に実装済み。入力内の履歴行を `uniqueKeys` と `updatedAtColumn` で並べ、`valid_from`、`valid_to`、`is_current`、`change_hash` を付与できる。
 - output `writeMode=append` も 2026-05-16 に実装済み。既存 table があれば stage table から追記し、なければ初回 table として作成する。
-- 次は既存 snapshot table との差分 merge / current row close、または Gold publish 連携へ進む。
+- output `writeMode=scd2_merge` も 2026-05-16 に実装済み。既存 table がなければ初回 snapshot table として作成し、既存 table がある場合は stage 側の current row だけを差分候補にして、`uniqueKeys` と `change_hash` で変更有無を判定する。同一データ再実行では行数を増やさず、変更がある key だけ既存 current row の `valid_to` を新 row の `valid_from` で閉じる。
+- 次は Gold publish 連携、late arriving data / backfill policy、または snapshot table の運用 UI へ進む。
 
 完了条件:
 

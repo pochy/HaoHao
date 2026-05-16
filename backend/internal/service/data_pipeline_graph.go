@@ -273,8 +273,8 @@ func validateDataPipelineOutputConfigs(graph DataPipelineGraph) []string {
 			continue
 		}
 		writeMode := dataPipelineOutputWriteMode(node)
-		if writeMode != "replace" && writeMode != "append" {
-			errors = append(errors, "output node only supports replace or append writeMode: "+node.ID)
+		if writeMode != "replace" && writeMode != "append" && writeMode != "scd2_merge" {
+			errors = append(errors, "output node only supports replace, append, or scd2_merge writeMode: "+node.ID)
 		}
 		tableName := strings.TrimSpace(dataPipelineString(node.Data.Config, "tableName"))
 		if tableName != "" {

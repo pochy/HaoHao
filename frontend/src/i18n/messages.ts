@@ -1881,6 +1881,7 @@ const en = {
     writeModeValue: {
       replace: 'Replace',
       append: 'Append',
+      scd2Merge: 'SCD2 merge',
     },
     aggregateFunction: {
       count: 'Count',
@@ -3884,6 +3885,7 @@ const ja: MessageSchema = {
     writeModeValue: {
       replace: '置換',
       append: '追記',
+      scd2Merge: 'SCD2 マージ',
     },
     aggregateFunction: {
       count: '件数',
