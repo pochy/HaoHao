@@ -50,44 +50,7 @@ const (
 	dataPipelineMaxEdges = 80
 )
 
-var dataPipelineStepCatalog = map[string]struct{}{
-	DataPipelineStepInput:             {},
-	DataPipelineStepProfile:           {},
-	DataPipelineStepClean:             {},
-	DataPipelineStepNormalize:         {},
-	DataPipelineStepValidate:          {},
-	DataPipelineStepSchemaMapping:     {},
-	DataPipelineStepSchemaCompletion:  {},
-	DataPipelineStepUnion:             {},
-	DataPipelineStepJoin:              {},
-	DataPipelineStepEnrichJoin:        {},
-	DataPipelineStepTransform:         {},
-	DataPipelineStepOutput:            {},
-	DataPipelineStepExtractText:       {},
-	DataPipelineStepJSONExtract:       {},
-	DataPipelineStepExcelExtract:      {},
-	DataPipelineStepClassifyDocument:  {},
-	DataPipelineStepExtractFields:     {},
-	DataPipelineStepExtractTable:      {},
-	DataPipelineStepProductExtraction: {},
-	DataPipelineStepConfidenceGate:    {},
-	DataPipelineStepQuarantine:        {},
-	DataPipelineStepRouteByCondition:  {},
-	DataPipelineStepPartitionFilter:   {},
-	DataPipelineStepWatermarkFilter:   {},
-	DataPipelineStepSnapshotSCD2:      {},
-	DataPipelineStepDeduplicate:       {},
-	DataPipelineStepCanonicalize:      {},
-	DataPipelineStepRedactPII:         {},
-	DataPipelineStepDetectLanguage:    {},
-	DataPipelineStepSchemaInference:   {},
-	DataPipelineStepEntityResolution:  {},
-	DataPipelineStepUnitConversion:    {},
-	DataPipelineStepRelationship:      {},
-	DataPipelineStepHumanReview:       {},
-	DataPipelineStepSampleCompare:     {},
-	DataPipelineStepQualityReport:     {},
-}
+var dataPipelineStepCatalog = dataPipelineStepCatalogMap()
 
 type DataPipelineGraph struct {
 	Nodes []DataPipelineNode `json:"nodes"`

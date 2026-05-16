@@ -362,7 +362,8 @@ func TestInferOutputSchemasForSnapshotSCD2Pipeline(t *testing.T) {
 }
 
 func TestInferOutputSchemasCoversEveryCatalogStep(t *testing.T) {
-	for stepType := range dataPipelineStepCatalog {
+	for _, entry := range DataPipelineStepCatalog() {
+		stepType := entry.Type
 		t.Run(stepType, func(t *testing.T) {
 			graph := outputSchemaCoverageGraph(stepType)
 			schemas, err := (&DataPipelineService{}).inferOutputSchemas(context.Background(), 1, graph)
