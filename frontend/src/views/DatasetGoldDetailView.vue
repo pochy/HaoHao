@@ -55,6 +55,7 @@ const sourceWorkTableLabel = computed(() => {
   }
   return item.sourceWorkTablePublicId
 })
+const sourceSCD2Summary = computed(() => publication.value?.sourceScd2Summary ?? null)
 const schemaColumns = computed(() => {
   const items = publication.value?.schemaSummary?.items
   if (!Array.isArray(items)) {
@@ -323,6 +324,43 @@ function formatActionError(error: unknown) {
           :loading="datasetStore.goldMedallionLoading"
           :title="t('medallion.goldTitle')"
         />
+      </section>
+
+      <section v-if="sourceSCD2Summary" class="panel stack">
+        <div class="section-header">
+          <div>
+            <span class="status-pill success">{{ t('datasets.snapshotSCD2Detected') }}</span>
+            <h2>{{ t('datasets.goldSCD2Summary') }}</h2>
+            <span class="cell-subtle">{{ t('datasets.goldSCD2SummaryDescription') }}</span>
+          </div>
+        </div>
+
+        <dl class="metadata-grid dataset-metadata-grid">
+          <div>
+            <dt>{{ t('datasets.snapshotTotalRows') }}</dt>
+            <dd class="tabular-cell">{{ n(sourceSCD2Summary.totalRows) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('datasets.snapshotPreviewCurrentRows') }}</dt>
+            <dd class="tabular-cell">{{ n(sourceSCD2Summary.currentRows) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('datasets.snapshotPreviewHistoryRows') }}</dt>
+            <dd class="tabular-cell">{{ n(sourceSCD2Summary.historyRows) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('datasets.snapshotKeyCount') }}</dt>
+            <dd class="tabular-cell">{{ n(sourceSCD2Summary.keyCount) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('datasets.snapshotPreviewKeyColumn') }}</dt>
+            <dd class="monospace-cell">{{ sourceSCD2Summary.keyColumn || '-' }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('datasets.snapshotValidFromRange') }}</dt>
+            <dd class="monospace-cell">{{ sourceSCD2Summary.earliestValidAt || '-' }} - {{ sourceSCD2Summary.latestValidAt || '-' }}</dd>
+          </div>
+        </dl>
       </section>
 
       <section class="panel stack">

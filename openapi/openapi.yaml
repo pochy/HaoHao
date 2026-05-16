@@ -2390,6 +2390,10 @@ components:
           examples:
             - {}
           type: object
+        sourceScd2Summary:
+          $ref: "#/components/schemas/DatasetWorkTableSCD2SummaryBody"
+          examples:
+            - support
         sourceWorkTablePublicId:
           examples:
             - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
@@ -26259,6 +26263,15 @@ paths:
                     refreshPolicy: manual
                     rowCount: 1000
                     schemaSummary: {}
+                    sourceScd2Summary:
+                      currentRows: 4
+                      detected: true
+                      earliestValidAt: "2026-05-01 00:00:00"
+                      historyRows: 8
+                      keyColumn: id
+                      keyCount: 4
+                      latestValidAt: "2026-05-03 00:00:00"
+                      totalRows: 12
                     sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     status: active
                     totalBytes: 1048576
@@ -35695,6 +35708,7 @@ paths:
                         refreshPolicy: manual
                         rowCount: 1000
                         schemaSummary: {}
+                        sourceScd2Summary: {}
                         sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                         status: active
                         totalBytes: 1048576
@@ -35789,6 +35803,15 @@ paths:
                     refreshPolicy: manual
                     rowCount: 1000
                     schemaSummary: {}
+                    sourceScd2Summary:
+                      currentRows: 4
+                      detected: true
+                      earliestValidAt: "2026-05-01 00:00:00"
+                      historyRows: 8
+                      keyColumn: id
+                      keyCount: 4
+                      latestValidAt: "2026-05-03 00:00:00"
+                      totalRows: 12
                     sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     status: active
                     totalBytes: 1048576
@@ -35890,6 +35913,15 @@ paths:
                     refreshPolicy: manual
                     rowCount: 1000
                     schemaSummary: {}
+                    sourceScd2Summary:
+                      currentRows: 4
+                      detected: true
+                      earliestValidAt: "2026-05-01 00:00:00"
+                      historyRows: 8
+                      keyColumn: id
+                      keyCount: 4
+                      latestValidAt: "2026-05-03 00:00:00"
+                      totalRows: 12
                     sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     status: active
                     totalBytes: 1048576
@@ -36238,6 +36270,15 @@ paths:
                     refreshPolicy: manual
                     rowCount: 1000
                     schemaSummary: {}
+                    sourceScd2Summary:
+                      currentRows: 4
+                      detected: true
+                      earliestValidAt: "2026-05-01 00:00:00"
+                      historyRows: 8
+                      keyColumn: id
+                      keyCount: 4
+                      latestValidAt: "2026-05-03 00:00:00"
+                      totalRows: 12
                     sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                     status: active
                     totalBytes: 1048576

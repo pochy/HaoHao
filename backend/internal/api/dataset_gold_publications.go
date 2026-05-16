@@ -11,23 +11,24 @@ import (
 )
 
 type DatasetGoldPublicationBody struct {
-	PublicID                string                     `json:"publicId" format:"uuid"`
-	SourceWorkTablePublicID string                     `json:"sourceWorkTablePublicId,omitempty" format:"uuid"`
-	DisplayName             string                     `json:"displayName" example:"Monthly sales mart"`
-	Description             string                     `json:"description,omitempty"`
-	GoldDatabase            string                     `json:"goldDatabase" example:"hh_t_1_gold"`
-	GoldTable               string                     `json:"goldTable" example:"gm_monthly_sales"`
-	Status                  string                     `json:"status" enum:"pending,active,failed,unpublished,archived" example:"active"`
-	RowCount                int64                      `json:"rowCount" example:"1000"`
-	TotalBytes              int64                      `json:"totalBytes" example:"1048576"`
-	SchemaSummary           map[string]any             `json:"schemaSummary,omitempty"`
-	RefreshPolicy           string                     `json:"refreshPolicy" enum:"manual" example:"manual"`
-	LatestPublishRun        *DatasetGoldPublishRunBody `json:"latestPublishRun,omitempty"`
-	CreatedAt               time.Time                  `json:"createdAt" format:"date-time"`
-	UpdatedAt               time.Time                  `json:"updatedAt" format:"date-time"`
-	PublishedAt             *time.Time                 `json:"publishedAt,omitempty" format:"date-time"`
-	UnpublishedAt           *time.Time                 `json:"unpublishedAt,omitempty" format:"date-time"`
-	ArchivedAt              *time.Time                 `json:"archivedAt,omitempty" format:"date-time"`
+	PublicID                string                           `json:"publicId" format:"uuid"`
+	SourceWorkTablePublicID string                           `json:"sourceWorkTablePublicId,omitempty" format:"uuid"`
+	DisplayName             string                           `json:"displayName" example:"Monthly sales mart"`
+	Description             string                           `json:"description,omitempty"`
+	GoldDatabase            string                           `json:"goldDatabase" example:"hh_t_1_gold"`
+	GoldTable               string                           `json:"goldTable" example:"gm_monthly_sales"`
+	Status                  string                           `json:"status" enum:"pending,active,failed,unpublished,archived" example:"active"`
+	RowCount                int64                            `json:"rowCount" example:"1000"`
+	TotalBytes              int64                            `json:"totalBytes" example:"1048576"`
+	SchemaSummary           map[string]any                   `json:"schemaSummary,omitempty"`
+	SourceSCD2Summary       *DatasetWorkTableSCD2SummaryBody `json:"sourceScd2Summary,omitempty"`
+	RefreshPolicy           string                           `json:"refreshPolicy" enum:"manual" example:"manual"`
+	LatestPublishRun        *DatasetGoldPublishRunBody       `json:"latestPublishRun,omitempty"`
+	CreatedAt               time.Time                        `json:"createdAt" format:"date-time"`
+	UpdatedAt               time.Time                        `json:"updatedAt" format:"date-time"`
+	PublishedAt             *time.Time                       `json:"publishedAt,omitempty" format:"date-time"`
+	UnpublishedAt           *time.Time                       `json:"unpublishedAt,omitempty" format:"date-time"`
+	ArchivedAt              *time.Time                       `json:"archivedAt,omitempty" format:"date-time"`
 }
 
 type DatasetGoldPublishRunBody struct {
@@ -308,6 +309,7 @@ func toDatasetGoldPublicationBody(item service.DatasetGoldPublication) DatasetGo
 		RowCount:                item.RowCount,
 		TotalBytes:              item.TotalBytes,
 		SchemaSummary:           item.SchemaSummary,
+		SourceSCD2Summary:       toDatasetWorkTableSCD2SummaryBody(item.SourceSCD2Summary),
 		RefreshPolicy:           item.RefreshPolicy,
 		CreatedAt:               item.CreatedAt,
 		UpdatedAt:               item.UpdatedAt,

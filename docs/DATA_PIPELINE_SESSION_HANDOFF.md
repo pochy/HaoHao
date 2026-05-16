@@ -194,7 +194,7 @@ make smoke-data-pipeline-snapshot-merge-backfill
 残課題:
 
 - Gold publish 完了後に Data Pipeline run / output へ戻る明確な導線。
-- Gold detail に Data Pipeline source、run id、quality summary、SCD2 policy を表示する。
+- Gold detail に Data Pipeline source、run id、quality summary、SCD2 policy を表示する。SCD2 の row summary は `sourceScd2Summary` として表示済み。
 - Gold publish history と Data Pipeline run history の相互リンク。
 
 ## SCD2 / Snapshot Work Table UI
@@ -248,8 +248,8 @@ Key 単位履歴 drilldown:
 
 今後の拡張候補:
 
-- key column を output metadata や lineage から取得し、候補推定ではなく正確に表示する。
-- Gold detail 側にも SCD2 policy、current row count、history row count、source pipeline run へのリンクを表示する。
+- key column は output metadata の `scd2UniqueKeys[0]` を優先する実装まで完了済み。残りは composite key の UI / API contract。
+- Gold detail 側には `sourceScd2Summary` として current row count、history row count、key count、key column、`valid_from` range を表示済み。残りは SCD2 policy と source pipeline run へのリンク。
 
 ## 主要コミット
 
@@ -313,7 +313,7 @@ docker exec haohao-clickhouse clickhouse-client --query \
 
 次点候補:
 
-- Gold detail に Data Pipeline source / run / quality summary / SCD2 policy を表示する。
+- Gold detail に Data Pipeline source / run / quality summary / SCD2 policy を表示する。SCD2 row summary は完了済み。
 - SCD2 削除検知 policy を設計する。
 - `validate` の行単位 status column と quarantine 連携を設計する。
 - backend step catalog / generated contract への output schema 単一正本化を進める。

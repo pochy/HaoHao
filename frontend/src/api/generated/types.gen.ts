@@ -927,6 +927,7 @@ export type DatasetGoldPublicationBody = {
     schemaSummary?: {
         [key: string]: unknown;
     };
+    sourceScd2Summary?: DatasetWorkTableScd2SummaryBody;
     sourceWorkTablePublicId?: string;
     /**
      * 現在の lifecycle status です。
@@ -5599,6 +5600,7 @@ export type DatasetGoldPublicationBodyWritable = {
     schemaSummary?: {
         [key: string]: unknown;
     };
+    sourceScd2Summary?: DatasetWorkTableScd2SummaryBody;
     sourceWorkTablePublicId?: string;
     /**
      * 現在の lifecycle status です。

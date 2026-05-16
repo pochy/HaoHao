@@ -51,6 +51,7 @@ type DatasetGoldPublication struct {
 	RowCount                int64
 	TotalBytes              int64
 	SchemaSummary           map[string]any
+	SourceSCD2Summary       *DatasetWorkTableSCD2Summary
 	RefreshPolicy           string
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
@@ -479,6 +480,7 @@ func (s *DatasetService) GetGoldPublication(ctx context.Context, tenantID int64,
 	}
 	item := datasetGoldPublicationFromDB(row)
 	s.hydrateGoldPublication(ctx, tenantID, &item)
+	s.hydrateGoldPublicationSCD2Summary(ctx, tenantID, &item)
 	return item, nil
 }
 
@@ -822,6 +824,41 @@ func (s *DatasetService) hydrateGoldPublication(ctx context.Context, tenantID in
 			item.LatestPublishRun = &run
 		}
 	}
+}
+
+func (s *DatasetService) hydrateGoldPublicationSCD2Summary(ctx context.Context, tenantID int64, item *DatasetGoldPublication) {
+	if s == nil || s.queries == nil || item == nil || item.SourceWorkTableID <= 0 {
+		return
+	}
+	workTable, err := s.queries.GetDatasetWorkTableByIDForTenant(ctx, db.GetDatasetWorkTableByIDForTenantParams{ID: item.SourceWorkTableID, TenantID: tenantID})
+	if err != nil || workTable.Status != "active" || workTable.DroppedAt.Valid {
+		return
+	}
+	summary, err := s.summarizeManagedWorkTableSCD2(ctx, tenantID, workTable)
+	if err == nil {
+		item.SourceSCD2Summary = summary
+	}
+}
+
+func (s *DatasetService) summarizeManagedWorkTableSCD2(ctx context.Context, tenantID int64, workTable db.DatasetWorkTable) (*DatasetWorkTableSCD2Summary, error) {
+	columns, err := s.listWorkTableColumns(ctx, workTable.WorkDatabase, workTable.WorkTable)
+	if err != nil {
+		return nil, err
+	}
+	columnNames := make([]string, 0, len(columns))
+	for _, column := range columns {
+		columnNames = append(columnNames, column.ColumnName)
+	}
+	if !datasetWorkTableHasSCD2Columns(columnNames) {
+		return nil, nil
+	}
+	keyColumnHint := s.managedWorkTableSCD2KeyColumn(ctx, tenantID, workTable.ID, columnNames)
+	conn, err := s.openTenantConn(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return s.summarizeSCD2WorkTable(ctx, conn, workTable.WorkDatabase, workTable.WorkTable, columnNames, keyColumnHint)
 }
 
 func (s *DatasetService) hydrateGoldPublishRun(ctx context.Context, tenantID int64, item *DatasetGoldPublishRun) {
