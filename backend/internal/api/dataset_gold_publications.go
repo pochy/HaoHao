@@ -61,20 +61,21 @@ type DatasetGoldSourceQualitySummaryBody struct {
 }
 
 type DatasetGoldPublishRunBody struct {
-	PublicID                string         `json:"publicId" format:"uuid"`
-	PublicationPublicID     string         `json:"publicationPublicId,omitempty" format:"uuid"`
-	SourceWorkTablePublicID string         `json:"sourceWorkTablePublicId,omitempty" format:"uuid"`
-	Status                  string         `json:"status" enum:"pending,processing,completed,failed" example:"completed"`
-	GoldDatabase            string         `json:"goldDatabase" example:"hh_t_1_gold"`
-	GoldTable               string         `json:"goldTable" example:"gm_monthly_sales"`
-	RowCount                int64          `json:"rowCount" example:"1000"`
-	TotalBytes              int64          `json:"totalBytes" example:"1048576"`
-	SchemaSummary           map[string]any `json:"schemaSummary,omitempty"`
-	ErrorSummary            string         `json:"errorSummary,omitempty"`
-	StartedAt               *time.Time     `json:"startedAt,omitempty" format:"date-time"`
-	CompletedAt             *time.Time     `json:"completedAt,omitempty" format:"date-time"`
-	CreatedAt               time.Time      `json:"createdAt" format:"date-time"`
-	UpdatedAt               time.Time      `json:"updatedAt" format:"date-time"`
+	PublicID                string                            `json:"publicId" format:"uuid"`
+	PublicationPublicID     string                            `json:"publicationPublicId,omitempty" format:"uuid"`
+	SourceWorkTablePublicID string                            `json:"sourceWorkTablePublicId,omitempty" format:"uuid"`
+	SourceDataPipelineRun   *DatasetGoldSourcePipelineRunBody `json:"sourceDataPipelineRun,omitempty"`
+	Status                  string                            `json:"status" enum:"pending,processing,completed,failed" example:"completed"`
+	GoldDatabase            string                            `json:"goldDatabase" example:"hh_t_1_gold"`
+	GoldTable               string                            `json:"goldTable" example:"gm_monthly_sales"`
+	RowCount                int64                             `json:"rowCount" example:"1000"`
+	TotalBytes              int64                             `json:"totalBytes" example:"1048576"`
+	SchemaSummary           map[string]any                    `json:"schemaSummary,omitempty"`
+	ErrorSummary            string                            `json:"errorSummary,omitempty"`
+	StartedAt               *time.Time                        `json:"startedAt,omitempty" format:"date-time"`
+	CompletedAt             *time.Time                        `json:"completedAt,omitempty" format:"date-time"`
+	CreatedAt               time.Time                         `json:"createdAt" format:"date-time"`
+	UpdatedAt               time.Time                         `json:"updatedAt" format:"date-time"`
 }
 
 type DatasetGoldPublicationListBody struct {
@@ -397,6 +398,7 @@ func toDatasetGoldPublishRunBody(item service.DatasetGoldPublishRun) DatasetGold
 		PublicID:                item.PublicID,
 		PublicationPublicID:     item.PublicationPublicID,
 		SourceWorkTablePublicID: item.SourceWorkTablePublicID,
+		SourceDataPipelineRun:   toDatasetGoldSourcePipelineRunBody(item.SourceDataPipelineRun),
 		Status:                  item.Status,
 		GoldDatabase:            item.GoldDatabase,
 		GoldTable:               item.GoldTable,

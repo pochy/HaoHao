@@ -170,6 +170,8 @@ npm --prefix frontend run build
 - Gold publication は Work table 起点。
 - Data Pipeline output は managed Work table として登録されるため、Gold とは Work table を介してつながる。
 - Gold detail は `sourceScd2Summary`、`sourceDataPipelineRun`、`sourceDataPipelineRun.qualitySummary` を表示する。
+- Gold publish history の各 run row も `sourceDataPipelineRun` を返し、UI から同期元 Data Pipeline detail の該当 `runPublicId` / `outputNodeId` へ戻れる。
+- 現時点の publish history link は `source_work_table_id` から最新の completed Data Pipeline output を逆引きする v1。publish run 作成時点の厳密な source output 固定には `dataset_gold_publish_runs` への source run/output 参照保存が残る。
 - Data Pipeline output row は `latestGoldPublication` から Gold detail へ進める。
 
 ## Drive / OCR / Product Extraction を触る場合
@@ -316,7 +318,7 @@ Data Pipeline:
 
 Gold / Lineage:
 
-- Gold publish history と Data Pipeline run history の完全な相互リンク。
+- Gold publish history と Data Pipeline run history の完全な相互リンク。v1 は publish history row から source run/output への deep link まで完了。残りは publish run 作成時点の source run/output ID を永続化する厳密履歴。
 - source run step detail を Gold detail から直接見るかどうかの設計。
 
 Review:

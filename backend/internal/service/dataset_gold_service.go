@@ -99,6 +99,7 @@ type DatasetGoldPublishRun struct {
 	PublicationPublicID     string
 	SourceWorkTableID       int64
 	SourceWorkTablePublicID string
+	SourceDataPipelineRun   *DatasetGoldSourceDataPipelineRun
 	RequestedByUserID       *int64
 	OutboxEventID           *int64
 	Status                  string
@@ -565,6 +566,7 @@ func (s *DatasetService) ListGoldPublishRuns(ctx context.Context, tenantID int64
 		item := datasetGoldPublishRunFromDB(row)
 		item.PublicationPublicID = publication.PublicID.String()
 		s.hydrateGoldPublishRun(ctx, tenantID, &item)
+		s.hydrateGoldPublishRunDataPipelineSource(ctx, tenantID, &item)
 		items = append(items, item)
 	}
 	return items, nil
@@ -852,6 +854,7 @@ func (s *DatasetService) hydrateGoldPublication(ctx context.Context, tenantID in
 			run := datasetGoldPublishRunFromDB(row)
 			run.PublicationPublicID = item.PublicID
 			s.hydrateGoldPublishRun(ctx, tenantID, &run)
+			s.hydrateGoldPublishRunDataPipelineSource(ctx, tenantID, &run)
 			item.LatestPublishRun = &run
 		}
 	}
@@ -872,8 +875,22 @@ func (s *DatasetService) hydrateGoldPublicationSCD2Summary(ctx context.Context, 
 }
 
 func (s *DatasetService) hydrateGoldPublicationDataPipelineSource(ctx context.Context, tenantID int64, item *DatasetGoldPublication) {
-	if s == nil || s.pool == nil || item == nil || item.SourceWorkTableID <= 0 {
+	if item == nil || item.SourceWorkTableID <= 0 {
 		return
+	}
+	item.SourceDataPipelineRun = s.goldSourceDataPipelineRunForWorkTable(ctx, tenantID, item.SourceWorkTableID)
+}
+
+func (s *DatasetService) hydrateGoldPublishRunDataPipelineSource(ctx context.Context, tenantID int64, item *DatasetGoldPublishRun) {
+	if item == nil || item.SourceWorkTableID <= 0 {
+		return
+	}
+	item.SourceDataPipelineRun = s.goldSourceDataPipelineRunForWorkTable(ctx, tenantID, item.SourceWorkTableID)
+}
+
+func (s *DatasetService) goldSourceDataPipelineRunForWorkTable(ctx context.Context, tenantID, workTableID int64) *DatasetGoldSourceDataPipelineRun {
+	if s == nil || s.pool == nil || workTableID <= 0 {
+		return nil
 	}
 	const query = `
 SELECT
@@ -897,7 +914,7 @@ LIMIT 1`
 	var source DatasetGoldSourceDataPipelineRun
 	var completedAt pgtype.Timestamptz
 	var metadataBytes []byte
-	err := s.pool.QueryRow(ctx, query, tenantID, item.SourceWorkTableID).Scan(
+	err := s.pool.QueryRow(ctx, query, tenantID, workTableID).Scan(
 		&source.RunID,
 		&source.PipelinePublicID,
 		&source.PipelineName,
@@ -909,10 +926,10 @@ LIMIT 1`
 		&completedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return
+		return nil
 	}
 	if err != nil {
-		return
+		return nil
 	}
 	metadata := jsonObjectFromBytes(metadataBytes)
 	source.OutputWriteMode = dataPipelineString(metadata, "writeMode")
@@ -920,7 +937,7 @@ LIMIT 1`
 	source.SCD2UniqueKeys = dataPipelineStringSlice(metadata, "scd2UniqueKeys")
 	source.QualitySummary = s.summarizeGoldPublicationSourceQuality(ctx, tenantID, source.RunID)
 	source.CompletedAt = optionalPgTime(completedAt)
-	item.SourceDataPipelineRun = &source
+	return &source
 }
 
 func (s *DatasetService) summarizeGoldPublicationSourceQuality(ctx context.Context, tenantID, runID int64) *DatasetGoldSourceQualitySummary {

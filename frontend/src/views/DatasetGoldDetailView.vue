@@ -59,7 +59,10 @@ const sourceSCD2Summary = computed(() => publication.value?.sourceScd2Summary ??
 const sourceDataPipelineRun = computed(() => publication.value?.sourceDataPipelineRun ?? null)
 const sourceQualitySummary = computed(() => sourceDataPipelineRun.value?.qualitySummary ?? null)
 const sourcePipelineOutputFacts = computed(() => {
-  const source = sourceDataPipelineRun.value
+  return sourcePipelineOutputFactsFor(sourceDataPipelineRun.value)
+})
+
+function sourcePipelineOutputFactsFor(source: typeof sourceDataPipelineRun.value) {
   if (!source) {
     return [] as string[]
   }
@@ -77,7 +80,7 @@ const sourcePipelineOutputFacts = computed(() => {
     facts.push(`${t('datasets.rows')}: ${n(source.outputRowCount)}`)
   }
   return facts
-})
+}
 const sourceQualityFacts = computed(() => {
   const quality = sourceQualitySummary.value
   if (!quality) {
@@ -567,6 +570,7 @@ function formatActionError(error: unknown) {
               <tr>
                 <th>{{ t('common.status') }}</th>
                 <th>{{ t('datasets.goldSqlTable') }}</th>
+                <th>{{ t('datasets.sourcePipeline') }}</th>
                 <th>{{ t('datasets.rows') }}</th>
                 <th>{{ t('datasets.started') }}</th>
                 <th>{{ t('datasets.completed') }}</th>
@@ -577,6 +581,27 @@ function formatActionError(error: unknown) {
               <tr v-for="run in datasetStore.goldPublishRuns" :key="run.publicId">
                 <td><span class="status-pill" :class="statusClass(run.status)">{{ run.status }}</span></td>
                 <td class="monospace-cell">`{{ run.goldDatabase }}`.`{{ run.goldTable }}`</td>
+                <td>
+                  <RouterLink
+                    v-if="run.sourceDataPipelineRun"
+                    class="monospace-cell"
+                    :to="{
+                      name: 'data-pipeline-detail',
+                      params: { pipelinePublicId: run.sourceDataPipelineRun.pipelinePublicId },
+                      query: { runPublicId: run.sourceDataPipelineRun.runPublicId, outputNodeId: run.sourceDataPipelineRun.outputNodeId },
+                    }"
+                  >
+                    {{ run.sourceDataPipelineRun.pipelineName || run.sourceDataPipelineRun.pipelinePublicId }}
+                  </RouterLink>
+                  <span v-else class="cell-subtle">-</span>
+                  <small v-if="run.sourceDataPipelineRun" class="cell-subtle">
+                    {{ t('datasets.sourcePipelineRun') }} {{ run.sourceDataPipelineRun.runPublicId }}
+                    · {{ run.sourceDataPipelineRun.outputNodeId }}
+                  </small>
+                  <small v-if="run.sourceDataPipelineRun && sourcePipelineOutputFactsFor(run.sourceDataPipelineRun).length" class="cell-subtle">
+                    {{ sourcePipelineOutputFactsFor(run.sourceDataPipelineRun).join(' · ') }}
+                  </small>
+                </td>
                 <td class="tabular-cell">{{ n(run.rowCount) }}</td>
                 <td>{{ formatDate(run.startedAt || run.createdAt) }}</td>
                 <td>{{ formatDate(run.completedAt) }}</td>

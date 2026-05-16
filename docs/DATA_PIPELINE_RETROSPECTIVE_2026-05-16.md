@@ -36,13 +36,14 @@ Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行
 - Data Pipeline output から Gold publish。
 - Gold detail の source Work table link、source SCD2 summary、source Data Pipeline run link、source output metadata summary、source quality summary。
 - Gold detail から Data Pipeline Runs tab の該当 run/output row への deep link。
+- Gold publish history row から Data Pipeline run/output へ戻る deep link v1。
 
 現時点で「未完了」として残すべき領域:
 
 - SCD2 削除検知 policy のうち `deleteDetection=close_current` v1。`mark_deleted` は未完了。
 - 同一 key / 同一 `valid_from` に複数変更がある場合の `sameValidFromPolicy=reject` v1。高度な winner policy は未完了。
 - composite key の SCD2 key history API / UI v1。
-- Gold publish history と Data Pipeline run history のより完全な相互リンク。
+- Gold publish history と Data Pipeline run history の厳密履歴化。v1 deep link は完了済みで、残りは publish run 作成時点の source run/output 参照を永続化すること。
 - `validate` の行単位 status column と quarantine 連携。
 - backend step catalog / generated contract への output schema 単一正本化。
 - review item の担当者割当、修正値の再投入 run、review 履歴 UI。
@@ -190,10 +191,11 @@ bfcbb4a Align data pipeline inspector column inference
 - Gold detail に `sourceDataPipelineRun` を追加し、source pipeline、run、output node、write mode、SCD2 merge policy、unique keys、row count を表示した。
 - `sourceDataPipelineRun.qualitySummary` を追加し、source run の step metadata から warning、failed rows、review items、validation errors / warnings、confidence gate、quarantine、quality row/column count を集約した。
 - Gold detail の source pipeline link に `runPublicId` / `outputNodeId` query を付け、Data Pipeline detail は Runs tab を開いて該当 row をハイライトするようにした。
+- Gold publish history row にも `sourceDataPipelineRun` を返し、各 publish run row から Data Pipeline detail の該当 run/output へ戻れるようにした。
 
 残課題:
 
-- Gold publish history と Data Pipeline run history の完全な相互リンク。
+- Gold publish history の厳密履歴化。現状 v1 は source Work table から最新 completed output を逆引きするため、publish run 作成時点の source output を DB に保存する余地がある。
 - source run step の詳細 dialog を Gold detail から直接開くかどうかは未設計。
 
 ## 現在の API / metadata 正本
@@ -477,13 +479,20 @@ make smoke-data-pipeline-snapshot-merge-backfill
 
 - Gold detail から source run/output へ戻れるようになった。
 - Data Pipeline output から最新 Gold publication へ進めるようになった。
-- ただし publish history の各 run と Data Pipeline run history を完全に対応付けるわけではない。
+- publish history の各 run からも Data Pipeline run history へ戻る必要がある。
 
-実装方針:
+対応:
 
-- `dataset_gold_publish_runs` に source run output 参照を保存するか、現状の reverse lookup を publish run history 単位へ拡張する。
-- UI は Gold publish run row から source run/output へ移動できるようにする。
-- 既存 publication の backward compatibility を考慮し、参照がない場合は source Work table から最新 completed output を fallback 表示する。
+- v1 として `DatasetGoldPublishRunBody.sourceDataPipelineRun` を追加した。
+- service 層では `dataset_gold_publish_runs.source_work_table_id` から、その Work table を最後に作った completed Data Pipeline run output を逆引きする。
+- API は publication detail と同じ `DatasetGoldSourcePipelineRunBody` を publish run row にも返す。
+- UI は Gold detail の publish history table に同期元 Pipeline 列を追加し、source pipeline detail の `runPublicId` / `outputNodeId` へ deep link できるようにした。
+
+残課題:
+
+- v1 は `source_work_table_id` から最新 completed output を逆引きするため、同じ Work table が後続 Data Pipeline run で更新された後に過去 publish run を開くと、当時の source output ではなく最新 source output を指す可能性がある。
+- 厳密な履歴には、`dataset_gold_publish_runs` に source Data Pipeline run/output 参照を保存する必要がある。
+- 既存行は nullable のまま扱うか、`source_work_table_id` と時刻から best-effort backfill する。
 
 ## AI coding 改善として残すこと
 

@@ -1022,6 +1022,7 @@ export type DatasetGoldPublishRunBody = {
     schemaSummary?: {
         [key: string]: unknown;
     };
+    sourceDataPipelineRun?: DatasetGoldSourcePipelineRunBody;
     sourceWorkTablePublicId?: string;
     startedAt?: string;
     /**
@@ -5714,6 +5715,7 @@ export type DatasetGoldPublishRunBodyWritable = {
     schemaSummary?: {
         [key: string]: unknown;
     };
+    sourceDataPipelineRun?: DatasetGoldSourcePipelineRunBody;
     sourceWorkTablePublicId?: string;
     startedAt?: string;
     /**

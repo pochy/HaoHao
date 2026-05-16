@@ -22,7 +22,7 @@ Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Mont
 
 現在の次タスクは、機能をさらに横に増やすことではなく、運用 UI と説明性を強くすることです。優先候補は次です。
 
-1. Gold publish history と Data Pipeline run history のより完全な相互リンク。
+1. Gold publish history と Data Pipeline run history の厳密履歴化。v1 として Gold publish history row から source Data Pipeline run/output へ戻る deep link は完了済み。残りは publish run 作成時点の source run/output 参照を永続化すること。
 2. backend step catalog / generated contract への output schema 単一正本化。
 3. `mark_deleted` / winner policy などの高度 SCD2 policy 検討。
 
@@ -201,7 +201,9 @@ make smoke-data-pipeline-snapshot-merge-backfill
 残課題:
 
 - Gold detail の quality summary は `sourceDataPipelineRun.qualitySummary` として表示済み。SCD2 の row summary は `sourceScd2Summary` として表示済みで、Data Pipeline source / run id / SCD2 merge policy は `sourceDataPipelineRun` として表示済み。
-- Gold publish history と Data Pipeline run history の相互リンク。
+- Gold publish history と Data Pipeline run history の相互リンク。Gold detail の publish history row は `sourceDataPipelineRun` を表示し、source Data Pipeline detail の `runPublicId` / `outputNodeId` へ deep link できる。
+- 上記は `source_work_table_id` から最新 completed output を逆引きする v1。Work table が後続 run で更新された後に過去の publish run を見ると、厳密な当時の source output ではなく最新 source output を指す可能性がある。
+- 厳密化する場合は `dataset_gold_publish_runs` に Data Pipeline run/output 参照を保存し、既存行は backfill または nullable のまま扱う。
 
 ## SCD2 / Snapshot Work Table UI
 
@@ -318,7 +320,7 @@ docker exec haohao-clickhouse clickhouse-client --query \
 
 ## 次にやること
 
-最優先候補は `Gold publish history と Data Pipeline run history のより完全な相互リンク` です。
+最優先候補は `Gold publish history の厳密履歴化` です。Gold publish history row から source run/output へ戻る v1 は完了しているため、次は publish run 作成時点の Data Pipeline run/output 参照を DB に保存し、過去 publish run が後続 run の影響を受けないようにします。
 
 実装案:
 
