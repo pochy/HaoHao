@@ -22,9 +22,9 @@ Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Mont
 
 現在の次タスクは、機能をさらに横に増やすことではなく、運用 UI と説明性を強くすることです。優先候補は次です。
 
-1. `deleteDetection=close_current` / `sameValidFromPolicy=reject` の Output 設定 UI と高度 policy 検討。
-2. Gold publish history と Data Pipeline run history のより完全な相互リンク。
-3. backend step catalog / generated contract への output schema 単一正本化。
+1. Gold publish history と Data Pipeline run history のより完全な相互リンク。
+2. backend step catalog / generated contract への output schema 単一正本化。
+3. `mark_deleted` / winner policy などの高度 SCD2 policy 検討。
 
 ## 実装済みの流れ
 
@@ -318,11 +318,10 @@ docker exec haohao-clickhouse clickhouse-client --query \
 
 ## 次にやること
 
-最優先候補は `SCD2 policy の UI 設定` です。
+最優先候補は `Gold publish history と Data Pipeline run history のより完全な相互リンク` です。
 
 実装案:
 
-- Output 設定 UI から `deleteDetection=close_current` と `sameValidFromPolicy=reject` を確認・設定できるようにする。
 - `mark_deleted`、`latest_ingested_wins`、`highest_source_priority_wins` のような高度 policy を採用するかは業務要件に合わせて別途決める。
 
 次点候補:

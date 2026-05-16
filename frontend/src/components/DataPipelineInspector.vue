@@ -2778,6 +2778,20 @@ function labelForStep(type: DataPipelineStepType | string) {
                 <option value="rebuild_key_history">{{ optionLabel('dataPipelines.scd2MergePolicyValue.rebuildKeyHistory', 'rebuild_key_history') }}</option>
               </select>
             </label>
+            <label v-if="(stringConfig('scd2MergePolicy') || 'current_only') === 'current_only'" class="field">
+              <span>{{ t('dataPipelines.deleteDetection') }}</span>
+              <select :value="stringConfig('deleteDetection') || 'none'" @change="updateConfigField('deleteDetection', targetValue($event))">
+                <option value="none">{{ optionLabel('dataPipelines.deleteDetectionValue.none', 'none') }}</option>
+                <option value="close_current">{{ optionLabel('dataPipelines.deleteDetectionValue.closeCurrent', 'close_current') }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>{{ t('dataPipelines.sameValidFromPolicy') }}</span>
+              <select :value="stringConfig('sameValidFromPolicy') || 'reject'" @change="updateConfigField('sameValidFromPolicy', targetValue($event))">
+                <option value="reject">{{ optionLabel('dataPipelines.sameValidFromPolicyValue.reject', 'reject') }}</option>
+                <option value="allow">{{ optionLabel('dataPipelines.sameValidFromPolicyValue.allow', 'allow') }}</option>
+              </select>
+            </label>
             <label class="field">
               <span>{{ t('dataPipelines.uniqueKeys') }}</span>
               <input :value="stringList(configDraft.uniqueKeys).join(', ')" list="data-pipeline-column-options" @input="updateConfigList('uniqueKeys', targetValue($event))">

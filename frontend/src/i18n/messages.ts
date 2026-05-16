@@ -1676,6 +1676,8 @@ const en = {
     tableName: 'Table name',
     writeMode: 'Write mode',
     scd2MergePolicy: 'SCD2 merge policy',
+    deleteDetection: 'Delete detection',
+    sameValidFromPolicy: 'Same valid-from policy',
     engine: 'Engine',
     outputColumns: 'Output columns',
     addOutputColumn: 'Add output column',
@@ -1931,6 +1933,14 @@ const en = {
     scd2MergePolicyValue: {
       currentOnly: 'Current rows only',
       rebuildKeyHistory: 'Rebuild affected key history',
+    },
+    deleteDetectionValue: {
+      none: 'None',
+      closeCurrent: 'Close missing current rows',
+    },
+    sameValidFromPolicyValue: {
+      reject: 'Reject conflicts',
+      allow: 'Allow',
     },
     aggregateFunction: {
       count: 'Count',
@@ -3729,6 +3739,8 @@ const ja: MessageSchema = {
     tableName: 'テーブル名',
     writeMode: '書き込み方式',
     scd2MergePolicy: 'SCD2 merge 方針',
+    deleteDetection: '削除検知',
+    sameValidFromPolicy: '同一 valid_from 方針',
     engine: 'エンジン',
     outputColumns: '出力列',
     addOutputColumn: '出力列を追加',
@@ -3984,6 +3996,14 @@ const ja: MessageSchema = {
     scd2MergePolicyValue: {
       currentOnly: '現在行のみ',
       rebuildKeyHistory: '対象キーの履歴を再構築',
+    },
+    deleteDetectionValue: {
+      none: 'なし',
+      closeCurrent: '消えた現在行を閉じる',
+    },
+    sameValidFromPolicyValue: {
+      reject: '衝突を拒否',
+      allow: '許可',
     },
     aggregateFunction: {
       count: '件数',

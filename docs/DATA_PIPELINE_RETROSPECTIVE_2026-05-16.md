@@ -39,7 +39,7 @@ Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行
 
 現時点で「未完了」として残すべき領域:
 
-- SCD2 削除検知 policy のうち `deleteDetection=close_current` v1。`mark_deleted` と UI 設定は未完了。
+- SCD2 削除検知 policy のうち `deleteDetection=close_current` v1。`mark_deleted` は未完了。
 - 同一 key / 同一 `valid_from` に複数変更がある場合の `sameValidFromPolicy=reject` v1。高度な winner policy は未完了。
 - composite key の SCD2 key history API / UI v1。
 - Gold publish history と Data Pipeline run history のより完全な相互リンク。
@@ -431,7 +431,7 @@ make smoke-data-pipeline-snapshot-merge-backfill
 残り:
 
 - `deleteDetection=mark_deleted` は未実装。
-- Data Pipeline Output 設定 UI から `deleteDetection` を選べる導線は未実装。
+- Data Pipeline Output 設定 UI から `deleteDetection` を選べる導線は実装済み。
 - full snapshot input であることを UI 上で明示させる説明 / guard は未実装。
 
 ### 2. 同一 key / 同一 `valid_from` policy
@@ -453,7 +453,7 @@ make smoke-data-pipeline-snapshot-merge-backfill
 
 - `latest_ingested_wins`、`highest_source_priority_wins` のような winner policy は未実装。
 - conflict sample を専用 metadata として保存するところまでは未実装。現状は run / output の `errorSummary` で原因を追える。
-- UI から policy を選択する導線は未実装。
+- UI から `sameValidFromPolicy` を選択する導線は実装済み。
 
 ### 3. Composite key SCD2 history
 
