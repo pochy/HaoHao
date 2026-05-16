@@ -63,6 +63,7 @@ type DatasetGoldPublication struct {
 }
 
 type DatasetGoldSourceDataPipelineRun struct {
+	RunID            int64
 	PipelinePublicID string
 	PipelineName     string
 	RunPublicID      string
@@ -72,7 +73,22 @@ type DatasetGoldSourceDataPipelineRun struct {
 	OutputWriteMode  string
 	SCD2MergePolicy  string
 	SCD2UniqueKeys   []string
+	QualitySummary   *DatasetGoldSourceQualitySummary
 	CompletedAt      *time.Time
+}
+
+type DatasetGoldSourceQualitySummary struct {
+	StepCount                 int64
+	WarningCount              int64
+	FailedRows                int64
+	ReviewItemCount           int64
+	QualityRows               int64
+	QualityColumns            int64
+	ValidationErrors          int64
+	ValidationWarnings        int64
+	ConfidencePassRows        int64
+	ConfidenceNeedsReviewRows int64
+	QuarantinedRows           int64
 }
 
 type DatasetGoldPublishRun struct {
@@ -861,6 +877,7 @@ func (s *DatasetService) hydrateGoldPublicationDataPipelineSource(ctx context.Co
 	}
 	const query = `
 SELECT
+	r.id,
 	p.public_id::text,
 	p.name,
 	r.public_id::text,
@@ -881,6 +898,7 @@ LIMIT 1`
 	var completedAt pgtype.Timestamptz
 	var metadataBytes []byte
 	err := s.pool.QueryRow(ctx, query, tenantID, item.SourceWorkTableID).Scan(
+		&source.RunID,
 		&source.PipelinePublicID,
 		&source.PipelineName,
 		&source.RunPublicID,
@@ -900,8 +918,75 @@ LIMIT 1`
 	source.OutputWriteMode = dataPipelineString(metadata, "writeMode")
 	source.SCD2MergePolicy = dataPipelineString(metadata, "scd2MergePolicy")
 	source.SCD2UniqueKeys = dataPipelineStringSlice(metadata, "scd2UniqueKeys")
+	source.QualitySummary = s.summarizeGoldPublicationSourceQuality(ctx, tenantID, source.RunID)
 	source.CompletedAt = optionalPgTime(completedAt)
 	item.SourceDataPipelineRun = &source
+}
+
+func (s *DatasetService) summarizeGoldPublicationSourceQuality(ctx context.Context, tenantID, runID int64) *DatasetGoldSourceQualitySummary {
+	if s == nil || s.queries == nil || runID <= 0 {
+		return nil
+	}
+	rows, err := s.queries.ListDataPipelineRunSteps(ctx, db.ListDataPipelineRunStepsParams{TenantID: tenantID, RunID: runID})
+	if err != nil || len(rows) == 0 {
+		return nil
+	}
+	summary := &DatasetGoldSourceQualitySummary{StepCount: int64(len(rows))}
+	for _, row := range rows {
+		metadata := decodeDataPipelineJSONMap(row.Metadata)
+		summary.WarningCount += metadataInt64(metadata, "warningCount")
+		summary.FailedRows += metadataInt64(metadata, "failedRows")
+		summary.ReviewItemCount += metadataInt64(metadata, "reviewItemCount")
+		summary.QuarantinedRows += metadataInt64(metadata, "quarantinedRows")
+		if quality := metadataMap(metadata, "quality"); quality != nil {
+			summary.QualityRows = maxInt64(summary.QualityRows, metadataInt64(quality, "rowCount"))
+			summary.QualityColumns = maxInt64(summary.QualityColumns, metadataInt64(quality, "columnCount"))
+		}
+		if validation := metadataMap(metadata, "validation"); validation != nil {
+			summary.ValidationErrors += metadataInt64(validation, "errorCount")
+			summary.ValidationWarnings += metadataInt64(validation, "warningCount")
+		}
+		if confidenceGate := metadataMap(metadata, "confidenceGate"); confidenceGate != nil {
+			summary.ConfidencePassRows += metadataInt64(confidenceGate, "passRows")
+			summary.ConfidenceNeedsReviewRows += metadataInt64(confidenceGate, "needsReviewRows")
+		}
+	}
+	return summary
+}
+
+func metadataMap(metadata map[string]any, key string) map[string]any {
+	value, ok := metadata[key]
+	if !ok || value == nil {
+		return nil
+	}
+	out, _ := value.(map[string]any)
+	return out
+}
+
+func metadataInt64(metadata map[string]any, key string) int64 {
+	value, ok := metadata[key]
+	if !ok || value == nil {
+		return 0
+	}
+	switch typed := value.(type) {
+	case int:
+		return int64(typed)
+	case int64:
+		return typed
+	case float64:
+		return int64(typed)
+	case float32:
+		return int64(typed)
+	default:
+		return 0
+	}
+}
+
+func maxInt64(left, right int64) int64 {
+	if right > left {
+		return right
+	}
+	return left
 }
 
 func (s *DatasetService) summarizeManagedWorkTableSCD2(ctx context.Context, tenantID int64, workTable db.DatasetWorkTable) (*DatasetWorkTableSCD2Summary, error) {

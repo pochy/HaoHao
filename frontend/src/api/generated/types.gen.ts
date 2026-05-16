@@ -1053,10 +1053,25 @@ export type DatasetGoldSourcePipelineRunBody = {
     outputWriteMode?: 'replace' | 'append' | 'scd2_merge';
     pipelineName: string;
     pipelinePublicId: string;
+    qualitySummary?: DatasetGoldSourceQualitySummaryBody;
     runPublicId: string;
     runStatus: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
     scd2MergePolicy?: 'current_only' | 'rebuild_key_history';
     scd2UniqueKeys?: Array<string> | null;
+};
+
+export type DatasetGoldSourceQualitySummaryBody = {
+    confidenceNeedsReviewRows: number;
+    confidencePassRows: number;
+    failedRows: number;
+    qualityColumns: number;
+    qualityRows: number;
+    quarantinedRows: number;
+    reviewItemCount: number;
+    stepCount: number;
+    validationErrors: number;
+    validationWarnings: number;
+    warningCount: number;
 };
 
 export type DatasetImportErrorBody = {

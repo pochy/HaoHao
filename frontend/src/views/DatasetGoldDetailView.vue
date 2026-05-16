@@ -57,6 +57,7 @@ const sourceWorkTableLabel = computed(() => {
 })
 const sourceSCD2Summary = computed(() => publication.value?.sourceScd2Summary ?? null)
 const sourceDataPipelineRun = computed(() => publication.value?.sourceDataPipelineRun ?? null)
+const sourceQualitySummary = computed(() => sourceDataPipelineRun.value?.qualitySummary ?? null)
 const sourcePipelineOutputFacts = computed(() => {
   const source = sourceDataPipelineRun.value
   if (!source) {
@@ -76,6 +77,22 @@ const sourcePipelineOutputFacts = computed(() => {
     facts.push(`${t('datasets.rows')}: ${n(source.outputRowCount)}`)
   }
   return facts
+})
+const sourceQualityFacts = computed(() => {
+  const quality = sourceQualitySummary.value
+  if (!quality) {
+    return []
+  }
+  return [
+    { label: t('datasets.sourceQualitySteps'), value: n(quality.stepCount) },
+    { label: t('datasets.sourceQualityWarnings'), value: n(quality.warningCount) },
+    { label: t('datasets.sourceQualityFailedRows'), value: n(quality.failedRows) },
+    { label: t('datasets.sourceQualityReviewItems'), value: n(quality.reviewItemCount) },
+    { label: t('datasets.sourceQualityValidationErrors'), value: n(quality.validationErrors) },
+    { label: t('datasets.sourceQualityValidationWarnings'), value: n(quality.validationWarnings) },
+    { label: t('datasets.sourceQualityNeedsReviewRows'), value: n(quality.confidenceNeedsReviewRows) },
+    { label: t('datasets.sourceQualityQuarantinedRows'), value: n(quality.quarantinedRows) },
+  ]
 })
 const schemaColumns = computed(() => {
   const items = publication.value?.schemaSummary?.items
@@ -395,6 +412,33 @@ function formatActionError(error: unknown) {
           :loading="datasetStore.goldMedallionLoading"
           :title="t('medallion.goldTitle')"
         />
+      </section>
+
+      <section v-if="sourceQualitySummary" class="panel stack">
+        <div class="section-header">
+          <div>
+            <span class="status-pill">{{ t('datasets.sourceQuality') }}</span>
+            <h2>{{ t('datasets.sourceQualitySummary') }}</h2>
+            <span class="cell-subtle">{{ t('datasets.sourceQualitySummaryDescription') }}</span>
+          </div>
+        </div>
+
+        <dl class="metadata-grid dataset-metadata-grid">
+          <div v-for="fact in sourceQualityFacts" :key="fact.label">
+            <dt>{{ fact.label }}</dt>
+            <dd class="tabular-cell">{{ fact.value }}</dd>
+          </div>
+          <div v-if="sourceQualitySummary.qualityRows || sourceQualitySummary.qualityColumns">
+            <dt>{{ t('datasets.sourceQualityProfile') }}</dt>
+            <dd class="tabular-cell">
+              {{ n(sourceQualitySummary.qualityRows) }} / {{ n(sourceQualitySummary.qualityColumns) }}
+            </dd>
+          </div>
+          <div v-if="sourceQualitySummary.confidencePassRows">
+            <dt>{{ t('datasets.sourceQualityPassRows') }}</dt>
+            <dd class="tabular-cell">{{ n(sourceQualitySummary.confidencePassRows) }}</dd>
+          </div>
+        </dl>
       </section>
 
       <section v-if="sourceSCD2Summary" class="panel stack">

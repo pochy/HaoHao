@@ -193,11 +193,12 @@ make smoke-data-pipeline-snapshot-merge-backfill
 - `make smoke-data-pipeline-snapshot-merge-backfill` で metadata に `scd2MergePolicy=rebuild_key_history`、`scd2UniqueKeys=["id"]` が入る。
 - agent-browser で Runs tab の `Publish output to Gold` ボタンを押し、Gold detail へ遷移することを確認した。
 - Gold detail API は `sourceDataPipelineRun` を返し、UI は `同期元 Pipeline` として pipeline detail link、run public ID、output node ID、write mode、SCD2 merge policy、unique keys、output row count を表示する。
+- Gold detail API は source run の `data_pipeline_run_steps.metadata` も集約し、step count、warning count、failed rows、review item count、validation errors / warnings、confidence gate pass / needs-review rows、quarantined rows、quality rows / columns を `sourceDataPipelineRun.qualitySummary` として返す。UI は `同期元品質サマリー` panel で表示する。
 
 残課題:
 
 - Gold detail から Data Pipeline detail へは戻れるが、Runs tab の該当 run / output 行まで自動スクロール・選択する deep link はまだない。
-- Gold detail に quality summary を表示する。SCD2 の row summary は `sourceScd2Summary` として表示済みで、Data Pipeline source / run id / SCD2 merge policy は `sourceDataPipelineRun` として表示済み。
+- Gold detail の quality summary は `sourceDataPipelineRun.qualitySummary` として表示済み。SCD2 の row summary は `sourceScd2Summary` として表示済みで、Data Pipeline source / run id / SCD2 merge policy は `sourceDataPipelineRun` として表示済み。
 - Gold publish history と Data Pipeline run history の相互リンク。
 
 ## SCD2 / Snapshot Work Table UI
@@ -252,7 +253,7 @@ Key 単位履歴 drilldown:
 今後の拡張候補:
 
 - key column は output metadata の `scd2UniqueKeys[0]` を優先する実装まで完了済み。残りは composite key の UI / API contract。
-- Gold detail 側には `sourceScd2Summary` として current row count、history row count、key count、key column、`valid_from` range を表示済み。同期元 Work table への deep link、同期元 Data Pipeline detail への link、Data Pipeline Runs tab の output 行から Gold detail へ進む link も追加済み。`sourceDataPipelineRun` には write mode、SCD2 merge policy、unique keys、output row count も表示済み。残りは quality summary と run/output 行への深い選択リンク。
+- Gold detail 側には `sourceScd2Summary` として current row count、history row count、key count、key column、`valid_from` range を表示済み。同期元 Work table への deep link、同期元 Data Pipeline detail への link、Data Pipeline Runs tab の output 行から Gold detail へ進む link も追加済み。`sourceDataPipelineRun` には write mode、SCD2 merge policy、unique keys、output row count、quality summary も表示済み。残りは run/output 行への深い選択リンク。
 
 ## 主要コミット
 
@@ -305,13 +306,13 @@ docker exec haohao-clickhouse clickhouse-client --query \
 
 ## 次にやること
 
-最優先候補は `SCD2 削除検知 policy と Gold detail の品質 summary` です。
+最優先候補は `SCD2 削除検知 policy と run/output 行への深い選択リンク` です。
 
 実装案:
 
 - `scd2_merge` で stage に現れなかった既存 current key をどう扱うかを policy 化する。初期値は削除検知なしにし、`mark_deleted` のような明示 opt-in を検討する。
 - 同一 key / 同一 `valid_from` に複数変更が来た場合の優先規則を決める。`change_hash` が異なる場合に reject するか、最新 ingestion を勝たせるかを明示する。
-- Gold detail の `sourceDataPipelineRun` から対象 run の step metadata を読み、quality summary を表示する。SCD2 merge policy は output metadata summary として表示済み。
+- Data Pipeline detail の Runs tab に `runPublicId` / `outputNodeId` query を受けて該当 run を開く deep link を追加する。Gold detail は source pipeline link にこの query を付ける。
 - Data Pipeline detail の Runs tab に `runPublicId` / `outputNodeId` query を受けて該当 run を開く deep link を追加する。
 
 次点候補:

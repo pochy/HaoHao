@@ -33,16 +33,31 @@ type DatasetGoldPublicationBody struct {
 }
 
 type DatasetGoldSourcePipelineRunBody struct {
-	PipelinePublicID string     `json:"pipelinePublicId" format:"uuid"`
-	PipelineName     string     `json:"pipelineName"`
-	RunPublicID      string     `json:"runPublicId" format:"uuid"`
-	RunStatus        string     `json:"runStatus" enum:"pending,processing,completed,failed,skipped" example:"completed"`
-	OutputNodeID     string     `json:"outputNodeId"`
-	OutputRowCount   int64      `json:"outputRowCount" example:"1000"`
-	OutputWriteMode  string     `json:"outputWriteMode,omitempty" enum:"replace,append,scd2_merge" example:"scd2_merge"`
-	SCD2MergePolicy  string     `json:"scd2MergePolicy,omitempty" enum:"current_only,rebuild_key_history" example:"current_only"`
-	SCD2UniqueKeys   []string   `json:"scd2UniqueKeys,omitempty"`
-	CompletedAt      *time.Time `json:"completedAt,omitempty" format:"date-time"`
+	PipelinePublicID string                               `json:"pipelinePublicId" format:"uuid"`
+	PipelineName     string                               `json:"pipelineName"`
+	RunPublicID      string                               `json:"runPublicId" format:"uuid"`
+	RunStatus        string                               `json:"runStatus" enum:"pending,processing,completed,failed,skipped" example:"completed"`
+	OutputNodeID     string                               `json:"outputNodeId"`
+	OutputRowCount   int64                                `json:"outputRowCount" example:"1000"`
+	OutputWriteMode  string                               `json:"outputWriteMode,omitempty" enum:"replace,append,scd2_merge" example:"scd2_merge"`
+	SCD2MergePolicy  string                               `json:"scd2MergePolicy,omitempty" enum:"current_only,rebuild_key_history" example:"current_only"`
+	SCD2UniqueKeys   []string                             `json:"scd2UniqueKeys,omitempty"`
+	QualitySummary   *DatasetGoldSourceQualitySummaryBody `json:"qualitySummary,omitempty"`
+	CompletedAt      *time.Time                           `json:"completedAt,omitempty" format:"date-time"`
+}
+
+type DatasetGoldSourceQualitySummaryBody struct {
+	StepCount                 int64 `json:"stepCount" example:"8"`
+	WarningCount              int64 `json:"warningCount" example:"2"`
+	FailedRows                int64 `json:"failedRows" example:"0"`
+	ReviewItemCount           int64 `json:"reviewItemCount" example:"1"`
+	QualityRows               int64 `json:"qualityRows" example:"1000"`
+	QualityColumns            int64 `json:"qualityColumns" example:"12"`
+	ValidationErrors          int64 `json:"validationErrors" example:"0"`
+	ValidationWarnings        int64 `json:"validationWarnings" example:"1"`
+	ConfidencePassRows        int64 `json:"confidencePassRows" example:"980"`
+	ConfidenceNeedsReviewRows int64 `json:"confidenceNeedsReviewRows" example:"20"`
+	QuarantinedRows           int64 `json:"quarantinedRows" example:"20"`
 }
 
 type DatasetGoldPublishRunBody struct {
@@ -353,7 +368,27 @@ func toDatasetGoldSourcePipelineRunBody(item *service.DatasetGoldSourceDataPipel
 		OutputWriteMode:  item.OutputWriteMode,
 		SCD2MergePolicy:  item.SCD2MergePolicy,
 		SCD2UniqueKeys:   item.SCD2UniqueKeys,
+		QualitySummary:   toDatasetGoldSourceQualitySummaryBody(item.QualitySummary),
 		CompletedAt:      item.CompletedAt,
+	}
+}
+
+func toDatasetGoldSourceQualitySummaryBody(item *service.DatasetGoldSourceQualitySummary) *DatasetGoldSourceQualitySummaryBody {
+	if item == nil {
+		return nil
+	}
+	return &DatasetGoldSourceQualitySummaryBody{
+		StepCount:                 item.StepCount,
+		WarningCount:              item.WarningCount,
+		FailedRows:                item.FailedRows,
+		ReviewItemCount:           item.ReviewItemCount,
+		QualityRows:               item.QualityRows,
+		QualityColumns:            item.QualityColumns,
+		ValidationErrors:          item.ValidationErrors,
+		ValidationWarnings:        item.ValidationWarnings,
+		ConfidencePassRows:        item.ConfidencePassRows,
+		ConfidenceNeedsReviewRows: item.ConfidenceNeedsReviewRows,
+		QuarantinedRows:           item.QuarantinedRows,
 	}
 }
 

@@ -2725,6 +2725,10 @@ components:
             - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           format: uuid
           type: string
+        qualitySummary:
+          $ref: "#/components/schemas/DatasetGoldSourceQualitySummaryBody"
+          examples:
+            - example
         runPublicId:
           examples:
             - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
@@ -2762,6 +2766,77 @@ components:
         - runStatus
         - outputNodeId
         - outputRowCount
+      type: object
+    DatasetGoldSourceQualitySummaryBody:
+      additionalProperties: false
+      properties:
+        confidenceNeedsReviewRows:
+          examples:
+            - 20
+          format: int64
+          type: integer
+        confidencePassRows:
+          examples:
+            - 980
+          format: int64
+          type: integer
+        failedRows:
+          examples:
+            - 0
+          format: int64
+          type: integer
+        qualityColumns:
+          examples:
+            - 12
+          format: int64
+          type: integer
+        qualityRows:
+          examples:
+            - 1000
+          format: int64
+          type: integer
+        quarantinedRows:
+          examples:
+            - 20
+          format: int64
+          type: integer
+        reviewItemCount:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        stepCount:
+          examples:
+            - 8
+          format: int64
+          type: integer
+        validationErrors:
+          examples:
+            - 0
+          format: int64
+          type: integer
+        validationWarnings:
+          examples:
+            - 1
+          format: int64
+          type: integer
+        warningCount:
+          examples:
+            - 2
+          format: int64
+          type: integer
+      required:
+        - stepCount
+        - warningCount
+        - failedRows
+        - reviewItemCount
+        - qualityRows
+        - qualityColumns
+        - validationErrors
+        - validationWarnings
+        - confidencePassRows
+        - confidenceNeedsReviewRows
+        - quarantinedRows
       type: object
     DatasetImportErrorBody:
       additionalProperties: false
@@ -25133,6 +25208,18 @@ paths:
                       outputWriteMode: scd2_merge
                       pipelineName: Acme
                       pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      qualitySummary:
+                        confidenceNeedsReviewRows: 20
+                        confidencePassRows: 980
+                        failedRows: 0
+                        qualityColumns: 12
+                        qualityRows: 1000
+                        quarantinedRows: 20
+                        reviewItemCount: 1
+                        stepCount: 8
+                        validationErrors: 0
+                        validationWarnings: 1
+                        warningCount: 2
                       runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runStatus: completed
                       scd2MergePolicy: current_only
@@ -34686,6 +34773,18 @@ paths:
                       outputWriteMode: scd2_merge
                       pipelineName: Acme
                       pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      qualitySummary:
+                        confidenceNeedsReviewRows: 20
+                        confidencePassRows: 980
+                        failedRows: 0
+                        qualityColumns: 12
+                        qualityRows: 1000
+                        quarantinedRows: 20
+                        reviewItemCount: 1
+                        stepCount: 8
+                        validationErrors: 0
+                        validationWarnings: 1
+                        warningCount: 2
                       runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runStatus: completed
                       scd2MergePolicy: current_only
@@ -34808,6 +34907,18 @@ paths:
                       outputWriteMode: scd2_merge
                       pipelineName: Acme
                       pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      qualitySummary:
+                        confidenceNeedsReviewRows: 20
+                        confidencePassRows: 980
+                        failedRows: 0
+                        qualityColumns: 12
+                        qualityRows: 1000
+                        quarantinedRows: 20
+                        reviewItemCount: 1
+                        stepCount: 8
+                        validationErrors: 0
+                        validationWarnings: 1
+                        warningCount: 2
                       runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runStatus: completed
                       scd2MergePolicy: current_only
@@ -35177,6 +35288,18 @@ paths:
                       outputWriteMode: scd2_merge
                       pipelineName: Acme
                       pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      qualitySummary:
+                        confidenceNeedsReviewRows: 20
+                        confidencePassRows: 980
+                        failedRows: 0
+                        qualityColumns: 12
+                        qualityRows: 1000
+                        quarantinedRows: 20
+                        reviewItemCount: 1
+                        stepCount: 8
+                        validationErrors: 0
+                        validationWarnings: 1
+                        warningCount: 2
                       runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runStatus: completed
                       scd2MergePolicy: current_only
