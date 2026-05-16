@@ -940,6 +940,30 @@ function assertSnapshotSCD2Run(run) {
   }
 }
 
+async function assertSCD2WorkTablePreviewSummary(run, expected) {
+  const output = (run.outputs ?? []).find((item) => item.nodeId === 'output')
+  const workTablePublicId = output?.workTablePublicId ?? output?.metadata?.workTablePublicId
+  if (!workTablePublicId) {
+    throw new Error(`output workTablePublicId missing: ${JSON.stringify(output)}`)
+  }
+  const preview = await request(`/api/v1/dataset-work-tables/${encodeURIComponent(workTablePublicId)}/preview?limit=100`)
+  const summary = preview.scd2Summary
+  if (!summary?.detected) {
+    throw new Error(`SCD2 preview summary missing: ${JSON.stringify(preview)}`)
+  }
+  for (const [key, value] of Object.entries(expected)) {
+    if (summary[key] !== value) {
+      throw new Error(`SCD2 preview summary ${key} = ${summary[key]}, want ${value}: ${JSON.stringify(summary)}`)
+    }
+  }
+  for (const column of ['valid_from', 'valid_to', 'is_current', 'change_hash']) {
+    if (!preview.columns?.includes(column)) {
+      throw new Error(`SCD2 preview columns missing ${column}: ${JSON.stringify(preview.columns)}`)
+    }
+  }
+  return { workTablePublicId, scd2Summary: summary }
+}
+
 function assertTextRun(run) {
   assertCommonRun(run, 1)
   const qualityStep = findStep(run, 'quality_report')
@@ -1361,6 +1385,13 @@ async function runSnapshotMergeScenario(workspacePublicId) {
   const changedVersion = await createPublishedVersion(pipeline.publicId, snapshotMergeGraph(changedFile.publicId, suffix))
   const changedRun = await requestRun(changedVersion.publicId)
   const changedCompleted = await waitForRun(pipeline.publicId, changedRun.publicId, (run) => assertCommonRun(run, 4))
+  const previewSummary = await assertSCD2WorkTablePreviewSummary(changedCompleted, {
+    totalRows: 4,
+    currentRows: 2,
+    historyRows: 2,
+    keyColumn: 'id',
+    keyCount: 2,
+  })
 
   return {
     scenario: 'snapshot_merge',
@@ -1375,6 +1406,7 @@ async function runSnapshotMergeScenario(workspacePublicId) {
     changedRunPublicId: changedCompleted.publicId,
     detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
     outputs: changedCompleted.outputs,
+    previewSummary,
   }
 }
 
@@ -1397,6 +1429,13 @@ async function runSnapshotMergeBackfillScenario(workspacePublicId) {
   const lateCompleted = await waitForRun(pipeline.publicId, lateRun.publicId, (run) => assertCommonRun(run, 4))
   const repeatedRun = await requestRun(lateVersion.publicId)
   const repeatedCompleted = await waitForRun(pipeline.publicId, repeatedRun.publicId, (run) => assertCommonRun(run, 4))
+  const previewSummary = await assertSCD2WorkTablePreviewSummary(repeatedCompleted, {
+    totalRows: 4,
+    currentRows: 2,
+    historyRows: 2,
+    keyColumn: 'id',
+    keyCount: 2,
+  })
 
   return {
     scenario: 'snapshot_merge_backfill',
@@ -1411,6 +1450,7 @@ async function runSnapshotMergeBackfillScenario(workspacePublicId) {
     repeatedRunPublicId: repeatedCompleted.publicId,
     detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
     outputs: repeatedCompleted.outputs,
+    previewSummary,
   }
 }
 

@@ -4418,6 +4418,10 @@ components:
           type:
             - array
             - "null"
+        scd2Summary:
+          $ref: "#/components/schemas/DatasetWorkTableSCD2SummaryBody"
+          examples:
+            - example
         table:
           examples:
             - hai_category_summary
@@ -4497,6 +4501,52 @@ components:
           type: string
       required:
         - table
+      type: object
+    DatasetWorkTableSCD2SummaryBody:
+      additionalProperties: false
+      properties:
+        currentRows:
+          examples:
+            - 4
+          format: int64
+          type: integer
+        detected:
+          examples:
+            - true
+          type: boolean
+        earliestValidAt:
+          examples:
+            - "2026-05-01 00:00:00"
+          type: string
+        historyRows:
+          examples:
+            - 8
+          format: int64
+          type: integer
+        keyColumn:
+          examples:
+            - id
+          type: string
+        keyCount:
+          examples:
+            - 4
+          format: int64
+          type: integer
+        latestValidAt:
+          examples:
+            - "2026-05-03 00:00:00"
+          type: string
+        totalRows:
+          examples:
+            - 12
+          format: int64
+          type: integer
+      required:
+        - detected
+        - totalRows
+        - currentRows
+        - historyRows
+        - keyCount
       type: object
     DriveAIClassificationBody:
       additionalProperties: false
@@ -24183,6 +24233,15 @@ paths:
                     database: hh_t_1_work
                     previewRows:
                       - {}
+                    scd2Summary:
+                      currentRows: 4
+                      detected: true
+                      earliestValidAt: "2026-05-01 00:00:00"
+                      historyRows: 8
+                      keyColumn: id
+                      keyCount: 4
+                      latestValidAt: "2026-05-03 00:00:00"
+                      totalRows: 12
                     table: hai_category_summary
               schema:
                 $ref: "#/components/schemas/DatasetWorkTablePreviewBody"
@@ -25268,6 +25327,15 @@ paths:
                     database: hh_t_1_work
                     previewRows:
                       - {}
+                    scd2Summary:
+                      currentRows: 4
+                      detected: true
+                      earliestValidAt: "2026-05-01 00:00:00"
+                      historyRows: 8
+                      keyColumn: id
+                      keyCount: 4
+                      latestValidAt: "2026-05-03 00:00:00"
+                      totalRows: 12
                     table: hai_category_summary
               schema:
                 $ref: "#/components/schemas/DatasetWorkTablePreviewBody"

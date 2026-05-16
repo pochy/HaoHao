@@ -210,11 +210,34 @@ Data Pipeline の `snapshot_scd2` と output `writeMode=scd2_merge` により、
 - 代表 key column 候補。現時点では `id`、`product_id`、`sku`、`file_public_id` の順で存在する列を表示する。
 - preview rows に対する `All` / `Current` / `History` フィルタ。
 
-この UI は backend API contract を増やさず、既存の Work table preview payload だけを使う最小実装です。したがって件数とフィルタは **テーブル全体ではなく、現在読み込まれている preview rows に対する値**です。大規模 table の全体 current/history 件数や key 単位履歴は、別途 backend query endpoint を追加する必要があります。
+この UI の最初の版は backend API contract を増やさず、既存の Work table preview payload だけを使っていました。その後、Work table preview API の response に `scd2Summary` を追加し、SCD2 table の場合は ClickHouse table 全体に対する summary を返すようにしました。
+
+`scd2Summary` の内容:
+
+- `detected`: SCD2 列が揃っているか。
+- `totalRows`: table 全体の行数。
+- `currentRows`: table 全体の current rows。
+- `historyRows`: table 全体の history rows。
+- `keyColumn`: key column 候補。現時点では `id`、`product_id`、`sku`、`file_public_id` の順で検出する。
+- `keyCount`: key column が検出できた場合の distinct key 数。
+- `earliestValidAt`: `valid_from` の最小値。
+- `latestValidAt`: `valid_from` の最大値。
+
+注意点:
+
+- summary の件数は table 全体を対象にする。
+- `All` / `Current` / `History` filter は、引き続き現在読み込まれている preview rows だけを対象にする。
+- key column は output metadata からではなく列名候補で推定しているため、業務 key が別名の場合は `keyColumn` / `keyCount` が空または 0 になる。
+
+実装中に見つかった権限問題:
+
+- structured output path は Data Pipeline が作成した Work table に owner tuple を付与していた。
+- hybrid output path は Work table 管理レコードを作るだけで owner tuple を付与していなかった。
+- そのため Drive JSON / OCR / extract 系を含む hybrid run の output は Runs tab には表示される一方、`/api/v1/dataset-work-tables/{workTablePublicId}/preview` が `403 data resource permission denied` になることがあった。
+- `data_pipeline_unstructured.go` で hybrid output 登録後にも `EnsureResourceOwnerTuples` を呼ぶように修正した。
 
 今後の拡張候補:
 
-- Work table preview API に SCD2 summary mode を追加し、全体 row count、current/history row count、key count、latest valid_from を返す。
 - key column を output metadata や lineage から取得し、候補推定ではなく正確に表示する。
 - key value を指定して履歴 rows を時系列で表示する。
 - Gold detail 側にも SCD2 policy、current row count、history row count、source pipeline run へのリンクを表示する。

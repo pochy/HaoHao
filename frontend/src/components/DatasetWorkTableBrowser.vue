@@ -117,8 +117,9 @@ const snapshotRequiredColumns = ['valid_from', 'valid_to', 'is_current', 'change
 const snapshotKeyCandidates = ['id', 'product_id', 'sku', 'file_public_id']
 const selectedColumnNames = computed(() => selectedColumns.value.map((column) => column.columnName))
 const selectedColumnNameSet = computed(() => new Set(selectedColumnNames.value))
-const hasSCD2Columns = computed(() => snapshotRequiredColumns.every((column) => selectedColumnNameSet.value.has(column)))
-const snapshotKeyColumn = computed(() => snapshotKeyCandidates.find((column) => selectedColumnNameSet.value.has(column)) || '')
+const scd2Summary = computed(() => props.preview?.scd2Summary ?? null)
+const hasSCD2Columns = computed(() => Boolean(scd2Summary.value?.detected) || snapshotRequiredColumns.every((column) => selectedColumnNameSet.value.has(column)))
+const snapshotKeyColumn = computed(() => scd2Summary.value?.keyColumn || snapshotKeyCandidates.find((column) => selectedColumnNameSet.value.has(column)) || '')
 const snapshotPreviewFilters: Array<{ value: SnapshotPreviewFilter, labelKey: string }> = [
   { value: 'all', labelKey: 'datasets.snapshotPreviewFilterAll' },
   { value: 'current', labelKey: 'datasets.snapshotPreviewFilterCurrent' },
@@ -126,6 +127,10 @@ const snapshotPreviewFilters: Array<{ value: SnapshotPreviewFilter, labelKey: st
 ]
 const currentSnapshotPreviewRows = computed(() => previewRows.value.filter(isCurrentSnapshotRow))
 const historySnapshotPreviewRows = computed(() => previewRows.value.filter((row) => !isCurrentSnapshotRow(row)))
+const snapshotTotalRows = computed(() => scd2Summary.value?.totalRows ?? previewRows.value.length)
+const snapshotCurrentRows = computed(() => scd2Summary.value?.currentRows ?? currentSnapshotPreviewRows.value.length)
+const snapshotHistoryRows = computed(() => scd2Summary.value?.historyRows ?? historySnapshotPreviewRows.value.length)
+const snapshotKeyCount = computed(() => scd2Summary.value?.keyCount ?? 0)
 const filteredPreviewRows = computed(() => {
   if (!hasSCD2Columns.value) {
     return previewRows.value
@@ -626,7 +631,7 @@ function changeLineageLevel(event: Event) {
               <div>
                 <span class="status-pill success">{{ t('datasets.snapshotSCD2Detected') }}</span>
                 <h3>{{ t('datasets.snapshotPreviewTitle') }}</h3>
-                <p>{{ t('datasets.snapshotPreviewDescription') }}</p>
+                <p>{{ scd2Summary ? t('datasets.snapshotSummaryDescription') : t('datasets.snapshotPreviewDescription') }}</p>
               </div>
               <div class="lineage-view-tabs snapshot-preview-tabs" role="tablist" :aria-label="t('datasets.snapshotPreviewFilter')">
                 <button
@@ -644,20 +649,20 @@ function changeLineageLevel(event: Event) {
             </div>
             <div class="snapshot-preview-metrics">
               <div>
-                <span>{{ t('datasets.snapshotPreviewRowsLoaded') }}</span>
-                <strong>{{ n(previewRows.length) }}</strong>
+                <span>{{ scd2Summary ? t('datasets.snapshotTotalRows') : t('datasets.snapshotPreviewRowsLoaded') }}</span>
+                <strong>{{ n(snapshotTotalRows) }}</strong>
               </div>
               <div>
                 <span>{{ t('datasets.snapshotPreviewCurrentRows') }}</span>
-                <strong>{{ n(currentSnapshotPreviewRows.length) }}</strong>
+                <strong>{{ n(snapshotCurrentRows) }}</strong>
               </div>
               <div>
                 <span>{{ t('datasets.snapshotPreviewHistoryRows') }}</span>
-                <strong>{{ n(historySnapshotPreviewRows.length) }}</strong>
+                <strong>{{ n(snapshotHistoryRows) }}</strong>
               </div>
               <div>
-                <span>{{ t('datasets.snapshotPreviewKeyColumn') }}</span>
-                <strong>{{ snapshotKeyColumn || '-' }}</strong>
+                <span>{{ scd2Summary ? t('datasets.snapshotKeyCount') : t('datasets.snapshotPreviewKeyColumn') }}</span>
+                <strong>{{ scd2Summary ? n(snapshotKeyCount) : snapshotKeyColumn || '-' }}</strong>
               </div>
             </div>
           </div>

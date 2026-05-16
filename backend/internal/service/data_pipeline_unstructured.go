@@ -127,6 +127,13 @@ func (s *DataPipelineService) executeHybridRun(ctx context.Context, tenantID int
 				if err != nil {
 					result.Err = err
 				} else {
+					if s.authz != nil {
+						if err := s.authz.EnsureResourceOwnerTuples(ctx, tenantID, actorUserID, DataResourceWorkTable, workTable.PublicID); err != nil {
+							result.Err = err
+							results = append(results, result)
+							continue
+						}
+					}
 					result.WorkTable = workTable
 				}
 			}

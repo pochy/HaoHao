@@ -202,10 +202,22 @@ type DatasetWorkTableExportScheduleUpdateBody struct {
 }
 
 type DatasetWorkTablePreviewBody struct {
-	Database    string           `json:"database" example:"hh_t_1_work"`
-	Table       string           `json:"table" example:"hai_category_summary"`
-	Columns     []string         `json:"columns"`
-	PreviewRows []map[string]any `json:"previewRows"`
+	Database    string                           `json:"database" example:"hh_t_1_work"`
+	Table       string                           `json:"table" example:"hai_category_summary"`
+	Columns     []string                         `json:"columns"`
+	PreviewRows []map[string]any                 `json:"previewRows"`
+	SCD2Summary *DatasetWorkTableSCD2SummaryBody `json:"scd2Summary,omitempty"`
+}
+
+type DatasetWorkTableSCD2SummaryBody struct {
+	Detected        bool   `json:"detected" example:"true"`
+	TotalRows       int64  `json:"totalRows" example:"12"`
+	CurrentRows     int64  `json:"currentRows" example:"4"`
+	HistoryRows     int64  `json:"historyRows" example:"8"`
+	KeyColumn       string `json:"keyColumn,omitempty" example:"id"`
+	KeyCount        int64  `json:"keyCount" example:"4"`
+	EarliestValidAt string `json:"earliestValidAt,omitempty" example:"2026-05-01 00:00:00"`
+	LatestValidAt   string `json:"latestValidAt,omitempty" example:"2026-05-03 00:00:00"`
 }
 
 type DatasetRowsPageBody struct {
@@ -2009,6 +2021,23 @@ func toDatasetWorkTablePreviewBody(item service.DatasetWorkTablePreview) Dataset
 		Table:       item.Table,
 		Columns:     item.Columns,
 		PreviewRows: item.PreviewRows,
+		SCD2Summary: toDatasetWorkTableSCD2SummaryBody(item.SCD2Summary),
+	}
+}
+
+func toDatasetWorkTableSCD2SummaryBody(item *service.DatasetWorkTableSCD2Summary) *DatasetWorkTableSCD2SummaryBody {
+	if item == nil {
+		return nil
+	}
+	return &DatasetWorkTableSCD2SummaryBody{
+		Detected:        item.Detected,
+		TotalRows:       item.TotalRows,
+		CurrentRows:     item.CurrentRows,
+		HistoryRows:     item.HistoryRows,
+		KeyColumn:       item.KeyColumn,
+		KeyCount:        item.KeyCount,
+		EarliestValidAt: item.EarliestValidAt,
+		LatestValidAt:   item.LatestValidAt,
 	}
 }
 

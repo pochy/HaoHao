@@ -1679,6 +1679,7 @@ export type DatasetWorkTablePreviewBody = {
     previewRows: Array<{
         [key: string]: unknown;
     }> | null;
+    scd2Summary?: DatasetWorkTableScd2SummaryBody;
     table: string;
 };
 
@@ -1713,6 +1714,17 @@ export type DatasetWorkTableRenameBody = {
      */
     readonly $schema?: string;
     table: string;
+};
+
+export type DatasetWorkTableScd2SummaryBody = {
+    currentRows: number;
+    detected: boolean;
+    earliestValidAt?: string;
+    historyRows: number;
+    keyColumn?: string;
+    keyCount: number;
+    latestValidAt?: string;
+    totalRows: number;
 };
 
 export type DriveAiClassificationBody = {
@@ -5983,6 +5995,7 @@ export type DatasetWorkTablePreviewBodyWritable = {
     previewRows: Array<{
         [key: string]: unknown;
     }> | null;
+    scd2Summary?: DatasetWorkTableScd2SummaryBody;
     table: string;
 };
 

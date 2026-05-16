@@ -141,6 +141,30 @@ func TestDatasetClickHouseSettingsEnableExternalSpill(t *testing.T) {
 	}
 }
 
+func TestDatasetWorkTableSCD2ColumnDetection(t *testing.T) {
+	columns := []string{"id", "status", "valid_from", "valid_to", "is_current", "change_hash"}
+	if !datasetWorkTableHasSCD2Columns(columns) {
+		t.Fatal("datasetWorkTableHasSCD2Columns() = false, want true")
+	}
+	if got := datasetWorkTableSCD2KeyColumn(columns); got != "id" {
+		t.Fatalf("datasetWorkTableSCD2KeyColumn() = %q, want id", got)
+	}
+}
+
+func TestDatasetWorkTableSCD2ColumnDetectionMissingValidityColumn(t *testing.T) {
+	columns := []string{"id", "status", "valid_from", "is_current", "change_hash"}
+	if datasetWorkTableHasSCD2Columns(columns) {
+		t.Fatal("datasetWorkTableHasSCD2Columns() = true, want false")
+	}
+}
+
+func TestDatasetWorkTableSCD2KeyColumnCandidateOrder(t *testing.T) {
+	columns := []string{"sku", "product_id", "valid_from", "valid_to", "is_current", "change_hash"}
+	if got := datasetWorkTableSCD2KeyColumn(columns); got != "product_id" {
+		t.Fatalf("datasetWorkTableSCD2KeyColumn() = %q, want product_id", got)
+	}
+}
+
 func TestHydrateWorkTableColumns(t *testing.T) {
 	conn := &fakeDatasetClickHouseConn{
 		rows: &fakeDatasetRows{
