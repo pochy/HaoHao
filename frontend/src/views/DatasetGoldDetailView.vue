@@ -372,7 +372,11 @@ function formatActionError(error: unknown) {
             <dd>
               <RouterLink
                 class="monospace-cell"
-                :to="{ name: 'data-pipeline-detail', params: { pipelinePublicId: sourceDataPipelineRun.pipelinePublicId } }"
+                :to="{
+                  name: 'data-pipeline-detail',
+                  params: { pipelinePublicId: sourceDataPipelineRun.pipelinePublicId },
+                  query: { runPublicId: sourceDataPipelineRun.runPublicId, outputNodeId: sourceDataPipelineRun.outputNodeId },
+                }"
               >
                 {{ sourceDataPipelineRun.pipelineName || sourceDataPipelineRun.pipelinePublicId }}
               </RouterLink>

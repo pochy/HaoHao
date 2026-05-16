@@ -3745,6 +3745,11 @@ code {
   vertical-align: top;
 }
 
+.compact-table tr.data-pipeline-run-row-focused td {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .data-pipeline-schedule-form {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr)) auto;

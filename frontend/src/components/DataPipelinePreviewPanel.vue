@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { Crown, Info, Search, Trash2, UploadCloud } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import type { DataPipelinePreviewBody, DataPipelineReviewItemBody, DataPipelineRunBody, DataPipelineRunStepBody, DataPipelineScheduleBody } from '../api/data-pipelines'
+
+type DataPipelinePanelTab = 'preview' | 'runs' | 'reviews' | 'schedules'
 
 const props = defineProps<{
   preview: DataPipelinePreviewBody | null
@@ -15,6 +17,9 @@ const props = defineProps<{
   canPreview?: boolean
   draftRunPreview?: boolean
   previewDisabledReason?: string
+  initialTab?: DataPipelinePanelTab
+  focusRunPublicId?: string
+  focusOutputNodeId?: string
 }>()
 
 const emit = defineEmits<{
@@ -23,7 +28,6 @@ const emit = defineEmits<{
   publishGoldOutput: [workTablePublicId: string, displayName: string]
 }>()
 
-type DataPipelinePanelTab = 'preview' | 'runs' | 'reviews' | 'schedules'
 type PreviewCellDialog = {
   column: string
   value: string
@@ -43,6 +47,21 @@ const stepMetadataDialog = ref<StepMetadataDialog | null>(null)
 const stepMetadataDialogRef = ref<HTMLDialogElement | null>(null)
 const { d, t } = useI18n()
 
+watch(
+  () => [props.initialTab, props.focusRunPublicId, props.focusOutputNodeId, props.runs.length] as const,
+  async () => {
+    if (props.initialTab) {
+      activeTab.value = props.initialTab
+    }
+    if (props.focusRunPublicId || props.focusOutputNodeId) {
+      activeTab.value = 'runs'
+      await nextTick()
+      scrollFocusedRunRowIntoView()
+    }
+  },
+  { immediate: true },
+)
+
 onBeforeUnmount(() => {
   if (previewCellDialogRef.value?.open) {
     previewCellDialogRef.value.close()
@@ -55,6 +74,26 @@ onBeforeUnmount(() => {
 function previewClick() {
   activeTab.value = 'preview'
   emit('preview')
+}
+
+function isFocusedRun(run: DataPipelineRunBody) {
+  return Boolean(props.focusRunPublicId && run.publicId === props.focusRunPublicId)
+}
+
+function isFocusedOutput(run: DataPipelineRunBody, output: DataPipelineRunBody['outputs'][number]) {
+  return isFocusedRun(run) && Boolean(props.focusOutputNodeId && output.nodeId === props.focusOutputNodeId)
+}
+
+function scrollFocusedRunRowIntoView() {
+  const selector = props.focusRunPublicId && props.focusOutputNodeId
+    ? `[data-run-public-id="${props.focusRunPublicId}"][data-output-node-id="${props.focusOutputNodeId}"]`
+    : props.focusRunPublicId
+      ? `[data-run-public-id="${props.focusRunPublicId}"]`
+      : ''
+  if (!selector) {
+    return
+  }
+  document.querySelector(selector)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
 }
 
 function previewCellText(value: unknown) {
@@ -551,7 +590,10 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
           </thead>
           <tbody>
             <template v-for="run in runs" :key="run.publicId">
-              <tr>
+              <tr
+                :class="{ 'data-pipeline-run-row-focused': isFocusedRun(run) && !props.focusOutputNodeId }"
+                :data-run-public-id="run.publicId"
+              >
                 <td><span class="status-pill" :class="statusClass(run.status)">{{ statusLabel(run.status) }}</span></td>
                 <td>{{ t('dataPipelines.run') }}</td>
                 <td>{{ triggerLabel(run.triggerKind) }}</td>
@@ -559,7 +601,13 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
                 <td>{{ formatDate(run.createdAt) }}</td>
                 <td>{{ run.errorSummary || '-' }}</td>
               </tr>
-              <tr v-for="output in runOutputs(run)" :key="`${run.publicId}-${output.nodeId}`">
+              <tr
+                v-for="output in runOutputs(run)"
+                :key="`${run.publicId}-${output.nodeId}`"
+                :class="{ 'data-pipeline-run-row-focused': isFocusedOutput(run, output) }"
+                :data-run-public-id="run.publicId"
+                :data-output-node-id="output.nodeId"
+              >
                 <td><span class="status-pill" :class="statusClass(output.status)">{{ statusLabel(output.status) }}</span></td>
                 <td>{{ t('dataPipelines.output') }}: {{ output.nodeId }}</td>
                 <td>

@@ -101,6 +101,11 @@ const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
 ]
 
 const pipelinePublicId = computed(() => String(route.params.pipelinePublicId ?? ''))
+const focusRunPublicId = computed(() => routeQueryString(route.query.runPublicId))
+const focusOutputNodeId = computed(() => routeQueryString(route.query.outputNodeId))
+const previewPanelInitialTab = computed<'preview' | 'runs'>(() => (
+  focusRunPublicId.value || focusOutputNodeId.value ? 'runs' : 'preview'
+))
 const selectedPipeline = computed(() => store.detail?.pipeline ?? null)
 const primarySchedule = computed(() => store.schedules.find((schedule) => schedule.enabled) ?? store.schedules[0] ?? null)
 const pageTitle = computed(() => selectedPipeline.value?.name || t('dataPipelines.pipelineDetail'))
@@ -303,6 +308,13 @@ function englishLabelForStep(type: DataPipelineStepType) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
+}
+
+function routeQueryString(value: unknown) {
+  if (Array.isArray(value)) {
+    return typeof value[0] === 'string' ? value[0] : ''
+  }
+  return typeof value === 'string' ? value : ''
 }
 
 function graphWarningMessage(warning: DataPipelineNodeWarningBody) {
@@ -780,6 +792,9 @@ async function applySettings() {
               :can-preview="canPreview"
               :draft-run-preview="draftRunPreview"
               :preview-disabled-reason="previewDisabledReason"
+              :initial-tab="previewPanelInitialTab"
+              :focus-run-public-id="focusRunPublicId"
+              :focus-output-node-id="focusOutputNodeId"
               @preview="previewSelected"
               @disable-schedule="disableSchedule"
               @publish-gold-output="publishOutputGold"
@@ -842,6 +857,9 @@ async function applySettings() {
             :can-preview="canPreview"
             :draft-run-preview="draftRunPreview"
             :preview-disabled-reason="previewDisabledReason"
+            :initial-tab="previewPanelInitialTab"
+            :focus-run-public-id="focusRunPublicId"
+            :focus-output-node-id="focusOutputNodeId"
             @preview="previewSelected"
             @disable-schedule="disableSchedule"
             @publish-gold-output="publishOutputGold"
