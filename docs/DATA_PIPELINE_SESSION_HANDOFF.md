@@ -22,11 +22,10 @@ Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Mont
 
 現在の次タスクは、機能をさらに横に増やすことではなく、運用 UI と説明性を強くすることです。優先候補は次です。
 
-1. 同一 key / 同一 `valid_from` 衝突時の policy。
-2. composite key の SCD2 key history API / UI。
-3. `deleteDetection=close_current` の Output 設定 UI と `mark_deleted` policy 検討。
-4. Gold publish history と Data Pipeline run history のより完全な相互リンク。
-5. backend step catalog / generated contract への output schema 単一正本化。
+1. composite key の SCD2 key history API / UI。
+2. `deleteDetection=close_current` / `sameValidFromPolicy=reject` の Output 設定 UI と高度 policy 検討。
+3. Gold publish history と Data Pipeline run history のより完全な相互リンク。
+4. backend step catalog / generated contract への output schema 単一正本化。
 
 ## 実装済みの流れ
 
@@ -176,7 +175,9 @@ make smoke-data-pipeline-snapshot-merge-backfill
 - `snapshot_scd2` stage table には過去 row と current row の両方が含まれる。
 - `current_only` merge で stage 過去 row まで差分候補にすると、同一データ再実行でも過去 row が再追加され、current row が古い `valid_from` で誤って close される。
 - そのため `current_only` では stage 側の `is_current=1` だけを見る。
-- `rebuild_key_history` は対象 key 全体を再計算するため late row を扱えるが、削除検知や同一 `valid_from` の複数変更に対する業務 policy はまだない。
+- `rebuild_key_history` は対象 key 全体を再計算するため late row を扱える。
+- `deleteDetection=close_current` は backend / smoke まで実装済み。
+- 同一 key / 同一 `valid_from` の複数変更は、既定の `sameValidFromPolicy=reject` で run を failed にする。
 
 ## Gold Publish 導線
 
@@ -316,13 +317,13 @@ docker exec haohao-clickhouse clickhouse-client --query \
 
 ## 次にやること
 
-最優先候補は `SCD2 削除検知 policy と composite key 履歴 drilldown` です。
+最優先候補は `composite key 履歴 drilldown` と `SCD2 policy の UI 設定` です。
 
 実装案:
 
-- `scd2_merge` で stage に現れなかった既存 current key をどう扱うかを policy 化する。初期値は削除検知なしにし、`mark_deleted` のような明示 opt-in を検討する。
-- 同一 key / 同一 `valid_from` に複数変更が来た場合の優先規則を決める。`change_hash` が異なる場合に reject するか、最新 ingestion を勝たせるかを明示する。
 - composite key の SCD2 履歴 drilldown は現在 `scd2UniqueKeys[0]` を代表 key として扱っているため、複数 key を入力・表示できる API / UI contract を設計する。
+- Output 設定 UI から `deleteDetection=close_current` と `sameValidFromPolicy=reject` を確認・設定できるようにする。
+- `mark_deleted`、`latest_ingested_wins`、`highest_source_priority_wins` のような高度 policy を採用するかは業務要件に合わせて別途決める。
 
 次点候補:
 

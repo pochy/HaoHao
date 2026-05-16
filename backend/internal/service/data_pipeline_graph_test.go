@@ -113,6 +113,9 @@ func TestDataPipelineOutputSCD2MergeSpecDeleteDetection(t *testing.T) {
 	if spec.DeleteDetection != "close_current" {
 		t.Fatalf("DeleteDetection = %q, want close_current", spec.DeleteDetection)
 	}
+	if spec.SameValidFromPolicy != "reject" {
+		t.Fatalf("SameValidFromPolicy = %q, want reject", spec.SameValidFromPolicy)
+	}
 
 	if _, err := dataPipelineOutputSCD2MergeSpec(map[string]any{
 		"uniqueKeys":      []any{"id"},
@@ -131,6 +134,19 @@ func TestDataPipelineOutputSCD2MergeSpecDeleteDetection(t *testing.T) {
 		"changeHashColumn": "change_hash",
 	}, columns); err == nil || !strings.Contains(err.Error(), "deleteDetection requires current_only") {
 		t.Fatalf("expected deleteDetection merge policy error, got %v", err)
+	}
+
+	if _, err := dataPipelineOutputSCD2MergeSpec(map[string]any{
+		"uniqueKeys":          []any{"id"},
+		"sameValidFromPolicy": "latest_ingested_wins",
+		"validFromColumn":     "valid_from",
+		"validToColumn":       "valid_to",
+		"isCurrentColumn":     "is_current",
+		"changeHashColumn":    "change_hash",
+		"scd2MergePolicy":     "current_only",
+		"deleteDetection":     "none",
+	}, columns); err == nil || !strings.Contains(err.Error(), "unsupported sameValidFromPolicy") {
+		t.Fatalf("expected sameValidFromPolicy validation error, got %v", err)
 	}
 }
 

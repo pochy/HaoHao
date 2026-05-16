@@ -137,7 +137,7 @@ npm --prefix frontend run build
 
 - `current_only` merge は stage 側の `is_current=1` だけを見る。
 - `rebuild_key_history` は stage に含まれる key の履歴全体を再計算する。
-- 削除検知と同一 `valid_from` conflict policy は未実装。
+- `deleteDetection=close_current` と `sameValidFromPolicy=reject` は backend / smoke まで実装済み。
 - composite key drilldown は未実装。現在は `scd2UniqueKeys[0]` が代表 key。
 
 ## Gold / Dataset / Lineage を触る場合
@@ -310,7 +310,7 @@ browser 確認:
 Data Pipeline:
 
 - `deleteDetection=close_current` の Output 設定 UI、`mark_deleted` policy。
-- 同一 key / 同一 `valid_from` conflict policy。
+- `sameValidFromPolicy=reject` の UI 設定と高度 winner policy。
 - composite key SCD2 history。
 - backend step catalog / generated output schema contract。
 - `validate` status column と quarantine 連携。

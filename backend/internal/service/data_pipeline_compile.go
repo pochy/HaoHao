@@ -1471,6 +1471,10 @@ func promoteDataPipelineSCD2MergeOutput(ctx context.Context, conn driver.Conn, d
 		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
 		return err
 	}
+	if err := validateDataPipelineSCD2SameValidFromPolicy(ctx, conn, database, stageTable, spec); err != nil {
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+		return err
+	}
 	var exists uint8
 	if err := queryDataPipelineSingle(ctx, conn, fmt.Sprintf("EXISTS TABLE %s.%s", quoteCHIdent(database), quoteCHIdent(targetTable)), &exists); err != nil {
 		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
@@ -1548,6 +1552,30 @@ func promoteDataPipelineSCD2MergeOutput(ctx context.Context, conn driver.Conn, d
 		return err
 	}
 	return conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+}
+
+func validateDataPipelineSCD2SameValidFromPolicy(ctx context.Context, conn driver.Conn, database, stageTable string, spec dataPipelineOutputSCD2MergeConfig) error {
+	if spec.SameValidFromPolicy != "reject" {
+		return nil
+	}
+	query := fmt.Sprintf(
+		"SELECT count() FROM (\nSELECT %s, %s\nFROM %s.%s\nGROUP BY %s, %s\nHAVING uniqExact(%s) > 1\n)",
+		dataPipelineSCD2TupleExpr("", spec.UniqueKeys),
+		quoteCHIdent(spec.ValidFromColumn),
+		quoteCHIdent(database),
+		quoteCHIdent(stageTable),
+		dataPipelineSCD2TupleExpr("", spec.UniqueKeys),
+		quoteCHIdent(spec.ValidFromColumn),
+		quoteCHIdent(spec.ChangeHashColumn),
+	)
+	var conflictGroups uint64
+	if err := queryDataPipelineSingle(ctx, conn, query, &conflictGroups); err != nil {
+		return err
+	}
+	if conflictGroups == 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: scd2_merge sameValidFromPolicy=reject found %d key/valid_from conflict group(s)", ErrInvalidDataPipelineGraph, conflictGroups)
 }
 
 func dataPipelineSCD2DeletedKeysSQL(database, targetTable, stageTable string, spec dataPipelineOutputSCD2MergeConfig) string {
@@ -1692,13 +1720,14 @@ func dataPipelineSCD2QuotedColumns(columns []string) []string {
 }
 
 type dataPipelineOutputSCD2MergeConfig struct {
-	UniqueKeys       []string
-	ValidFromColumn  string
-	ValidToColumn    string
-	IsCurrentColumn  string
-	ChangeHashColumn string
-	MergePolicy      string
-	DeleteDetection  string
+	UniqueKeys          []string
+	ValidFromColumn     string
+	ValidToColumn       string
+	IsCurrentColumn     string
+	ChangeHashColumn    string
+	MergePolicy         string
+	DeleteDetection     string
+	SameValidFromPolicy string
 }
 
 func dataPipelineOutputSCD2MergeSpec(config map[string]any, columns []string) (dataPipelineOutputSCD2MergeConfig, error) {
@@ -1715,13 +1744,14 @@ func dataPipelineOutputSCD2MergeSpec(config map[string]any, columns []string) (d
 		}
 	}
 	spec := dataPipelineOutputSCD2MergeConfig{
-		UniqueKeys:       dataPipelineUniqueStrings(uniqueKeys),
-		ValidFromColumn:  firstNonEmpty(dataPipelineString(config, "validFromColumn"), "valid_from"),
-		ValidToColumn:    firstNonEmpty(dataPipelineString(config, "validToColumn"), "valid_to"),
-		IsCurrentColumn:  firstNonEmpty(dataPipelineString(config, "isCurrentColumn"), "is_current"),
-		ChangeHashColumn: firstNonEmpty(dataPipelineString(config, "changeHashColumn"), "change_hash"),
-		MergePolicy:      firstNonEmpty(dataPipelineString(config, "scd2MergePolicy"), dataPipelineString(config, "mergePolicy"), "current_only"),
-		DeleteDetection:  firstNonEmpty(dataPipelineString(config, "deleteDetection"), "none"),
+		UniqueKeys:          dataPipelineUniqueStrings(uniqueKeys),
+		ValidFromColumn:     firstNonEmpty(dataPipelineString(config, "validFromColumn"), "valid_from"),
+		ValidToColumn:       firstNonEmpty(dataPipelineString(config, "validToColumn"), "valid_to"),
+		IsCurrentColumn:     firstNonEmpty(dataPipelineString(config, "isCurrentColumn"), "is_current"),
+		ChangeHashColumn:    firstNonEmpty(dataPipelineString(config, "changeHashColumn"), "change_hash"),
+		MergePolicy:         firstNonEmpty(dataPipelineString(config, "scd2MergePolicy"), dataPipelineString(config, "mergePolicy"), "current_only"),
+		DeleteDetection:     firstNonEmpty(dataPipelineString(config, "deleteDetection"), "none"),
+		SameValidFromPolicy: firstNonEmpty(dataPipelineString(config, "sameValidFromPolicy"), "reject"),
 	}
 	if spec.MergePolicy != "current_only" && spec.MergePolicy != "rebuild_key_history" {
 		return dataPipelineOutputSCD2MergeConfig{}, fmt.Errorf("%w: unsupported scd2MergePolicy %q", ErrInvalidDataPipelineGraph, spec.MergePolicy)
@@ -1731,6 +1761,9 @@ func dataPipelineOutputSCD2MergeSpec(config map[string]any, columns []string) (d
 	}
 	if spec.MergePolicy != "current_only" && spec.DeleteDetection != "none" {
 		return dataPipelineOutputSCD2MergeConfig{}, fmt.Errorf("%w: deleteDetection requires current_only scd2MergePolicy", ErrInvalidDataPipelineGraph)
+	}
+	if spec.SameValidFromPolicy != "reject" && spec.SameValidFromPolicy != "allow" {
+		return dataPipelineOutputSCD2MergeConfig{}, fmt.Errorf("%w: unsupported sameValidFromPolicy %q", ErrInvalidDataPipelineGraph, spec.SameValidFromPolicy)
 	}
 	for _, column := range []string{spec.ValidFromColumn, spec.ValidToColumn, spec.IsCurrentColumn, spec.ChangeHashColumn} {
 		if err := dataPipelineRequireColumn(columns, column); err != nil {

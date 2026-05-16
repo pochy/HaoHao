@@ -137,6 +137,14 @@ async function uploadSnapshotDeletedJSONFile(workspacePublicId) {
   return uploadFile(workspacePublicId, `data-pipeline-snapshot-deleted-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
 }
 
+async function uploadSnapshotConflictJSONFile(workspacePublicId) {
+  const rows = [
+    { id: '1', name: 'Alpha', status: 'draft', updated_at: '2026-05-01T00:00:00Z' },
+    { id: '1', name: 'Alpha', status: 'ready', updated_at: '2026-05-01T00:00:00Z' },
+  ]
+  return uploadFile(workspacePublicId, `data-pipeline-snapshot-conflict-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
+}
+
 async function uploadSnapshotLateJSONFile(workspacePublicId) {
   const rows = [
     { id: '1', name: 'Alpha', status: 'review', updated_at: '2026-05-02T00:00:00Z' },
@@ -812,6 +820,7 @@ async function createPipeline(scenario, filePublicId) {
     snapshot_append: snapshotAppendGraph,
     snapshot_merge: snapshotMergeGraph,
     snapshot_merge_delete: snapshotMergeDeleteGraph,
+    snapshot_merge_conflict: snapshotMergeGraph,
     snapshot_merge_backfill: snapshotMergeBackfillGraph,
     union: unionGraph,
     excel: excelGraph,
@@ -909,6 +918,19 @@ function assertCommonRun(run, expectedRows) {
     if (typeof step.metadata.outputRows !== 'number') {
       throw new Error(`outputRows missing for step ${step.nodeId}: ${JSON.stringify(step.metadata)}`)
     }
+  }
+}
+
+function assertSCD2SameValidFromConflictRun(run) {
+  if (run.status !== 'failed') {
+    throw new Error(`run should fail for sameValidFromPolicy conflict: ${run.status} ${run.errorSummary ?? ''}`)
+  }
+  if (!String(run.errorSummary ?? '').includes('sameValidFromPolicy=reject')) {
+    throw new Error(`run errorSummary missing sameValidFromPolicy conflict: ${JSON.stringify(run)}`)
+  }
+  const output = (run.outputs ?? []).find((item) => item.nodeId === 'output')
+  if (!output || output.status !== 'failed' || !String(output.errorSummary ?? '').includes('sameValidFromPolicy=reject')) {
+    throw new Error(`output failure missing sameValidFromPolicy conflict: ${JSON.stringify(output)}`)
   }
 }
 
@@ -1281,6 +1303,7 @@ async function runScenario(workspacePublicId, scenario) {
     snapshot_append: uploadSnapshotJSONFile,
     snapshot_merge: uploadSnapshotJSONFile,
     snapshot_merge_delete: uploadSnapshotJSONFile,
+    snapshot_merge_conflict: uploadSnapshotConflictJSONFile,
     snapshot_merge_backfill: uploadSnapshotJSONFile,
     union: uploadJSONFile,
     excel: uploadXLSXFile,
@@ -1302,6 +1325,7 @@ async function runScenario(workspacePublicId, scenario) {
     snapshot_append: assertSnapshotSCD2Run,
     snapshot_merge: assertSnapshotSCD2Run,
     snapshot_merge_delete: assertSnapshotSCD2Run,
+    snapshot_merge_conflict: assertSCD2SameValidFromConflictRun,
     snapshot_merge_backfill: assertSnapshotSCD2Run,
     union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
@@ -1639,8 +1663,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_delete', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_delete', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_delete', 'snapshot_merge_conflict', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_delete', 'snapshot_merge_conflict', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)

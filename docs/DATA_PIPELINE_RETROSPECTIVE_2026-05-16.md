@@ -40,7 +40,7 @@ Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行
 現時点で「未完了」として残すべき領域:
 
 - SCD2 削除検知 policy のうち `deleteDetection=close_current` v1。`mark_deleted` と UI 設定は未完了。
-- 同一 key / 同一 `valid_from` に複数変更がある場合の業務 policy。
+- 同一 key / 同一 `valid_from` に複数変更がある場合の `sameValidFromPolicy=reject` v1。高度な winner policy は未完了。
 - composite key の SCD2 key history API / UI。
 - Gold publish history と Data Pipeline run history のより完全な相互リンク。
 - `validate` の行単位 status column と quarantine 連携。
@@ -438,16 +438,21 @@ make smoke-data-pipeline-snapshot-merge-backfill
 問題:
 
 - `rebuild_key_history` では `uniqueKeys`、`valid_from`、`change_hash` で重複排除している。
-- 同一 key / 同一 `valid_from` に異なる `change_hash` が来た場合、どちらを採用すべきかが業務的に未定義。
+- 同一 key / 同一 `valid_from` に異なる `change_hash` が来た場合、どちらを採用すべきかが当初未定義でした。
 
-実装方針:
+2026-05-16 に実装した v1:
 
-- v1 では reject か warning に寄せるのが安全。
-- 候補:
-  - `sameValidFromPolicy=reject`
-  - `sameValidFromPolicy=latest_ingested_wins`
-  - `sameValidFromPolicy=highest_source_priority_wins`
-- 最初は `reject` を既定にし、run step metadata / output metadata に conflict count と sample を保存する。
+- `writeMode=scd2_merge` の既定 policy として `sameValidFromPolicy=reject` を追加した。
+- promote 前に stage table を検査し、同一 `uniqueKeys` / `valid_from` group に複数の `change_hash` がある場合は run を failed にする。
+- 既存 table がない初回 snapshot 作成でも検出される。
+- output metadata に `sameValidFromPolicy` を保存する。
+- smoke として `make smoke-data-pipeline-snapshot-merge-conflict` を追加した。
+
+残り:
+
+- `latest_ingested_wins`、`highest_source_priority_wins` のような winner policy は未実装。
+- conflict sample を専用 metadata として保存するところまでは未実装。現状は run / output の `errorSummary` で原因を追える。
+- UI から policy を選択する導線は未実装。
 
 ### 3. Composite key SCD2 history
 
