@@ -43,7 +43,7 @@ Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行
 - SCD2 削除検知 policy のうち `deleteDetection=close_current` v1。`mark_deleted` は未完了。
 - 同一 key / 同一 `valid_from` に複数変更がある場合の `sameValidFromPolicy=reject` v1。高度な winner policy は未完了。
 - composite key の SCD2 key history API / UI v1。
-- Gold publish history と Data Pipeline run history の厳密履歴化。v1 deep link は完了済みで、残りは publish run 作成時点の source run/output 参照を永続化すること。
+- Gold publish history と Data Pipeline run history の厳密履歴化。publish run 作成時点の source run/output 参照永続化まで完了済み。
 - `validate` の行単位 status column と quarantine 連携。
 - backend step catalog / generated contract への output schema 単一正本化。
 - review item の担当者割当、修正値の再投入 run、review 履歴 UI。
@@ -192,10 +192,12 @@ bfcbb4a Align data pipeline inspector column inference
 - `sourceDataPipelineRun.qualitySummary` を追加し、source run の step metadata から warning、failed rows、review items、validation errors / warnings、confidence gate、quarantine、quality row/column count を集約した。
 - Gold detail の source pipeline link に `runPublicId` / `outputNodeId` query を付け、Data Pipeline detail は Runs tab を開いて該当 row をハイライトするようにした。
 - Gold publish history row にも `sourceDataPipelineRun` を返し、各 publish run row から Data Pipeline detail の該当 run/output へ戻れるようにした。
+- `dataset_gold_publish_runs.source_data_pipeline_run_id` / `source_data_pipeline_run_output_id` を追加し、新規 Gold publish run 作成時点の source Data Pipeline run/output を保存するようにした。
+- 表示時は保存済み `source_data_pipeline_run_output_id` を優先し、既存行や参照欠落時のみ `source_work_table_id` から最新 completed output を fallback 表示する。
 
 残課題:
 
-- Gold publish history の厳密履歴化。現状 v1 は source Work table から最新 completed output を逆引きするため、publish run 作成時点の source output を DB に保存する余地がある。
+- 既存 Gold publish run 行の source run/output 参照 backfill は未実施。必要なら `source_work_table_id` と publish run 作成時刻から best-effort で補完する。
 - source run step の詳細 dialog を Gold detail から直接開くかどうかは未設計。
 
 ## 現在の API / metadata 正本
@@ -487,12 +489,12 @@ make smoke-data-pipeline-snapshot-merge-backfill
 - service 層では `dataset_gold_publish_runs.source_work_table_id` から、その Work table を最後に作った completed Data Pipeline run output を逆引きする。
 - API は publication detail と同じ `DatasetGoldSourcePipelineRunBody` を publish run row にも返す。
 - UI は Gold detail の publish history table に同期元 Pipeline 列を追加し、source pipeline detail の `runPublicId` / `outputNodeId` へ deep link できるようにした。
+- その後、`dataset_gold_publish_runs` に `source_data_pipeline_run_id` と `source_data_pipeline_run_output_id` を追加し、新規 publish run 作成時点で解決できた source run/output を保存するようにした。
+- hydrate 時は保存済み output ID を優先して source run を取得し、既存行や参照欠落時のみ Work table 逆引きへ fallback する。
 
 残課題:
 
-- v1 は `source_work_table_id` から最新 completed output を逆引きするため、同じ Work table が後続 Data Pipeline run で更新された後に過去 publish run を開くと、当時の source output ではなく最新 source output を指す可能性がある。
-- 厳密な履歴には、`dataset_gold_publish_runs` に source Data Pipeline run/output 参照を保存する必要がある。
-- 既存行は nullable のまま扱うか、`source_work_table_id` と時刻から best-effort backfill する。
+- migration 前の既存行は source run/output 参照が nullable のまま残る。必要なら `source_work_table_id` と時刻から best-effort backfill する。
 
 ## AI coding 改善として残すこと
 

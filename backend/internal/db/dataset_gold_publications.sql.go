@@ -83,7 +83,7 @@ SET
 WHERE id = $4
   AND tenant_id = $5
   AND status IN ('pending', 'processing')
-RETURNING id, public_id, tenant_id, publication_id, source_work_table_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, publication_id, source_work_table_id, source_data_pipeline_run_id, source_data_pipeline_run_output_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
 `
 
 type CompleteDatasetGoldPublishRunParams struct {
@@ -109,6 +109,8 @@ func (q *Queries) CompleteDatasetGoldPublishRun(ctx context.Context, arg Complet
 		&i.TenantID,
 		&i.PublicationID,
 		&i.SourceWorkTableID,
+		&i.SourceDataPipelineRunID,
+		&i.SourceDataPipelineRunOutputID,
 		&i.RequestedByUserID,
 		&i.OutboxEventID,
 		&i.Status,
@@ -216,6 +218,8 @@ INSERT INTO dataset_gold_publish_runs (
     tenant_id,
     publication_id,
     source_work_table_id,
+    source_data_pipeline_run_id,
+    source_data_pipeline_run_output_id,
     requested_by_user_id,
     status,
     gold_database,
@@ -228,26 +232,30 @@ INSERT INTO dataset_gold_publish_runs (
     $2,
     $3,
     $4,
-    'pending',
     $5,
     $6,
+    'pending',
     $7,
     $8,
-    $9
+    $9,
+    $10,
+    $11
 )
-RETURNING id, public_id, tenant_id, publication_id, source_work_table_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, publication_id, source_work_table_id, source_data_pipeline_run_id, source_data_pipeline_run_output_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
 `
 
 type CreateDatasetGoldPublishRunParams struct {
-	TenantID          int64       `json:"tenant_id"`
-	PublicationID     int64       `json:"publication_id"`
-	SourceWorkTableID int64       `json:"source_work_table_id"`
-	RequestedByUserID pgtype.Int8 `json:"requested_by_user_id"`
-	GoldDatabase      string      `json:"gold_database"`
-	GoldTable         string      `json:"gold_table"`
-	InternalDatabase  string      `json:"internal_database"`
-	InternalTable     string      `json:"internal_table"`
-	SchemaSummary     []byte      `json:"schema_summary"`
+	TenantID                      int64       `json:"tenant_id"`
+	PublicationID                 int64       `json:"publication_id"`
+	SourceWorkTableID             int64       `json:"source_work_table_id"`
+	SourceDataPipelineRunID       pgtype.Int8 `json:"source_data_pipeline_run_id"`
+	SourceDataPipelineRunOutputID pgtype.Int8 `json:"source_data_pipeline_run_output_id"`
+	RequestedByUserID             pgtype.Int8 `json:"requested_by_user_id"`
+	GoldDatabase                  string      `json:"gold_database"`
+	GoldTable                     string      `json:"gold_table"`
+	InternalDatabase              string      `json:"internal_database"`
+	InternalTable                 string      `json:"internal_table"`
+	SchemaSummary                 []byte      `json:"schema_summary"`
 }
 
 func (q *Queries) CreateDatasetGoldPublishRun(ctx context.Context, arg CreateDatasetGoldPublishRunParams) (DatasetGoldPublishRun, error) {
@@ -255,6 +263,8 @@ func (q *Queries) CreateDatasetGoldPublishRun(ctx context.Context, arg CreateDat
 		arg.TenantID,
 		arg.PublicationID,
 		arg.SourceWorkTableID,
+		arg.SourceDataPipelineRunID,
+		arg.SourceDataPipelineRunOutputID,
 		arg.RequestedByUserID,
 		arg.GoldDatabase,
 		arg.GoldTable,
@@ -269,6 +279,8 @@ func (q *Queries) CreateDatasetGoldPublishRun(ctx context.Context, arg CreateDat
 		&i.TenantID,
 		&i.PublicationID,
 		&i.SourceWorkTableID,
+		&i.SourceDataPipelineRunID,
+		&i.SourceDataPipelineRunOutputID,
 		&i.RequestedByUserID,
 		&i.OutboxEventID,
 		&i.Status,
@@ -298,7 +310,7 @@ SET
 WHERE id = $2
   AND tenant_id = $3
   AND status IN ('pending', 'processing')
-RETURNING id, public_id, tenant_id, publication_id, source_work_table_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, publication_id, source_work_table_id, source_data_pipeline_run_id, source_data_pipeline_run_output_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
 `
 
 type FailDatasetGoldPublishRunParams struct {
@@ -316,6 +328,8 @@ func (q *Queries) FailDatasetGoldPublishRun(ctx context.Context, arg FailDataset
 		&i.TenantID,
 		&i.PublicationID,
 		&i.SourceWorkTableID,
+		&i.SourceDataPipelineRunID,
+		&i.SourceDataPipelineRunOutputID,
 		&i.RequestedByUserID,
 		&i.OutboxEventID,
 		&i.Status,
@@ -426,7 +440,7 @@ func (q *Queries) GetDatasetGoldPublicationForTenant(ctx context.Context, arg Ge
 }
 
 const getDatasetGoldPublishRunByIDForTenant = `-- name: GetDatasetGoldPublishRunByIDForTenant :one
-SELECT id, public_id, tenant_id, publication_id, source_work_table_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
+SELECT id, public_id, tenant_id, publication_id, source_work_table_id, source_data_pipeline_run_id, source_data_pipeline_run_output_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
 FROM dataset_gold_publish_runs
 WHERE id = $1
   AND tenant_id = $2
@@ -447,6 +461,8 @@ func (q *Queries) GetDatasetGoldPublishRunByIDForTenant(ctx context.Context, arg
 		&i.TenantID,
 		&i.PublicationID,
 		&i.SourceWorkTableID,
+		&i.SourceDataPipelineRunID,
+		&i.SourceDataPipelineRunOutputID,
 		&i.RequestedByUserID,
 		&i.OutboxEventID,
 		&i.Status,
@@ -473,7 +489,7 @@ SET
     updated_at = now()
 WHERE id = $2
   AND tenant_id = $3
-RETURNING id, public_id, tenant_id, publication_id, source_work_table_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, publication_id, source_work_table_id, source_data_pipeline_run_id, source_data_pipeline_run_output_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
 `
 
 type LinkDatasetGoldPublishRunOutboxEventParams struct {
@@ -491,6 +507,8 @@ func (q *Queries) LinkDatasetGoldPublishRunOutboxEvent(ctx context.Context, arg 
 		&i.TenantID,
 		&i.PublicationID,
 		&i.SourceWorkTableID,
+		&i.SourceDataPipelineRunID,
+		&i.SourceDataPipelineRunOutputID,
 		&i.RequestedByUserID,
 		&i.OutboxEventID,
 		&i.Status,
@@ -635,7 +653,7 @@ func (q *Queries) ListDatasetGoldPublicationsForWorkTable(ctx context.Context, a
 }
 
 const listDatasetGoldPublishRuns = `-- name: ListDatasetGoldPublishRuns :many
-SELECT id, public_id, tenant_id, publication_id, source_work_table_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
+SELECT id, public_id, tenant_id, publication_id, source_work_table_id, source_data_pipeline_run_id, source_data_pipeline_run_output_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
 FROM dataset_gold_publish_runs
 WHERE tenant_id = $1
   AND publication_id = $2
@@ -664,6 +682,8 @@ func (q *Queries) ListDatasetGoldPublishRuns(ctx context.Context, arg ListDatase
 			&i.TenantID,
 			&i.PublicationID,
 			&i.SourceWorkTableID,
+			&i.SourceDataPipelineRunID,
+			&i.SourceDataPipelineRunOutputID,
 			&i.RequestedByUserID,
 			&i.OutboxEventID,
 			&i.Status,
@@ -829,7 +849,7 @@ SET
 WHERE id = $2
   AND tenant_id = $3
   AND status IN ('pending', 'processing')
-RETURNING id, public_id, tenant_id, publication_id, source_work_table_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
+RETURNING id, public_id, tenant_id, publication_id, source_work_table_id, source_data_pipeline_run_id, source_data_pipeline_run_output_id, requested_by_user_id, outbox_event_id, status, gold_database, gold_table, internal_database, internal_table, row_count, total_bytes, schema_summary, error_summary, started_at, completed_at, created_at, updated_at
 `
 
 type MarkDatasetGoldPublishRunProcessingParams struct {
@@ -847,6 +867,8 @@ func (q *Queries) MarkDatasetGoldPublishRunProcessing(ctx context.Context, arg M
 		&i.TenantID,
 		&i.PublicationID,
 		&i.SourceWorkTableID,
+		&i.SourceDataPipelineRunID,
+		&i.SourceDataPipelineRunOutputID,
 		&i.RequestedByUserID,
 		&i.OutboxEventID,
 		&i.Status,

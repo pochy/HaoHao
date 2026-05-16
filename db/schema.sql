@@ -706,6 +706,8 @@ CREATE TABLE public.dataset_gold_publish_runs (
     tenant_id bigint NOT NULL,
     publication_id bigint NOT NULL,
     source_work_table_id bigint NOT NULL,
+    source_data_pipeline_run_id bigint,
+    source_data_pipeline_run_output_id bigint,
     requested_by_user_id bigint,
     outbox_event_id bigint,
     status text DEFAULT 'pending'::text NOT NULL,
@@ -6984,6 +6986,20 @@ CREATE INDEX dataset_gold_publish_runs_publication_created_idx ON public.dataset
 
 
 --
+-- Name: dataset_gold_publish_runs_source_pipeline_output_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_gold_publish_runs_source_pipeline_output_idx ON public.dataset_gold_publish_runs USING btree (source_data_pipeline_run_output_id) WHERE (source_data_pipeline_run_output_id IS NOT NULL);
+
+
+--
+-- Name: dataset_gold_publish_runs_source_pipeline_run_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX dataset_gold_publish_runs_source_pipeline_run_idx ON public.dataset_gold_publish_runs USING btree (source_data_pipeline_run_id) WHERE (source_data_pipeline_run_id IS NOT NULL);
+
+
+--
 -- Name: dataset_gold_publish_runs_source_work_table_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9123,6 +9139,22 @@ ALTER TABLE ONLY public.dataset_gold_publish_runs
 
 ALTER TABLE ONLY public.dataset_gold_publish_runs
     ADD CONSTRAINT dataset_gold_publish_runs_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_gold_publish_runs dataset_gold_publish_runs_source_data_pipeline_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publish_runs
+    ADD CONSTRAINT dataset_gold_publish_runs_source_data_pipeline_run_id_fkey FOREIGN KEY (source_data_pipeline_run_id) REFERENCES public.data_pipeline_runs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: dataset_gold_publish_runs dataset_gold_publish_runs_source_data_pipeline_run_output_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dataset_gold_publish_runs
+    ADD CONSTRAINT dataset_gold_publish_runs_source_data_pipeline_run_output_id_fkey FOREIGN KEY (source_data_pipeline_run_output_id) REFERENCES public.data_pipeline_run_outputs(id) ON DELETE SET NULL;
 
 
 --

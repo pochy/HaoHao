@@ -64,6 +64,7 @@ type DatasetGoldPublication struct {
 
 type DatasetGoldSourceDataPipelineRun struct {
 	RunID            int64
+	RunOutputID      int64
 	PipelinePublicID string
 	PipelineName     string
 	RunPublicID      string
@@ -92,29 +93,31 @@ type DatasetGoldSourceQualitySummary struct {
 }
 
 type DatasetGoldPublishRun struct {
-	ID                      int64
-	PublicID                string
-	TenantID                int64
-	PublicationID           int64
-	PublicationPublicID     string
-	SourceWorkTableID       int64
-	SourceWorkTablePublicID string
-	SourceDataPipelineRun   *DatasetGoldSourceDataPipelineRun
-	RequestedByUserID       *int64
-	OutboxEventID           *int64
-	Status                  string
-	GoldDatabase            string
-	GoldTable               string
-	InternalDatabase        string
-	InternalTable           string
-	RowCount                int64
-	TotalBytes              int64
-	SchemaSummary           map[string]any
-	ErrorSummary            string
-	StartedAt               *time.Time
-	CompletedAt             *time.Time
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
+	ID                            int64
+	PublicID                      string
+	TenantID                      int64
+	PublicationID                 int64
+	PublicationPublicID           string
+	SourceWorkTableID             int64
+	SourceWorkTablePublicID       string
+	SourceDataPipelineRunID       *int64
+	SourceDataPipelineRunOutputID *int64
+	SourceDataPipelineRun         *DatasetGoldSourceDataPipelineRun
+	RequestedByUserID             *int64
+	OutboxEventID                 *int64
+	Status                        string
+	GoldDatabase                  string
+	GoldTable                     string
+	InternalDatabase              string
+	InternalTable                 string
+	RowCount                      int64
+	TotalBytes                    int64
+	SchemaSummary                 map[string]any
+	ErrorSummary                  string
+	StartedAt                     *time.Time
+	CompletedAt                   *time.Time
+	CreatedAt                     time.Time
+	UpdatedAt                     time.Time
 }
 
 type DatasetGoldPublicationPreview struct {
@@ -156,6 +159,7 @@ func (s *DatasetService) RequestGoldPublication(ctx context.Context, tenantID, u
 	internalDatabase := datasetGoldInternalDatabaseName(tenantID)
 	internalTable := "gp_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	schemaSummary := medallionWorkTableSchemaSummary(columns)
+	sourceRun := s.goldSourceDataPipelineRunForWorkTable(ctx, tenantID, workTable.ID)
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -183,15 +187,17 @@ func (s *DatasetService) RequestGoldPublication(ctx context.Context, tenantID, u
 		return DatasetGoldPublication{}, fmt.Errorf("create gold publication: %w", err)
 	}
 	run, err := qtx.CreateDatasetGoldPublishRun(ctx, db.CreateDatasetGoldPublishRunParams{
-		TenantID:          tenantID,
-		PublicationID:     publication.ID,
-		SourceWorkTableID: workTable.ID,
-		RequestedByUserID: pgtype.Int8{Int64: userID, Valid: userID > 0},
-		GoldDatabase:      goldDatabase,
-		GoldTable:         goldTable,
-		InternalDatabase:  internalDatabase,
-		InternalTable:     internalTable,
-		SchemaSummary:     jsonBytes(schemaSummary),
+		TenantID:                      tenantID,
+		PublicationID:                 publication.ID,
+		SourceWorkTableID:             workTable.ID,
+		SourceDataPipelineRunID:       pgtype.Int8{Int64: sourceRunID(sourceRun), Valid: sourceRun != nil && sourceRun.RunID > 0},
+		SourceDataPipelineRunOutputID: pgtype.Int8{Int64: sourceRunOutputID(sourceRun), Valid: sourceRun != nil && sourceRun.RunOutputID > 0},
+		RequestedByUserID:             pgtype.Int8{Int64: userID, Valid: userID > 0},
+		GoldDatabase:                  goldDatabase,
+		GoldTable:                     goldTable,
+		InternalDatabase:              internalDatabase,
+		InternalTable:                 internalTable,
+		SchemaSummary:                 jsonBytes(schemaSummary),
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -292,16 +298,19 @@ func (s *DatasetService) createGoldPublishRun(ctx context.Context, tenantID, use
 		_ = tx.Rollback(context.Background())
 	}()
 	qtx := s.queries.WithTx(tx)
+	sourceRun := s.goldSourceDataPipelineRunForWorkTable(ctx, tenantID, workTable.ID)
 	run, err := qtx.CreateDatasetGoldPublishRun(ctx, db.CreateDatasetGoldPublishRunParams{
-		TenantID:          tenantID,
-		PublicationID:     publication.ID,
-		SourceWorkTableID: workTable.ID,
-		RequestedByUserID: pgtype.Int8{Int64: userID, Valid: userID > 0},
-		GoldDatabase:      publication.GoldDatabase,
-		GoldTable:         publication.GoldTable,
-		InternalDatabase:  datasetGoldInternalDatabaseName(tenantID),
-		InternalTable:     "gp_" + strings.ReplaceAll(uuid.NewString(), "-", ""),
-		SchemaSummary:     jsonBytes(schemaSummary),
+		TenantID:                      tenantID,
+		PublicationID:                 publication.ID,
+		SourceWorkTableID:             workTable.ID,
+		SourceDataPipelineRunID:       pgtype.Int8{Int64: sourceRunID(sourceRun), Valid: sourceRun != nil && sourceRun.RunID > 0},
+		SourceDataPipelineRunOutputID: pgtype.Int8{Int64: sourceRunOutputID(sourceRun), Valid: sourceRun != nil && sourceRun.RunOutputID > 0},
+		RequestedByUserID:             pgtype.Int8{Int64: userID, Valid: userID > 0},
+		GoldDatabase:                  publication.GoldDatabase,
+		GoldTable:                     publication.GoldTable,
+		InternalDatabase:              datasetGoldInternalDatabaseName(tenantID),
+		InternalTable:                 "gp_" + strings.ReplaceAll(uuid.NewString(), "-", ""),
+		SchemaSummary:                 jsonBytes(schemaSummary),
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -885,6 +894,12 @@ func (s *DatasetService) hydrateGoldPublishRunDataPipelineSource(ctx context.Con
 	if item == nil || item.SourceWorkTableID <= 0 {
 		return
 	}
+	if item.SourceDataPipelineRunOutputID != nil {
+		item.SourceDataPipelineRun = s.goldSourceDataPipelineRunForOutput(ctx, tenantID, *item.SourceDataPipelineRunOutputID)
+		if item.SourceDataPipelineRun != nil {
+			return
+		}
+	}
 	item.SourceDataPipelineRun = s.goldSourceDataPipelineRunForWorkTable(ctx, tenantID, item.SourceWorkTableID)
 }
 
@@ -895,6 +910,7 @@ func (s *DatasetService) goldSourceDataPipelineRunForWorkTable(ctx context.Conte
 	const query = `
 SELECT
 	r.id,
+	o.id,
 	p.public_id::text,
 	p.name,
 	r.public_id::text,
@@ -911,11 +927,41 @@ WHERE o.tenant_id = $1
   AND o.status = 'completed'
 ORDER BY o.completed_at DESC NULLS LAST, o.id DESC
 LIMIT 1`
+	return s.scanGoldSourceDataPipelineRun(ctx, query, tenantID, workTableID)
+}
+
+func (s *DatasetService) goldSourceDataPipelineRunForOutput(ctx context.Context, tenantID, outputID int64) *DatasetGoldSourceDataPipelineRun {
+	if s == nil || s.pool == nil || outputID <= 0 {
+		return nil
+	}
+	const query = `
+SELECT
+	r.id,
+	o.id,
+	p.public_id::text,
+	p.name,
+	r.public_id::text,
+	r.status,
+	o.node_id,
+	o.row_count,
+	o.metadata,
+	o.completed_at
+FROM data_pipeline_run_outputs o
+JOIN data_pipeline_runs r ON r.id = o.run_id AND r.tenant_id = o.tenant_id
+JOIN data_pipelines p ON p.id = r.pipeline_id AND p.tenant_id = o.tenant_id
+WHERE o.tenant_id = $1
+  AND o.id = $2
+LIMIT 1`
+	return s.scanGoldSourceDataPipelineRun(ctx, query, tenantID, outputID)
+}
+
+func (s *DatasetService) scanGoldSourceDataPipelineRun(ctx context.Context, query string, tenantID, id int64) *DatasetGoldSourceDataPipelineRun {
 	var source DatasetGoldSourceDataPipelineRun
 	var completedAt pgtype.Timestamptz
 	var metadataBytes []byte
-	err := s.pool.QueryRow(ctx, query, tenantID, workTableID).Scan(
+	err := s.pool.QueryRow(ctx, query, tenantID, id).Scan(
 		&source.RunID,
+		&source.RunOutputID,
 		&source.PipelinePublicID,
 		&source.PipelineName,
 		&source.RunPublicID,
@@ -1072,31 +1118,47 @@ func datasetGoldPublicationFromDB(row db.DatasetGoldPublication) DatasetGoldPubl
 
 func datasetGoldPublishRunFromDB(row db.DatasetGoldPublishRun) DatasetGoldPublishRun {
 	return DatasetGoldPublishRun{
-		ID:                row.ID,
-		PublicID:          row.PublicID.String(),
-		TenantID:          row.TenantID,
-		PublicationID:     row.PublicationID,
-		SourceWorkTableID: row.SourceWorkTableID,
-		RequestedByUserID: optionalPgInt8(row.RequestedByUserID),
-		OutboxEventID:     optionalPgInt8(row.OutboxEventID),
-		Status:            row.Status,
-		GoldDatabase:      row.GoldDatabase,
-		GoldTable:         row.GoldTable,
-		InternalDatabase:  row.InternalDatabase,
-		InternalTable:     row.InternalTable,
-		RowCount:          row.RowCount,
-		TotalBytes:        row.TotalBytes,
-		SchemaSummary:     jsonObjectFromBytes(row.SchemaSummary),
-		ErrorSummary:      optionalText(row.ErrorSummary),
-		StartedAt:         optionalPgTime(row.StartedAt),
-		CompletedAt:       optionalPgTime(row.CompletedAt),
-		CreatedAt:         row.CreatedAt.Time,
-		UpdatedAt:         row.UpdatedAt.Time,
+		ID:                            row.ID,
+		PublicID:                      row.PublicID.String(),
+		TenantID:                      row.TenantID,
+		PublicationID:                 row.PublicationID,
+		SourceWorkTableID:             row.SourceWorkTableID,
+		SourceDataPipelineRunID:       optionalPgInt8(row.SourceDataPipelineRunID),
+		SourceDataPipelineRunOutputID: optionalPgInt8(row.SourceDataPipelineRunOutputID),
+		RequestedByUserID:             optionalPgInt8(row.RequestedByUserID),
+		OutboxEventID:                 optionalPgInt8(row.OutboxEventID),
+		Status:                        row.Status,
+		GoldDatabase:                  row.GoldDatabase,
+		GoldTable:                     row.GoldTable,
+		InternalDatabase:              row.InternalDatabase,
+		InternalTable:                 row.InternalTable,
+		RowCount:                      row.RowCount,
+		TotalBytes:                    row.TotalBytes,
+		SchemaSummary:                 jsonObjectFromBytes(row.SchemaSummary),
+		ErrorSummary:                  optionalText(row.ErrorSummary),
+		StartedAt:                     optionalPgTime(row.StartedAt),
+		CompletedAt:                   optionalPgTime(row.CompletedAt),
+		CreatedAt:                     row.CreatedAt.Time,
+		UpdatedAt:                     row.UpdatedAt.Time,
 	}
 }
 
 func ptrDatasetGoldPublishRun(item DatasetGoldPublishRun) *DatasetGoldPublishRun {
 	return &item
+}
+
+func sourceRunID(item *DatasetGoldSourceDataPipelineRun) int64 {
+	if item == nil {
+		return 0
+	}
+	return item.RunID
+}
+
+func sourceRunOutputID(item *DatasetGoldSourceDataPipelineRun) int64 {
+	if item == nil {
+		return 0
+	}
+	return item.RunOutputID
 }
 
 func normalizeDatasetGoldDisplayName(values ...string) string {
