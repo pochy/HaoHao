@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Crown, Database, FileText, RefreshCw, Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -17,6 +17,7 @@ type DatasetHomeTab = 'datasets' | 'workTables'
 const datasetStore = useDatasetStore()
 const realtimeStore = useRealtimeStore()
 const tenantStore = useTenantStore()
+const route = useRoute()
 const router = useRouter()
 const { d, t } = useI18n()
 
@@ -70,9 +71,19 @@ watch(
       await datasetStore.load()
       await datasetStore.loadWorkTables()
       await datasetStore.loadGoldPublications()
+      await applyDatasetRouteQuery()
     }
   },
   { immediate: true },
+)
+
+watch(
+  () => [route.query.tab, route.query.workTable, datasetStore.workTables.length],
+  () => {
+    applyDatasetRouteQuery().catch((error) => {
+      actionErrorMessage.value = formatActionError(error)
+    })
+  },
 )
 
 watch(
@@ -126,6 +137,35 @@ function fillDatasetNameFromSource() {
 function selectSourceFile(publicId: string) {
   datasetStore.selectedSourceFilePublicId = publicId
   datasetName.value = sourceDatasetName(selectedSourceFile.value?.originalFilename ?? '')
+}
+
+function routeQueryString(value: unknown) {
+  return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : ''
+}
+
+async function setDatasetHomeTab(tab: DatasetHomeTab) {
+  activeDatasetHomeTab.value = tab
+  await router.replace({
+    name: 'datasets',
+    query: tab === 'workTables' ? { ...route.query, tab } : { ...route.query, tab: undefined, workTable: undefined },
+  })
+}
+
+async function applyDatasetRouteQuery() {
+  const tab = routeQueryString(route.query.tab)
+  const workTablePublicId = routeQueryString(route.query.workTable)
+  if (tab === 'workTables' || workTablePublicId) {
+    activeDatasetHomeTab.value = 'workTables'
+  } else if (tab === 'datasets') {
+    activeDatasetHomeTab.value = 'datasets'
+  }
+  if (!workTablePublicId || datasetStore.workTables.length === 0) {
+    return
+  }
+  const table = datasetStore.workTables.find((item) => item.publicId === workTablePublicId)
+  if (table && datasetStore.selectedWorkTable?.publicId !== table.publicId) {
+    await datasetStore.selectWorkTable(table)
+  }
 }
 
 async function importDataset() {
@@ -341,7 +381,7 @@ function formatActionError(error: unknown) {
           role="tab"
           :aria-selected="activeDatasetHomeTab === 'datasets'"
           :class="{ active: activeDatasetHomeTab === 'datasets' }"
-          @click="activeDatasetHomeTab = 'datasets'"
+          @click="setDatasetHomeTab('datasets')"
         >
           {{ t('datasets.datasets') }}
           <span class="status-pill">{{ datasetStore.items.length }}</span>
@@ -351,7 +391,7 @@ function formatActionError(error: unknown) {
           role="tab"
           :aria-selected="activeDatasetHomeTab === 'workTables'"
           :class="{ active: activeDatasetHomeTab === 'workTables' }"
-          @click="activeDatasetHomeTab = 'workTables'"
+          @click="setDatasetHomeTab('workTables')"
         >
           {{ t('datasets.workTables') }}
           <span class="status-pill">{{ datasetStore.workTables.length }}</span>

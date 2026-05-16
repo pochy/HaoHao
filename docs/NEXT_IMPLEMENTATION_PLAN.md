@@ -179,7 +179,7 @@ Local Search / RAG:
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
 - 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint の初期実装は完了したため、次は backend step catalog / generated contract へのさらなる集約、SCD2 / Gold publish / snapshot 運用 UI の validation 表示を進めます。
-- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown、Gold detail の source SCD2 summary 表示まで進みました。次の改善は、Data Pipeline run / Gold detail 間の相互リンク、SCD2 削除検知 policy、または composite key 履歴 drilldown です。
+- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown、Gold detail の source SCD2 summary 表示、Gold detail から同期元 Work table への deep link まで進みました。次の改善は、Data Pipeline run / Gold detail 間の相互リンク、SCD2 削除検知 policy、または composite key 履歴 drilldown です。
 
 ### Drive / RAG の課題
 
@@ -374,7 +374,7 @@ AI coding / agent 改善を触る場合:
 - `snapshot_scd2` v1、output `writeMode=append`、output `writeMode=scd2_merge` は 2026-05-16 に実装済み。`scd2_merge` は既存 snapshot table の current row と今回 run の current row を比較し、変更 key だけ previous current を close して新 current row を追加する。
 - `scd2_merge` の `scd2MergePolicy=rebuild_key_history` も 2026-05-16 に実装済み。stage に含まれる key だけ既存履歴と今回履歴を結合し、`valid_to` / `is_current` を再計算するため、late arriving data を途中の履歴として挿入できる。
 - Data Pipeline output から Gold publish への最小 UI 導線も 2026-05-16 に追加済み。Run output metadata に `workTablePublicId`、database、table name、display name、write mode を保存し、Runs tab の output 行から既存 Gold publication API を呼べる。
-- snapshot table の運用 UI と Gold detail の source SCD2 summary は完了済み。次は削除検知、composite key 履歴 drilldown、または Gold publish 完了後の Data Pipeline run / output への戻り導線へ進む。
+- snapshot table の運用 UI、Gold detail の source SCD2 summary、Gold detail から同期元 Work table への戻り導線は完了済み。次は削除検知、composite key 履歴 drilldown、または Gold publish 完了後の Data Pipeline run / output への戻り導線へ進む。
 
 完了条件:
 
@@ -393,7 +393,7 @@ AI coding / agent 改善を触る場合:
 - output `writeMode=scd2_merge` も 2026-05-16 に実装済み。既存 table がなければ初回 snapshot table として作成し、既存 table がある場合は stage 側の current row だけを差分候補にして、`uniqueKeys` と `change_hash` で変更有無を判定する。同一データ再実行では行数を増やさず、変更がある key だけ既存 current row の `valid_to` を新 row の `valid_from` で閉じる。
 - `scd2MergePolicy=rebuild_key_history` も実装済み。late arriving data / backfill 用に、stage に含まれる key だけ既存 snapshot row と stage row をまとめて重複排除し、`valid_to` / `is_current` を再計算できる。
 - Data Pipeline output から Gold publish への最小 UI 導線も完了済み。Runs tab の output 行で `hh_t_*_work.table` と write mode を確認し、その output Work table を Gold publication として公開できる。
-- snapshot table の運用 UI と Gold detail の source SCD2 summary は完了済み。次は削除検知、composite key 履歴 drilldown、または Gold publish 完了後の Data Pipeline run / output への戻り導線へ進む。
+- snapshot table の運用 UI、Gold detail の source SCD2 summary、Gold detail から同期元 Work table への戻り導線は完了済み。次は削除検知、composite key 履歴 drilldown、または Gold publish 完了後の Data Pipeline run / output への戻り導線へ進む。
 
 完了条件:
 

@@ -295,7 +295,16 @@ function formatActionError(error: unknown) {
           </div>
           <div>
             <dt>{{ t('datasets.sourceWorkTable') }}</dt>
-            <dd class="monospace-cell">{{ sourceWorkTableLabel }}</dd>
+            <dd>
+              <RouterLink
+                v-if="publication.sourceWorkTablePublicId"
+                class="monospace-cell"
+                :to="{ name: 'datasets', query: { tab: 'workTables', workTable: publication.sourceWorkTablePublicId } }"
+              >
+                {{ sourceWorkTableLabel }}
+              </RouterLink>
+              <span v-else class="monospace-cell">{{ sourceWorkTableLabel }}</span>
+            </dd>
           </div>
           <div>
             <dt>{{ t('datasets.refreshPolicy') }}</dt>

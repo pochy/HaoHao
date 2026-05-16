@@ -193,7 +193,7 @@ make smoke-data-pipeline-snapshot-merge-backfill
 
 残課題:
 
-- Gold publish 完了後に Data Pipeline run / output へ戻る明確な導線。
+- Gold publish 完了後に Data Pipeline run / output へ戻る明確な導線。Gold detail から同期元 Work table へ戻るリンクは追加済み。
 - Gold detail に Data Pipeline source、run id、quality summary、SCD2 policy を表示する。SCD2 の row summary は `sourceScd2Summary` として表示済み。
 - Gold publish history と Data Pipeline run history の相互リンク。
 
@@ -249,7 +249,7 @@ Key 単位履歴 drilldown:
 今後の拡張候補:
 
 - key column は output metadata の `scd2UniqueKeys[0]` を優先する実装まで完了済み。残りは composite key の UI / API contract。
-- Gold detail 側には `sourceScd2Summary` として current row count、history row count、key count、key column、`valid_from` range を表示済み。残りは SCD2 policy と source pipeline run へのリンク。
+- Gold detail 側には `sourceScd2Summary` として current row count、history row count、key count、key column、`valid_from` range を表示済み。同期元 Work table への deep link も追加済み。残りは SCD2 policy と source pipeline run へのリンク。
 
 ## 主要コミット
 
