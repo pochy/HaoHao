@@ -1677,7 +1677,9 @@ const en = {
     writeMode: 'Write mode',
     scd2MergePolicy: 'SCD2 merge policy',
     deleteDetection: 'Delete detection',
+    deleteMarkerColumn: 'Delete marker column',
     sameValidFromPolicy: 'Same valid-from policy',
+    ingestedAtColumn: 'Ingested-at column',
     engine: 'Engine',
     outputColumns: 'Output columns',
     addOutputColumn: 'Add output column',
@@ -1937,10 +1939,12 @@ const en = {
     deleteDetectionValue: {
       none: 'None',
       closeCurrent: 'Close missing current rows',
+      markDeleted: 'Mark missing rows as deleted',
     },
     sameValidFromPolicyValue: {
       reject: 'Reject conflicts',
       allow: 'Allow',
+      latestIngestedWins: 'Latest ingested wins',
     },
     aggregateFunction: {
       count: 'Count',
@@ -3740,7 +3744,9 @@ const ja: MessageSchema = {
     writeMode: '書き込み方式',
     scd2MergePolicy: 'SCD2 merge 方針',
     deleteDetection: '削除検知',
+    deleteMarkerColumn: '削除マーカー列',
     sameValidFromPolicy: '同一 valid_from 方針',
+    ingestedAtColumn: '取り込み時刻列',
     engine: 'エンジン',
     outputColumns: '出力列',
     addOutputColumn: '出力列を追加',
@@ -4000,10 +4006,12 @@ const ja: MessageSchema = {
     deleteDetectionValue: {
       none: 'なし',
       closeCurrent: '消えた現在行を閉じる',
+      markDeleted: '消えた行を削除済みにする',
     },
     sameValidFromPolicyValue: {
       reject: '衝突を拒否',
       allow: '許可',
+      latestIngestedWins: '最新取り込みを採用',
     },
     aggregateFunction: {
       count: '件数',

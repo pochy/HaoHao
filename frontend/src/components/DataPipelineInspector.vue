@@ -2786,14 +2786,24 @@ function labelForStep(type: DataPipelineStepType | string) {
               <select :value="stringConfig('deleteDetection') || 'none'" @change="updateConfigField('deleteDetection', targetValue($event))">
                 <option value="none">{{ optionLabel('dataPipelines.deleteDetectionValue.none', 'none') }}</option>
                 <option value="close_current">{{ optionLabel('dataPipelines.deleteDetectionValue.closeCurrent', 'close_current') }}</option>
+                <option value="mark_deleted">{{ optionLabel('dataPipelines.deleteDetectionValue.markDeleted', 'mark_deleted') }}</option>
               </select>
+            </label>
+            <label v-if="stringConfig('deleteDetection') === 'mark_deleted'" class="field">
+              <span>{{ t('dataPipelines.deleteMarkerColumn') }}</span>
+              <input :value="stringConfig('deleteMarkerColumn') || 'is_deleted'" list="data-pipeline-column-options" @input="updateConfigField('deleteMarkerColumn', targetValue($event))">
             </label>
             <label class="field">
               <span>{{ t('dataPipelines.sameValidFromPolicy') }}</span>
               <select :value="stringConfig('sameValidFromPolicy') || 'reject'" @change="updateConfigField('sameValidFromPolicy', targetValue($event))">
                 <option value="reject">{{ optionLabel('dataPipelines.sameValidFromPolicyValue.reject', 'reject') }}</option>
                 <option value="allow">{{ optionLabel('dataPipelines.sameValidFromPolicyValue.allow', 'allow') }}</option>
+                <option value="latest_ingested_wins">{{ optionLabel('dataPipelines.sameValidFromPolicyValue.latestIngestedWins', 'latest_ingested_wins') }}</option>
               </select>
+            </label>
+            <label v-if="stringConfig('sameValidFromPolicy') === 'latest_ingested_wins'" class="field">
+              <span>{{ t('dataPipelines.ingestedAtColumn') }}</span>
+              <input :value="stringConfig('ingestedAtColumn') || 'ingested_at'" list="data-pipeline-column-options" @input="updateConfigField('ingestedAtColumn', targetValue($event))">
             </label>
             <label class="field">
               <span>{{ t('dataPipelines.uniqueKeys') }}</span>

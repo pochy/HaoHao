@@ -1966,6 +1966,12 @@ func (s *DataPipelineService) HandleRunRequested(ctx context.Context, tenantID, 
 			outputMetadata["changeHashColumn"] = firstNonEmpty(dataPipelineString(result.Node.Data.Config, "changeHashColumn"), "change_hash")
 			outputMetadata["deleteDetection"] = firstNonEmpty(dataPipelineString(result.Node.Data.Config, "deleteDetection"), "none")
 			outputMetadata["sameValidFromPolicy"] = firstNonEmpty(dataPipelineString(result.Node.Data.Config, "sameValidFromPolicy"), "reject")
+			if outputMetadata["deleteDetection"] == "mark_deleted" {
+				outputMetadata["deleteMarkerColumn"] = firstNonEmpty(dataPipelineString(result.Node.Data.Config, "deleteMarkerColumn"), "is_deleted")
+			}
+			if outputMetadata["sameValidFromPolicy"] == "latest_ingested_wins" {
+				outputMetadata["ingestedAtColumn"] = firstNonEmpty(dataPipelineString(result.Node.Data.Config, "ingestedAtColumn"), "ingested_at")
+			}
 		}
 		meta, _ := encodeDataPipelineJSON(outputMetadata)
 		_, _ = s.queries.CompleteDataPipelineRunOutput(ctx, db.CompleteDataPipelineRunOutputParams{TenantID: tenantID, RunID: runID, NodeID: result.Node.ID, OutputWorkTableID: pgtype.Int8{Int64: result.WorkTable.ID, Valid: true}, RowCount: result.WorkTable.TotalRows, Metadata: meta})

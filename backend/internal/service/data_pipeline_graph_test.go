@@ -120,8 +120,20 @@ func TestDataPipelineOutputSCD2MergeSpecDeleteDetection(t *testing.T) {
 	if _, err := dataPipelineOutputSCD2MergeSpec(map[string]any{
 		"uniqueKeys":      []any{"id"},
 		"deleteDetection": "mark_deleted",
-	}, columns); err == nil || !strings.Contains(err.Error(), "unsupported deleteDetection") {
-		t.Fatalf("expected unsupported deleteDetection error, got %v", err)
+	}, columns); err == nil || !strings.Contains(err.Error(), "mark_deleted requires deleteMarkerColumn") {
+		t.Fatalf("expected delete marker column error, got %v", err)
+	}
+
+	markDeletedSpec, err := dataPipelineOutputSCD2MergeSpec(map[string]any{
+		"uniqueKeys":         []any{"id"},
+		"deleteDetection":    "mark_deleted",
+		"deleteMarkerColumn": "deleted_flag",
+	}, append(columns, "deleted_flag"))
+	if err != nil {
+		t.Fatalf("mark_deleted dataPipelineOutputSCD2MergeSpec() error = %v", err)
+	}
+	if markDeletedSpec.DeleteDetection != "mark_deleted" || markDeletedSpec.DeleteMarkerColumn != "deleted_flag" {
+		t.Fatalf("unexpected mark_deleted spec: %+v", markDeletedSpec)
 	}
 
 	if _, err := dataPipelineOutputSCD2MergeSpec(map[string]any{
@@ -145,8 +157,26 @@ func TestDataPipelineOutputSCD2MergeSpecDeleteDetection(t *testing.T) {
 		"changeHashColumn":    "change_hash",
 		"scd2MergePolicy":     "current_only",
 		"deleteDetection":     "none",
-	}, columns); err == nil || !strings.Contains(err.Error(), "unsupported sameValidFromPolicy") {
-		t.Fatalf("expected sameValidFromPolicy validation error, got %v", err)
+	}, columns); err == nil || !strings.Contains(err.Error(), "latest_ingested_wins requires ingestedAtColumn") {
+		t.Fatalf("expected ingestedAtColumn validation error, got %v", err)
+	}
+
+	winnerSpec, err := dataPipelineOutputSCD2MergeSpec(map[string]any{
+		"uniqueKeys":          []any{"id"},
+		"sameValidFromPolicy": "latest_ingested_wins",
+		"ingestedAtColumn":    "source_ingested_at",
+		"validFromColumn":     "valid_from",
+		"validToColumn":       "valid_to",
+		"isCurrentColumn":     "is_current",
+		"changeHashColumn":    "change_hash",
+		"scd2MergePolicy":     "current_only",
+		"deleteDetection":     "none",
+	}, append(columns, "source_ingested_at"))
+	if err != nil {
+		t.Fatalf("latest_ingested_wins dataPipelineOutputSCD2MergeSpec() error = %v", err)
+	}
+	if winnerSpec.SameValidFromPolicy != "latest_ingested_wins" || winnerSpec.IngestedAtColumn != "source_ingested_at" {
+		t.Fatalf("unexpected latest_ingested_wins spec: %+v", winnerSpec)
 	}
 }
 
