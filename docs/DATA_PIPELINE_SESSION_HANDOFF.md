@@ -11,19 +11,20 @@
 - 全体計画: `docs/NEXT_IMPLEMENTATION_PLAN.md`
 - Data Pipeline 実装計画: `docs/DATA_PIPELINE_IMPLEMENTATION_PLAN.md`
 - 現状メモ: `docs/data-pipeline-current-state.md`
+- セッション横断の振り返り: `docs/DATA_PIPELINE_RETROSPECTIVE_2026-05-16.md`
 - Month 2 詳細: `docs/DATA_PIPELINE_MONTH2_RELIABLE_FAILURE_HANDLING_PLAN.md`
 - Inspector 列推論問題: `docs/DATA_PIPELINE_UI_COLUMN_INFERENCE.md`
 - validation endpoint: `docs/DATA_PIPELINE_VALIDATION_ENDPOINT_PLAN.md`
 
 ## 現在の結論
 
-Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Month 3 の主要 runtime node は、v1 として実装済みです。
+Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Month 3 の主要 runtime node は、v1 として実装済みです。2026-05-16 時点の詳細な振り返り、問題、原因、対応、未完了領域、次タスクは `docs/DATA_PIPELINE_RETROSPECTIVE_2026-05-16.md` に集約しました。
 
 現在の次タスクは、機能をさらに横に増やすことではなく、運用 UI と説明性を強くすることです。優先候補は次です。
 
-1. SCD2 / snapshot table の運用 UI。
-2. Gold publish 完了後の lineage / quality summary 表示。
-3. SCD2 削除検知と同一 `valid_from` 衝突時の policy。
+1. SCD2 削除検知と同一 `valid_from` 衝突時の policy。
+2. composite key の SCD2 key history API / UI。
+3. Gold publish history と Data Pipeline run history のより完全な相互リンク。
 4. backend step catalog / generated contract への output schema 単一正本化。
 
 ## 実装済みの流れ
@@ -273,6 +274,14 @@ Key 単位履歴 drilldown:
 - `23ec2c6 Add data pipeline preview output schemas`
 - `bfcbb4a Align data pipeline inspector column inference`
 - `4757732 Fix data pipeline inspector column inference`
+- `2a5fce5 Use SCD2 output metadata for key history`
+- `df870f2 Show SCD2 summary on Gold detail`
+- `022fc09 Link Gold detail to source work table`
+- `1a161d4 Link pipeline outputs to Gold publications`
+- `fd5840c Link Gold detail to source pipeline`
+- `803d77f Show Gold source output metadata`
+- `0425ab0 Show Gold source quality summary`
+- `5e68517 Deep link Gold source pipeline run`
 
 ## 検証環境メモ
 

@@ -27,9 +27,10 @@ frontend build では Monaco / Data Pipeline detail 周辺を中心に大きい 
 - `DataPipelineRunStepBody.metadata` は API contract として使われ、`profile`、`validate`、`quality_report`、`confidence_gate`、`inputRows`、`samples`、`queryStats`、Runs tab 詳細、Data Pipeline smoke suite まで実装済みです。
 - Data Pipeline Inspector の上流列警告は、runtime 出力列と frontend 静的推論がずれると false positive になります。`4757732` と `bfcbb4a` で代表 node の推論は修正済みです。さらに `23ec2c6` で preview API が selected subgraph の `outputSchemas` を返すようになりました。2026-05-14 に軽量 validation endpoint の初期実装も追加し、preview 実行なしで backend schema / missing-column warnings を返せるようにしました。詳細は `docs/DATA_PIPELINE_UI_COLUMN_INFERENCE.md` と `docs/DATA_PIPELINE_VALIDATION_ENDPOINT_PLAN.md` を参照してください。
 - SCD2 / snapshot Work table の運用 UI を追加しました。Work table preview で `valid_from`、`valid_to`、`is_current`、`change_hash` が揃う場合に SCD2 table として検出し、table 全体の current/history 件数、key 数、preview filter、key 単位履歴 drilldown を表示します。
+- Data Pipeline / SCD2 / Gold publish のセッション横断振り返りを `docs/DATA_PIPELINE_RETROSPECTIVE_2026-05-16.md` に追加しました。複数セッションで何を実装し、どの問題をどう解消し、何が残っているかはこの文書を最初に確認してください。
 - Drive OCR、商品抽出、Local Search、pgvector、Drive RAG は主要な足場が動いています。次は broad な機能追加ではなく、評価、追跡、失敗理由、運用導線を強くします。
 - frontend は機能がかなり増え、Data Pipeline detail と Monaco editor の chunk が大きくなっています。運用前に code splitting を改善する余地があります。
-- AI coding 改善は一部だけ実装済みです。repo-local skill として `haohao-db-dev`、`haohao-drive-debug`、`supabase-postgres-best-practices` は使える状態です。一方で `docs/AGENT_KNOWLEDGE_INDEX.md` や RAG/OpenFGA/OpenAPI/frontend 専用 skill、smoke 結果を自動で docs / PR に反映する仕組みはまだありません。
+- AI coding 改善は一部だけ実装済みです。repo-local skill として `haohao-db-dev`、`haohao-drive-debug`、`supabase-postgres-best-practices` は使える状態です。さらに 2026-05-16 に `docs/AGENT_KNOWLEDGE_INDEX.md` を追加し、作業タイプ別の入口を整理しました。一方で RAG/OpenFGA/OpenAPI/frontend 専用 skill、smoke 結果を自動で docs / PR に反映する仕組みはまだありません。
 
 ## 調査根拠
 
@@ -43,6 +44,8 @@ frontend build では Monaco / Data Pipeline detail 周辺を中心に大きい 
 - `FUTURE_FEATURES.md`
 - `docs/data-pipeline-current-state.md`
 - `docs/DATA_PIPELINE_SESSION_HANDOFF.md`
+- `docs/DATA_PIPELINE_RETROSPECTIVE_2026-05-16.md`
+- `docs/AGENT_KNOWLEDGE_INDEX.md`
 - `docs/data-pipeline-llm-node.md`
 - `docs/VECTOR_SEARCH_RAG_IMPLEMENTATION_PLAN.md`
 - `docs/DRIVE_AGENTIC_RAG_IMPLEMENTATION_PLAN.md`
@@ -272,6 +275,7 @@ Infrastructure / generation:
 AI coding / agent:
 
 - `AGENTS.md`
+- `docs/AGENT_KNOWLEDGE_INDEX.md`
 - `.agents/skills/haohao-db-dev/SKILL.md`
 - `.agents/skills/haohao-drive-debug/SKILL.md`
 - `docs/HARNESS_ENGINEERING_ADOPTION_ANALYSIS.md`
@@ -295,6 +299,10 @@ AI coding / agent:
 Data Pipeline を触る場合:
 
 - `docs/data-pipeline-current-state.md`
+- `docs/DATA_PIPELINE_SESSION_HANDOFF.md`
+- `docs/DATA_PIPELINE_RETROSPECTIVE_2026-05-16.md`
+- `docs/DATA_PIPELINE_UI_COLUMN_INFERENCE.md`
+- `docs/DATA_PIPELINE_VALIDATION_ENDPOINT_PLAN.md`
 - `docs/data-pipeline.md`
 - `docs/data-pipeline-draft-run-preview.md`
 - `docs/data-pipeline-llm-node.md`
@@ -316,6 +324,7 @@ Dataset / Gold / Lineage を触る場合:
 
 AI coding / agent 改善を触る場合:
 
+- `docs/AGENT_KNOWLEDGE_INDEX.md`
 - `docs/HARNESS_ENGINEERING_ADOPTION_ANALYSIS.md`
 - `AGENTS.md`
 - `.agents/skills/haohao-db-dev/SKILL.md`
@@ -479,9 +488,12 @@ AI coding / agent 改善を触る場合:
 
 HaoHao は monorepo、OpenAPI 生成、sqlc、Playwright E2E、smoke scripts、runbook、repo-local skills をすでに持っています。次は AI coding を「実装代行」ではなく、エージェントが迷わず検証可能に作業するための repo 内インフラとして整えます。
 
-優先実装:
+実装済み:
 
 - `docs/AGENT_KNOWLEDGE_INDEX.md` を追加し、主要 docs、skills、smoke、検証コマンドへの入口を 1 ページにまとめる。
+
+優先実装:
+
 - `.agents/skills` に次を追加する。
   - `haohao-rag-debug`
   - `haohao-openfga-debug`

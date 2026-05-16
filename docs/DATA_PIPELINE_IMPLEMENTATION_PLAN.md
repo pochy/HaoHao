@@ -10,9 +10,9 @@
 - `docs/data-pipeline-llm-node.md`
 - `docs/data-pipeline-current-state.md`
 
-2026-05-16 までの実装履歴、検証結果、次タスクの引き継ぎは `docs/DATA_PIPELINE_SESSION_HANDOFF.md` に集約しています。別セッションでは、まずこの handoff を読み、その後に本書の実装方針と `docs/data-pipeline-current-state.md` の詳細を確認してください。
+2026-05-16 までの実装履歴、検証結果、次タスクの引き継ぎは `docs/DATA_PIPELINE_SESSION_HANDOFF.md` に集約しています。さらに、複数セッションを横断した問題、原因、対応、残課題、次にやることは `docs/DATA_PIPELINE_RETROSPECTIVE_2026-05-16.md` にまとめています。別セッションでは、まず handoff と retrospective を読み、その後に本書の実装方針と `docs/data-pipeline-current-state.md` の詳細を確認してください。
 
-結論は、LLM node を先に増やすのではなく、まず **Data Pipeline の品質、可観測性、説明可能性**を実装することです。`data_pipeline_run_steps.metadata` と `DataPipelineRunStepBody.metadata` を使う Month 1 の metadata 基盤、Month 2 の失敗処理、Month 3 の主要 runtime node は v1 として実装済みです。次は snapshot / SCD2 / Gold publish を運用 UI と lineage / quality summary に接続します。
+結論は、LLM node を先に増やすのではなく、まず **Data Pipeline の品質、可観測性、説明可能性**を実装することです。`data_pipeline_run_steps.metadata` と `DataPipelineRunStepBody.metadata` を使う Month 1 の metadata 基盤、Month 2 の失敗処理、Month 3 の主要 runtime node は v1 として実装済みです。snapshot / SCD2 / Gold publish の運用 UI と lineage / quality summary への接続も v1 として完了しました。次は SCD2 削除検知、同一 `valid_from` conflict policy、composite key 履歴 drilldown、Gold publish history と Data Pipeline run history のより完全な相互リンクを進めます。
 
 最初の実装単位は次です。
 

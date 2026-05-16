@@ -6,7 +6,7 @@
 
 Data Pipeline は、tenant ごとの Dataset / Work table / Drive file を入力にし、DAG 形式の graph を version 管理して、preview、manual run、schedule run を行う機能です。構造化データだけの graph は ClickHouse SQL に compile して実行し、Drive OCR や JSON / Excel extract などを含む graph は ClickHouse 上の中間テーブルへ materialize しながら実行する hybrid path に分岐します。
 
-2026-05-16 までの一連の実装セッションで追加した runtime node、SCD2 merge、Gold publish 導線、検証コマンドの短い引き継ぎは `docs/DATA_PIPELINE_SESSION_HANDOFF.md` にまとめています。
+2026-05-16 までの一連の実装セッションで追加した runtime node、SCD2 merge、Gold publish 導線、検証コマンドの短い引き継ぎは `docs/DATA_PIPELINE_SESSION_HANDOFF.md` にまとめています。複数セッションを横断した振り返り、問題、原因、対応、残課題、次にやることは `docs/DATA_PIPELINE_RETROSPECTIVE_2026-05-16.md` を参照してください。
 
 ## この文書の読み方
 
