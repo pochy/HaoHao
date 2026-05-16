@@ -130,7 +130,7 @@ Inspector に残している step:
 - `enrich_join`
   - primary upstream と right source selection を同時に見る必要がある。
 
-この module はまだ backend 由来の generated schema ではない。そのため「単一正本」の最終形ではなく、frontend 内の重複を減らすための v1 contract である。最終的には backend が node ごとの `inferredOutputColumns` を返し、frontend はそれを優先して表示する形にする。
+この module はまだ backend 由来の generated schema ではない。そのため「単一正本」の最終形ではなく、frontend 内の重複を減らすための v1 contract である。2026-05-16 時点で palette / node catalog は `/api/v1/data-pipelines/step-catalog` から取得するようになったが、列推論 fallback はこの module に残っている。最終的には backend が node ごとの `inferredOutputColumns` を返し、frontend はそれを優先して表示する形にする。
 
 ### Backend Preview Output Schemas
 

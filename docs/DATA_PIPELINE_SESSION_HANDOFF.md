@@ -18,13 +18,13 @@
 
 ## 現在の結論
 
-Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Month 3 の主要 runtime node は、v1 として実装済みです。2026-05-16 時点の詳細な振り返り、問題、原因、対応、未完了領域、次タスクは `docs/DATA_PIPELINE_RETROSPECTIVE_2026-05-16.md` に集約しました。
+Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Month 3 の主要 runtime node と optional hardening は完了扱いです。2026-05-16 時点の詳細な振り返り、問題、原因、対応、未完了領域、次タスクは `docs/DATA_PIPELINE_RETROSPECTIVE_2026-05-16.md` に集約しました。
 
 現在の次タスクは、機能をさらに横に増やすことではなく、運用 UI と説明性を強くすることです。優先候補は次です。
 
-1. Frontend palette は backend step catalog contract 取得へ移行済み。残る集約対象は output schema inference の完全 generated/API contract 化。
-2. `mark_deleted` / winner policy などの高度 SCD2 policy 検討。
-3. Month 3 optional hardening の残確認。既存 Gold publish run 行の source run/output 参照 backfill は `0050_backfill_dataset_gold_publish_run_source_refs` で migration 化し、2026-05-16 の local DB 検証で version 50 / dirty=false、既存 publish run 4/4 件の補完まで確認済み。
+1. output schema inference の完全 generated/API contract 化。Frontend palette は backend step catalog contract 取得へ移行済み。
+2. `validate` status column と quarantine 連携。
+3. 追加 winner policy 検討。`mark_deleted` と `latest_ingested_wins` は実装済みなので、次に検討するなら `highest_source_priority_wins` など業務優先順位付き policy。
 
 ## 実装済みの流れ
 
@@ -323,11 +323,11 @@ docker exec haohao-clickhouse clickhouse-client --query \
 
 ## 次にやること
 
-最優先候補は output schema inference の generated/API contract 化です。Frontend palette / node catalog の backend contract 化と Gold publish history の厳密履歴化は完了しました。
+最優先候補は output schema inference の generated/API contract 化です。Frontend palette / node catalog の backend contract 化、Gold publish history の厳密履歴化、Month 3 optional hardening は完了しました。
 
 実装案:
 
-- `mark_deleted`、`latest_ingested_wins`、`highest_source_priority_wins` のような高度 policy を採用するかは業務要件に合わせて別途決める。
+- `highest_source_priority_wins`、`highest_confidence_wins`、`manual_review_wins` のような追加 winner policy を採用するかは業務要件に合わせて別途決める。`mark_deleted` と `latest_ingested_wins` は実装済み。
 
 次点候補:
 

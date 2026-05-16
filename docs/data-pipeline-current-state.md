@@ -27,6 +27,49 @@ Data Pipeline は、tenant ごとの Dataset / Work table / Drive file を入力
 - Hybrid path: SQL compile だけでは処理できない Drive OCR や extract 系 node を、中間テーブルを作りながら実行する経路。
 - SCD2 snapshot table: `snapshot_scd2` node や output `writeMode=scd2_merge` で作られる履歴管理 table。`valid_from`、`valid_to`、`is_current`、`change_hash` を持ち、entity の current row と history row を同じ table に保持する。
 
+## SCD2 を初めて読む人向けの説明
+
+SCD2 は `Slowly Changing Dimension Type 2` の略です。日本語では「ゆっくり変化するマスタを、上書きせずに履歴として残す方式」と考えると理解しやすいです。通常の table では同じ商品 ID や顧客 ID の行を更新すると、古い値は失われます。SCD2 では古い行を消さずに有効期間を閉じ、新しい値を別 row として追加します。
+
+例えば、顧客 `customer_id=1` の status が `trial` から `paid` に変わった場合、SCD2 table では次のように表します。
+
+```text
+customer_id | status | valid_from | valid_to   | is_current
+------------+--------+------------+------------+-----------
+1           | trial  | 2026-05-01 | 2026-05-10 | 0
+1           | paid   | 2026-05-10 | NULL       | 1
+```
+
+この table では、`is_current=1` の行が現在値です。一方、`2026-05-05` 時点の状態を知りたい場合は、`valid_from <= '2026-05-05'` かつ `valid_to IS NULL OR '2026-05-05' < valid_to` に該当する行を見ることで、過去時点の値を復元できます。
+
+SCD2 でよく出てくる列の意味は次の通りです。
+
+- `uniqueKeys`: 同一 entity を識別する業務キーです。商品なら `product_id`、SKU 管理なら `sku`、Drive file 由来なら `file_public_id` のような列です。SCD2 では surrogate ID ではなく、業務上「同じもの」とみなす列を選ぶことが重要です。
+- `valid_from`: その version row が有効になった時刻です。実行時刻ではなく、source data の `updated_at` や業務上の発効日を使うのが基本です。
+- `valid_to`: その version row が無効になった時刻です。現在有効な row は `NULL` になります。
+- `is_current`: 現在有効な row かどうかを表す flag です。`1` が current、`0` が history です。
+- `change_hash`: 監視対象列の値から作る hash です。前回の current row と今回の row が同じ内容かどうかを判定するために使います。
+- `is_deleted`: 削除検知を有効にした場合に使う任意の marker です。source に存在しなくなった key を「消えたもの」として履歴に残したい場合に使います。
+
+HaoHao の Data Pipeline では、SCD2 は主に 2 つの場所で使います。1 つ目は `snapshot_scd2` node です。これは、入力に複数時点の履歴行が含まれている場合に、その行を `valid_from` / `valid_to` / `is_current` / `change_hash` 付きの SCD2 形式へ整えます。2 つ目は output node の `writeMode=scd2_merge` です。これは、今回 run の結果を既存の snapshot table に merge し、変更がある key だけ新しい version row を追加します。
+
+`snapshot_scd2` と `scd2_merge` の違いは、前者が「今回の入力内の履歴を SCD2 形状に整える処理」、後者が「既存 table と今回 run の結果を比較して、長期的な履歴 table を更新する処理」という点です。実運用では、`snapshot_scd2` で stage table を作り、output `scd2_merge` で managed Work table に履歴を蓄積する流れになります。
+
+現在の `scd2_merge` には、次の policy があります。
+
+- `current_only`: 既存 snapshot table の current row と今回 run の current row だけを比較します。通常の定期実行で、最新状態を少しずつ取り込む場合に使います。
+- `rebuild_key_history`: stage に含まれる key だけ、既存履歴と今回の履歴を合わせて並べ直します。遅延到着データや key 単位 backfill に使います。
+- `deleteDetection=close_current`: source に存在しなくなった key の current row を閉じます。削除を「現在有効な行がなくなった状態」として扱います。
+- `deleteDetection=mark_deleted`: source に存在しなくなった key について deletion row を追加します。削除イベント自体を履歴に残したい場合に使います。
+- `sameValidFromPolicy=reject`: 同一 key / 同一 `valid_from` で複数変更が来た場合に失敗させます。入力の曖昧さを検知したい場合に使います。
+- `sameValidFromPolicy=latest_ingested_wins`: 同一 key / 同一 `valid_from` の衝突を、取り込み順の新しい行で解決します。source 側の重複補正を pipeline 内で吸収したい場合に使います。
+
+SCD2 が向いているのは、商品マスタ、顧客マスタ、契約ステータス、分類結果、Gold publish の同期元状態など、「現在値も見たいが、過去に何だったかも重要」なデータです。逆に、注文イベントやアクセスログのように最初から append-only な event table では、無理に SCD2 にする必要はありません。また、常に最新値だけ分かればよい一時集計 table も SCD2 の対象ではありません。
+
+誤解しやすい点もあります。SCD2 は backup や完全な audit log ではありません。`change_hash` の監視対象に含めなかった列の変更は version change として扱われません。また、`valid_from` は「pipeline を実行した時刻」ではなく「その値が業務上いつから有効か」を表す列です。削除検知は、入力が full snapshot であることを前提にしないと危険です。差分ファイルだけを入力にしているのに「今回いない key は削除」と判断すると、単にその差分に含まれなかった key まで削除扱いになります。
+
+UI / API で確認する場合は、Work table preview を見ます。`valid_from`、`valid_to`、`is_current`、`change_hash` が揃う table は SCD2 table として検出され、`scd2Summary` に total row、current row、history row、key count、key column、`valid_from` range が返ります。UI では `All` / `Current` / `History` filter と key 履歴確認を使って、現在値と過去履歴を切り替えられます。Gold detail でも source Work table が SCD2 の場合は `sourceScd2Summary` が表示され、Gold publication がどの Data Pipeline run output から来たかを追跡できます。
+
 ## 全体像
 
 Data Pipeline は 1 つのファイルや 1 つの API だけで完結していません。大きく見ると、次の順に責務が分かれています。
@@ -105,7 +148,7 @@ Data Pipeline で「metadata に保存する」と言う場合、何のための
 
 SCD2 / snapshot output の場合、current/history の状態は ClickHouse の行データ列です。`is_current=1` の行が current row、`is_current=0` の行が history row です。Work table preview API は `valid_from`、`valid_to`、`is_current`、`change_hash` が揃う table を SCD2 table として検出し、`scd2Summary` として table 全体の row count、current/history row count、key count、key column(s)、`valid_from` の最小 / 最大を返します。Data Pipeline output 由来の managed Work table では、key columns は最新の completed run output metadata に保存された `scd2UniqueKeys` を優先します。古い run、metadata がない table、手動 Work table では `id`、`product_id`、`sku`、`file_public_id` の順で fallback 推定します。Work table preview UI はこの summary を表示し、`All` / `Current` / `History` filter を提供します。ただし filter は読み込み済み preview rows だけを対象にします。単一 key 履歴は `/api/v1/dataset-work-tables/{workTablePublicId}/scd2-history?key=...`、複合 key 履歴は `/api/v1/dataset-work-tables/{workTablePublicId}/scd2-history?keyColumns=...&keyValues=...` で取得し、同じ UI から時系列で確認できます。
 
-Gold detail API は `sourceScd2Summary` を返し、同期元 Work table が SCD2 の場合は Gold detail 上にも total/current/history/key/range を表示します。Gold detail の source Work table public ID は `/datasets?tab=workTables&workTable=...` への link になり、Dataset 画面で該当 Work table を直接選択できます。さらに `sourceDataPipelineRun` として、source Work table を出力した最新 completed run output を逆引きし、pipeline public ID、pipeline name、run public ID、run status、output node ID、output row count、completed_at、output metadata 由来の write mode / SCD2 merge policy / unique keys を返します。`sourceDataPipelineRun.qualitySummary` には source run の step metadata から集約した warning、failed rows、review items、validation errors / warnings、confidence gate pass / needs-review rows、quarantine rows、quality rows / columns を返します。UI はこれを `同期元 Pipeline` と `同期元品質サマリー` として表示し、pipeline detail へ戻れる link と output summary を出します。Gold detail から source pipeline へ戻る link には `runPublicId` / `outputNodeId` query が付き、Data Pipeline detail は Runs tab を開いて該当 run / output row をハイライトします。Data Pipeline run output response には `latestGoldPublication` が入り、Runs tab の output 行から最新 Gold publication detail へ移動できます。
+Gold detail API は `sourceScd2Summary` を返し、同期元 Work table が SCD2 の場合は Gold detail 上にも total/current/history/key/range を表示します。Gold detail の source Work table public ID は `/datasets?tab=workTables&workTable=...` への link になり、Dataset 画面で該当 Work table を直接選択できます。さらに `sourceDataPipelineRun` として、source Work table を出力した completed run output を逆引きし、pipeline public ID、pipeline name、run public ID、run status、output node ID、output row count、completed_at、output metadata 由来の write mode / SCD2 merge policy / unique keys を返します。新規 publish run は作成時点の `source_data_pipeline_run_id` / `source_data_pipeline_run_output_id` を保存し、表示時は保存済み output を優先します。既存 publish run は `0050_backfill_dataset_gold_publish_run_source_refs` で best-effort 補完され、2026-05-16 local DB では 4/4 件の補完を確認しました。参照欠落時だけ `source_work_table_id` から最新 completed output へ fallback します。`sourceDataPipelineRun.qualitySummary` には source run の step metadata から集約した warning、failed rows、review items、validation errors / warnings、confidence gate pass / needs-review rows、quarantine rows、quality rows / columns を返します。UI はこれを `同期元 Pipeline` と `同期元品質サマリー` として表示し、pipeline detail へ戻れる link と output summary を出します。Gold detail から source pipeline へ戻る link には `runPublicId` / `outputNodeId` query が付き、Data Pipeline detail は Runs tab を開いて該当 run / output row をハイライトします。Data Pipeline run output response には `latestGoldPublication` が入り、Runs tab の output 行から最新 Gold publication detail へ移動できます。
 
 ## Graph Contract
 
@@ -301,7 +344,7 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 
 目的は、run の最終成果物を定義することです。Output node は上流の行データをそのまま書き出すだけでなく、最終 Work table に残す列、列名、基本型、ClickHouse の `ORDER BY` を決める境界でもあります。
 
-現在の実装では、`displayName`、`tableName`、`writeMode`、`orderBy`、`columns` を使います。`writeMode` は `replace`、`append`、`scd2_merge` に対応します。`replace` は stage table を作った後に既存 table を置き換えます。`append` は既存 table がない場合は初回 table として作成し、既存 table がある場合は stage table から `INSERT INTO target SELECT * FROM stage` で追記します。`scd2_merge` は `snapshot_scd2` などが出した `valid_from`、`valid_to`、`is_current`、`change_hash` を持つ stage table を既存 snapshot table へ merge します。既存 table がない場合は stage table を初回 table として作成します。既定の `scd2MergePolicy=current_only` では、既存 table がある場合に stage 側の current row だけを差分候補にして、`uniqueKeys` と `change_hash` で変更有無を判定します。変更がある key は既存 current row の `valid_to` を新 row の `valid_from` で閉じ、新しい current row を追加します。同一データの再実行では行数を増やしません。`scd2MergePolicy=rebuild_key_history` では、stage に含まれる key だけ既存 snapshot row と stage row を結合し、重複を除いたうえで `valid_to` / `is_current` を再計算します。これにより late arriving data や key 単位の backfill を途中の履歴として差し込めます。`tableName` が有効な ClickHouse identifier ならその名前を使い、未指定または不正な場合は run public ID と node ID から安全な table name を生成します。Run ではまず `__dp_stage_...` table を作り、成功後に最終 table へ promote します。成功した output の metadata には `workTablePublicId`、database、table name、display name、write mode が保存されます。`writeMode=scd2_merge` ではさらに `scd2MergePolicy`、`scd2UniqueKeys`、`validFromColumn`、`validToColumn`、`isCurrentColumn`、`changeHashColumn` を保存し、Work table preview / key history が正しい key column を使えるようにします。Data Pipeline detail の Runs tab から output Work table を Gold publication として公開できます。
+現在の実装では、`displayName`、`tableName`、`writeMode`、`orderBy`、`columns` を使います。`writeMode` は `replace`、`append`、`scd2_merge` に対応します。`replace` は stage table を作った後に既存 table を置き換えます。`append` は既存 table がない場合は初回 table として作成し、既存 table がある場合は stage table から `INSERT INTO target SELECT * FROM stage` で追記します。`scd2_merge` は `snapshot_scd2` などが出した `valid_from`、`valid_to`、`is_current`、`change_hash` を持つ stage table を既存 snapshot table へ merge します。既存 table がない場合は stage table を初回 table として作成します。既定の `scd2MergePolicy=current_only` では、既存 table がある場合に stage 側の current row だけを差分候補にして、`uniqueKeys` と `change_hash` で変更有無を判定します。変更がある key は既存 current row の `valid_to` を新 row の `valid_from` で閉じ、新しい current row を追加します。同一データの再実行では行数を増やしません。`scd2MergePolicy=rebuild_key_history` では、stage に含まれる key だけ既存 snapshot row と stage row を結合し、重複を除いたうえで `valid_to` / `is_current` を再計算します。これにより late arriving data や key 単位の backfill を途中の履歴として差し込めます。`deleteDetection=close_current` は full snapshot input 前提で、stage に存在しない既存 current key を close します。`deleteDetection=mark_deleted` は close に加え、`deleteMarkerColumn`、既定 `is_deleted`、を 1 にした current tombstone row を追加します。`sameValidFromPolicy=reject` は同一 key / 同一 `valid_from` の複数 `change_hash` を失敗扱いにし、`sameValidFromPolicy=latest_ingested_wins` は `ingestedAtColumn`、既定 `ingested_at`、が最新の行を採用します。`tableName` が有効な ClickHouse identifier ならその名前を使い、未指定または不正な場合は run public ID と node ID から安全な table name を生成します。Run ではまず `__dp_stage_...` table を作り、成功後に最終 table へ promote します。成功した output の metadata には `workTablePublicId`、database、table name、display name、write mode が保存されます。`writeMode=scd2_merge` ではさらに `scd2MergePolicy`、`scd2UniqueKeys`、`validFromColumn`、`validToColumn`、`isCurrentColumn`、`changeHashColumn`、`deleteDetection`、`sameValidFromPolicy`、必要に応じて `deleteMarkerColumn` / `ingestedAtColumn` を保存し、Work table preview / key history が正しい key column と policy を使えるようにします。Data Pipeline detail の Runs tab から output Work table を Gold publication として公開できます。
 
 `columns` が未設定または空配列の場合は、従来通り上流の全列を出力します。`columns` を設定した場合は、各要素の `sourceColumn` から値を読み、`name` を最終列名にして、`type` に応じて ClickHouse expression で変換します。対応型は `string`、`int64`、`float64`、`bool`、`date`、`datetime` です。`orderBy` は最終出力列に対する設定で、存在しない列は table 作成時に採用しません。これは表示順ではなく、ClickHouse table の物理ソートと primary index の設計です。
 
@@ -652,12 +695,16 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 
 目的は、変更される source table の履歴を残すことです。mutable な table は現在値だけを見ると「いつ何が変わったか」が失われます。dbt snapshots は Slowly Changing Dimensions Type 2、つまり有効期間付きの履歴 table を作る機能として参考になります。
 
-できることの候補:
+現在できること:
 
 - `uniqueKey` で同一 entity を識別する。
 - `updatedAtColumn` または watched columns の hash で変更を検出する。
 - output に `valid_from`、`valid_to`、`is_current`、`change_hash` を追加する。
 - 既存 snapshot table と今回 run の結果を比較し、新しい version row を追加する。
+- `current_only` で通常の最新状態取り込みを行う。
+- `rebuild_key_history` で key 単位の late arriving data / backfill を反映する。
+- `deleteDetection=close_current` / `mark_deleted` で削除検知を扱う。
+- `sameValidFromPolicy=reject` / `latest_ingested_wins` で同一 key / 同一 `valid_from` の衝突を制御する。
 
 使う場面:
 
@@ -679,7 +726,9 @@ output `writeMode=scd2_merge` も 2026-05-16 に実装済みです。`scd2_merge
 
 late arriving data / key 単位 backfill 用に `scd2MergePolicy=rebuild_key_history` も実装済みです。この policy は stage に含まれる key を対象 key とし、対象 key の既存 snapshot row と stage row を結合します。その後、`uniqueKeys`、`valid_from`、`change_hash` の重複を除き、`valid_from` 昇順で `valid_to` と `is_current` を再計算します。例えば既存履歴が `draft(2026-05-01) -> ready(2026-05-03)` の状態で、遅延到着した `review(2026-05-02)` を処理すると、最終履歴は `draft(2026-05-01..2026-05-02) -> review(2026-05-02..2026-05-03) -> ready(current)` になります。同じ late file を再実行しても重複 version は増えません。
 
-まだ行わないことは、削除検知、全期間 backfill job 管理、同一 key / 同一 `valid_from` に複数変更がある場合の業務的な優先順位解決です。これらは snapshot table の運用 UI と validate rule を合わせて設計する必要があります。
+削除検知は `deleteDetection=close_current` と `deleteDetection=mark_deleted` として実装済みです。ただし、これは入力が full snapshot である場合にだけ安全です。差分入力で削除検知を有効にすると、単に今回の差分に出てこなかった key まで削除扱いになるため、UI / validation で source mode をより明示する余地があります。
+
+同一 key / 同一 `valid_from` の衝突は、現時点では `sameValidFromPolicy=reject` と `latest_ingested_wins` を選べます。今後の要件として残るのは、業務列による winner policy、priority column、source rank、全期間 backfill job 管理、full snapshot / delta snapshot の明示的な guard、snapshot table 運用 UI の強化です。これらは SCD2 table の運用 UI、validate rule、run metadata を合わせて設計する必要があります。
 
 ### 入力形式拡張の追加候補
 

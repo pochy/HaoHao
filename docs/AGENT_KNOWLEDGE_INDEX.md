@@ -313,8 +313,9 @@ browser 確認:
 
 Data Pipeline:
 
-- `mark_deleted` policy。
-- `latest_ingested_wins` などの高度 winner policy。
+- Month 3 v1 と optional hardening は完了扱い。`mark_deleted` と `latest_ingested_wins` は実装済み。
+- SCD2 の概念、列の意味、HaoHao での `snapshot_scd2` / `scd2_merge` の違い、使いどころ、誤解しやすい点は `docs/data-pipeline-current-state.md` の「SCD2 を初めて読む人向けの説明」を参照する。
+- `highest_source_priority_wins`、`highest_confidence_wins`、`manual_review_wins` などの追加 winner policy は業務要件が決まってから検討する。
 - output schema inference の generated/API contract。frontend palette / node catalog は `/api/v1/data-pipelines/step-catalog` 取得へ移行済み。
 - `validate` status column と quarantine 連携。
 

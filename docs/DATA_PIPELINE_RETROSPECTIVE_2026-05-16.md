@@ -19,7 +19,7 @@
 
 ## 全体結論
 
-Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行・品質 metadata・失敗処理・主要 runtime node・SCD2 / Gold 運用導線まで到達しています。
+Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行・品質 metadata・失敗処理・主要 runtime node・SCD2 / Gold 運用導線・Month 3 optional hardening まで完了しています。
 
 現在の中心課題は、新しい node を増やすことではありません。次に重要なのは、すでに作れる Work table / Gold publication / SCD2 snapshot を、運用者が安全に理解し、失敗理由や履歴を追える状態にすることです。
 
@@ -37,15 +37,15 @@ Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行
 - Gold detail の source Work table link、source SCD2 summary、source Data Pipeline run link、source output metadata summary、source quality summary。
 - Gold detail から Data Pipeline Runs tab の該当 run/output row への deep link。
 - Gold publish history row から Data Pipeline run/output へ戻る deep link v1。
+- SCD2 `deleteDetection=mark_deleted` と `sameValidFromPolicy=latest_ingested_wins`。
+- `dataset_gold_publish_runs` の source run/output 参照永続化と既存行 backfill migration。
+- frontend palette / node catalog の backend step catalog contract 化。
 
-現時点で「未完了」として残すべき領域:
+現時点で「Month 3 の未完了」ではなく、Month 4 以降の hardening / 要件検討として残すべき領域:
 
-- SCD2 削除検知 policy のうち `deleteDetection=close_current` v1。`mark_deleted` は未完了。
-- 同一 key / 同一 `valid_from` に複数変更がある場合の `sameValidFromPolicy=reject` v1。高度な winner policy は未完了。
-- composite key の SCD2 key history API / UI v1。
-- Gold publish history と Data Pipeline run history の厳密履歴化。publish run 作成時点の source run/output 参照永続化まで完了済み。
+- `highest_source_priority_wins` や `highest_confidence_wins` のような追加 winner policy。これは業務優先順位列、同点時の挙動、UI 表示が決まってから実装する。
 - `validate` の行単位 status column と quarantine 連携。
-- backend step catalog / generated contract への集約は、frontend palette / node catalog を `/api/v1/data-pipelines/step-catalog` から取得する段階まで完了。output schema inference の完全 generated/API contract 化は後続 hardening。
+- output schema inference の完全 generated/API contract 化。backend validation / preview は schema を返すが、frontend fallback module はまだ残している。
 - review item の担当者割当、修正値の再投入 run、review 履歴 UI。
 - Data Pipeline / Gold / Drive / RAG の E2E coverage 拡張。
 
@@ -100,6 +100,11 @@ b058330 Add data pipeline draft validation endpoint
 1aa7735 Extract data pipeline step output schema
 eae7b3b Document data pipeline column inference follow-up
 bfcbb4a Align data pipeline inspector column inference
+95f2381 Centralize data pipeline step catalog
+608081a Add advanced SCD2 merge policies
+b2d57c8 Backfill Gold publish source refs
+70c682c Verify Month3 migration smoke
+d6045e0 Serve data pipeline step catalog
 ```
 
 読み方:
@@ -109,6 +114,7 @@ bfcbb4a Align data pipeline inspector column inference
 - `9ba00a3` から `87d7fda` までは、snapshot / append / SCD2 merge / key history rebuild。
 - `77b95a5` から `5bdbc86` までは、Work table 上の SCD2 運用 UI。
 - `2a5fce5` から `5e68517` までは、Gold / Data Pipeline / Work table を相互に追跡する導線。
+- `95f2381` から `d6045e0` までは、Month 3 optional hardening。step catalog の backend contract 化、`mark_deleted` / `latest_ingested_wins`、Gold publish 既存行 backfill、migration smoke 検証、frontend palette の backend catalog 取得までを完了した。
 
 ## 発生した問題と対応
 
@@ -433,11 +439,10 @@ make smoke-data-pipeline-snapshot-merge-backfill
 - output metadata に `deleteDetection` を保存する。
 - smoke として `make smoke-data-pipeline-snapshot-merge-delete` を追加した。
 
-残り:
+追加 hardening:
 
-- `deleteDetection=mark_deleted` は未実装。
-- Data Pipeline Output 設定 UI から `deleteDetection` を選べる導線は実装済み。
-- full snapshot input であることを UI 上で明示させる説明 / guard は未実装。
+- `deleteDetection=mark_deleted` は実装済み。Output 設定 UI から選択でき、`deleteMarkerColumn` を指定する。missing key を close したうえで削除マーカー付き current tombstone row を追加する。
+- full snapshot input であることを UI 上で明示させる説明 / guard は未実装。`close_current` / `mark_deleted` は full snapshot 前提で使うべき policy なので、将来は UI validation と説明文を強める。
 
 ### 2. 同一 key / 同一 `valid_from` policy
 
@@ -454,11 +459,11 @@ make smoke-data-pipeline-snapshot-merge-backfill
 - output metadata に `sameValidFromPolicy` を保存する。
 - smoke として `make smoke-data-pipeline-snapshot-merge-conflict` を追加した。
 
-残り:
+追加 hardening:
 
-- `latest_ingested_wins`、`highest_source_priority_wins` のような winner policy は未実装。
+- `latest_ingested_wins` は実装済み。`ingestedAtColumn` を指定し、同一 key / 同一 `valid_from` の候補から取り込み時刻が最新の行を採用する。Output 設定 UI から選択できる。
+- `highest_source_priority_wins`、`highest_confidence_wins`、`manual_review_wins` のような追加 winner policy は未実装。業務要件が決まってから実装する。
 - conflict sample を専用 metadata として保存するところまでは未実装。現状は run / output の `errorSummary` で原因を追える。
-- UI から `sameValidFromPolicy` を選択する導線は実装済み。
 
 ### 3. Composite key SCD2 history
 
