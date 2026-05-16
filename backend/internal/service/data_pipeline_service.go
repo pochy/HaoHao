@@ -1943,7 +1943,18 @@ func (s *DataPipelineService) HandleRunRequested(ctx context.Context, tenantID, 
 			"writeMode":         dataPipelineOutputWriteMode(result.Node),
 		}
 		if dataPipelineOutputWriteMode(result.Node) == "scd2_merge" {
+			uniqueKeys := dataPipelineUniqueStrings(dataPipelineStringSlice(result.Node.Data.Config, "uniqueKeys"))
+			if len(uniqueKeys) == 0 {
+				uniqueKeys = dataPipelineUniqueStrings(dataPipelineStringSlice(result.Node.Data.Config, "scd2UniqueKeys"))
+			}
+			if len(uniqueKeys) > 0 {
+				outputMetadata["scd2UniqueKeys"] = uniqueKeys
+			}
 			outputMetadata["scd2MergePolicy"] = firstNonEmpty(dataPipelineString(result.Node.Data.Config, "scd2MergePolicy"), dataPipelineString(result.Node.Data.Config, "mergePolicy"), "current_only")
+			outputMetadata["validFromColumn"] = firstNonEmpty(dataPipelineString(result.Node.Data.Config, "validFromColumn"), "valid_from")
+			outputMetadata["validToColumn"] = firstNonEmpty(dataPipelineString(result.Node.Data.Config, "validToColumn"), "valid_to")
+			outputMetadata["isCurrentColumn"] = firstNonEmpty(dataPipelineString(result.Node.Data.Config, "isCurrentColumn"), "is_current")
+			outputMetadata["changeHashColumn"] = firstNonEmpty(dataPipelineString(result.Node.Data.Config, "changeHashColumn"), "change_hash")
 		}
 		meta, _ := encodeDataPipelineJSON(outputMetadata)
 		_, _ = s.queries.CompleteDataPipelineRunOutput(ctx, db.CompleteDataPipelineRunOutputParams{TenantID: tenantID, RunID: runID, NodeID: result.Node.ID, OutputWorkTableID: pgtype.Int8{Int64: result.WorkTable.ID, Valid: true}, RowCount: result.WorkTable.TotalRows, Metadata: meta})

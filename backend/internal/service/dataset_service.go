@@ -1225,6 +1225,10 @@ func (s *DatasetService) LinkWorkTable(ctx context.Context, tenantID int64, publ
 }
 
 func (s *DatasetService) PreviewWorkTable(ctx context.Context, tenantID int64, database, table string, limit int32) (DatasetWorkTablePreview, error) {
+	return s.previewWorkTable(ctx, tenantID, database, table, limit, "")
+}
+
+func (s *DatasetService) previewWorkTable(ctx context.Context, tenantID int64, database, table string, limit int32, scd2KeyColumnHint string) (DatasetWorkTablePreview, error) {
 	if s == nil {
 		return DatasetWorkTablePreview{}, fmt.Errorf("dataset service is not configured")
 	}
@@ -1257,7 +1261,7 @@ func (s *DatasetService) PreviewWorkTable(ctx context.Context, tenantID int64, d
 	if err != nil {
 		return DatasetWorkTablePreview{}, fmt.Errorf("scan dataset work table preview: %w", err)
 	}
-	scd2Summary, err := s.summarizeSCD2WorkTable(ctx, conn, database, table, columns)
+	scd2Summary, err := s.summarizeSCD2WorkTable(ctx, conn, database, table, columns, scd2KeyColumnHint)
 	if err != nil {
 		return DatasetWorkTablePreview{}, err
 	}
@@ -1278,7 +1282,16 @@ func (s *DatasetService) PreviewManagedWorkTable(ctx context.Context, tenantID i
 	if row.Status != "active" || row.DroppedAt.Valid {
 		return DatasetWorkTablePreview{}, ErrDatasetWorkTableNotFound
 	}
-	return s.PreviewWorkTable(ctx, tenantID, row.WorkDatabase, row.WorkTable, limit)
+	columns, err := s.listWorkTableColumns(ctx, row.WorkDatabase, row.WorkTable)
+	if err != nil {
+		return DatasetWorkTablePreview{}, err
+	}
+	columnNames := make([]string, 0, len(columns))
+	for _, column := range columns {
+		columnNames = append(columnNames, column.ColumnName)
+	}
+	keyColumnHint := s.managedWorkTableSCD2KeyColumn(ctx, tenantID, row.ID, columnNames)
+	return s.previewWorkTable(ctx, tenantID, row.WorkDatabase, row.WorkTable, limit, keyColumnHint)
 }
 
 func (s *DatasetService) GetManagedWorkTableSCD2History(ctx context.Context, tenantID int64, publicID, keyValue string, limit int32) (DatasetWorkTableSCD2History, error) {
@@ -1306,7 +1319,10 @@ func (s *DatasetService) GetManagedWorkTableSCD2History(ctx context.Context, ten
 	if !datasetWorkTableHasSCD2Columns(columnNames) {
 		return DatasetWorkTableSCD2History{}, fmt.Errorf("%w: work table is not an SCD2 snapshot table", ErrInvalidDatasetInput)
 	}
-	keyColumn := datasetWorkTableSCD2KeyColumn(columnNames)
+	keyColumn := s.managedWorkTableSCD2KeyColumn(ctx, tenantID, row.ID, columnNames)
+	if keyColumn == "" {
+		keyColumn = datasetWorkTableSCD2KeyColumn(columnNames)
+	}
 	if keyColumn == "" {
 		return DatasetWorkTableSCD2History{}, fmt.Errorf("%w: SCD2 key column could not be inferred", ErrInvalidDatasetInput)
 	}
@@ -1343,11 +1359,14 @@ func (s *DatasetService) GetManagedWorkTableSCD2History(ctx context.Context, ten
 	}, nil
 }
 
-func (s *DatasetService) summarizeSCD2WorkTable(ctx context.Context, conn driver.Conn, database, table string, columns []string) (*DatasetWorkTableSCD2Summary, error) {
+func (s *DatasetService) summarizeSCD2WorkTable(ctx context.Context, conn driver.Conn, database, table string, columns []string, keyColumnHint string) (*DatasetWorkTableSCD2Summary, error) {
 	if !datasetWorkTableHasSCD2Columns(columns) {
 		return nil, nil
 	}
-	keyColumn := datasetWorkTableSCD2KeyColumn(columns)
+	keyColumn := datasetWorkTableColumnName(columns, keyColumnHint)
+	if keyColumn == "" {
+		keyColumn = datasetWorkTableSCD2KeyColumn(columns)
+	}
 	keyCountExpr := "toUInt64(0)"
 	if keyColumn != "" {
 		keyCountExpr = fmt.Sprintf("uniqExact(ifNull(toString(%s), ''))", quoteCHIdent(keyColumn))
@@ -1391,19 +1410,49 @@ func datasetWorkTableHasSCD2Columns(columns []string) bool {
 }
 
 func datasetWorkTableSCD2KeyColumn(columns []string) string {
-	available := make(map[string]string, len(columns))
-	for _, column := range columns {
-		normalized := strings.ToLower(strings.TrimSpace(column))
-		if normalized != "" {
-			available[normalized] = column
-		}
-	}
 	for _, candidate := range []string{"id", "product_id", "sku", "file_public_id"} {
-		if column, ok := available[candidate]; ok {
+		if column := datasetWorkTableColumnName(columns, candidate); column != "" {
 			return column
 		}
 	}
 	return ""
+}
+
+func datasetWorkTableColumnName(columns []string, candidate string) string {
+	normalizedCandidate := strings.ToLower(strings.TrimSpace(candidate))
+	if normalizedCandidate == "" {
+		return ""
+	}
+	for _, column := range columns {
+		if strings.ToLower(strings.TrimSpace(column)) == normalizedCandidate {
+			return column
+		}
+	}
+	return ""
+}
+
+func (s *DatasetService) managedWorkTableSCD2KeyColumn(ctx context.Context, tenantID, workTableID int64, columns []string) string {
+	if s == nil || s.pool == nil || workTableID <= 0 {
+		return ""
+	}
+	var keyColumn string
+	err := s.pool.QueryRow(ctx, `
+SELECT COALESCE(
+    metadata #>> '{scd2UniqueKeys,0}',
+    metadata #>> '{uniqueKeys,0}',
+    ''
+)
+FROM data_pipeline_run_outputs
+WHERE tenant_id = $1
+  AND output_work_table_id = $2
+  AND status = 'completed'
+ORDER BY completed_at DESC NULLS LAST, id DESC
+LIMIT 1
+`, tenantID, workTableID).Scan(&keyColumn)
+	if errors.Is(err, pgx.ErrNoRows) || err != nil {
+		return ""
+	}
+	return datasetWorkTableColumnName(columns, keyColumn)
 }
 
 func (s *DatasetService) ListDatasetRows(ctx context.Context, tenantID int64, publicID string, cursor int64, limit int32) (DatasetRowsPage, error) {

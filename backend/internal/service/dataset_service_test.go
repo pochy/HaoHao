@@ -172,6 +172,13 @@ func TestDatasetWorkTableSCD2KeyColumnNoCandidate(t *testing.T) {
 	}
 }
 
+func TestDatasetWorkTableColumnNameMatchesCaseInsensitive(t *testing.T) {
+	columns := []string{"Entity_ID", "valid_from", "valid_to", "is_current", "change_hash"}
+	if got := datasetWorkTableColumnName(columns, "entity_id"); got != "Entity_ID" {
+		t.Fatalf("datasetWorkTableColumnName() = %q, want Entity_ID", got)
+	}
+}
+
 func TestHydrateWorkTableColumns(t *testing.T) {
 	conn := &fakeDatasetClickHouseConn{
 		rows: &fakeDatasetRows{

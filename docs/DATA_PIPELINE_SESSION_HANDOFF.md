@@ -180,15 +180,15 @@ make smoke-data-pipeline-snapshot-merge-backfill
 
 既存の Gold publish API は Work table 起点です。Data Pipeline output は run 成功時に managed Work table として登録されるため、Data Pipeline 側では次を追加しました。
 
-- run output metadata に `workTablePublicId`、database、table name、display name、write mode、SCD2 merge policy を保存する。
+- run output metadata に `workTablePublicId`、database、table name、display name、write mode を保存する。`writeMode=scd2_merge` の場合は `scd2MergePolicy`、`scd2UniqueKeys`、`validFromColumn`、`validToColumn`、`isCurrentColumn`、`changeHashColumn` も保存する。
 - Runs tab の output 行に `hh_t_*_work.table` と write mode を表示する。
 - output 行の `Publish output to Gold` ボタンから既存 Gold publication API を呼ぶ。
 - 成功後は Gold detail へ遷移する。
 
 確認済み:
 
-- `make smoke-data-pipeline-snapshot-merge` で metadata に `workTablePublicId` と `scd2MergePolicy=current_only` が入る。
-- `make smoke-data-pipeline-snapshot-merge-backfill` で metadata に `scd2MergePolicy=rebuild_key_history` が入る。
+- `make smoke-data-pipeline-snapshot-merge` で metadata に `workTablePublicId`、`scd2MergePolicy=current_only`、`scd2UniqueKeys=["id"]` が入る。
+- `make smoke-data-pipeline-snapshot-merge-backfill` で metadata に `scd2MergePolicy=rebuild_key_history`、`scd2UniqueKeys=["id"]` が入る。
 - agent-browser で Runs tab の `Publish output to Gold` ボタンを押し、Gold detail へ遷移することを確認した。
 
 残課題:
@@ -207,7 +207,7 @@ Data Pipeline の `snapshot_scd2` と output `writeMode=scd2_merge` により、
 - 現在読み込まれている preview rows の件数。
 - preview 内の current rows 件数。
 - preview 内の history rows 件数。
-- 代表 key column 候補。現時点では `id`、`product_id`、`sku`、`file_public_id` の順で存在する列を表示する。
+- 代表 key column。Data Pipeline の `scd2_merge` output から作成された managed Work table では run output metadata の `scd2UniqueKeys[0]` を優先する。metadata がない古い run や手動 Work table では `id`、`product_id`、`sku`、`file_public_id` の順で存在する列を fallback 表示する。
 - preview rows に対する `All` / `Current` / `History` フィルタ。
 
 この UI の最初の版は backend API contract を増やさず、既存の Work table preview payload だけを使っていました。その後、Work table preview API の response に `scd2Summary` を追加し、SCD2 table の場合は ClickHouse table 全体に対する summary を返すようにしました。
@@ -218,7 +218,7 @@ Data Pipeline の `snapshot_scd2` と output `writeMode=scd2_merge` により、
 - `totalRows`: table 全体の行数。
 - `currentRows`: table 全体の current rows。
 - `historyRows`: table 全体の history rows。
-- `keyColumn`: key column 候補。現時点では `id`、`product_id`、`sku`、`file_public_id` の順で検出する。
+- `keyColumn`: key column。managed Work table では最新の completed run output metadata に保存された `scd2UniqueKeys[0]` を実テーブル列と照合して使う。metadata がない場合は `id`、`product_id`、`sku`、`file_public_id` の順で fallback 検出する。
 - `keyCount`: key column が検出できた場合の distinct key 数。
 - `earliestValidAt`: `valid_from` の最小値。
 - `latestValidAt`: `valid_from` の最大値。
@@ -227,8 +227,8 @@ Key 単位履歴 drilldown:
 
 - `GET /api/v1/dataset-work-tables/{workTablePublicId}/scd2-history?key=...&limit=100` を追加した。
 - preview と同じく Work table の `can_preview` 権限を要求する。
-- SCD2 列が揃っていない table、または key column を推定できない table では invalid input として扱う。
-- key column は summary と同じ候補順で `id`、`product_id`、`sku`、`file_public_id` から推定する。
+- SCD2 列が揃っていない table、または key column を解決できない table では invalid input として扱う。
+- key column は summary と同じく run output metadata の `scd2UniqueKeys[0]` を優先し、metadata がない場合だけ `id`、`product_id`、`sku`、`file_public_id` から推定する。
 - query は `toString(key_column) = key` で絞り込み、`valid_from ASC` で返す。
 - Work table UI では SCD2 panel に key 入力欄を出し、指定 key の履歴 rows を時系列で表示する。
 

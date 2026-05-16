@@ -170,7 +170,7 @@ Local Search / RAG:
 - join / enrich_join は行数爆発、未マッチ、key null、列衝突などの warning を UI で十分説明できていません。
 - `human_review` は `createReviewItems=true` の場合に永続 review item を作成できます。Drive text / `extract_fields` / `extract_table`、Drive JSON / `schema_mapping`、Drive product extraction の低信頼 reason は review queue へ接続済みです。Drive file detail から source file に紐づく review item / pipeline run へ戻る導線も追加済みです。
 - `quarantine` v1、`union` v1、`route_by_condition` v1、`partition_filter` v1、`watermark_filter` v1、`snapshot_scd2` v1、typed output / ordering、output `append`、output `scd2_merge`、SCD2 key-history rebuild policy は実装済みです。
-- SCD2 / snapshot output は Work table preview 上で SCD2 table として検出し、table 全体の current/history 件数、key 数、`All` / `Current` / `History` filter を確認できるようになりました。filter は読み込み済み preview rows に対して適用されます。
+- SCD2 / snapshot output は Work table preview 上で SCD2 table として検出し、table 全体の current/history 件数、key 数、`All` / `Current` / `History` filter を確認できるようになりました。filter は読み込み済み preview rows に対して適用されます。managed Work table では Data Pipeline output metadata の `scd2UniqueKeys[0]` を key column として優先し、古い run や手動 table では従来の候補推定に fallback します。
 - `DataPipelineInspector.vue` は graph config だけから上流列を静的推論していましたが、2026-05-14 に validation result を primary source として受け取る実装を追加しました。validation endpoint は preview 実行なしで graph 全体の output schema と missing-column warnings を返し、Inspector はその結果がある場合は local fallback より優先します。local 推論は endpoint 未取得時の fallback として残しています。
 
 次に着手すべき理由:
@@ -179,7 +179,7 @@ Local Search / RAG:
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
 - 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint の初期実装は完了したため、次は backend step catalog / generated contract へのさらなる集約、SCD2 / Gold publish / snapshot 運用 UI の validation 表示を進めます。
-- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、key 単位履歴 drilldown まで進みました。次の改善は、output metadata に基づく正確な key column 表示、Gold detail への SCD2 summary 表示です。
+- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown まで進みました。次の改善は、Gold detail への SCD2 summary 表示です。
 
 ### Drive / RAG の課題
 

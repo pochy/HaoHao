@@ -946,6 +946,10 @@ async function assertSCD2WorkTablePreviewSummary(run, expected) {
   if (!workTablePublicId) {
     throw new Error(`output workTablePublicId missing: ${JSON.stringify(output)}`)
   }
+  const uniqueKeys = output?.metadata?.scd2UniqueKeys
+  if (!Array.isArray(uniqueKeys) || uniqueKeys[0] !== 'id') {
+    throw new Error(`output scd2UniqueKeys missing: ${JSON.stringify(output)}`)
+  }
   const preview = await request(`/api/v1/dataset-work-tables/${encodeURIComponent(workTablePublicId)}/preview?limit=100`)
   const summary = preview.scd2Summary
   if (!summary?.detected) {
