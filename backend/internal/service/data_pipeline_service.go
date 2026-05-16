@@ -90,19 +90,28 @@ type DataPipelineRun struct {
 }
 
 type DataPipelineRunOutput struct {
-	ID                int64
-	TenantID          int64
-	RunID             int64
-	NodeID            string
-	Status            string
-	OutputWorkTableID *int64
-	RowCount          int64
-	ErrorSummary      string
-	Metadata          map[string]any
-	StartedAt         *time.Time
-	CompletedAt       *time.Time
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                    int64
+	TenantID              int64
+	RunID                 int64
+	NodeID                string
+	Status                string
+	OutputWorkTableID     *int64
+	LatestGoldPublication *DataPipelineRunOutputGoldPublication
+	RowCount              int64
+	ErrorSummary          string
+	Metadata              map[string]any
+	StartedAt             *time.Time
+	CompletedAt           *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+}
+
+type DataPipelineRunOutputGoldPublication struct {
+	PublicID     string
+	DisplayName  string
+	Status       string
+	GoldDatabase string
+	GoldTable    string
 }
 
 type DataPipelineRunStep struct {
@@ -2172,9 +2181,35 @@ func (s *DataPipelineService) listRunOutputs(ctx context.Context, tenantID, runI
 	}
 	items := make([]DataPipelineRunOutput, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, dataPipelineRunOutputFromDB(row))
+		item := dataPipelineRunOutputFromDB(row)
+		if item.OutputWorkTableID != nil {
+			item.LatestGoldPublication = s.latestGoldPublicationForWorkTable(ctx, tenantID, *item.OutputWorkTableID)
+		}
+		items = append(items, item)
 	}
 	return items, nil
+}
+
+func (s *DataPipelineService) latestGoldPublicationForWorkTable(ctx context.Context, tenantID, workTableID int64) *DataPipelineRunOutputGoldPublication {
+	if s == nil || s.queries == nil || workTableID <= 0 {
+		return nil
+	}
+	rows, err := s.queries.ListDatasetGoldPublicationsForWorkTable(ctx, db.ListDatasetGoldPublicationsForWorkTableParams{
+		TenantID:          tenantID,
+		SourceWorkTableID: workTableID,
+		LimitCount:        1,
+	})
+	if err != nil || len(rows) == 0 {
+		return nil
+	}
+	row := rows[0]
+	return &DataPipelineRunOutputGoldPublication{
+		PublicID:     row.PublicID.String(),
+		DisplayName:  row.DisplayName,
+		Status:       row.Status,
+		GoldDatabase: row.GoldDatabase,
+		GoldTable:    row.GoldTable,
+	}
 }
 
 func (s *DataPipelineService) getPipelineRow(ctx context.Context, tenantID int64, publicID string) (db.DataPipeline, error) {

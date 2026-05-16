@@ -55,16 +55,25 @@ type DataPipelineRunStepBody struct {
 }
 
 type DataPipelineRunOutputBody struct {
-	NodeID            string         `json:"nodeId"`
-	Status            string         `json:"status"`
-	OutputWorkTableID *int64         `json:"outputWorkTableId,omitempty"`
-	RowCount          int64          `json:"rowCount"`
-	ErrorSummary      string         `json:"errorSummary,omitempty"`
-	Metadata          map[string]any `json:"metadata"`
-	StartedAt         *time.Time     `json:"startedAt,omitempty" format:"date-time"`
-	CompletedAt       *time.Time     `json:"completedAt,omitempty" format:"date-time"`
-	CreatedAt         time.Time      `json:"createdAt" format:"date-time"`
-	UpdatedAt         time.Time      `json:"updatedAt" format:"date-time"`
+	NodeID                string                                    `json:"nodeId"`
+	Status                string                                    `json:"status"`
+	OutputWorkTableID     *int64                                    `json:"outputWorkTableId,omitempty"`
+	LatestGoldPublication *DataPipelineRunOutputGoldPublicationBody `json:"latestGoldPublication,omitempty"`
+	RowCount              int64                                     `json:"rowCount"`
+	ErrorSummary          string                                    `json:"errorSummary,omitempty"`
+	Metadata              map[string]any                            `json:"metadata"`
+	StartedAt             *time.Time                                `json:"startedAt,omitempty" format:"date-time"`
+	CompletedAt           *time.Time                                `json:"completedAt,omitempty" format:"date-time"`
+	CreatedAt             time.Time                                 `json:"createdAt" format:"date-time"`
+	UpdatedAt             time.Time                                 `json:"updatedAt" format:"date-time"`
+}
+
+type DataPipelineRunOutputGoldPublicationBody struct {
+	PublicID     string `json:"publicId" format:"uuid"`
+	DisplayName  string `json:"displayName"`
+	Status       string `json:"status" enum:"pending,active,failed,unpublished,archived" example:"active"`
+	GoldDatabase string `json:"goldDatabase" example:"hh_t_1_gold"`
+	GoldTable    string `json:"goldTable" example:"gm_monthly_sales"`
 }
 
 type DataPipelineRunBody struct {
@@ -1100,9 +1109,22 @@ func toDataPipelineRunBody(item service.DataPipelineRun) DataPipelineRunBody {
 		body.Steps = append(body.Steps, DataPipelineRunStepBody{NodeID: step.NodeID, StepType: step.StepType, Status: step.Status, RowCount: step.RowCount, ErrorSummary: step.ErrorSummary, ErrorSample: step.ErrorSample, Metadata: step.Metadata, StartedAt: step.StartedAt, CompletedAt: step.CompletedAt, CreatedAt: step.CreatedAt, UpdatedAt: step.UpdatedAt})
 	}
 	for _, output := range item.Outputs {
-		body.Outputs = append(body.Outputs, DataPipelineRunOutputBody{NodeID: output.NodeID, Status: output.Status, OutputWorkTableID: output.OutputWorkTableID, RowCount: output.RowCount, ErrorSummary: output.ErrorSummary, Metadata: output.Metadata, StartedAt: output.StartedAt, CompletedAt: output.CompletedAt, CreatedAt: output.CreatedAt, UpdatedAt: output.UpdatedAt})
+		body.Outputs = append(body.Outputs, DataPipelineRunOutputBody{NodeID: output.NodeID, Status: output.Status, OutputWorkTableID: output.OutputWorkTableID, LatestGoldPublication: toDataPipelineRunOutputGoldPublicationBody(output.LatestGoldPublication), RowCount: output.RowCount, ErrorSummary: output.ErrorSummary, Metadata: output.Metadata, StartedAt: output.StartedAt, CompletedAt: output.CompletedAt, CreatedAt: output.CreatedAt, UpdatedAt: output.UpdatedAt})
 	}
 	return body
+}
+
+func toDataPipelineRunOutputGoldPublicationBody(item *service.DataPipelineRunOutputGoldPublication) *DataPipelineRunOutputGoldPublicationBody {
+	if item == nil {
+		return nil
+	}
+	return &DataPipelineRunOutputGoldPublicationBody{
+		PublicID:     item.PublicID,
+		DisplayName:  item.DisplayName,
+		Status:       item.Status,
+		GoldDatabase: item.GoldDatabase,
+		GoldTable:    item.GoldTable,
+	}
 }
 
 func toDataPipelineReviewItemBody(item service.DataPipelineReviewItem) DataPipelineReviewItemBody {

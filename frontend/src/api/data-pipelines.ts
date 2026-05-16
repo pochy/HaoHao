@@ -124,6 +124,13 @@ export type DataPipelineRunOutputBody = {
   nodeId: string
   status: string
   outputWorkTableId?: number | null
+  latestGoldPublication?: {
+    publicId: string
+    displayName: string
+    status: 'pending' | 'active' | 'failed' | 'unpublished' | 'archived'
+    goldDatabase: string
+    goldTable: string
+  } | null
   rowCount: number
   errorSummary?: string
   metadata: Record<string, unknown>

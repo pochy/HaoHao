@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref } from 'vue'
-import { Info, Search, Trash2, UploadCloud } from 'lucide-vue-next'
+import { Crown, Info, Search, Trash2, UploadCloud } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import type { DataPipelinePreviewBody, DataPipelineReviewItemBody, DataPipelineRunBody, DataPipelineRunStepBody, DataPipelineScheduleBody } from '../api/data-pipelines'
@@ -325,6 +325,10 @@ function outputWriteMode(output: DataPipelineRunBody['outputs'][number]) {
   return outputMetadataText(output, 'writeMode') || '-'
 }
 
+function outputGoldPublication(output: DataPipelineRunBody['outputs'][number]) {
+  return output.latestGoldPublication ?? null
+}
+
 function runSteps(run: DataPipelineRunBody) {
   return run.steps?.length ? run.steps : []
 }
@@ -566,8 +570,17 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
                 <td>-</td>
                 <td>
                   <span>{{ output.errorSummary || '-' }}</span>
+                  <RouterLink
+                    v-if="outputGoldPublication(output)"
+                    class="icon-button"
+                    :to="{ name: 'dataset-gold-detail', params: { goldPublicId: outputGoldPublication(output)?.publicId } }"
+                    :aria-label="t('dataPipelines.openOutputGold')"
+                    :title="`${t('dataPipelines.openOutputGold')}: ${outputGoldPublication(output)?.displayName}`"
+                  >
+                    <Crown :size="15" stroke-width="1.9" aria-hidden="true" />
+                  </RouterLink>
                   <button
-                    v-if="output.status === 'completed' && outputWorkTablePublicId(output)"
+                    v-else-if="output.status === 'completed' && outputWorkTablePublicId(output)"
                     class="icon-button"
                     type="button"
                     :disabled="actionLoading"

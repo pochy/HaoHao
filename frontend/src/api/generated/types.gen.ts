@@ -679,6 +679,7 @@ export type DataPipelineRunOutputBody = {
      */
     createdAt: string;
     errorSummary?: string;
+    latestGoldPublication?: DataPipelineRunOutputGoldPublicationBody;
     metadata: {
         [key: string]: unknown;
     };
@@ -694,6 +695,23 @@ export type DataPipelineRunOutputBody = {
      * RFC3339 UTC の timestamp です。
      */
     updatedAt: string;
+};
+
+export type DataPipelineRunOutputGoldPublicationBody = {
+    /**
+     * 画面表示や検索で使う名前です。
+     */
+    displayName: string;
+    goldDatabase: string;
+    goldTable: string;
+    /**
+     * client や URL path で参照する public UUID です。
+     */
+    publicId: string;
+    /**
+     * 現在の lifecycle status です。
+     */
+    status: 'pending' | 'active' | 'failed' | 'unpublished' | 'archived';
 };
 
 export type DataPipelineRunStepBody = {
