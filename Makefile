@@ -96,7 +96,7 @@ db-down:
 # Prefer Homebrew postgresql@18's psql-18 when on PATH; override with make psql PSQL=psql
 PSQL ?= $(shell command -v psql-18 2>/dev/null || command -v psql 2>/dev/null || echo psql)
 
-.PHONY: psql sql seed-schema-mapping-columns validate-vector-rag-eval eval-vector-rag-retrieval smoke-data-pipeline smoke-data-pipeline-json smoke-data-pipeline-typed-output smoke-data-pipeline-partition smoke-data-pipeline-watermark-previous smoke-data-pipeline-snapshot-scd2 smoke-data-pipeline-snapshot-append smoke-data-pipeline-snapshot-merge smoke-data-pipeline-snapshot-merge-backfill smoke-data-pipeline-union smoke-data-pipeline-excel smoke-data-pipeline-text smoke-data-pipeline-quarantine smoke-data-pipeline-route smoke-data-pipeline-review smoke-data-pipeline-field-review smoke-data-pipeline-table-review smoke-data-pipeline-schema-mapping-review smoke-data-pipeline-product-review smoke-data-pipeline-validation smoke-data-pipeline-suite smoke-lmstudio-vector-api smoke-lmstudio-drive-rag air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check clickhouse-wait
+.PHONY: psql sql seed-schema-mapping-columns validate-vector-rag-eval eval-vector-rag-retrieval smoke-data-pipeline smoke-data-pipeline-json smoke-data-pipeline-typed-output smoke-data-pipeline-partition smoke-data-pipeline-watermark-previous smoke-data-pipeline-snapshot-scd2 smoke-data-pipeline-snapshot-append smoke-data-pipeline-snapshot-merge smoke-data-pipeline-snapshot-merge-delete smoke-data-pipeline-snapshot-merge-backfill smoke-data-pipeline-union smoke-data-pipeline-excel smoke-data-pipeline-text smoke-data-pipeline-quarantine smoke-data-pipeline-route smoke-data-pipeline-review smoke-data-pipeline-field-review smoke-data-pipeline-table-review smoke-data-pipeline-schema-mapping-review smoke-data-pipeline-product-review smoke-data-pipeline-validation smoke-data-pipeline-suite smoke-lmstudio-vector-api smoke-lmstudio-drive-rag air-check backend-dev backend-run binary binary-fast binary-package binary-package-zstd binary-size-report binary-size-check clickhouse-wait
 psql:
 	$(export-env) && $(PSQL) "$$DATABASE_URL" $(ARGS)
 
@@ -146,6 +146,9 @@ smoke-data-pipeline-snapshot-append:
 
 smoke-data-pipeline-snapshot-merge:
 	node scripts/smoke-data-pipeline.mjs snapshot_merge
+
+smoke-data-pipeline-snapshot-merge-delete:
+	node scripts/smoke-data-pipeline.mjs snapshot_merge_delete
 
 smoke-data-pipeline-snapshot-merge-backfill:
 	node scripts/smoke-data-pipeline.mjs snapshot_merge_backfill

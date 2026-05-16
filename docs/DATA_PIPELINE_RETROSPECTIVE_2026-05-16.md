@@ -39,7 +39,7 @@ Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行
 
 現時点で「未完了」として残すべき領域:
 
-- SCD2 削除検知 policy。
+- SCD2 削除検知 policy のうち `deleteDetection=close_current` v1。`mark_deleted` と UI 設定は未完了。
 - 同一 key / 同一 `valid_from` に複数変更がある場合の業務 policy。
 - composite key の SCD2 key history API / UI。
 - Gold publish history と Data Pipeline run history のより完全な相互リンク。
@@ -415,20 +415,23 @@ make smoke-data-pipeline-snapshot-merge-backfill
 問題:
 
 - 現在の `scd2_merge` は stage に現れた key の変更を扱う。
-- stage に現れなかった既存 current key を「削除」とみなすかは未定義。
+- stage に現れなかった既存 current key を「削除」とみなすかは当初未定義でした。
 - source system によっては、差分 input なのか full snapshot input なのかが違うため、単純に missing key = deleted とすると危険。
 
-実装方針:
+2026-05-16 に実装した v1:
 
 - 既定は削除検知なしのまま維持する。
-- 明示 opt-in の policy を追加する。
-- 候補:
-  - `deleteDetection=none`
-  - `deleteDetection=mark_deleted`
-  - `deleteDetection=close_current`
-- `mark_deleted` の場合は `is_deleted` などの列を追加するか、status column を使うかを設計する。
-- full snapshot input であることを config / UI で明示させる。
-- smoke では、2 回目 run で key が消えた場合に current row が close されること、また同一 run 再実行で重複しないことを確認する。
+- `writeMode=scd2_merge` かつ `scd2MergePolicy=current_only` の output node に、明示 opt-in の `deleteDetection=close_current` を追加した。
+- `close_current` では、今回 run の current snapshot に存在しない既存 current key を close し、既存行の `valid_to` に今回 snapshot の最大 `valid_from` を設定し、`is_current=0` にする。
+- 再実行時は、すでに close 済みの行は current row ではないため重複 close されない。
+- output metadata に `deleteDetection` を保存する。
+- smoke として `make smoke-data-pipeline-snapshot-merge-delete` を追加した。
+
+残り:
+
+- `deleteDetection=mark_deleted` は未実装。
+- Data Pipeline Output 設定 UI から `deleteDetection` を選べる導線は未実装。
+- full snapshot input であることを UI 上で明示させる説明 / guard は未実装。
 
 ### 2. 同一 key / 同一 `valid_from` policy
 

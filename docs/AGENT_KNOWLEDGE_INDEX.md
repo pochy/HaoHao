@@ -309,7 +309,7 @@ browser 確認:
 
 Data Pipeline:
 
-- SCD2 削除検知 policy。
+- `deleteDetection=close_current` の Output 設定 UI、`mark_deleted` policy。
 - 同一 key / 同一 `valid_from` conflict policy。
 - composite key SCD2 history。
 - backend step catalog / generated output schema contract。
@@ -332,4 +332,3 @@ AI coding:
 - `haohao-openapi-gen` skill。
 - smoke 結果を artifact / docs へ残す仕組み。
 - local browser smoke session の標準化。
-

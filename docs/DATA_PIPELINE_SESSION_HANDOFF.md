@@ -22,10 +22,11 @@ Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Mont
 
 現在の次タスクは、機能をさらに横に増やすことではなく、運用 UI と説明性を強くすることです。優先候補は次です。
 
-1. SCD2 削除検知と同一 `valid_from` 衝突時の policy。
+1. 同一 key / 同一 `valid_from` 衝突時の policy。
 2. composite key の SCD2 key history API / UI。
-3. Gold publish history と Data Pipeline run history のより完全な相互リンク。
-4. backend step catalog / generated contract への output schema 単一正本化。
+3. `deleteDetection=close_current` の Output 設定 UI と `mark_deleted` policy 検討。
+4. Gold publish history と Data Pipeline run history のより完全な相互リンク。
+5. backend step catalog / generated contract への output schema 単一正本化。
 
 ## 実装済みの流れ
 

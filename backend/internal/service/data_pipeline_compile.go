@@ -1504,21 +1504,23 @@ func promoteDataPipelineSCD2MergeOutput(ctx context.Context, conn driver.Conn, d
 		quoteCHIdent(spec.ChangeHashColumn),
 	)
 	changedSQL = fmt.Sprintf("SELECT * FROM (\n%s\n) WHERE %s = 1", changedSQL, quoteCHIdent(spec.IsCurrentColumn))
+	deletedSQL := dataPipelineSCD2DeletedKeysSQL(database, targetTable, stageTable, spec)
+	targetDeleteJoinConditions := dataPipelineSCD2JoinConditions("t", "d", spec.UniqueKeys)
 	targetSelects := make([]string, 0, len(stageColumns))
 	changedSelects := make([]string, 0, len(stageColumns))
 	for _, column := range stageColumns {
 		switch column {
 		case spec.ValidToColumn:
-			targetSelects = append(targetSelects, fmt.Sprintf("  if(t.%s = 1 AND c.%s = 1, c.%s, t.%s) AS %s", quoteCHIdent(spec.IsCurrentColumn), quoteCHIdent("__dp_changed"), quoteCHIdent(spec.ValidFromColumn), quoteCHIdent(column), quoteCHIdent(column)))
+			targetSelects = append(targetSelects, fmt.Sprintf("  multiIf(t.%s = 1 AND c.%s = 1, c.%s, t.%s = 1 AND d.%s = 1, d.%s, t.%s) AS %s", quoteCHIdent(spec.IsCurrentColumn), quoteCHIdent("__dp_changed"), quoteCHIdent(spec.ValidFromColumn), quoteCHIdent(spec.IsCurrentColumn), quoteCHIdent("__dp_deleted"), quoteCHIdent("__dp_deleted_valid_to"), quoteCHIdent(column), quoteCHIdent(column)))
 		case spec.IsCurrentColumn:
-			targetSelects = append(targetSelects, fmt.Sprintf("  if(t.%s = 1 AND c.%s = 1, 0, t.%s) AS %s", quoteCHIdent(spec.IsCurrentColumn), quoteCHIdent("__dp_changed"), quoteCHIdent(column), quoteCHIdent(column)))
+			targetSelects = append(targetSelects, fmt.Sprintf("  if(t.%s = 1 AND (c.%s = 1 OR d.%s = 1), 0, t.%s) AS %s", quoteCHIdent(spec.IsCurrentColumn), quoteCHIdent("__dp_changed"), quoteCHIdent("__dp_deleted"), quoteCHIdent(column), quoteCHIdent(column)))
 		default:
 			targetSelects = append(targetSelects, fmt.Sprintf("  t.%s AS %s", quoteCHIdent(column), quoteCHIdent(column)))
 		}
 		changedSelects = append(changedSelects, fmt.Sprintf("  %s", quoteCHIdent(column)))
 	}
 	createSQL := fmt.Sprintf(
-		"CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY %s AS\nSELECT\n%s\nFROM %s.%s AS t\nLEFT JOIN (\n%s\n) AS c ON %s AND t.%s = 1\nUNION ALL\nSELECT\n%s\nFROM (\n%s\n)",
+		"CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY %s AS\nSELECT\n%s\nFROM %s.%s AS t\nLEFT JOIN (\n%s\n) AS c ON %s AND t.%s = 1\nLEFT JOIN (\n%s\n) AS d ON %s AND t.%s = 1\nUNION ALL\nSELECT\n%s\nFROM (\n%s\n)",
 		quoteCHIdent(database),
 		quoteCHIdent(mergeTable),
 		dataPipelineOutputOrderBy(node, stageColumns),
@@ -1527,6 +1529,9 @@ func promoteDataPipelineSCD2MergeOutput(ctx context.Context, conn driver.Conn, d
 		quoteCHIdent(targetTable),
 		changedSQL,
 		targetJoinConditions,
+		quoteCHIdent(spec.IsCurrentColumn),
+		deletedSQL,
+		targetDeleteJoinConditions,
 		quoteCHIdent(spec.IsCurrentColumn),
 		strings.Join(changedSelects, ",\n"),
 		changedSQL,
@@ -1543,6 +1548,45 @@ func promoteDataPipelineSCD2MergeOutput(ctx context.Context, conn driver.Conn, d
 		return err
 	}
 	return conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+}
+
+func dataPipelineSCD2DeletedKeysSQL(database, targetTable, stageTable string, spec dataPipelineOutputSCD2MergeConfig) string {
+	deletedSelects := make([]string, 0, len(spec.UniqueKeys)+2)
+	for _, key := range spec.UniqueKeys {
+		deletedSelects = append(deletedSelects, fmt.Sprintf("  t.%s AS %s", quoteCHIdent(key), quoteCHIdent(key)))
+	}
+	deletedSelects = append(deletedSelects,
+		fmt.Sprintf("  toUInt8(1) AS %s", quoteCHIdent("__dp_deleted")),
+		fmt.Sprintf("  clock.%s AS %s", quoteCHIdent("__dp_deleted_valid_to"), quoteCHIdent("__dp_deleted_valid_to")),
+	)
+	if spec.DeleteDetection != "close_current" {
+		keySelects := make([]string, 0, len(spec.UniqueKeys))
+		for _, key := range spec.UniqueKeys {
+			keySelects = append(keySelects, fmt.Sprintf("  %s", quoteCHIdent(key)))
+		}
+		keySelects = append(keySelects,
+			fmt.Sprintf("  toUInt8(0) AS %s", quoteCHIdent("__dp_deleted")),
+			fmt.Sprintf("  toDateTime(0) AS %s", quoteCHIdent("__dp_deleted_valid_to")),
+		)
+		return fmt.Sprintf("SELECT\n%s\nFROM %s.%s\nWHERE 0", strings.Join(keySelects, ",\n"), quoteCHIdent(database), quoteCHIdent(targetTable))
+	}
+	return fmt.Sprintf(
+		"SELECT\n%s\nFROM %s.%s AS t\nCROSS JOIN (\n  SELECT ifNull(maxOrNull(%s), now()) AS %s FROM %s.%s WHERE %s = 1\n) AS clock\nWHERE t.%s = 1\n  AND %s NOT IN (\n    SELECT %s FROM %s.%s WHERE %s = 1\n  )",
+		strings.Join(deletedSelects, ",\n"),
+		quoteCHIdent(database),
+		quoteCHIdent(targetTable),
+		quoteCHIdent(spec.ValidFromColumn),
+		quoteCHIdent("__dp_deleted_valid_to"),
+		quoteCHIdent(database),
+		quoteCHIdent(stageTable),
+		quoteCHIdent(spec.IsCurrentColumn),
+		quoteCHIdent(spec.IsCurrentColumn),
+		dataPipelineSCD2TupleExpr("t", spec.UniqueKeys),
+		dataPipelineSCD2TupleExpr("", spec.UniqueKeys),
+		quoteCHIdent(database),
+		quoteCHIdent(stageTable),
+		quoteCHIdent(spec.IsCurrentColumn),
+	)
 }
 
 func promoteDataPipelineSCD2RebuildKeyHistoryOutput(ctx context.Context, conn driver.Conn, database, targetTable, stageTable string, node DataPipelineNode, stageColumns []string, spec dataPipelineOutputSCD2MergeConfig) error {
@@ -1654,6 +1698,7 @@ type dataPipelineOutputSCD2MergeConfig struct {
 	IsCurrentColumn  string
 	ChangeHashColumn string
 	MergePolicy      string
+	DeleteDetection  string
 }
 
 func dataPipelineOutputSCD2MergeSpec(config map[string]any, columns []string) (dataPipelineOutputSCD2MergeConfig, error) {
@@ -1676,9 +1721,16 @@ func dataPipelineOutputSCD2MergeSpec(config map[string]any, columns []string) (d
 		IsCurrentColumn:  firstNonEmpty(dataPipelineString(config, "isCurrentColumn"), "is_current"),
 		ChangeHashColumn: firstNonEmpty(dataPipelineString(config, "changeHashColumn"), "change_hash"),
 		MergePolicy:      firstNonEmpty(dataPipelineString(config, "scd2MergePolicy"), dataPipelineString(config, "mergePolicy"), "current_only"),
+		DeleteDetection:  firstNonEmpty(dataPipelineString(config, "deleteDetection"), "none"),
 	}
 	if spec.MergePolicy != "current_only" && spec.MergePolicy != "rebuild_key_history" {
 		return dataPipelineOutputSCD2MergeConfig{}, fmt.Errorf("%w: unsupported scd2MergePolicy %q", ErrInvalidDataPipelineGraph, spec.MergePolicy)
+	}
+	if spec.DeleteDetection != "none" && spec.DeleteDetection != "close_current" {
+		return dataPipelineOutputSCD2MergeConfig{}, fmt.Errorf("%w: unsupported deleteDetection %q", ErrInvalidDataPipelineGraph, spec.DeleteDetection)
+	}
+	if spec.MergePolicy != "current_only" && spec.DeleteDetection != "none" {
+		return dataPipelineOutputSCD2MergeConfig{}, fmt.Errorf("%w: deleteDetection requires current_only scd2MergePolicy", ErrInvalidDataPipelineGraph)
 	}
 	for _, column := range []string{spec.ValidFromColumn, spec.ValidToColumn, spec.IsCurrentColumn, spec.ChangeHashColumn} {
 		if err := dataPipelineRequireColumn(columns, column); err != nil {

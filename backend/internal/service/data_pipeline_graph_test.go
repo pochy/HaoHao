@@ -101,6 +101,39 @@ func TestValidateDataPipelineGraphRejectsOutputConfigConflicts(t *testing.T) {
 	}
 }
 
+func TestDataPipelineOutputSCD2MergeSpecDeleteDetection(t *testing.T) {
+	columns := []string{"id", "valid_from", "valid_to", "is_current", "change_hash"}
+	spec, err := dataPipelineOutputSCD2MergeSpec(map[string]any{
+		"uniqueKeys":      []any{"id"},
+		"deleteDetection": "close_current",
+	}, columns)
+	if err != nil {
+		t.Fatalf("dataPipelineOutputSCD2MergeSpec() error = %v", err)
+	}
+	if spec.DeleteDetection != "close_current" {
+		t.Fatalf("DeleteDetection = %q, want close_current", spec.DeleteDetection)
+	}
+
+	if _, err := dataPipelineOutputSCD2MergeSpec(map[string]any{
+		"uniqueKeys":      []any{"id"},
+		"deleteDetection": "mark_deleted",
+	}, columns); err == nil || !strings.Contains(err.Error(), "unsupported deleteDetection") {
+		t.Fatalf("expected unsupported deleteDetection error, got %v", err)
+	}
+
+	if _, err := dataPipelineOutputSCD2MergeSpec(map[string]any{
+		"uniqueKeys":       []any{"id"},
+		"scd2MergePolicy":  "rebuild_key_history",
+		"deleteDetection":  "close_current",
+		"validFromColumn":  "valid_from",
+		"validToColumn":    "valid_to",
+		"isCurrentColumn":  "is_current",
+		"changeHashColumn": "change_hash",
+	}, columns); err == nil || !strings.Contains(err.Error(), "deleteDetection requires current_only") {
+		t.Fatalf("expected deleteDetection merge policy error, got %v", err)
+	}
+}
+
 func TestValidateDataPipelineGraphRejectsDirectMultipleUpstreamOutput(t *testing.T) {
 	graph := DataPipelineGraph{
 		Nodes: []DataPipelineNode{

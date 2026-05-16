@@ -130,6 +130,13 @@ async function uploadSnapshotChangedJSONFile(workspacePublicId) {
   return uploadFile(workspacePublicId, `data-pipeline-snapshot-changed-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
 }
 
+async function uploadSnapshotDeletedJSONFile(workspacePublicId) {
+  const rows = [
+    { id: '1', name: 'Alpha', status: 'ready', updated_at: '2026-05-03T00:00:00Z' },
+  ]
+  return uploadFile(workspacePublicId, `data-pipeline-snapshot-deleted-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
+}
+
 async function uploadSnapshotLateJSONFile(workspacePublicId) {
   const rows = [
     { id: '1', name: 'Alpha', status: 'review', updated_at: '2026-05-02T00:00:00Z' },
@@ -417,6 +424,26 @@ function snapshotMergeBackfillGraph(filePublicId, suffix) {
         config: {
           ...item.data.config,
           scd2MergePolicy: 'rebuild_key_history',
+        },
+      },
+    }
+  })
+  return graph
+}
+
+function snapshotMergeDeleteGraph(filePublicId, suffix) {
+  const graph = snapshotMergeGraph(filePublicId, suffix)
+  graph.nodes = graph.nodes.map((item) => {
+    if (item.id !== 'output') {
+      return item
+    }
+    return {
+      ...item,
+      data: {
+        ...item.data,
+        config: {
+          ...item.data.config,
+          deleteDetection: 'close_current',
         },
       },
     }
@@ -784,6 +811,7 @@ async function createPipeline(scenario, filePublicId) {
     snapshot_scd2: snapshotSCD2Graph,
     snapshot_append: snapshotAppendGraph,
     snapshot_merge: snapshotMergeGraph,
+    snapshot_merge_delete: snapshotMergeDeleteGraph,
     snapshot_merge_backfill: snapshotMergeBackfillGraph,
     union: unionGraph,
     excel: excelGraph,
@@ -941,6 +969,11 @@ function assertSnapshotSCD2Run(run) {
 }
 
 async function assertSCD2WorkTablePreviewSummary(run, expected) {
+  const {
+    historyKeyValue = '1',
+    historyRowsForKey = 3,
+    ...summaryExpected
+  } = expected
   const output = (run.outputs ?? []).find((item) => item.nodeId === 'output')
   const workTablePublicId = output?.workTablePublicId ?? output?.metadata?.workTablePublicId
   if (!workTablePublicId) {
@@ -955,7 +988,7 @@ async function assertSCD2WorkTablePreviewSummary(run, expected) {
   if (!summary?.detected) {
     throw new Error(`SCD2 preview summary missing: ${JSON.stringify(preview)}`)
   }
-  for (const [key, value] of Object.entries(expected)) {
+  for (const [key, value] of Object.entries(summaryExpected)) {
     if (summary[key] !== value) {
       throw new Error(`SCD2 preview summary ${key} = ${summary[key]}, want ${value}: ${JSON.stringify(summary)}`)
     }
@@ -965,8 +998,8 @@ async function assertSCD2WorkTablePreviewSummary(run, expected) {
       throw new Error(`SCD2 preview columns missing ${column}: ${JSON.stringify(preview.columns)}`)
     }
   }
-  const history = await request(`/api/v1/dataset-work-tables/${encodeURIComponent(workTablePublicId)}/scd2-history?key=1&limit=100`)
-  if (history.keyColumn !== 'id' || history.keyValue !== '1' || (history.historyRows ?? []).length !== 3) {
+  const history = await request(`/api/v1/dataset-work-tables/${encodeURIComponent(workTablePublicId)}/scd2-history?key=${encodeURIComponent(historyKeyValue)}&limit=100`)
+  if (history.keyColumn !== 'id' || history.keyValue !== historyKeyValue || (history.historyRows ?? []).length !== historyRowsForKey) {
     throw new Error(`SCD2 key history unexpected: ${JSON.stringify(history)}`)
   }
   for (const column of ['valid_from', 'valid_to', 'is_current', 'change_hash']) {
@@ -1247,6 +1280,7 @@ async function runScenario(workspacePublicId, scenario) {
     snapshot_scd2: uploadSnapshotJSONFile,
     snapshot_append: uploadSnapshotJSONFile,
     snapshot_merge: uploadSnapshotJSONFile,
+    snapshot_merge_delete: uploadSnapshotJSONFile,
     snapshot_merge_backfill: uploadSnapshotJSONFile,
     union: uploadJSONFile,
     excel: uploadXLSXFile,
@@ -1267,6 +1301,7 @@ async function runScenario(workspacePublicId, scenario) {
     snapshot_scd2: assertSnapshotSCD2Run,
     snapshot_append: assertSnapshotSCD2Run,
     snapshot_merge: assertSnapshotSCD2Run,
+    snapshot_merge_delete: assertSnapshotSCD2Run,
     snapshot_merge_backfill: assertSnapshotSCD2Run,
     union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
@@ -1467,6 +1502,56 @@ async function runSnapshotMergeBackfillScenario(workspacePublicId) {
   }
 }
 
+async function runSnapshotMergeDeleteScenario(workspacePublicId) {
+  const suffix = `snapshot_merge_delete_${Date.now()}`
+  const file = await uploadSnapshotJSONFile(workspacePublicId)
+  const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
+    name: `Smoke: snapshot_merge_delete metadata ${new Date().toISOString()}`,
+    description: 'Smoke test for Data Pipeline SCD2 merge close_current delete detection.',
+  }, { 'Idempotency-Key': crypto.randomUUID() })
+  created.pipelinePublicIds.push(pipeline.publicId)
+  const version = await createPublishedVersion(pipeline.publicId, snapshotMergeDeleteGraph(file.publicId, suffix))
+
+  const firstRun = await requestRun(version.publicId)
+  const firstCompleted = await waitForRun(pipeline.publicId, firstRun.publicId, assertSnapshotSCD2Run)
+
+  const deletedFile = await uploadSnapshotDeletedJSONFile(workspacePublicId)
+  const deletedVersion = await createPublishedVersion(pipeline.publicId, snapshotMergeDeleteGraph(deletedFile.publicId, suffix))
+  const deletedRun = await requestRun(deletedVersion.publicId)
+  const deletedCompleted = await waitForRun(pipeline.publicId, deletedRun.publicId, (run) => assertCommonRun(run, 3))
+  const repeatedRun = await requestRun(deletedVersion.publicId)
+  const repeatedCompleted = await waitForRun(pipeline.publicId, repeatedRun.publicId, (run) => assertCommonRun(run, 3))
+  const previewSummary = await assertSCD2WorkTablePreviewSummary(repeatedCompleted, {
+    totalRows: 3,
+    currentRows: 1,
+    historyRows: 2,
+    keyColumn: 'id',
+    keyCount: 2,
+    historyKeyValue: '2',
+    historyRowsForKey: 1,
+  })
+  const output = (repeatedCompleted.outputs ?? []).find((item) => item.nodeId === 'output')
+  if (output?.metadata?.deleteDetection !== 'close_current') {
+    throw new Error(`deleteDetection metadata missing: ${JSON.stringify(output)}`)
+  }
+
+  return {
+    scenario: 'snapshot_merge_delete',
+    workspacePublicId,
+    driveFilePublicId: file.publicId,
+    deletedDriveFilePublicId: deletedFile.publicId,
+    pipelinePublicId: pipeline.publicId,
+    versionPublicId: version.publicId,
+    deletedVersionPublicId: deletedVersion.publicId,
+    firstRunPublicId: firstCompleted.publicId,
+    deletedRunPublicId: deletedCompleted.publicId,
+    repeatedRunPublicId: repeatedCompleted.publicId,
+    detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
+    outputs: repeatedCompleted.outputs,
+    previewSummary,
+  }
+}
+
 function schemaForNode(validation, nodeId) {
   return (validation.outputSchemas ?? []).find((schema) => schema.nodeId === nodeId)
 }
@@ -1554,8 +1639,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_delete', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_delete', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
@@ -1573,8 +1658,10 @@ async function main() {
           ? await runSnapshotAppendScenario(workspacePublicId)
           : scenario === 'snapshot_merge'
             ? await runSnapshotMergeScenario(workspacePublicId)
-            : scenario === 'snapshot_merge_backfill'
-              ? await runSnapshotMergeBackfillScenario(workspacePublicId)
+            : scenario === 'snapshot_merge_delete'
+              ? await runSnapshotMergeDeleteScenario(workspacePublicId)
+              : scenario === 'snapshot_merge_backfill'
+                ? await runSnapshotMergeBackfillScenario(workspacePublicId)
       : await runScenario(workspacePublicId, scenario))
   }
   console.log(JSON.stringify(requestedScenario === 'suite' ? { scenarios: results } : results[0], null, 2))
