@@ -52,6 +52,7 @@ type DatasetGoldPublication struct {
 	TotalBytes              int64
 	SchemaSummary           map[string]any
 	SourceSCD2Summary       *DatasetWorkTableSCD2Summary
+	SourceDataPipelineRun   *DatasetGoldSourceDataPipelineRun
 	RefreshPolicy           string
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
@@ -59,6 +60,15 @@ type DatasetGoldPublication struct {
 	UnpublishedAt           *time.Time
 	ArchivedAt              *time.Time
 	LatestPublishRun        *DatasetGoldPublishRun
+}
+
+type DatasetGoldSourceDataPipelineRun struct {
+	PipelinePublicID string
+	PipelineName     string
+	RunPublicID      string
+	RunStatus        string
+	OutputNodeID     string
+	CompletedAt      *time.Time
 }
 
 type DatasetGoldPublishRun struct {
@@ -481,6 +491,7 @@ func (s *DatasetService) GetGoldPublication(ctx context.Context, tenantID int64,
 	item := datasetGoldPublicationFromDB(row)
 	s.hydrateGoldPublication(ctx, tenantID, &item)
 	s.hydrateGoldPublicationSCD2Summary(ctx, tenantID, &item)
+	s.hydrateGoldPublicationDataPipelineSource(ctx, tenantID, &item)
 	return item, nil
 }
 
@@ -838,6 +849,46 @@ func (s *DatasetService) hydrateGoldPublicationSCD2Summary(ctx context.Context, 
 	if err == nil {
 		item.SourceSCD2Summary = summary
 	}
+}
+
+func (s *DatasetService) hydrateGoldPublicationDataPipelineSource(ctx context.Context, tenantID int64, item *DatasetGoldPublication) {
+	if s == nil || s.pool == nil || item == nil || item.SourceWorkTableID <= 0 {
+		return
+	}
+	const query = `
+SELECT
+	p.public_id::text,
+	p.name,
+	r.public_id::text,
+	r.status,
+	o.node_id,
+	o.completed_at
+FROM data_pipeline_run_outputs o
+JOIN data_pipeline_runs r ON r.id = o.run_id AND r.tenant_id = o.tenant_id
+JOIN data_pipelines p ON p.id = r.pipeline_id AND p.tenant_id = o.tenant_id
+WHERE o.tenant_id = $1
+  AND o.output_work_table_id = $2
+  AND o.status = 'completed'
+ORDER BY o.completed_at DESC NULLS LAST, o.id DESC
+LIMIT 1`
+	var source DatasetGoldSourceDataPipelineRun
+	var completedAt pgtype.Timestamptz
+	err := s.pool.QueryRow(ctx, query, tenantID, item.SourceWorkTableID).Scan(
+		&source.PipelinePublicID,
+		&source.PipelineName,
+		&source.RunPublicID,
+		&source.RunStatus,
+		&source.OutputNodeID,
+		&completedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return
+	}
+	if err != nil {
+		return
+	}
+	source.CompletedAt = optionalPgTime(completedAt)
+	item.SourceDataPipelineRun = &source
 }
 
 func (s *DatasetService) summarizeManagedWorkTableSCD2(ctx context.Context, tenantID int64, workTable db.DatasetWorkTable) (*DatasetWorkTableSCD2Summary, error) {

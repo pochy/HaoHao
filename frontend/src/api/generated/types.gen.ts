@@ -945,6 +945,7 @@ export type DatasetGoldPublicationBody = {
     schemaSummary?: {
         [key: string]: unknown;
     };
+    sourceDataPipelineRun?: DatasetGoldSourcePipelineRunBody;
     sourceScd2Summary?: DatasetWorkTableScd2SummaryBody;
     sourceWorkTablePublicId?: string;
     /**
@@ -1040,6 +1041,18 @@ export type DatasetGoldPublishRunListBody = {
      */
     readonly $schema?: string;
     items: Array<DatasetGoldPublishRunBody> | null;
+};
+
+export type DatasetGoldSourcePipelineRunBody = {
+    /**
+     * RFC3339 UTC の timestamp です。
+     */
+    completedAt?: string;
+    outputNodeId: string;
+    pipelineName: string;
+    pipelinePublicId: string;
+    runPublicId: string;
+    runStatus: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
 };
 
 export type DatasetImportErrorBody = {
@@ -5618,6 +5631,7 @@ export type DatasetGoldPublicationBodyWritable = {
     schemaSummary?: {
         [key: string]: unknown;
     };
+    sourceDataPipelineRun?: DatasetGoldSourcePipelineRunBody;
     sourceScd2Summary?: DatasetWorkTableScd2SummaryBody;
     sourceWorkTablePublicId?: string;
     /**

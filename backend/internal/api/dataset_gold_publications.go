@@ -11,24 +11,34 @@ import (
 )
 
 type DatasetGoldPublicationBody struct {
-	PublicID                string                           `json:"publicId" format:"uuid"`
-	SourceWorkTablePublicID string                           `json:"sourceWorkTablePublicId,omitempty" format:"uuid"`
-	DisplayName             string                           `json:"displayName" example:"Monthly sales mart"`
-	Description             string                           `json:"description,omitempty"`
-	GoldDatabase            string                           `json:"goldDatabase" example:"hh_t_1_gold"`
-	GoldTable               string                           `json:"goldTable" example:"gm_monthly_sales"`
-	Status                  string                           `json:"status" enum:"pending,active,failed,unpublished,archived" example:"active"`
-	RowCount                int64                            `json:"rowCount" example:"1000"`
-	TotalBytes              int64                            `json:"totalBytes" example:"1048576"`
-	SchemaSummary           map[string]any                   `json:"schemaSummary,omitempty"`
-	SourceSCD2Summary       *DatasetWorkTableSCD2SummaryBody `json:"sourceScd2Summary,omitempty"`
-	RefreshPolicy           string                           `json:"refreshPolicy" enum:"manual" example:"manual"`
-	LatestPublishRun        *DatasetGoldPublishRunBody       `json:"latestPublishRun,omitempty"`
-	CreatedAt               time.Time                        `json:"createdAt" format:"date-time"`
-	UpdatedAt               time.Time                        `json:"updatedAt" format:"date-time"`
-	PublishedAt             *time.Time                       `json:"publishedAt,omitempty" format:"date-time"`
-	UnpublishedAt           *time.Time                       `json:"unpublishedAt,omitempty" format:"date-time"`
-	ArchivedAt              *time.Time                       `json:"archivedAt,omitempty" format:"date-time"`
+	PublicID                string                            `json:"publicId" format:"uuid"`
+	SourceWorkTablePublicID string                            `json:"sourceWorkTablePublicId,omitempty" format:"uuid"`
+	DisplayName             string                            `json:"displayName" example:"Monthly sales mart"`
+	Description             string                            `json:"description,omitempty"`
+	GoldDatabase            string                            `json:"goldDatabase" example:"hh_t_1_gold"`
+	GoldTable               string                            `json:"goldTable" example:"gm_monthly_sales"`
+	Status                  string                            `json:"status" enum:"pending,active,failed,unpublished,archived" example:"active"`
+	RowCount                int64                             `json:"rowCount" example:"1000"`
+	TotalBytes              int64                             `json:"totalBytes" example:"1048576"`
+	SchemaSummary           map[string]any                    `json:"schemaSummary,omitempty"`
+	SourceSCD2Summary       *DatasetWorkTableSCD2SummaryBody  `json:"sourceScd2Summary,omitempty"`
+	SourceDataPipelineRun   *DatasetGoldSourcePipelineRunBody `json:"sourceDataPipelineRun,omitempty"`
+	RefreshPolicy           string                            `json:"refreshPolicy" enum:"manual" example:"manual"`
+	LatestPublishRun        *DatasetGoldPublishRunBody        `json:"latestPublishRun,omitempty"`
+	CreatedAt               time.Time                         `json:"createdAt" format:"date-time"`
+	UpdatedAt               time.Time                         `json:"updatedAt" format:"date-time"`
+	PublishedAt             *time.Time                        `json:"publishedAt,omitempty" format:"date-time"`
+	UnpublishedAt           *time.Time                        `json:"unpublishedAt,omitempty" format:"date-time"`
+	ArchivedAt              *time.Time                        `json:"archivedAt,omitempty" format:"date-time"`
+}
+
+type DatasetGoldSourcePipelineRunBody struct {
+	PipelinePublicID string     `json:"pipelinePublicId" format:"uuid"`
+	PipelineName     string     `json:"pipelineName"`
+	RunPublicID      string     `json:"runPublicId" format:"uuid"`
+	RunStatus        string     `json:"runStatus" enum:"pending,processing,completed,failed,skipped" example:"completed"`
+	OutputNodeID     string     `json:"outputNodeId"`
+	CompletedAt      *time.Time `json:"completedAt,omitempty" format:"date-time"`
 }
 
 type DatasetGoldPublishRunBody struct {
@@ -310,6 +320,7 @@ func toDatasetGoldPublicationBody(item service.DatasetGoldPublication) DatasetGo
 		TotalBytes:              item.TotalBytes,
 		SchemaSummary:           item.SchemaSummary,
 		SourceSCD2Summary:       toDatasetWorkTableSCD2SummaryBody(item.SourceSCD2Summary),
+		SourceDataPipelineRun:   toDatasetGoldSourcePipelineRunBody(item.SourceDataPipelineRun),
 		RefreshPolicy:           item.RefreshPolicy,
 		CreatedAt:               item.CreatedAt,
 		UpdatedAt:               item.UpdatedAt,
@@ -322,6 +333,20 @@ func toDatasetGoldPublicationBody(item service.DatasetGoldPublication) DatasetGo
 		body.LatestPublishRun = &run
 	}
 	return body
+}
+
+func toDatasetGoldSourcePipelineRunBody(item *service.DatasetGoldSourceDataPipelineRun) *DatasetGoldSourcePipelineRunBody {
+	if item == nil {
+		return nil
+	}
+	return &DatasetGoldSourcePipelineRunBody{
+		PipelinePublicID: item.PipelinePublicID,
+		PipelineName:     item.PipelineName,
+		RunPublicID:      item.RunPublicID,
+		RunStatus:        item.RunStatus,
+		OutputNodeID:     item.OutputNodeID,
+		CompletedAt:      item.CompletedAt,
+	}
 }
 
 func toDatasetGoldPublishRunBody(item service.DatasetGoldPublishRun) DatasetGoldPublishRunBody {

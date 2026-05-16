@@ -56,6 +56,7 @@ const sourceWorkTableLabel = computed(() => {
   return item.sourceWorkTablePublicId
 })
 const sourceSCD2Summary = computed(() => publication.value?.sourceScd2Summary ?? null)
+const sourceDataPipelineRun = computed(() => publication.value?.sourceDataPipelineRun ?? null)
 const schemaColumns = computed(() => {
   const items = publication.value?.schemaSummary?.items
   if (!Array.isArray(items)) {
@@ -304,6 +305,21 @@ function formatActionError(error: unknown) {
                 {{ sourceWorkTableLabel }}
               </RouterLink>
               <span v-else class="monospace-cell">{{ sourceWorkTableLabel }}</span>
+            </dd>
+          </div>
+          <div v-if="sourceDataPipelineRun">
+            <dt>{{ t('datasets.sourcePipeline') }}</dt>
+            <dd>
+              <RouterLink
+                class="monospace-cell"
+                :to="{ name: 'data-pipeline-detail', params: { pipelinePublicId: sourceDataPipelineRun.pipelinePublicId } }"
+              >
+                {{ sourceDataPipelineRun.pipelineName || sourceDataPipelineRun.pipelinePublicId }}
+              </RouterLink>
+              <small class="cell-subtle">
+                {{ t('datasets.sourcePipelineRun') }} {{ sourceDataPipelineRun.runPublicId }}
+                · {{ sourceDataPipelineRun.outputNodeId }}
+              </small>
             </dd>
           </div>
           <div>

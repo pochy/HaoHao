@@ -2434,6 +2434,10 @@ components:
           examples:
             - {}
           type: object
+        sourceDataPipelineRun:
+          $ref: "#/components/schemas/DatasetGoldSourcePipelineRunBody"
+          examples:
+            - support
         sourceScd2Summary:
           $ref: "#/components/schemas/DatasetWorkTableSCD2SummaryBody"
           examples:
@@ -2685,6 +2689,50 @@ components:
             - "null"
       required:
         - items
+      type: object
+    DatasetGoldSourcePipelineRunBody:
+      additionalProperties: false
+      properties:
+        completedAt:
+          description: RFC3339 UTC の timestamp です。
+          examples:
+            - "2026-01-15T09:30:00Z"
+          format: date-time
+          type: string
+        outputNodeId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          type: string
+        pipelineName:
+          examples:
+            - Acme
+          type: string
+        pipelinePublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        runPublicId:
+          examples:
+            - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          format: uuid
+          type: string
+        runStatus:
+          enum:
+            - pending
+            - processing
+            - completed
+            - failed
+            - skipped
+          examples:
+            - completed
+          type: string
+      required:
+        - pipelinePublicId
+        - pipelineName
+        - runPublicId
+        - runStatus
+        - outputNodeId
       type: object
     DatasetImportErrorBody:
       additionalProperties: false
@@ -26307,6 +26355,13 @@ paths:
                     refreshPolicy: manual
                     rowCount: 1000
                     schemaSummary: {}
+                    sourceDataPipelineRun:
+                      completedAt: "2026-01-15T09:30:00Z"
+                      outputNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      pipelineName: Acme
+                      pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      runStatus: completed
                     sourceScd2Summary:
                       currentRows: 4
                       detected: true
@@ -35752,6 +35807,7 @@ paths:
                         refreshPolicy: manual
                         rowCount: 1000
                         schemaSummary: {}
+                        sourceDataPipelineRun: {}
                         sourceScd2Summary: {}
                         sourceWorkTablePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                         status: active
@@ -35847,6 +35903,13 @@ paths:
                     refreshPolicy: manual
                     rowCount: 1000
                     schemaSummary: {}
+                    sourceDataPipelineRun:
+                      completedAt: "2026-01-15T09:30:00Z"
+                      outputNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      pipelineName: Acme
+                      pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      runStatus: completed
                     sourceScd2Summary:
                       currentRows: 4
                       detected: true
@@ -35957,6 +36020,13 @@ paths:
                     refreshPolicy: manual
                     rowCount: 1000
                     schemaSummary: {}
+                    sourceDataPipelineRun:
+                      completedAt: "2026-01-15T09:30:00Z"
+                      outputNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      pipelineName: Acme
+                      pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      runStatus: completed
                     sourceScd2Summary:
                       currentRows: 4
                       detected: true
@@ -36314,6 +36384,13 @@ paths:
                     refreshPolicy: manual
                     rowCount: 1000
                     schemaSummary: {}
+                    sourceDataPipelineRun:
+                      completedAt: "2026-01-15T09:30:00Z"
+                      outputNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      pipelineName: Acme
+                      pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      runStatus: completed
                     sourceScd2Summary:
                       currentRows: 4
                       detected: true
