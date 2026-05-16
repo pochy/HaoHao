@@ -2302,7 +2302,7 @@ function labelForStep(type: DataPipelineStepType | string) {
           <div class="config-grid">
             <label class="field">
               <span>{{ t('dataPipelines.statusColumn') }}</span>
-              <input :value="stringConfig('statusColumn') || 'gate_status'" list="data-pipeline-column-options" @input="updateConfigField('statusColumn', targetValue($event))">
+              <input :value="stringConfig('statusColumn')" list="data-pipeline-column-options" placeholder="gate_status / validation_status" @input="updateConfigField('statusColumn', targetValue($event))">
             </label>
             <label class="field">
               <span>{{ t('dataPipelines.outputMode') }}</span>
@@ -2314,7 +2314,7 @@ function labelForStep(type: DataPipelineStepType | string) {
           </div>
           <label class="field">
             <span>{{ t('dataPipelines.matchValues') }}</span>
-            <input :value="listToInput(configDraft.matchValues)" placeholder="needs_review" @input="updateConfigList('matchValues', targetValue($event))">
+            <input :value="listToInput(configDraft.matchValues)" placeholder="needs_review / error, warning" @input="updateConfigList('matchValues', targetValue($event))">
           </label>
         </template>
 

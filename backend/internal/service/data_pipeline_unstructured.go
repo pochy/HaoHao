@@ -1242,13 +1242,24 @@ func (s *DataPipelineService) materializeQuarantine(ctx context.Context, conn dr
 	if err != nil {
 		return dataPipelineMaterializedRelation{}, err
 	}
-	statusCol := firstNonEmpty(dataPipelineString(node.Data.Config, "statusColumn"), "gate_status")
+	statusCol := dataPipelineString(node.Data.Config, "statusColumn")
+	if statusCol == "" {
+		if dataPipelineHasColumn(upstream.Columns, "validation_status") {
+			statusCol = "validation_status"
+		} else {
+			statusCol = "gate_status"
+		}
+	}
 	if err := dataPipelineRequireColumn(upstream.Columns, statusCol); err != nil {
 		return dataPipelineMaterializedRelation{}, err
 	}
 	matchValues := dataPipelineStringSlice(node.Data.Config, "matchValues")
 	if len(matchValues) == 0 {
-		matchValues = []string{"needs_review"}
+		if statusCol == "validation_status" {
+			matchValues = []string{"error", "warning"}
+		} else {
+			matchValues = []string{"needs_review"}
+		}
 	}
 	matchSet := make(map[string]struct{}, len(matchValues))
 	for _, value := range matchValues {

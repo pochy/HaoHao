@@ -177,8 +177,10 @@ func (c *dataPipelineCompiler) compileNode(ctx context.Context, node DataPipelin
 		return dataPipelineRelation{}, err
 	}
 	switch node.Data.StepType {
-	case DataPipelineStepProfile, DataPipelineStepValidate:
+	case DataPipelineStepProfile:
 		return c.passThrough(node, upstream), nil
+	case DataPipelineStepValidate:
+		return c.compileValidate(node, upstream)
 	case DataPipelineStepOutput:
 		return c.compileOutput(node, upstream)
 	case DataPipelineStepClean:
@@ -218,6 +220,27 @@ func (c *dataPipelineCompiler) passThrough(node DataPipelineNode, upstream dataP
 		Node:    node,
 		Source:  upstream.Source,
 	}
+}
+
+func (c *dataPipelineCompiler) compileValidate(node DataPipelineNode, upstream dataPipelineRelation) (dataPipelineRelation, error) {
+	statusColumn := firstNonEmpty(dataPipelineString(node.Data.Config, "statusColumn"), "validation_status")
+	errorsColumn := firstNonEmpty(dataPipelineString(node.Data.Config, "errorsColumn"), "validation_errors_json")
+	if err := dataPipelineValidateIdentifier(statusColumn); err != nil {
+		return dataPipelineRelation{}, fmt.Errorf("%w: invalid validation statusColumn: %s", ErrInvalidDataPipelineGraph, err.Error())
+	}
+	if err := dataPipelineValidateIdentifier(errorsColumn); err != nil {
+		return dataPipelineRelation{}, fmt.Errorf("%w: invalid validation errorsColumn: %s", ErrInvalidDataPipelineGraph, err.Error())
+	}
+	columns := dataPipelineUniqueStrings(append(append([]string{}, upstream.Columns...), statusColumn, errorsColumn))
+	expressions := dataPipelineColumnExpressions(upstream.Columns)
+	statusExpr, errorsExpr, err := dataPipelineValidationRowExpressions(upstream.Columns, node.Data.Config)
+	if err != nil {
+		return dataPipelineRelation{}, err
+	}
+	expressions[statusColumn] = statusExpr
+	expressions[errorsColumn] = errorsExpr
+	sql := fmt.Sprintf("SELECT\n%s\nFROM %s", dataPipelineSelectList(columns, expressions), quoteCHIdent(upstream.CTE))
+	return dataPipelineRelation{CTE: dataPipelineCTEName(node.ID), SQL: sql, Columns: columns, Node: node, Source: upstream.Source}, nil
 }
 
 func (c *dataPipelineCompiler) compileOutput(node DataPipelineNode, upstream dataPipelineRelation) (dataPipelineRelation, error) {
@@ -1219,6 +1242,13 @@ func queryDataPipelineValidationSample(ctx context.Context, conn driver.Conn, sq
 
 func dataPipelineValidationPassExpr(columns []string, rule map[string]any) (string, error) {
 	operator := strings.ToLower(firstNonEmpty(dataPipelineString(rule, "operator"), dataPipelineString(rule, "op")))
+	if operator == "unique" {
+		column := dataPipelineString(rule, "column")
+		if err := dataPipelineRequireColumn(columns, column); err != nil {
+			return "", err
+		}
+		return "count() OVER (PARTITION BY " + quoteCHIdent(column) + ") = 1", nil
+	}
 	if operator == "range" {
 		column := dataPipelineString(rule, "column")
 		if err := dataPipelineRequireColumn(columns, column); err != nil {
@@ -1242,6 +1272,55 @@ func dataPipelineValidationPassExpr(columns []string, rule map[string]any) (stri
 		rule["value"] = rule["values"]
 	}
 	return dataPipelineConditionExpr(columns, dataPipelineString(rule, "column"), rule)
+}
+
+func dataPipelineValidationRowExpressions(columns []string, config map[string]any) (string, string, error) {
+	rules := dataPipelineConfigObjects(config, "rules")
+	if len(rules) == 0 {
+		return dataPipelineLiteral("pass"), dataPipelineLiteral("[]"), nil
+	}
+	errorFailures := make([]string, 0, len(rules))
+	warningFailures := make([]string, 0, len(rules))
+	detailItems := make([]string, 0, len(rules))
+	for index, rule := range rules {
+		passExpr, err := dataPipelineValidationPassExpr(columns, rule)
+		if err != nil {
+			return "", "", err
+		}
+		failureExpr := "NOT (" + passExpr + ")"
+		severity := strings.ToLower(dataPipelineString(rule, "severity"))
+		if severity == "" {
+			severity = "error"
+		}
+		if severity == "warning" {
+			warningFailures = append(warningFailures, failureExpr)
+		} else {
+			errorFailures = append(errorFailures, failureExpr)
+		}
+		operator := strings.ToLower(firstNonEmpty(dataPipelineString(rule, "operator"), dataPipelineString(rule, "op")))
+		if operator == "" {
+			operator = "required"
+		}
+		detail := map[string]any{
+			"column":    dataPipelineString(rule, "column"),
+			"operator":  operator,
+			"severity":  severity,
+			"reason":    operator,
+			"ruleIndex": index,
+		}
+		detailItems = append(detailItems, fmt.Sprintf("if(%s, %s, '')", failureExpr, dataPipelineLiteral(jsonString(detail))))
+	}
+	errorExpr := strings.Join(errorFailures, " OR ")
+	if errorExpr == "" {
+		errorExpr = "0"
+	}
+	warningExpr := strings.Join(warningFailures, " OR ")
+	if warningExpr == "" {
+		warningExpr = "0"
+	}
+	statusExpr := fmt.Sprintf("multiIf(%s, 'error', %s, 'warning', 'pass')", errorExpr, warningExpr)
+	errorsExpr := "concat('[', arrayStringConcat(arrayFilter(x -> x != '', [" + strings.Join(detailItems, ", ") + "]), ','), ']')"
+	return statusExpr, errorsExpr, nil
 }
 
 func queryDataPipelineSingle(ctx context.Context, conn driver.Conn, sql string, dest ...any) error {

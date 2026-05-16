@@ -162,11 +162,15 @@ func inferStepOutputColumns(stepType string, config map[string]any, upstreamColu
 	case DataPipelineStepProfile,
 		DataPipelineStepClean,
 		DataPipelineStepNormalize,
-		DataPipelineStepValidate,
 		DataPipelineStepQuarantine,
 		DataPipelineStepPartitionFilter,
 		DataPipelineStepWatermarkFilter:
 		return upstreamColumns
+	case DataPipelineStepValidate:
+		return dataPipelineUniqueStrings(append(append([]string{}, upstreamColumns...),
+			firstNonEmpty(dataPipelineString(config, "statusColumn"), "validation_status"),
+			firstNonEmpty(dataPipelineString(config, "errorsColumn"), "validation_errors_json"),
+		))
 	case DataPipelineStepOutput:
 		return inferOutputStepColumns(config, upstreamColumns)
 	case DataPipelineStepSnapshotSCD2:

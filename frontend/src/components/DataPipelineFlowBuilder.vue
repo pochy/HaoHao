@@ -625,7 +625,7 @@ function defaultConfig(type: DataPipelineStepType): Record<string, unknown> {
   case 'confidence_gate':
     return { threshold: 0.8, mode: 'annotate', statusColumn: 'gate_status' }
   case 'quarantine':
-    return { mode: 'filter', statusColumn: 'gate_status', matchValues: ['needs_review'], outputMode: 'quarantine_only' }
+    return { mode: 'filter', matchValues: [], outputMode: 'quarantine_only' }
   case 'route_by_condition':
     return { mode: 'annotate', routeColumn: 'route_key', defaultRoute: 'default', route: 'needs_review', rules: [{ column: 'gate_status', operator: '=', value: 'needs_review', route: 'needs_review' }] }
   case 'partition_filter':

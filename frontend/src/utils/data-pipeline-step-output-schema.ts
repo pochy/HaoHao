@@ -9,11 +9,16 @@ export function inferDataPipelineStepOutputColumns(
   case 'profile':
   case 'clean':
   case 'normalize':
-  case 'validate':
   case 'quarantine':
   case 'partition_filter':
   case 'watermark_filter':
     return uniqueStrings(upstreamColumns)
+  case 'validate':
+    return uniqueStrings([
+      ...upstreamColumns,
+      stringValue(config.statusColumn).trim() || 'validation_status',
+      stringValue(config.errorsColumn).trim() || 'validation_errors_json',
+    ])
   case 'snapshot_scd2':
     return inferSnapshotSCD2Columns(config, upstreamColumns)
   case 'output':

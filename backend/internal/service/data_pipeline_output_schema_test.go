@@ -315,6 +315,52 @@ func TestInferOutputSchemasForTypedOutputPipeline(t *testing.T) {
 	}
 }
 
+func TestInferOutputSchemasForValidateQuarantinePipeline(t *testing.T) {
+	graph := DataPipelineGraph{
+		Nodes: []DataPipelineNode{
+			{
+				ID: "input",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepInput,
+					Config: map[string]any{
+						"sourceKind": dataPipelineDriveFileSource,
+						"inputMode":  "json",
+						"fields":     []any{map[string]any{"column": "id"}, map[string]any{"column": "amount"}},
+					},
+				},
+			},
+			{
+				ID: "validate",
+				Data: DataPipelineNodeData{
+					StepType: DataPipelineStepValidate,
+					Config: map[string]any{"rules": []any{
+						map[string]any{"column": "id", "operator": "required"},
+						map[string]any{"column": "amount", "operator": "range", "min": 0},
+					}},
+				},
+			},
+			{ID: "quarantine", Data: DataPipelineNodeData{StepType: DataPipelineStepQuarantine}},
+			{ID: "output", Data: DataPipelineNodeData{StepType: DataPipelineStepOutput}},
+		},
+		Edges: []DataPipelineEdge{
+			{Source: "input", Target: "validate"},
+			{Source: "validate", Target: "quarantine"},
+			{Source: "quarantine", Target: "output"},
+		},
+	}
+
+	schemas, err := (&DataPipelineService{}).inferOutputSchemas(context.Background(), 1, graph)
+	if err != nil {
+		t.Fatalf("inferOutputSchemas() error = %v", err)
+	}
+	output := schemaColumnsByNode(schemas)["output"]
+	for _, column := range []string{"id", "amount", "validation_status", "validation_errors_json"} {
+		if !dataPipelineContainsString(output, column) {
+			t.Fatalf("output schema missing %q: %#v", column, output)
+		}
+	}
+}
+
 func TestInferOutputSchemasForSnapshotSCD2Pipeline(t *testing.T) {
 	graph := DataPipelineGraph{
 		Nodes: []DataPipelineNode{
