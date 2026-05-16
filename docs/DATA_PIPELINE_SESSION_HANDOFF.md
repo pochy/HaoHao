@@ -24,7 +24,7 @@ Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Mont
 
 1. Backend step catalog / generated contract への output schema 単一正本化。
 2. `mark_deleted` / winner policy などの高度 SCD2 policy 検討。
-3. Month 3 optional hardening の残確認。既存 Gold publish run 行の source run/output 参照 backfill は `0050_backfill_dataset_gold_publish_run_source_refs` で migration 化済み。
+3. Month 3 optional hardening の残確認。既存 Gold publish run 行の source run/output 参照 backfill は `0050_backfill_dataset_gold_publish_run_source_refs` で migration 化し、2026-05-16 の local DB 検証で version 50 / dirty=false、既存 publish run 4/4 件の補完まで確認済み。
 
 ## 実装済みの流れ
 
@@ -206,6 +206,7 @@ make smoke-data-pipeline-snapshot-merge-backfill
 - Gold publish history と Data Pipeline run history の相互リンク。Gold detail の publish history row は `sourceDataPipelineRun` を表示し、source Data Pipeline detail の `runPublicId` / `outputNodeId` へ deep link できる。
 - `dataset_gold_publish_runs.source_data_pipeline_run_id` / `source_data_pipeline_run_output_id` を追加済み。新規 publish run は作成時点の source Data Pipeline run/output を保存し、表示時は保存済み output を優先する。
 - 既存行や参照欠落時は `source_work_table_id` から最新 completed output を fallback 表示する。さらに `0050_backfill_dataset_gold_publish_run_source_refs` で、migration 実行時に `source_work_table_id` と publish run 作成時刻から最も近い completed Data Pipeline output を best-effort 補完する。
+- 2026-05-16 local DB 検証では `make db-up` が 0049 / 0050 を適用し、`schema_migrations.version=50, dirty=false` になった。`dataset_gold_publish_runs` は `source_data_pipeline_run_id` / `source_data_pipeline_run_output_id` が 4/4 件で補完済み。続けて `make smoke-data-pipeline-snapshot-merge` と `make smoke-data-pipeline-snapshot-merge-delete` が成功した。
 
 ## SCD2 / Snapshot Work Table UI
 

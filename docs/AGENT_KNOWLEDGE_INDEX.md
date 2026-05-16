@@ -321,6 +321,7 @@ Data Pipeline:
 Gold / Lineage:
 
 - Gold publish history と Data Pipeline run history の相互リンクは、publish history row から source run/output への deep link、publish run 作成時点の source run/output ID 永続化、既存行の best-effort backfill migration まで完了。
+- 2026-05-16 local DB で `make db-up` により 0049 / 0050 を適用済み。`schema_migrations.version=50, dirty=false`、既存 `dataset_gold_publish_runs` の source run/output 参照は 4/4 件補完済み。`make smoke-data-pipeline-snapshot-merge` と `make smoke-data-pipeline-snapshot-merge-delete` も成功。
 - source run step detail を Gold detail から直接見るかどうかの設計。
 
 Review:

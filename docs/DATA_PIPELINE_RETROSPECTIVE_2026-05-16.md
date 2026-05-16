@@ -198,6 +198,7 @@ bfcbb4a Align data pipeline inspector column inference
 残課題:
 
 - 既存 Gold publish run 行の source run/output 参照 backfill は `0050_backfill_dataset_gold_publish_run_source_refs` で migration 化した。`source_work_table_id` と publish run 作成時刻から、同一 tenant / Work table の completed Data Pipeline output を best-effort で選び、`source_data_pipeline_run_id` と `source_data_pipeline_run_output_id` を補完する。
+- 2026-05-16 に local DB へ `make db-up` で 0049 / 0050 を適用し、`schema_migrations.version=50, dirty=false` を確認した。検証時点の `dataset_gold_publish_runs` は 4 件中 4 件で `source_data_pipeline_run_id` と `source_data_pipeline_run_output_id` が補完済みだった。
 - source run step の詳細 dialog を Gold detail から直接開くかどうかは未設計。
 
 ## 現在の API / metadata 正本
@@ -495,6 +496,7 @@ make smoke-data-pipeline-snapshot-merge-backfill
 残課題:
 
 - migration 前の既存行は `0050_backfill_dataset_gold_publish_run_source_refs` 適用時に best-effort backfill される。ただし、該当 Work table を出力した completed Data Pipeline run が存在しない古い Gold publish run は nullable のまま残るため、表示側 fallback は引き続き必要。
+- migration 適用後に `make smoke-data-pipeline-snapshot-merge` と `make smoke-data-pipeline-snapshot-merge-delete` を実行し、SCD2 merge / close_current delete detection の代表 smoke は成功した。
 
 ## AI coding 改善として残すこと
 
