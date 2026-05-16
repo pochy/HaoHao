@@ -25,6 +25,7 @@ Data Pipeline は、tenant ごとの Dataset / Work table / Drive file を入力
 - Work table: ClickHouse 上に作られる tenant 管理の出力テーブル。既存の Dataset / Work table UI から参照できる。
 - Materialize: node の途中結果を ClickHouse の実テーブルとして一時的に作ること。
 - Hybrid path: SQL compile だけでは処理できない Drive OCR や extract 系 node を、中間テーブルを作りながら実行する経路。
+- SCD2 snapshot table: `snapshot_scd2` node や output `writeMode=scd2_merge` で作られる履歴管理 table。`valid_from`、`valid_to`、`is_current`、`change_hash` を持ち、entity の current row と history row を同じ table に保持する。
 
 ## 全体像
 
@@ -73,6 +74,7 @@ Outbox は HaoHao だけの独自概念ではなく、一般的な `Transactiona
 - `frontend/src/components/DataPipelineInspector.vue`: node 設定 inspector。
 - `frontend/src/components/DataPipelinePreviewPanel.vue`: preview 表示。
 - `frontend/src/components/DataPipelineNode.vue`: graph node 表示。
+- `frontend/src/components/DatasetWorkTableBrowser.vue`: Work table 一覧、列一覧、preview、export、Gold publish。SCD2 snapshot table の preview 内 current/history 集計と filter もここで表示する。
 
 ## データモデル
 
@@ -100,6 +102,8 @@ Data Pipeline で「metadata に保存する」と言う場合、何のための
 - ClickHouse の行データ列: 後続 node が行単位で使う注釈を置きます。例えば `quality_report_json`、`gate_status`、`gate_reason`、`review_reason_json`、`match_confidence` のような列は、filter、quarantine、human review、output に渡すための行データです。
 
 つまり、UI や run 履歴で見たい step summary は PostgreSQL の `data_pipeline_run_steps.metadata`、後続処理が行ごとに読む判定は ClickHouse の列、最終 output の情報は `data_pipeline_run_outputs.metadata` に置くのが基本です。
+
+SCD2 / snapshot output の場合、current/history の状態は ClickHouse の行データ列です。`is_current=1` の行が current row、`is_current=0` の行が history row です。Work table preview UI は `valid_from`、`valid_to`、`is_current`、`change_hash` が揃う table を SCD2 table として検出し、読み込まれている preview rows 内の current/history 件数と `All` / `Current` / `History` filter を表示します。ただし preview は全件 scan ではないため、UI に出る件数は table 全体の監査値ではありません。全体件数や key 単位履歴を監査値として扱う場合は、backend service で専用 query を追加し、PostgreSQL metadata または API response として明示的に返す必要があります。
 
 ## Graph Contract
 

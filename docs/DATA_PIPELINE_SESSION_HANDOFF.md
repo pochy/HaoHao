@@ -197,6 +197,28 @@ make smoke-data-pipeline-snapshot-merge-backfill
 - Gold detail に Data Pipeline source、run id、quality summary、SCD2 policy を表示する。
 - Gold publish history と Data Pipeline run history の相互リンク。
 
+## SCD2 / Snapshot Work Table UI
+
+Data Pipeline の `snapshot_scd2` と output `writeMode=scd2_merge` により、ClickHouse 上の Work table には SCD Type 2 の履歴行が保存されます。これまでは Work table UI が列一覧と preview rows をそのまま表示するだけだったため、利用者は `is_current`、`valid_from`、`valid_to`、`change_hash` を目視で探して current / history の状態を判断する必要がありました。
+
+2026-05-16 の追加対応で、`frontend/src/components/DatasetWorkTableBrowser.vue` は選択中 Work table の列に `valid_from`、`valid_to`、`is_current`、`change_hash` が揃っている場合に SCD2 snapshot table として検出します。検出時は Overview の preview セクションに次を表示します。
+
+- SCD2 snapshot 検出バッジ。
+- 現在読み込まれている preview rows の件数。
+- preview 内の current rows 件数。
+- preview 内の history rows 件数。
+- 代表 key column 候補。現時点では `id`、`product_id`、`sku`、`file_public_id` の順で存在する列を表示する。
+- preview rows に対する `All` / `Current` / `History` フィルタ。
+
+この UI は backend API contract を増やさず、既存の Work table preview payload だけを使う最小実装です。したがって件数とフィルタは **テーブル全体ではなく、現在読み込まれている preview rows に対する値**です。大規模 table の全体 current/history 件数や key 単位履歴は、別途 backend query endpoint を追加する必要があります。
+
+今後の拡張候補:
+
+- Work table preview API に SCD2 summary mode を追加し、全体 row count、current/history row count、key count、latest valid_from を返す。
+- key column を output metadata や lineage から取得し、候補推定ではなく正確に表示する。
+- key value を指定して履歴 rows を時系列で表示する。
+- Gold detail 側にも SCD2 policy、current row count、history row count、source pipeline run へのリンクを表示する。
+
 ## 主要コミット
 
 直近の関連コミット:

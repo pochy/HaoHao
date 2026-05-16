@@ -15,6 +15,7 @@ import TextInputDialog from './TextInputDialog.vue'
 
 type LineageGraphTab = 'flow' | 'compact'
 type WorkTableDetailTab = 'overview' | 'lineage' | 'exports'
+type SnapshotPreviewFilter = 'all' | 'current' | 'history'
 
 const props = withDefaults(defineProps<{
   tables: DatasetWorkTableBody[]
@@ -75,6 +76,7 @@ const selectedDatasetPublicId = ref('')
 const exportFormat = ref<DatasetWorkTableExportFormat>('csv')
 const activeWorkTableDetailTab = ref<WorkTableDetailTab>('overview')
 const activeLineageGraphTab = ref<LineageGraphTab>('flow')
+const snapshotPreviewFilter = ref<SnapshotPreviewFilter>('all')
 const lineageEditMode = ref(false)
 const editingSchedulePublicId = ref('')
 const textDialog = ref<'rename' | 'promote' | 'gold' | ''>('')
@@ -111,6 +113,31 @@ const weekdayOptions = [
   { value: 7, labelKey: 'datasets.weekdaySunday' },
 ]
 const monthDayOptions = Array.from({ length: 28 }, (_, index) => index + 1)
+const snapshotRequiredColumns = ['valid_from', 'valid_to', 'is_current', 'change_hash']
+const snapshotKeyCandidates = ['id', 'product_id', 'sku', 'file_public_id']
+const selectedColumnNames = computed(() => selectedColumns.value.map((column) => column.columnName))
+const selectedColumnNameSet = computed(() => new Set(selectedColumnNames.value))
+const hasSCD2Columns = computed(() => snapshotRequiredColumns.every((column) => selectedColumnNameSet.value.has(column)))
+const snapshotKeyColumn = computed(() => snapshotKeyCandidates.find((column) => selectedColumnNameSet.value.has(column)) || '')
+const snapshotPreviewFilters: Array<{ value: SnapshotPreviewFilter, labelKey: string }> = [
+  { value: 'all', labelKey: 'datasets.snapshotPreviewFilterAll' },
+  { value: 'current', labelKey: 'datasets.snapshotPreviewFilterCurrent' },
+  { value: 'history', labelKey: 'datasets.snapshotPreviewFilterHistory' },
+]
+const currentSnapshotPreviewRows = computed(() => previewRows.value.filter(isCurrentSnapshotRow))
+const historySnapshotPreviewRows = computed(() => previewRows.value.filter((row) => !isCurrentSnapshotRow(row)))
+const filteredPreviewRows = computed(() => {
+  if (!hasSCD2Columns.value) {
+    return previewRows.value
+  }
+  if (snapshotPreviewFilter.value === 'current') {
+    return currentSnapshotPreviewRows.value
+  }
+  if (snapshotPreviewFilter.value === 'history') {
+    return historySnapshotPreviewRows.value
+  }
+  return previewRows.value
+})
 const textDialogTitle = computed(() => {
   if (textDialog.value === 'rename') {
     return t('datasets.renameWorkTable')
@@ -146,6 +173,7 @@ watch(
   () => props.selectedTable ? props.selectedTable.publicId || `${props.selectedTable.database}.${props.selectedTable.table}` : '',
   () => {
     activeWorkTableDetailTab.value = 'overview'
+    snapshotPreviewFilter.value = 'all'
     resetScheduleForm()
   },
 )
@@ -217,6 +245,21 @@ function statusClass(status: string) {
     return ''
   }
   return 'warning'
+}
+
+function isCurrentSnapshotRow(row: Record<string, unknown>) {
+  const value = row.is_current
+  if (typeof value === 'boolean') {
+    return value
+  }
+  if (typeof value === 'number') {
+    return value === 1
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized === '1' || normalized === 'true' || normalized === 't'
+  }
+  return false
 }
 
 function confirmText(value: string) {
@@ -577,26 +620,69 @@ function changeLineageLevel(event: Event) {
           {{ t('datasets.loadingPreview') }}
         </p>
 
-        <div v-else-if="activeWorkTableDetailTab === 'overview' && previewColumns.length > 0 && previewRows.length > 0" class="admin-table dataset-result-table dataset-work-table-preview-table">
-          <table>
-            <thead>
-              <tr>
-                <th v-for="column in previewColumns" :key="column">{{ column }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, rowIndex) in previewRows" :key="rowIndex">
-                <td v-for="column in previewColumns" :key="column" class="monospace-cell">
-                  {{ row[column] ?? 'NULL' }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <template v-else-if="activeWorkTableDetailTab === 'overview'">
+          <div v-if="hasSCD2Columns" class="snapshot-preview-panel">
+            <div class="snapshot-preview-panel-header">
+              <div>
+                <span class="status-pill success">{{ t('datasets.snapshotSCD2Detected') }}</span>
+                <h3>{{ t('datasets.snapshotPreviewTitle') }}</h3>
+                <p>{{ t('datasets.snapshotPreviewDescription') }}</p>
+              </div>
+              <div class="lineage-view-tabs snapshot-preview-tabs" role="tablist" :aria-label="t('datasets.snapshotPreviewFilter')">
+                <button
+                  v-for="option in snapshotPreviewFilters"
+                  :key="option.value"
+                  type="button"
+                  role="tab"
+                  :aria-selected="snapshotPreviewFilter === option.value"
+                  :class="{ active: snapshotPreviewFilter === option.value }"
+                  @click="snapshotPreviewFilter = option.value"
+                >
+                  {{ t(option.labelKey) }}
+                </button>
+              </div>
+            </div>
+            <div class="snapshot-preview-metrics">
+              <div>
+                <span>{{ t('datasets.snapshotPreviewRowsLoaded') }}</span>
+                <strong>{{ n(previewRows.length) }}</strong>
+              </div>
+              <div>
+                <span>{{ t('datasets.snapshotPreviewCurrentRows') }}</span>
+                <strong>{{ n(currentSnapshotPreviewRows.length) }}</strong>
+              </div>
+              <div>
+                <span>{{ t('datasets.snapshotPreviewHistoryRows') }}</span>
+                <strong>{{ n(historySnapshotPreviewRows.length) }}</strong>
+              </div>
+              <div>
+                <span>{{ t('datasets.snapshotPreviewKeyColumn') }}</span>
+                <strong>{{ snapshotKeyColumn || '-' }}</strong>
+              </div>
+            </div>
+          </div>
 
-        <div v-else-if="activeWorkTableDetailTab === 'overview'" class="empty-state">
-          <p>{{ t('datasets.noPreviewRows') }}</p>
-        </div>
+          <div v-if="previewColumns.length > 0 && filteredPreviewRows.length > 0" class="admin-table dataset-result-table dataset-work-table-preview-table">
+            <table>
+              <thead>
+                <tr>
+                  <th v-for="column in previewColumns" :key="column">{{ column }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowIndex) in filteredPreviewRows" :key="rowIndex">
+                  <td v-for="column in previewColumns" :key="column" class="monospace-cell">
+                    {{ row[column] ?? 'NULL' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-else class="empty-state">
+            <p>{{ t('datasets.noPreviewRows') }}</p>
+          </div>
+        </template>
 
         <div v-if="selectedTable.managed && activeWorkTableDetailTab === 'exports' && selectedTable.status === 'active'" class="section-header compact-section-header">
           <div>

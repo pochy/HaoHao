@@ -26,6 +26,7 @@ frontend build では Monaco / Data Pipeline detail 周辺を中心に大きい 
 - Data Pipeline は多くの node が catalog / UI に存在しますが、すべてが同じ深さで実行・監視できるわけではありません。Month 1 の品質・可観測性の土台、Month 2 の失敗処理 / review queue、Month 3 の主要 runtime node は実装済みです。直近の実装履歴と検証結果は `docs/DATA_PIPELINE_SESSION_HANDOFF.md` を参照してください。
 - `DataPipelineRunStepBody.metadata` は API contract として使われ、`profile`、`validate`、`quality_report`、`confidence_gate`、`inputRows`、`samples`、`queryStats`、Runs tab 詳細、Data Pipeline smoke suite まで実装済みです。
 - Data Pipeline Inspector の上流列警告は、runtime 出力列と frontend 静的推論がずれると false positive になります。`4757732` と `bfcbb4a` で代表 node の推論は修正済みです。さらに `23ec2c6` で preview API が selected subgraph の `outputSchemas` を返すようになりました。2026-05-14 に軽量 validation endpoint の初期実装も追加し、preview 実行なしで backend schema / missing-column warnings を返せるようにしました。詳細は `docs/DATA_PIPELINE_UI_COLUMN_INFERENCE.md` と `docs/DATA_PIPELINE_VALIDATION_ENDPOINT_PLAN.md` を参照してください。
+- SCD2 / snapshot Work table の最小運用 UI を追加しました。Work table preview で `valid_from`、`valid_to`、`is_current`、`change_hash` が揃う場合に SCD2 table として検出し、preview 内の current/history 件数と filter を表示します。これは preview payload だけで動く v1 であり、テーブル全体集計や key 単位履歴 drilldown は未実装です。
 - Drive OCR、商品抽出、Local Search、pgvector、Drive RAG は主要な足場が動いています。次は broad な機能追加ではなく、評価、追跡、失敗理由、運用導線を強くします。
 - frontend は機能がかなり増え、Data Pipeline detail と Monaco editor の chunk が大きくなっています。運用前に code splitting を改善する余地があります。
 - AI coding 改善は一部だけ実装済みです。repo-local skill として `haohao-db-dev`、`haohao-drive-debug`、`supabase-postgres-best-practices` は使える状態です。一方で `docs/AGENT_KNOWLEDGE_INDEX.md` や RAG/OpenFGA/OpenAPI/frontend 専用 skill、smoke 結果を自動で docs / PR に反映する仕組みはまだありません。
@@ -169,6 +170,7 @@ Local Search / RAG:
 - join / enrich_join は行数爆発、未マッチ、key null、列衝突などの warning を UI で十分説明できていません。
 - `human_review` は `createReviewItems=true` の場合に永続 review item を作成できます。Drive text / `extract_fields` / `extract_table`、Drive JSON / `schema_mapping`、Drive product extraction の低信頼 reason は review queue へ接続済みです。Drive file detail から source file に紐づく review item / pipeline run へ戻る導線も追加済みです。
 - `quarantine` v1、`union` v1、`route_by_condition` v1、`partition_filter` v1、`watermark_filter` v1、`snapshot_scd2` v1、typed output / ordering、output `append`、output `scd2_merge`、SCD2 key-history rebuild policy は実装済みです。
+- SCD2 / snapshot output は Work table preview 上で SCD2 table として検出し、preview 内の current/history 件数と `All` / `Current` / `History` filter を確認できるようになりました。現時点では全体集計ではなく、読み込み済み preview rows に対する補助 UI です。
 - `DataPipelineInspector.vue` は graph config だけから上流列を静的推論していましたが、2026-05-14 に validation result を primary source として受け取る実装を追加しました。validation endpoint は preview 実行なしで graph 全体の output schema と missing-column warnings を返し、Inspector はその結果がある場合は local fallback より優先します。local 推論は endpoint 未取得時の fallback として残しています。
 
 次に着手すべき理由:
@@ -177,6 +179,7 @@ Local Search / RAG:
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
 - 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint の初期実装は完了したため、次は backend step catalog / generated contract へのさらなる集約、SCD2 / Gold publish / snapshot 運用 UI の validation 表示を進めます。
+- SCD2 / snapshot 運用 UI は preview 内 current/history filter まで進みました。次の改善は、backend 側の full-table summary endpoint、key 単位履歴 drilldown、Gold detail への SCD2 summary 表示です。
 
 ### Drive / RAG の課題
 
