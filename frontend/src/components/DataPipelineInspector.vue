@@ -2772,6 +2772,13 @@ function labelForStep(type: DataPipelineStepType | string) {
           </label>
           <div v-if="stringConfig('writeMode') === 'scd2_merge'" class="config-grid">
             <label class="field">
+              <span>{{ t('dataPipelines.scd2MergePolicy') }}</span>
+              <select :value="stringConfig('scd2MergePolicy') || 'current_only'" @change="updateConfigField('scd2MergePolicy', targetValue($event))">
+                <option value="current_only">{{ optionLabel('dataPipelines.scd2MergePolicyValue.currentOnly', 'current_only') }}</option>
+                <option value="rebuild_key_history">{{ optionLabel('dataPipelines.scd2MergePolicyValue.rebuildKeyHistory', 'rebuild_key_history') }}</option>
+              </select>
+            </label>
+            <label class="field">
               <span>{{ t('dataPipelines.uniqueKeys') }}</span>
               <input :value="stringList(configDraft.uniqueKeys).join(', ')" list="data-pipeline-column-options" @input="updateConfigList('uniqueKeys', targetValue($event))">
             </label>

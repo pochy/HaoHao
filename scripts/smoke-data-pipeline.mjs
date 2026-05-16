@@ -130,6 +130,13 @@ async function uploadSnapshotChangedJSONFile(workspacePublicId) {
   return uploadFile(workspacePublicId, `data-pipeline-snapshot-changed-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
 }
 
+async function uploadSnapshotLateJSONFile(workspacePublicId) {
+  const rows = [
+    { id: '1', name: 'Alpha', status: 'review', updated_at: '2026-05-02T00:00:00Z' },
+  ]
+  return uploadFile(workspacePublicId, `data-pipeline-snapshot-late-smoke-${Date.now()}.json`, 'application/json', JSON.stringify(rows, null, 2))
+}
+
 async function uploadTextFile(workspacePublicId) {
   const text = [
     'invoice_id,customer,amount,confidence',
@@ -393,6 +400,26 @@ function snapshotMergeGraph(filePublicId, suffix) {
       isCurrentColumn: 'is_current',
       changeHashColumn: 'change_hash',
     })
+  })
+  return graph
+}
+
+function snapshotMergeBackfillGraph(filePublicId, suffix) {
+  const graph = snapshotMergeGraph(filePublicId, suffix)
+  graph.nodes = graph.nodes.map((item) => {
+    if (item.id !== 'output') {
+      return item
+    }
+    return {
+      ...item,
+      data: {
+        ...item.data,
+        config: {
+          ...item.data.config,
+          scd2MergePolicy: 'rebuild_key_history',
+        },
+      },
+    }
   })
   return graph
 }
@@ -757,6 +784,7 @@ async function createPipeline(scenario, filePublicId) {
     snapshot_scd2: snapshotSCD2Graph,
     snapshot_append: snapshotAppendGraph,
     snapshot_merge: snapshotMergeGraph,
+    snapshot_merge_backfill: snapshotMergeBackfillGraph,
     union: unionGraph,
     excel: excelGraph,
     text: textGraph,
@@ -1182,6 +1210,7 @@ async function runScenario(workspacePublicId, scenario) {
     snapshot_scd2: uploadSnapshotJSONFile,
     snapshot_append: uploadSnapshotJSONFile,
     snapshot_merge: uploadSnapshotJSONFile,
+    snapshot_merge_backfill: uploadSnapshotJSONFile,
     union: uploadJSONFile,
     excel: uploadXLSXFile,
     text: uploadTextFile,
@@ -1201,6 +1230,7 @@ async function runScenario(workspacePublicId, scenario) {
     snapshot_scd2: assertSnapshotSCD2Run,
     snapshot_append: assertSnapshotSCD2Run,
     snapshot_merge: assertSnapshotSCD2Run,
+    snapshot_merge_backfill: assertSnapshotSCD2Run,
     union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
     text: assertTextRun,
@@ -1348,6 +1378,42 @@ async function runSnapshotMergeScenario(workspacePublicId) {
   }
 }
 
+async function runSnapshotMergeBackfillScenario(workspacePublicId) {
+  const suffix = `snapshot_merge_backfill_${Date.now()}`
+  const file = await uploadSnapshotJSONFile(workspacePublicId)
+  const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
+    name: `Smoke: snapshot_merge_backfill metadata ${new Date().toISOString()}`,
+    description: 'Smoke test for Data Pipeline SCD2 merge backfill output registration.',
+  }, { 'Idempotency-Key': crypto.randomUUID() })
+  created.pipelinePublicIds.push(pipeline.publicId)
+  const version = await createPublishedVersion(pipeline.publicId, snapshotMergeBackfillGraph(file.publicId, suffix))
+
+  const firstRun = await requestRun(version.publicId)
+  const firstCompleted = await waitForRun(pipeline.publicId, firstRun.publicId, assertSnapshotSCD2Run)
+
+  const lateFile = await uploadSnapshotLateJSONFile(workspacePublicId)
+  const lateVersion = await createPublishedVersion(pipeline.publicId, snapshotMergeBackfillGraph(lateFile.publicId, suffix))
+  const lateRun = await requestRun(lateVersion.publicId)
+  const lateCompleted = await waitForRun(pipeline.publicId, lateRun.publicId, (run) => assertCommonRun(run, 4))
+  const repeatedRun = await requestRun(lateVersion.publicId)
+  const repeatedCompleted = await waitForRun(pipeline.publicId, repeatedRun.publicId, (run) => assertCommonRun(run, 4))
+
+  return {
+    scenario: 'snapshot_merge_backfill',
+    workspacePublicId,
+    driveFilePublicId: file.publicId,
+    lateDriveFilePublicId: lateFile.publicId,
+    pipelinePublicId: pipeline.publicId,
+    versionPublicId: version.publicId,
+    lateVersionPublicId: lateVersion.publicId,
+    firstRunPublicId: firstCompleted.publicId,
+    lateRunPublicId: lateCompleted.publicId,
+    repeatedRunPublicId: repeatedCompleted.publicId,
+    detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
+    outputs: repeatedCompleted.outputs,
+  }
+}
+
 function schemaForNode(validation, nodeId) {
   return (validation.outputSchemas ?? []).find((schema) => schema.nodeId === nodeId)
 }
@@ -1435,8 +1501,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
@@ -1454,6 +1520,8 @@ async function main() {
           ? await runSnapshotAppendScenario(workspacePublicId)
           : scenario === 'snapshot_merge'
             ? await runSnapshotMergeScenario(workspacePublicId)
+            : scenario === 'snapshot_merge_backfill'
+              ? await runSnapshotMergeBackfillScenario(workspacePublicId)
       : await runScenario(workspacePublicId, scenario))
   }
   console.log(JSON.stringify(requestedScenario === 'suite' ? { scenarios: results } : results[0], null, 2))

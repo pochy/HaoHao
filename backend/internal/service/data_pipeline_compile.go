@@ -1483,6 +1483,9 @@ func promoteDataPipelineSCD2MergeOutput(ctx context.Context, conn driver.Conn, d
 		}
 		return nil
 	}
+	if spec.MergePolicy == "rebuild_key_history" {
+		return promoteDataPipelineSCD2RebuildKeyHistoryOutput(ctx, conn, database, targetTable, stageTable, node, stageColumns, spec)
+	}
 	mergeTable := "__dp_merge_" + dataPipelineSafeSuffix(stageTable)
 	_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(mergeTable)))
 	joinConditions := dataPipelineSCD2JoinConditions("s", "t", spec.UniqueKeys)
@@ -1542,6 +1545,80 @@ func promoteDataPipelineSCD2MergeOutput(ctx context.Context, conn driver.Conn, d
 	return conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
 }
 
+func promoteDataPipelineSCD2RebuildKeyHistoryOutput(ctx context.Context, conn driver.Conn, database, targetTable, stageTable string, node DataPipelineNode, stageColumns []string, spec dataPipelineOutputSCD2MergeConfig) error {
+	mergeTable := "__dp_merge_" + dataPipelineSafeSuffix(stageTable)
+	_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(mergeTable)))
+	affectedKeySQL := fmt.Sprintf("SELECT DISTINCT %s AS %s FROM %s.%s", dataPipelineSCD2TupleExpr("", spec.UniqueKeys), quoteCHIdent("__dp_key"), quoteCHIdent(database), quoteCHIdent(stageTable))
+	targetUnaffectedSelects := make([]string, 0, len(stageColumns))
+	rebuildSelects := make([]string, 0, len(stageColumns))
+	for _, column := range stageColumns {
+		targetUnaffectedSelects = append(targetUnaffectedSelects, fmt.Sprintf("  t.%s AS %s", quoteCHIdent(column), quoteCHIdent(column)))
+		switch column {
+		case spec.ValidToColumn:
+			nextValidFromExpr := fmt.Sprintf("lead(%s) OVER (PARTITION BY %s ORDER BY %s ASC)", quoteCHIdent(spec.ValidFromColumn), strings.Join(dataPipelineSCD2QuotedColumns(spec.UniqueKeys), ", "), quoteCHIdent(spec.ValidFromColumn))
+			rebuildSelects = append(rebuildSelects, fmt.Sprintf("  nullIf(%s, toDateTime(0)) AS %s", nextValidFromExpr, quoteCHIdent(column)))
+		case spec.IsCurrentColumn:
+			nextValidFromExpr := fmt.Sprintf("lead(%s) OVER (PARTITION BY %s ORDER BY %s ASC)", quoteCHIdent(spec.ValidFromColumn), strings.Join(dataPipelineSCD2QuotedColumns(spec.UniqueKeys), ", "), quoteCHIdent(spec.ValidFromColumn))
+			rebuildSelects = append(rebuildSelects, fmt.Sprintf("  if(%s = toDateTime(0), 1, 0) AS %s", nextValidFromExpr, quoteCHIdent(column)))
+		default:
+			rebuildSelects = append(rebuildSelects, fmt.Sprintf("  %s", quoteCHIdent(column)))
+		}
+	}
+	combinedSelects := make([]string, 0, len(stageColumns))
+	for _, column := range stageColumns {
+		combinedSelects = append(combinedSelects, fmt.Sprintf("  %s", quoteCHIdent(column)))
+	}
+	dedupPartitionColumns := append([]string{}, dataPipelineSCD2QuotedColumns(spec.UniqueKeys)...)
+	dedupPartitionColumns = append(dedupPartitionColumns, quoteCHIdent(spec.ValidFromColumn), quoteCHIdent(spec.ChangeHashColumn))
+	combinedSQL := fmt.Sprintf(
+		"SELECT\n%s\nFROM %s.%s\nWHERE %s IN (SELECT %s FROM (\n%s\n))\nUNION ALL\nSELECT\n%s\nFROM %s.%s",
+		strings.Join(combinedSelects, ",\n"),
+		quoteCHIdent(database),
+		quoteCHIdent(targetTable),
+		dataPipelineSCD2TupleExpr("", spec.UniqueKeys),
+		quoteCHIdent("__dp_key"),
+		affectedKeySQL,
+		strings.Join(combinedSelects, ",\n"),
+		quoteCHIdent(database),
+		quoteCHIdent(stageTable),
+	)
+	dedupedSQL := fmt.Sprintf(
+		"SELECT\n%s\nFROM (\nSELECT *, row_number() OVER (PARTITION BY %s ORDER BY %s DESC) AS %s\nFROM (\n%s\n)\n)\nWHERE %s = 1",
+		strings.Join(combinedSelects, ",\n"),
+		strings.Join(dedupPartitionColumns, ", "),
+		quoteCHIdent(spec.IsCurrentColumn),
+		quoteCHIdent("__dp_rank"),
+		combinedSQL,
+		quoteCHIdent("__dp_rank"),
+	)
+	recomputedSQL := fmt.Sprintf("SELECT\n%s\nFROM (\n%s\n)", strings.Join(rebuildSelects, ",\n"), dedupedSQL)
+	createSQL := fmt.Sprintf(
+		"CREATE TABLE %s.%s ENGINE = MergeTree ORDER BY %s AS\nSELECT\n%s\nFROM %s.%s AS t\nWHERE %s NOT IN (SELECT %s FROM (\n%s\n))\nUNION ALL\n%s",
+		quoteCHIdent(database),
+		quoteCHIdent(mergeTable),
+		dataPipelineOutputOrderBy(node, stageColumns),
+		strings.Join(targetUnaffectedSelects, ",\n"),
+		quoteCHIdent(database),
+		quoteCHIdent(targetTable),
+		dataPipelineSCD2TupleExpr("t", spec.UniqueKeys),
+		quoteCHIdent("__dp_key"),
+		affectedKeySQL,
+		recomputedSQL,
+	)
+	if err := conn.Exec(ctx, createSQL); err != nil {
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(mergeTable)))
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+		return err
+	}
+	_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(targetTable)))
+	if err := conn.Exec(ctx, fmt.Sprintf("RENAME TABLE %s.%s TO %s.%s", quoteCHIdent(database), quoteCHIdent(mergeTable), quoteCHIdent(database), quoteCHIdent(targetTable))); err != nil {
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(mergeTable)))
+		_ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+		return err
+	}
+	return conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", quoteCHIdent(database), quoteCHIdent(stageTable)))
+}
+
 func dataPipelineSCD2JoinConditions(leftAlias, rightAlias string, keys []string) string {
 	conditions := make([]string, 0, len(keys))
 	for _, key := range keys {
@@ -1550,12 +1627,33 @@ func dataPipelineSCD2JoinConditions(leftAlias, rightAlias string, keys []string)
 	return strings.Join(conditions, " AND ")
 }
 
+func dataPipelineSCD2TupleExpr(alias string, keys []string) string {
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if alias == "" {
+			parts = append(parts, quoteCHIdent(key))
+			continue
+		}
+		parts = append(parts, alias+"."+quoteCHIdent(key))
+	}
+	return "tuple(" + strings.Join(parts, ", ") + ")"
+}
+
+func dataPipelineSCD2QuotedColumns(columns []string) []string {
+	out := make([]string, 0, len(columns))
+	for _, column := range columns {
+		out = append(out, quoteCHIdent(column))
+	}
+	return out
+}
+
 type dataPipelineOutputSCD2MergeConfig struct {
 	UniqueKeys       []string
 	ValidFromColumn  string
 	ValidToColumn    string
 	IsCurrentColumn  string
 	ChangeHashColumn string
+	MergePolicy      string
 }
 
 func dataPipelineOutputSCD2MergeSpec(config map[string]any, columns []string) (dataPipelineOutputSCD2MergeConfig, error) {
@@ -1577,6 +1675,10 @@ func dataPipelineOutputSCD2MergeSpec(config map[string]any, columns []string) (d
 		ValidToColumn:    firstNonEmpty(dataPipelineString(config, "validToColumn"), "valid_to"),
 		IsCurrentColumn:  firstNonEmpty(dataPipelineString(config, "isCurrentColumn"), "is_current"),
 		ChangeHashColumn: firstNonEmpty(dataPipelineString(config, "changeHashColumn"), "change_hash"),
+		MergePolicy:      firstNonEmpty(dataPipelineString(config, "scd2MergePolicy"), dataPipelineString(config, "mergePolicy"), "current_only"),
+	}
+	if spec.MergePolicy != "current_only" && spec.MergePolicy != "rebuild_key_history" {
+		return dataPipelineOutputSCD2MergeConfig{}, fmt.Errorf("%w: unsupported scd2MergePolicy %q", ErrInvalidDataPipelineGraph, spec.MergePolicy)
 	}
 	for _, column := range []string{spec.ValidFromColumn, spec.ValidToColumn, spec.IsCurrentColumn, spec.ChangeHashColumn} {
 		if err := dataPipelineRequireColumn(columns, column); err != nil {

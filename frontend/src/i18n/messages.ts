@@ -1635,6 +1635,7 @@ const en = {
     displayName: 'Display name',
     tableName: 'Table name',
     writeMode: 'Write mode',
+    scd2MergePolicy: 'SCD2 merge policy',
     engine: 'Engine',
     outputColumns: 'Output columns',
     addOutputColumn: 'Add output column',
@@ -1885,6 +1886,10 @@ const en = {
       replace: 'Replace',
       append: 'Append',
       scd2Merge: 'SCD2 merge',
+    },
+    scd2MergePolicyValue: {
+      currentOnly: 'Current rows only',
+      rebuildKeyHistory: 'Rebuild affected key history',
     },
     aggregateFunction: {
       count: 'Count',
@@ -3642,6 +3647,7 @@ const ja: MessageSchema = {
     displayName: '表示名',
     tableName: 'テーブル名',
     writeMode: '書き込み方式',
+    scd2MergePolicy: 'SCD2 merge 方針',
     engine: 'エンジン',
     outputColumns: '出力列',
     addOutputColumn: '出力列を追加',
@@ -3892,6 +3898,10 @@ const ja: MessageSchema = {
       replace: '置換',
       append: '追記',
       scd2Merge: 'SCD2 マージ',
+    },
+    scd2MergePolicyValue: {
+      currentOnly: '現在行のみ',
+      rebuildKeyHistory: '対象キーの履歴を再構築',
     },
     aggregateFunction: {
       count: '件数',

@@ -368,8 +368,9 @@ AI coding / agent 改善を触る場合:
 - `partition_filter` / `watermark_filter` v1 も 2026-05-15 に実装済み。固定の `start` / `end` / `watermarkValue` で対象行を絞り込み、run step metadata に filter config を残せる。`watermark_filter` は前回成功 run の `nextWatermarkValue` を次回 run の watermark として解決する mode も実装済み。
 - output node の型付き output / ordering 強化も 2026-05-15 に実装済み。`columns` で上流列の選択、リネーム、`string` / `int64` / `float64` / `bool` / `date` / `datetime` への変換を指定でき、`orderBy` は最終出力列に対して ClickHouse table の primary sort key として使う。
 - `snapshot_scd2` v1、output `writeMode=append`、output `writeMode=scd2_merge` は 2026-05-16 に実装済み。`scd2_merge` は既存 snapshot table の current row と今回 run の current row を比較し、変更 key だけ previous current を close して新 current row を追加する。
+- `scd2_merge` の `scd2MergePolicy=rebuild_key_history` も 2026-05-16 に実装済み。stage に含まれる key だけ既存履歴と今回履歴を結合し、`valid_to` / `is_current` を再計算するため、late arriving data を途中の履歴として挿入できる。
 - Data Pipeline output から Gold publish への最小 UI 導線も 2026-05-16 に追加済み。Run output metadata に `workTablePublicId`、database、table name、display name、write mode を保存し、Runs tab の output 行から既存 Gold publication API を呼べる。
-- 次は late arriving data / backfill policy、snapshot table の運用 UI、または Gold publish 完了後の lineage / quality summary 表示へ進む。
+- 次は snapshot table の運用 UI、削除検知、または Gold publish 完了後の lineage / quality summary 表示へ進む。
 
 完了条件:
 
@@ -386,8 +387,9 @@ AI coding / agent 改善を触る場合:
 - `snapshot_scd2` v1 は 2026-05-16 に実装済み。入力内の履歴行を `uniqueKeys` と `updatedAtColumn` で並べ、`valid_from`、`valid_to`、`is_current`、`change_hash` を付与できる。
 - output `writeMode=append` も 2026-05-16 に実装済み。既存 table があれば stage table から追記し、なければ初回 table として作成する。
 - output `writeMode=scd2_merge` も 2026-05-16 に実装済み。既存 table がなければ初回 snapshot table として作成し、既存 table がある場合は stage 側の current row だけを差分候補にして、`uniqueKeys` と `change_hash` で変更有無を判定する。同一データ再実行では行数を増やさず、変更がある key だけ既存 current row の `valid_to` を新 row の `valid_from` で閉じる。
+- `scd2MergePolicy=rebuild_key_history` も実装済み。late arriving data / backfill 用に、stage に含まれる key だけ既存 snapshot row と stage row をまとめて重複排除し、`valid_to` / `is_current` を再計算できる。
 - Data Pipeline output から Gold publish への最小 UI 導線も完了済み。Runs tab の output 行で `hh_t_*_work.table` と write mode を確認し、その output Work table を Gold publication として公開できる。
-- 次は late arriving data / backfill policy、snapshot table の運用 UI、または Gold publish 完了後の lineage / quality summary 表示へ進む。
+- 次は snapshot table の運用 UI、削除検知、または Gold publish 完了後の lineage / quality summary 表示へ進む。
 
 完了条件:
 
