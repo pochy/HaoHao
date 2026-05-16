@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, History, MoreHorizontal, Play, RefreshCw, RotateCcw, RotateCw, Save, Send, Settings2, Workflow, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -21,6 +21,7 @@ const store = useDataPipelineStore()
 const datasetStore = useDatasetStore()
 const tenantStore = useTenantStore()
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 
 const settingsDialogRef = ref<HTMLDialogElement | null>(null)
@@ -456,6 +457,21 @@ async function runPublished() {
   }
 }
 
+async function publishOutputGold(workTablePublicId: string, displayName: string) {
+  store.errorMessage = ''
+  store.actionMessage = ''
+  try {
+    const publication = await datasetStore.publishWorkTableToGold(workTablePublicId, displayName ? { displayName } : {})
+    await datasetStore.loadGoldPublications()
+    if (publication) {
+      store.actionMessage = t('dataPipelines.goldPublishRequested')
+      await router.push({ name: 'dataset-gold-detail', params: { goldPublicId: publication.publicId } })
+    }
+  } catch {
+    store.errorMessage = datasetStore.workTableErrorMessage || t('dataPipelines.goldPublishFailed')
+  }
+}
+
 async function disableSchedule(publicId: string) {
   await store.disableSchedule(publicId)
 }
@@ -766,6 +782,7 @@ async function applySettings() {
               :preview-disabled-reason="previewDisabledReason"
               @preview="previewSelected"
               @disable-schedule="disableSchedule"
+              @publish-gold-output="publishOutputGold"
             />
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -827,6 +844,7 @@ async function applySettings() {
             :preview-disabled-reason="previewDisabledReason"
             @preview="previewSelected"
             @disable-schedule="disableSchedule"
+            @publish-gold-output="publishOutputGold"
           />
         </div>
       </main>

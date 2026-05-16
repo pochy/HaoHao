@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref } from 'vue'
-import { Info, Search, Trash2 } from 'lucide-vue-next'
+import { Info, Search, Trash2, UploadCloud } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 import type { DataPipelinePreviewBody, DataPipelineReviewItemBody, DataPipelineRunBody, DataPipelineRunStepBody, DataPipelineScheduleBody } from '../api/data-pipelines'
@@ -20,6 +20,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   preview: []
   disableSchedule: [publicId: string]
+  publishGoldOutput: [workTablePublicId: string, displayName: string]
 }>()
 
 type DataPipelinePanelTab = 'preview' | 'runs' | 'reviews' | 'schedules'
@@ -296,6 +297,34 @@ function runOutputs(run: DataPipelineRunBody) {
   return run.outputs?.length ? run.outputs : []
 }
 
+function outputMetadata(output: DataPipelineRunBody['outputs'][number]) {
+  return output.metadata ?? {}
+}
+
+function outputMetadataText(output: DataPipelineRunBody['outputs'][number], key: string) {
+  const value = outputMetadata(output)[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function outputWorkTablePublicId(output: DataPipelineRunBody['outputs'][number]) {
+  return outputMetadataText(output, 'workTablePublicId')
+}
+
+function outputDisplayName(output: DataPipelineRunBody['outputs'][number]) {
+  return outputMetadataText(output, 'displayName') || outputMetadataText(output, 'tableName') || output.nodeId
+}
+
+function outputTableLabel(output: DataPipelineRunBody['outputs'][number]) {
+  const database = outputMetadataText(output, 'database')
+  const tableName = outputMetadataText(output, 'tableName')
+  if (database && tableName) return `${database}.${tableName}`
+  return tableName || (output.outputWorkTableId ? `#${output.outputWorkTableId}` : '-')
+}
+
+function outputWriteMode(output: DataPipelineRunBody['outputs'][number]) {
+  return outputMetadataText(output, 'writeMode') || '-'
+}
+
 function runSteps(run: DataPipelineRunBody) {
   return run.steps?.length ? run.steps : []
 }
@@ -529,10 +558,26 @@ const knownTriggerKinds = new Set(['manual', 'scheduled'])
               <tr v-for="output in runOutputs(run)" :key="`${run.publicId}-${output.nodeId}`">
                 <td><span class="status-pill" :class="statusClass(output.status)">{{ statusLabel(output.status) }}</span></td>
                 <td>{{ t('dataPipelines.output') }}: {{ output.nodeId }}</td>
-                <td>{{ output.outputWorkTableId ?? '-' }}</td>
+                <td>
+                  <span>{{ outputTableLabel(output) }}</span>
+                  <small class="cell-subtle">{{ outputWriteMode(output) }}</small>
+                </td>
                 <td>{{ output.rowCount }}</td>
                 <td>-</td>
-                <td>{{ output.errorSummary || '-' }}</td>
+                <td>
+                  <span>{{ output.errorSummary || '-' }}</span>
+                  <button
+                    v-if="output.status === 'completed' && outputWorkTablePublicId(output)"
+                    class="icon-button"
+                    type="button"
+                    :disabled="actionLoading"
+                    :aria-label="t('dataPipelines.publishOutputGold')"
+                    :title="t('dataPipelines.publishOutputGold')"
+                    @click="emit('publishGoldOutput', outputWorkTablePublicId(output), outputDisplayName(output))"
+                  >
+                    <UploadCloud :size="15" stroke-width="1.9" aria-hidden="true" />
+                  </button>
+                </td>
               </tr>
               <tr v-for="step in runSteps(run)" :key="`${run.publicId}-step-${step.nodeId}`">
                 <td><span class="status-pill" :class="statusClass(step.status)">{{ statusLabel(step.status) }}</span></td>

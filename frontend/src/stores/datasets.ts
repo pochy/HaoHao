@@ -636,6 +636,13 @@ export const useDatasetStore = defineStore('datasets', {
       if (!publicId) {
         return null
       }
+      return this.publishWorkTableToGold(publicId, body)
+    },
+
+    async publishWorkTableToGold(publicId: string, body: DatasetGoldPublicationCreateBodyWritable) {
+      if (!publicId) {
+        return null
+      }
       this.workTableActionLoading = true
       this.workTableErrorMessage = ''
       try {

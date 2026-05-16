@@ -1934,7 +1934,14 @@ func (s *DataPipelineService) HandleRunRequested(ctx context.Context, tenantID, 
 			wt := result.WorkTable
 			firstSuccessWorkTable = &wt
 		}
-		meta, _ := encodeDataPipelineJSON(map[string]any{"nodeId": result.Node.ID, "tableName": result.WorkTable.Table, "writeMode": dataPipelineOutputWriteMode(result.Node)})
+		meta, _ := encodeDataPipelineJSON(map[string]any{
+			"nodeId":            result.Node.ID,
+			"workTablePublicId": result.WorkTable.PublicID,
+			"displayName":       result.WorkTable.DisplayName,
+			"database":          result.WorkTable.Database,
+			"tableName":         result.WorkTable.Table,
+			"writeMode":         dataPipelineOutputWriteMode(result.Node),
+		})
 		_, _ = s.queries.CompleteDataPipelineRunOutput(ctx, db.CompleteDataPipelineRunOutputParams{TenantID: tenantID, RunID: runID, NodeID: result.Node.ID, OutputWorkTableID: pgtype.Int8{Int64: result.WorkTable.ID, Valid: true}, RowCount: result.WorkTable.TotalRows, Metadata: meta})
 		s.recordMedallionRun(ctx, tenantID, run, version, result.Compiled, &result.WorkTable, MedallionPipelineStatusCompleted, "", result.Node.ID)
 	}
