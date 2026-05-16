@@ -33,6 +33,13 @@
 
 残っている作業は、実データを使ったブラウザ上の回帰確認と、validation result を画面上でより明示的に表示する UX 改善である。現時点では Inspector warning の primary source として validation result を使うところまで実装済みで、validation summary 自体を専用 UI として表示するところまでは含めていない。
 
+2026-05-16 追記:
+
+- `route_by_condition`、`union`、`partition_filter`、`watermark_filter`、typed output、`snapshot_scd2`、output `append` / `scd2_merge` 追加後も、validation endpoint と Inspector の warning contract は維持している。
+- output `writeMode=scd2_merge` では `uniqueKeys` を上流列参照として検査対象に含めた。
+- `orderBy` は最終出力列に対する設定なので、上流列不足 warning には含めない方針を維持している。
+- 今後の UX 改善では、graph issue summary に SCD2 / output / Gold publish に関係する設定不足を grouped warning として表示すると、Inspector を開かなくても問題を見つけやすくなる。
+
 ## Summary
 
 Data Pipeline Inspector の列警告を、frontend の local 推論中心から backend validation contract 中心へ移すため、preview 実行なしで graph validation、node output schema、missing-column warnings を返す軽量 validation endpoint を追加する。

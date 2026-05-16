@@ -23,12 +23,12 @@ frontend build では Monaco / Data Pipeline detail 周辺を中心に大きい 
 
 - 既存の foundation は作り直さない。OpenAPI 3.1、Monorepo、Go/Huma/Gin、Vue/Vite、PostgreSQL/sqlc、Redis、OpenFGA、ClickHouse、SeaweedFS、単一バイナリ配信はすでに実装済みの前提で進める。
 - 今後の中心は、Drive、Dataset、Data Pipeline、Medallion、Gold、Local Search、RAG です。
-- Data Pipeline は多くの node が catalog / UI に存在しますが、すべてが同じ深さで実行・監視できるわけではありません。Month 1 の品質・可観測性の土台は `b9d5c03`、`0160678`、`c54de44` で完了済みです。
+- Data Pipeline は多くの node が catalog / UI に存在しますが、すべてが同じ深さで実行・監視できるわけではありません。Month 1 の品質・可観測性の土台、Month 2 の失敗処理 / review queue、Month 3 の主要 runtime node は実装済みです。直近の実装履歴と検証結果は `docs/DATA_PIPELINE_SESSION_HANDOFF.md` を参照してください。
 - `DataPipelineRunStepBody.metadata` は API contract として使われ、`profile`、`validate`、`quality_report`、`confidence_gate`、`inputRows`、`samples`、`queryStats`、Runs tab 詳細、Data Pipeline smoke suite まで実装済みです。
 - Data Pipeline Inspector の上流列警告は、runtime 出力列と frontend 静的推論がずれると false positive になります。`4757732` と `bfcbb4a` で代表 node の推論は修正済みです。さらに `23ec2c6` で preview API が selected subgraph の `outputSchemas` を返すようになりました。2026-05-14 に軽量 validation endpoint の初期実装も追加し、preview 実行なしで backend schema / missing-column warnings を返せるようにしました。詳細は `docs/DATA_PIPELINE_UI_COLUMN_INFERENCE.md` と `docs/DATA_PIPELINE_VALIDATION_ENDPOINT_PLAN.md` を参照してください。
 - Drive OCR、商品抽出、Local Search、pgvector、Drive RAG は主要な足場が動いています。次は broad な機能追加ではなく、評価、追跡、失敗理由、運用導線を強くします。
 - frontend は機能がかなり増え、Data Pipeline detail と Monaco editor の chunk が大きくなっています。運用前に code splitting を改善する余地があります。
-- AI coding 改善は未実装の提案段階です。`docs/HARNESS_ENGINEERING_ADOPTION_ANALYSIS.md` に方針はありますが、`docs/AGENT_KNOWLEDGE_INDEX.md` や RAG/OpenFGA/OpenAPI/frontend 用 skill はまだありません。
+- AI coding 改善は一部だけ実装済みです。repo-local skill として `haohao-db-dev`、`haohao-drive-debug`、`supabase-postgres-best-practices` は使える状態です。一方で `docs/AGENT_KNOWLEDGE_INDEX.md` や RAG/OpenFGA/OpenAPI/frontend 専用 skill、smoke 結果を自動で docs / PR に反映する仕組みはまだありません。
 
 ## 調査根拠
 
@@ -41,6 +41,7 @@ frontend build では Monaco / Data Pipeline detail 周辺を中心に大きい 
 - `IMPL.md`
 - `FUTURE_FEATURES.md`
 - `docs/data-pipeline-current-state.md`
+- `docs/DATA_PIPELINE_SESSION_HANDOFF.md`
 - `docs/data-pipeline-llm-node.md`
 - `docs/VECTOR_SEARCH_RAG_IMPLEMENTATION_PLAN.md`
 - `docs/DRIVE_AGENTIC_RAG_IMPLEMENTATION_PLAN.md`
@@ -167,7 +168,7 @@ Local Search / RAG:
 - `HandleRunRequested` は node ごとの実測 metadata を step completion に渡す実装へ進んでいます。
 - join / enrich_join は行数爆発、未マッチ、key null、列衝突などの warning を UI で十分説明できていません。
 - `human_review` は `createReviewItems=true` の場合に永続 review item を作成できます。Drive text / `extract_fields` / `extract_table`、Drive JSON / `schema_mapping`、Drive product extraction の低信頼 reason は review queue へ接続済みです。Drive file detail から source file に紐づく review item / pipeline run へ戻る導線も追加済みです。
-- `quarantine` v1 は実装済みです。`union`、`route_by_condition`、`partition_filter`、`watermark_filter`、`snapshot_scd2` はまだ実装されていません。
+- `quarantine` v1、`union` v1、`route_by_condition` v1、`partition_filter` v1、`watermark_filter` v1、`snapshot_scd2` v1、typed output / ordering、output `append`、output `scd2_merge`、SCD2 key-history rebuild policy は実装済みです。
 - `DataPipelineInspector.vue` は graph config だけから上流列を静的推論していましたが、2026-05-14 に validation result を primary source として受け取る実装を追加しました。validation endpoint は preview 実行なしで graph 全体の output schema と missing-column warnings を返し、Inspector はその結果がある場合は local fallback より優先します。local 推論は endpoint 未取得時の fallback として残しています。
 
 次に着手すべき理由:
@@ -175,7 +176,7 @@ Local Search / RAG:
 - 既存 UI / DB / API は metadata を受ける余地があります。
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
-- 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint の初期実装は完了したため、次は実データ UI での回帰確認、validation summary の見せ方、backend step catalog / generated contract へのさらなる集約を進めます。
+- 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint の初期実装は完了したため、次は backend step catalog / generated contract へのさらなる集約、SCD2 / Gold publish / snapshot 運用 UI の validation 表示を進めます。
 
 ### Drive / RAG の課題
 

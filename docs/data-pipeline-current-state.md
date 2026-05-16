@@ -6,6 +6,8 @@
 
 Data Pipeline は、tenant ごとの Dataset / Work table / Drive file を入力にし、DAG 形式の graph を version 管理して、preview、manual run、schedule run を行う機能です。構造化データだけの graph は ClickHouse SQL に compile して実行し、Drive OCR や JSON / Excel extract などを含む graph は ClickHouse 上の中間テーブルへ materialize しながら実行する hybrid path に分岐します。
 
+2026-05-16 までの一連の実装セッションで追加した runtime node、SCD2 merge、Gold publish 導線、検証コマンドの短い引き継ぎは `docs/DATA_PIPELINE_SESSION_HANDOFF.md` にまとめています。
+
 ## この文書の読み方
 
 この文書は、Data Pipeline の実装を初めて読む人が「画面で作った pipeline が backend でどう実行されるか」を追えるようにするための現状メモです。細かい設計判断は関連ドキュメントに譲り、ここでは現在のコードで確認できる用語、処理経路、注意点を中心に説明します。
@@ -459,13 +461,13 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 
 外部ツールの設計をそのまま HaoHao に持ち込む必要はありません。ただし、dbt の data tests / snapshots、Dagster の asset checks / backfills、Great Expectations の expectations / checkpoints は、Data Pipeline に足りない品質検査、履歴管理、再実行範囲管理を考えるうえで参考になります。
 
-### まず強化したい既存 node
+### まず押さえるべき既存 node
 
-新しい node を増やす前に、既存の `validate` と `profile` を passthrough から実行可能な node に近づける価値が高いです。
+`validate` と `profile` は、2026-05-14 時点で passthrough ではなく run step metadata を保存する観測 node として実装済みです。行データは変更しませんが、Data Pipeline detail の Runs tab から実測 summary を確認できます。
 
-`validate` は、dbt の data tests や Great Expectations の expectations に近い役割を持てます。dbt の data tests は、not null、unique、accepted values、relationships のような assertion を SQL で実行し、失敗行を返す仕組みです。HaoHao の `validate` も、required、regex、range、in、unique、relationship などを評価し、error / warning / failed rows / sample を run step metadata に残せると、後続の `quarantine` や `human_review` とつなげやすくなります。
+`validate` は、dbt の data tests や Great Expectations の expectations に近い役割を持ちます。required、regex、range、in、unique を評価し、error / warning / failed rows / sample を run step metadata に残します。現時点では行単位の `validation_status` 列は追加しないため、後続の `quarantine` や `human_review` と直接つなぐ場合は `confidence_gate` や `quality_report` の行データ列を使います。将来は structured / hybrid 両方で同じ validation status column を出す設計を検討します。
 
-`profile` は、Dagster の asset checks や Great Expectations の validation result に近い観測情報を作る入口になります。row count、null count、unique count、min / max、top values、型推定、前回 run との差分を metadata として保存できると、pipeline 作成者が「どこでデータが変わったか」を追いやすくなります。
+`profile` は、Dagster の asset checks や Great Expectations の validation result に近い観測情報を作る入口です。row count、column count、null count / rate、unique count、min / max、top values を metadata として保存し、pipeline 作成者が「どこでデータが変わったか」を追いやすくします。前回 run との差分比較は今後の拡張候補です。
 
 ### validate / profile 以外で改善したい既存 node
 
@@ -476,8 +478,8 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 #### `quality_report`
 
 - 現状の役割: 行数、列数、列ごとの missing rate を計算し、`quality_report_json`、`missing_rate_json`、`validation_summary_json` として行に付与します。`outputMode=dataset_summary` では summary だけの 1 行を出します。
-- 現状の弱点: 品質 summary は行データ側に寄っていて、run step metadata として後から一覧、比較、監視しやすい形には十分つながっていません。欠損率や row count を見られても、「前回より悪い」「threshold を超えた」という判断は別途読み解く必要があります。
-- 改善するとできること: row count、column count、列別欠損率、threshold 超過、warning、前回 run との差分を run step metadata に保存できます。UI はその metadata を読んで、pipeline detail や run detail に品質 summary、悪化した列、警告件数を表示できます。
+- 現状の弱点: row count、column count、列別欠損率、threshold 超過 warning は run step metadata に残るようになりましたが、前回 run との差分比較や悪化した列の強調はまだありません。
+- 改善するとできること: 前回 run との差分、品質悪化の判定、列別のトレンドを run step metadata または別集計 table に保存できます。UI はその metadata を読んで、pipeline detail や run detail に悪化した列、警告件数、前回差分を表示できます。
 - 使う場面: output 前の品質確認、OCR / JSON / Excel 抽出 rule 変更後の影響確認、schedule run の日次監視、source system 側の仕様変更検知に使います。
 - 実装時の注意: 行ごとの JSON 付与と step metadata 保存は用途が違います。大量行に同じ summary を付けるだけでなく、run step 単位の軽い summary を保存し、UI はまず metadata を表示する形にすると扱いやすくなります。
 

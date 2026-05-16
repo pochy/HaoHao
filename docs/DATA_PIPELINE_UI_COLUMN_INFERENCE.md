@@ -231,6 +231,14 @@ git diff --check
 
 ## Future Plan
 
+2026-05-16 追記:
+
+- `route_by_condition`、`union`、`partition_filter`、`watermark_filter`、typed output、`snapshot_scd2`、output `append` / `scd2_merge`、`scd2MergePolicy` を追加した。
+- output `writeMode=scd2_merge` では `uniqueKeys` も上流列参照として Inspector が確認する。
+- SCD2 系の列 `valid_from`、`valid_to`、`is_current`、`change_hash` は `snapshot_scd2` の runtime 出力列として扱う。
+- Data Pipeline output から Gold publish へつなぐため、run output metadata に `workTablePublicId`、database、table name、display name、write mode、SCD2 merge policy を保存するようにした。この metadata は上流列 warning ではなく output 成果物の metadata であり、ClickHouse 行データ列とは分けて扱う。
+- 新しい smoke として `make smoke-data-pipeline-snapshot-merge`、`make smoke-data-pipeline-snapshot-merge-backfill` を追加し、SCD2 出力列と output metadata を検証している。
+
 短期:
 
 - `frontend/src/utils/data-pipeline-step-output-schema.ts` の step output schema を維持する。
