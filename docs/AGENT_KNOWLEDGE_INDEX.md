@@ -320,7 +320,7 @@ Data Pipeline:
 
 Gold / Lineage:
 
-- Gold publish history と Data Pipeline run history の相互リンクは、publish history row から source run/output への deep link と publish run 作成時点の source run/output ID 永続化まで完了。既存行の backfill は必要に応じて行う。
+- Gold publish history と Data Pipeline run history の相互リンクは、publish history row から source run/output への deep link、publish run 作成時点の source run/output ID 永続化、既存行の best-effort backfill migration まで完了。
 - source run step detail を Gold detail から直接見るかどうかの設計。
 
 Review:

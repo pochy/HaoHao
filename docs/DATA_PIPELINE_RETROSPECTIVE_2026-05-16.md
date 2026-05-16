@@ -197,7 +197,7 @@ bfcbb4a Align data pipeline inspector column inference
 
 残課題:
 
-- 既存 Gold publish run 行の source run/output 参照 backfill は未実施。必要なら `source_work_table_id` と publish run 作成時刻から best-effort で補完する。
+- 既存 Gold publish run 行の source run/output 参照 backfill は `0050_backfill_dataset_gold_publish_run_source_refs` で migration 化した。`source_work_table_id` と publish run 作成時刻から、同一 tenant / Work table の completed Data Pipeline output を best-effort で選び、`source_data_pipeline_run_id` と `source_data_pipeline_run_output_id` を補完する。
 - source run step の詳細 dialog を Gold detail から直接開くかどうかは未設計。
 
 ## 現在の API / metadata 正本
@@ -494,7 +494,7 @@ make smoke-data-pipeline-snapshot-merge-backfill
 
 残課題:
 
-- migration 前の既存行は source run/output 参照が nullable のまま残る。必要なら `source_work_table_id` と時刻から best-effort backfill する。
+- migration 前の既存行は `0050_backfill_dataset_gold_publish_run_source_refs` 適用時に best-effort backfill される。ただし、該当 Work table を出力した completed Data Pipeline run が存在しない古い Gold publish run は nullable のまま残るため、表示側 fallback は引き続き必要。
 
 ## AI coding 改善として残すこと
 
