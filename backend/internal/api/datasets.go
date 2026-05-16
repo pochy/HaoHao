@@ -210,14 +210,15 @@ type DatasetWorkTablePreviewBody struct {
 }
 
 type DatasetWorkTableSCD2SummaryBody struct {
-	Detected        bool   `json:"detected" example:"true"`
-	TotalRows       int64  `json:"totalRows" example:"12"`
-	CurrentRows     int64  `json:"currentRows" example:"4"`
-	HistoryRows     int64  `json:"historyRows" example:"8"`
-	KeyColumn       string `json:"keyColumn,omitempty" example:"id"`
-	KeyCount        int64  `json:"keyCount" example:"4"`
-	EarliestValidAt string `json:"earliestValidAt,omitempty" example:"2026-05-01 00:00:00"`
-	LatestValidAt   string `json:"latestValidAt,omitempty" example:"2026-05-03 00:00:00"`
+	Detected        bool     `json:"detected" example:"true"`
+	TotalRows       int64    `json:"totalRows" example:"12"`
+	CurrentRows     int64    `json:"currentRows" example:"4"`
+	HistoryRows     int64    `json:"historyRows" example:"8"`
+	KeyColumn       string   `json:"keyColumn,omitempty" example:"id"`
+	KeyColumns      []string `json:"keyColumns,omitempty"`
+	KeyCount        int64    `json:"keyCount" example:"4"`
+	EarliestValidAt string   `json:"earliestValidAt,omitempty" example:"2026-05-01 00:00:00"`
+	LatestValidAt   string   `json:"latestValidAt,omitempty" example:"2026-05-03 00:00:00"`
 }
 
 type DatasetWorkTableSCD2HistoryBody struct {
@@ -225,6 +226,8 @@ type DatasetWorkTableSCD2HistoryBody struct {
 	Table       string           `json:"table" example:"hai_category_snapshot"`
 	KeyColumn   string           `json:"keyColumn" example:"id"`
 	KeyValue    string           `json:"keyValue" example:"SKU-001"`
+	KeyColumns  []string         `json:"keyColumns,omitempty"`
+	KeyValues   []string         `json:"keyValues,omitempty"`
 	Columns     []string         `json:"columns"`
 	HistoryRows []map[string]any `json:"historyRows"`
 }
@@ -532,6 +535,8 @@ type DatasetWorkTableSCD2HistoryInput struct {
 	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
 	WorkTablePublicID string      `path:"workTablePublicId" format:"uuid"`
 	Key               string      `query:"key" maxLength:"512"`
+	KeyColumns        string      `query:"keyColumns" maxLength:"1024"`
+	KeyValues         string      `query:"keyValues" maxLength:"2048"`
 	Limit             int32       `query:"limit" minimum:"1" maximum:"1000" default:"100"`
 }
 
@@ -1034,7 +1039,12 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionPreview); err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "getManagedDatasetWorkTableSCD2History", err)
 		}
-		history, err := deps.DatasetService.GetManagedWorkTableSCD2History(ctx, tenant.ID, input.WorkTablePublicID, input.Key, input.Limit)
+		keyColumns := splitDatasetCSVQuery(input.KeyColumns)
+		keyValues := splitDatasetCSVQuery(input.KeyValues)
+		if len(keyValues) == 0 {
+			keyValues = []string{input.Key}
+		}
+		history, err := deps.DatasetService.GetManagedWorkTableSCD2HistoryByKeys(ctx, tenant.ID, input.WorkTablePublicID, keyColumns, keyValues, input.Limit)
 		if err != nil {
 			return nil, toDatasetHTTPError(ctx, deps, "getManagedDatasetWorkTableSCD2History", err)
 		}
@@ -2077,6 +2087,7 @@ func toDatasetWorkTableSCD2SummaryBody(item *service.DatasetWorkTableSCD2Summary
 		CurrentRows:     item.CurrentRows,
 		HistoryRows:     item.HistoryRows,
 		KeyColumn:       item.KeyColumn,
+		KeyColumns:      item.KeyColumns,
 		KeyCount:        item.KeyCount,
 		EarliestValidAt: item.EarliestValidAt,
 		LatestValidAt:   item.LatestValidAt,
@@ -2089,9 +2100,27 @@ func toDatasetWorkTableSCD2HistoryBody(item service.DatasetWorkTableSCD2History)
 		Table:       item.Table,
 		KeyColumn:   item.KeyColumn,
 		KeyValue:    item.KeyValue,
+		KeyColumns:  item.KeyColumns,
+		KeyValues:   item.KeyValues,
 		Columns:     item.Columns,
 		HistoryRows: item.HistoryRows,
 	}
+}
+
+func splitDatasetCSVQuery(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	return out
 }
 
 func toDatasetRowsPageBody(item service.DatasetRowsPage) DatasetRowsPageBody {

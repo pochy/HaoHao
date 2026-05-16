@@ -4737,10 +4737,26 @@ components:
           examples:
             - id
           type: string
+        keyColumns:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
         keyValue:
           examples:
             - SKU-001
           type: string
+        keyValues:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
         table:
           examples:
             - hai_category_snapshot
@@ -4778,6 +4794,14 @@ components:
           examples:
             - id
           type: string
+        keyColumns:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
         keyCount:
           examples:
             - 4
@@ -25748,6 +25772,8 @@ paths:
                       earliestValidAt: "2026-05-01 00:00:00"
                       historyRows: 8
                       keyColumn: id
+                      keyColumns:
+                        - example
                       keyCount: 4
                       latestValidAt: "2026-05-03 00:00:00"
                       totalRows: 12
@@ -26489,6 +26515,8 @@ paths:
                       earliestValidAt: "2026-05-01 00:00:00"
                       historyRows: 8
                       keyColumn: id
+                      keyColumns:
+                        - example
                       keyCount: 4
                       latestValidAt: "2026-05-03 00:00:00"
                       totalRows: 12
@@ -26875,6 +26903,8 @@ paths:
                       earliestValidAt: "2026-05-01 00:00:00"
                       historyRows: 8
                       keyColumn: id
+                      keyColumns:
+                        - example
                       keyCount: 4
                       latestValidAt: "2026-05-03 00:00:00"
                       totalRows: 12
@@ -27177,6 +27207,22 @@ paths:
           schema:
             maxLength: 512
             type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `keyColumns` です。
+          example: example
+          explode: false
+          in: query
+          name: keyColumns
+          schema:
+            maxLength: 1024
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `keyValues` です。
+          example: example
+          explode: false
+          in: query
+          name: keyValues
+          schema:
+            maxLength: 2048
+            type: string
         - description: 返却件数の上限です。大量の結果は pagination で分割してください。
           example: 50
           explode: false
@@ -27203,7 +27249,11 @@ paths:
                     historyRows:
                       - {}
                     keyColumn: id
+                    keyColumns:
+                      - example
                     keyValue: SKU-001
+                    keyValues:
+                      - example
                     table: hai_category_snapshot
               schema:
                 $ref: "#/components/schemas/DatasetWorkTableSCD2HistoryBody"
@@ -36054,6 +36104,8 @@ paths:
                       earliestValidAt: "2026-05-01 00:00:00"
                       historyRows: 8
                       keyColumn: id
+                      keyColumns:
+                        - example
                       keyCount: 4
                       latestValidAt: "2026-05-03 00:00:00"
                       totalRows: 12
@@ -36188,6 +36240,8 @@ paths:
                       earliestValidAt: "2026-05-01 00:00:00"
                       historyRows: 8
                       keyColumn: id
+                      keyColumns:
+                        - example
                       keyCount: 4
                       latestValidAt: "2026-05-03 00:00:00"
                       totalRows: 12
@@ -36569,6 +36623,8 @@ paths:
                       earliestValidAt: "2026-05-01 00:00:00"
                       historyRows: 8
                       keyColumn: id
+                      keyColumns:
+                        - example
                       keyCount: 4
                       latestValidAt: "2026-05-03 00:00:00"
                       totalRows: 12

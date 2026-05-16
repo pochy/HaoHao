@@ -78,6 +78,7 @@ const activeWorkTableDetailTab = ref<WorkTableDetailTab>('overview')
 const activeLineageGraphTab = ref<LineageGraphTab>('flow')
 const snapshotPreviewFilter = ref<SnapshotPreviewFilter>('all')
 const snapshotHistoryKey = ref('')
+const snapshotHistoryKeyValues = ref<Record<string, string>>({})
 const snapshotHistoryLoading = ref(false)
 const snapshotHistoryError = ref('')
 const snapshotHistory = ref<DatasetWorkTableScd2HistoryBody | null>(null)
@@ -124,6 +125,13 @@ const selectedColumnNameSet = computed(() => new Set(selectedColumnNames.value))
 const scd2Summary = computed(() => props.preview?.scd2Summary ?? null)
 const hasSCD2Columns = computed(() => Boolean(scd2Summary.value?.detected) || snapshotRequiredColumns.every((column) => selectedColumnNameSet.value.has(column)))
 const snapshotKeyColumn = computed(() => scd2Summary.value?.keyColumn || snapshotKeyCandidates.find((column) => selectedColumnNameSet.value.has(column)) || '')
+const snapshotKeyColumns = computed(() => {
+  const summaryColumns = scd2Summary.value?.keyColumns ?? []
+  if (summaryColumns.length > 0) {
+    return summaryColumns
+  }
+  return snapshotKeyColumn.value ? [snapshotKeyColumn.value] : []
+})
 const snapshotPreviewFilters: Array<{ value: SnapshotPreviewFilter, labelKey: string }> = [
   { value: 'all', labelKey: 'datasets.snapshotPreviewFilterAll' },
   { value: 'current', labelKey: 'datasets.snapshotPreviewFilterCurrent' },
@@ -137,6 +145,13 @@ const snapshotHistoryRows = computed(() => scd2Summary.value?.historyRows ?? his
 const snapshotKeyCount = computed(() => scd2Summary.value?.keyCount ?? 0)
 const snapshotHistoryColumns = computed(() => snapshotHistory.value?.columns ?? [])
 const snapshotHistoryResultRows = computed(() => snapshotHistory.value?.historyRows ?? [])
+const snapshotHistoryTitleKey = computed(() => {
+  const values = snapshotHistory.value?.keyValues ?? []
+  if (values.length > 1) {
+    return values.join(' / ')
+  }
+  return snapshotHistory.value?.keyValue ?? ''
+})
 const filteredPreviewRows = computed(() => {
   if (!hasSCD2Columns.value) {
     return previewRows.value
@@ -186,6 +201,7 @@ watch(
     activeWorkTableDetailTab.value = 'overview'
     snapshotPreviewFilter.value = 'all'
     snapshotHistoryKey.value = ''
+    snapshotHistoryKeyValues.value = {}
     snapshotHistoryError.value = ''
     snapshotHistory.value = null
     resetScheduleForm()
@@ -278,15 +294,18 @@ function isCurrentSnapshotRow(row: Record<string, unknown>) {
 
 async function loadSnapshotHistory() {
   const workTablePublicId = props.selectedTable?.publicId
-  const key = snapshotHistoryKey.value.trim()
-  if (!workTablePublicId || !key) {
+  const keyColumns = snapshotKeyColumns.value
+  const keyValues = keyColumns.length > 1
+    ? keyColumns.map((column) => (snapshotHistoryKeyValues.value[column] ?? '').trim())
+    : [snapshotHistoryKey.value.trim()]
+  if (!workTablePublicId || keyColumns.length === 0 || keyValues.some((value) => !value)) {
     snapshotHistoryError.value = t('datasets.snapshotHistoryKeyRequired')
     return
   }
   snapshotHistoryLoading.value = true
   snapshotHistoryError.value = ''
   try {
-    snapshotHistory.value = await fetchManagedDatasetWorkTableSCD2History(workTablePublicId, key)
+    snapshotHistory.value = await fetchManagedDatasetWorkTableSCD2History(workTablePublicId, keyValues, keyColumns)
   } catch (error) {
     snapshotHistory.value = null
     snapshotHistoryError.value = error instanceof Error ? error.message : t('datasets.snapshotHistoryLoadFailed')
@@ -693,11 +712,17 @@ function changeLineageLevel(event: Event) {
                 <strong>{{ scd2Summary ? n(snapshotKeyCount) : snapshotKeyColumn || '-' }}</strong>
               </div>
             </div>
-            <form v-if="snapshotKeyColumn" class="snapshot-history-form" @submit.prevent="loadSnapshotHistory">
-              <label class="field compact-field">
+            <form v-if="snapshotKeyColumns.length > 0" class="snapshot-history-form" @submit.prevent="loadSnapshotHistory">
+              <label v-if="snapshotKeyColumns.length === 1" class="field compact-field">
                 <span class="field-label">{{ t('datasets.snapshotHistoryKeyLabel', { column: snapshotKeyColumn }) }}</span>
                 <input v-model="snapshotHistoryKey" class="field-input" type="text" :placeholder="t('datasets.snapshotHistoryKeyPlaceholder')">
               </label>
+              <template v-else>
+                <label v-for="column in snapshotKeyColumns" :key="column" class="field compact-field">
+                  <span class="field-label">{{ t('datasets.snapshotHistoryKeyLabel', { column }) }}</span>
+                  <input v-model="snapshotHistoryKeyValues[column]" class="field-input" type="text" :placeholder="t('datasets.snapshotHistoryKeyPlaceholder')">
+                </label>
+              </template>
               <button class="secondary-button compact-button" type="submit" :disabled="snapshotHistoryLoading">
                 {{ snapshotHistoryLoading ? t('common.loading') : t('datasets.snapshotHistoryLoad') }}
               </button>
@@ -707,7 +732,7 @@ function changeLineageLevel(event: Event) {
               <div class="section-header compact-section-header">
                 <div>
                   <span class="status-pill">{{ t('datasets.snapshotHistory') }}</span>
-                  <h3>{{ t('datasets.snapshotHistoryTitle', { key: snapshotHistory.keyValue }) }}</h3>
+                  <h3>{{ t('datasets.snapshotHistoryTitle', { key: snapshotHistoryTitleKey }) }}</h3>
                 </div>
               </div>
               <div v-if="snapshotHistoryResultRows.length > 0" class="admin-table dataset-result-table dataset-work-table-preview-table">

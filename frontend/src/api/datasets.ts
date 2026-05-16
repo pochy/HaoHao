@@ -283,10 +283,13 @@ export async function fetchManagedDatasetWorkTablePreview(workTablePublicId: str
   }) as unknown as Promise<DatasetWorkTablePreviewBody>
 }
 
-export async function fetchManagedDatasetWorkTableSCD2History(workTablePublicId: string, key: string): Promise<DatasetWorkTableScd2HistoryBody> {
+export async function fetchManagedDatasetWorkTableSCD2History(workTablePublicId: string, key: string | string[], keyColumns: string[] = []): Promise<DatasetWorkTableScd2HistoryBody> {
+  const keyValues = Array.isArray(key) ? key : [key]
   return getManagedDatasetWorkTableScd2History({
     path: { workTablePublicId },
-    query: { key, limit: 100 },
+    query: keyColumns.length > 1
+      ? { keyColumns: keyColumns.join(','), keyValues: keyValues.join(','), limit: 100 }
+      : { key: keyValues[0] ?? '', limit: 100 },
   }) as unknown as Promise<DatasetWorkTableScd2HistoryBody>
 }
 

@@ -22,10 +22,9 @@ Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Mont
 
 現在の次タスクは、機能をさらに横に増やすことではなく、運用 UI と説明性を強くすることです。優先候補は次です。
 
-1. composite key の SCD2 key history API / UI。
-2. `deleteDetection=close_current` / `sameValidFromPolicy=reject` の Output 設定 UI と高度 policy 検討。
-3. Gold publish history と Data Pipeline run history のより完全な相互リンク。
-4. backend step catalog / generated contract への output schema 単一正本化。
+1. `deleteDetection=close_current` / `sameValidFromPolicy=reject` の Output 設定 UI と高度 policy 検討。
+2. Gold publish history と Data Pipeline run history のより完全な相互リンク。
+3. backend step catalog / generated contract への output schema 単一正本化。
 
 ## 実装済みの流れ
 
@@ -214,7 +213,7 @@ Data Pipeline の `snapshot_scd2` と output `writeMode=scd2_merge` により、
 - 現在読み込まれている preview rows の件数。
 - preview 内の current rows 件数。
 - preview 内の history rows 件数。
-- 代表 key column。Data Pipeline の `scd2_merge` output から作成された managed Work table では run output metadata の `scd2UniqueKeys[0]` を優先する。metadata がない古い run や手動 Work table では `id`、`product_id`、`sku`、`file_public_id` の順で存在する列を fallback 表示する。
+- key columns。Data Pipeline の `scd2_merge` output から作成された managed Work table では run output metadata の `scd2UniqueKeys` 全体を優先する。互換用に `keyColumn` には先頭 key を返す。metadata がない古い run や手動 Work table では `id`、`product_id`、`sku`、`file_public_id` の順で存在する列を fallback 表示する。
 - preview rows に対する `All` / `Current` / `History` フィルタ。
 
 この UI の最初の版は backend API contract を増やさず、既存の Work table preview payload だけを使っていました。その後、Work table preview API の response に `scd2Summary` を追加し、SCD2 table の場合は ClickHouse table 全体に対する summary を返すようにしました。
@@ -226,6 +225,7 @@ Data Pipeline の `snapshot_scd2` と output `writeMode=scd2_merge` により、
 - `currentRows`: table 全体の current rows。
 - `historyRows`: table 全体の history rows。
 - `keyColumn`: key column。managed Work table では最新の completed run output metadata に保存された `scd2UniqueKeys[0]` を実テーブル列と照合して使う。metadata がない場合は `id`、`product_id`、`sku`、`file_public_id` の順で fallback 検出する。
+- `keyColumns`: composite key columns。managed Work table では最新の completed run output metadata に保存された `scd2UniqueKeys` 全体を実テーブル列と照合して使う。
 - `keyCount`: key column が検出できた場合の distinct key 数。
 - `earliestValidAt`: `valid_from` の最小値。
 - `latestValidAt`: `valid_from` の最大値。
@@ -233,9 +233,10 @@ Data Pipeline の `snapshot_scd2` と output `writeMode=scd2_merge` により、
 Key 単位履歴 drilldown:
 
 - `GET /api/v1/dataset-work-tables/{workTablePublicId}/scd2-history?key=...&limit=100` を追加した。
+- composite key 用に `GET /api/v1/dataset-work-tables/{workTablePublicId}/scd2-history?keyColumns=tenant_id,product_id&keyValues=1,P001&limit=100` も追加した。
 - preview と同じく Work table の `can_preview` 権限を要求する。
 - SCD2 列が揃っていない table、または key column を解決できない table では invalid input として扱う。
-- key column は summary と同じく run output metadata の `scd2UniqueKeys[0]` を優先し、metadata がない場合だけ `id`、`product_id`、`sku`、`file_public_id` から推定する。
+- key columns は summary と同じく run output metadata の `scd2UniqueKeys` を優先し、metadata がない場合だけ `id`、`product_id`、`sku`、`file_public_id` から推定する。
 - query は `toString(key_column) = key` で絞り込み、`valid_from ASC` で返す。
 - Work table UI では SCD2 panel に key 入力欄を出し、指定 key の履歴 rows を時系列で表示する。
 
@@ -255,7 +256,7 @@ Key 単位履歴 drilldown:
 
 今後の拡張候補:
 
-- key column は output metadata の `scd2UniqueKeys[0]` を優先する実装まで完了済み。残りは composite key の UI / API contract。
+- key columns は output metadata の `scd2UniqueKeys` を優先し、composite key の UI / API contract まで完了済み。
 - Gold detail 側には `sourceScd2Summary` として current row count、history row count、key count、key column、`valid_from` range を表示済み。同期元 Work table への deep link、同期元 Data Pipeline detail への run/output deep link、Data Pipeline Runs tab の output 行から Gold detail へ進む link も追加済み。`sourceDataPipelineRun` には write mode、SCD2 merge policy、unique keys、output row count、quality summary も表示済み。
 
 ## 主要コミット
@@ -317,11 +318,10 @@ docker exec haohao-clickhouse clickhouse-client --query \
 
 ## 次にやること
 
-最優先候補は `composite key 履歴 drilldown` と `SCD2 policy の UI 設定` です。
+最優先候補は `SCD2 policy の UI 設定` です。
 
 実装案:
 
-- composite key の SCD2 履歴 drilldown は現在 `scd2UniqueKeys[0]` を代表 key として扱っているため、複数 key を入力・表示できる API / UI contract を設計する。
 - Output 設定 UI から `deleteDetection=close_current` と `sameValidFromPolicy=reject` を確認・設定できるようにする。
 - `mark_deleted`、`latest_ingested_wins`、`highest_source_priority_wins` のような高度 policy を採用するかは業務要件に合わせて別途決める。
 

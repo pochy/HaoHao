@@ -226,6 +226,7 @@ type DatasetWorkTableSCD2Summary struct {
 	CurrentRows     int64
 	HistoryRows     int64
 	KeyColumn       string
+	KeyColumns      []string
 	KeyCount        int64
 	EarliestValidAt string
 	LatestValidAt   string
@@ -236,6 +237,8 @@ type DatasetWorkTableSCD2History struct {
 	Table       string
 	KeyColumn   string
 	KeyValue    string
+	KeyColumns  []string
+	KeyValues   []string
 	Columns     []string
 	HistoryRows []map[string]any
 }
@@ -1225,10 +1228,10 @@ func (s *DatasetService) LinkWorkTable(ctx context.Context, tenantID int64, publ
 }
 
 func (s *DatasetService) PreviewWorkTable(ctx context.Context, tenantID int64, database, table string, limit int32) (DatasetWorkTablePreview, error) {
-	return s.previewWorkTable(ctx, tenantID, database, table, limit, "")
+	return s.previewWorkTable(ctx, tenantID, database, table, limit, nil)
 }
 
-func (s *DatasetService) previewWorkTable(ctx context.Context, tenantID int64, database, table string, limit int32, scd2KeyColumnHint string) (DatasetWorkTablePreview, error) {
+func (s *DatasetService) previewWorkTable(ctx context.Context, tenantID int64, database, table string, limit int32, scd2KeyColumnHints []string) (DatasetWorkTablePreview, error) {
 	if s == nil {
 		return DatasetWorkTablePreview{}, fmt.Errorf("dataset service is not configured")
 	}
@@ -1261,7 +1264,7 @@ func (s *DatasetService) previewWorkTable(ctx context.Context, tenantID int64, d
 	if err != nil {
 		return DatasetWorkTablePreview{}, fmt.Errorf("scan dataset work table preview: %w", err)
 	}
-	scd2Summary, err := s.summarizeSCD2WorkTable(ctx, conn, database, table, columns, scd2KeyColumnHint)
+	scd2Summary, err := s.summarizeSCD2WorkTable(ctx, conn, database, table, columns, scd2KeyColumnHints)
 	if err != nil {
 		return DatasetWorkTablePreview{}, err
 	}
@@ -1290,20 +1293,21 @@ func (s *DatasetService) PreviewManagedWorkTable(ctx context.Context, tenantID i
 	for _, column := range columns {
 		columnNames = append(columnNames, column.ColumnName)
 	}
-	keyColumnHint := s.managedWorkTableSCD2KeyColumn(ctx, tenantID, row.ID, columnNames)
-	return s.previewWorkTable(ctx, tenantID, row.WorkDatabase, row.WorkTable, limit, keyColumnHint)
+	keyColumnHints := s.managedWorkTableSCD2KeyColumns(ctx, tenantID, row.ID, columnNames)
+	return s.previewWorkTable(ctx, tenantID, row.WorkDatabase, row.WorkTable, limit, keyColumnHints)
 }
 
 func (s *DatasetService) GetManagedWorkTableSCD2History(ctx context.Context, tenantID int64, publicID, keyValue string, limit int32) (DatasetWorkTableSCD2History, error) {
+	return s.GetManagedWorkTableSCD2HistoryByKeys(ctx, tenantID, publicID, nil, []string{keyValue}, limit)
+}
+
+func (s *DatasetService) GetManagedWorkTableSCD2HistoryByKeys(ctx context.Context, tenantID int64, publicID string, requestedKeyColumns, requestedKeyValues []string, limit int32) (DatasetWorkTableSCD2History, error) {
 	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
 	if err != nil {
 		return DatasetWorkTableSCD2History{}, err
 	}
 	if row.Status != "active" || row.DroppedAt.Valid {
 		return DatasetWorkTableSCD2History{}, ErrDatasetWorkTableNotFound
-	}
-	if strings.TrimSpace(keyValue) == "" {
-		return DatasetWorkTableSCD2History{}, fmt.Errorf("%w: key value is required", ErrInvalidDatasetInput)
 	}
 	if limit <= 0 || limit > datasetPreviewRowLimit {
 		limit = 100
@@ -1319,12 +1323,24 @@ func (s *DatasetService) GetManagedWorkTableSCD2History(ctx context.Context, ten
 	if !datasetWorkTableHasSCD2Columns(columnNames) {
 		return DatasetWorkTableSCD2History{}, fmt.Errorf("%w: work table is not an SCD2 snapshot table", ErrInvalidDatasetInput)
 	}
-	keyColumn := s.managedWorkTableSCD2KeyColumn(ctx, tenantID, row.ID, columnNames)
-	if keyColumn == "" {
-		keyColumn = datasetWorkTableSCD2KeyColumn(columnNames)
+	keyColumns := datasetWorkTableColumnNames(columnNames, requestedKeyColumns)
+	if len(keyColumns) == 0 {
+		keyColumns = s.managedWorkTableSCD2KeyColumns(ctx, tenantID, row.ID, columnNames)
 	}
-	if keyColumn == "" {
+	if len(keyColumns) == 0 {
+		if keyColumn := datasetWorkTableSCD2KeyColumn(columnNames); keyColumn != "" {
+			keyColumns = []string{keyColumn}
+		}
+	}
+	if len(keyColumns) == 0 {
 		return DatasetWorkTableSCD2History{}, fmt.Errorf("%w: SCD2 key column could not be inferred", ErrInvalidDatasetInput)
+	}
+	keyValues := datasetWorkTableCleanKeyValues(requestedKeyValues)
+	if len(keyValues) == 1 && len(keyColumns) > 1 {
+		return DatasetWorkTableSCD2History{}, fmt.Errorf("%w: keyValues are required for all SCD2 key columns", ErrInvalidDatasetInput)
+	}
+	if len(keyValues) != len(keyColumns) {
+		return DatasetWorkTableSCD2History{}, fmt.Errorf("%w: key value count must match SCD2 key columns", ErrInvalidDatasetInput)
 	}
 	conn, err := s.openTenantConn(ctx, tenantID)
 	if err != nil {
@@ -1332,15 +1348,21 @@ func (s *DatasetService) GetManagedWorkTableSCD2History(ctx context.Context, ten
 	}
 	defer conn.Close()
 
+	conditions := make([]string, 0, len(keyColumns))
+	args := make([]any, 0, len(keyValues))
+	for i, keyColumn := range keyColumns {
+		conditions = append(conditions, fmt.Sprintf("toString(%s) = ?", quoteCHIdent(keyColumn)))
+		args = append(args, keyValues[i])
+	}
 	query := fmt.Sprintf(
-		"SELECT * FROM %s.%s WHERE toString(%s) = ? ORDER BY %s ASC LIMIT %d",
+		"SELECT * FROM %s.%s WHERE %s ORDER BY %s ASC LIMIT %d",
 		quoteCHIdent(row.WorkDatabase),
 		quoteCHIdent(row.WorkTable),
-		quoteCHIdent(keyColumn),
+		strings.Join(conditions, " AND "),
 		quoteCHIdent("valid_from"),
 		limit,
 	)
-	rows, err := conn.Query(clickhouse.Context(ctx, clickhouse.WithSettings(s.querySettings())), query, strings.TrimSpace(keyValue))
+	rows, err := conn.Query(clickhouse.Context(ctx, clickhouse.WithSettings(s.querySettings())), query, args...)
 	if err != nil {
 		return DatasetWorkTableSCD2History{}, fmt.Errorf("query SCD2 work table history: %w", err)
 	}
@@ -1352,24 +1374,28 @@ func (s *DatasetService) GetManagedWorkTableSCD2History(ctx context.Context, ten
 	return DatasetWorkTableSCD2History{
 		Database:    row.WorkDatabase,
 		Table:       row.WorkTable,
-		KeyColumn:   keyColumn,
-		KeyValue:    strings.TrimSpace(keyValue),
+		KeyColumn:   firstString(keyColumns),
+		KeyValue:    firstString(keyValues),
+		KeyColumns:  keyColumns,
+		KeyValues:   keyValues,
 		Columns:     resultColumns,
 		HistoryRows: historyRows,
 	}, nil
 }
 
-func (s *DatasetService) summarizeSCD2WorkTable(ctx context.Context, conn driver.Conn, database, table string, columns []string, keyColumnHint string) (*DatasetWorkTableSCD2Summary, error) {
+func (s *DatasetService) summarizeSCD2WorkTable(ctx context.Context, conn driver.Conn, database, table string, columns []string, keyColumnHints []string) (*DatasetWorkTableSCD2Summary, error) {
 	if !datasetWorkTableHasSCD2Columns(columns) {
 		return nil, nil
 	}
-	keyColumn := datasetWorkTableColumnName(columns, keyColumnHint)
-	if keyColumn == "" {
-		keyColumn = datasetWorkTableSCD2KeyColumn(columns)
+	keyColumns := datasetWorkTableColumnNames(columns, keyColumnHints)
+	if len(keyColumns) == 0 {
+		if keyColumn := datasetWorkTableSCD2KeyColumn(columns); keyColumn != "" {
+			keyColumns = []string{keyColumn}
+		}
 	}
 	keyCountExpr := "toUInt64(0)"
-	if keyColumn != "" {
-		keyCountExpr = fmt.Sprintf("uniqExact(ifNull(toString(%s), ''))", quoteCHIdent(keyColumn))
+	if len(keyColumns) > 0 {
+		keyCountExpr = fmt.Sprintf("uniqExact(%s)", datasetWorkTableSCD2KeyTupleExpr(keyColumns))
 	}
 	currentExpr := fmt.Sprintf("lowerUTF8(toString(%s)) IN ('1', 'true', 't')", quoteCHIdent("is_current"))
 	query := fmt.Sprintf(
@@ -1382,7 +1408,8 @@ func (s *DatasetService) summarizeSCD2WorkTable(ctx context.Context, conn driver
 	)
 	var summary DatasetWorkTableSCD2Summary
 	summary.Detected = true
-	summary.KeyColumn = keyColumn
+	summary.KeyColumn = firstString(keyColumns)
+	summary.KeyColumns = keyColumns
 	if err := conn.QueryRow(clickhouse.Context(ctx, clickhouse.WithSettings(s.querySettings())), query).Scan(
 		&summary.TotalRows,
 		&summary.CurrentRows,
@@ -1431,16 +1458,57 @@ func datasetWorkTableColumnName(columns []string, candidate string) string {
 	return ""
 }
 
-func (s *DatasetService) managedWorkTableSCD2KeyColumn(ctx context.Context, tenantID, workTableID int64, columns []string) string {
-	if s == nil || s.pool == nil || workTableID <= 0 {
-		return ""
+func datasetWorkTableColumnNames(columns []string, candidates []string) []string {
+	out := make([]string, 0, len(candidates))
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		column := datasetWorkTableColumnName(columns, candidate)
+		if column == "" {
+			continue
+		}
+		key := strings.ToLower(column)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, column)
 	}
-	var keyColumn string
+	return out
+}
+
+func datasetWorkTableCleanKeyValues(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func datasetWorkTableSCD2KeyTupleExpr(keyColumns []string) string {
+	parts := make([]string, 0, len(keyColumns))
+	for _, keyColumn := range keyColumns {
+		parts = append(parts, fmt.Sprintf("ifNull(toString(%s), '')", quoteCHIdent(keyColumn)))
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return "tuple(" + strings.Join(parts, ", ") + ")"
+}
+
+func (s *DatasetService) managedWorkTableSCD2KeyColumns(ctx context.Context, tenantID, workTableID int64, columns []string) []string {
+	if s == nil || s.pool == nil || workTableID <= 0 {
+		return nil
+	}
+	var rawKeys string
 	err := s.pool.QueryRow(ctx, `
 SELECT COALESCE(
-    metadata #>> '{scd2UniqueKeys,0}',
-    metadata #>> '{uniqueKeys,0}',
-    ''
+    metadata -> 'scd2UniqueKeys',
+    metadata -> 'uniqueKeys',
+    '[]'::jsonb
 )
 FROM data_pipeline_run_outputs
 WHERE tenant_id = $1
@@ -1448,11 +1516,15 @@ WHERE tenant_id = $1
   AND status = 'completed'
 ORDER BY completed_at DESC NULLS LAST, id DESC
 LIMIT 1
-`, tenantID, workTableID).Scan(&keyColumn)
+`, tenantID, workTableID).Scan(&rawKeys)
 	if errors.Is(err, pgx.ErrNoRows) || err != nil {
-		return ""
+		return nil
 	}
-	return datasetWorkTableColumnName(columns, keyColumn)
+	var keys []string
+	if err := json.Unmarshal([]byte(rawKeys), &keys); err != nil {
+		return nil
+	}
+	return datasetWorkTableColumnNames(columns, keys)
 }
 
 func (s *DatasetService) ListDatasetRows(ctx context.Context, tenantID int64, publicID string, cursor int64, limit int32) (DatasetRowsPage, error) {

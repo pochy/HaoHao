@@ -1001,13 +1001,13 @@ func (s *DatasetService) summarizeManagedWorkTableSCD2(ctx context.Context, tena
 	if !datasetWorkTableHasSCD2Columns(columnNames) {
 		return nil, nil
 	}
-	keyColumnHint := s.managedWorkTableSCD2KeyColumn(ctx, tenantID, workTable.ID, columnNames)
+	keyColumnHints := s.managedWorkTableSCD2KeyColumns(ctx, tenantID, workTable.ID, columnNames)
 	conn, err := s.openTenantConn(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
-	return s.summarizeSCD2WorkTable(ctx, conn, workTable.WorkDatabase, workTable.WorkTable, columnNames, keyColumnHint)
+	return s.summarizeSCD2WorkTable(ctx, conn, workTable.WorkDatabase, workTable.WorkTable, columnNames, keyColumnHints)
 }
 
 func (s *DatasetService) hydrateGoldPublishRun(ctx context.Context, tenantID int64, item *DatasetGoldPublishRun) {

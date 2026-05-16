@@ -459,6 +459,26 @@ function snapshotMergeDeleteGraph(filePublicId, suffix) {
   return graph
 }
 
+function snapshotMergeCompositeKeyGraph(filePublicId, suffix) {
+  const graph = snapshotMergeGraph(filePublicId, suffix)
+  graph.nodes = graph.nodes.map((item) => {
+    if (item.id !== 'snapshot_scd2' && item.id !== 'output') {
+      return item
+    }
+    return {
+      ...item,
+      data: {
+        ...item.data,
+        config: {
+          ...item.data.config,
+          uniqueKeys: ['id', 'name'],
+        },
+      },
+    }
+  })
+  return graph
+}
+
 function unionGraph(filePublicId, suffix) {
   const inputConfig = {
     sourceKind: 'drive_file',
@@ -821,6 +841,7 @@ async function createPipeline(scenario, filePublicId) {
     snapshot_merge: snapshotMergeGraph,
     snapshot_merge_delete: snapshotMergeDeleteGraph,
     snapshot_merge_conflict: snapshotMergeGraph,
+    snapshot_merge_composite: snapshotMergeCompositeKeyGraph,
     snapshot_merge_backfill: snapshotMergeBackfillGraph,
     union: unionGraph,
     excel: excelGraph,
@@ -993,6 +1014,8 @@ function assertSnapshotSCD2Run(run) {
 async function assertSCD2WorkTablePreviewSummary(run, expected) {
   const {
     historyKeyValue = '1',
+    historyKeyColumns = ['id'],
+    historyKeyValues = [historyKeyValue],
     historyRowsForKey = 3,
     ...summaryExpected
   } = expected
@@ -1011,7 +1034,7 @@ async function assertSCD2WorkTablePreviewSummary(run, expected) {
     throw new Error(`SCD2 preview summary missing: ${JSON.stringify(preview)}`)
   }
   for (const [key, value] of Object.entries(summaryExpected)) {
-    if (summary[key] !== value) {
+    if (Array.isArray(value) ? JSON.stringify(summary[key]) !== JSON.stringify(value) : summary[key] !== value) {
       throw new Error(`SCD2 preview summary ${key} = ${summary[key]}, want ${value}: ${JSON.stringify(summary)}`)
     }
   }
@@ -1020,8 +1043,11 @@ async function assertSCD2WorkTablePreviewSummary(run, expected) {
       throw new Error(`SCD2 preview columns missing ${column}: ${JSON.stringify(preview.columns)}`)
     }
   }
-  const history = await request(`/api/v1/dataset-work-tables/${encodeURIComponent(workTablePublicId)}/scd2-history?key=${encodeURIComponent(historyKeyValue)}&limit=100`)
-  if (history.keyColumn !== 'id' || history.keyValue !== historyKeyValue || (history.historyRows ?? []).length !== historyRowsForKey) {
+  const historyQuery = historyKeyColumns.length > 1
+    ? `keyColumns=${encodeURIComponent(historyKeyColumns.join(','))}&keyValues=${encodeURIComponent(historyKeyValues.join(','))}&limit=100`
+    : `key=${encodeURIComponent(historyKeyValues[0] ?? historyKeyValue)}&limit=100`
+  const history = await request(`/api/v1/dataset-work-tables/${encodeURIComponent(workTablePublicId)}/scd2-history?${historyQuery}`)
+  if (history.keyColumn !== historyKeyColumns[0] || JSON.stringify(history.keyValues ?? [history.keyValue]) !== JSON.stringify(historyKeyValues) || (history.historyRows ?? []).length !== historyRowsForKey) {
     throw new Error(`SCD2 key history unexpected: ${JSON.stringify(history)}`)
   }
   for (const column of ['valid_from', 'valid_to', 'is_current', 'change_hash']) {
@@ -1304,6 +1330,7 @@ async function runScenario(workspacePublicId, scenario) {
     snapshot_merge: uploadSnapshotJSONFile,
     snapshot_merge_delete: uploadSnapshotJSONFile,
     snapshot_merge_conflict: uploadSnapshotConflictJSONFile,
+    snapshot_merge_composite: uploadSnapshotJSONFile,
     snapshot_merge_backfill: uploadSnapshotJSONFile,
     union: uploadJSONFile,
     excel: uploadXLSXFile,
@@ -1326,6 +1353,7 @@ async function runScenario(workspacePublicId, scenario) {
     snapshot_merge: assertSnapshotSCD2Run,
     snapshot_merge_delete: assertSnapshotSCD2Run,
     snapshot_merge_conflict: assertSCD2SameValidFromConflictRun,
+    snapshot_merge_composite: assertSnapshotSCD2Run,
     snapshot_merge_backfill: assertSnapshotSCD2Run,
     union: assertUnionRun,
     excel: (run) => assertProfileValidateRun(run, 3),
@@ -1467,6 +1495,54 @@ async function runSnapshotMergeScenario(workspacePublicId) {
 
   return {
     scenario: 'snapshot_merge',
+    workspacePublicId,
+    driveFilePublicId: file.publicId,
+    changedDriveFilePublicId: changedFile.publicId,
+    pipelinePublicId: pipeline.publicId,
+    versionPublicId: version.publicId,
+    changedVersionPublicId: changedVersion.publicId,
+    firstRunPublicId: firstCompleted.publicId,
+    secondRunPublicId: secondCompleted.publicId,
+    changedRunPublicId: changedCompleted.publicId,
+    detailUrl: `${frontendURL}/data-pipelines/${pipeline.publicId}`,
+    outputs: changedCompleted.outputs,
+    previewSummary,
+  }
+}
+
+async function runSnapshotMergeCompositeKeyScenario(workspacePublicId) {
+  const suffix = `snapshot_merge_composite_${Date.now()}`
+  const file = await uploadSnapshotJSONFile(workspacePublicId)
+  const pipeline = await jsonRequest('/api/v1/data-pipelines', 'POST', {
+    name: `Smoke: snapshot_merge_composite metadata ${new Date().toISOString()}`,
+    description: 'Smoke test for Data Pipeline SCD2 merge composite key history.',
+  }, { 'Idempotency-Key': crypto.randomUUID() })
+  created.pipelinePublicIds.push(pipeline.publicId)
+  const version = await createPublishedVersion(pipeline.publicId, snapshotMergeCompositeKeyGraph(file.publicId, suffix))
+
+  const firstRun = await requestRun(version.publicId)
+  const firstCompleted = await waitForRun(pipeline.publicId, firstRun.publicId, assertSnapshotSCD2Run)
+  const secondRun = await requestRun(version.publicId)
+  const secondCompleted = await waitForRun(pipeline.publicId, secondRun.publicId, (run) => assertCommonRun(run, 3))
+
+  const changedFile = await uploadSnapshotChangedJSONFile(workspacePublicId)
+  const changedVersion = await createPublishedVersion(pipeline.publicId, snapshotMergeCompositeKeyGraph(changedFile.publicId, suffix))
+  const changedRun = await requestRun(changedVersion.publicId)
+  const changedCompleted = await waitForRun(pipeline.publicId, changedRun.publicId, (run) => assertCommonRun(run, 4))
+  const previewSummary = await assertSCD2WorkTablePreviewSummary(changedCompleted, {
+    totalRows: 4,
+    currentRows: 2,
+    historyRows: 2,
+    keyColumn: 'id',
+    keyColumns: ['id', 'name'],
+    keyCount: 2,
+    historyKeyColumns: ['id', 'name'],
+    historyKeyValues: ['1', 'Alpha'],
+    historyRowsForKey: 3,
+  })
+
+  return {
+    scenario: 'snapshot_merge_composite',
     workspacePublicId,
     driveFilePublicId: file.publicId,
     changedDriveFilePublicId: changedFile.publicId,
@@ -1663,8 +1739,8 @@ async function cleanup() {
 }
 
 async function main() {
-  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_delete', 'snapshot_merge_conflict', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
-  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_delete', 'snapshot_merge_conflict', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
+  const scenarioNames = ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_delete', 'snapshot_merge_conflict', 'snapshot_merge_composite', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review', 'validation']
+  const scenarios = requestedScenario === 'suite' ? ['json', 'typed_output', 'partition', 'watermark_previous', 'snapshot_scd2', 'snapshot_append', 'snapshot_merge', 'snapshot_merge_delete', 'snapshot_merge_conflict', 'snapshot_merge_composite', 'snapshot_merge_backfill', 'union', 'excel', 'text', 'quarantine', 'route', 'review', 'field_review', 'table_review', 'schema_mapping_review', 'product_review'] : [requestedScenario]
   for (const scenario of scenarios) {
     if (!scenarioNames.includes(scenario)) {
       throw new Error(`unknown smoke scenario: ${scenario}`)
@@ -1684,8 +1760,10 @@ async function main() {
             ? await runSnapshotMergeScenario(workspacePublicId)
             : scenario === 'snapshot_merge_delete'
               ? await runSnapshotMergeDeleteScenario(workspacePublicId)
-              : scenario === 'snapshot_merge_backfill'
-                ? await runSnapshotMergeBackfillScenario(workspacePublicId)
+              : scenario === 'snapshot_merge_composite'
+                ? await runSnapshotMergeCompositeKeyScenario(workspacePublicId)
+                : scenario === 'snapshot_merge_backfill'
+                  ? await runSnapshotMergeBackfillScenario(workspacePublicId)
       : await runScenario(workspacePublicId, scenario))
   }
   console.log(JSON.stringify(requestedScenario === 'suite' ? { scenarios: results } : results[0], null, 2))

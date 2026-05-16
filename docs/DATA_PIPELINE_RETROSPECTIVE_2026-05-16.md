@@ -41,7 +41,7 @@ Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行
 
 - SCD2 削除検知 policy のうち `deleteDetection=close_current` v1。`mark_deleted` と UI 設定は未完了。
 - 同一 key / 同一 `valid_from` に複数変更がある場合の `sameValidFromPolicy=reject` v1。高度な winner policy は未完了。
-- composite key の SCD2 key history API / UI。
+- composite key の SCD2 key history API / UI v1。
 - Gold publish history と Data Pipeline run history のより完全な相互リンク。
 - `validate` の行単位 status column と quarantine 連携。
 - backend step catalog / generated contract への output schema 単一正本化。
@@ -265,6 +265,7 @@ API:
 
 - Work table preview response の `scd2Summary`
 - `GET /api/v1/dataset-work-tables/{workTablePublicId}/scd2-history?key=...&limit=100`
+- `GET /api/v1/dataset-work-tables/{workTablePublicId}/scd2-history?keyColumns=...&keyValues=...&limit=100`
 
 用途:
 
@@ -273,12 +274,12 @@ API:
 
 現状:
 
-- key column は Data Pipeline output metadata の `scd2UniqueKeys[0]` を優先する。
+- key columns は Data Pipeline output metadata の `scd2UniqueKeys` を優先する。互換用に `keyColumn` には先頭 key を返す。
 - metadata がない場合は `id`、`product_id`、`sku`、`file_public_id` の順で fallback。
 
 制限:
 
-- composite key はまだ代表 key のみ。
+- composite key は `keyColumns` / `keyValues` で history drilldown できる。
 - key history API は単一 key value 前提。
 
 ### Gold source tracing
@@ -456,20 +457,19 @@ make smoke-data-pipeline-snapshot-merge-backfill
 
 ### 3. Composite key SCD2 history
 
-問題:
+当初の問題:
 
-- 現在の Work table SCD2 summary / key history は `scd2UniqueKeys[0]` を代表 key として扱う。
-- 複合 key の履歴を正しく指定・表示する API / UI がない。
+- Work table SCD2 summary / key history は `scd2UniqueKeys[0]` を代表 key として扱っていた。
+- 複合 key の履歴を正しく指定・表示する API / UI がなかった。
 
-実装方針:
+2026-05-16 に実装した v1:
 
-- `scd2Summary` に `keyColumns []string` を追加する。
-- key history API は `?key=...` だけでなく、JSON または複数 query を受ける。
-- 候補:
-  - `?keyColumns=tenant_id,product_id&keyValues=1,P001`
-  - `?key[tenant_id]=1&key[product_id]=P001`
-- UI は key column ごとの input を表示する。
+- `scd2Summary` に `keyColumns []string` を追加した。
+- key history API は従来の `?key=...` に加えて `?keyColumns=tenant_id,product_id&keyValues=1,P001` を受ける。
+- managed Work table では run output metadata の `scd2UniqueKeys` 全体を使って key count と history query を行う。
+- UI は composite key の場合、key column ごとの input を表示する。
 - 単一 key table では従来 UI を維持する。
+- smoke として `make smoke-data-pipeline-snapshot-merge-composite` を追加した。
 
 ### 4. Gold publish history と Data Pipeline run history の相互リンク
 

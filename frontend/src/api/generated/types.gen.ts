@@ -1778,7 +1778,9 @@ export type DatasetWorkTableScd2HistoryBody = {
         [key: string]: unknown;
     }> | null;
     keyColumn: string;
+    keyColumns?: Array<string> | null;
     keyValue: string;
+    keyValues?: Array<string> | null;
     table: string;
 };
 
@@ -1788,6 +1790,7 @@ export type DatasetWorkTableScd2SummaryBody = {
     earliestValidAt?: string;
     historyRows: number;
     keyColumn?: string;
+    keyColumns?: Array<string> | null;
     keyCount: number;
     latestValidAt?: string;
     totalRows: number;
@@ -6095,7 +6098,9 @@ export type DatasetWorkTableScd2HistoryBodyWritable = {
         [key: string]: unknown;
     }> | null;
     keyColumn: string;
+    keyColumns?: Array<string> | null;
     keyValue: string;
+    keyValues?: Array<string> | null;
     table: string;
 };
 
@@ -13618,6 +13623,14 @@ export type GetManagedDatasetWorkTableScd2HistoryData = {
          * 結果の絞り込みや pagination に使う query parameter `key` です。
          */
         key?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `keyColumns` です。
+         */
+        keyColumns?: string;
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `keyValues` です。
+         */
+        keyValues?: string;
         /**
          * 返却件数の上限です。大量の結果は pagination で分割してください。
          */

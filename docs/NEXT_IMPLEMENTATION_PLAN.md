@@ -173,7 +173,7 @@ Local Search / RAG:
 - join / enrich_join は行数爆発、未マッチ、key null、列衝突などの warning を UI で十分説明できていません。
 - `human_review` は `createReviewItems=true` の場合に永続 review item を作成できます。Drive text / `extract_fields` / `extract_table`、Drive JSON / `schema_mapping`、Drive product extraction の低信頼 reason は review queue へ接続済みです。Drive file detail から source file に紐づく review item / pipeline run へ戻る導線も追加済みです。
 - `quarantine` v1、`union` v1、`route_by_condition` v1、`partition_filter` v1、`watermark_filter` v1、`snapshot_scd2` v1、typed output / ordering、output `append`、output `scd2_merge`、SCD2 key-history rebuild policy は実装済みです。
-- SCD2 / snapshot output は Work table preview 上で SCD2 table として検出し、table 全体の current/history 件数、key 数、`All` / `Current` / `History` filter を確認できるようになりました。filter は読み込み済み preview rows に対して適用されます。managed Work table では Data Pipeline output metadata の `scd2UniqueKeys[0]` を key column として優先し、古い run や手動 table では従来の候補推定に fallback します。
+- SCD2 / snapshot output は Work table preview 上で SCD2 table として検出し、table 全体の current/history 件数、key 数、`All` / `Current` / `History` filter を確認できるようになりました。filter は読み込み済み preview rows に対して適用されます。managed Work table では Data Pipeline output metadata の `scd2UniqueKeys` を key columns として優先し、古い run や手動 table では従来の候補推定に fallback します。
 - `DataPipelineInspector.vue` は graph config だけから上流列を静的推論していましたが、2026-05-14 に validation result を primary source として受け取る実装を追加しました。validation endpoint は preview 実行なしで graph 全体の output schema と missing-column warnings を返し、Inspector はその結果がある場合は local fallback より優先します。local 推論は endpoint 未取得時の fallback として残しています。
 
 次に着手すべき理由:
@@ -182,7 +182,7 @@ Local Search / RAG:
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
 - 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint の初期実装は完了したため、次は backend step catalog / generated contract へのさらなる集約、SCD2 / Gold publish / snapshot 運用 UI の validation 表示を進めます。
-- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown、Gold detail の source SCD2 summary 表示、Gold detail から同期元 Work table / source Data Pipeline run-output への deep link、Data Pipeline Runs tab の output から Gold detail への link、Gold detail の source output metadata summary、source quality summary まで進みました。`deleteDetection=close_current` v1 と `sameValidFromPolicy=reject` v1 も backend / smoke まで追加済みです。次の改善は、composite key 履歴 drilldown、または SCD2 policy の UI 設定です。
+- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown、composite key 履歴 drilldown、Gold detail の source SCD2 summary 表示、Gold detail から同期元 Work table / source Data Pipeline run-output への deep link、Data Pipeline Runs tab の output から Gold detail への link、Gold detail の source output metadata summary、source quality summary まで進みました。`deleteDetection=close_current` v1 と `sameValidFromPolicy=reject` v1 も backend / smoke まで追加済みです。次の改善は SCD2 policy の UI 設定です。
 
 ### Drive / RAG の課題
 
@@ -383,7 +383,7 @@ AI coding / agent 改善を触る場合:
 - `snapshot_scd2` v1、output `writeMode=append`、output `writeMode=scd2_merge` は 2026-05-16 に実装済み。`scd2_merge` は既存 snapshot table の current row と今回 run の current row を比較し、変更 key だけ previous current を close して新 current row を追加する。
 - `scd2_merge` の `scd2MergePolicy=rebuild_key_history` も 2026-05-16 に実装済み。stage に含まれる key だけ既存履歴と今回履歴を結合し、`valid_to` / `is_current` を再計算するため、late arriving data を途中の履歴として挿入できる。
 - Data Pipeline output から Gold publish への最小 UI 導線も 2026-05-16 に追加済み。Run output metadata に `workTablePublicId`、database、table name、display name、write mode を保存し、Runs tab の output 行から既存 Gold publication API を呼べる。
-- snapshot table の運用 UI、Gold detail の source SCD2 summary / source quality summary、Gold detail から同期元 Work table / source Data Pipeline run-output への戻り導線、Data Pipeline Runs tab の output から Gold detail への link は完了済み。`deleteDetection=close_current` と `sameValidFromPolicy=reject` も backend / smoke まで完了済み。次は composite key 履歴 drilldown または SCD2 policy の UI 設定へ進む。
+- snapshot table の運用 UI、Gold detail の source SCD2 summary / source quality summary、Gold detail から同期元 Work table / source Data Pipeline run-output への戻り導線、Data Pipeline Runs tab の output から Gold detail への link は完了済み。`deleteDetection=close_current`、`sameValidFromPolicy=reject`、composite key 履歴 drilldown も backend / UI / smoke まで完了済み。次は SCD2 policy の UI 設定へ進む。
 
 完了条件:
 
@@ -402,7 +402,7 @@ AI coding / agent 改善を触る場合:
 - output `writeMode=scd2_merge` も 2026-05-16 に実装済み。既存 table がなければ初回 snapshot table として作成し、既存 table がある場合は stage 側の current row だけを差分候補にして、`uniqueKeys` と `change_hash` で変更有無を判定する。同一データ再実行では行数を増やさず、変更がある key だけ既存 current row の `valid_to` を新 row の `valid_from` で閉じる。
 - `scd2MergePolicy=rebuild_key_history` も実装済み。late arriving data / backfill 用に、stage に含まれる key だけ既存 snapshot row と stage row をまとめて重複排除し、`valid_to` / `is_current` を再計算できる。
 - Data Pipeline output から Gold publish への最小 UI 導線も完了済み。Runs tab の output 行で `hh_t_*_work.table` と write mode を確認し、その output Work table を Gold publication として公開できる。
-- snapshot table の運用 UI、Gold detail の source SCD2 summary / source quality summary、Gold detail から同期元 Work table / source Data Pipeline run-output への戻り導線、Data Pipeline Runs tab の output から Gold detail への link は完了済み。`deleteDetection=close_current` と `sameValidFromPolicy=reject` も backend / smoke まで完了済み。次は composite key 履歴 drilldown または SCD2 policy の UI 設定へ進む。
+- snapshot table の運用 UI、Gold detail の source SCD2 summary / source quality summary、Gold detail から同期元 Work table / source Data Pipeline run-output への戻り導線、Data Pipeline Runs tab の output から Gold detail への link は完了済み。`deleteDetection=close_current`、`sameValidFromPolicy=reject`、composite key 履歴 drilldown も backend / UI / smoke まで完了済み。次は SCD2 policy の UI 設定へ進む。
 
 完了条件:
 
