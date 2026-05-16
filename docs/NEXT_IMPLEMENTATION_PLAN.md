@@ -167,7 +167,7 @@ Local Search / RAG:
 
 最重要課題は、処理結果の信頼性と説明可能性です。
 
-- structured compiler では `profile`、`validate`、`output` は行データ上 passthrough です。run executor は `profile` / `validate` の実測 summary を metadata に保存します。
+- structured compiler では `profile` は行データ上 passthrough です。`validate` は run step metadata に実測 summary を保存し、行データに `validation_status` / `validation_errors_json` を追加します。`output` は最終出力列の選択、リネーム、型変換、write mode を扱います。
 - `quality_report` や `confidence_gate` は hybrid path で行データ列を追加し、run step metadata summary も保存します。
 - `HandleRunRequested` は node ごとの実測 metadata を step completion に渡す実装へ進んでいます。
 - join / enrich_join は行数爆発、未マッチ、key null、列衝突などの warning を UI で十分説明できていません。
@@ -184,7 +184,7 @@ Local Search / RAG:
 - 既存 UI / DB / API は metadata を受ける余地があります。
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
-- 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint、catalog coverage test、保存済み pipeline での local fallback warning 抑制、frontend palette / node catalog の backend contract 取得は完了したため、次は output schema inference の generated contract / API 取得へのさらなる集約を進めます。
+- 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint、catalog coverage test、保存済み pipeline での local fallback warning 抑制、frontend palette / node catalog の backend contract 取得、保存済み pipeline の API schema 優先化は完了しました。frontend fallback module は new draft / validation 未取得時向けに残っています。
 - SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown、composite key 履歴 drilldown、Gold detail の source SCD2 summary 表示、Gold detail から同期元 Work table / source Data Pipeline run-output への deep link、Data Pipeline Runs tab の output から Gold detail への link、Gold detail の source output metadata summary、source quality summary、Gold publish history row から source Data Pipeline run/output への deep link、publish run 作成時点の source run/output 参照永続化、既存 publish run backfill まで進みました。`deleteDetection=close_current` / `mark_deleted`、`sameValidFromPolicy=reject` / `latest_ingested_wins` は backend / smoke / Output 設定 UI まで追加済みです。さらに palette / node catalog は backend step catalog contract から取得するようになりました。
 
 ### Drive / RAG の課題
@@ -386,7 +386,7 @@ AI coding / agent 改善を触る場合:
 - `snapshot_scd2` v1、output `writeMode=append`、output `writeMode=scd2_merge` は 2026-05-16 に実装済み。`scd2_merge` は既存 snapshot table の current row と今回 run の current row を比較し、変更 key だけ previous current を close して新 current row を追加する。
 - `scd2_merge` の `scd2MergePolicy=rebuild_key_history` も 2026-05-16 に実装済み。stage に含まれる key だけ既存履歴と今回履歴を結合し、`valid_to` / `is_current` を再計算するため、late arriving data を途中の履歴として挿入できる。
 - Data Pipeline output から Gold publish への最小 UI 導線も 2026-05-16 に追加済み。Run output metadata に `workTablePublicId`、database、table name、display name、write mode を保存し、Runs tab の output 行から既存 Gold publication API を呼べる。
-- snapshot table の運用 UI、Gold detail の source SCD2 summary / source quality summary、Gold detail から同期元 Work table / source Data Pipeline run-output への戻り導線、Data Pipeline Runs tab の output から Gold detail への link、Gold publish history row から source Data Pipeline run/output への link、publish run 作成時点の source run/output 参照保存、既存 publish run backfill は完了済み。`deleteDetection=close_current` / `mark_deleted`、`sameValidFromPolicy=reject` / `latest_ingested_wins`、composite key 履歴 drilldown、frontend palette / node catalog の backend contract 化も backend / UI / smoke まで完了済み。次は output schema inference の generated/API contract 化、または Month 4 の LLM node v1 へ進む。
+- snapshot table の運用 UI、Gold detail の source SCD2 summary / source quality summary、Gold detail から同期元 Work table / source Data Pipeline run-output への戻り導線、Data Pipeline Runs tab の output から Gold detail への link、Gold publish history row から source Data Pipeline run/output への link、publish run 作成時点の source run/output 参照保存、既存 publish run backfill は完了済み。`deleteDetection=close_current` / `mark_deleted`、`sameValidFromPolicy=reject` / `latest_ingested_wins`、composite key 履歴 drilldown、frontend palette / node catalog の backend contract 化、保存済み pipeline の API schema 優先化、`validate` 行データ列と `quarantine` 連携も backend / UI / test まで完了済み。次は Data Pipeline Month4 として LLM node v1 の計画作成へ進む。
 
 完了条件:
 

@@ -40,12 +40,13 @@ Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行
 - SCD2 `deleteDetection=mark_deleted` と `sameValidFromPolicy=latest_ingested_wins`。
 - `dataset_gold_publish_runs` の source run/output 参照永続化と既存行 backfill migration。
 - frontend palette / node catalog の backend step catalog contract 化。
+- 保存済み pipeline の Inspector 列候補を backend validation / preview の `outputSchemas` 優先に変更。
+- `validate` の行単位 `validation_status` / `validation_errors_json` と `quarantine` 連携。
 
 現時点で「Month 3 の未完了」ではなく、Month 4 以降の hardening / 要件検討として残すべき領域:
 
 - `highest_source_priority_wins` や `highest_confidence_wins` のような追加 winner policy。これは業務優先順位列、同点時の挙動、UI 表示が決まってから実装する。
-- `validate` の行単位 status column と quarantine 連携。
-- output schema inference の完全 generated/API contract 化。backend validation / preview は schema を返すが、frontend fallback module はまだ残している。
+- output schema inference のさらなる生成物化。保存済み pipeline の通常経路は backend `outputSchemas` を正本にしたが、frontend fallback module は new draft / validation 未取得時向けにまだ残している。
 - review item の担当者割当、修正値の再投入 run、review 履歴 UI。
 - Data Pipeline / Gold / Drive / RAG の E2E coverage 拡張。
 
@@ -421,6 +422,20 @@ make smoke-data-pipeline-snapshot-merge-backfill
 ```
 
 ## 次にやること
+
+2026-05-16 時点で、Month 3 hardening と Month4 入口の前提だった 2 点は実装済みです。
+
+- `5810f80 Prefer API schemas in pipeline inspector`: 保存済み pipeline では Inspector が backend validation / preview の `outputSchemas` を列候補の正本として扱う。generated OpenAPI type を参照しつつ、UI 境界では nullable 配列を non-null 配列として扱う型に正規化した。
+- `e879763 Annotate validation rows for quarantine`: `validate` node が `validation_status` / `validation_errors_json` を ClickHouse 行データに追加する。`quarantine` は `statusColumn` 未指定時に `validation_status` を優先し、`error` / `warning` を隔離対象にできる。
+
+これにより、LLM node を入れる前に必要だった schema / validation / quarantine の足場は v1 として揃いました。次は Data Pipeline Month4 として、LLM node v1 の計画を作ってから実装に入るのが自然です。
+
+推奨する次タスク:
+
+1. `docs/data-pipeline-llm-node.md` を再読し、最初の実装対象を `llm_extract_fields` v1 に絞る。
+2. provider policy、tenant policy、local runtime / external provider の扱い、prompt version、output schema、confidence、evidence、review / quarantine 連携を計画に落とす。
+3. raw prompt / raw response を既定保存しない前提で、保存する metadata と監査情報を明確にする。
+4. smoke scenario を先に決める。候補は `drive_file -> extract_text -> llm_extract_fields -> confidence_gate -> validate -> quarantine -> human_review -> output`。
 
 ### 1. SCD2 削除検知 policy
 

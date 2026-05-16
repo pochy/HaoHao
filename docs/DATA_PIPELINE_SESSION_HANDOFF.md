@@ -20,11 +20,13 @@
 
 Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Month 3 の主要 runtime node と optional hardening は完了扱いです。2026-05-16 時点の詳細な振り返り、問題、原因、対応、未完了領域、次タスクは `docs/DATA_PIPELINE_RETROSPECTIVE_2026-05-16.md` に集約しました。
 
-現在の次タスクは、機能をさらに横に増やすことではなく、運用 UI と説明性を強くすることです。優先候補は次です。
+2026-05-16 の追加 hardening として、保存済み pipeline の Inspector は backend validation / preview の `outputSchemas` を列候補の正本として扱うようにし、`validate` node は `validation_status` / `validation_errors_json` を行データ列として出せるようになりました。`quarantine` は `statusColumn` 未指定時に `validation_status` があればそれを優先し、`error` / `warning` を隔離対象にできます。
 
-1. output schema inference の完全 generated/API contract 化。Frontend palette は backend step catalog contract 取得へ移行済み。
-2. `validate` status column と quarantine 連携。
-3. 追加 winner policy 検討。`mark_deleted` と `latest_ingested_wins` は実装済みなので、次に検討するなら `highest_source_priority_wins` など業務優先順位付き policy。
+現在の次タスクは、Data Pipeline Month4 の入口として LLM node v1 の実装計画を作ることです。優先候補は次です。
+
+1. `docs/data-pipeline-llm-node.md` を再確認し、`llm_extract_fields` v1 の実装計画を作る。
+2. LLM node の provider policy、prompt version、output schema、confidence、evidence、review / quarantine 連携、metadata、raw prompt / raw response 保存方針を決める。
+3. 追加 winner policy 検討。`mark_deleted` と `latest_ingested_wins` は実装済みなので、次に検討するなら `highest_source_priority_wins` など業務優先順位付き policy。ただし業務要件が決まるまでは保留でよい。
 
 ## 実装済みの流れ
 
@@ -35,6 +37,7 @@ Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Mont
 - structured / hybrid executor が node ごとの row count と metadata を保存する。
 - `profile` が row count、column count、null count / rate、unique count、min / max、top values を metadata に保存する。
 - `validate` が required、regex、range、in、unique の失敗件数、warning、sample を metadata に保存する。
+- `validate` が `validation_status` と `validation_errors_json` を ClickHouse 行データにも追加する。後続の `quarantine` / `human_review` が行単位の validation 結果を参照できる。
 - Runs tab で step metadata summary と detail dialog を確認できる。
 - `queryStats`、`inputRows`、`samples` を保存する。
 - JSON / Excel / text scenario の smoke を整備した。
@@ -77,7 +80,6 @@ make smoke-data-pipeline-product-review
 - review item の担当者割当。
 - review で修正した値の再投入 run。
 - review 履歴 UI。
-- `validate` の行単位 status column 化。
 
 ### Inspector / Validation Endpoint
 
@@ -99,10 +101,12 @@ make smoke-data-pipeline-product-review
 - Inspector は validation result を primary source とし、local inference は fallback として残した。
 - `dataPipelineStepCatalog` の全 step type が backend `inferOutputSchemas` で non-empty schema を返すことを `TestInferOutputSchemasCoversEveryCatalogStep` で固定した。今後 step を追加して backend schema 推論を忘れると service test が落ちる。
 - 保存済み pipeline では validation endpoint を missing-column warning の正本とし、validation 未取得時は Inspector の local fallback warning を表示しない。local fallback は列候補生成と pipelinePublicId がない一時状態向けに残す。
+- 保存済み pipeline では列候補も validation / preview の `outputSchemas` を優先し、backend schema がない場合は手書き step 推論へ落とさない。これにより UI の列候補と warning は backend API contract を正本にする。
 
 残課題:
 
-- frontend palette / node catalog は `/api/v1/data-pipelines/step-catalog` から `type`、`category`、`order`、`labelKey` を取得する。`DataPipelineFlowBuilder.vue` のカテゴリ分けと auto layout ordering はこの contract を使う。frontend の `data-pipeline-step-output-schema.ts` は列候補生成の fallback として残っているため、次は output schema inference も generated/API contract へさらに寄せる。
+- frontend palette / node catalog は `/api/v1/data-pipelines/step-catalog` から `type`、`category`、`order`、`labelKey` を取得する。`DataPipelineFlowBuilder.vue` のカテゴリ分けと auto layout ordering はこの contract を使う。
+- `frontend/src/utils/data-pipeline-step-output-schema.ts` は、新規 pipeline や validation 未取得の一時状態向け fallback として残っている。保存済み pipeline の通常操作では backend `outputSchemas` を優先する。
 - 新しい node / 出力列を追加するたびに、backend runtime 出力、validation endpoint、Inspector fallback、smoke を同時に確認する。
 
 ### Month 3: Runtime Node / Output
@@ -323,13 +327,16 @@ docker exec haohao-clickhouse clickhouse-client --query \
 
 ## 次にやること
 
-最優先候補は output schema inference の generated/API contract 化です。Frontend palette / node catalog の backend contract 化、Gold publish history の厳密履歴化、Month 3 optional hardening は完了しました。
+最優先候補は Data Pipeline Month4 の LLM node v1 計画です。Frontend palette / node catalog の backend contract 化、保存済み pipeline の API schema 優先化、validate 行データ列、Gold publish history の厳密履歴化、Month 3 optional hardening は完了しました。
 
 実装案:
 
+- `llm_extract_fields` v1 を最初の対象にする。既存の `extract_fields` / `confidence_gate` / `validate` / `quarantine` / `human_review` と接続できる形を優先する。
+- raw prompt / raw response は既定保存しない。保存する場合は tenant policy、PII、audit、retention を明示する。
+- LLM node の共通 metadata は `data_pipeline_run_steps.metadata` に保存し、行単位の confidence / evidence / reason は ClickHouse 列に残す。
 - `highest_source_priority_wins`、`highest_confidence_wins`、`manual_review_wins` のような追加 winner policy を採用するかは業務要件に合わせて別途決める。`mark_deleted` と `latest_ingested_wins` は実装済み。
 
 次点候補:
 
-- `validate` の行単位 status column と quarantine 連携を設計する。
-- output schema inference の generated/API contract 化を進める。palette / node catalog は backend contract に寄せ済み。
+- review item assignee、修正値の再投入 run、review 履歴 UI を設計する。
+- output schema inference は保存済み pipeline の通常経路では API schema 優先化済み。さらに進めるなら、frontend fallback module を backend 生成物から作るか、new draft 向けの anonymous validation endpoint を検討する。

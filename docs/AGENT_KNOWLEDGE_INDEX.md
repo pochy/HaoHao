@@ -316,8 +316,9 @@ Data Pipeline:
 - Month 3 v1 と optional hardening は完了扱い。`mark_deleted` と `latest_ingested_wins` は実装済み。
 - SCD2 の概念、列の意味、HaoHao での `snapshot_scd2` / `scd2_merge` の違い、使いどころ、誤解しやすい点は `docs/data-pipeline-current-state.md` の「SCD2 を初めて読む人向けの説明」を参照する。
 - `highest_source_priority_wins`、`highest_confidence_wins`、`manual_review_wins` などの追加 winner policy は業務要件が決まってから検討する。
-- output schema inference の generated/API contract。frontend palette / node catalog は `/api/v1/data-pipelines/step-catalog` 取得へ移行済み。
-- `validate` status column と quarantine 連携。
+- output schema inference は保存済み pipeline の通常経路では backend validation / preview の `outputSchemas` を正本にする。frontend palette / node catalog は `/api/v1/data-pipelines/step-catalog` 取得へ移行済み。`frontend/src/utils/data-pipeline-step-output-schema.ts` は new draft / validation 未取得時の fallback として残る。
+- `validate` status column と quarantine 連携は実装済み。`validate` は `validation_status` / `validation_errors_json` を出し、`quarantine` は `statusColumn` 未指定時に `validation_status` を優先して `error` / `warning` を隔離対象にする。
+- 次の Data Pipeline 主タスクは Month4 LLM node v1 の計画作成。まず `docs/data-pipeline-llm-node.md` を読み、`llm_extract_fields` v1 の provider policy、prompt、schema、confidence、evidence、review / quarantine 連携を決める。
 
 Gold / Lineage:
 

@@ -512,9 +512,9 @@ Hybrid path では `sourceKind=drive_file` も扱います。通常の Drive fil
 
 ### まず押さえるべき既存 node
 
-`validate` と `profile` は、2026-05-14 時点で passthrough ではなく run step metadata を保存する観測 node として実装済みです。行データは変更しませんが、Data Pipeline detail の Runs tab から実測 summary を確認できます。
+`validate` と `profile` は、2026-05-14 時点で run step metadata を保存する観測 node として実装済みです。`profile` は行データを変更しませんが、Data Pipeline detail の Runs tab から実測 summary を確認できます。`validate` は 2026-05-16 の hardening で行データにも `validation_status` と `validation_errors_json` を追加するようになりました。
 
-`validate` は、dbt の data tests や Great Expectations の expectations に近い役割を持ちます。required、regex、range、in、unique を評価し、error / warning / failed rows / sample を run step metadata に残します。現時点では行単位の `validation_status` 列は追加しないため、後続の `quarantine` や `human_review` と直接つなぐ場合は `confidence_gate` や `quality_report` の行データ列を使います。将来は structured / hybrid 両方で同じ validation status column を出す設計を検討します。
+`validate` は、dbt の data tests や Great Expectations の expectations に近い役割を持ちます。required、regex、range、in、unique を評価し、error / warning / failed rows / sample を run step metadata に残します。行単位では `validation_status` に `pass`、`warning`、`error` を入れ、`validation_errors_json` に失敗 rule の column、operator、severity、reason、ruleIndex を JSON array 文字列として残します。後続の `quarantine` は `statusColumn` 未指定時に上流の `validation_status` を検出し、`error` / `warning` を隔離対象にできます。これにより `validate -> quarantine -> output` で「検証に失敗した行だけを別 Work table に出す」流れを作れます。
 
 `profile` は、Dagster の asset checks や Great Expectations の validation result に近い観測情報を作る入口です。row count、column count、null count / rate、unique count、min / max、top values を metadata として保存し、pipeline 作成者が「どこでデータが変わったか」を追いやすくします。前回 run との差分比較は今後の拡張候補です。
 
