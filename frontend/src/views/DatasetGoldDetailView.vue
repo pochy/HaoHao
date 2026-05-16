@@ -57,6 +57,26 @@ const sourceWorkTableLabel = computed(() => {
 })
 const sourceSCD2Summary = computed(() => publication.value?.sourceScd2Summary ?? null)
 const sourceDataPipelineRun = computed(() => publication.value?.sourceDataPipelineRun ?? null)
+const sourcePipelineOutputFacts = computed(() => {
+  const source = sourceDataPipelineRun.value
+  if (!source) {
+    return [] as string[]
+  }
+  const facts: string[] = []
+  if (source.outputWriteMode) {
+    facts.push(`${t('dataPipelines.writeMode')}: ${formatWriteMode(source.outputWriteMode)}`)
+  }
+  if (source.scd2MergePolicy) {
+    facts.push(`${t('dataPipelines.scd2MergePolicy')}: ${formatSCD2MergePolicy(source.scd2MergePolicy)}`)
+  }
+  if (source.scd2UniqueKeys?.length) {
+    facts.push(`${t('dataPipelines.uniqueKeys')}: ${source.scd2UniqueKeys.join(', ')}`)
+  }
+  if (source.outputRowCount) {
+    facts.push(`${t('datasets.rows')}: ${n(source.outputRowCount)}`)
+  }
+  return facts
+})
 const schemaColumns = computed(() => {
   const items = publication.value?.schemaSummary?.items
   if (!Array.isArray(items)) {
@@ -159,6 +179,29 @@ function schemaColumnFromValue(value: unknown): GoldSchemaColumn | null {
 
 function formatDate(value?: string) {
   return value ? d(new Date(value), 'long') : '-'
+}
+
+function formatWriteMode(value: string) {
+  if (value === 'scd2_merge') {
+    return t('dataPipelines.writeModeValue.scd2Merge')
+  }
+  if (value === 'append') {
+    return t('dataPipelines.writeModeValue.append')
+  }
+  if (value === 'replace') {
+    return t('dataPipelines.writeModeValue.replace')
+  }
+  return value
+}
+
+function formatSCD2MergePolicy(value: string) {
+  if (value === 'rebuild_key_history') {
+    return t('dataPipelines.scd2MergePolicyValue.rebuildKeyHistory')
+  }
+  if (value === 'current_only') {
+    return t('dataPipelines.scd2MergePolicyValue.currentOnly')
+  }
+  return value
 }
 
 function formatBytes(value?: number | null) {
@@ -319,6 +362,9 @@ function formatActionError(error: unknown) {
               <small class="cell-subtle">
                 {{ t('datasets.sourcePipelineRun') }} {{ sourceDataPipelineRun.runPublicId }}
                 · {{ sourceDataPipelineRun.outputNodeId }}
+              </small>
+              <small v-if="sourcePipelineOutputFacts.length" class="cell-subtle">
+                {{ sourcePipelineOutputFacts.join(' · ') }}
               </small>
             </dd>
           </div>

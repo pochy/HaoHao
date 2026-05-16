@@ -2703,6 +2703,19 @@ components:
           examples:
             - 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
           type: string
+        outputRowCount:
+          examples:
+            - 1000
+          format: int64
+          type: integer
+        outputWriteMode:
+          enum:
+            - replace
+            - append
+            - scd2_merge
+          examples:
+            - scd2_merge
+          type: string
         pipelineName:
           examples:
             - Acme
@@ -2727,12 +2740,28 @@ components:
           examples:
             - completed
           type: string
+        scd2MergePolicy:
+          enum:
+            - current_only
+            - rebuild_key_history
+          examples:
+            - current_only
+          type: string
+        scd2UniqueKeys:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
       required:
         - pipelinePublicId
         - pipelineName
         - runPublicId
         - runStatus
         - outputNodeId
+        - outputRowCount
       type: object
     DatasetImportErrorBody:
       additionalProperties: false
@@ -26358,10 +26387,15 @@ paths:
                     sourceDataPipelineRun:
                       completedAt: "2026-01-15T09:30:00Z"
                       outputNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      outputRowCount: 1000
+                      outputWriteMode: scd2_merge
                       pipelineName: Acme
                       pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runStatus: completed
+                      scd2MergePolicy: current_only
+                      scd2UniqueKeys:
+                        - example
                     sourceScd2Summary:
                       currentRows: 4
                       detected: true
@@ -35906,10 +35940,15 @@ paths:
                     sourceDataPipelineRun:
                       completedAt: "2026-01-15T09:30:00Z"
                       outputNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      outputRowCount: 1000
+                      outputWriteMode: scd2_merge
                       pipelineName: Acme
                       pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runStatus: completed
+                      scd2MergePolicy: current_only
+                      scd2UniqueKeys:
+                        - example
                     sourceScd2Summary:
                       currentRows: 4
                       detected: true
@@ -36023,10 +36062,15 @@ paths:
                     sourceDataPipelineRun:
                       completedAt: "2026-01-15T09:30:00Z"
                       outputNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      outputRowCount: 1000
+                      outputWriteMode: scd2_merge
                       pipelineName: Acme
                       pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runStatus: completed
+                      scd2MergePolicy: current_only
+                      scd2UniqueKeys:
+                        - example
                     sourceScd2Summary:
                       currentRows: 4
                       detected: true
@@ -36387,10 +36431,15 @@ paths:
                     sourceDataPipelineRun:
                       completedAt: "2026-01-15T09:30:00Z"
                       outputNodeId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+                      outputRowCount: 1000
+                      outputWriteMode: scd2_merge
                       pipelineName: Acme
                       pipelinePublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runPublicId: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
                       runStatus: completed
+                      scd2MergePolicy: current_only
+                      scd2UniqueKeys:
+                        - example
                     sourceScd2Summary:
                       currentRows: 4
                       detected: true

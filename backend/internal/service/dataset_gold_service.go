@@ -68,6 +68,10 @@ type DatasetGoldSourceDataPipelineRun struct {
 	RunPublicID      string
 	RunStatus        string
 	OutputNodeID     string
+	OutputRowCount   int64
+	OutputWriteMode  string
+	SCD2MergePolicy  string
+	SCD2UniqueKeys   []string
 	CompletedAt      *time.Time
 }
 
@@ -862,6 +866,8 @@ SELECT
 	r.public_id::text,
 	r.status,
 	o.node_id,
+	o.row_count,
+	o.metadata,
 	o.completed_at
 FROM data_pipeline_run_outputs o
 JOIN data_pipeline_runs r ON r.id = o.run_id AND r.tenant_id = o.tenant_id
@@ -873,12 +879,15 @@ ORDER BY o.completed_at DESC NULLS LAST, o.id DESC
 LIMIT 1`
 	var source DatasetGoldSourceDataPipelineRun
 	var completedAt pgtype.Timestamptz
+	var metadataBytes []byte
 	err := s.pool.QueryRow(ctx, query, tenantID, item.SourceWorkTableID).Scan(
 		&source.PipelinePublicID,
 		&source.PipelineName,
 		&source.RunPublicID,
 		&source.RunStatus,
 		&source.OutputNodeID,
+		&source.OutputRowCount,
+		&metadataBytes,
 		&completedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -887,6 +896,10 @@ LIMIT 1`
 	if err != nil {
 		return
 	}
+	metadata := jsonObjectFromBytes(metadataBytes)
+	source.OutputWriteMode = dataPipelineString(metadata, "writeMode")
+	source.SCD2MergePolicy = dataPipelineString(metadata, "scd2MergePolicy")
+	source.SCD2UniqueKeys = dataPipelineStringSlice(metadata, "scd2UniqueKeys")
 	source.CompletedAt = optionalPgTime(completedAt)
 	item.SourceDataPipelineRun = &source
 }

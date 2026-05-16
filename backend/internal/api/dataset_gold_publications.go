@@ -38,6 +38,10 @@ type DatasetGoldSourcePipelineRunBody struct {
 	RunPublicID      string     `json:"runPublicId" format:"uuid"`
 	RunStatus        string     `json:"runStatus" enum:"pending,processing,completed,failed,skipped" example:"completed"`
 	OutputNodeID     string     `json:"outputNodeId"`
+	OutputRowCount   int64      `json:"outputRowCount" example:"1000"`
+	OutputWriteMode  string     `json:"outputWriteMode,omitempty" enum:"replace,append,scd2_merge" example:"scd2_merge"`
+	SCD2MergePolicy  string     `json:"scd2MergePolicy,omitempty" enum:"current_only,rebuild_key_history" example:"current_only"`
+	SCD2UniqueKeys   []string   `json:"scd2UniqueKeys,omitempty"`
 	CompletedAt      *time.Time `json:"completedAt,omitempty" format:"date-time"`
 }
 
@@ -345,6 +349,10 @@ func toDatasetGoldSourcePipelineRunBody(item *service.DatasetGoldSourceDataPipel
 		RunPublicID:      item.RunPublicID,
 		RunStatus:        item.RunStatus,
 		OutputNodeID:     item.OutputNodeID,
+		OutputRowCount:   item.OutputRowCount,
+		OutputWriteMode:  item.OutputWriteMode,
+		SCD2MergePolicy:  item.SCD2MergePolicy,
+		SCD2UniqueKeys:   item.SCD2UniqueKeys,
 		CompletedAt:      item.CompletedAt,
 	}
 }

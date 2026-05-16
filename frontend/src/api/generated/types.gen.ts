@@ -1049,10 +1049,14 @@ export type DatasetGoldSourcePipelineRunBody = {
      */
     completedAt?: string;
     outputNodeId: string;
+    outputRowCount: number;
+    outputWriteMode?: 'replace' | 'append' | 'scd2_merge';
     pipelineName: string;
     pipelinePublicId: string;
     runPublicId: string;
     runStatus: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
+    scd2MergePolicy?: 'current_only' | 'rebuild_key_history';
+    scd2UniqueKeys?: Array<string> | null;
 };
 
 export type DatasetImportErrorBody = {

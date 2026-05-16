@@ -179,7 +179,7 @@ Local Search / RAG:
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
 - 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint の初期実装は完了したため、次は backend step catalog / generated contract へのさらなる集約、SCD2 / Gold publish / snapshot 運用 UI の validation 表示を進めます。
-- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown、Gold detail の source SCD2 summary 表示、Gold detail から同期元 Work table / source Data Pipeline への deep link、Data Pipeline Runs tab の output から Gold detail への link まで進みました。次の改善は、SCD2 削除検知 policy、Gold detail の quality summary、run/output 行への深い選択リンク、または composite key 履歴 drilldown です。
+- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown、Gold detail の source SCD2 summary 表示、Gold detail から同期元 Work table / source Data Pipeline への deep link、Data Pipeline Runs tab の output から Gold detail への link、Gold detail の source output metadata summary まで進みました。次の改善は、SCD2 削除検知 policy、Gold detail の quality summary、run/output 行への深い選択リンク、または composite key 履歴 drilldown です。
 
 ### Drive / RAG の課題
 
