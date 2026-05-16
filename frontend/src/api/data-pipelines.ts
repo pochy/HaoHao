@@ -1,5 +1,10 @@
 import { apiErrorFromResponse, readCookie } from './client'
 import { randomID } from '../utils/id'
+import type {
+  DataPipelineGraphValidationBody as GeneratedDataPipelineGraphValidationBody,
+  DataPipelineNodeWarningBody as GeneratedDataPipelineNodeWarningBody,
+  DataPipelineOutputSchemaBody as GeneratedDataPipelineOutputSchemaBody,
+} from './generated/types.gen'
 
 export type DataPipelineStepType =
   | 'input'
@@ -202,27 +207,19 @@ export type DataPipelinePreviewBody = {
   outputSchemas?: DataPipelineOutputSchemaBody[]
 }
 
-export type DataPipelineOutputSchemaBody = {
-  nodeId: string
-  stepType: string
+export type DataPipelineOutputSchemaBody = Omit<GeneratedDataPipelineOutputSchemaBody, 'columns' | 'warnings'> & {
   columns: string[]
   warnings?: string[]
 }
 
-export type DataPipelineGraphValidationBody = {
-  validationSummary: { valid: boolean, errors: string[] }
-  outputSchemas: DataPipelineOutputSchemaBody[]
-  nodeWarnings: DataPipelineNodeWarningBody[]
-}
-
-export type DataPipelineNodeWarningBody = {
-  nodeId: string
-  stepType: string
-  code: 'missing_upstream_columns' | 'missing_right_upstream_columns' | string
-  severity: 'warning' | 'error' | string
-  message: string
+export type DataPipelineNodeWarningBody = Omit<GeneratedDataPipelineNodeWarningBody, 'columns' | 'configKeys'> & {
   columns: string[]
   configKeys?: string[]
+}
+
+export type DataPipelineGraphValidationBody = Omit<GeneratedDataPipelineGraphValidationBody, 'outputSchemas' | 'nodeWarnings'> & {
+  outputSchemas: DataPipelineOutputSchemaBody[]
+  nodeWarnings: DataPipelineNodeWarningBody[]
 }
 
 export type DataPipelineReviewCommentBody = {

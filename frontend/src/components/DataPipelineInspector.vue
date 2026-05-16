@@ -982,6 +982,9 @@ function columnsForNodeOutput(nodeId?: string, visited = new Set<string>()): str
   if (backendSchemaColumns && backendSchemaColumns.length > 0) {
     return backendSchemaColumns
   }
+  if (props.pipelinePublicId) {
+    return []
+  }
   const config = node.id === props.selectedNodeId ? configDraft.value : asRecord(node.data.config)
   const upstreamIds = incomingNodeIds(node.id)
   const upstreamColumns = () => firstAvailableUpstreamColumns(upstreamIds, visited)
