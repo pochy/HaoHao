@@ -249,6 +249,7 @@ git diff --check
 
 - 2026-05-14 に、preview 実行なしで `outputSchemas` と missing-column warnings を返す軽量 validation endpoint を追加した。詳細は `docs/DATA_PIPELINE_VALIDATION_ENDPOINT_PLAN.md` を参照する。
 - 2026-05-16 に、`dataPipelineStepCatalog` の全 step type が backend `inferOutputSchemas` で non-empty schema を返すことを `TestInferOutputSchemasCoversEveryCatalogStep` で固定した。これにより、step 追加時に backend validation schema の追随漏れを検出できる。
+- 保存済み pipeline では validation endpoint を missing-column warning の primary source とし、validation 未取得時は Inspector の local fallback warning を表示しない。local fallback は列候補表示の補助と、pipelinePublicId がない一時状態向けに残す。
 - backend の `dataPipelineStepCatalog` または近い場所に output schema metadata を持たせる。
 - frontend は `data-pipeline-step-output-schema.ts` の手書き contract を endpoint 未取得時の fallback に寄せ、最終的には generated contract または API から取得した step schema を使う。
 - static output schema だけでは表現できない config-dependent columns は、次のような resolver として定義する。

@@ -98,10 +98,11 @@ make smoke-data-pipeline-product-review
 - 軽量 validation endpoint が preview 実行なしで graph 全体の output schema と missing-column warnings を返すようにした。
 - Inspector は validation result を primary source とし、local inference は fallback として残した。
 - `dataPipelineStepCatalog` の全 step type が backend `inferOutputSchemas` で non-empty schema を返すことを `TestInferOutputSchemasCoversEveryCatalogStep` で固定した。今後 step を追加して backend schema 推論を忘れると service test が落ちる。
+- 保存済み pipeline では validation endpoint を missing-column warning の正本とし、validation 未取得時は Inspector の local fallback warning を表示しない。local fallback は列候補生成と pipelinePublicId がない一時状態向けに残す。
 
 残課題:
 
-- frontend の `data-pipeline-step-output-schema.ts` は endpoint 未取得時の fallback として残っている。次は fallback の責務を明文化するか、generated contract / API 取得へさらに寄せる。
+- frontend の `data-pipeline-step-output-schema.ts` は列候補生成の fallback として残っている。次は generated contract / API 取得へさらに寄せる。
 - 新しい node / 出力列を追加するたびに、backend runtime 出力、validation endpoint、Inspector fallback、smoke を同時に確認する。
 
 ### Month 3: Runtime Node / Output

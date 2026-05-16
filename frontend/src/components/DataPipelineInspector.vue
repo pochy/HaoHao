@@ -1016,6 +1016,9 @@ function selectedMissingColumnWarnings() {
       .filter((warning) => warning.nodeId === selectedNode.value?.id)
       .map(validationWarningMessage)
   }
+  if (props.pipelinePublicId) {
+    return []
+  }
   const warnings: string[] = []
   const primaryMissing = missingColumns(configuredPrimaryColumnRefs(stepType.value, configDraft.value), primaryColumns.value)
   if (primaryMissing.length > 0) {
