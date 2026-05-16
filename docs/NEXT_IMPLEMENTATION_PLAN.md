@@ -183,8 +183,8 @@ Local Search / RAG:
 - 既存 UI / DB / API は metadata を受ける余地があります。
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
-- 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint、catalog coverage test、保存済み pipeline での local fallback warning 抑制は完了したため、次は generated contract / API 取得へのさらなる集約を進めます。
-- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown、composite key 履歴 drilldown、Gold detail の source SCD2 summary 表示、Gold detail から同期元 Work table / source Data Pipeline run-output への deep link、Data Pipeline Runs tab の output から Gold detail への link、Gold detail の source output metadata summary、source quality summary、Gold publish history row から source Data Pipeline run/output への deep link、publish run 作成時点の source run/output 参照永続化まで進みました。`deleteDetection=close_current` v1 と `sameValidFromPolicy=reject` v1 は backend / smoke / Output 設定 UI まで追加済みです。次の改善は backend step catalog / generated contract への output schema 単一正本化です。
+- 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint、catalog coverage test、保存済み pipeline での local fallback warning 抑制、frontend palette / node catalog の backend contract 取得は完了したため、次は output schema inference の generated contract / API 取得へのさらなる集約を進めます。
+- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown、composite key 履歴 drilldown、Gold detail の source SCD2 summary 表示、Gold detail から同期元 Work table / source Data Pipeline run-output への deep link、Data Pipeline Runs tab の output から Gold detail への link、Gold detail の source output metadata summary、source quality summary、Gold publish history row から source Data Pipeline run/output への deep link、publish run 作成時点の source run/output 参照永続化まで進みました。`deleteDetection=close_current` v1 と `sameValidFromPolicy=reject` v1 は backend / smoke / Output 設定 UI まで追加済みです。さらに palette / node catalog は backend step catalog contract から取得するようになりました。
 
 ### Drive / RAG の課題
 

@@ -16,6 +16,7 @@ import {
   type DataPipelineEdge,
   type DataPipelineGraph,
   type DataPipelineGraphValidationBody,
+  type DataPipelineStepCatalogItemBody,
   type DataPipelineNodeWarningBody,
   type DataPipelineNode as PipelineNode,
   type DataPipelineStepType,
@@ -25,7 +26,7 @@ import DataPipelineNode from './DataPipelineNode.vue'
 const props = defineProps<{
   graph: DataPipelineGraph
   selectedNodeId: string
-  nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }>
+  nodeCatalog: DataPipelineStepCatalogItemBody[]
   validation?: DataPipelineGraphValidationBody | null
 }>()
 
@@ -61,44 +62,6 @@ const autoLayoutNodeFallbackWidth = 220
 const autoLayoutNodeHeight = 78
 const autoLayoutRowSpacing = autoLayoutRowGap - autoLayoutNodeHeight
 const snapGridSize = 15
-const stepOrder: Record<DataPipelineStepType, number> = {
-  input: 0,
-  profile: 10,
-  clean: 20,
-  normalize: 30,
-  validate: 40,
-  schema_mapping: 50,
-  schema_completion: 60,
-  union: 66,
-  join: 68,
-  enrich_join: 70,
-  transform: 80,
-  extract_text: 12,
-  json_extract: 13,
-  excel_extract: 14,
-  classify_document: 15,
-  extract_fields: 16,
-  extract_table: 18,
-  product_extraction: 19,
-  detect_language_encoding: 19,
-  canonicalize: 22,
-  redact_pii: 24,
-  deduplicate: 26,
-  schema_inference: 62,
-  entity_resolution: 72,
-  unit_conversion: 74,
-  relationship_extraction: 76,
-  human_review: 92,
-  sample_compare: 94,
-  quality_report: 96,
-  confidence_gate: 90,
-  quarantine: 91,
-  route_by_condition: 93,
-  partition_filter: 84,
-  watermark_filter: 85,
-  snapshot_scd2: 86,
-  output: 1000,
-}
 const paletteCategories = [
   { id: 'input_output', labelKey: 'dataPipelines.paletteCategories.inputOutput' },
   { id: 'extraction', labelKey: 'dataPipelines.paletteCategories.extraction' },
@@ -107,44 +70,6 @@ const paletteCategories = [
   { id: 'schema', labelKey: 'dataPipelines.paletteCategories.schema' },
 ] as const
 type PaletteCategory = typeof paletteCategories[number]['id']
-const stepCategory: Record<DataPipelineStepType, PaletteCategory> = {
-  input: 'input_output',
-  output: 'input_output',
-  extract_text: 'extraction',
-  json_extract: 'extraction',
-  excel_extract: 'extraction',
-  classify_document: 'extraction',
-  extract_fields: 'extraction',
-  extract_table: 'extraction',
-  product_extraction: 'extraction',
-  confidence_gate: 'quality',
-  quarantine: 'quality',
-  route_by_condition: 'quality',
-  partition_filter: 'transform',
-  watermark_filter: 'transform',
-  snapshot_scd2: 'transform',
-  deduplicate: 'quality',
-  canonicalize: 'quality',
-  redact_pii: 'quality',
-  detect_language_encoding: 'quality',
-  schema_inference: 'schema',
-  entity_resolution: 'transform',
-  unit_conversion: 'transform',
-  relationship_extraction: 'transform',
-  human_review: 'quality',
-  sample_compare: 'quality',
-  quality_report: 'quality',
-  clean: 'quality',
-  normalize: 'quality',
-  validate: 'quality',
-  profile: 'transform',
-  union: 'transform',
-  join: 'transform',
-  enrich_join: 'transform',
-  transform: 'transform',
-  schema_mapping: 'schema',
-  schema_completion: 'schema',
-}
 const categoryIcons: Record<PaletteCategory, typeof GitBranch> = {
   input_output: ArrowDownToLine,
   extraction: GitBranch,
@@ -158,7 +83,7 @@ const paletteGroups = computed(() => {
   const catalog = props.nodeCatalog
     .map((node) => ({
       ...node,
-      category: stepCategory[node.type],
+      category: paletteCategory(node.category),
       descriptionKey: `dataPipelines.stepDescriptions.${node.type}`,
       detailKey: `dataPipelines.stepDetails.${node.type}`,
     }))
@@ -182,6 +107,13 @@ const validationWarningsByNode = computed(() => {
     warnings.set(warning.nodeId, [...(warnings.get(warning.nodeId) ?? []), warning])
   }
   return warnings
+})
+const stepOrder = computed(() => {
+  const order = new Map<string, number>()
+  for (const item of props.nodeCatalog) {
+    order.set(item.type, item.order)
+  }
+  return order
 })
 
 watch(
@@ -643,11 +575,15 @@ function fallbackAutoLayoutPositions(graphNodes: PipelineNode[], graphEdges: Dat
 }
 
 function compareNodes(a: PipelineNode, b: PipelineNode, nodeIndex: Map<string, number>) {
-  const orderDiff = (stepOrder[a.data.stepType] ?? 500) - (stepOrder[b.data.stepType] ?? 500)
+  const orderDiff = (stepOrder.value.get(a.data.stepType) ?? 500) - (stepOrder.value.get(b.data.stepType) ?? 500)
   if (orderDiff !== 0) {
     return orderDiff
   }
   return (nodeIndex.get(a.id) ?? 0) - (nodeIndex.get(b.id) ?? 0)
+}
+
+function paletteCategory(value: string): PaletteCategory {
+  return paletteCategories.some((category) => category.id === value) ? value as PaletteCategory : 'transform'
 }
 
 function snapValue(value: number) {

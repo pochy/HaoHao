@@ -22,7 +22,7 @@ Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Mont
 
 現在の次タスクは、機能をさらに横に増やすことではなく、運用 UI と説明性を強くすることです。優先候補は次です。
 
-1. Backend step catalog / generated contract への output schema 単一正本化。
+1. Frontend palette は backend step catalog contract 取得へ移行済み。残る集約対象は output schema inference の完全 generated/API contract 化。
 2. `mark_deleted` / winner policy などの高度 SCD2 policy 検討。
 3. Month 3 optional hardening の残確認。既存 Gold publish run 行の source run/output 参照 backfill は `0050_backfill_dataset_gold_publish_run_source_refs` で migration 化し、2026-05-16 の local DB 検証で version 50 / dirty=false、既存 publish run 4/4 件の補完まで確認済み。
 
@@ -102,7 +102,7 @@ make smoke-data-pipeline-product-review
 
 残課題:
 
-- frontend の `data-pipeline-step-output-schema.ts` は列候補生成の fallback として残っている。次は generated contract / API 取得へさらに寄せる。
+- frontend palette / node catalog は `/api/v1/data-pipelines/step-catalog` から `type`、`category`、`order`、`labelKey` を取得する。`DataPipelineFlowBuilder.vue` のカテゴリ分けと auto layout ordering はこの contract を使う。frontend の `data-pipeline-step-output-schema.ts` は列候補生成の fallback として残っているため、次は output schema inference も generated/API contract へさらに寄せる。
 - 新しい node / 出力列を追加するたびに、backend runtime 出力、validation endpoint、Inspector fallback、smoke を同時に確認する。
 
 ### Month 3: Runtime Node / Output
@@ -323,7 +323,7 @@ docker exec haohao-clickhouse clickhouse-client --query \
 
 ## 次にやること
 
-最優先候補は `backend step catalog / generated contract への output schema 単一正本化` です。Gold publish history の厳密履歴化は、source run/output ID の永続化まで完了しました。
+最優先候補は output schema inference の generated/API contract 化です。Frontend palette / node catalog の backend contract 化と Gold publish history の厳密履歴化は完了しました。
 
 実装案:
 
@@ -332,4 +332,4 @@ docker exec haohao-clickhouse clickhouse-client --query \
 次点候補:
 
 - `validate` の行単位 status column と quarantine 連携を設計する。
-- backend step catalog / generated contract への output schema 単一正本化を進める。
+- output schema inference の generated/API contract 化を進める。palette / node catalog は backend contract に寄せ済み。

@@ -45,7 +45,7 @@ Data Pipeline は、Month 1 から Month 3 の v1 範囲については、実行
 - composite key の SCD2 key history API / UI v1。
 - Gold publish history と Data Pipeline run history の厳密履歴化。publish run 作成時点の source run/output 参照永続化まで完了済み。
 - `validate` の行単位 status column と quarantine 連携。
-- backend step catalog / generated contract への output schema 単一正本化。
+- backend step catalog / generated contract への集約は、frontend palette / node catalog を `/api/v1/data-pipelines/step-catalog` から取得する段階まで完了。output schema inference の完全 generated/API contract 化は後続 hardening。
 - review item の担当者割当、修正値の再投入 run、review 履歴 UI。
 - Data Pipeline / Gold / Drive / RAG の E2E coverage 拡張。
 
@@ -134,7 +134,7 @@ bfcbb4a Align data pipeline inspector column inference
 
 残課題:
 
-- backend step catalog / generated contract へ output schema をさらに集約する。
+- output schema inference を generated/API contract へさらに集約する。frontend palette / node catalog は backend step catalog contract 取得へ移行済み。
 - node 追加時は runtime 出力、validation endpoint、Inspector fallback、smoke を同時に確認する。
 
 ### SCD2 merge の再実行 idempotency

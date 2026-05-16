@@ -315,7 +315,7 @@ Data Pipeline:
 
 - `mark_deleted` policy。
 - `latest_ingested_wins` などの高度 winner policy。
-- backend step catalog / generated output schema contract。
+- output schema inference の generated/API contract。frontend palette / node catalog は `/api/v1/data-pipelines/step-catalog` 取得へ移行済み。
 - `validate` status column と quarantine 連携。
 
 Gold / Lineage:

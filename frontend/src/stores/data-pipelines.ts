@@ -9,6 +9,7 @@ import {
   fetchDataPipeline,
   fetchDataPipelineReviewItems,
   fetchDataPipelineRuns,
+  fetchDataPipelineStepCatalog,
   fetchDataPipelines,
   isDataPipelineAutoPreviewEnabled,
   isDataPipelineDraftRunPreviewGraph,
@@ -29,6 +30,7 @@ import {
   type DataPipelineRunBody,
   type DataPipelineScheduleBody,
   type DataPipelineScheduleWriteBody,
+  type DataPipelineStepCatalogItemBody,
   type DataPipelineVersionBody,
 } from '../api/data-pipelines'
 import { i18n } from '../i18n'
@@ -63,6 +65,7 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
     runs: [] as DataPipelineRunBody[],
     reviewItems: [] as DataPipelineReviewItemBody[],
     schedules: [] as DataPipelineScheduleBody[],
+    stepCatalog: [] as DataPipelineStepCatalogItemBody[],
     actionLoading: false,
     previewLoading: false,
     previewLoadingNodeId: '',
@@ -130,6 +133,7 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
       this.runs = []
       this.reviewItems = []
       this.schedules = []
+      this.stepCatalog = []
       this.errorMessage = ''
       this.actionMessage = ''
       this.actionLoading = false
@@ -166,6 +170,15 @@ export const useDataPipelineStore = defineStore('data-pipelines', {
         this.status = toApiErrorStatus(error) === 403 || isApiForbidden(error) ? 'forbidden' : 'error'
         this.errorMessage = toApiErrorMessage(error)
       }
+    },
+
+    async loadStepCatalog() {
+      if (this.stepCatalog.length > 0) {
+        return this.stepCatalog
+      }
+      const result = await fetchDataPipelineStepCatalog()
+      this.stepCatalog = result.items
+      return this.stepCatalog
     },
 
     async loadDetail(publicId: string) {

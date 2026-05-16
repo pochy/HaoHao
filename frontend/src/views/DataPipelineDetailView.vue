@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, History, MoreHorizontal, Play, RefreshCw, RotateCcw, RotateCw, Save, Send, Settings2, Workflow, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import { isDataPipelineDraftRunPreviewGraph, sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineNodeWarningBody, type DataPipelineScheduleWriteBody, type DataPipelineStepType, type DataPipelineVersionBody } from '../api/data-pipelines'
+import { isDataPipelineDraftRunPreviewGraph, sanitizeDataPipelineGraph, type DataPipelineGraph, type DataPipelineNodeWarningBody, type DataPipelineScheduleWriteBody, type DataPipelineStepCatalogItemBody, type DataPipelineStepType, type DataPipelineVersionBody } from '../api/data-pipelines'
 import AdminAccessDenied from '../components/AdminAccessDenied.vue'
 import DataPipelineFlowBuilder from '../components/DataPipelineFlowBuilder.vue'
 import DataPipelineInspector from '../components/DataPipelineInspector.vue'
@@ -61,44 +61,7 @@ const graphHistory = ref<GraphHistory>({
   future: [],
 })
 
-const nodeCatalog: Array<{ type: DataPipelineStepType, labelKey: string }> = [
-  { type: 'input', labelKey: 'dataPipelines.step.input' },
-  { type: 'extract_text', labelKey: 'dataPipelines.step.extract_text' },
-  { type: 'json_extract', labelKey: 'dataPipelines.step.json_extract' },
-  { type: 'excel_extract', labelKey: 'dataPipelines.step.excel_extract' },
-  { type: 'classify_document', labelKey: 'dataPipelines.step.classify_document' },
-  { type: 'extract_fields', labelKey: 'dataPipelines.step.extract_fields' },
-  { type: 'extract_table', labelKey: 'dataPipelines.step.extract_table' },
-  { type: 'product_extraction', labelKey: 'dataPipelines.step.product_extraction' },
-  { type: 'deduplicate', labelKey: 'dataPipelines.step.deduplicate' },
-  { type: 'canonicalize', labelKey: 'dataPipelines.step.canonicalize' },
-  { type: 'redact_pii', labelKey: 'dataPipelines.step.redact_pii' },
-  { type: 'detect_language_encoding', labelKey: 'dataPipelines.step.detect_language_encoding' },
-  { type: 'schema_inference', labelKey: 'dataPipelines.step.schema_inference' },
-  { type: 'entity_resolution', labelKey: 'dataPipelines.step.entity_resolution' },
-  { type: 'unit_conversion', labelKey: 'dataPipelines.step.unit_conversion' },
-  { type: 'relationship_extraction', labelKey: 'dataPipelines.step.relationship_extraction' },
-  { type: 'profile', labelKey: 'dataPipelines.step.profile' },
-  { type: 'clean', labelKey: 'dataPipelines.step.clean' },
-  { type: 'normalize', labelKey: 'dataPipelines.step.normalize' },
-  { type: 'validate', labelKey: 'dataPipelines.step.validate' },
-  { type: 'schema_mapping', labelKey: 'dataPipelines.step.schema_mapping' },
-  { type: 'schema_completion', labelKey: 'dataPipelines.step.schema_completion' },
-  { type: 'union', labelKey: 'dataPipelines.step.union' },
-  { type: 'join', labelKey: 'dataPipelines.step.join' },
-  { type: 'enrich_join', labelKey: 'dataPipelines.step.enrich_join' },
-  { type: 'transform', labelKey: 'dataPipelines.step.transform' },
-  { type: 'confidence_gate', labelKey: 'dataPipelines.step.confidence_gate' },
-  { type: 'quarantine', labelKey: 'dataPipelines.step.quarantine' },
-  { type: 'route_by_condition', labelKey: 'dataPipelines.step.route_by_condition' },
-  { type: 'partition_filter', labelKey: 'dataPipelines.step.partition_filter' },
-  { type: 'watermark_filter', labelKey: 'dataPipelines.step.watermark_filter' },
-  { type: 'snapshot_scd2', labelKey: 'dataPipelines.step.snapshot_scd2' },
-  { type: 'human_review', labelKey: 'dataPipelines.step.human_review' },
-  { type: 'sample_compare', labelKey: 'dataPipelines.step.sample_compare' },
-  { type: 'quality_report', labelKey: 'dataPipelines.step.quality_report' },
-  { type: 'output', labelKey: 'dataPipelines.step.output' },
-]
+const nodeCatalog = computed<DataPipelineStepCatalogItemBody[]>(() => store.stepCatalog)
 
 const pipelinePublicId = computed(() => String(route.params.pipelinePublicId ?? ''))
 const focusRunPublicId = computed(() => routeQueryString(route.query.runPublicId))
@@ -256,6 +219,7 @@ async function loadRoutePipeline(slug: string | undefined, publicId: string) {
   }
   await Promise.all([
     store.load(false),
+    store.loadStepCatalog().catch(() => undefined),
     datasetStore.load().catch(() => undefined),
     datasetStore.loadWorkTables().catch(() => undefined),
   ])

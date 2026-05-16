@@ -183,6 +183,17 @@ export type DataPipelineDetailBody = {
   schedules: DataPipelineScheduleBody[]
 }
 
+export type DataPipelineStepCatalogItemBody = {
+  type: DataPipelineStepType
+  category: 'input_output' | 'extraction' | 'transform' | 'quality' | 'schema' | string
+  order: number
+  labelKey: string
+}
+
+export type DataPipelineStepCatalogBody = {
+  items: DataPipelineStepCatalogItemBody[]
+}
+
 export type DataPipelinePreviewBody = {
   nodeId: string
   stepType: string
@@ -555,6 +566,11 @@ export async function createDataPipeline(body: { name: string, description?: str
 
 export async function fetchDataPipeline(publicId: string): Promise<DataPipelineDetailBody> {
   return request<DataPipelineDetailBody>(`/api/v1/data-pipelines/${encodeURIComponent(publicId)}`)
+}
+
+export async function fetchDataPipelineStepCatalog(): Promise<DataPipelineStepCatalogBody> {
+  const data = await request<{ items?: DataPipelineStepCatalogItemBody[] }>('/api/v1/data-pipelines/step-catalog')
+  return { items: data.items ?? [] }
 }
 
 export async function updateDataPipeline(publicId: string, body: { name: string, description?: string }): Promise<DataPipelineBody> {

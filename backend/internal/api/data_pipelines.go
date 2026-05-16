@@ -132,6 +132,17 @@ type DataPipelineScheduleListBody struct {
 	Items []DataPipelineScheduleBody `json:"items"`
 }
 
+type DataPipelineStepCatalogItemBody struct {
+	Type     string `json:"type"`
+	Category string `json:"category"`
+	Order    int    `json:"order"`
+	LabelKey string `json:"labelKey"`
+}
+
+type DataPipelineStepCatalogBody struct {
+	Items []DataPipelineStepCatalogItemBody `json:"items"`
+}
+
 type DataPipelinePreviewBody struct {
 	NodeID        string                         `json:"nodeId"`
 	StepType      string                         `json:"stepType"`
@@ -360,6 +371,10 @@ type DataPipelineScheduleListOutput struct {
 	Body DataPipelineScheduleListBody
 }
 
+type DataPipelineStepCatalogOutput struct {
+	Body DataPipelineStepCatalogBody
+}
+
 type DataPipelineCreateInput struct {
 	SessionCookie  http.Cookie `cookie:"SESSION_ID"`
 	CSRFToken      string      `header:"X-CSRF-Token" required:"true"`
@@ -377,6 +392,10 @@ type DataPipelineListInput struct {
 	Sort          string      `query:"sort" enum:"updated_desc,updated_asc,created_desc,created_asc,name_asc,name_desc,latest_run_desc" default:"updated_desc"`
 	Cursor        string      `query:"cursor"`
 	Limit         int32       `query:"limit" minimum:"1" maximum:"100" default:"25"`
+}
+
+type DataPipelineStepCatalogInput struct {
+	SessionCookie http.Cookie `cookie:"SESSION_ID"`
 }
 
 type DataPipelineByPublicIDInput struct {
@@ -574,6 +593,22 @@ func registerDataPipelineRoutes(api huma.API, deps Dependencies) {
 			return nil, err
 		}
 		return &DataPipelineOutput{Body: body}, nil
+	})
+
+	huma.Register(api, huma.Operation{OperationID: "listDataPipelineStepCatalog", Method: http.MethodGet, Path: "/api/v1/data-pipelines/step-catalog", Summary: "data pipeline step catalog を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineStepCatalogInput) (*DataPipelineStepCatalogOutput, error) {
+		if _, _, err := requireDataPipelineTenant(ctx, deps, input.SessionCookie.Value, ""); err != nil {
+			return nil, err
+		}
+		body := DataPipelineStepCatalogBody{Items: make([]DataPipelineStepCatalogItemBody, 0, len(service.DataPipelineStepCatalog()))}
+		for _, entry := range service.DataPipelineStepCatalog() {
+			body.Items = append(body.Items, DataPipelineStepCatalogItemBody{
+				Type:     entry.Type,
+				Category: entry.Category,
+				Order:    entry.Order,
+				LabelKey: "dataPipelines.step." + entry.Type,
+			})
+		}
+		return &DataPipelineStepCatalogOutput{Body: body}, nil
 	})
 
 	huma.Register(api, huma.Operation{OperationID: "getDataPipeline", Method: http.MethodGet, Path: "/api/v1/data-pipelines/{pipelinePublicId}", Summary: "data pipeline detail を返す", Tags: []string{DocTagDataDatasets}, Security: []map[string][]string{{"cookieAuth": {}}}}, func(ctx context.Context, input *DataPipelineByPublicIDInput) (*DataPipelineDetailOutput, error) {
