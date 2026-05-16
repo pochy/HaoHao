@@ -220,6 +220,15 @@ type DatasetWorkTableSCD2SummaryBody struct {
 	LatestValidAt   string `json:"latestValidAt,omitempty" example:"2026-05-03 00:00:00"`
 }
 
+type DatasetWorkTableSCD2HistoryBody struct {
+	Database    string           `json:"database" example:"hh_t_1_work"`
+	Table       string           `json:"table" example:"hai_category_snapshot"`
+	KeyColumn   string           `json:"keyColumn" example:"id"`
+	KeyValue    string           `json:"keyValue" example:"SKU-001"`
+	Columns     []string         `json:"columns"`
+	HistoryRows []map[string]any `json:"historyRows"`
+}
+
 type DatasetRowsPageBody struct {
 	Columns    []string         `json:"columns"`
 	Rows       []map[string]any `json:"rows"`
@@ -371,6 +380,10 @@ type DatasetWorkTablePreviewOutput struct {
 	Body DatasetWorkTablePreviewBody
 }
 
+type DatasetWorkTableSCD2HistoryOutput struct {
+	Body DatasetWorkTableSCD2HistoryBody
+}
+
 type DatasetRowsPageOutput struct {
 	Body DatasetRowsPageBody
 }
@@ -512,6 +525,13 @@ type DatasetRowsPageInput struct {
 type DatasetWorkTablePreviewByPublicIDInput struct {
 	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
 	WorkTablePublicID string      `path:"workTablePublicId" format:"uuid"`
+	Limit             int32       `query:"limit" minimum:"1" maximum:"1000" default:"100"`
+}
+
+type DatasetWorkTableSCD2HistoryInput struct {
+	SessionCookie     http.Cookie `cookie:"SESSION_ID"`
+	WorkTablePublicID string      `path:"workTablePublicId" format:"uuid"`
+	Key               string      `query:"key" maxLength:"512"`
 	Limit             int32       `query:"limit" minimum:"1" maximum:"1000" default:"100"`
 }
 
@@ -997,6 +1017,28 @@ func registerDatasetRoutes(api huma.API, deps Dependencies) {
 			return nil, toDatasetHTTPError(ctx, deps, "getManagedDatasetWorkTablePreview", err)
 		}
 		return &DatasetWorkTablePreviewOutput{Body: toDatasetWorkTablePreviewBody(preview)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getManagedDatasetWorkTableSCD2History",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/dataset-work-tables/{workTablePublicId}/scd2-history",
+		Summary:     "managed SCD2 work table の key history rows を返す",
+		Tags:        []string{DocTagDataDatasets},
+		Security:    []map[string][]string{{"cookieAuth": {}}},
+	}, func(ctx context.Context, input *DatasetWorkTableSCD2HistoryInput) (*DatasetWorkTableSCD2HistoryOutput, error) {
+		current, tenant, err := requireDatasetTenant(ctx, deps, input.SessionCookie.Value, "")
+		if err != nil {
+			return nil, err
+		}
+		if err := checkDatasetResourceAction(ctx, deps, tenant.ID, current.User.ID, service.DataResourceWorkTable, input.WorkTablePublicID, service.DataActionPreview); err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getManagedDatasetWorkTableSCD2History", err)
+		}
+		history, err := deps.DatasetService.GetManagedWorkTableSCD2History(ctx, tenant.ID, input.WorkTablePublicID, input.Key, input.Limit)
+		if err != nil {
+			return nil, toDatasetHTTPError(ctx, deps, "getManagedDatasetWorkTableSCD2History", err)
+		}
+		return &DatasetWorkTableSCD2HistoryOutput{Body: toDatasetWorkTableSCD2HistoryBody(history)}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -2038,6 +2080,17 @@ func toDatasetWorkTableSCD2SummaryBody(item *service.DatasetWorkTableSCD2Summary
 		KeyCount:        item.KeyCount,
 		EarliestValidAt: item.EarliestValidAt,
 		LatestValidAt:   item.LatestValidAt,
+	}
+}
+
+func toDatasetWorkTableSCD2HistoryBody(item service.DatasetWorkTableSCD2History) DatasetWorkTableSCD2HistoryBody {
+	return DatasetWorkTableSCD2HistoryBody{
+		Database:    item.Database,
+		Table:       item.Table,
+		KeyColumn:   item.KeyColumn,
+		KeyValue:    item.KeyValue,
+		Columns:     item.Columns,
+		HistoryRows: item.HistoryRows,
 	}
 }
 

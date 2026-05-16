@@ -961,6 +961,15 @@ async function assertSCD2WorkTablePreviewSummary(run, expected) {
       throw new Error(`SCD2 preview columns missing ${column}: ${JSON.stringify(preview.columns)}`)
     }
   }
+  const history = await request(`/api/v1/dataset-work-tables/${encodeURIComponent(workTablePublicId)}/scd2-history?key=1&limit=100`)
+  if (history.keyColumn !== 'id' || history.keyValue !== '1' || (history.historyRows ?? []).length !== 3) {
+    throw new Error(`SCD2 key history unexpected: ${JSON.stringify(history)}`)
+  }
+  for (const column of ['valid_from', 'valid_to', 'is_current', 'change_hash']) {
+    if (!history.columns?.includes(column)) {
+      throw new Error(`SCD2 key history columns missing ${column}: ${JSON.stringify(history.columns)}`)
+    }
+  }
   return { workTablePublicId, scd2Summary: summary }
 }
 

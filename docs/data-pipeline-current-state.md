@@ -103,7 +103,7 @@ Data Pipeline で「metadata に保存する」と言う場合、何のための
 
 つまり、UI や run 履歴で見たい step summary は PostgreSQL の `data_pipeline_run_steps.metadata`、後続処理が行ごとに読む判定は ClickHouse の列、最終 output の情報は `data_pipeline_run_outputs.metadata` に置くのが基本です。
 
-SCD2 / snapshot output の場合、current/history の状態は ClickHouse の行データ列です。`is_current=1` の行が current row、`is_current=0` の行が history row です。Work table preview API は `valid_from`、`valid_to`、`is_current`、`change_hash` が揃う table を SCD2 table として検出し、`scd2Summary` として table 全体の row count、current/history row count、key count、`valid_from` の最小 / 最大を返します。Work table preview UI はこの summary を表示し、`All` / `Current` / `History` filter を提供します。ただし filter は読み込み済み preview rows だけを対象にします。key 単位履歴を監査値として扱う場合は、別途 key drilldown query を追加する必要があります。
+SCD2 / snapshot output の場合、current/history の状態は ClickHouse の行データ列です。`is_current=1` の行が current row、`is_current=0` の行が history row です。Work table preview API は `valid_from`、`valid_to`、`is_current`、`change_hash` が揃う table を SCD2 table として検出し、`scd2Summary` として table 全体の row count、current/history row count、key count、`valid_from` の最小 / 最大を返します。Work table preview UI はこの summary を表示し、`All` / `Current` / `History` filter を提供します。ただし filter は読み込み済み preview rows だけを対象にします。key 単位履歴は `/api/v1/dataset-work-tables/{workTablePublicId}/scd2-history?key=...` で取得し、同じ UI から時系列で確認できます。
 
 ## Graph Contract
 

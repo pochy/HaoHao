@@ -223,11 +223,21 @@ Data Pipeline の `snapshot_scd2` と output `writeMode=scd2_merge` により、
 - `earliestValidAt`: `valid_from` の最小値。
 - `latestValidAt`: `valid_from` の最大値。
 
+Key 単位履歴 drilldown:
+
+- `GET /api/v1/dataset-work-tables/{workTablePublicId}/scd2-history?key=...&limit=100` を追加した。
+- preview と同じく Work table の `can_preview` 権限を要求する。
+- SCD2 列が揃っていない table、または key column を推定できない table では invalid input として扱う。
+- key column は summary と同じ候補順で `id`、`product_id`、`sku`、`file_public_id` から推定する。
+- query は `toString(key_column) = key` で絞り込み、`valid_from ASC` で返す。
+- Work table UI では SCD2 panel に key 入力欄を出し、指定 key の履歴 rows を時系列で表示する。
+
 注意点:
 
 - summary の件数は table 全体を対象にする。
 - `All` / `Current` / `History` filter は、引き続き現在読み込まれている preview rows だけを対象にする。
 - key column は output metadata からではなく列名候補で推定しているため、業務 key が別名の場合は `keyColumn` / `keyCount` が空または 0 になる。
+- key 単位履歴 drilldown も同じ key 推定に依存する。
 
 実装中に見つかった権限問題:
 
@@ -239,7 +249,6 @@ Data Pipeline の `snapshot_scd2` と output `writeMode=scd2_merge` により、
 今後の拡張候補:
 
 - key column を output metadata や lineage から取得し、候補推定ではなく正確に表示する。
-- key value を指定して履歴 rows を時系列で表示する。
 - Gold detail 側にも SCD2 policy、current row count、history row count、source pipeline run へのリンクを表示する。
 
 ## 主要コミット

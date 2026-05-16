@@ -26,7 +26,7 @@ frontend build では Monaco / Data Pipeline detail 周辺を中心に大きい 
 - Data Pipeline は多くの node が catalog / UI に存在しますが、すべてが同じ深さで実行・監視できるわけではありません。Month 1 の品質・可観測性の土台、Month 2 の失敗処理 / review queue、Month 3 の主要 runtime node は実装済みです。直近の実装履歴と検証結果は `docs/DATA_PIPELINE_SESSION_HANDOFF.md` を参照してください。
 - `DataPipelineRunStepBody.metadata` は API contract として使われ、`profile`、`validate`、`quality_report`、`confidence_gate`、`inputRows`、`samples`、`queryStats`、Runs tab 詳細、Data Pipeline smoke suite まで実装済みです。
 - Data Pipeline Inspector の上流列警告は、runtime 出力列と frontend 静的推論がずれると false positive になります。`4757732` と `bfcbb4a` で代表 node の推論は修正済みです。さらに `23ec2c6` で preview API が selected subgraph の `outputSchemas` を返すようになりました。2026-05-14 に軽量 validation endpoint の初期実装も追加し、preview 実行なしで backend schema / missing-column warnings を返せるようにしました。詳細は `docs/DATA_PIPELINE_UI_COLUMN_INFERENCE.md` と `docs/DATA_PIPELINE_VALIDATION_ENDPOINT_PLAN.md` を参照してください。
-- SCD2 / snapshot Work table の運用 UI を追加しました。Work table preview で `valid_from`、`valid_to`、`is_current`、`change_hash` が揃う場合に SCD2 table として検出し、table 全体の current/history 件数、key 数、preview filter を表示します。key 単位履歴 drilldown は未実装です。
+- SCD2 / snapshot Work table の運用 UI を追加しました。Work table preview で `valid_from`、`valid_to`、`is_current`、`change_hash` が揃う場合に SCD2 table として検出し、table 全体の current/history 件数、key 数、preview filter、key 単位履歴 drilldown を表示します。
 - Drive OCR、商品抽出、Local Search、pgvector、Drive RAG は主要な足場が動いています。次は broad な機能追加ではなく、評価、追跡、失敗理由、運用導線を強くします。
 - frontend は機能がかなり増え、Data Pipeline detail と Monaco editor の chunk が大きくなっています。運用前に code splitting を改善する余地があります。
 - AI coding 改善は一部だけ実装済みです。repo-local skill として `haohao-db-dev`、`haohao-drive-debug`、`supabase-postgres-best-practices` は使える状態です。一方で `docs/AGENT_KNOWLEDGE_INDEX.md` や RAG/OpenFGA/OpenAPI/frontend 専用 skill、smoke 結果を自動で docs / PR に反映する仕組みはまだありません。
@@ -179,7 +179,7 @@ Local Search / RAG:
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
 - 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint の初期実装は完了したため、次は backend step catalog / generated contract へのさらなる集約、SCD2 / Gold publish / snapshot 運用 UI の validation 表示を進めます。
-- SCD2 / snapshot 運用 UI は table 全体 summary と preview filter まで進みました。次の改善は、key 単位履歴 drilldown、output metadata に基づく正確な key column 表示、Gold detail への SCD2 summary 表示です。
+- SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、key 単位履歴 drilldown まで進みました。次の改善は、output metadata に基づく正確な key column 表示、Gold detail への SCD2 summary 表示です。
 
 ### Drive / RAG の課題
 

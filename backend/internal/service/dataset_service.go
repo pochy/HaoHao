@@ -231,6 +231,15 @@ type DatasetWorkTableSCD2Summary struct {
 	LatestValidAt   string
 }
 
+type DatasetWorkTableSCD2History struct {
+	Database    string
+	Table       string
+	KeyColumn   string
+	KeyValue    string
+	Columns     []string
+	HistoryRows []map[string]any
+}
+
 type DatasetRowsPage struct {
 	Columns    []string
 	Rows       []map[string]any
@@ -1270,6 +1279,68 @@ func (s *DatasetService) PreviewManagedWorkTable(ctx context.Context, tenantID i
 		return DatasetWorkTablePreview{}, ErrDatasetWorkTableNotFound
 	}
 	return s.PreviewWorkTable(ctx, tenantID, row.WorkDatabase, row.WorkTable, limit)
+}
+
+func (s *DatasetService) GetManagedWorkTableSCD2History(ctx context.Context, tenantID int64, publicID, keyValue string, limit int32) (DatasetWorkTableSCD2History, error) {
+	row, err := s.getManagedWorkTableRow(ctx, tenantID, publicID)
+	if err != nil {
+		return DatasetWorkTableSCD2History{}, err
+	}
+	if row.Status != "active" || row.DroppedAt.Valid {
+		return DatasetWorkTableSCD2History{}, ErrDatasetWorkTableNotFound
+	}
+	if strings.TrimSpace(keyValue) == "" {
+		return DatasetWorkTableSCD2History{}, fmt.Errorf("%w: key value is required", ErrInvalidDatasetInput)
+	}
+	if limit <= 0 || limit > datasetPreviewRowLimit {
+		limit = 100
+	}
+	columns, err := s.listWorkTableColumns(ctx, row.WorkDatabase, row.WorkTable)
+	if err != nil {
+		return DatasetWorkTableSCD2History{}, err
+	}
+	columnNames := make([]string, 0, len(columns))
+	for _, column := range columns {
+		columnNames = append(columnNames, column.ColumnName)
+	}
+	if !datasetWorkTableHasSCD2Columns(columnNames) {
+		return DatasetWorkTableSCD2History{}, fmt.Errorf("%w: work table is not an SCD2 snapshot table", ErrInvalidDatasetInput)
+	}
+	keyColumn := datasetWorkTableSCD2KeyColumn(columnNames)
+	if keyColumn == "" {
+		return DatasetWorkTableSCD2History{}, fmt.Errorf("%w: SCD2 key column could not be inferred", ErrInvalidDatasetInput)
+	}
+	conn, err := s.openTenantConn(ctx, tenantID)
+	if err != nil {
+		return DatasetWorkTableSCD2History{}, err
+	}
+	defer conn.Close()
+
+	query := fmt.Sprintf(
+		"SELECT * FROM %s.%s WHERE toString(%s) = ? ORDER BY %s ASC LIMIT %d",
+		quoteCHIdent(row.WorkDatabase),
+		quoteCHIdent(row.WorkTable),
+		quoteCHIdent(keyColumn),
+		quoteCHIdent("valid_from"),
+		limit,
+	)
+	rows, err := conn.Query(clickhouse.Context(ctx, clickhouse.WithSettings(s.querySettings())), query, strings.TrimSpace(keyValue))
+	if err != nil {
+		return DatasetWorkTableSCD2History{}, fmt.Errorf("query SCD2 work table history: %w", err)
+	}
+	defer rows.Close()
+	resultColumns, historyRows, err := scanDatasetRows(rows, int(limit))
+	if err != nil {
+		return DatasetWorkTableSCD2History{}, fmt.Errorf("scan SCD2 work table history: %w", err)
+	}
+	return DatasetWorkTableSCD2History{
+		Database:    row.WorkDatabase,
+		Table:       row.WorkTable,
+		KeyColumn:   keyColumn,
+		KeyValue:    strings.TrimSpace(keyValue),
+		Columns:     resultColumns,
+		HistoryRows: historyRows,
+	}, nil
 }
 
 func (s *DatasetService) summarizeSCD2WorkTable(ctx context.Context, conn driver.Conn, database, table string, columns []string) (*DatasetWorkTableSCD2Summary, error) {

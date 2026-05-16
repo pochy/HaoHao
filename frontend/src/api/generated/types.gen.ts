@@ -1716,6 +1716,21 @@ export type DatasetWorkTableRenameBody = {
     table: string;
 };
 
+export type DatasetWorkTableScd2HistoryBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    columns: Array<string> | null;
+    database: string;
+    historyRows: Array<{
+        [key: string]: unknown;
+    }> | null;
+    keyColumn: string;
+    keyValue: string;
+    table: string;
+};
+
 export type DatasetWorkTableScd2SummaryBody = {
     currentRows: number;
     detected: boolean;
@@ -6017,6 +6032,17 @@ export type DatasetWorkTableRegisterBodyWritable = {
 };
 
 export type DatasetWorkTableRenameBodyWritable = {
+    table: string;
+};
+
+export type DatasetWorkTableScd2HistoryBodyWritable = {
+    columns: Array<string> | null;
+    database: string;
+    historyRows: Array<{
+        [key: string]: unknown;
+    }> | null;
+    keyColumn: string;
+    keyValue: string;
     table: string;
 };
 
@@ -13525,6 +13551,45 @@ export type RenameDatasetWorkTableResponses = {
 };
 
 export type RenameDatasetWorkTableResponse = RenameDatasetWorkTableResponses[keyof RenameDatasetWorkTableResponses];
+
+export type GetManagedDatasetWorkTableScd2HistoryData = {
+    body?: never;
+    path: {
+        /**
+         * path 内の `workTablePublicId` を指定します。
+         */
+        workTablePublicId: string;
+    };
+    query?: {
+        /**
+         * 結果の絞り込みや pagination に使う query parameter `key` です。
+         */
+        key?: string;
+        /**
+         * 返却件数の上限です。大量の結果は pagination で分割してください。
+         */
+        limit?: number;
+    };
+    url: '/api/v1/dataset-work-tables/{workTablePublicId}/scd2-history';
+};
+
+export type GetManagedDatasetWorkTableScd2HistoryErrors = {
+    /**
+     * Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+     */
+    default: ErrorModel;
+};
+
+export type GetManagedDatasetWorkTableScd2HistoryError = GetManagedDatasetWorkTableScd2HistoryErrors[keyof GetManagedDatasetWorkTableScd2HistoryErrors];
+
+export type GetManagedDatasetWorkTableScd2HistoryResponses = {
+    /**
+     * 操作に成功し、response body に結果を返します。
+     */
+    200: DatasetWorkTableScd2HistoryBody;
+};
+
+export type GetManagedDatasetWorkTableScd2HistoryResponse = GetManagedDatasetWorkTableScd2HistoryResponses[keyof GetManagedDatasetWorkTableScd2HistoryResponses];
 
 export type TruncateDatasetWorkTableData = {
     body?: never;

@@ -24,6 +24,7 @@ import {
   getDatasetWorkTableLineage,
   getManagedDatasetWorkTable,
   getManagedDatasetWorkTablePreview,
+  getManagedDatasetWorkTableScd2History,
   linkDatasetWorkTable,
   listDatasetLineageChangeSets,
   listDatasetGoldPublications,
@@ -78,6 +79,7 @@ import type {
   DatasetWorkTablePreviewBody,
   DatasetWorkTablePromoteBodyWritable,
   DatasetWorkTableRegisterBodyWritable,
+  DatasetWorkTableScd2HistoryBody,
   DatasetWorkTableRenameBodyWritable,
 } from './generated/types.gen'
 
@@ -279,6 +281,13 @@ export async function fetchManagedDatasetWorkTablePreview(workTablePublicId: str
     path: { workTablePublicId },
     query: { limit: 100 },
   }) as unknown as Promise<DatasetWorkTablePreviewBody>
+}
+
+export async function fetchManagedDatasetWorkTableSCD2History(workTablePublicId: string, key: string): Promise<DatasetWorkTableScd2HistoryBody> {
+  return getManagedDatasetWorkTableScd2History({
+    path: { workTablePublicId },
+    query: { key, limit: 100 },
+  }) as unknown as Promise<DatasetWorkTableScd2HistoryBody>
 }
 
 export async function fetchDatasetWorkTableLineage(workTablePublicId: string, direction: DatasetLineageDirection = 'both', options: DatasetLineageFetchOptions = {}): Promise<DatasetLineageBody> {

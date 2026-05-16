@@ -165,6 +165,13 @@ func TestDatasetWorkTableSCD2KeyColumnCandidateOrder(t *testing.T) {
 	}
 }
 
+func TestDatasetWorkTableSCD2KeyColumnNoCandidate(t *testing.T) {
+	columns := []string{"entity_key", "valid_from", "valid_to", "is_current", "change_hash"}
+	if got := datasetWorkTableSCD2KeyColumn(columns); got != "" {
+		t.Fatalf("datasetWorkTableSCD2KeyColumn() = %q, want empty", got)
+	}
+}
+
 func TestHydrateWorkTableColumns(t *testing.T) {
 	conn := &fakeDatasetClickHouseConn{
 		rows: &fakeDatasetRows{

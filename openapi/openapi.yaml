@@ -4502,6 +4502,57 @@ components:
       required:
         - table
       type: object
+    DatasetWorkTableSCD2HistoryBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DatasetWorkTableSCD2HistoryBody.json
+          format: uri
+          readOnly: true
+          type: string
+        columns:
+          examples:
+            - - example
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        database:
+          examples:
+            - hh_t_1_work
+          type: string
+        historyRows:
+          examples:
+            - - {}
+          items:
+            additionalProperties: {}
+            type: object
+          type:
+            - array
+            - "null"
+        keyColumn:
+          examples:
+            - id
+          type: string
+        keyValue:
+          examples:
+            - SKU-001
+          type: string
+        table:
+          examples:
+            - hai_category_snapshot
+          type: string
+      required:
+        - database
+        - table
+        - keyColumn
+        - keyValue
+        - columns
+        - historyRows
+      type: object
     DatasetWorkTableSCD2SummaryBody:
       additionalProperties: false
       properties:
@@ -26857,6 +26908,95 @@ paths:
       security:
         - cookieAuth: []
       summary: managed work table を rename する
+      tags:
+        - Data & Datasets
+  /api/v1/dataset-work-tables/{workTablePublicId}/scd2-history:
+    get:
+      description: |-
+        managed SCD2 work table の key history rows を返す。
+
+        file metadata、dataset、work table、query job、export の管理に使う endpoint です。
+
+        ### 使い方
+
+        - `SESSION_ID` Cookie が必要です。状態変更 request では `X-CSRF-Token` も送ります。
+      operationId: getManagedDatasetWorkTableSCD2History
+      parameters:
+        - description: login または session refresh で発行される browser session Cookie です。
+          example: sess_demo_1234567890
+          in: cookie
+          name: SESSION_ID
+          schema:
+            $ref: "#/components/schemas/Cookie"
+        - description: path 内の `workTablePublicId` を指定します。
+          example: 018f2f05-c6c9-7a49-b32d-04f4dd84ef4a
+          in: path
+          name: workTablePublicId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: 結果の絞り込みや pagination に使う query parameter `key` です。
+          example: example
+          explode: false
+          in: query
+          name: key
+          schema:
+            maxLength: 512
+            type: string
+        - description: 返却件数の上限です。大量の結果は pagination で分割してください。
+          example: 50
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            maximum: 1000
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                default:
+                  description: 成功時に返る response body の例です。
+                  summary: Example response
+                  value:
+                    columns:
+                      - example
+                    database: hh_t_1_work
+                    historyRows:
+                      - {}
+                    keyColumn: id
+                    keyValue: SKU-001
+                    table: hai_category_snapshot
+              schema:
+                $ref: "#/components/schemas/DatasetWorkTableSCD2HistoryBody"
+          description: 操作に成功し、response body に結果を返します。
+        default:
+          content:
+            application/problem+json:
+              examples:
+                validation:
+                  description: request body、path、query、header の validation に失敗した場合の例です。
+                  summary: Validation error
+                  value:
+                    detail: Request validation failed.
+                    errors:
+                      - location: body.name
+                        message: expected value to be at least 1 characters
+                        value: ""
+                    status: 422
+                    title: Unprocessable Entity
+                    type: https://example.com/problems/validation-error
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Problem Details 形式の error response です。validation、authentication、authorization、conflict、rate limit、server error などで返ります。
+      security:
+        - cookieAuth: []
+      summary: managed SCD2 work table の key history rows を返す
       tags:
         - Data & Datasets
   /api/v1/dataset-work-tables/{workTablePublicId}/truncate:

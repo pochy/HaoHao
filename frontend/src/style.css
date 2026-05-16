@@ -4154,6 +4154,30 @@ code {
   font-variant-numeric: tabular-nums;
 }
 
+.snapshot-history-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.snapshot-history-form .field {
+  flex: 1 1 220px;
+}
+
+.snapshot-history-result {
+  display: grid;
+  gap: 8px;
+}
+
+.compact-message {
+  margin: 0;
+}
+
+.compact-empty-state {
+  padding: 14px;
+}
+
 .lineage-flow-toolbar {
   justify-content: space-between;
 }

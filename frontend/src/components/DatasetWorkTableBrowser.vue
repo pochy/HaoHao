@@ -3,9 +3,9 @@ import { computed, reactive, ref, watch } from 'vue'
 import { CalendarClock, Crown, Database, Download, FileDown, Link2, Pencil, RefreshCw, Table2, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import { workTableExportDownloadUrl } from '../api/datasets'
+import { fetchManagedDatasetWorkTableSCD2History, workTableExportDownloadUrl } from '../api/datasets'
 import type { DatasetLineageLevel, DatasetLineageSource, DatasetWorkTableExportFormat, DatasetWorkTableExportFrequency } from '../api/datasets'
-import type { DatasetBody, DatasetGoldPublicationCreateBodyWritable, DatasetLineageBody, DatasetLineageGraphSaveBodyWritable, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody, MedallionCatalogBody } from '../api/generated/types.gen'
+import type { DatasetBody, DatasetGoldPublicationCreateBodyWritable, DatasetLineageBody, DatasetLineageGraphSaveBodyWritable, DatasetWorkTableBody, DatasetWorkTableExportBody, DatasetWorkTableExportScheduleBody, DatasetWorkTableExportScheduleCreateBodyWritable, DatasetWorkTableExportScheduleUpdateBodyWritable, DatasetWorkTablePreviewBody, DatasetWorkTableScd2HistoryBody, MedallionCatalogBody } from '../api/generated/types.gen'
 import ConfirmActionDialog from './ConfirmActionDialog.vue'
 import LineageCompactGraph from './LineageCompactGraph.vue'
 import LineageFlowGraph from './LineageFlowGraph.vue'
@@ -77,6 +77,10 @@ const exportFormat = ref<DatasetWorkTableExportFormat>('csv')
 const activeWorkTableDetailTab = ref<WorkTableDetailTab>('overview')
 const activeLineageGraphTab = ref<LineageGraphTab>('flow')
 const snapshotPreviewFilter = ref<SnapshotPreviewFilter>('all')
+const snapshotHistoryKey = ref('')
+const snapshotHistoryLoading = ref(false)
+const snapshotHistoryError = ref('')
+const snapshotHistory = ref<DatasetWorkTableScd2HistoryBody | null>(null)
 const lineageEditMode = ref(false)
 const editingSchedulePublicId = ref('')
 const textDialog = ref<'rename' | 'promote' | 'gold' | ''>('')
@@ -131,6 +135,8 @@ const snapshotTotalRows = computed(() => scd2Summary.value?.totalRows ?? preview
 const snapshotCurrentRows = computed(() => scd2Summary.value?.currentRows ?? currentSnapshotPreviewRows.value.length)
 const snapshotHistoryRows = computed(() => scd2Summary.value?.historyRows ?? historySnapshotPreviewRows.value.length)
 const snapshotKeyCount = computed(() => scd2Summary.value?.keyCount ?? 0)
+const snapshotHistoryColumns = computed(() => snapshotHistory.value?.columns ?? [])
+const snapshotHistoryResultRows = computed(() => snapshotHistory.value?.historyRows ?? [])
 const filteredPreviewRows = computed(() => {
   if (!hasSCD2Columns.value) {
     return previewRows.value
@@ -179,6 +185,9 @@ watch(
   () => {
     activeWorkTableDetailTab.value = 'overview'
     snapshotPreviewFilter.value = 'all'
+    snapshotHistoryKey.value = ''
+    snapshotHistoryError.value = ''
+    snapshotHistory.value = null
     resetScheduleForm()
   },
 )
@@ -265,6 +274,25 @@ function isCurrentSnapshotRow(row: Record<string, unknown>) {
     return normalized === '1' || normalized === 'true' || normalized === 't'
   }
   return false
+}
+
+async function loadSnapshotHistory() {
+  const workTablePublicId = props.selectedTable?.publicId
+  const key = snapshotHistoryKey.value.trim()
+  if (!workTablePublicId || !key) {
+    snapshotHistoryError.value = t('datasets.snapshotHistoryKeyRequired')
+    return
+  }
+  snapshotHistoryLoading.value = true
+  snapshotHistoryError.value = ''
+  try {
+    snapshotHistory.value = await fetchManagedDatasetWorkTableSCD2History(workTablePublicId, key)
+  } catch (error) {
+    snapshotHistory.value = null
+    snapshotHistoryError.value = error instanceof Error ? error.message : t('datasets.snapshotHistoryLoadFailed')
+  } finally {
+    snapshotHistoryLoading.value = false
+  }
 }
 
 function confirmText(value: string) {
@@ -663,6 +691,43 @@ function changeLineageLevel(event: Event) {
               <div>
                 <span>{{ scd2Summary ? t('datasets.snapshotKeyCount') : t('datasets.snapshotPreviewKeyColumn') }}</span>
                 <strong>{{ scd2Summary ? n(snapshotKeyCount) : snapshotKeyColumn || '-' }}</strong>
+              </div>
+            </div>
+            <form v-if="snapshotKeyColumn" class="snapshot-history-form" @submit.prevent="loadSnapshotHistory">
+              <label class="field compact-field">
+                <span class="field-label">{{ t('datasets.snapshotHistoryKeyLabel', { column: snapshotKeyColumn }) }}</span>
+                <input v-model="snapshotHistoryKey" class="field-input" type="text" :placeholder="t('datasets.snapshotHistoryKeyPlaceholder')">
+              </label>
+              <button class="secondary-button compact-button" type="submit" :disabled="snapshotHistoryLoading">
+                {{ snapshotHistoryLoading ? t('common.loading') : t('datasets.snapshotHistoryLoad') }}
+              </button>
+            </form>
+            <p v-if="snapshotHistoryError" class="error-message compact-message">{{ snapshotHistoryError }}</p>
+            <div v-if="snapshotHistory && snapshotHistoryColumns.length > 0" class="snapshot-history-result">
+              <div class="section-header compact-section-header">
+                <div>
+                  <span class="status-pill">{{ t('datasets.snapshotHistory') }}</span>
+                  <h3>{{ t('datasets.snapshotHistoryTitle', { key: snapshotHistory.keyValue }) }}</h3>
+                </div>
+              </div>
+              <div v-if="snapshotHistoryResultRows.length > 0" class="admin-table dataset-result-table dataset-work-table-preview-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th v-for="column in snapshotHistoryColumns" :key="column">{{ column }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, rowIndex) in snapshotHistoryResultRows" :key="rowIndex">
+                      <td v-for="column in snapshotHistoryColumns" :key="column" class="monospace-cell">
+                        {{ row[column] ?? 'NULL' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-else class="empty-state compact-empty-state">
+                <p>{{ t('datasets.snapshotHistoryNoRows') }}</p>
               </div>
             </div>
           </div>
