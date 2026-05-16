@@ -23,8 +23,8 @@ Month 1 の品質 / 可観測性、Month 2 の信頼できる失敗処理、Mont
 現在の次タスクは、機能をさらに横に増やすことではなく、運用 UI と説明性を強くすることです。優先候補は次です。
 
 1. Backend step catalog / generated contract への output schema 単一正本化。
-2. backend step catalog / generated contract への output schema 単一正本化。
-3. `mark_deleted` / winner policy などの高度 SCD2 policy 検討。
+2. `mark_deleted` / winner policy などの高度 SCD2 policy 検討。
+3. 既存 Gold publish run 行の source run/output 参照 backfill。
 
 ## 実装済みの流れ
 
@@ -97,10 +97,11 @@ make smoke-data-pipeline-product-review
 - preview API が selected subgraph の `outputSchemas` を返すようにした。
 - 軽量 validation endpoint が preview 実行なしで graph 全体の output schema と missing-column warnings を返すようにした。
 - Inspector は validation result を primary source とし、local inference は fallback として残した。
+- `dataPipelineStepCatalog` の全 step type が backend `inferOutputSchemas` で non-empty schema を返すことを `TestInferOutputSchemasCoversEveryCatalogStep` で固定した。今後 step を追加して backend schema 推論を忘れると service test が落ちる。
 
 残課題:
 
-- backend step catalog / generated contract へ output schema をさらに集約する。
+- frontend の `data-pipeline-step-output-schema.ts` は endpoint 未取得時の fallback として残っている。次は fallback の責務を明文化するか、generated contract / API 取得へさらに寄せる。
 - 新しい node / 出力列を追加するたびに、backend runtime 出力、validation endpoint、Inspector fallback、smoke を同時に確認する。
 
 ### Month 3: Runtime Node / Output

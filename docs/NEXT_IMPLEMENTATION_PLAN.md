@@ -175,13 +175,14 @@ Local Search / RAG:
 - `quarantine` v1、`union` v1、`route_by_condition` v1、`partition_filter` v1、`watermark_filter` v1、`snapshot_scd2` v1、typed output / ordering、output `append`、output `scd2_merge`、SCD2 key-history rebuild policy は実装済みです。
 - SCD2 / snapshot output は Work table preview 上で SCD2 table として検出し、table 全体の current/history 件数、key 数、`All` / `Current` / `History` filter を確認できるようになりました。filter は読み込み済み preview rows に対して適用されます。managed Work table では Data Pipeline output metadata の `scd2UniqueKeys` を key columns として優先し、古い run や手動 table では従来の候補推定に fallback します。
 - `DataPipelineInspector.vue` は graph config だけから上流列を静的推論していましたが、2026-05-14 に validation result を primary source として受け取る実装を追加しました。validation endpoint は preview 実行なしで graph 全体の output schema と missing-column warnings を返し、Inspector はその結果がある場合は local fallback より優先します。local 推論は endpoint 未取得時の fallback として残しています。
+- 2026-05-16 に `TestInferOutputSchemasCoversEveryCatalogStep` を追加し、`dataPipelineStepCatalog` の全 step type が backend `inferOutputSchemas` で non-empty schema を返すことを固定しました。これにより、step 追加時に backend validation schema の追随漏れを検出できます。
 
 次に着手すべき理由:
 
 - 既存 UI / DB / API は metadata を受ける余地があります。
 - ここを強くすると、OCR、LLM/RAG、schema mapping、Gold publish などの後続機能が安全になります。
 - 新しい node を増やす前に、失敗理由と品質を追えるようにする方が運用価値が高いです。
-- 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint の初期実装は完了したため、次は backend step catalog / generated contract へのさらなる集約、SCD2 / Gold publish / snapshot 運用 UI の validation 表示を進めます。
+- 新しい node や出力列を増やすたびに Inspector の列推論を手動で追随させるのは再発リスクが高いです。軽量 validation endpoint と catalog coverage test は完了したため、次は frontend fallback の責務を endpoint 未取得時に限定する設計整理、または generated contract / API 取得へのさらなる集約を進めます。
 - SCD2 / snapshot 運用 UI は table 全体 summary、preview filter、output metadata に基づく key column 表示、key 単位履歴 drilldown、composite key 履歴 drilldown、Gold detail の source SCD2 summary 表示、Gold detail から同期元 Work table / source Data Pipeline run-output への deep link、Data Pipeline Runs tab の output から Gold detail への link、Gold detail の source output metadata summary、source quality summary、Gold publish history row から source Data Pipeline run/output への deep link、publish run 作成時点の source run/output 参照永続化まで進みました。`deleteDetection=close_current` v1 と `sameValidFromPolicy=reject` v1 は backend / smoke / Output 設定 UI まで追加済みです。次の改善は backend step catalog / generated contract への output schema 単一正本化です。
 
 ### Drive / RAG の課題

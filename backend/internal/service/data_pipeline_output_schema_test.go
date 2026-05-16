@@ -361,6 +361,154 @@ func TestInferOutputSchemasForSnapshotSCD2Pipeline(t *testing.T) {
 	}
 }
 
+func TestInferOutputSchemasCoversEveryCatalogStep(t *testing.T) {
+	for stepType := range dataPipelineStepCatalog {
+		t.Run(stepType, func(t *testing.T) {
+			graph := outputSchemaCoverageGraph(stepType)
+			schemas, err := (&DataPipelineService{}).inferOutputSchemas(context.Background(), 1, graph)
+			if err != nil {
+				t.Fatalf("inferOutputSchemas() error = %v", err)
+			}
+			columnsByNode := schemaColumnsByNode(schemas)
+			nodeID := stepType
+			if stepType == DataPipelineStepInput {
+				nodeID = "input"
+			}
+			if stepType == DataPipelineStepOutput {
+				nodeID = "output"
+			}
+			columns := columnsByNode[nodeID]
+			if len(columns) == 0 {
+				t.Fatalf("schema for %q is empty: %#v", nodeID, schemas)
+			}
+		})
+	}
+}
+
+func outputSchemaCoverageGraph(stepType string) DataPipelineGraph {
+	leftInput := DataPipelineNode{
+		ID: "input",
+		Data: DataPipelineNodeData{
+			StepType: DataPipelineStepInput,
+			Config: map[string]any{
+				"sourceKind": dataPipelineDriveFileSource,
+				"inputMode":  "json",
+				"fields": []any{
+					map[string]any{"column": "id"},
+					map[string]any{"column": "name"},
+					map[string]any{"column": "amount"},
+					map[string]any{"column": "status"},
+					map[string]any{"column": "updated_at"},
+					map[string]any{"column": "raw_text"},
+				},
+				"includeRawRecord": true,
+			},
+		},
+	}
+	rightInput := DataPipelineNode{
+		ID: "right_input",
+		Data: DataPipelineNodeData{
+			StepType: DataPipelineStepInput,
+			Config: map[string]any{
+				"sourceKind": dataPipelineDriveFileSource,
+				"inputMode":  "json",
+				"fields": []any{
+					map[string]any{"column": "id"},
+					map[string]any{"column": "category"},
+				},
+			},
+		},
+	}
+	if stepType == DataPipelineStepInput {
+		return DataPipelineGraph{Nodes: []DataPipelineNode{leftInput}}
+	}
+	if stepType == DataPipelineStepUnion {
+		return DataPipelineGraph{
+			Nodes: []DataPipelineNode{
+				leftInput,
+				rightInput,
+				{ID: stepType, Data: DataPipelineNodeData{StepType: stepType, Config: map[string]any{"sourceLabelColumn": "source_node_id"}}},
+			},
+			Edges: []DataPipelineEdge{
+				{Source: "input", Target: stepType},
+				{Source: "right_input", Target: stepType},
+			},
+		}
+	}
+	if stepType == DataPipelineStepJoin {
+		return DataPipelineGraph{
+			Nodes: []DataPipelineNode{
+				leftInput,
+				rightInput,
+				{ID: stepType, Data: DataPipelineNodeData{StepType: stepType, Config: map[string]any{"leftKeys": []any{"id"}, "rightKeys": []any{"id"}}}},
+			},
+			Edges: []DataPipelineEdge{
+				{Source: "input", Target: stepType},
+				{Source: "right_input", Target: stepType},
+			},
+		}
+	}
+	config := outputSchemaCoverageConfig(stepType)
+	return DataPipelineGraph{
+		Nodes: []DataPipelineNode{
+			leftInput,
+			{ID: stepType, Data: DataPipelineNodeData{StepType: stepType, Config: config}},
+		},
+		Edges: []DataPipelineEdge{{Source: "input", Target: stepType}},
+	}
+}
+
+func outputSchemaCoverageConfig(stepType string) map[string]any {
+	switch stepType {
+	case DataPipelineStepEnrichJoin:
+		return map[string]any{
+			"rightSourceKind": dataPipelineDriveFileSource,
+			"rightInputMode":  "json",
+			"rightFields":     []any{map[string]any{"column": "category"}},
+			"leftKeys":        []any{"id"},
+			"rightKeys":       []any{"id"},
+		}
+	case DataPipelineStepTransform:
+		return map[string]any{"operation": "rename_columns", "renames": map[string]any{"name": "customer_name"}}
+	case DataPipelineStepOutput:
+		return map[string]any{"columns": []any{map[string]any{"sourceColumn": "id", "name": "id"}}}
+	case DataPipelineStepJSONExtract:
+		return map[string]any{"fields": []any{map[string]any{"column": "json_name"}}, "includeSourceColumns": true}
+	case DataPipelineStepExcelExtract:
+		return map[string]any{"columns": []any{"sheet_name", "sheet_amount"}, "includeSourceColumns": true}
+	case DataPipelineStepClassifyDocument:
+		return map[string]any{"outputColumn": "document_type", "confidenceColumn": "document_confidence"}
+	case DataPipelineStepExtractFields:
+		return map[string]any{"fields": []any{map[string]any{"name": "invoice_id"}}}
+	case DataPipelineStepProductExtraction:
+		return map[string]any{"includeSourceColumns": true}
+	case DataPipelineStepRouteByCondition:
+		return map[string]any{"routeColumn": "route_key"}
+	case DataPipelineStepDeduplicate:
+		return map[string]any{"groupColumn": "duplicate_group_id", "statusColumn": "duplicate_status"}
+	case DataPipelineStepCanonicalize:
+		return map[string]any{"rules": []any{map[string]any{"column": "name", "outputColumn": "canonical_name"}}}
+	case DataPipelineStepRedactPII:
+		return map[string]any{"columns": []any{"raw_text"}, "outputSuffix": "_redacted"}
+	case DataPipelineStepDetectLanguage:
+		return map[string]any{"outputTextColumn": "normalized_text"}
+	case DataPipelineStepEntityResolution:
+		return map[string]any{"column": "name", "outputPrefix": "customer"}
+	case DataPipelineStepUnitConversion:
+		return map[string]any{"rules": []any{map[string]any{"valueColumn": "amount"}}}
+	case DataPipelineStepSchemaMapping:
+		return map[string]any{"includeSourceColumns": true, "mappings": []any{map[string]any{"targetColumn": "mapped_name"}}}
+	case DataPipelineStepSchemaCompletion:
+		return map[string]any{"rules": []any{map[string]any{"targetColumn": "completed_status"}}}
+	case DataPipelineStepHumanReview:
+		return map[string]any{"statusColumn": "review_status", "queueColumn": "review_queue"}
+	case DataPipelineStepSnapshotSCD2:
+		return map[string]any{"uniqueKeys": []any{"id"}, "updatedAtColumn": "updated_at"}
+	default:
+		return map[string]any{}
+	}
+}
+
 func schemaColumnsByNode(schemas []DataPipelineNodeOutputSchema) map[string][]string {
 	out := make(map[string][]string, len(schemas))
 	for _, schema := range schemas {

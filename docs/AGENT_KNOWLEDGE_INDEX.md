@@ -104,6 +104,7 @@ git diff --check
 - Inspector の missing-column warning は backend validation result を primary source にする。
 - frontend fallback 推論は endpoint が取得できない場合の保険。
 - 新しい node / 出力列を追加したら、runtime 出力、validation endpoint、Inspector fallback、smoke を同時に確認する。
+- `TestInferOutputSchemasCoversEveryCatalogStep` は `dataPipelineStepCatalog` の全 step type が backend `inferOutputSchemas` で non-empty schema を返すことを確認する。step 追加時にこのテストが落ちた場合は、frontend fallback より先に backend schema 推論を更新する。
 
 ## SCD2 / Snapshot / Work table を触る場合
 
